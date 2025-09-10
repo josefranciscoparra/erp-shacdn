@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
 import { rootUser } from "@/data/users";
-import { sidebarItems } from "@/navigation/sidebar/sidebar-items";
+import { useSidebarItems } from "@/navigation/sidebar/sidebar-items-translated";
 
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
@@ -56,6 +56,8 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const sidebarItems = useSidebarItems();
+  
   return (
     <Sidebar {...props}>
       <SidebarHeader>

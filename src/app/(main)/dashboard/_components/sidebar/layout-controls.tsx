@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings } from "lucide-react";
+import { Settings, Globe } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,11 @@ import { updateContentLayout } from "@/lib/layout-utils";
 import { updateThemeMode, updateThemePreset } from "@/lib/theme-utils";
 import { setValueToCookie } from "@/server/server-actions";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
+import { useLocale } from "@/providers/locale-provider";
+import { useTranslations } from "next-intl";
 import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 import { THEME_PRESET_OPTIONS, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
+import type { Locale } from "@/lib/i18n";
 
 type LayoutControlsProps = {
   readonly variant: SidebarVariant;
@@ -22,6 +25,8 @@ type LayoutControlsProps = {
 
 export function LayoutControls(props: LayoutControlsProps) {
   const { variant, collapsible, contentLayout } = props;
+  const t = useTranslations('settings');
+  const { locale, setLocale } = useLocale();
 
   const themeMode = usePreferencesStore((s) => s.themeMode);
   const setThemeMode = usePreferencesStore((s) => s.setThemeMode);
@@ -55,15 +60,35 @@ export function LayoutControls(props: LayoutControlsProps) {
       <PopoverContent align="end">
         <div className="flex flex-col gap-5">
           <div className="space-y-1.5">
-            <h4 className="text-sm leading-none font-medium">Layout Settings</h4>
+            <h4 className="text-sm leading-none font-medium">{t('title')}</h4>
             <p className="text-muted-foreground text-xs">Customize your dashboard layout preferences.</p>
           </div>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Preset</Label>
+              <Label className="text-xs font-medium">
+                <Globe className="inline size-3 mr-1" />
+                {t('language')}
+              </Label>
+              <Select value={locale} onValueChange={(value: Locale) => setLocale(value)}>
+                <SelectTrigger size="sm" className="w-full text-xs">
+                  <SelectValue placeholder={t('selectLanguage')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem className="text-xs" value="es">
+                    {t('spanish')}
+                  </SelectItem>
+                  <SelectItem className="text-xs" value="en">
+                    {t('english')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-medium">{t('themePreset')}</Label>
               <Select value={themePreset} onValueChange={(value) => handleValueChange("theme_preset", value)}>
                 <SelectTrigger size="sm" className="w-full text-xs">
-                  <SelectValue placeholder="Preset" />
+                  <SelectValue placeholder={t('selectPreset')} />
                 </SelectTrigger>
                 <SelectContent>
                   {THEME_PRESET_OPTIONS.map((preset) => (
@@ -82,7 +107,7 @@ export function LayoutControls(props: LayoutControlsProps) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">Mode</Label>
+              <Label className="text-xs font-medium">{t('theme')}</Label>
               <ToggleGroup
                 className="w-full"
                 size="sm"
@@ -91,11 +116,11 @@ export function LayoutControls(props: LayoutControlsProps) {
                 value={themeMode}
                 onValueChange={(value) => handleValueChange("theme_mode", value)}
               >
-                <ToggleGroupItem className="text-xs" value="light" aria-label="Toggle inset">
-                  Light
+                <ToggleGroupItem className="text-xs" value="light" aria-label="Toggle light">
+                  {t('lightMode')}
                 </ToggleGroupItem>
-                <ToggleGroupItem className="text-xs" value="dark" aria-label="Toggle sidebar">
-                  Dark
+                <ToggleGroupItem className="text-xs" value="dark" aria-label="Toggle dark">
+                  {t('darkMode')}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
