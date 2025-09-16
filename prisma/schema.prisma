@@ -21,8 +21,14 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones (se irán añadiendo)
-  users User[]
+  // Relaciones
+  users               User[]
+  employees           Employee[]
+  costCenters         CostCenter[]
+  departments         Department[]
+  positions           Position[]
+  employmentContracts EmploymentContract[]
+  employeeDocuments   EmployeeDocument[]
 
   @@map("organizations")
 }
@@ -43,8 +49,10 @@ model User {
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  // Auth
-  sessions Session[]
+  // Relaciones
+  sessions           Session[]
+  employee           Employee?           // Un usuario puede estar vinculado a un empleado
+  uploadedDocuments  EmployeeDocument[]  // Documentos que ha subido
 
   @@index([email])
   @@index([orgId])
@@ -72,8 +80,212 @@ enum Role {
   EMPLOYEE    // Empleado básico
 }
 
+// ==================== SPRINT 1: MODELOS DE RRHH ====================
+
+// Centro de coste - Ubicaciones físicas donde trabajar
+model CostCenter {
+  id        String   @id @default(cuid())
+  name      String
+  code      String?  // Código interno del centro
+  address   String?
+  timezone  String   @default("Europe/Madrid")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  departments        Department[]
+  employmentContracts EmploymentContract[]
+
+  @@index([orgId])
+  @@map("cost_centers")
+}
+
+// Departamento - División organizativa
+model Department {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relación con centro de coste
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Relaciones
+  employmentContracts EmploymentContract[]
+
+  @@index([orgId])
+  @@map("departments")
+}
+
+// Posición/Puesto de trabajo
+model Position {
+  id          String   @id @default(cuid())
+  title       String   // Título del puesto
+  description String?  // Descripción del puesto
+  level       String?  // Nivel jerárquico
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  employmentContracts EmploymentContract[]
+
+  @@index([orgId])
+  @@map("positions")
+}
+
+// Empleado - Datos personales y perfil del empleado
+model Employee {
+  id              String    @id @default(cuid())
+  employeeNumber  String?   // Número de empleado único en la org
+  firstName       String
+  lastName        String
+  secondLastName  String?
+  nifNie          String    // NIF/NIE
+  email           String?
+  phone           String?
+  mobilePhone     String?
+  address         String?
+  city            String?
+  postalCode      String?
+  province        String?
+  country         String    @default("ES")
+  birthDate       DateTime?
+  nationality     String?
+  
+  // Datos bancarios (cifrados)
+  iban            String?   // Se cifrará a nivel de aplicación
+  
+  // Contacto de emergencia
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  emergencyRelationship String?
+  
+  // Metadatos
+  photoUrl        String?
+  notes           String?
+  active          Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relación opcional con usuario del sistema
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  // Relaciones
+  employmentContracts EmploymentContract[]
+  documents          EmployeeDocument[]
+  managedContracts   EmploymentContract[] @relation("ManagerSubordinates")
+
+  @@unique([orgId, employeeNumber]) // Número único por organización
+  @@unique([orgId, nifNie])         // NIF único por organización
+  @@index([orgId])
+  @@index([email])
+  @@map("employees")
+}
+
+// Contrato laboral - Datos contractuales del empleado
+model EmploymentContract {
+  id          String    @id @default(cuid())
+  contractType String   // INDEFINIDO, TEMPORAL, PRACTICAS, etc.
+  startDate   DateTime
+  endDate     DateTime? // null para indefinidos
+  weeklyHours Decimal   @db.Decimal(5,2) // Horas semanales pactadas
+  grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
+  
+  // Metadatos
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  positionId String?
+  position   Position? @relation(fields: [positionId], references: [id])
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Responsable/Manager
+  managerId String?
+  manager   Employee? @relation("ManagerSubordinates", fields: [managerId], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("employment_contracts")
+}
+
+// Documentos del empleado
+model EmployeeDocument {
+  id          String   @id @default(cuid())
+  kind        DocumentKind // Tipo de documento
+  fileName    String   // Nombre original del archivo
+  storageUrl  String   // URL en Azure Blob o almacén
+  fileSize    Int      // Tamaño en bytes
+  mimeType    String   // Tipo MIME
+  version     Int      @default(1) // Versión del documento
+  description String?  // Descripción opcional
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Usuario que subió el documento
+  uploadedById String
+  uploadedBy   User @relation(fields: [uploadedById], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@map("employee_documents")
+}
+
+// Tipos de documentos
+enum DocumentKind {
+  CONTRACT     // Contrato laboral
+  PAYSLIP      // Nómina
+  ID_DOCUMENT  // DNI/NIE
+  SS_DOCUMENT  // Documento Seguridad Social
+  CERTIFICATE  // Certificados (idiomas, formación, etc.)
+  MEDICAL      // Documentos médicos
+  OTHER        // Otros documentos
+}
+
 // ==================== PRÓXIMOS SPRINTS ====================
-// Sprint 1: Añadir Employee, Department, CostCenter, Position
 // Sprint 2: Añadir TimeEntry, WorkdaySummary, TimeClockTerminal
 // Sprint 3: Añadir PtoRequest, PtoBalance, AbsenceType
 // Sprint 4: Añadir PayrollExport y configuraciones

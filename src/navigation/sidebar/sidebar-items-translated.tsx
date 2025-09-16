@@ -5,6 +5,15 @@ import {
   LayoutDashboard,
   ChartBar,
   Banknote,
+  Users,
+  Building2,
+  FileText,
+  Calendar,
+  Settings,
+  UserPlus,
+  Building,
+  MapPin,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -44,23 +53,75 @@ export function useSidebarItems(): NavGroup[] {
       items: [
         {
           title: t('default'),
-          url: "/dashboard/default",
+          url: "/dashboard",
           icon: LayoutDashboard,
-        },
-        {
-          title: t('crm'),
-          url: "/dashboard/crm",
-          icon: ChartBar,
-        },
-        {
-          title: t('finance'),
-          url: "/dashboard/finance",
-          icon: Banknote,
         },
       ],
     },
     {
       id: 2,
+      label: "Organización",
+      items: [
+        {
+          title: "Centros de coste",
+          url: "/dashboard/cost-centers",
+          icon: Building,
+        },
+        {
+          title: "Departamentos", 
+          url: "/dashboard/departments",
+          icon: Building2,
+        },
+        {
+          title: "Puestos",
+          url: "/dashboard/positions", 
+          icon: Briefcase,
+        },
+      ],
+    },
+    {
+      id: 3,
+      label: "RRHH",
+      items: [
+        {
+          title: "Empleados",
+          url: "/dashboard/employees",
+          icon: Users,
+          subItems: [
+            { title: "Listado", url: "/dashboard/employees" },
+            { title: "Nuevo empleado", url: "/dashboard/employees/new", icon: UserPlus },
+          ],
+        },
+        {
+          title: "Contratos",
+          url: "/dashboard/contracts",
+          icon: FileText,
+        },
+        {
+          title: "Documentos",
+          url: "/dashboard/documents", 
+          icon: FileText,
+        },
+      ],
+    },
+    {
+      id: 4,
+      label: "Configuración",
+      items: [
+        {
+          title: "Calendarios",
+          url: "/dashboard/calendars",
+          icon: Calendar,
+        },
+        {
+          title: "Configuración",
+          url: "/dashboard/settings",
+          icon: Settings,
+        },
+      ],
+    },
+    {
+      id: 5,
       label: t('pages'),
       items: [
         {
