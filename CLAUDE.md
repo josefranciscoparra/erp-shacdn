@@ -104,3 +104,31 @@ When working with components:
 - Use existing shadcn/ui components from `/src/components/ui/`
 - Follow the established pattern for data tables
 - Maintain TypeScript type safety throughout
+
+## ERP Development Strategy
+
+### IMPORTANTE: Desarrollo Incremental de Base de Datos
+- **NO crear todo el schema de Prisma de una vez**
+- Ir añadiendo modelos y campos conforme se implementan las funcionalidades
+- Empezar con los modelos mínimos necesarios para cada feature
+- Usar migraciones incrementales: `npx prisma migrate dev --name descripcion-cambio`
+- Esto permite:
+  - Detectar errores temprano
+  - Ajustar el modelo según necesidades reales
+  - Evitar complejidad innecesaria
+  - Mantener un historial claro de cambios
+
+### Orden de Implementación Sugerido:
+1. **Sprint 0**: Solo modelos `Organization`, `User`, `Session` (auth básica)
+2. **Sprint 1**: Añadir `Employee`, `Department`, `CostCenter`
+3. **Sprint 2**: Añadir `TimeEntry`, `WorkdaySummary`
+4. **Sprint 3**: Añadir `PtoRequest`, `PtoBalance`, `AbsenceType`
+5. **Sprint 4**: Añadir modelos de nómina y exportación
+
+### Configuración de Base de Datos
+- **Base de datos**: PostgreSQL
+- **Usuario**: erp_user
+- **Contraseña**: erp_pass
+- **Base de datos**: erp_dev
+- **Puerto**: 5432
+- **URL**: postgresql://erp_user:erp_pass@localhost:5432/erp_dev

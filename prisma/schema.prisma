@@ -1,0 +1,79 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== SPRINT 0: MODELOS BÁSICOS ====================
+// Empezamos solo con lo mínimo para autenticación y multi-tenancy
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  vat       String?  @unique // NIF de empresa
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones (se irán añadiendo)
+  users User[]
+
+  @@map("organizations")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          Role      @default(EMPLOYEE)
+  emailVerified DateTime?
+  image         String?
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Auth
+  sessions Session[]
+
+  @@index([email])
+  @@index([orgId])
+  @@map("users")
+}
+
+// Sesiones para NextAuth
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// Roles básicos del sistema
+enum Role {
+  SUPER_ADMIN // Super administrador (multi-org)
+  ORG_ADMIN   // Administrador de organización
+  HR_ADMIN    // RRHH
+  MANAGER     // Manager/Supervisor
+  EMPLOYEE    // Empleado básico
+}
+
+// ==================== PRÓXIMOS SPRINTS ====================
+// Sprint 1: Añadir Employee, Department, CostCenter, Position
+// Sprint 2: Añadir TimeEntry, WorkdaySummary, TimeClockTerminal
+// Sprint 3: Añadir PtoRequest, PtoBalance, AbsenceType
+// Sprint 4: Añadir PayrollExport y configuraciones
