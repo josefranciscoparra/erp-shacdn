@@ -8,59 +8,26 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Sonner toast styles - Solo arreglar el color del texto de descripción y iconos */
-[data-sonner-toast] [data-description] {
-  color: rgb(71 85 105) !important; /* Gris oscuro para todas las descripciones */
+/* Sonner toast styles - Fondo blanco y texto negro para visibilidad */
+[data-sonner-toast] {
+  background: rgb(255 255 255) !important;
+  color: rgb(0 0 0) !important;
+  border: 1px solid rgb(229 231 235) !important;
 }
 
-[data-sonner-toast][data-type="error"] [data-description] {
-  color: rgb(71 85 105) !important; /* Gris oscuro en lugar de blanco */
+[data-sonner-toast] * {
+  color: rgb(0 0 0) !important;
 }
 
-[data-sonner-toast][data-type="success"] [data-description] {
-  color: rgb(71 85 105) !important;
+/* Dark mode - Fondo oscuro y texto blanco */
+.dark [data-sonner-toast] {
+  background: rgb(31 41 55) !important;
+  color: rgb(255 255 255) !important;
+  border: 1px solid rgb(75 85 99) !important;
 }
 
-/* Iconos de los toasts */
-[data-sonner-toast] svg {
-  color: rgb(71 85 105) !important; /* Gris oscuro para los iconos */
-}
-
-[data-sonner-toast][data-type="error"] svg {
-  color: rgb(185 28 28) !important; /* Rojo para error */
-}
-
-[data-sonner-toast][data-type="success"] svg {
-  color: rgb(34 197 94) !important; /* Verde para success */
-}
-
-[data-sonner-toast][data-type="info"] svg {
-  color: rgb(59 130 246) !important; /* Azul para info */
-}
-
-/* Dark mode */
-.dark [data-sonner-toast] [data-description] {
-  color: rgb(203 213 225) !important; /* Gris claro para modo oscuro */
-}
-
-.dark [data-sonner-toast][data-type="error"] [data-description] {
-  color: rgb(203 213 225) !important;
-}
-
-.dark [data-sonner-toast][data-type="success"] [data-description] {
-  color: rgb(203 213 225) !important;
-}
-
-.dark [data-sonner-toast] svg {
-  color: rgb(203 213 225) !important;
-}
-
-.dark [data-sonner-toast][data-type="error"] svg {
-  color: rgb(252 165 165) !important;
-}
-
-.dark [data-sonner-toast][data-type="success"] svg {
-  color: rgb(134 239 172) !important;
+.dark [data-sonner-toast] * {
+  color: rgb(255 255 255) !important;
 }
 
 @theme inline {
