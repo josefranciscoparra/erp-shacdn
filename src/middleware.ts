@@ -4,10 +4,7 @@ import { auth } from "@/lib/auth"
 
 // Rutas públicas que no requieren autenticación
 const publicRoutes = [
-  "/auth/v2/login",
-  "/auth/v2/register",
-  "/auth/v1/login",
-  "/auth/v1/register",
+  "/auth/login",
   "/api/auth",
   "/",
 ]
@@ -39,7 +36,7 @@ export default async function middleware(request: NextRequest) {
 
   if (!session) {
     // Redirigir al login si no está autenticado
-    return NextResponse.redirect(new URL("/auth/v2/login", request.url))
+    return NextResponse.redirect(new URL("/auth/login", request.url))
   }
 
   // Verificar permisos por rol

@@ -107,7 +107,7 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // TODO: Implementar API call
-      const response = await fetch('/api/employees');
+      const response = await fetch('/api/employees', { credentials: 'include' });
       if (!response.ok) throw new Error('Error al cargar empleados');
       
       const employees = await response.json();
@@ -127,6 +127,7 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
       const response = await fetch('/api/employees', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data)
       });
       
@@ -150,6 +151,7 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
       const response = await fetch(`/api/employees/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(data)
       });
       
@@ -171,7 +173,8 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     try {
       // TODO: Implementar API call
       const response = await fetch(`/api/employees/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        credentials: 'include'
       });
       
       if (!response.ok) throw new Error('Error al eliminar empleado');

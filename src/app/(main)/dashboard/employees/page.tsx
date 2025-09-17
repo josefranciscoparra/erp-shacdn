@@ -9,13 +9,13 @@ import { Plus, UserRound, Loader2, ShieldAlert } from "lucide-react";
 import { useEmployeesStore } from "@/stores/employees-store";
 
 export default function EmployeesPage() {
-  const { employees, loading, error, fetchEmployees } = useEmployeesStore();
+  const { employees, isLoading, error, fetchEmployees } = useEmployeesStore();
   
   useEffect(() => {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader

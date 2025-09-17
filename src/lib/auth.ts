@@ -2,7 +2,7 @@ import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
 // Schema de validación para login
@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     maxAge: 30 * 24 * 60 * 60, // 30 días
   },
   pages: {
-    signIn: "/auth/v2/login",
+    signIn: "/auth/login",
     error: "/auth/error",
   },
   callbacks: {

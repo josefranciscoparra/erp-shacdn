@@ -22,7 +22,8 @@
     "loginV1": "Iniciar sesión v1",
     "loginV2": "Iniciar sesión v2",
     "registerV1": "Registrarse v1",
-    "registerV2": "Registrarse v2"
+    "registerV2": "Registrarse v2",
+    "login": "Iniciar sesión"
   },
   "header": {
     "search": "Buscar...",

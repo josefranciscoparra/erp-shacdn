@@ -138,10 +138,7 @@ export function useSidebarItems(): NavGroup[] {
           url: "/auth",
           icon: Fingerprint,
           subItems: [
-            { title: t('loginV1'), url: "/auth/v1/login", newTab: true },
-            { title: t('loginV2'), url: "/auth/v2/login", newTab: true },
-            { title: t('registerV1'), url: "/auth/v1/register", newTab: true },
-            { title: t('registerV2'), url: "/auth/v2/register", newTab: true },
+            { title: t('login'), url: "/auth/login", newTab: true },
           ],
         },
       ],

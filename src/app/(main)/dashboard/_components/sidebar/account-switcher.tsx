@@ -5,6 +5,8 @@ import { useState } from "react";
 import { BadgeCheck, Bell, CreditCard, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { logoutAction } from "@/server/actions/auth";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -73,7 +75,7 @@ export function AccountSwitcher({
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={() => logoutAction()}>
           <LogOut />
           {t('logout')}
         </DropdownMenuItem>

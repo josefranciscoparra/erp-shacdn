@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { users } from "@/data/users";
+import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { getPreference } from "@/server/server-actions";
 import {
@@ -23,6 +24,12 @@ import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
+  // Verificar autenticación
+  const session = await auth();
+  if (!session?.user) {
+    redirect("/auth/login");
+  }
+
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
 
@@ -31,6 +38,15 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     getPreference<SidebarCollapsible>("sidebar_collapsible", SIDEBAR_COLLAPSIBLE_VALUES, "icon"),
     getPreference<ContentLayout>("content_layout", CONTENT_LAYOUT_VALUES, "centered"),
   ]);
+
+  // Crear usuario para AccountSwitcher desde la sesión
+  const currentUser = {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    avatar: session.user.image || "",
+    role: session.user.role,
+  };
 
   const layoutPreferences = {
     contentLayout,
@@ -60,7 +76,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             <div className="flex items-center gap-2">
               <LayoutControls {...layoutPreferences} />
               <ThemeSwitcher />
-              <AccountSwitcher users={users} />
+              <AccountSwitcher users={[currentUser]} />
             </div>
           </div>
         </header>
