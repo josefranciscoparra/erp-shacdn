@@ -62,6 +62,8 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    // Excluir rutas de API del middleware para permitir que los handlers manejen auth y errores
+    // y evitar redirecciones HTML en llamadas fetch.
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 }

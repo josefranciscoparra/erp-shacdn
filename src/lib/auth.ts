@@ -1,6 +1,5 @@
 import NextAuth from "next-auth"
 import Credentials from "next-auth/providers/credentials"
-import { PrismaAdapter } from "@auth/prisma-adapter"
 import bcrypt from "bcryptjs"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
@@ -12,10 +11,24 @@ const loginSchema = z.object({
 })
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
+  // Confía en el host en entornos locales/proxy para evitar problemas de detección de origen
+  trustHost: true,
   session: {
     strategy: "jwt",
     maxAge: 30 * 24 * 60 * 60, // 30 días
+  },
+  cookies: {
+    sessionToken: {
+      name: "next-auth.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        // Secure sólo en producción (https). En desarrollo debe ser false.
+        secure: process.env.NODE_ENV === "production",
+      }
+    }
   },
   pages: {
     signIn: "/auth/login",
@@ -52,10 +65,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
       async authorize(credentials) {
         try {
+          console.log("🔍 Intento de login:", credentials?.email);
           // Validar entrada
           const validated = loginSchema.safeParse(credentials)
           if (!validated.success) {
-            console.error("Validation failed:", validated.error)
+            console.error("❌ Validation failed:", validated.error)
             return null
           }
 
@@ -93,6 +107,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Retornar datos del usuario para el token
+          console.log("✅ Login exitoso para:", user.email, "Rol:", user.role);
           return {
             id: user.id,
             email: user.email,

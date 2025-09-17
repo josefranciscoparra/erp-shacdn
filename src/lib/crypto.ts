@@ -1,32 +1,35 @@
-import { createCipher, createDecipher } from 'crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
 
-// Clave de encriptación - debe estar en variables de entorno en producción
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'defaultkey32characterslong!!!';
+// Clave de encriptación - debe estar en variables de entorno en producción (32 bytes para AES-256)
+const RAW_KEY = process.env.ENCRYPTION_KEY || 'defaultkey32characterslong!!!';
+const KEY = Buffer.from(RAW_KEY);
 
-/**
- * Encripta un texto usando AES-256
- */
+if (KEY.length !== 32) {
+  // En producción conviene lanzar error; en dev, avisamos por consola.
+  console.warn('[crypto] ENCRYPTION_KEY debe ser de 32 bytes para AES-256. Longitud actual:', KEY.length);
+}
+
+// Formato: ivHex:cipherHex
 export function encrypt(text: string): string {
   try {
-    const cipher = createCipher('aes-256-cbc', ENCRYPTION_KEY);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return encrypted;
+    const iv = randomBytes(16);
+    const cipher = createCipheriv('aes-256-cbc', KEY, iv);
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
   } catch (error) {
     console.error('Error encrypting:', error);
     throw new Error('Encryption failed');
   }
 }
 
-/**
- * Desencripta un texto usando AES-256
- */
-export function decrypt(encryptedText: string): string {
+export function decrypt(payload: string): string {
   try {
-    const decipher = createDecipher('aes-256-cbc', ENCRYPTION_KEY);
-    let decrypted = decipher.update(encryptedText, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+    const [ivHex, cipherHex] = payload.split(':');
+    const iv = Buffer.from(ivHex, 'hex');
+    const encrypted = Buffer.from(cipherHex, 'hex');
+    const decipher = createDecipheriv('aes-256-cbc', KEY, iv);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
   } catch (error) {
     console.error('Error decrypting:', error);
     throw new Error('Decryption failed');

@@ -6,6 +6,8 @@ import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
 import bcrypt from "bcryptjs";
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   try {
     // Verificar autenticación
@@ -91,9 +93,12 @@ export async function POST(request: NextRequest) {
   try {
     // Verificar autenticación
     const session = await auth();
+    console.log('🔐 Sesión POST:', session);
     if (!session?.user) {
+      console.log('❌ No hay sesión o usuario en POST');
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+    console.log('✅ Usuario autenticado POST:', session.user.email, 'Rol:', session.user.role);
 
     // Obtener datos del request
     const body = await request.json();
@@ -182,6 +187,11 @@ export async function POST(request: NextRequest) {
       let temporaryPassword = null;
 
       if (data.email) {
+        // Validar que no exista ya un usuario con ese email
+        const existingUser = await tx.user.findUnique({ where: { email: data.email } });
+        if (existingUser) {
+          throw Object.assign(new Error('EMAIL_EXISTS'), { code: 'EMAIL_EXISTS' });
+        }
         temporaryPassword = generateTemporaryPassword();
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
 
@@ -218,7 +228,15 @@ export async function POST(request: NextRequest) {
     };
 
     return NextResponse.json(response, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
+    // Errores de negocio conocidos
+    if (error?.code === 'EMAIL_EXISTS') {
+      return NextResponse.json({ error: 'El email ya está en uso' }, { status: 409 });
+    }
+    // Errores de unicidad Prisma
+    if (typeof error?.code === 'string' && error.code === 'P2002') {
+      return NextResponse.json({ error: 'Duplicado: ya existe un registro con ese valor único' }, { status: 409 });
+    }
     console.error("Error al crear empleado:", error);
     return NextResponse.json(
       { error: "Error interno del servidor" },
