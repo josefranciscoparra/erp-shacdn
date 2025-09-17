@@ -1,50 +1,103 @@
+"use client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Filter } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { SectionHeader } from "@/components/hr/section-header";
+import { EmptyState } from "@/components/hr/empty-state";
+import { Plus, Search, Filter, MoreHorizontal, UserRound } from "lucide-react";
 import Link from "next/link";
 
+type Employee = {
+  id: string;
+  name: string;
+  email: string;
+  department: string;
+  position: string;
+  status: "Activo" | "Baja" | "Pendiente";
+  startDate: string;
+};
+
+const sampleEmployees: Employee[] = [
+  {
+    id: "1",
+    name: "Ana García",
+    email: "ana.garcia@empresa.com",
+    department: "Recursos Humanos",
+    position: "Generalista RRHH",
+    status: "Activo",
+    startDate: "2023-01-10",
+  },
+  {
+    id: "2",
+    name: "Carlos López",
+    email: "carlos.lopez@empresa.com",
+    department: "Finanzas",
+    position: "Contable Senior",
+    status: "Activo",
+    startDate: "2022-06-01",
+  },
+  {
+    id: "3",
+    name: "María Pérez",
+    email: "maria.perez@empresa.com",
+    department: "Operaciones",
+    position: "Coordinadora",
+    status: "Pendiente",
+    startDate: "2024-03-15",
+  },
+];
+
 export default function EmployeesPage() {
+  const hasEmployees = sampleEmployees.length > 0;
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Empleados</h1>
-          <p className="text-muted-foreground">
-            Gestiona los empleados de tu organización
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/dashboard/employees/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo empleado
-          </Link>
-        </Button>
-      </div>
+      <SectionHeader
+        title="Empleados"
+        subtitle="Gestiona los empleados de tu organización"
+        actionHref="/dashboard/employees/new"
+        actionLabel="Nuevo empleado"
+        actionIcon={<Plus className="h-4 w-4" />}
+      />
 
       <Card>
-        <CardHeader>
-          <CardTitle>Filtros de búsqueda</CardTitle>
-          <CardDescription>
-            Encuentra empleados específicos usando los filtros
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Búsqueda y filtros</CardTitle>
+          <CardDescription>Refina la lista por nombre, estado o área</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            <div className="flex-1">
-              <Input 
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
                 placeholder="Buscar por nombre, email o NIF..."
-                className="w-full"
+                className="pl-9"
               />
             </div>
-            <Button variant="outline">
-              <Search className="mr-2 h-4 w-4" />
-              Buscar
-            </Button>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filtros
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="whitespace-nowrap">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filtros
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Estado</DropdownMenuLabel>
+                <DropdownMenuItem>Todos</DropdownMenuItem>
+                <DropdownMenuItem>Activo</DropdownMenuItem>
+                <DropdownMenuItem>Baja</DropdownMenuItem>
+                <DropdownMenuItem>Pendiente</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Departamento</DropdownMenuLabel>
+                <DropdownMenuItem>Todos</DropdownMenuItem>
+                <DropdownMenuItem>Recursos Humanos</DropdownMenuItem>
+                <DropdownMenuItem>Finanzas</DropdownMenuItem>
+                <DropdownMenuItem>Operaciones</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardContent>
       </Card>
@@ -57,31 +110,72 @@ export default function EmployeesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-12 text-muted-foreground">
-            <div className="mb-4">
-              <svg
-                className="mx-auto h-12 w-12 text-muted-foreground/30"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                />
-              </svg>
+          {hasEmployees ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empleado</TableHead>
+                    <TableHead className="hidden md:table-cell">Departamento</TableHead>
+                    <TableHead className="hidden sm:table-cell">Puesto</TableHead>
+                    <TableHead className="hidden lg:table-cell">Alta</TableHead>
+                    <TableHead className="w-0" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {sampleEmployees.map((e) => (
+                    <TableRow key={e.id} className="hover:bg-muted/40">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-9 w-9">
+                            <AvatarFallback>
+                              <UserRound className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-foreground">{e.name}</span>
+                              <Badge variant={e.status === "Activo" ? "default" : e.status === "Baja" ? "destructive" : "secondary"}>
+                                {e.status}
+                              </Badge>
+                            </div>
+                            <span className="text-xs text-muted-foreground">{e.email}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{e.department}</TableCell>
+                      <TableCell className="hidden sm:table-cell">{e.position}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{new Date(e.startDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem>Ver perfil</DropdownMenuItem>
+                            <DropdownMenuItem>Editar</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">Dar de baja</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
-            <h3 className="text-lg font-semibold mb-2">No hay empleados registrados</h3>
-            <p className="mb-4">Comienza agregando tu primer empleado al sistema</p>
-            <Button asChild>
-              <Link href="/dashboard/employees/new">
-                <Plus className="mr-2 h-4 w-4" />
-                Agregar primer empleado
-              </Link>
-            </Button>
-          </div>
+          ) : (
+            <EmptyState
+              icon={<UserRound className="mx-auto h-12 w-12" />}
+              title="No hay empleados registrados"
+              description="Comienza agregando tu primer empleado al sistema"
+              actionHref="/dashboard/employees/new"
+              actionLabel="Agregar primer empleado"
+            />
+          )}
         </CardContent>
       </Card>
     </div>

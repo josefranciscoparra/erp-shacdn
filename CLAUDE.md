@@ -132,3 +132,38 @@ When working with components:
 - **Base de datos**: erp_dev
 - **Puerto**: 5432
 - **URL**: postgresql://erp_user:erp_pass@localhost:5432/erp_dev
+
+## Guía de Estilo UI para ERP - IMPORTANTE ⚠️
+
+### SIEMPRE Seguir Estos Patrones de Diseño
+- **NUNCA crear componentes UI custom** - Usar SIEMPRE componentes shadcn/ui existentes
+- **Referencia visual**: El dashboard `/dashboard/default` es el patrón de oro para el diseño
+- **Consistencia absoluta**: Todas las páginas deben verse como parte del mismo sistema
+
+### Colores y Fondos
+- **Cards de estadísticas**: `from-primary/5 to-card bg-gradient-to-t shadow-xs`
+- **Cards generales**: `rounded-lg border` con fondo predeterminado
+- **Modo oscuro**: `dark:bg-card` se maneja automáticamente
+- **Texto**: Usar clases `text-foreground`, `text-muted-foreground` para consistencia
+
+### Layout y Espaciado
+- **Container principal**: `@container/main flex flex-col gap-4 md:gap-6`
+- **Grids responsivos**: `grid-cols-1 @xl/main:grid-cols-2 @5xl/main:grid-cols-4`
+- **Container queries**: Usar `@container/card`, `@container/main` para responsive
+- **Gaps consistentes**: `gap-4` para móvil, `md:gap-6` para desktop
+
+### Componentes Específicos
+- **DataTables**: Basar en `/dashboard/default/_components/data-table.tsx`
+- **SectionHeader**: Usar componente existente `/components/hr/section-header.tsx`
+- **EmptyState**: Usar componente existente `/components/hr/empty-state.tsx`
+- **Cards con métricas**: Seguir patrón de `section-cards.tsx`
+
+### Navegación
+- **NO usar submenus innecesarios** - Simplicidad ante todo
+- **Enlaces directos**: Ejemplo `Empleados` → `/dashboard/employees`
+- **Opciones internas**: Botones de acción dentro de cada página
+
+### Estado con Zustand
+- **Stores centralizados**: Para empleados, organización, etc.
+- **Actions async**: Preparar para APIs futuras
+- **Loading states**: Manejar en el store, mostrar en UI

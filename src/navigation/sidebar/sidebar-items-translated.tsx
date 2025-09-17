@@ -87,10 +87,6 @@ export function useSidebarItems(): NavGroup[] {
           title: "Empleados",
           url: "/dashboard/employees",
           icon: Users,
-          subItems: [
-            { title: "Listado", url: "/dashboard/employees" },
-            { title: "Nuevo empleado", url: "/dashboard/employees/new", icon: UserPlus },
-          ],
         },
         {
           title: "Contratos",
