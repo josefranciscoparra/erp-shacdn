@@ -167,3 +167,57 @@ When working with components:
 - **Stores centralizados**: Para empleados, organización, etc.
 - **Actions async**: Preparar para APIs futuras
 - **Loading states**: Manejar en el store, mostrar en UI
+
+## Guía para Componentes Profesionales - SIEMPRE APLICAR 🎯
+
+### Cuando el usuario pida componentes, INTERPRETAR así:
+
+#### ✅ **Frases que indican componente PROFESIONAL:**
+- "Listado de [X]" → DataTable completo con tabs
+- "Tabla de [X]" → TanStack Table + paginación + filtros
+- "Componente de [X]" → Patrón /dashboard/default automáticamente
+
+#### ✅ **SIEMPRE incluir estas características (sin que las pida):**
+- **Tabs con badges**: `Activos <Badge>3</Badge>`, `Todos`, etc.
+- **DataTable de TanStack**: Con sorting, filtering, paginación
+- **DataTableViewOptions**: Botón para mostrar/ocultar columnas
+- **DataTablePagination**: Navegación entre páginas
+- **Container queries**: `@container/main flex flex-col gap-4 md:gap-6`
+- **Estados vacíos**: Para tabs sin contenido con iconos y mensajes
+- **Responsive**: Select en móvil (`@4xl/main:hidden`), Tabs en desktop (`@4xl/main:flex`)
+
+#### ✅ **Estructura estándar para DataTables:**
+```tsx
+<div className="@container/main flex flex-col gap-4 md:gap-6">
+  <SectionHeader title="[X]" actionLabel="Nuevo [X]" />
+  
+  <Tabs defaultValue="active">
+    <div className="flex items-center justify-between">
+      <Select>...</Select> {/* Móvil */}
+      <TabsList>...</TabsList> {/* Desktop */}
+      <div className="flex gap-2">
+        <DataTableViewOptions />
+        <Button>Nuevo</Button>
+      </div>
+    </div>
+    
+    <TabsContent value="active">
+      <div className="overflow-hidden rounded-lg border">
+        <DataTableNew table={table} columns={columns} />
+      </div>
+      <DataTablePagination table={table} />
+    </TabsContent>
+  </Tabs>
+</div>
+```
+
+#### ❌ **NUNCA hacer componentes básicos:**
+- Table HTML simple (`<table><tr><td>`)
+- Cards simples sin tabs
+- Listados sin paginación
+- Sin estados vacíos
+
+#### 🎯 **Nivel de referencia SIEMPRE:**
+- **Patrón oro**: `/dashboard/default/_components/data-table.tsx`
+- **Calidad**: Aplicación empresarial (Linear, Notion, Monday.com)
+- **Consistencia**: Todos los listados deben verse idénticos
