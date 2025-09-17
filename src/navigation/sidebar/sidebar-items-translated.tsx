@@ -17,6 +17,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { usePermissions } from "@/hooks/use-permissions";
+import { type Permission } from "@/lib/permissions";
 
 export interface NavSubItem {
   title: string;
@@ -25,6 +27,7 @@ export interface NavSubItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+  permission?: Permission;
 }
 
 export interface NavMainItem {
@@ -35,6 +38,7 @@ export interface NavMainItem {
   comingSoon?: boolean;
   newTab?: boolean;
   isNew?: boolean;
+  permission?: Permission;
 }
 
 export interface NavGroup {
@@ -45,8 +49,9 @@ export interface NavGroup {
 
 export function useSidebarItems(): NavGroup[] {
   const t = useTranslations('navigation');
+  const { hasPermission, isAuthenticated } = usePermissions();
   
-  return [
+  const allItems = [
     {
       id: 1,
       label: t('dashboards'),
@@ -66,16 +71,19 @@ export function useSidebarItems(): NavGroup[] {
           title: "Centros de coste",
           url: "/dashboard/cost-centers",
           icon: Building,
+          permission: "manage_organization",
         },
         {
           title: "Departamentos", 
           url: "/dashboard/departments",
           icon: Building2,
+          permission: "view_departments",
         },
         {
           title: "Puestos",
           url: "/dashboard/positions", 
           icon: Briefcase,
+          permission: "manage_organization",
         },
       ],
     },
@@ -87,16 +95,19 @@ export function useSidebarItems(): NavGroup[] {
           title: "Empleados",
           url: "/dashboard/employees",
           icon: Users,
+          permission: "view_employees",
         },
         {
           title: "Contratos",
           url: "/dashboard/contracts",
           icon: FileText,
+          permission: "view_contracts",
         },
         {
           title: "Documentos",
           url: "/dashboard/documents", 
           icon: FileText,
+          permission: "view_documents",
         },
       ],
     },
@@ -108,11 +119,13 @@ export function useSidebarItems(): NavGroup[] {
           title: "Calendarios",
           url: "/dashboard/calendars",
           icon: Calendar,
+          permission: "manage_organization",
         },
         {
           title: "Configuración",
           url: "/dashboard/settings",
           icon: Settings,
+          permission: "manage_organization",
         },
       ],
     },
@@ -134,4 +147,25 @@ export function useSidebarItems(): NavGroup[] {
       ],
     },
   ];
+
+  // Filtrar elementos basándose en permisos
+  if (!isAuthenticated) return [];
+
+  return allItems.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      // Si no tiene permiso requerido, mostrar siempre
+      if (!item.permission) return true;
+      // Si tiene permiso requerido, verificar que el usuario lo tenga
+      return hasPermission(item.permission);
+    }).map(item => ({
+      ...item,
+      subItems: item.subItems?.filter(subItem => {
+        // Si no tiene permiso requerido, mostrar siempre
+        if (!subItem.permission) return true;
+        // Si tiene permiso requerido, verificar que el usuario lo tenga
+        return hasPermission(subItem.permission);
+      })
+    }))
+  })).filter(group => group.items.length > 0); // Filtrar grupos vacíos
 }

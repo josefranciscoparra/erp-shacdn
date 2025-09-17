@@ -1,9 +1,25 @@
 export type Employee = {
   id: string;
-  name: string;
-  email: string;
-  department: string;
-  position: string;
-  status: "Activo" | "Baja" | "Pendiente";
-  startDate: string;
+  employeeNumber: string | null;
+  firstName: string;
+  lastName: string;
+  secondLastName: string | null;
+  email: string | null;
+  active: boolean;
+  department?: {
+    name: string;
+  } | null;
+  position?: {
+    title: string;
+  } | null;
+  employmentContracts: {
+    contractType: string;
+    startDate: Date;
+    endDate: Date | null;
+    active: boolean;
+  }[];
+  user?: {
+    email: string;
+    role: string;
+  } | null;
 };

@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
 import { getPreference } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
+import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { THEME_MODE_VALUES, THEME_PRESET_VALUES, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
 import { type Locale, defaultLocale } from "@/lib/i18n";
 
@@ -35,12 +36,14 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       suppressHydrationWarning
     >
       <body className={`${inter.className} min-h-screen antialiased`}>
-        <NextIntlClientProvider messages={messages} locale={locale}>
-          <PreferencesStoreProvider themeMode={themeMode} themePreset={themePreset} locale={locale}>
-            {children}
-            <Toaster />
-          </PreferencesStoreProvider>
-        </NextIntlClientProvider>
+        <AuthSessionProvider>
+          <NextIntlClientProvider messages={messages} locale={locale}>
+            <PreferencesStoreProvider themeMode={themeMode} themePreset={themePreset} locale={locale}>
+              {children}
+              <Toaster />
+            </PreferencesStoreProvider>
+          </NextIntlClientProvider>
+        </AuthSessionProvider>
       </body>
     </html>
   );
