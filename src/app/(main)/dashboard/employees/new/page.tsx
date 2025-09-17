@@ -24,7 +24,7 @@ export default function NewEmployeePage() {
       </div>
 
       <div className="grid gap-4 md:gap-6">
-        <Card>
+        <Card className="rounded-lg border bg-card">
           <CardHeader>
             <CardTitle>Datos personales</CardTitle>
             <CardDescription>
@@ -35,61 +35,61 @@ export default function NewEmployeePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Nombre *</Label>
-                <Input id="firstName" placeholder="Nombre del empleado" />
+                <Input id="firstName" placeholder="Nombre del empleado" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="lastName">Primer apellido *</Label>
-                <Input id="lastName" placeholder="Primer apellido" />
+                <Input id="lastName" placeholder="Primer apellido" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="secondLastName">Segundo apellido</Label>
-                <Input id="secondLastName" placeholder="Segundo apellido" />
+                <Input id="secondLastName" placeholder="Segundo apellido" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="nifNie">NIF/NIE *</Label>
-                <Input id="nifNie" placeholder="12345678Z" />
+                <Input id="nifNie" placeholder="12345678Z" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" placeholder="empleado@empresa.com" />
+                <Input id="email" type="email" placeholder="empleado@empresa.com" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Teléfono</Label>
-                <Input id="phone" placeholder="+34 600 000 000" />
+                <Input id="phone" placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="mobilePhone">Móvil</Label>
-                <Input id="mobilePhone" placeholder="+34 600 000 000" />
+                <Input id="mobilePhone" placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="birthDate">Fecha de nacimiento</Label>
-                <Input id="birthDate" type="date" />
+                <Input id="birthDate" type="date" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="nationality">Nacionalidad</Label>
-                <Input id="nationality" placeholder="Española" />
+                <Input id="nationality" placeholder="Española" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="employeeNumber">Número de empleado</Label>
-                <Input id="employeeNumber" placeholder="EMP001" />
+                <Input id="employeeNumber" placeholder="EMP001" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-lg border bg-card">
           <CardHeader>
             <CardTitle>Dirección</CardTitle>
             <CardDescription>
@@ -99,27 +99,27 @@ export default function NewEmployeePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="address">Dirección</Label>
-              <Input id="address" placeholder="Calle, número, piso..." />
+              <Input id="address" placeholder="Calle, número, piso..." className="bg-white placeholder:text-muted-foreground/50" />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="city">Ciudad</Label>
-                <Input id="city" placeholder="Madrid" />
+                <Input id="city" placeholder="Madrid" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="postalCode">Código postal</Label>
-                <Input id="postalCode" placeholder="28001" />
+                <Input id="postalCode" placeholder="28001" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="province">Provincia</Label>
-                <Input id="province" placeholder="Madrid" />
+                <Input id="province" placeholder="Madrid" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-lg border bg-card">
           <CardHeader>
             <CardTitle>Datos bancarios</CardTitle>
             <CardDescription>
@@ -129,12 +129,12 @@ export default function NewEmployeePage() {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="iban">IBAN</Label>
-              <Input id="iban" placeholder="ES00 0000 0000 0000 0000 0000" />
+              <Input id="iban" placeholder="ES00 0000 0000 0000 0000 0000" className="bg-white placeholder:text-muted-foreground/50" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-lg border bg-card">
           <CardHeader>
             <CardTitle>Contacto de emergencia</CardTitle>
             <CardDescription>
@@ -145,22 +145,22 @@ export default function NewEmployeePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="emergencyContactName">Nombre</Label>
-                <Input id="emergencyContactName" placeholder="Nombre del contacto" />
+                <Input id="emergencyContactName" placeholder="Nombre del contacto" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="emergencyContactPhone">Teléfono</Label>
-                <Input id="emergencyContactPhone" placeholder="+34 600 000 000" />
+                <Input id="emergencyContactPhone" placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" />
               </div>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="emergencyRelationship">Relación</Label>
-              <Input id="emergencyRelationship" placeholder="Familiar, amigo, etc." />
+              <Input id="emergencyRelationship" placeholder="Familiar, amigo, etc." className="bg-white placeholder:text-muted-foreground/50" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-lg border bg-card">
           <CardHeader>
             <CardTitle>Notas adicionales</CardTitle>
             <CardDescription>
@@ -174,6 +174,7 @@ export default function NewEmployeePage() {
                 id="notes" 
                 placeholder="Información adicional, observaciones, etc."
                 rows={4}
+                className="bg-white placeholder:text-muted-foreground/50"
               />
             </div>
           </CardContent>
