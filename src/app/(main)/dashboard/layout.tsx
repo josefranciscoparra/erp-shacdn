@@ -22,6 +22,7 @@ import { AccountSwitcher } from "./_components/sidebar/account-switcher";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
+import { PasswordGuard } from "@/components/auth/password-guard";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   // Verificar autenticación
@@ -80,7 +81,9 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             </div>
           </div>
         </header>
-        <div className="h-full p-4 md:p-6">{children}</div>
+        <div className="h-full p-4 md:p-6">
+          <PasswordGuard>{children}</PasswordGuard>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

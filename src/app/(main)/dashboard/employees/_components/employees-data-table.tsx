@@ -21,22 +21,22 @@ import { Employee } from "../types";
 
 export function EmployeesDataTable({ data }: { data: Employee[] }) {
   const [activeTab, setActiveTab] = React.useState("active");
-  
+
   // Filtrar datos según la pestaña activa
   const filteredData = React.useMemo(() => {
     switch (activeTab) {
       case "active":
-        return data.filter(emp => emp.active);
+        return data.filter((emp) => emp.active);
       case "inactive":
-        return data.filter(emp => !emp.active);
+        return data.filter((emp) => !emp.active);
       case "all":
         return data;
       case "recent":
         // Empleados contratados en los últimos 30 días
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        return data.filter(emp => {
-          const currentContract = emp.employmentContracts.find(c => c.active);
+        return data.filter((emp) => {
+          const currentContract = emp.employmentContracts.find((c) => c.active);
           if (!currentContract) return false;
           return new Date(currentContract.startDate) > thirtyDaysAgo;
         });
@@ -45,25 +45,28 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
     }
   }, [data, activeTab]);
 
-  const table = useDataTableInstance({ 
-    data: filteredData, 
-    columns: employeesColumns, 
-    getRowId: (row) => row.id.toString() 
+  const table = useDataTableInstance({
+    data: filteredData,
+    columns: employeesColumns,
+    getRowId: (row) => row.id.toString(),
   });
 
   // Contadores para badges
-  const counts = React.useMemo(() => ({
-    active: data.filter(emp => emp.active).length,
-    inactive: data.filter(emp => !emp.active).length,
-    all: data.length,
-    recent: data.filter(emp => {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const currentContract = emp.employmentContracts.find(c => c.active);
-      if (!currentContract) return false;
-      return new Date(currentContract.startDate) > thirtyDaysAgo;
-    }).length,
-  }), [data]);
+  const counts = React.useMemo(
+    () => ({
+      active: data.filter((emp) => emp.active).length,
+      inactive: data.filter((emp) => !emp.active).length,
+      all: data.length,
+      recent: data.filter((emp) => {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        const currentContract = emp.employmentContracts.find((c) => c.active);
+        if (!currentContract) return false;
+        return new Date(currentContract.startDate) > thirtyDaysAgo;
+      }).length,
+    }),
+    [data],
+  );
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-6">
@@ -106,7 +109,7 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
           </Button>
         </div>
       </div>
-      
+
       <TabsContent value="active" className="relative flex flex-col gap-4 overflow-auto">
         {filteredData.length > 0 ? (
           <>
@@ -116,16 +119,16 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
             <DataTablePagination table={table} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/30" />
+              <Users className="text-muted-foreground/30 mx-auto h-12 w-12" />
             </div>
-            <h3 className="text-sm font-medium mb-1 text-foreground">No hay empleados activos</h3>
+            <h3 className="text-foreground mb-1 text-sm font-medium">No hay empleados activos</h3>
             <p className="text-xs">Los empleados activos aparecerán aquí</p>
           </div>
         )}
       </TabsContent>
-      
+
       <TabsContent value="inactive" className="relative flex flex-col gap-4 overflow-auto">
         {filteredData.length > 0 ? (
           <>
@@ -135,16 +138,16 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
             <DataTablePagination table={table} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/30" />
+              <Users className="text-muted-foreground/30 mx-auto h-12 w-12" />
             </div>
-            <h3 className="text-sm font-medium mb-1 text-foreground">No hay empleados inactivos</h3>
+            <h3 className="text-foreground mb-1 text-sm font-medium">No hay empleados inactivos</h3>
             <p className="text-xs">Los empleados dados de baja aparecerán aquí</p>
           </div>
         )}
       </TabsContent>
-      
+
       <TabsContent value="all" className="relative flex flex-col gap-4 overflow-auto">
         {filteredData.length > 0 ? (
           <>
@@ -154,16 +157,16 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
             <DataTablePagination table={table} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/30" />
+              <Users className="text-muted-foreground/30 mx-auto h-12 w-12" />
             </div>
-            <h3 className="text-sm font-medium mb-1 text-foreground">No hay empleados registrados</h3>
+            <h3 className="text-foreground mb-1 text-sm font-medium">No hay empleados registrados</h3>
             <p className="text-xs">Comienza agregando tu primer empleado</p>
           </div>
         )}
       </TabsContent>
-      
+
       <TabsContent value="recent" className="relative flex flex-col gap-4 overflow-auto">
         {filteredData.length > 0 ? (
           <>
@@ -173,11 +176,11 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
             <DataTablePagination table={table} />
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
             <div className="mb-4">
-              <Users className="mx-auto h-12 w-12 text-muted-foreground/30" />
+              <Users className="text-muted-foreground/30 mx-auto h-12 w-12" />
             </div>
-            <h3 className="text-sm font-medium mb-1 text-foreground">No hay empleados recientes</h3>
+            <h3 className="text-foreground mb-1 text-sm font-medium">No hay empleados recientes</h3>
             <p className="text-xs">Los empleados contratados en los últimos 30 días aparecerán aquí</p>
           </div>
         )}

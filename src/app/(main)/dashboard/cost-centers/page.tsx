@@ -17,9 +17,7 @@ export default function CostCentersPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de centros de coste</CardTitle>
-          <CardDescription>
-            Todos los centros de coste registrados en el sistema
-          </CardDescription>
+          <CardDescription>Todos los centros de coste registrados en el sistema</CardDescription>
         </CardHeader>
         <CardContent>
           <EmptyState

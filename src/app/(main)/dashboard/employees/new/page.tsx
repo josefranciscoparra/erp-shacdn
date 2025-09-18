@@ -49,32 +49,32 @@ export default function NewEmployeePage() {
   const onSubmit = async (data: CreateEmployeeInput) => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/employees', {
-        method: 'POST',
+      const response = await fetch("/api/employees", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        credentials: 'include',
+        credentials: "include",
         body: JSON.stringify(data),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Error al crear empleado');
+        throw new Error(result.error || "Error al crear empleado");
       }
 
       toast.success("Empleado creado exitosamente", {
-        description: result.userCreated 
+        description: result.userCreated
           ? `Usuario creado con contraseña temporal: ${result.temporaryPassword}`
           : "Empleado registrado sin usuario de acceso",
       });
 
       // Refrescar lista de empleados
       await fetchEmployees();
-      
+
       // Redirigir a la lista
-      router.push('/dashboard/employees');
+      router.push("/dashboard/employees");
     } catch (error) {
       toast.error("Error al crear empleado", {
         description: error instanceof Error ? error.message : "Error desconocido",
@@ -93,25 +93,20 @@ export default function NewEmployeePage() {
           </Link>
         </Button>
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Nuevo empleado</h1>
-          <p className="text-sm text-muted-foreground">
-            Registra un nuevo empleado en el sistema
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Nuevo empleado</h1>
+          <p className="text-muted-foreground text-sm">Registra un nuevo empleado en el sistema</p>
         </div>
       </div>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4 md:gap-6">
-
-          <Card className="rounded-lg border bg-card">
+          <Card className="bg-card rounded-lg border">
             <CardHeader>
               <CardTitle>Datos personales</CardTitle>
-              <CardDescription>
-                Información básica del empleado
-              </CardDescription>
+              <CardDescription>Información básica del empleado</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -119,7 +114,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Nombre *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nombre del empleado" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Nombre del empleado"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -132,15 +131,19 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Primer apellido *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Primer apellido" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Primer apellido"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="secondLastName"
@@ -148,7 +151,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Segundo apellido</FormLabel>
                       <FormControl>
-                        <Input placeholder="Segundo apellido" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Segundo apellido"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -161,7 +168,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>NIF/NIE *</FormLabel>
                       <FormControl>
-                        <Input placeholder="12345678Z" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="12345678Z"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -169,7 +180,7 @@ export default function NewEmployeePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="email"
@@ -177,7 +188,12 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="empleado@empresa.com" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          type="email"
+                          placeholder="empleado@empresa.com"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -190,7 +206,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Teléfono</FormLabel>
                       <FormControl>
-                        <Input placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="+34 600 000 000"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -198,7 +218,7 @@ export default function NewEmployeePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="mobilePhone"
@@ -206,7 +226,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Móvil</FormLabel>
                       <FormControl>
-                        <Input placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="+34 600 000 000"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -219,7 +243,7 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Fecha de nacimiento</FormLabel>
                       <FormControl>
-                        <Input type="date" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input type="date" className="placeholder:text-muted-foreground/50 bg-white" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -227,7 +251,7 @@ export default function NewEmployeePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="nationality"
@@ -235,7 +259,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Nacionalidad</FormLabel>
                       <FormControl>
-                        <Input placeholder="Española" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Española"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -248,7 +276,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Número de empleado</FormLabel>
                       <FormControl>
-                        <Input placeholder="EMP001" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="EMP001"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -258,12 +290,10 @@ export default function NewEmployeePage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border bg-card">
+          <Card className="bg-card rounded-lg border">
             <CardHeader>
               <CardTitle>Dirección</CardTitle>
-              <CardDescription>
-                Dirección del empleado
-              </CardDescription>
+              <CardDescription>Dirección del empleado</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
@@ -273,14 +303,18 @@ export default function NewEmployeePage() {
                   <FormItem>
                     <FormLabel>Dirección</FormLabel>
                     <FormControl>
-                      <Input placeholder="Calle, número, piso..." className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                      <Input
+                        placeholder="Calle, número, piso..."
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="city"
@@ -288,7 +322,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Ciudad</FormLabel>
                       <FormControl>
-                        <Input placeholder="Madrid" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Madrid"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -301,7 +339,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Código postal</FormLabel>
                       <FormControl>
-                        <Input placeholder="28001" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="28001"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -314,7 +356,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Provincia</FormLabel>
                       <FormControl>
-                        <Input placeholder="Madrid" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Madrid"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -324,12 +370,10 @@ export default function NewEmployeePage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border bg-card">
+          <Card className="bg-card rounded-lg border">
             <CardHeader>
               <CardTitle>Datos bancarios</CardTitle>
-              <CardDescription>
-                Información bancaria para nóminas
-              </CardDescription>
+              <CardDescription>Información bancaria para nóminas</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
@@ -339,7 +383,11 @@ export default function NewEmployeePage() {
                   <FormItem>
                     <FormLabel>IBAN</FormLabel>
                     <FormControl>
-                      <Input placeholder="ES00 0000 0000 0000 0000 0000" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                      <Input
+                        placeholder="ES00 0000 0000 0000 0000 0000"
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -348,15 +396,13 @@ export default function NewEmployeePage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border bg-card">
+          <Card className="bg-card rounded-lg border">
             <CardHeader>
               <CardTitle>Contacto de emergencia</CardTitle>
-              <CardDescription>
-                Persona a contactar en caso de emergencia
-              </CardDescription>
+              <CardDescription>Persona a contactar en caso de emergencia</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <FormField
                   control={form.control}
                   name="emergencyContactName"
@@ -364,7 +410,11 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Nombre</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nombre del contacto" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="Nombre del contacto"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -377,14 +427,18 @@ export default function NewEmployeePage() {
                     <FormItem>
                       <FormLabel>Teléfono</FormLabel>
                       <FormControl>
-                        <Input placeholder="+34 600 000 000" className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                        <Input
+                          placeholder="+34 600 000 000"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
-              
+
               <FormField
                 control={form.control}
                 name="emergencyRelationship"
@@ -392,7 +446,11 @@ export default function NewEmployeePage() {
                   <FormItem>
                     <FormLabel>Relación</FormLabel>
                     <FormControl>
-                      <Input placeholder="Familiar, amigo, etc." className="bg-white placeholder:text-muted-foreground/50" {...field} />
+                      <Input
+                        placeholder="Familiar, amigo, etc."
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -401,12 +459,10 @@ export default function NewEmployeePage() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border bg-card">
+          <Card className="bg-card rounded-lg border">
             <CardHeader>
               <CardTitle>Notas adicionales</CardTitle>
-              <CardDescription>
-                Información adicional sobre el empleado
-              </CardDescription>
+              <CardDescription>Información adicional sobre el empleado</CardDescription>
             </CardHeader>
             <CardContent>
               <FormField
@@ -416,10 +472,10 @@ export default function NewEmployeePage() {
                   <FormItem>
                     <FormLabel>Notas</FormLabel>
                     <FormControl>
-                      <Textarea 
+                      <Textarea
                         placeholder="Información adicional, observaciones, etc."
                         rows={4}
-                        className="bg-white placeholder:text-muted-foreground/50"
+                        className="placeholder:text-muted-foreground/50 bg-white"
                         {...field}
                       />
                     </FormControl>
@@ -432,16 +488,10 @@ export default function NewEmployeePage() {
 
           <div className="flex justify-end gap-4">
             <Button variant="outline" asChild>
-              <Link href="/dashboard/employees">
-                Cancelar
-              </Link>
+              <Link href="/dashboard/employees">Cancelar</Link>
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
               {isLoading ? "Guardando..." : "Guardar empleado"}
             </Button>
           </div>

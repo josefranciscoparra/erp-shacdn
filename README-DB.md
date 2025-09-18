@@ -3,6 +3,7 @@
 ## Configuración Rápida
 
 La base de datos está configurada con:
+
 - **Usuario**: `erp_user`
 - **Contraseña**: `erp_pass`
 - **Base de datos**: `erp_dev`
@@ -12,6 +13,7 @@ La base de datos está configurada con:
 ## Opciones para Iniciar PostgreSQL
 
 ### Opción 1: Docker (Recomendado) 🐳
+
 ```bash
 # Iniciar con Docker Compose
 docker-compose up -d postgres
@@ -27,6 +29,7 @@ docker-compose logs postgres
 ```
 
 ### Opción 2: PostgreSQL Local con MCP
+
 Si ya tienes PostgreSQL instalado localmente con tu MCP:
 
 ```bash
@@ -42,6 +45,7 @@ psql postgresql://erp_user:erp_pass@localhost:5432/erp_dev -c "SELECT version();
 ```
 
 ### Opción 3: PostgreSQL con Homebrew (macOS)
+
 ```bash
 # Instalar PostgreSQL
 brew install postgresql@15
@@ -102,6 +106,7 @@ npx prisma migrate reset       # Resetear BD (¡borra todo!)
 ## Troubleshooting
 
 ### Error: "Cannot connect to database"
+
 ```bash
 # Verificar que PostgreSQL está corriendo
 docker ps | grep postgres
@@ -111,12 +116,14 @@ pg_isready -h localhost -p 5432
 ```
 
 ### Error: "User does not exist"
+
 ```bash
 # Recrear usuario con Docker
 docker exec -it erp_postgres psql -U postgres -c "CREATE USER erp_user WITH PASSWORD 'erp_pass';"
 ```
 
 ### Error: "Database does not exist"
+
 ```bash
 # Crear base de datos
 docker exec -it erp_postgres psql -U postgres -c "CREATE DATABASE erp_dev OWNER erp_user;"

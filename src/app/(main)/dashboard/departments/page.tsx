@@ -17,9 +17,7 @@ export default function DepartmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de departamentos</CardTitle>
-          <CardDescription>
-            Todos los departamentos registrados en el sistema
-          </CardDescription>
+          <CardDescription>Todos los departamentos registrados en el sistema</CardDescription>
         </CardHeader>
         <CardContent>
           <EmptyState

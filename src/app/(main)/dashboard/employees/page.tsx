@@ -10,7 +10,7 @@ import { useEmployeesStore } from "@/stores/employees-store";
 
 export default function EmployeesPage() {
   const { employees, isLoading, error, fetchEmployees } = useEmployeesStore();
-  
+
   useEffect(() => {
     fetchEmployees();
   }, [fetchEmployees]);
@@ -26,8 +26,8 @@ export default function EmployeesPage() {
           actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-muted-foreground">Cargando empleados...</span>
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          <span className="text-muted-foreground ml-2">Cargando empleados...</span>
         </div>
       </div>
     );
@@ -43,7 +43,7 @@ export default function EmployeesPage() {
           actionLabel="Nuevo empleado"
           actionIcon={<Plus className="h-4 w-4" />}
         />
-        <div className="flex items-center justify-center py-12 text-destructive">
+        <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar empleados: {error}</span>
         </div>
       </div>
@@ -51,18 +51,15 @@ export default function EmployeesPage() {
   }
 
   const hasEmployees = employees.length > 0;
-  
+
   return (
     <PermissionGuard
       permission="view_employees"
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
-          <SectionHeader
-            title="Empleados"
-            subtitle="Gestiona los empleados de tu organización"
-          />
+          <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
           <EmptyState
-            icon={<ShieldAlert className="mx-auto h-12 w-12 text-destructive" />}
+            icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
             title="Acceso denegado"
             description="No tienes permisos para ver esta sección"
           />

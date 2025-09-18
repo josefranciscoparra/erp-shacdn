@@ -1,14 +1,12 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, UserRound } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import { Employee } from "../types";
+import { EmployeeActions } from "./employee-actions";
 
 export const employeesColumns: ColumnDef<Employee>[] = [
   {
@@ -16,11 +14,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Nº Empleado",
     cell: ({ row }) => {
       const employee = row.original;
-      return (
-        <span className="font-mono text-xs">
-          {employee.employeeNumber || "Sin asignar"}
-        </span>
-      );
+      return <span className="font-mono text-xs">{employee.employeeNumber || "Sin asignar"}</span>;
     },
     meta: {
       className: "hidden lg:table-cell w-20",
@@ -33,17 +27,15 @@ export const employeesColumns: ColumnDef<Employee>[] = [
       const employee = row.original;
       const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
       const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`.toUpperCase();
-      
+
       return (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
-            <AvatarFallback className="text-xs">
-              {initials}
-            </AvatarFallback>
+            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
           </Avatar>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="font-medium text-foreground">{fullName}</span>
+              <span className="text-foreground font-medium">{fullName}</span>
               <Badge variant={employee.active ? "default" : "destructive"}>
                 {employee.active ? "Activo" : "Inactivo"}
               </Badge>
@@ -53,9 +45,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
                 </Badge>
               )}
             </div>
-            <span className="text-xs text-muted-foreground">
-              {employee.email || "Sin email"}
-            </span>
+            <span className="text-muted-foreground text-xs">{employee.email || "Sin email"}</span>
           </div>
         </div>
       );
@@ -88,14 +78,14 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Fecha alta",
     cell: ({ row }) => {
       const employee = row.original;
-      const currentContract = employee.employmentContracts.find(c => c.active);
+      const currentContract = employee.employmentContracts.find((c) => c.active);
       if (!currentContract) return "Sin contrato";
-      
+
       const date = new Date(currentContract.startDate);
       return date.toLocaleDateString("es-ES", {
         year: "numeric",
         month: "short",
-        day: "numeric"
+        day: "numeric",
       });
     },
     meta: {
@@ -107,9 +97,9 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Tipo contrato",
     cell: ({ row }) => {
       const employee = row.original;
-      const currentContract = employee.employmentContracts.find(c => c.active);
+      const currentContract = employee.employmentContracts.find((c) => c.active);
       if (!currentContract) return "Sin contrato";
-      
+
       return (
         <Badge variant="outline" className="text-xs">
           {currentContract.contractType}
@@ -124,29 +114,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     id: "actions",
     cell: ({ row }) => {
       const employee = row.original;
-
-      return (
-        <div className="text-right">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Abrir menú</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-              <DropdownMenuItem>Ver perfil</DropdownMenuItem>
-              <DropdownMenuItem>Editar</DropdownMenuItem>
-              <DropdownMenuItem>Ver contratos</DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
-                Dar de baja
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      );
+      return <EmployeeActions employee={employee} />;
     },
     meta: {
       className: "w-0",

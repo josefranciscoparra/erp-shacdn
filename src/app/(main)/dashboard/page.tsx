@@ -10,14 +10,12 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">Dashboard ERP</h1>
-          <p className="text-sm text-muted-foreground">
-            Panel de control del sistema de gestión empresarial
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Dashboard ERP</h1>
+          <p className="text-muted-foreground text-sm">Panel de control del sistema de gestión empresarial</p>
         </div>
         <Button asChild>
           <Link href="/dashboard/employees/new">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="mr-2 h-4 w-4" />
             Nuevo empleado
           </Link>
         </Button>
@@ -28,7 +26,7 @@ export default function DashboardPage() {
         <Card className="@container/card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardDescription>Empleados</CardDescription>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">0</div>
@@ -38,16 +36,14 @@ export default function DashboardPage() {
                 Inicial
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              empleados registrados
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">empleados registrados</p>
           </CardContent>
         </Card>
 
         <Card className="@container/card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardDescription>Departamentos</CardDescription>
-            <Building className="h-4 w-4 text-muted-foreground" />
+            <Building className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">0</div>
@@ -57,16 +53,14 @@ export default function DashboardPage() {
                 Configuración
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              departamentos configurados
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">departamentos configurados</p>
           </CardContent>
         </Card>
 
         <Card className="@container/card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardDescription>Contratos</CardDescription>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <FileText className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">0</div>
@@ -76,16 +70,14 @@ export default function DashboardPage() {
                 Activos
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              contratos vigentes
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">contratos vigentes</p>
           </CardContent>
         </Card>
 
         <Card className="@container/card">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardDescription>Eventos</CardDescription>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">0</div>
@@ -95,9 +87,7 @@ export default function DashboardPage() {
                 Próximos
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              eventos programados
-            </p>
+            <p className="text-muted-foreground mt-1 text-xs">eventos programados</p>
           </CardContent>
         </Card>
       </div>
@@ -107,35 +97,33 @@ export default function DashboardPage() {
         <Card className="@container/card">
           <CardHeader>
             <CardTitle>Accesos rápidos</CardTitle>
-            <CardDescription>
-              Funciones más utilizadas del sistema
-            </CardDescription>
+            <CardDescription>Funciones más utilizadas del sistema</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="ghost" className="w-full justify-start h-auto p-3" asChild>
+            <Button variant="ghost" className="h-auto w-full justify-start p-3" asChild>
               <Link href="/dashboard/employees/new">
-                <Users className="h-4 w-4 mr-3" />
+                <Users className="mr-3 h-4 w-4" />
                 <div className="text-left">
                   <div className="font-medium">Registrar empleado</div>
-                  <div className="text-xs text-muted-foreground">Añadir nuevo empleado al sistema</div>
+                  <div className="text-muted-foreground text-xs">Añadir nuevo empleado al sistema</div>
                 </div>
               </Link>
             </Button>
-            <Button variant="ghost" className="w-full justify-start h-auto p-3" asChild>
+            <Button variant="ghost" className="h-auto w-full justify-start p-3" asChild>
               <Link href="/dashboard/departments">
-                <Building className="h-4 w-4 mr-3" />
+                <Building className="mr-3 h-4 w-4" />
                 <div className="text-left">
                   <div className="font-medium">Gestionar departamentos</div>
-                  <div className="text-xs text-muted-foreground">Configurar estructura organizativa</div>
+                  <div className="text-muted-foreground text-xs">Configurar estructura organizativa</div>
                 </div>
               </Link>
             </Button>
-            <Button variant="ghost" className="w-full justify-start h-auto p-3" asChild>
+            <Button variant="ghost" className="h-auto w-full justify-start p-3" asChild>
               <Link href="/dashboard/contracts">
-                <FileText className="h-4 w-4 mr-3" />
+                <FileText className="mr-3 h-4 w-4" />
                 <div className="text-left">
                   <div className="font-medium">Contratos laborales</div>
-                  <div className="text-xs text-muted-foreground">Gestionar contratos y documentos</div>
+                  <div className="text-muted-foreground text-xs">Gestionar contratos y documentos</div>
                 </div>
               </Link>
             </Button>
@@ -145,15 +133,13 @@ export default function DashboardPage() {
         <Card className="@container/card">
           <CardHeader>
             <CardTitle>Actividad reciente</CardTitle>
-            <CardDescription>
-              Últimas acciones realizadas en el sistema
-            </CardDescription>
+            <CardDescription>Últimas acciones realizadas en el sistema</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+            <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
               <div className="mb-4">
                 <svg
-                  className="mx-auto h-12 w-12 text-muted-foreground/30"
+                  className="text-muted-foreground/30 mx-auto h-12 w-12"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -166,7 +152,7 @@ export default function DashboardPage() {
                   />
                 </svg>
               </div>
-              <h3 className="text-sm font-medium mb-1 text-foreground">No hay actividad reciente</h3>
+              <h3 className="text-foreground mb-1 text-sm font-medium">No hay actividad reciente</h3>
               <p className="text-xs">Las acciones del sistema aparecerán aquí</p>
             </div>
           </CardContent>

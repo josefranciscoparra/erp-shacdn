@@ -24,7 +24,6 @@ export default function Login() {
         </div>
       </div>
 
-
       <div className="absolute bottom-5 flex w-full justify-between px-10">
         <div className="text-sm">{APP_CONFIG.copyright}</div>
         <div className="flex items-center gap-1 text-sm">

@@ -34,7 +34,7 @@ export function LoginForm() {
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     setIsLoading(true);
-    
+
     try {
       const result = await signIn("credentials", {
         email: data.email,
@@ -72,13 +72,13 @@ export function LoginForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input 
-                  id="email" 
-                  type="email" 
-                  placeholder="tu@ejemplo.com" 
-                  autoComplete="email" 
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="tu@ejemplo.com"
+                  autoComplete="email"
                   disabled={isLoading}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
@@ -131,14 +131,16 @@ export function LoginForm() {
 
         {/* Credenciales de prueba para desarrollo */}
         {process.env.NODE_ENV === "development" && (
-          <div className="mt-4 p-3 bg-muted rounded-lg text-sm">
-            <p className="font-semibold mb-1">🔐 Credenciales de prueba:</p>
+          <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
+            <p className="mb-1 font-semibold">🔐 Credenciales de prueba:</p>
             <div className="space-y-1 text-xs">
               <p>• admin@demo.com (Admin)</p>
               <p>• hr@demo.com (RRHH)</p>
               <p>• manager@demo.com (Manager)</p>
               <p>• employee@demo.com (Empleado)</p>
-              <p className="mt-1">Password: <code className="bg-background px-1 rounded">password123</code></p>
+              <p className="mt-1">
+                Password: <code className="bg-background rounded px-1">password123</code>
+              </p>
             </div>
           </div>
         )}

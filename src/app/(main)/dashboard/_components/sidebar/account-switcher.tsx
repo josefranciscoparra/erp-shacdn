@@ -30,7 +30,7 @@ export function AccountSwitcher({
   }>;
 }) {
   const [activeUser, setActiveUser] = useState(users[0]);
-  const t = useTranslations('user');
+  const t = useTranslations("user");
 
   return (
     <DropdownMenu>
@@ -63,21 +63,21 @@ export function AccountSwitcher({
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <BadgeCheck />
-            {t('account')}
+            {t("account")}
           </DropdownMenuItem>
           <DropdownMenuItem>
             <CreditCard />
-            {t('billing')}
+            {t("billing")}
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Bell />
-            {t('notifications')}
+            {t("notifications")}
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => logoutAction()}>
           <LogOut />
-          {t('logout')}
+          {t("logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

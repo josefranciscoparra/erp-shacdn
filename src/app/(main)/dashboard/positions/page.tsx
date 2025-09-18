@@ -17,9 +17,7 @@ export default function PositionsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lista de puestos</CardTitle>
-          <CardDescription>
-            Todos los puestos registrados en el sistema
-          </CardDescription>
+          <CardDescription>Todos los puestos registrados en el sistema</CardDescription>
         </CardHeader>
         <CardContent>
           <EmptyState

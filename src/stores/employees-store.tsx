@@ -63,9 +63,9 @@ export const useEmployeesStore = create<EmployeesState & EmployeesActions>()(
         const employees = await response.json();
         set({ employees, loading: false });
       } catch (error) {
-        set({ 
-          error: error instanceof Error ? error.message : "Error desconocido", 
-          loading: false 
+        set({
+          error: error instanceof Error ? error.message : "Error desconocido",
+          loading: false,
         });
       }
     },
@@ -78,9 +78,7 @@ export const useEmployeesStore = create<EmployeesState & EmployeesActions>()(
 
     updateEmployee: (id, updates) => {
       set((state) => ({
-        employees: state.employees.map((emp) =>
-          emp.id === id ? { ...emp, ...updates } : emp
-        ),
+        employees: state.employees.map((emp) => (emp.id === id ? { ...emp, ...updates } : emp)),
       }));
     },
 
@@ -93,5 +91,5 @@ export const useEmployeesStore = create<EmployeesState & EmployeesActions>()(
     reset: () => {
       set(initialState);
     },
-  }))
+  })),
 );

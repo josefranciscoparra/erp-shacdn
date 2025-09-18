@@ -7,6 +7,7 @@
 ## 1) Alcance funcional (MVP)
 
 ### 1.1 Gestión de Empleados
+
 - Ficha completa: datos personales, contacto, dirección, emergencia.
 - Datos contractuales: tipo contrato, jornada semanal, centro, departamento, puesto, responsable.
 - Estructura organizativa: **multi‑empresa**, **multi‑centro**, departamentos, puestos.
@@ -15,6 +16,7 @@
 - Validaciones mínimas: NIF/NIE, email, IBAN.
 
 ### 1.2 Control Horario / Fichajes
+
 - **Fichaje Web**: Entrada / Salida / Pausa.
 - **Modo Kiosco** por centro: PIN de 4 dígitos.
 - Reglas básicas: tolerancia ±N minutos configurable por centro.
@@ -22,9 +24,10 @@
 - Cuadrantes simples (asignación de turnos fijos/rotativos y publicación básica).
 - Incidencias: IN sin OUT, solapes, fuera de horario.
 
-> *Sin biometría, sin reconocimiento facial. Geolocalización/IP opcional (solo registro informativo).*
+> _Sin biometría, sin reconocimiento facial. Geolocalización/IP opcional (solo registro informativo)._
 
 ### 1.3 Vacaciones y Ausencias (PTO)
+
 - Tipos configurables: vacaciones, enfermedad, asuntos propios, médico.
 - **Saldos**: devengo anual/prorrata y arrastre con límite.
 - **Flujo de aprobación** simple: Empleado → Manager (→ HR opcional).
@@ -32,11 +35,13 @@
 - Calendario de equipo (lectura). Adjuntos/justificantes en solicitudes.
 
 ### 1.4 Exportación a Nómina
+
 - Export **CSV/Excel** por periodo/centro/empleado.
 - Totales: **normales**, **nocturnas**, **festivos**, **extras**; días de ausencia por tipo.
 - **Mapeo configurable** de conceptos (códigos de nómina).
 
 ### 1.5 Notificaciones
+
 - **In‑app** + **Email** (SMTP).
 - Eventos: creación/aprobación PTO, incidencias de fichaje, publicación de cuadrante.
 - Plantillas sencillas con variables (ES/EN).
@@ -74,6 +79,7 @@ erDiagram
 ```
 
 **Tablas clave (campos esenciales):**
+
 - `organization(id, name, vat)`
 - `cost_center(id, org_id, name, timezone)`
 - `department(id, org_id, name, cost_center_id)`
@@ -92,7 +98,7 @@ erDiagram
 - `notification(id, org_id, recipient_user_id, channel: INAPP|EMAIL, template_key, payload_json, status, created_at)`
 - `audit_log(id, org_id, actor_user_id, action, entity, entity_id, ts, ip, meta_json)`
 
-> Fechas/horas siempre en **UTC** en BD. Timezone por *centro* para mostrar y clasificar nocturnidad.
+> Fechas/horas siempre en **UTC** en BD. Timezone por _centro_ para mostrar y clasificar nocturnidad.
 
 ---
 
@@ -114,41 +120,51 @@ Validar **org_id** en todas las rutas.
 ## 5) Reglas de negocio (esenciales)
 
 ### Fichaje y jornada
+
 - Secuencias válidas: `IN → (BREAK_IN → BREAK_OUT)* → OUT`.
 - Redondeo configurable (p.ej., 5 min). Incidencia si falta OUT al finalizar el día.
 - Clasificación: nocturnas (22:00–06:00 local), festivo por calendario, extras = worked – jornada pactada.
 - Corrección manual permitida (si rol Manager/HR) con audit log.
 
 ### PTO
+
 - Devengo: anual o prorrata mensual; arrastre con tope.
 - Aprobación: manager (HR opcional). Bloqueos por solape en equipo y antelación mínima.
 - Saldos se recalculan en job diario (madrugada).
 
 ### Export a nómina
+
 - Considera **solo días consolidados** (workday_summary).
 - Mapeo a conceptos configurable por organización.
 - Genera CSV/Excel para rango de fechas y centro.
 
 ### Notificaciones
+
 - In‑app para eventos clave
+
 ---
 
 ## 6) Tenancy y Seguridad
 
 ### Aislamiento por organización (RLS)
+
 ```sql
 -- Habilitar RLS por tabla multi-tenant
 ALTER TABLE employee ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON employee
 USING (org_id = current_setting('app.current_org_id')::uuid);
 ```
+
 En cada request/middleware:
+
 ```ts
 await prisma.$executeRawUnsafe(`SET app.current_org_id = '${orgId}'`);
 ```
+
 > Mantén **guardas en app** (middleware) además de RLS.
 
 ### Otras medidas mínimas
+
 - **RBAC**: SuperAdmin, OrgAdmin, HR, Manager, Employee.
 - **Cifrado** de datos sensibles (IBAN) a nivel de app (AES‑256; clave en Key Vault).
 - **Rate limiting** por usuario y endpoint sensible (login, fichaje, export).

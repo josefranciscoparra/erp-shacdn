@@ -25,7 +25,7 @@ type LayoutControlsProps = {
 
 export function LayoutControls(props: LayoutControlsProps) {
   const { variant, collapsible, contentLayout } = props;
-  const t = useTranslations('settings');
+  const t = useTranslations("settings");
   const { locale, setLocale } = useLocale();
 
   const themeMode = usePreferencesStore((s) => s.themeMode);
@@ -60,35 +60,35 @@ export function LayoutControls(props: LayoutControlsProps) {
       <PopoverContent align="end">
         <div className="flex flex-col gap-5">
           <div className="space-y-1.5">
-            <h4 className="text-sm leading-none font-medium">{t('layoutSettings')}</h4>
-            <p className="text-muted-foreground text-xs">{t('customizeLayout')}</p>
+            <h4 className="text-sm leading-none font-medium">{t("layoutSettings")}</h4>
+            <p className="text-muted-foreground text-xs">{t("customizeLayout")}</p>
           </div>
           <div className="space-y-3">
             <div className="space-y-1">
               <Label className="text-xs font-medium">
-                <Globe className="inline size-3 mr-1" />
-                {t('language')}
+                <Globe className="mr-1 inline size-3" />
+                {t("language")}
               </Label>
               <Select value={locale} onValueChange={(value: Locale) => setLocale(value)}>
                 <SelectTrigger size="sm" className="w-full text-xs">
-                  <SelectValue placeholder={t('selectLanguage')} />
+                  <SelectValue placeholder={t("selectLanguage")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem className="text-xs" value="es">
-                    {t('spanish')}
+                    {t("spanish")}
                   </SelectItem>
                   <SelectItem className="text-xs" value="en">
-                    {t('english')}
+                    {t("english")}
                   </SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">{t('themePreset')}</Label>
+              <Label className="text-xs font-medium">{t("themePreset")}</Label>
               <Select value={themePreset} onValueChange={(value) => handleValueChange("theme_preset", value)}>
                 <SelectTrigger size="sm" className="w-full text-xs">
-                  <SelectValue placeholder={t('selectPreset')} />
+                  <SelectValue placeholder={t("selectPreset")} />
                 </SelectTrigger>
                 <SelectContent>
                   {THEME_PRESET_OPTIONS.map((preset) => (
@@ -107,7 +107,7 @@ export function LayoutControls(props: LayoutControlsProps) {
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">{t('theme')}</Label>
+              <Label className="text-xs font-medium">{t("theme")}</Label>
               <ToggleGroup
                 className="w-full"
                 size="sm"
@@ -117,16 +117,16 @@ export function LayoutControls(props: LayoutControlsProps) {
                 onValueChange={(value) => handleValueChange("theme_mode", value)}
               >
                 <ToggleGroupItem className="text-xs" value="light" aria-label="Toggle light">
-                  {t('lightMode')}
+                  {t("lightMode")}
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="dark" aria-label="Toggle dark">
-                  {t('darkMode')}
+                  {t("darkMode")}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">{t('sidebarVariant')}</Label>
+              <Label className="text-xs font-medium">{t("sidebarVariant")}</Label>
               <ToggleGroup
                 className="w-full"
                 size="sm"
@@ -136,19 +136,19 @@ export function LayoutControls(props: LayoutControlsProps) {
                 onValueChange={(value) => handleValueChange("sidebar_variant", value)}
               >
                 <ToggleGroupItem className="text-xs" value="inset" aria-label="Toggle inset">
-                  {t('inset')}
+                  {t("inset")}
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="sidebar" aria-label="Toggle sidebar">
-                  {t('sidebar')}
+                  {t("sidebar")}
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="floating" aria-label="Toggle floating">
-                  {t('floating')}
+                  {t("floating")}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">{t('sidebarCollapsible')}</Label>
+              <Label className="text-xs font-medium">{t("sidebarCollapsible")}</Label>
               <ToggleGroup
                 className="w-full"
                 size="sm"
@@ -158,16 +158,16 @@ export function LayoutControls(props: LayoutControlsProps) {
                 onValueChange={(value) => handleValueChange("sidebar_collapsible", value)}
               >
                 <ToggleGroupItem className="text-xs" value="icon" aria-label="Toggle icon">
-                  {t('icon')}
+                  {t("icon")}
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="offcanvas" aria-label="Toggle offcanvas">
-                  {t('offcanvas')}
+                  {t("offcanvas")}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs font-medium">{t('contentLayout')}</Label>
+              <Label className="text-xs font-medium">{t("contentLayout")}</Label>
               <ToggleGroup
                 className="w-full"
                 size="sm"
@@ -177,10 +177,10 @@ export function LayoutControls(props: LayoutControlsProps) {
                 onValueChange={(value) => handleValueChange("content_layout", value)}
               >
                 <ToggleGroupItem className="text-xs" value="centered" aria-label="Toggle centered">
-                  {t('centered')}
+                  {t("centered")}
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="full-width" aria-label="Toggle full-width">
-                  {t('fullWidth')}
+                  {t("fullWidth")}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>

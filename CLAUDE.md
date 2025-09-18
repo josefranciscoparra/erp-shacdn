@@ -3,6 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## IMPORTANTE: Idioma de respuesta
+
 Por favor, SIEMPRE responde en español/castellano cuando trabajes en este proyecto.
 
 ## Project Overview
@@ -35,22 +36,26 @@ npm run generate:presets
 ## Architecture & Patterns
 
 ### Route Organization
+
 - `/src/app/(external)/` - Public-facing pages (landing)
 - `/src/app/(main)/dashboard/` - Protected dashboard routes
 - `/src/app/(main)/auth/` - Authentication pages (v1 and v2 variants)
 - Page-specific components in `_components/` subdirectories within each route
 
 ### Component Structure
+
 - `/src/components/ui/` - shadcn/ui components (47+ reusable components)
 - `/src/components/data-table/` - TanStack Table implementation
 - Components are co-located with their consuming pages when page-specific
 
 ### State Management
+
 - Zustand stores in `/src/stores/` with vanilla store creation for SSR compatibility
 - Preferences store manages theme mode (light/dark) and presets (default, brutalist, soft-pop, tangerine)
 - Server-side initialization via cookies with client-side hydration
 
 ### Theme System
+
 - CSS variables approach with OKLCH color space
 - Multiple theme presets in `/src/styles/presets/`
 - Theme variables defined in `/src/app/globals.css`
@@ -58,12 +63,14 @@ npm run generate:presets
 - Client-side theme switching via Zustand store
 
 ### Authentication
+
 - Cookie-based authentication using `auth-token`
 - Middleware configuration in `/src/middleware.disabled.ts` (currently disabled)
 - Protected routes under `/dashboard/:path*`
 - Server actions for preference management in `/src/server/actions/`
 
 ### Navigation
+
 - Sidebar navigation configuration in `/src/navigation/`
 - Hierarchical menu structure with groups and sub-items
 - Support for external links and "coming soon" indicators
@@ -90,17 +97,20 @@ npm run generate:presets
 ## Development Guidelines
 
 When modifying theme styles:
+
 - Light mode variables are in `:root` selector
 - Dark mode variables are in `.dark` selector
 - Theme presets override these in `/src/styles/presets/`
 - Use OKLCH color format for consistency
 
 When adding new routes:
+
 - Place in appropriate route group (`(external)` or `(main)`)
 - Create `_components/` subdirectory for page-specific components
 - Update navigation in `/src/navigation/sidebar-nav.tsx` if needed
 
 When working with components:
+
 - Use existing shadcn/ui components from `/src/components/ui/`
 - Follow the established pattern for data tables
 - Maintain TypeScript type safety throughout
@@ -108,6 +118,7 @@ When working with components:
 ## ERP Development Strategy
 
 ### IMPORTANTE: Desarrollo Incremental de Base de Datos
+
 - **NO crear todo el schema de Prisma de una vez**
 - Ir añadiendo modelos y campos conforme se implementan las funcionalidades
 - Empezar con los modelos mínimos necesarios para cada feature
@@ -119,6 +130,7 @@ When working with components:
   - Mantener un historial claro de cambios
 
 ### Orden de Implementación Sugerido:
+
 1. **Sprint 0**: Solo modelos `Organization`, `User`, `Session` (auth básica)
 2. **Sprint 1**: Añadir `Employee`, `Department`, `CostCenter`
 3. **Sprint 2**: Añadir `TimeEntry`, `WorkdaySummary`
@@ -126,6 +138,7 @@ When working with components:
 5. **Sprint 4**: Añadir modelos de nómina y exportación
 
 ### Configuración de Base de Datos
+
 - **Base de datos**: PostgreSQL
 - **Usuario**: erp_user
 - **Contraseña**: erp_pass
@@ -136,34 +149,40 @@ When working with components:
 ## Guía de Estilo UI para ERP - IMPORTANTE ⚠️
 
 ### SIEMPRE Seguir Estos Patrones de Diseño
+
 - **NUNCA crear componentes UI custom** - Usar SIEMPRE componentes shadcn/ui existentes
 - **Referencia visual**: El dashboard `/dashboard/default` es el patrón de oro para el diseño
 - **Consistencia absoluta**: Todas las páginas deben verse como parte del mismo sistema
 
 ### Colores y Fondos
+
 - **Cards de estadísticas**: `from-primary/5 to-card bg-gradient-to-t shadow-xs`
 - **Cards generales**: `rounded-lg border` con fondo predeterminado
 - **Modo oscuro**: `dark:bg-card` se maneja automáticamente
 - **Texto**: Usar clases `text-foreground`, `text-muted-foreground` para consistencia
 
 ### Layout y Espaciado
+
 - **Container principal**: `@container/main flex flex-col gap-4 md:gap-6`
 - **Grids responsivos**: `grid-cols-1 @xl/main:grid-cols-2 @5xl/main:grid-cols-4`
 - **Container queries**: Usar `@container/card`, `@container/main` para responsive
 - **Gaps consistentes**: `gap-4` para móvil, `md:gap-6` para desktop
 
 ### Componentes Específicos
+
 - **DataTables**: Basar en `/dashboard/default/_components/data-table.tsx`
 - **SectionHeader**: Usar componente existente `/components/hr/section-header.tsx`
 - **EmptyState**: Usar componente existente `/components/hr/empty-state.tsx`
 - **Cards con métricas**: Seguir patrón de `section-cards.tsx`
 
 ### Navegación
+
 - **NO usar submenus innecesarios** - Simplicidad ante todo
 - **Enlaces directos**: Ejemplo `Empleados` → `/dashboard/employees`
 - **Opciones internas**: Botones de acción dentro de cada página
 
 ### Estado con Zustand
+
 - **Stores centralizados**: Para empleados, organización, etc.
 - **Actions async**: Preparar para APIs futuras
 - **Loading states**: Manejar en el store, mostrar en UI
@@ -173,11 +192,13 @@ When working with components:
 ### Cuando el usuario pida componentes, INTERPRETAR así:
 
 #### ✅ **Frases que indican componente PROFESIONAL:**
+
 - "Listado de [X]" → DataTable completo con tabs
 - "Tabla de [X]" → TanStack Table + paginación + filtros
 - "Componente de [X]" → Patrón /dashboard/default automáticamente
 
 #### ✅ **SIEMPRE incluir estas características (sin que las pida):**
+
 - **Tabs con badges**: `Activos <Badge>3</Badge>`, `Todos`, etc.
 - **DataTable de TanStack**: Con sorting, filtering, paginación
 - **DataTableViewOptions**: Botón para mostrar/ocultar columnas
@@ -187,10 +208,11 @@ When working with components:
 - **Responsive**: Select en móvil (`@4xl/main:hidden`), Tabs en desktop (`@4xl/main:flex`)
 
 #### ✅ **Estructura estándar para DataTables:**
+
 ```tsx
 <div className="@container/main flex flex-col gap-4 md:gap-6">
   <SectionHeader title="[X]" actionLabel="Nuevo [X]" />
-  
+
   <Tabs defaultValue="active">
     <div className="flex items-center justify-between">
       <Select>...</Select> {/* Móvil */}
@@ -200,7 +222,7 @@ When working with components:
         <Button>Nuevo</Button>
       </div>
     </div>
-    
+
     <TabsContent value="active">
       <div className="overflow-hidden rounded-lg border">
         <DataTableNew table={table} columns={columns} />
@@ -212,12 +234,14 @@ When working with components:
 ```
 
 #### ❌ **NUNCA hacer componentes básicos:**
+
 - Table HTML simple (`<table><tr><td>`)
 - Cards simples sin tabs
 - Listados sin paginación
 - Sin estados vacíos
 
 #### 🎯 **Nivel de referencia SIEMPRE:**
+
 - **Patrón oro**: `/dashboard/default/_components/data-table.tsx`
 - **Calidad**: Aplicación empresarial (Linear, Notion, Monday.com)
 - **Consistencia**: Todos los listados deben verse idénticos

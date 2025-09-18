@@ -6,7 +6,7 @@ import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
 import bcrypt from "bcryptjs";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
-    
+
     const orgId = session.user.orgId;
-    
+
     const employees = await prisma.employee.findMany({
       where: {
         orgId,
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     // Transformar los datos para el frontend
     const transformedEmployees = employees.map((employee) => {
       const currentContract = employee.employmentContracts[0];
-      
+
       return {
         id: employee.id,
         employeeNumber: employee.employeeNumber,
@@ -70,7 +70,7 @@ export async function GET(request: NextRequest) {
         active: employee.active,
         department: currentContract?.department || null,
         position: currentContract?.position || null,
-        employmentContracts: employee.employmentContracts.map(contract => ({
+        employmentContracts: employee.employmentContracts.map((contract) => ({
           contractType: contract.contractType,
           startDate: contract.startDate,
           endDate: contract.endDate,
@@ -82,10 +82,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(transformedEmployees);
   } catch (error) {
     console.error("Error al obtener empleados:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
@@ -93,23 +90,20 @@ export async function POST(request: NextRequest) {
   try {
     // Verificar autenticación
     const session = await auth();
-    console.log('🔐 Sesión POST:', session);
+    console.log("🔐 Sesión POST:", session);
     if (!session?.user) {
-      console.log('❌ No hay sesión o usuario en POST');
+      console.log("❌ No hay sesión o usuario en POST");
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
-    console.log('✅ Usuario autenticado POST:', session.user.email, 'Rol:', session.user.role);
+    console.log("✅ Usuario autenticado POST:", session.user.email, "Rol:", session.user.role);
 
     // Obtener datos del request
     const body = await request.json();
-    
+
     // Validar datos
     const validation = createEmployeeSchema.safeParse(body);
     if (!validation.success) {
-      return NextResponse.json(
-        { error: "Datos inválidos", details: validation.error.issues },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Datos inválidos", details: validation.error.issues }, { status: 400 });
     }
 
     const data: CreateEmployeeInput = validation.data;
@@ -124,10 +118,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingEmployee) {
-      return NextResponse.json(
-        { error: "Ya existe un empleado con este NIF/NIE" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Ya existe un empleado con este NIF/NIE" }, { status: 409 });
     }
 
     // Generar número de empleado si no se proporciona
@@ -142,10 +133,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingNumber) {
-      return NextResponse.json(
-        { error: "El número de empleado ya existe" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "El número de empleado ya existe" }, { status: 409 });
     }
 
     // Encriptar IBAN si se proporciona
@@ -190,7 +178,7 @@ export async function POST(request: NextRequest) {
         // Validar que no exista ya un usuario con ese email
         const existingUser = await tx.user.findUnique({ where: { email: data.email } });
         if (existingUser) {
-          throw Object.assign(new Error('EMAIL_EXISTS'), { code: 'EMAIL_EXISTS' });
+          throw Object.assign(new Error("EMAIL_EXISTS"), { code: "EMAIL_EXISTS" });
         }
         temporaryPassword = generateTemporaryPassword();
         const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
@@ -230,17 +218,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(response, { status: 201 });
   } catch (error: any) {
     // Errores de negocio conocidos
-    if (error?.code === 'EMAIL_EXISTS') {
-      return NextResponse.json({ error: 'El email ya está en uso' }, { status: 409 });
+    if (error?.code === "EMAIL_EXISTS") {
+      return NextResponse.json({ error: "El email ya está en uso" }, { status: 409 });
     }
     // Errores de unicidad Prisma
-    if (typeof error?.code === 'string' && error.code === 'P2002') {
-      return NextResponse.json({ error: 'Duplicado: ya existe un registro con ese valor único' }, { status: 409 });
+    if (typeof error?.code === "string" && error.code === "P2002") {
+      return NextResponse.json({ error: "Duplicado: ya existe un registro con ese valor único" }, { status: 409 });
     }
     console.error("Error al crear empleado:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

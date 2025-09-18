@@ -30,8 +30,8 @@ const searchItems = [
 
 export function SearchDialog() {
   const [open, setOpen] = React.useState(false);
-  const t = useTranslations('header');
-  const tNav = useTranslations('navigation');
+  const t = useTranslations("header");
+  const tNav = useTranslations("navigation");
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "j" && (e.metaKey || e.ctrlKey)) {
@@ -51,15 +51,15 @@ export function SearchDialog() {
         onClick={() => setOpen(true)}
       >
         <Search className="size-4" />
-        {t('search')}
+        {t("search")}
         <kbd className="bg-muted inline-flex h-5 items-center gap-1 rounded border px-1.5 text-[10px] font-medium select-none">
           <span className="text-xs">⌘</span>J
         </kbd>
       </Button>
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder={t('searchPlaceholder')} />
+        <CommandInput placeholder={t("searchPlaceholder")} />
         <CommandList>
-          <CommandEmpty>{t('noResults')}</CommandEmpty>
+          <CommandEmpty>{t("noResults")}</CommandEmpty>
           {[...new Set(searchItems.map((item) => item.group))].map((group, i) => (
             <React.Fragment key={group}>
               {i !== 0 && <CommandSeparator />}

@@ -1,13 +1,9 @@
-import { NextResponse } from "next/server"
-import type { NextRequest } from "next/server"
-import { auth } from "@/lib/auth"
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { auth } from "@/lib/auth";
 
 // Rutas públicas que no requieren autenticación
-const publicRoutes = [
-  "/auth/login",
-  "/api/auth",
-  "/",
-]
+const publicRoutes = ["/auth/login", "/api/auth", "/"];
 
 // Rutas por rol
 const roleRoutes = {
@@ -16,48 +12,48 @@ const roleRoutes = {
   HR_ADMIN: ["/dashboard", "/employees", "/timeclock", "/pto"],
   MANAGER: ["/dashboard", "/employees", "/timeclock", "/pto"],
   EMPLOYEE: ["/dashboard", "/timeclock", "/pto"],
-}
+};
 
 export default async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname } = request.nextUrl;
 
   // Permitir rutas públicas y recursos estáticos
   if (
-    publicRoutes.some(route => pathname.startsWith(route)) ||
+    publicRoutes.some((route) => pathname.startsWith(route)) ||
     pathname.startsWith("/_next") ||
     pathname.startsWith("/static") ||
     pathname.includes(".")
   ) {
-    return NextResponse.next()
+    return NextResponse.next();
   }
 
   // Verificar autenticación
-  const session = await auth()
+  const session = await auth();
 
   if (!session) {
     // Redirigir al login si no está autenticado
-    return NextResponse.redirect(new URL("/auth/login", request.url))
+    return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
   // Verificar permisos por rol
-  const userRole = session.user?.role as keyof typeof roleRoutes
-  const allowedRoutes = roleRoutes[userRole] || []
+  const userRole = session.user?.role as keyof typeof roleRoutes;
+  const allowedRoutes = roleRoutes[userRole] || [];
 
   // Verificar si el usuario tiene acceso a la ruta
-  const hasAccess = allowedRoutes.some(route => pathname.startsWith(route))
+  const hasAccess = allowedRoutes.some((route) => pathname.startsWith(route));
 
   if (!hasAccess && pathname !== "/unauthorized") {
     // Redirigir a página de no autorizado
-    return NextResponse.redirect(new URL("/unauthorized", request.url))
+    return NextResponse.redirect(new URL("/unauthorized", request.url));
   }
 
   // Añadir headers con información del usuario (para multi-tenancy)
-  const response = NextResponse.next()
-  response.headers.set("X-User-Id", session.user.id)
-  response.headers.set("X-User-Role", session.user.role)
-  response.headers.set("X-Org-Id", session.user.orgId)
+  const response = NextResponse.next();
+  response.headers.set("X-User-Id", session.user.id);
+  response.headers.set("X-User-Role", session.user.role);
+  response.headers.set("X-Org-Id", session.user.orgId);
 
-  return response
+  return response;
 }
 
 export const config = {
@@ -66,4 +62,4 @@ export const config = {
     // y evitar redirecciones HTML en llamadas fetch.
     "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
-}
+};

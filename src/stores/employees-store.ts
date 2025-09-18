@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create } from "zustand";
 
 export interface Employee {
   id: string;
@@ -58,7 +58,7 @@ interface EmployeesState {
   selectedEmployee: Employee | null;
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   setEmployees: (employees: Employee[]) => void;
   addEmployee: (employee: Employee) => void;
@@ -67,7 +67,7 @@ interface EmployeesState {
   setSelectedEmployee: (employee: Employee | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
-  
+
   // Async actions
   fetchEmployees: () => Promise<void>;
   createEmployee: (data: EmployeeFormData) => Promise<void>;
@@ -83,21 +83,22 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
 
   // Sync actions
   setEmployees: (employees) => set({ employees }),
-  
-  addEmployee: (employee) => set((state) => ({
-    employees: [...state.employees, employee]
-  })),
-  
-  updateEmployee: (id, employeeData) => set((state) => ({
-    employees: state.employees.map(emp => 
-      emp.id === id ? { ...emp, ...employeeData } : emp
-    )
-  })),
-  
-  deleteEmployee: (id) => set((state) => ({
-    employees: state.employees.filter(emp => emp.id !== id)
-  })),
-  
+
+  addEmployee: (employee) =>
+    set((state) => ({
+      employees: [...state.employees, employee],
+    })),
+
+  updateEmployee: (id, employeeData) =>
+    set((state) => ({
+      employees: state.employees.map((emp) => (emp.id === id ? { ...emp, ...employeeData } : emp)),
+    })),
+
+  deleteEmployee: (id) =>
+    set((state) => ({
+      employees: state.employees.filter((emp) => emp.id !== id),
+    })),
+
   setSelectedEmployee: (employee) => set({ selectedEmployee: employee }),
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
@@ -107,15 +108,15 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // TODO: Implementar API call
-      const response = await fetch('/api/employees', { credentials: 'include' });
-      if (!response.ok) throw new Error('Error al cargar empleados');
-      
+      const response = await fetch("/api/employees", { credentials: "include" });
+      if (!response.ok) throw new Error("Error al cargar empleados");
+
       const employees = await response.json();
       set({ employees, isLoading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : "Error desconocido",
+        isLoading: false,
       });
     }
   },
@@ -124,22 +125,22 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // TODO: Implementar API call
-      const response = await fetch('/api/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data)
+      const response = await fetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
       });
-      
-      if (!response.ok) throw new Error('Error al crear empleado');
-      
+
+      if (!response.ok) throw new Error("Error al crear empleado");
+
       const newEmployee = await response.json();
       get().addEmployee(newEmployee);
       set({ isLoading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : "Error desconocido",
+        isLoading: false,
       });
     }
   },
@@ -149,21 +150,21 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     try {
       // TODO: Implementar API call
       const response = await fetch(`/api/employees/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(data)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(data),
       });
-      
-      if (!response.ok) throw new Error('Error al actualizar empleado');
-      
+
+      if (!response.ok) throw new Error("Error al actualizar empleado");
+
       const updatedEmployee = await response.json();
       get().updateEmployee(id, updatedEmployee);
       set({ isLoading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : "Error desconocido",
+        isLoading: false,
       });
     }
   },
@@ -173,19 +174,19 @@ export const useEmployeesStore = create<EmployeesState>()((set, get) => ({
     try {
       // TODO: Implementar API call
       const response = await fetch(`/api/employees/${id}`, {
-        method: 'DELETE',
-        credentials: 'include'
+        method: "DELETE",
+        credentials: "include",
       });
-      
-      if (!response.ok) throw new Error('Error al eliminar empleado');
-      
+
+      if (!response.ok) throw new Error("Error al eliminar empleado");
+
       get().deleteEmployee(id);
       set({ isLoading: false });
     } catch (error) {
-      set({ 
-        error: error instanceof Error ? error.message : 'Error desconocido',
-        isLoading: false 
+      set({
+        error: error instanceof Error ? error.message : "Error desconocido",
+        isLoading: false,
       });
     }
-  }
+  },
 }));

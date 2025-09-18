@@ -48,16 +48,16 @@ export interface NavGroup {
 }
 
 export function useSidebarItems(): NavGroup[] {
-  const t = useTranslations('navigation');
+  const t = useTranslations("navigation");
   const { hasPermission, isAuthenticated } = usePermissions();
-  
+
   const allItems = [
     {
       id: 1,
-      label: t('dashboards'),
+      label: t("dashboards"),
       items: [
         {
-          title: t('default'),
+          title: t("default"),
           url: "/dashboard",
           icon: LayoutDashboard,
         },
@@ -74,14 +74,14 @@ export function useSidebarItems(): NavGroup[] {
           permission: "manage_organization",
         },
         {
-          title: "Departamentos", 
+          title: "Departamentos",
           url: "/dashboard/departments",
           icon: Building2,
           permission: "view_departments",
         },
         {
           title: "Puestos",
-          url: "/dashboard/positions", 
+          url: "/dashboard/positions",
           icon: Briefcase,
           permission: "manage_organization",
         },
@@ -105,7 +105,7 @@ export function useSidebarItems(): NavGroup[] {
         },
         {
           title: "Documentos",
-          url: "/dashboard/documents", 
+          url: "/dashboard/documents",
           icon: FileText,
           permission: "view_documents",
         },
@@ -131,15 +131,13 @@ export function useSidebarItems(): NavGroup[] {
     },
     {
       id: 5,
-      label: t('pages'),
+      label: t("pages"),
       items: [
         {
-          title: t('authentication'),
+          title: t("authentication"),
           url: "/auth",
           icon: Fingerprint,
-          subItems: [
-            { title: t('login'), url: "/auth/login", newTab: true },
-          ],
+          subItems: [{ title: t("login"), url: "/auth/login", newTab: true }],
         },
       ],
     },
@@ -148,21 +146,25 @@ export function useSidebarItems(): NavGroup[] {
   // Filtrar elementos basándose en permisos
   if (!isAuthenticated) return [];
 
-  return allItems.map(group => ({
-    ...group,
-    items: group.items.filter(item => {
-      // Si no tiene permiso requerido, mostrar siempre
-      if (!item.permission) return true;
-      // Si tiene permiso requerido, verificar que el usuario lo tenga
-      return hasPermission(item.permission);
-    }).map(item => ({
-      ...item,
-      subItems: item.subItems?.filter(subItem => {
-        // Si no tiene permiso requerido, mostrar siempre
-        if (!subItem.permission) return true;
-        // Si tiene permiso requerido, verificar que el usuario lo tenga
-        return hasPermission(subItem.permission);
-      })
+  return allItems
+    .map((group) => ({
+      ...group,
+      items: group.items
+        .filter((item) => {
+          // Si no tiene permiso requerido, mostrar siempre
+          if (!item.permission) return true;
+          // Si tiene permiso requerido, verificar que el usuario lo tenga
+          return hasPermission(item.permission);
+        })
+        .map((item) => ({
+          ...item,
+          subItems: item.subItems?.filter((subItem) => {
+            // Si no tiene permiso requerido, mostrar siempre
+            if (!subItem.permission) return true;
+            // Si tiene permiso requerido, verificar que el usuario lo tenga
+            return hasPermission(subItem.permission);
+          }),
+        })),
     }))
-  })).filter(group => group.items.length > 0); // Filtrar grupos vacíos
+    .filter((group) => group.items.length > 0); // Filtrar grupos vacíos
 }

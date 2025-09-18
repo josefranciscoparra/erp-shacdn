@@ -3,6 +3,7 @@
 ## 📋 Funcionalidades Principales
 
 ### 1. **Gestión de Empleados**
+
 - ✅ Ficha completa (datos personales, bancarios, contractuales)
 - ✅ Multi-empresa con centros de costo y departamentos
 - ✅ Organigrama jerárquico
@@ -11,9 +12,10 @@
 - ✅ Encriptación de datos sensibles (IBAN)
 
 ### 2. **Control Horario / Fichajes**
+
 - ✅ **Fichaje Web**: Entrada/Salida/Pausas con geolocalización
 - ✅ **Modo Kiosco**: PIN de 4 dígitos por centro
-- ✅ **Antifraude**: 
+- ✅ **Antifraude**:
   - Validación IP/Geofencing
   - Detección de patrones sospechosos
   - Selfie opcional
@@ -23,6 +25,7 @@
 - ✅ **Cuadrantes**: Turnos fijos/rotativos con cambios
 
 ### 3. **Vacaciones y Ausencias (PTO)**
+
 - ✅ Tipos configurables (vacaciones, enfermedad, permisos)
 - ✅ **Balance automático**:
   - Devengo mensual/anual/prorrata
@@ -36,6 +39,7 @@
 - ✅ Calendario de equipo
 
 ### 4. **Exportación Nómina**
+
 - ✅ Formatos: CSV, Excel, A3NOM, SAGE
 - ✅ Cálculo de conceptos:
   - Horas trabajadas/extras/nocturnas/festivos
@@ -44,6 +48,7 @@
 - ✅ Exportación por periodo/centro/empleado
 
 ### 5. **Notificaciones**
+
 - ✅ In-app + Email
 - ✅ Eventos: solicitudes PTO, aprobaciones, anomalías fichaje
 - ✅ Plantillas multiidioma (ES/EN)
@@ -51,6 +56,7 @@
 ## 🏗️ Arquitectura Técnica
 
 ### Stack Principal
+
 ```typescript
 // Frontend
 - Next.js 15 (App Router)
@@ -58,7 +64,7 @@
 - TanStack Query + Zustand
 - React Hook Form + Zod
 
-// Backend  
+// Backend
 - tRPC (type-safe API)
 - Prisma ORM + PostgreSQL
 - NextAuth v5 (Auth.js)
@@ -69,6 +75,7 @@
 ```
 
 ### Seguridad Implementada
+
 - 🔐 **Multi-tenancy**: Aislamiento por `org_id`
 - 🔐 **RBAC**: 5 roles (Super Admin, Org Admin, HR, Manager, Employee)
 - 🔐 **Validación**: Zod en todos los inputs
@@ -92,7 +99,7 @@ Employee → TimeEntry → WorkdaySummary
               ↓
         AntiFraudCheck
 
-// Vacaciones  
+// Vacaciones
 Employee → PtoBalance → PtoRequest
                            ↓
                       Aprobaciones
@@ -104,35 +111,41 @@ WorkdaySummary + PtoRequest → PayrollExport
 ## 🎯 Roadmap Implementación (6 semanas)
 
 ### **Sprint 0 - Fundaciones** (1 semana)
+
 - Setup PostgreSQL + Prisma
 - NextAuth con multi-tenancy
 - tRPC + middleware seguridad
 - CRUD Organizaciones
 
 ### **Sprint 1 - RRHH** (2 semanas)
+
 - CRUD Empleados completo
 - Contratos y estructura organizativa
 - Calendarios laborales
 - Importador CSV
 
 ### **Sprint 2 - Fichajes** (2 semanas)
+
 - Reloj web + kiosco
 - Sistema antifraude
 - Cálculo jornadas
 - Panel incidencias
 
 ### **Sprint 3 - PTO** (1 semana)
+
 - Solicitudes y aprobaciones
 - Gestión de saldos
 - Calendario equipo
 - Jobs de devengo
 
 ### **Sprint 4 - Nómina** (0.5 semanas)
+
 - Exportación multi-formato
 - Mapeo configurable
 - Reporting
 
 ### **Sprint 5 - Polish** (0.5 semanas)
+
 - Testing E2E
 - Optimización
 - Deploy Azure

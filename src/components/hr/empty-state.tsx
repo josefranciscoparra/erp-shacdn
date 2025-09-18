@@ -11,9 +11,9 @@ type EmptyStateProps = {
 
 export function EmptyState({ icon, title, description, actionHref, actionLabel }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center text-center py-12 text-muted-foreground">
-      {icon ? <div className="mb-4 text-muted-foreground/50">{icon}</div> : null}
-      <h3 className="text-base sm:text-lg font-semibold mb-2 text-foreground">{title}</h3>
+    <div className="text-muted-foreground flex flex-col items-center py-12 text-center">
+      {icon ? <div className="text-muted-foreground/50 mb-4">{icon}</div> : null}
+      <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">{title}</h3>
       {description ? <p className="mb-4 max-w-prose">{description}</p> : null}
       {actionHref && actionLabel ? (
         <Button asChild>
@@ -23,4 +23,3 @@ export function EmptyState({ icon, title, description, actionHref, actionLabel }
     </div>
   );
 }
-

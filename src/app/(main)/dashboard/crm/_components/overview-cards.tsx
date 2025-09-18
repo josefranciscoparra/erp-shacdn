@@ -20,13 +20,13 @@ import {
 const lastMonth = format(subMonths(new Date(), 1), "LLLL");
 
 export function OverviewCards() {
-  const t = useTranslations('crm');
+  const t = useTranslations("crm");
   return (
     <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:shadow-xs sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <Card>
         <CardHeader>
-          <CardTitle>{t('newLeads')}</CardTitle>
-          <CardDescription>{t('lastMonth')}</CardDescription>
+          <CardTitle>{t("newLeads")}</CardTitle>
+          <CardDescription>{t("lastMonth")}</CardDescription>
         </CardHeader>
         <CardContent className="size-full">
           <ChartContainer className="size-full min-h-24" config={leadsChartConfig}>
@@ -52,8 +52,8 @@ export function OverviewCards() {
 
       <Card className="overflow-hidden pb-0">
         <CardHeader>
-          <CardTitle>{t('proposalsSent')}</CardTitle>
-          <CardDescription>{t('lastMonth')}</CardDescription>
+          <CardTitle>{t("proposalsSent")}</CardTitle>
+          <CardDescription>{t("lastMonth")}</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 p-0">
           <ChartContainer className="size-full min-h-24" config={proposalsChartConfig}>
@@ -90,8 +90,8 @@ export function OverviewCards() {
         </CardHeader>
         <CardContent className="flex size-full flex-col justify-between">
           <div className="space-y-1.5">
-            <CardTitle>{t('revenue')}</CardTitle>
-            <CardDescription>{t('lastSixMonths')}</CardDescription>
+            <CardTitle>{t("revenue")}</CardTitle>
+            <CardDescription>{t("lastSixMonths")}</CardDescription>
           </div>
           <p className="text-2xl font-medium tabular-nums">$56,050</p>
           <div className="w-fit rounded-md bg-green-500/10 px-2 py-1 text-xs font-medium text-green-500">+22.2%</div>
@@ -106,8 +106,8 @@ export function OverviewCards() {
         </CardHeader>
         <CardContent className="flex size-full flex-col justify-between">
           <div className="space-y-1.5">
-            <CardTitle>{t('projectsWon')}</CardTitle>
-            <CardDescription>{t('lastSixMonths')}</CardDescription>
+            <CardTitle>{t("projectsWon")}</CardTitle>
+            <CardDescription>{t("lastSixMonths")}</CardDescription>
           </div>
           <p className="text-2xl font-medium tabular-nums">136</p>
           <div className="text-destructive bg-destructive/10 w-fit rounded-md px-2 py-1 text-xs font-medium">-2.5%</div>
@@ -116,8 +116,8 @@ export function OverviewCards() {
 
       <Card className="col-span-1 xl:col-span-2">
         <CardHeader>
-          <CardTitle>{t('revenueGrowth')}</CardTitle>
-          <CardDescription>{t('yearToDate')}</CardDescription>
+          <CardTitle>{t("revenueGrowth")}</CardTitle>
+          <CardDescription>{t("yearToDate")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={revenueChartConfig} className="h-24 w-full">
@@ -145,7 +145,7 @@ export function OverviewCards() {
           </ChartContainer>
         </CardContent>
         <CardFooter>
-          <p className="text-muted-foreground text-sm">{t('growthSinceLastYear')}</p>
+          <p className="text-muted-foreground text-sm">{t("growthSinceLastYear")}</p>
         </CardFooter>
       </Card>
     </div>

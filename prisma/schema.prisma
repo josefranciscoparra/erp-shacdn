@@ -34,16 +34,17 @@ model Organization {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String
-  role          Role      @default(EMPLOYEE)
-  emailVerified DateTime?
-  image         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  email            String    @unique
+  password         String
+  name             String
+  role             Role      @default(EMPLOYEE)
+  emailVerified    DateTime?
+  image            String?
+  active           Boolean   @default(true)
+  mustChangePassword Boolean @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -177,6 +178,9 @@ model Employee {
   emergencyContactPhone String?
   emergencyRelationship String?
   
+  // Estado laboral
+  employmentStatus EmploymentStatus @default(PENDING_CONTRACT)
+  
   // Metadatos
   photoUrl        String?
   notes           String?
@@ -283,6 +287,17 @@ enum DocumentKind {
   CERTIFICATE  // Certificados (idiomas, formación, etc.)
   MEDICAL      // Documentos médicos
   OTHER        // Otros documentos
+}
+
+// Estados laborales del empleado
+enum EmploymentStatus {
+  PENDING_CONTRACT  // Pendiente de contrato
+  ACTIVE           // Activo trabajando
+  ON_LEAVE         // De baja/permiso
+  VACATION         // Vacaciones
+  SUSPENDED        // Suspendido
+  TERMINATED       // Dado de baja
+  RETIRED          // Jubilado
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

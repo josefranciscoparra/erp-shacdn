@@ -26,7 +26,7 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
-  const t = useTranslations('user');
+  const t = useTranslations("user");
 
   return (
     <SidebarMenu>
@@ -70,21 +70,21 @@ export function NavUser({
             <DropdownMenuGroup>
               <DropdownMenuItem>
                 <CircleUser />
-                {t('account')}
+                {t("account")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <CreditCard />
-                {t('billing')}
+                {t("billing")}
               </DropdownMenuItem>
               <DropdownMenuItem>
                 <MessageSquareDot />
-                {t('notifications')}
+                {t("notifications")}
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem>
               <LogOut />
-              {t('logout')}
+              {t("logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

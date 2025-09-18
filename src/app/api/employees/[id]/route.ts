@@ -1,0 +1,264 @@
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
+import { encrypt } from "@/lib/crypto";
+
+const updateEmployeeSchema = z.object({
+  // Datos personales
+  firstName: z.string().min(1, "El nombre es requerido"),
+  lastName: z.string().min(1, "El apellido es requerido"),
+  secondLastName: z.string().optional(),
+  nifNie: z.string().min(1, "El NIF/NIE es requerido"),
+  birthDate: z.string().optional(),
+  nationality: z.string().optional(),
+
+  // Estado laboral
+  employmentStatus: z.enum([
+    "PENDING_CONTRACT",
+    "ACTIVE",
+    "ON_LEAVE",
+    "VACATION",
+    "SUSPENDED",
+    "TERMINATED",
+    "RETIRED",
+  ]),
+  employeeNumber: z.string().optional(),
+
+  // Datos de contacto
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  phone: z.string().optional(),
+  mobilePhone: z.string().optional(),
+  address: z.string().optional(),
+  city: z.string().optional(),
+  postalCode: z.string().optional(),
+  province: z.string().optional(),
+  country: z.string().default("ES"),
+
+  // Contacto de emergencia
+  emergencyContactName: z.string().optional(),
+  emergencyContactPhone: z.string().optional(),
+  emergencyRelationship: z.string().optional(),
+
+  // Datos bancarios (se cifrarán)
+  iban: z.string().optional(),
+
+  // Notas
+  notes: z.string().optional(),
+});
+
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ message: "No autorizado" }, { status: 401 });
+    }
+
+    const { id } = await params;
+
+    // Validar que el ID es válido
+    if (!id || typeof id !== "string") {
+      return NextResponse.json({ message: "ID de empleado inválido" }, { status: 400 });
+    }
+
+    // Buscar el empleado con todas sus relaciones
+    const employee = await prisma.employee.findUnique({
+      where: {
+        id,
+        orgId: session.user.orgId, // Solo empleados de la misma organización
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            active: true,
+          },
+        },
+        employmentContracts: {
+          include: {
+            position: {
+              select: {
+                title: true,
+                level: true,
+              },
+            },
+            department: {
+              select: {
+                name: true,
+              },
+            },
+            costCenter: {
+              select: {
+                name: true,
+                code: true,
+              },
+            },
+          },
+          orderBy: {
+            startDate: "desc",
+          },
+        },
+      },
+    });
+
+    if (!employee) {
+      return NextResponse.json({ message: "Empleado no encontrado" }, { status: 404 });
+    }
+
+    // Transformar las fechas para el cliente
+    const employeeData = {
+      ...employee,
+      birthDate: employee.birthDate?.toISOString(),
+      createdAt: employee.createdAt.toISOString(),
+      updatedAt: employee.updatedAt.toISOString(),
+      employmentContracts: employee.employmentContracts.map((contract) => ({
+        ...contract,
+        startDate: contract.startDate.toISOString(),
+        endDate: contract.endDate?.toISOString() || null,
+        createdAt: contract.createdAt.toISOString(),
+        updatedAt: contract.updatedAt.toISOString(),
+        grossSalary: contract.grossSalary ? Number(contract.grossSalary) : null,
+        weeklyHours: Number(contract.weeklyHours),
+      })),
+    };
+
+    return NextResponse.json(employeeData);
+  } catch (error) {
+    console.error("❌ Error al obtener empleado:", error);
+    return NextResponse.json({ message: "Error interno del servidor" }, { status: 500 });
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const session = await auth();
+    if (!session?.user?.orgId) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const { id: employeeId } = await params;
+    const body = await request.json();
+
+    // Validar datos
+    const result = updateEmployeeSchema.safeParse(body);
+    if (!result.success) {
+      return NextResponse.json({ error: "Datos inválidos", details: result.error.issues }, { status: 400 });
+    }
+
+    const data = result.data;
+
+    // Verificar que el empleado existe y pertenece a la organización
+    const existingEmployee = await prisma.employee.findFirst({
+      where: {
+        id: employeeId,
+        orgId: session.user.orgId,
+      },
+    });
+
+    if (!existingEmployee) {
+      return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
+    }
+
+    // Verificar unicidad del employeeNumber si se proporciona
+    if (data.employeeNumber && data.employeeNumber !== existingEmployee.employeeNumber) {
+      const existingWithNumber = await prisma.employee.findFirst({
+        where: {
+          orgId: session.user.orgId,
+          employeeNumber: data.employeeNumber,
+          id: { not: employeeId },
+        },
+      });
+
+      if (existingWithNumber) {
+        return NextResponse.json({ error: "Ya existe un empleado con ese número" }, { status: 400 });
+      }
+    }
+
+    // Verificar unicidad del NIF/NIE
+    if (data.nifNie !== existingEmployee.nifNie) {
+      const existingWithNif = await prisma.employee.findFirst({
+        where: {
+          orgId: session.user.orgId,
+          nifNie: data.nifNie,
+          id: { not: employeeId },
+        },
+      });
+
+      if (existingWithNif) {
+        return NextResponse.json({ error: "Ya existe un empleado con ese NIF/NIE" }, { status: 400 });
+      }
+    }
+
+    // Preparar datos para actualización
+    const updateData: any = {
+      firstName: data.firstName,
+      lastName: data.lastName,
+      secondLastName: data.secondLastName || null,
+      nifNie: data.nifNie,
+      birthDate: data.birthDate ? new Date(data.birthDate) : null,
+      nationality: data.nationality || null,
+      employmentStatus: data.employmentStatus,
+      employeeNumber: data.employeeNumber || null,
+      email: data.email || null,
+      phone: data.phone || null,
+      mobilePhone: data.mobilePhone || null,
+      address: data.address || null,
+      city: data.city || null,
+      postalCode: data.postalCode || null,
+      province: data.province || null,
+      country: data.country,
+      emergencyContactName: data.emergencyContactName || null,
+      emergencyContactPhone: data.emergencyContactPhone || null,
+      emergencyRelationship: data.emergencyRelationship || null,
+      notes: data.notes || null,
+    };
+
+    // Cifrar IBAN si se proporciona
+    if (data.iban) {
+      updateData.iban = encrypt(data.iban);
+    }
+
+    // Actualizar empleado
+    const updatedEmployee = await prisma.employee.update({
+      where: { id: employeeId },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            active: true,
+            mustChangePassword: true,
+          },
+        },
+        employmentContracts: {
+          where: { active: true },
+          include: {
+            position: true,
+            department: true,
+            costCenter: true,
+            manager: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+          orderBy: { startDate: "desc" },
+          take: 1,
+        },
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      employee: updatedEmployee,
+    });
+  } catch (error) {
+    console.error("Error updating employee:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+  }
+}
