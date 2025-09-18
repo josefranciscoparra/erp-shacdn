@@ -16,6 +16,7 @@ import {
   Clock,
   User,
   Shield,
+  FolderOpen,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -195,6 +196,14 @@ export default function EmployeeProfilePage() {
           >
             <FileText className="mr-2 h-4 w-4" />
             Contratos
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
+          >
+            <FolderOpen className="mr-2 h-4 w-4" />
+            Documentos
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/employees/${employee.id}/edit`)}>
             <Pencil className="mr-2 h-4 w-4" />
@@ -439,11 +448,28 @@ export default function EmployeeProfilePage() {
 
         {/* Documentos */}
         <TabsContent value="documents">
-          <EmptyState
-            icon={<FileText className="mx-auto h-12 w-12" />}
-            title="Documentos no implementados"
-            description="La gestión de documentos estará disponible próximamente"
-          />
+          <Card className="rounded-lg border shadow-xs">
+            <CardHeader>
+              <CardTitle className="text-lg">
+                <FolderOpen className="mr-2 inline h-5 w-5" />
+                Gestión de Documentos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center py-8">
+                <p className="text-muted-foreground mb-4">
+                  Accede a la gestión completa de documentos del empleado
+                </p>
+                <Button 
+                  onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
+                  className="w-full @md/main:w-auto"
+                >
+                  <FolderOpen className="mr-2 h-4 w-4" />
+                  Ver Documentos
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Historial */}

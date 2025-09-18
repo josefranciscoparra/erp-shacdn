@@ -33,6 +33,15 @@ npm run format:check
 npm run generate:presets
 ```
 
+## IMPORTANTE: Gestión del Puerto de Desarrollo
+
+**SIEMPRE usar el puerto 3000 para desarrollo**
+
+- Si el puerto 3000 está ocupado, MATAR el proceso y liberar el puerto
+- NUNCA usar puertos alternativos (3001, 3002, etc.)
+- Comando para liberar puerto 3000: `pkill -f "next|node.*3000"`
+- La aplicación DEBE estar disponible en http://localhost:3000
+
 ## Architecture & Patterns
 
 ### Route Organization

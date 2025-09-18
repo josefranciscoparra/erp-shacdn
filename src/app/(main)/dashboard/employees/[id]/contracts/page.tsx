@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowLeft,
   Plus,
@@ -165,13 +166,16 @@ export default function EmployeeContractsPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Cargando contratos..."
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al perfil",
-          }}
-        />
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/dashboard/employees/${params.id}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Cargando contratos...</h1>
+          </div>
+        </div>
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando contratos del empleado...</span>
@@ -183,13 +187,16 @@ export default function EmployeeContractsPage() {
   if (error || !employee) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Error"
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al perfil",
-          }}
-        />
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/dashboard/employees/${params.id}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Error</h1>
+          </div>
+        </div>
         <EmptyState
           icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
           title="Error al cargar contratos"
@@ -249,17 +256,17 @@ export default function EmployeeContractsPage() {
 
         <TabsContent value="active">
           {activeContracts.length === 0 ? (
-            <EmptyState
-              icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
-              title="No hay contratos activos"
-              description="Este empleado no tiene contratos activos en este momento"
-              action={
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear Primer Contrato
-                </Button>
-              }
-            />
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Briefcase className="text-muted-foreground mx-auto h-12 w-12 mb-4" />
+              <h3 className="text-lg font-medium mb-2">No hay contratos activos</h3>
+              <p className="text-muted-foreground mb-4 max-w-sm">
+                Este empleado no tiene contratos activos en este momento
+              </p>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Crear Primer Contrato
+              </Button>
+            </div>
           ) : (
             <div className="grid gap-4 md:gap-6">
               {activeContracts.map((contract) => (
