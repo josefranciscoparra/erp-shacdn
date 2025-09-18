@@ -112,6 +112,11 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
         link.click();
         document.body.removeChild(link);
         
+        // Limpiar la URL temporal después de un momento
+        setTimeout(() => {
+          window.URL.revokeObjectURL(url);
+        }, 1000);
+        
         toast.success("Descarga iniciada");
       }
     } catch (error) {
@@ -124,7 +129,13 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
     try {
       const url = await downloadDocument(employeeId, documentId);
       if (url) {
-        window.open(url, "_blank");
+        const newWindow = window.open(url, "_blank");
+        // Limpiar la URL temporal después de que se abra
+        if (newWindow) {
+          setTimeout(() => {
+            window.URL.revokeObjectURL(url);
+          }, 5000);
+        }
       }
     } catch (error) {
       toast.error("Error al abrir documento");

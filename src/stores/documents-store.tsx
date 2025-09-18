@@ -207,18 +207,22 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   downloadDocument: async (employeeId: string, documentId: string) => {
     try {
       const response = await fetch(
-        `/api/employees/${employeeId}/documents/${documentId}/download?action=url`
+        `/api/employees/${employeeId}/documents/${documentId}/download`
       );
 
       if (!response.ok) {
-        throw new Error("Error al obtener enlace de descarga");
+        throw new Error("Error al descargar documento");
       }
 
-      const data = await response.json();
-      return data.url;
+      // Obtener el blob del archivo
+      const blob = await response.blob();
+      
+      // Crear una URL temporal para el blob
+      const url = window.URL.createObjectURL(blob);
+      return url;
     } catch (error) {
-      console.error("Error getting download URL:", error);
-      toast.error("Error al generar enlace de descarga");
+      console.error("Error downloading document:", error);
+      toast.error("Error al descargar documento");
       return null;
     }
   },
