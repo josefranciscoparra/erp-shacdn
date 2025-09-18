@@ -190,6 +190,20 @@ export async function POST(request: NextRequest) {
             password: hashedPassword,
             name: `${data.firstName} ${data.lastName}`,
             role: "EMPLOYEE",
+            mustChangePassword: true, // Forzar cambio de contraseña en primer login
+          },
+        });
+
+        // Crear registro de contraseña temporal
+        await tx.temporaryPassword.create({
+          data: {
+            orgId,
+            userId: user.id,
+            password: temporaryPassword, // Guardamos la contraseña en texto plano para mostrar al admin
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expira en 7 días
+            reason: "Nuevo empleado",
+            notes: `Contraseña generada automáticamente para nuevo empleado: ${data.firstName} ${data.lastName}`,
+            createdById: session.user.id, // El admin/HR que creó el empleado
           },
         });
 

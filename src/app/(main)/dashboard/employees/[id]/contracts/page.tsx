@@ -6,64 +6,23 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Plus,
-  Calendar,
   Briefcase,
-  DollarSign,
-  Clock,
-  MapPin,
-  User,
-  Edit,
-  Trash2,
-  Loader2,
   AlertCircle,
+  FileText,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SectionHeader } from "@/components/hr/section-header";
 import { EmptyState } from "@/components/hr/empty-state";
 import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
-
-interface Position {
-  id: string;
-  title: string;
-  level: string | null;
-}
-
-interface Department {
-  id: string;
-  name: string;
-}
-
-interface CostCenter {
-  id: string;
-  name: string;
-  code: string | null;
-}
-
-interface Manager {
-  firstName: string;
-  lastName: string;
-}
-
-interface EmploymentContract {
-  id: string;
-  contractType: string;
-  startDate: string;
-  endDate: string | null;
-  weeklyHours: number;
-  grossSalary: number | null;
-  active: boolean;
-  position: Position | null;
-  department: Department | null;
-  costCenter: CostCenter | null;
-  manager: Manager | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import { useContractsStore } from "@/stores/contracts-store";
+import { ContractSheet } from "@/components/contracts/contract-sheet";
+import { contractsColumns } from "./_components/contracts-columns";
+import { ContractsDataTable } from "./_components/contracts-data-table";
+import { toast } from "sonner";
 
 interface Employee {
   id: string;
@@ -72,18 +31,7 @@ interface Employee {
   lastName: string;
   secondLastName: string | null;
   employmentStatus: "PENDING_CONTRACT" | "ACTIVE" | "ON_LEAVE" | "VACATION" | "SUSPENDED" | "TERMINATED" | "RETIRED";
-  employmentContracts: EmploymentContract[];
 }
-
-const CONTRACT_TYPES = {
-  INDEFINIDO: "Indefinido",
-  TEMPORAL: "Temporal",
-  PRACTICAS: "Prácticas",
-  FORMACION: "Formación",
-  OBRA_SERVICIO: "Obra o Servicio",
-  EVENTUAL: "Eventual",
-  INTERINIDAD: "Interinidad",
-} as const;
 
 export default function EmployeeContractsPage() {
   const params = useParams();
@@ -91,6 +39,18 @@ export default function EmployeeContractsPage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [contractSheetOpen, setContractSheetOpen] = useState(false);
+  const [currentTab, setCurrentTab] = useState("active");
+  
+  const {
+    contracts,
+    isLoading: contractsLoading,
+    status,
+    total,
+    fetchContracts,
+    setStatus,
+    reset,
+  } = useContractsStore();
 
   const fetchEmployee = async () => {
     try {
@@ -105,9 +65,15 @@ export default function EmployeeContractsPage() {
 
       const employeeData = await response.json();
       setEmployee(employeeData);
+      
+      // Cargar contratos
+      await fetchContracts(params.id as string, { status: currentTab === "all" ? "all" : currentTab });
     } catch (error: any) {
       console.error("Error fetching employee:", error);
       setError(error.message);
+      toast.error("Error al cargar empleado", {
+        description: error.message,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -117,68 +83,62 @@ export default function EmployeeContractsPage() {
     if (params.id) {
       fetchEmployee();
     }
+    
+    // Cleanup store on unmount
+    return () => {
+      reset();
+    };
   }, [params.id]);
+  
+  // Refetch contracts when tab changes
+  useEffect(() => {
+    if (employee) {
+      const statusParam = currentTab === "all" ? "all" : currentTab;
+      fetchContracts(employee.id, { status: statusParam });
+      setStatus(statusParam as any);
+    }
+  }, [currentTab, employee]);
 
-  const formatCurrency = (amount: number | null) => {
-    if (!amount) return "No especificado";
-    return new Intl.NumberFormat("es-ES", {
-      style: "currency",
-      currency: "EUR",
-    }).format(amount);
+  const activeContracts = contracts.filter((contract) => contract.active);
+  const inactiveContracts = contracts.filter((contract) => !contract.active);
+  
+  const handleNewContract = () => {
+    setContractSheetOpen(true);
   };
-
-  const formatDate = (date: string) => {
-    return new Intl.DateTimeFormat("es-ES", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    }).format(new Date(date));
-  };
-
-  const getContractTypeBadge = (type: string) => {
-    switch (type) {
-      case "INDEFINIDO":
-        return (
-          <Badge variant="default" className="border-green-200 bg-green-100 text-green-800">
-            Indefinido
-          </Badge>
-        );
-      case "TEMPORAL":
-        return (
-          <Badge variant="default" className="border-blue-200 bg-blue-100 text-blue-800">
-            Temporal
-          </Badge>
-        );
-      case "PRACTICAS":
-        return (
-          <Badge variant="default" className="border-purple-200 bg-purple-100 text-purple-800">
-            Prácticas
-          </Badge>
-        );
-      default:
-        return <Badge variant="secondary">{CONTRACT_TYPES[type as keyof typeof CONTRACT_TYPES] || type}</Badge>;
+  
+  const handleContractSuccess = () => {
+    // Refetch contracts after successful creation
+    if (employee) {
+      fetchContracts(employee.id, { status: currentTab === "all" ? "all" : currentTab });
     }
   };
-
-  const activeContracts = employee?.employmentContracts?.filter((contract) => contract.active) || [];
-  const inactiveContracts = employee?.employmentContracts?.filter((contract) => !contract.active) || [];
+  
+  const getFilteredContracts = () => {
+    switch (currentTab) {
+      case "active":
+        return activeContracts;
+      case "inactive":
+        return inactiveContracts;
+      default:
+        return contracts;
+    }
+  };
 
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/dashboard/employees/${params.id}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Cargando contratos...</h1>
-          </div>
-        </div>
+        <SectionHeader
+          title="Cargando contratos..."
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+        />
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-          <span className="text-muted-foreground ml-2">Cargando contratos del empleado...</span>
+          <div className="text-center space-y-2">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto"></div>
+            <p className="text-muted-foreground text-sm">Cargando contratos del empleado...</p>
+          </div>
         </div>
       </div>
     );
@@ -187,16 +147,13 @@ export default function EmployeeContractsPage() {
   if (error || !employee) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="icon" asChild>
-            <Link href={`/dashboard/employees/${params.id}`}>
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Error</h1>
-          </div>
-        </div>
+        <SectionHeader
+          title="Error"
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+        />
         <EmptyState
           icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
           title="Error al cargar contratos"
@@ -211,30 +168,54 @@ export default function EmployeeContractsPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver
-          </Button>
-          <div>
-            <h1 className="text-foreground text-2xl font-semibold">Contratos</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-muted-foreground text-sm">{fullName}</p>
-              <EmployeeStatusBadge status={employee.employmentStatus} />
-            </div>
-          </div>
-        </div>
-        <Button>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Contrato
-        </Button>
-      </div>
+      <SectionHeader
+        title="Contratos"
+        description={`Gestión de contratos laborales de ${fullName}`}
+        backButton={{
+          href: `/dashboard/employees/${params.id}`,
+          label: "Volver al empleado",
+        }}
+        badge={<EmployeeStatusBadge status={employee.employmentStatus} />}
+      />
 
       {/* Tabs de contratos */}
-      <Tabs defaultValue="active" className="w-full">
-        <div className="mb-6 flex items-center justify-between">
-          <TabsList>
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+        <div className="flex items-center justify-between">
+          {/* Mobile Select */}
+          <div className="@4xl/main:hidden">
+            <Select value={currentTab} onValueChange={setCurrentTab}>
+              <SelectTrigger className="w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">
+                  Activos
+                  {activeContracts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {activeContracts.length}
+                    </Badge>
+                  )}
+                </SelectItem>
+                <SelectItem value="inactive">
+                  Finalizados
+                  {inactiveContracts.length > 0 && (
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {inactiveContracts.length}
+                    </Badge>
+                  )}
+                </SelectItem>
+                <SelectItem value="all">
+                  Todos
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {total}
+                  </Badge>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Desktop Tabs */}
+          <TabsList className="hidden @4xl/main:flex">
             <TabsTrigger value="active" className="relative">
               Contratos Activos
               {activeContracts.length > 0 && (
@@ -244,188 +225,82 @@ export default function EmployeeContractsPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="inactive" className="relative">
-              Historial
+              Finalizados
               {inactiveContracts.length > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs">
                   {inactiveContracts.length}
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="all" className="relative">
+              Todos
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {total}
+              </Badge>
+            </TabsTrigger>
           </TabsList>
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            <Button onClick={handleNewContract} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Nuevo Contrato
+            </Button>
+          </div>
         </div>
 
         <TabsContent value="active">
           {activeContracts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Briefcase className="text-muted-foreground mx-auto h-12 w-12 mb-4" />
-              <h3 className="text-lg font-medium mb-2">No hay contratos activos</h3>
-              <p className="text-muted-foreground mb-4 max-w-sm">
-                Este empleado no tiene contratos activos en este momento
-              </p>
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Crear Primer Contrato
-              </Button>
-            </div>
+            <EmptyState
+              icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
+              title="No hay contratos activos"
+              description="Este empleado no tiene contratos activos en este momento"
+            />
           ) : (
-            <div className="grid gap-4 md:gap-6">
-              {activeContracts.map((contract) => (
-                <Card key={contract.id} className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {getContractTypeBadge(contract.contractType)}
-                          <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">
-                            Activo
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-lg">{contract.position?.title || "Sin puesto asignado"}</CardTitle>
-                        <CardDescription>
-                          {contract.department?.name || "Sin departamento"} •{" "}
-                          {contract.costCenter?.name || "Sin centro de coste"}
-                        </CardDescription>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Fecha de inicio</p>
-                          <p className="text-muted-foreground">{formatDate(contract.startDate)}</p>
-                        </div>
-                      </div>
-                      {contract.endDate && (
-                        <div className="flex items-center gap-2">
-                          <Calendar className="text-muted-foreground h-4 w-4" />
-                          <div className="text-sm">
-                            <p className="font-medium">Fecha de fin</p>
-                            <p className="text-muted-foreground">{formatDate(contract.endDate)}</p>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Clock className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Horas semanales</p>
-                          <p className="text-muted-foreground">{contract.weeklyHours}h</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Salario bruto anual</p>
-                          <p className="text-muted-foreground">{formatCurrency(contract.grossSalary)}</p>
-                        </div>
-                      </div>
-                    </div>
-                    {contract.manager && (
-                      <div className="flex items-center gap-2 border-t pt-2">
-                        <User className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Responsable</p>
-                          <p className="text-muted-foreground">
-                            {contract.manager.firstName} {contract.manager.lastName}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <ContractsDataTable
+              columns={contractsColumns}
+              data={activeContracts}
+              isLoading={contractsLoading}
+              onNewContract={handleNewContract}
+            />
           )}
         </TabsContent>
 
         <TabsContent value="inactive">
           {inactiveContracts.length === 0 ? (
             <EmptyState
-              icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
-              title="No hay contratos anteriores"
+              icon={<FileText className="text-muted-foreground mx-auto h-12 w-12" />}
+              title="No hay contratos finalizados"
               description="Este empleado no tiene contratos en el historial"
             />
           ) : (
-            <div className="grid gap-4 md:gap-6">
-              {inactiveContracts.map((contract) => (
-                <Card key={contract.id} className="opacity-75">
-                  <CardHeader className="pb-4">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          {getContractTypeBadge(contract.contractType)}
-                          <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-700">
-                            Finalizado
-                          </Badge>
-                        </div>
-                        <CardTitle className="text-lg">{contract.position?.title || "Sin puesto asignado"}</CardTitle>
-                        <CardDescription>
-                          {contract.department?.name || "Sin departamento"} •{" "}
-                          {contract.costCenter?.name || "Sin centro de coste"}
-                        </CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Fecha de inicio</p>
-                          <p className="text-muted-foreground">{formatDate(contract.startDate)}</p>
-                        </div>
-                      </div>
-                      {contract.endDate && (
-                        <div className="flex items-center gap-2">
-                          <Calendar className="text-muted-foreground h-4 w-4" />
-                          <div className="text-sm">
-                            <p className="font-medium">Fecha de fin</p>
-                            <p className="text-muted-foreground">{formatDate(contract.endDate)}</p>
-                          </div>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <Clock className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Horas semanales</p>
-                          <p className="text-muted-foreground">{contract.weeklyHours}h</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Salario bruto anual</p>
-                          <p className="text-muted-foreground">{formatCurrency(contract.grossSalary)}</p>
-                        </div>
-                      </div>
-                    </div>
-                    {contract.manager && (
-                      <div className="flex items-center gap-2 border-t pt-2">
-                        <User className="text-muted-foreground h-4 w-4" />
-                        <div className="text-sm">
-                          <p className="font-medium">Responsable</p>
-                          <p className="text-muted-foreground">
-                            {contract.manager.firstName} {contract.manager.lastName}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <ContractsDataTable
+              columns={contractsColumns}
+              data={inactiveContracts}
+              isLoading={contractsLoading}
+              onNewContract={handleNewContract}
+            />
           )}
         </TabsContent>
+
+        <TabsContent value="all">
+          <ContractsDataTable
+            columns={contractsColumns}
+            data={getFilteredContracts()}
+            isLoading={contractsLoading}
+            onNewContract={handleNewContract}
+          />
+        </TabsContent>
       </Tabs>
+
+      {/* Contract Sheet Modal */}
+      <ContractSheet
+        open={contractSheetOpen}
+        onOpenChange={setContractSheetOpen}
+        employeeId={employee.id}
+        employeeName={fullName}
+        onSuccess={handleContractSuccess}
+      />
     </div>
   );
 }

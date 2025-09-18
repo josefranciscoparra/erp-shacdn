@@ -29,6 +29,7 @@ model Organization {
   positions           Position[]
   employmentContracts EmploymentContract[]
   employeeDocuments   EmployeeDocument[]
+  temporaryPasswords  TemporaryPassword[]
 
   @@map("organizations")
 }
@@ -54,6 +55,8 @@ model User {
   sessions           Session[]
   employee           Employee?           // Un usuario puede estar vinculado a un empleado
   uploadedDocuments  EmployeeDocument[]  // Documentos que ha subido
+  temporaryPasswords TemporaryPassword[] // Contraseñas temporales generadas para este usuario
+  createdTempPasswords TemporaryPassword[] @relation("CreatedBy") // Contraseñas temporales que ha creado
 
   @@index([email])
   @@index([orgId])
@@ -298,6 +301,40 @@ enum EmploymentStatus {
   SUSPENDED        // Suspendido
   TERMINATED       // Dado de baja
   RETIRED          // Jubilado
+}
+
+// ==================== SISTEMA DE CONTRASEÑAS TEMPORALES ====================
+
+// Contraseñas temporales generadas para usuarios
+model TemporaryPassword {
+  id          String    @id @default(cuid())
+  password    String    // Contraseña encriptada
+  createdAt   DateTime  @default(now())
+  usedAt      DateTime? // Cuando fue usada por primera vez
+  expiresAt   DateTime  // Cuándo expira
+  active      Boolean   @default(true)
+  
+  // Notas administrativas
+  reason      String?   // Razón de la generación (ej: "Nuevo empleado", "Reset solicitado")
+  notes       String?   // Notas adicionales del administrador
+  
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  
+  // Usuario al que pertenece la contraseña
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Usuario que creó la contraseña temporal (admin/HR)
+  createdById String
+  createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
+  
+  @@index([userId])
+  @@index([orgId])
+  @@index([active])
+  @@index([expiresAt])
+  @@map("temporary_passwords")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
