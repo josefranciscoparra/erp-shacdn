@@ -126,10 +126,15 @@ model Department {
   costCenterId String?
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
+  // Responsable del departamento
+  managerId String?
+  manager   Employee? @relation("DepartmentManager", fields: [managerId], references: [id])
+
   // Relaciones
   employmentContracts EmploymentContract[]
 
   @@index([orgId])
+  @@index([managerId])
   @@map("departments")
 }
 
@@ -203,6 +208,7 @@ model Employee {
   employmentContracts EmploymentContract[]
   documents          EmployeeDocument[]
   managedContracts   EmploymentContract[] @relation("ManagerSubordinates")
+  managedDepartments Department[]         @relation("DepartmentManager")
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
