@@ -268,7 +268,7 @@ export default function EmployeeProfilePage() {
 
                   {employee.nationality && (
                     <div className="flex items-center text-sm">
-                      <span className="text-muted-foreground w-20">Nacionalidad:</span>
+                      <span className="text-muted-foreground w-24">Nacionalidad:</span>
                       <span>{employee.nationality}</span>
                     </div>
                   )}
