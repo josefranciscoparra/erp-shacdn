@@ -6,6 +6,8 @@ export type Permission =
   | "manage_employees" // Crear/editar/eliminar empleados
   | "view_departments" // Ver departamentos
   | "manage_departments" // Gestionar departamentos
+  | "view_cost_centers" // Ver centros de coste
+  | "manage_cost_centers" // Gestionar centros de coste
   | "view_contracts" // Ver contratos
   | "manage_contracts" // Gestionar contratos
   | "view_documents" // Ver documentos
@@ -25,6 +27,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_employees",
     "view_departments",
     "manage_departments",
+    "view_cost_centers",
+    "manage_cost_centers",
     "view_contracts",
     "manage_contracts",
     "view_documents",
@@ -42,6 +46,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_employees",
     "view_departments",
     "manage_departments",
+    "view_cost_centers",
+    "manage_cost_centers",
     "view_contracts",
     "manage_contracts",
     "view_documents",
@@ -59,6 +65,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_employees",
     "view_departments",
     "manage_departments",
+    "view_cost_centers",
+    "manage_cost_centers",
     "view_contracts",
     "manage_contracts",
     "view_documents",
@@ -73,6 +81,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   MANAGER: [
     "view_employees", // Pueden ver empleados de su equipo
     "view_departments", // Ver departamentos
+    "view_cost_centers", // Ver centros de coste
     "view_contracts", // Ver contratos (limitado)
     "view_documents", // Ver documentos (limitado)
     "view_reports", // Ver reportes de su área
@@ -114,6 +123,8 @@ export function canAccessPage(role: Role, page: string): boolean {
       return hasPermission(role, "view_employees");
     case "/dashboard/departments":
       return hasPermission(role, "view_departments");
+    case "/dashboard/cost-centers":
+      return hasPermission(role, "view_cost_centers");
     case "/dashboard/contracts":
       return hasPermission(role, "view_contracts");
     case "/dashboard/documents":

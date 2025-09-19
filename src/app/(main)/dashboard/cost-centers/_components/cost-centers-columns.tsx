@@ -1,0 +1,146 @@
+"use client";
+
+import { ColumnDef } from "@tanstack/react-table";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Pencil, Trash2, MapPin, Clock } from "lucide-react";
+import { CostCenterData } from "@/stores/cost-centers-store";
+
+interface CostCentersColumnsProps {
+  onEdit?: (costCenter: CostCenterData) => void;
+  onDelete?: (costCenter: CostCenterData) => void;
+}
+
+export const createCostCentersColumns = ({ 
+  onEdit, 
+  onDelete 
+}: CostCentersColumnsProps = {}): ColumnDef<CostCenterData>[] => [
+  {
+    accessorKey: "name",
+    header: "Nombre",
+    cell: ({ row }) => {
+      const costCenter = row.original;
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium">{costCenter.name}</span>
+          {costCenter.code && (
+            <span className="text-muted-foreground text-sm">
+              Código: {costCenter.code}
+            </span>
+          )}
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "address",
+    header: "Dirección",
+    cell: ({ row }) => {
+      const address = row.original.address;
+      if (!address) {
+        return <span className="text-muted-foreground">Sin dirección</span>;
+      }
+      
+      return (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate max-w-[200px]" title={address}>
+            {address}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "timezone",
+    header: "Zona Horaria",
+    cell: ({ row }) => {
+      const timezone = row.original.timezone;
+      if (!timezone) {
+        return <span className="text-muted-foreground">Sin configurar</span>;
+      }
+      
+      return (
+        <div className="flex items-center gap-2">
+          <Clock className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm">{timezone}</span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "active",
+    header: "Estado",
+    cell: ({ row }) => {
+      const active = row.getValue("active") as boolean;
+      return (
+        <Badge variant={active ? "default" : "secondary"}>
+          {active ? "Activo" : "Inactivo"}
+        </Badge>
+      );
+    },
+  },
+  {
+    accessorKey: "createdAt",
+    header: "Creado",
+    cell: ({ row }) => {
+      const date = row.getValue("createdAt") as Date;
+      return (
+        <span className="text-muted-foreground text-sm">
+          {format(new Date(date), "dd/MM/yyyy", { locale: es })}
+        </span>
+      );
+    },
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const costCenter = row.original;
+
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Abrir menú</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => navigator.clipboard.writeText(costCenter.id)}
+            >
+              Copiar ID
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onEdit?.(costCenter)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar centro de coste
+            </DropdownMenuItem>
+            {costCenter.active && (
+              <DropdownMenuItem 
+                className="text-destructive"
+                onClick={() => onDelete?.(costCenter)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar centro de coste
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+];
+
+export const costCentersColumns = createCostCentersColumns();
