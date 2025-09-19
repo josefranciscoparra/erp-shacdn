@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { EmployeeStatusSelect, type EmploymentStatus } from "@/components/employees/employee-status-select";
+import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
 
 const editEmployeeSchema = z.object({
   // Datos personales
@@ -913,6 +914,15 @@ export default function EditEmployeePage() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* Gestión de contraseñas temporales - solo si el usuario existe */}
+              {employee.user && (
+                <TemporaryPasswordManager
+                  userId={employee.user.id}
+                  temporaryPasswords={employee.user.temporaryPasswords || []}
+                  onPasswordReset={fetchEmployee}
+                />
+              )}
             </TabsContent>
           </Tabs>
         </form>

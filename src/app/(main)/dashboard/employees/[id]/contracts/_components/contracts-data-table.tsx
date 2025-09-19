@@ -41,7 +41,6 @@ interface ContractsDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   isLoading?: boolean;
-  onNewContract?: () => void;
 }
 
 const contractTypeOptions = [
@@ -63,7 +62,6 @@ export function ContractsDataTable<TData, TValue>({
   columns,
   data,
   isLoading,
-  onNewContract,
 }: ContractsDataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);

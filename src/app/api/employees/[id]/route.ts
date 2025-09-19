@@ -69,11 +69,28 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
       include: {
         user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            active: true,
+          include: {
+            temporaryPasswords: {
+              where: {
+                active: true,
+              },
+              orderBy: {
+                createdAt: "desc",
+              },
+              select: {
+                id: true,
+                password: true,
+                createdAt: true,
+                expiresAt: true,
+                reason: true,
+                usedAt: true,
+                createdBy: {
+                  select: {
+                    name: true,
+                  },
+                },
+              },
+            },
           },
         },
         employmentContracts: {

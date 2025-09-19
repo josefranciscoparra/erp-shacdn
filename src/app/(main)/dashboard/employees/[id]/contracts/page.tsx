@@ -261,7 +261,6 @@ export default function EmployeeContractsPage() {
               columns={contractsColumns}
               data={activeContracts}
               isLoading={contractsLoading}
-              onNewContract={handleNewContract}
             />
           )}
         </TabsContent>
@@ -278,7 +277,6 @@ export default function EmployeeContractsPage() {
               columns={contractsColumns}
               data={inactiveContracts}
               isLoading={contractsLoading}
-              onNewContract={handleNewContract}
             />
           )}
         </TabsContent>
@@ -288,7 +286,6 @@ export default function EmployeeContractsPage() {
             columns={contractsColumns}
             data={getFilteredContracts()}
             isLoading={contractsLoading}
-            onNewContract={handleNewContract}
           />
         </TabsContent>
       </Tabs>

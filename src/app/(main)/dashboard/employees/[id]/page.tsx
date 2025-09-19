@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { SectionHeader } from "@/components/hr/section-header";
 import { EmptyState } from "@/components/hr/empty-state";
+import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
 
 interface Employee {
   id: string;
@@ -55,6 +56,17 @@ interface Employee {
     email: string;
     role: string;
     active: boolean;
+    temporaryPasswords?: Array<{
+      id: string;
+      password: string;
+      createdAt: string;
+      expiresAt: string;
+      reason: string | null;
+      usedAt: string | null;
+      createdBy: {
+        name: string;
+      };
+    }>;
   } | null;
   employmentContracts: Array<{
     id: string;
@@ -85,22 +97,27 @@ export default function EmployeeProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchEmployee = async () => {
-      try {
-        const response = await fetch(`/api/employees/${params.id}`);
-        if (!response.ok) {
-          throw new Error("Empleado no encontrado");
-        }
-        const data = await response.json();
-        setEmployee(data);
-      } catch (error: any) {
-        setError(error.message);
-      } finally {
+  const fetchEmployee = async (silent = false) => {
+    try {
+      if (!silent) {
+        setIsLoading(true);
+      }
+      const response = await fetch(`/api/employees/${params.id}`);
+      if (!response.ok) {
+        throw new Error("Empleado no encontrado");
+      }
+      const data = await response.json();
+      setEmployee(data);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
+      if (!silent) {
         setIsLoading(false);
       }
-    };
+    }
+  };
 
+  useEffect(() => {
     if (params.id) {
       fetchEmployee();
     }
@@ -214,9 +231,10 @@ export default function EmployeeProfilePage() {
 
       {/* Tabs Content */}
       <Tabs defaultValue="information" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="information">Información</TabsTrigger>
           <TabsTrigger value="contract">Contrato Actual</TabsTrigger>
+          <TabsTrigger value="access">Acceso</TabsTrigger>
           <TabsTrigger value="documents">Documentos</TabsTrigger>
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
@@ -337,33 +355,6 @@ export default function EmployeeProfilePage() {
               </Card>
             )}
 
-            {/* Usuario del Sistema */}
-            {employee.user && (
-              <Card className="rounded-lg border shadow-xs">
-                <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">
-                    <Shield className="mr-2 inline h-5 w-5" />
-                    Usuario del Sistema
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Email:</span>
-                    <span className="font-mono text-sm">{employee.user.email}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Rol:</span>
-                    <Badge variant="outline">{employee.user.role}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground text-sm">Estado:</span>
-                    <Badge variant={employee.user.active ? "default" : "destructive"}>
-                      {employee.user.active ? "Activo" : "Inactivo"}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         </TabsContent>
 
@@ -442,6 +433,52 @@ export default function EmployeeProfilePage() {
               icon={<FileText className="mx-auto h-12 w-12" />}
               title="Sin contrato activo"
               description="Este empleado no tiene un contrato laboral activo"
+            />
+          )}
+        </TabsContent>
+
+        {/* Acceso */}
+        <TabsContent value="access" className="space-y-6">
+          {employee.user ? (
+            <div className="space-y-6">
+              {/* Usuario del Sistema */}
+              <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">
+                    <Shield className="mr-2 inline h-5 w-5" />
+                    Usuario del Sistema
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Email:</span>
+                    <span className="font-mono text-sm">{employee.user.email}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Rol:</span>
+                    <Badge variant="outline">{employee.user.role}</Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">Estado:</span>
+                    <Badge variant={employee.user.active ? "default" : "destructive"}>
+                      {employee.user.active ? "Activo" : "Inactivo"}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contraseñas Temporales */}
+              <TemporaryPasswordManager
+                userId={employee.user.id}
+                temporaryPasswords={employee.user.temporaryPasswords || []}
+                onPasswordReset={() => fetchEmployee(true)}
+              />
+            </div>
+          ) : (
+            <EmptyState
+              icon={<Shield className="mx-auto h-12 w-12" />}
+              title="Sin usuario de sistema"
+              description="Este empleado no tiene un usuario asociado en el sistema"
             />
           )}
         </TabsContent>
