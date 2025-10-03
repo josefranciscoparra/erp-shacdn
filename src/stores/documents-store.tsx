@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import type { DocumentKind } from "@/lib/validations/document";
 
 // Tipos para el store
-interface EmployeeDocument {
+export interface EmployeeDocument {
   id: string;
   kind: DocumentKind;
   fileName: string;
@@ -22,6 +22,12 @@ interface EmployeeDocument {
     name: string;
     email: string;
   };
+  employee?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    employeeNumber?: string;
+  };
 }
 
 interface DocumentsState {
@@ -30,12 +36,29 @@ interface DocumentsState {
   isUploading: boolean;
   currentEmployeeId: string | null;
   filters: {
+    employeeId?: string;
     documentKind?: DocumentKind;
     search?: string;
     dateFrom?: string;
     dateTo?: string;
   };
   pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  // Estado para vista global
+  globalDocuments: EmployeeDocument[];
+  isLoadingGlobal: boolean;
+  globalFilters: {
+    employeeId?: string;
+    documentKind?: DocumentKind;
+    search?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  };
+  globalPagination: {
     page: number;
     limit: number;
     total: number;
@@ -49,15 +72,22 @@ interface DocumentsActions {
   uploadDocument: (employeeId: string, formData: FormData) => Promise<boolean>;
   deleteDocument: (employeeId: string, documentId: string) => Promise<boolean>;
   downloadDocument: (employeeId: string, documentId: string) => Promise<string | null>;
-  
+
+  // Acciones para vista global
+  fetchAllDocuments: (options?: { refresh?: boolean }) => Promise<void>;
+  setGlobalFilters: (filters: Partial<DocumentsState["globalFilters"]>) => void;
+  clearGlobalFilters: () => void;
+  setGlobalPage: (page: number) => void;
+  setGlobalLimit: (limit: number) => void;
+
   // Acciones de filtros
   setFilters: (filters: Partial<DocumentsState["filters"]>) => void;
   clearFilters: () => void;
-  
+
   // Acciones de paginación
   setPage: (page: number) => void;
   setLimit: (limit: number) => void;
-  
+
   // Acciones de estado
   setCurrentEmployee: (employeeId: string | null) => void;
   clearDocuments: () => void;
@@ -74,6 +104,15 @@ const initialState: DocumentsState = {
   pagination: {
     page: 1,
     limit: 10,
+    total: 0,
+    totalPages: 0,
+  },
+  globalDocuments: [],
+  isLoadingGlobal: false,
+  globalFilters: {},
+  globalPagination: {
+    page: 1,
+    limit: 20,
     total: 0,
     totalPages: 0,
   },
@@ -292,6 +331,106 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       pagination: initialState.pagination,
     });
   },
+
+  // ==================== FUNCIONES PARA VISTA GLOBAL ====================
+
+  // Obtener todos los documentos de la organización
+  fetchAllDocuments: async (options = {}) => {
+    const { refresh = false } = options;
+    const state = get();
+
+    // Si ya hay datos y no es refresh, no hacer nada
+    if (!refresh && state.globalDocuments.length > 0) {
+      return;
+    }
+
+    set({ isLoadingGlobal: true });
+
+    try {
+      const params = new URLSearchParams({
+        page: state.globalPagination.page.toString(),
+        limit: state.globalPagination.limit.toString(),
+      });
+
+      // Añadir filtros si existen
+      if (state.globalFilters.employeeId) {
+        params.append("employeeId", state.globalFilters.employeeId);
+      }
+      if (state.globalFilters.documentKind) {
+        params.append("documentKind", state.globalFilters.documentKind);
+      }
+      if (state.globalFilters.search) {
+        params.append("search", state.globalFilters.search);
+      }
+      if (state.globalFilters.dateFrom) {
+        params.append("dateFrom", state.globalFilters.dateFrom);
+      }
+      if (state.globalFilters.dateTo) {
+        params.append("dateTo", state.globalFilters.dateTo);
+      }
+
+      const response = await fetch(`/api/documents?${params}`);
+
+      if (!response.ok) {
+        throw new Error("Error al cargar documentos");
+      }
+
+      const data = await response.json();
+
+      set({
+        globalDocuments: data.documents,
+        globalPagination: data.pagination,
+        isLoadingGlobal: false,
+      });
+    } catch (error) {
+      console.error("Error fetching all documents:", error);
+      toast.error("Error al cargar documentos");
+      set({ isLoadingGlobal: false });
+    }
+  },
+
+  // Filtros globales
+  setGlobalFilters: (newFilters) => {
+    const state = get();
+    const updatedFilters = { ...state.globalFilters, ...newFilters };
+
+    set({
+      globalFilters: updatedFilters,
+      globalPagination: { ...state.globalPagination, page: 1 }, // Resetear a página 1
+    });
+
+    // Refetch con nuevos filtros
+    get().fetchAllDocuments({ refresh: true });
+  },
+
+  clearGlobalFilters: () => {
+    set({
+      globalFilters: {},
+      globalPagination: { ...get().globalPagination, page: 1 },
+    });
+
+    // Refetch sin filtros
+    get().fetchAllDocuments({ refresh: true });
+  },
+
+  // Paginación global
+  setGlobalPage: (page) => {
+    const state = get();
+    set({ globalPagination: { ...state.globalPagination, page } });
+
+    // Refetch con nueva página
+    get().fetchAllDocuments({ refresh: true });
+  },
+
+  setGlobalLimit: (limit) => {
+    const state = get();
+    set({
+      globalPagination: { ...state.globalPagination, limit, page: 1 }, // Resetear a página 1
+    });
+
+    // Refetch con nuevo límite
+    get().fetchAllDocuments({ refresh: true });
+  },
 }));
 
 // Hook personalizado para obtener documentos agrupados por tipo
@@ -312,7 +451,7 @@ export const useDocumentsByKind = () => {
 // Hook para obtener estadísticas de documentos
 export const useDocumentStats = () => {
   const documents = useDocumentsStore((state) => state.documents);
-  
+
   const stats = {
     total: documents.length,
     byKind: documents.reduce((acc, doc) => {
@@ -320,11 +459,50 @@ export const useDocumentStats = () => {
       return acc;
     }, {} as Record<DocumentKind, number>),
     totalSize: documents.reduce((acc, doc) => acc + doc.fileSize, 0),
-    lastUploaded: documents.length > 0 
-      ? documents.reduce((latest, doc) => 
+    lastUploaded: documents.length > 0
+      ? documents.reduce((latest, doc) =>
           new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest
         )
       : null,
+  };
+
+  return stats;
+};
+
+// Hook para obtener documentos globales agrupados por tipo
+export const useGlobalDocumentsByKind = () => {
+  const documents = useDocumentsStore((state) => state.globalDocuments);
+
+  const groupedDocuments = documents.reduce((acc, doc) => {
+    if (!acc[doc.kind]) {
+      acc[doc.kind] = [];
+    }
+    acc[doc.kind].push(doc);
+    return acc;
+  }, {} as Record<DocumentKind, EmployeeDocument[]>);
+
+  return groupedDocuments;
+};
+
+// Hook para obtener estadísticas globales de documentos
+export const useGlobalDocumentStats = () => {
+  const globalDocuments = useDocumentsStore((state) => state.globalDocuments);
+  const pagination = useDocumentsStore((state) => state.globalPagination);
+
+  const stats = {
+    total: pagination.total, // Usar el total de la paginación
+    currentPage: globalDocuments.length,
+    byKind: globalDocuments.reduce((acc, doc) => {
+      acc[doc.kind] = (acc[doc.kind] || 0) + 1;
+      return acc;
+    }, {} as Record<DocumentKind, number>),
+    totalSize: globalDocuments.reduce((acc, doc) => acc + doc.fileSize, 0),
+    lastUploaded: globalDocuments.length > 0
+      ? globalDocuments.reduce((latest, doc) =>
+          new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest
+        )
+      : null,
+    uniqueEmployees: new Set(globalDocuments.map(doc => doc.employeeId)).size,
   };
 
   return stats;

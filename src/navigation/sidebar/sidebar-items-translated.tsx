@@ -14,6 +14,7 @@ import {
   Building,
   MapPin,
   Briefcase,
+  FolderOpen,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -106,7 +107,7 @@ export function useSidebarItems(): NavGroup[] {
         {
           title: "Documentos",
           url: "/dashboard/documents",
-          icon: FileText,
+          icon: FolderOpen,
           permission: "view_documents",
         },
       ],
