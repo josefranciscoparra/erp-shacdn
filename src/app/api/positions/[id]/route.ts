@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 const positionUpdateSchema = z.object({
   title: z.string().min(1, "El título es requerido").optional(),
   description: z.string().optional(),
-  level: z.string().optional(),
+  levelId: z.string().optional(),
 });
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
@@ -70,17 +70,17 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Puesto no encontrado" }, { status: 404 });
     }
 
-    // Verificar si hay empleados asignados a este puesto
-    const employeesCount = await prisma.employee.count({
+    // Verificar si hay contratos activos con este puesto
+    const contractsCount = await prisma.employmentContract.count({
       where: {
         positionId: params.id,
         active: true,
       },
     });
 
-    if (employeesCount > 0) {
+    if (contractsCount > 0) {
       return NextResponse.json(
-        { error: `No se puede eliminar el puesto porque tiene ${employeesCount} empleado(s) asignado(s)` },
+        { error: `No se puede eliminar el puesto porque tiene ${contractsCount} contrato(s) activo(s)` },
         { status: 400 }
       );
     }

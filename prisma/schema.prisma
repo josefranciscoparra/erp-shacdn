@@ -27,6 +27,7 @@ model Organization {
   costCenters         CostCenter[]
   departments         Department[]
   positions           Position[]
+  positionLevels      PositionLevel[]
   employmentContracts EmploymentContract[]
   employeeDocuments   EmployeeDocument[]
   temporaryPasswords  TemporaryPassword[]
@@ -138,12 +139,18 @@ model Department {
   @@map("departments")
 }
 
-// Posición/Puesto de trabajo
-model Position {
+// Nivel de puesto - Jerarquía organizacional
+model PositionLevel {
   id          String   @id @default(cuid())
-  title       String   // Título del puesto
-  description String?  // Descripción del puesto
-  level       String?  // Nivel jerárquico
+  name        String   // "Junior", "Mid", "Senior", "Lead", "Principal"
+  code        String?  // Código interno opcional (ej: "L1", "L2", "L3")
+  order       Int      @default(0) // Orden jerárquico (1=más bajo, 10=más alto)
+  description String?  // Descripción del nivel
+
+  // Rangos salariales opcionales
+  minSalary   Decimal? @db.Decimal(10, 2)
+  maxSalary   Decimal? @db.Decimal(10, 2)
+
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -153,9 +160,36 @@ model Position {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones
+  positions Position[]
+
+  @@unique([orgId, name]) // No duplicar niveles en la misma organización
+  @@index([orgId])
+  @@index([order])
+  @@map("position_levels")
+}
+
+// Posición/Puesto de trabajo
+model Position {
+  id          String   @id @default(cuid())
+  title       String   // Título del puesto
+  description String?  // Descripción del puesto
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relación con nivel jerárquico
+  levelId String?
+  level   PositionLevel? @relation(fields: [levelId], references: [id])
+
+  // Relaciones
   employmentContracts EmploymentContract[]
 
   @@index([orgId])
+  @@index([levelId])
   @@map("positions")
 }
 

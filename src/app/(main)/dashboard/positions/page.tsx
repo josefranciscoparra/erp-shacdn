@@ -6,11 +6,13 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { PositionsDataTable } from "./_components/positions-data-table";
 import { PositionDialog } from "./_components/position-dialog";
-import { Plus, BriefcaseBusiness, Loader2, ShieldAlert } from "lucide-react";
+import { Plus, BriefcaseBusiness, Loader2, ShieldAlert, Layers } from "lucide-react";
 import { useOrganizationStore } from "@/stores/organization-store";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default function PositionsPage() {
-  const { positions, isLoading, error, fetchPositions, deletePositionById } = useOrganizationStore();
+  const { positions, isLoading, error, fetchPositions } = useOrganizationStore();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState(null);
 
@@ -98,13 +100,31 @@ export default function PositionsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Puestos de trabajo"
-          subtitle="Gestiona los puestos de trabajo de tu organización"
-          actionLabel="Nuevo puesto"
-          actionIcon={<Plus className="h-4 w-4" />}
-          onAction={() => setDialogOpen(true)}
-        />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Puestos de trabajo</h1>
+            <p className="text-muted-foreground text-sm">Gestiona los puestos de trabajo de tu organización</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+            >
+              <Link href="/dashboard/position-levels">
+                <Layers className="h-4 w-4" />
+                <span className="hidden md:inline">Niveles</span>
+              </Link>
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nuevo puesto</span>
+            </Button>
+          </div>
+        </div>
 
         {hasPositions ? (
           <PositionsDataTable

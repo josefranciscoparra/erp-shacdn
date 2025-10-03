@@ -24,11 +24,29 @@ export interface Department {
   costCenter?: CostCenter;
 }
 
+export interface PositionLevel {
+  id: string;
+  name: string;
+  code?: string;
+  order: number;
+  description?: string;
+  minSalary?: number;
+  maxSalary?: number;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  orgId: string;
+  _count?: {
+    positions: number;
+  };
+}
+
 export interface Position {
   id: string;
   title: string;
   description?: string;
-  level?: string;
+  levelId?: string;
+  level?: PositionLevel;
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -51,7 +69,16 @@ export interface DepartmentFormData {
 export interface PositionFormData {
   title: string;
   description?: string;
-  level?: string;
+  levelId?: string;
+}
+
+export interface PositionLevelFormData {
+  name: string;
+  code?: string;
+  order?: number;
+  description?: string;
+  minSalary?: number;
+  maxSalary?: number;
 }
 
 interface OrganizationState {
@@ -66,6 +93,10 @@ interface OrganizationState {
   // Positions
   positions: Position[];
   selectedPosition: Position | null;
+
+  // Position Levels
+  positionLevels: PositionLevel[];
+  selectedPositionLevel: PositionLevel | null;
 
   // UI State
   isLoading: boolean;
@@ -111,6 +142,18 @@ interface OrganizationState {
   createPosition: (data: PositionFormData) => Promise<void>;
   updatePositionById: (id: string, data: Partial<PositionFormData>) => Promise<void>;
   deletePositionById: (id: string) => Promise<void>;
+
+  // Position Level Actions
+  setPositionLevels: (levels: PositionLevel[]) => void;
+  addPositionLevel: (level: PositionLevel) => void;
+  updatePositionLevel: (id: string, level: Partial<PositionLevel>) => void;
+  deletePositionLevel: (id: string) => void;
+  setSelectedPositionLevel: (level: PositionLevel | null) => void;
+
+  fetchPositionLevels: () => Promise<void>;
+  createPositionLevel: (data: PositionLevelFormData) => Promise<void>;
+  updatePositionLevelById: (id: string, data: Partial<PositionLevelFormData>) => Promise<void>;
+  deletePositionLevelById: (id: string) => Promise<void>;
 }
 
 export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
@@ -121,6 +164,8 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
   selectedDepartment: null,
   positions: [],
   selectedPosition: null,
+  positionLevels: [],
+  selectedPositionLevel: null,
   isLoading: false,
   error: null,
 
@@ -363,42 +408,107 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
   },
 
   createPosition: async (data) => {
-    set({ isLoading: true, error: null });
     try {
-      // TODO: Implementar API call
       const response = await fetch("/api/positions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) throw new Error("Error al crear puesto");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al crear puesto");
+      }
 
       const newPosition = await response.json();
       get().addPosition(newPosition);
-      set({ isLoading: false });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "Error desconocido",
-        isLoading: false,
-      });
+      console.error("Error al crear puesto:", error);
+      throw error;
     }
   },
 
   updatePositionById: async (id, data) => {
-    set({ isLoading: true, error: null });
     try {
-      // TODO: Implementar API call
       const response = await fetch(`/api/positions/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
-      if (!response.ok) throw new Error("Error al actualizar puesto");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al actualizar puesto");
+      }
 
       const updatedPosition = await response.json();
       get().updatePosition(id, updatedPosition);
+    } catch (error) {
+      console.error("Error al actualizar puesto:", error);
+      throw error;
+    }
+  },
+
+  deletePositionById: async (id) => {
+    try {
+      const response = await fetch(`/api/positions/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Error al eliminar puesto");
+      }
+
+      get().deletePosition(id);
+    } catch (error) {
+      console.error("Error al eliminar puesto:", error);
+      throw error;
+    }
+  },
+
+  // Position Level sync actions
+  setPositionLevels: (positionLevels) => set({ positionLevels }),
+  addPositionLevel: (level) =>
+    set((state) => ({
+      positionLevels: [...state.positionLevels, level],
+    })),
+  updatePositionLevel: (id, levelData) =>
+    set((state) => ({
+      positionLevels: state.positionLevels.map((level) => (level.id === id ? { ...level, ...levelData } : level)),
+    })),
+  deletePositionLevel: (id) =>
+    set((state) => ({
+      positionLevels: state.positionLevels.filter((level) => level.id !== id),
+    })),
+  setSelectedPositionLevel: (level) => set({ selectedPositionLevel: level }),
+
+  // Position Level async actions
+  fetchPositionLevels: async () => {
+    try {
+      const response = await fetch("/api/position-levels");
+      if (!response.ok) throw new Error("Error al cargar niveles de puesto");
+
+      const levels = await response.json();
+      set({ positionLevels: levels });
+    } catch (error) {
+      console.error("Error al cargar niveles de puesto:", error);
+    }
+  },
+
+  createPositionLevel: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch("/api/position-levels", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error("Error al crear nivel de puesto");
+
+      const newLevel = await response.json();
+      get().addPositionLevel(newLevel);
       set({ isLoading: false });
     } catch (error) {
       set({
@@ -408,17 +518,38 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
     }
   },
 
-  deletePositionById: async (id) => {
+  updatePositionLevelById: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      // TODO: Implementar API call
-      const response = await fetch(`/api/positions/${id}`, {
+      const response = await fetch(`/api/position-levels/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) throw new Error("Error al actualizar nivel de puesto");
+
+      const updatedLevel = await response.json();
+      get().updatePositionLevel(id, updatedLevel);
+      set({ isLoading: false });
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : "Error desconocido",
+        isLoading: false,
+      });
+    }
+  },
+
+  deletePositionLevelById: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch(`/api/position-levels/${id}`, {
         method: "DELETE",
       });
 
-      if (!response.ok) throw new Error("Error al eliminar puesto");
+      if (!response.ok) throw new Error("Error al eliminar nivel de puesto");
 
-      get().deletePosition(id);
+      get().deletePositionLevel(id);
       set({ isLoading: false });
     } catch (error) {
       set({
