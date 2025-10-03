@@ -43,9 +43,11 @@ export default function PositionLevelsPage() {
     }
   };
 
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingLevel(null);
+  const handleCloseDialog = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      setEditingLevel(null);
+    }
   };
 
   if (isLoading) {

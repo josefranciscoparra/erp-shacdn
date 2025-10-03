@@ -519,7 +519,6 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
   },
 
   updatePositionLevelById: async (id, data) => {
-    set({ isLoading: true, error: null });
     try {
       const response = await fetch(`/api/position-levels/${id}`, {
         method: "PUT",
@@ -531,12 +530,9 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
 
       const updatedLevel = await response.json();
       get().updatePositionLevel(id, updatedLevel);
-      set({ isLoading: false });
     } catch (error) {
-      set({
-        error: error instanceof Error ? error.message : "Error desconocido",
-        isLoading: false,
-      });
+      console.error("Error al actualizar nivel de puesto:", error);
+      throw error;
     }
   },
 

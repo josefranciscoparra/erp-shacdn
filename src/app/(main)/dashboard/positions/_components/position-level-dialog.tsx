@@ -79,9 +79,8 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
       } else {
         await createPositionLevel(data);
       }
-      await fetchPositionLevels();
-      onOpenChange(false);
       form.reset();
+      onOpenChange(false);
     } catch (error) {
       console.error("Error al guardar nivel de puesto:", error);
     }
