@@ -5,7 +5,9 @@ import { create } from "zustand";
 export interface Position {
   id: string;
   title: string;
-  level: string | null;
+  level?: {
+    name: string;
+  } | null;
 }
 
 export interface Department {
@@ -98,6 +100,7 @@ interface ContractsState {
   
   // Actions
   fetchContracts: (employeeId: string, params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
+  fetchAllContracts: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
   createContract: (employeeId: string, data: CreateContractData) => Promise<Contract>;
   updateContract: (contractId: string, data: UpdateContractData) => Promise<Contract>;
   deleteContract: (contractId: string) => Promise<void>;
@@ -128,30 +131,74 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
   fetchContracts: async (employeeId: string, params = {}) => {
     const { page = 1, limit = 10, status = "all" } = params;
-    
+
     set({ isLoading: true, error: null });
-    
+
     try {
       const searchParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
       });
-      
+
       if (status !== "all") {
         searchParams.append("status", status);
       }
-      
+
       const response = await fetch(`/api/employees/${employeeId}/contracts?${searchParams}`, {
         credentials: "include",
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Error al cargar contratos");
       }
-      
+
       const data: ContractsResponse = await response.json();
-      
+
+      set({
+        contracts: data.contracts,
+        total: data.total,
+        page: data.page,
+        limit: data.limit,
+        totalPages: data.totalPages,
+        status: status as any,
+        isLoading: false,
+      });
+    } catch (error: any) {
+      set({
+        error: error.message,
+        isLoading: false,
+      });
+      throw error;
+    }
+  },
+
+  fetchAllContracts: async (params = {}) => {
+    const { page = 1, limit = 10, status = "all" } = params;
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const searchParams = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+      });
+
+      if (status !== "all") {
+        searchParams.append("status", status);
+      }
+
+      const response = await fetch(`/api/contracts?${searchParams}`, {
+        credentials: "include",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Error al cargar contratos");
+      }
+
+      const data: ContractsResponse = await response.json();
+
       set({
         contracts: data.contracts,
         total: data.total,
