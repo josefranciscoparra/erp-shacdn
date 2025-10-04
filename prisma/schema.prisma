@@ -31,6 +31,7 @@ model Organization {
   employmentContracts EmploymentContract[]
   employeeDocuments   EmployeeDocument[]
   temporaryPasswords  TemporaryPassword[]
+  calendars           Calendar[]
 
   @@map("organizations")
 }
@@ -105,6 +106,7 @@ model CostCenter {
   // Relaciones
   departments        Department[]
   employmentContracts EmploymentContract[]
+  calendars          Calendar[]
 
   @@index([orgId])
   @@map("cost_centers")
@@ -375,6 +377,76 @@ model TemporaryPassword {
   @@index([active])
   @@index([expiresAt])
   @@map("temporary_passwords")
+}
+
+// ==================== SISTEMA DE CALENDARIOS ====================
+
+// Calendario organizacional (festivos, eventos corporativos)
+model Calendar {
+  id          String   @id @default(cuid())
+  name        String   // "Festivos Nacionales 2024", "Festivos Barcelona 2024"
+  description String?
+  year        Int      // Año al que aplica
+  calendarType CalendarType @default(NATIONAL_HOLIDAY)
+  color       String   @default("#3b82f6") // Color hex para identificación visual
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relación opcional con centro de coste (para calendarios locales)
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Relaciones
+  events CalendarEvent[]
+
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([year])
+  @@map("calendars")
+}
+
+// Eventos del calendario (festivos, cierres, eventos)
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  name        String   // "Día de Reyes", "Cierre de verano"
+  description String?
+  date        DateTime // Fecha del evento
+  endDate     DateTime? // Para eventos de varios días
+  eventType   CalendarEventType @default(HOLIDAY)
+  isRecurring Boolean  @default(false) // Si se repite cada año
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación con calendario
+  calendarId String
+  calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+
+  @@index([calendarId])
+  @@index([date])
+  @@map("calendar_events")
+}
+
+// Tipos de calendario
+enum CalendarType {
+  NATIONAL_HOLIDAY  // Festivos nacionales
+  LOCAL_HOLIDAY     // Festivos locales por centro
+  CORPORATE_EVENT   // Eventos corporativos
+  CUSTOM           // Personalizado
+}
+
+// Tipos de eventos
+enum CalendarEventType {
+  HOLIDAY          // Festivo
+  CLOSURE          // Cierre (oficina cerrada)
+  EVENT            // Evento corporativo
+  MEETING          // Reunión importante
+  DEADLINE         // Fecha límite
+  OTHER            // Otro
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
