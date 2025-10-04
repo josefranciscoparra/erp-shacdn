@@ -32,6 +32,9 @@ model Organization {
   employeeDocuments   EmployeeDocument[]
   temporaryPasswords  TemporaryPassword[]
   calendars           Calendar[]
+  timeClockTerminals  TimeClockTerminal[]
+  timeEntries         TimeEntry[]
+  workdaySummaries    WorkdaySummary[]
 
   @@map("organizations")
 }
@@ -107,6 +110,7 @@ model CostCenter {
   departments        Department[]
   employmentContracts EmploymentContract[]
   calendars          Calendar[]
+  timeClockTerminals TimeClockTerminal[]
 
   @@index([orgId])
   @@map("cost_centers")
@@ -245,6 +249,8 @@ model Employee {
   documents          EmployeeDocument[]
   managedContracts   EmploymentContract[] @relation("ManagerSubordinates")
   managedDepartments Department[]         @relation("DepartmentManager")
+  timeEntries        TimeEntry[]
+  workdaySummaries   WorkdaySummary[]
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -449,7 +455,119 @@ enum CalendarEventType {
   OTHER            // Otro
 }
 
+// ==================== SPRINT 2: SISTEMA DE FICHAJES ====================
+
+// Terminal de fichaje (opcional - para fichaje desde terminales físicos)
+model TimeClockTerminal {
+  id          String   @id @default(cuid())
+  name        String   // "Terminal Recepción", "Terminal Fábrica"
+  code        String   // Código único del terminal
+  location    String?  // Ubicación física
+  ipAddress   String?  // IP del terminal
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relación opcional con centro de coste
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Relaciones
+  timeEntries TimeEntry[]
+
+  @@unique([orgId, code])
+  @@index([orgId])
+  @@index([costCenterId])
+  @@map("time_clock_terminals")
+}
+
+// Registro individual de fichaje (entrada, salida, pausa)
+model TimeEntry {
+  id          String        @id @default(cuid())
+  entryType   TimeEntryType // CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END
+  timestamp   DateTime      @default(now()) // Momento exacto del fichaje
+  location    String?       // Geolocalización o ubicación
+  notes       String?       // Notas opcionales
+  ipAddress   String?       // IP desde donde se fichó
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado que ficha
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Terminal desde el que se fichó (opcional)
+  terminalId String?
+  terminal   TimeClockTerminal? @relation(fields: [terminalId], references: [id])
+
+  // Relación con el resumen del día
+  workdayId String?
+  workday   WorkdaySummary? @relation(fields: [workdayId], references: [id])
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([timestamp])
+  @@index([entryType])
+  @@index([workdayId])
+  @@map("time_entries")
+}
+
+// Resumen consolidado de un día laboral
+model WorkdaySummary {
+  id                String   @id @default(cuid())
+  date              DateTime // Fecha del día (sin hora)
+  clockIn           DateTime? // Primera entrada del día
+  clockOut          DateTime? // Última salida del día
+  totalWorkedMinutes Int     @default(0) // Minutos trabajados totales
+  totalBreakMinutes  Int     @default(0) // Minutos de pausa totales
+  status            WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
+  notes             String?  // Notas administrativas
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  timeEntries TimeEntry[]
+
+  @@unique([orgId, employeeId, date]) // Un resumen por empleado por día
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([date])
+  @@index([status])
+  @@map("workday_summaries")
+}
+
+// Tipos de fichaje
+enum TimeEntryType {
+  CLOCK_IN     // Entrada
+  CLOCK_OUT    // Salida
+  BREAK_START  // Inicio de pausa
+  BREAK_END    // Fin de pausa
+}
+
+// Estados del día laboral
+enum WorkdayStatus {
+  IN_PROGRESS  // Día en curso (aún no ha fichado salida)
+  COMPLETED    // Día completado correctamente
+  INCOMPLETE   // Día incompleto (falta salida o hay inconsistencias)
+  ABSENT       // Ausente (no fichó)
+}
+
 // ==================== PRÓXIMOS SPRINTS ====================
-// Sprint 2: Añadir TimeEntry, WorkdaySummary, TimeClockTerminal
 // Sprint 3: Añadir PtoRequest, PtoBalance, AbsenceType
 // Sprint 4: Añadir PayrollExport y configuraciones

@@ -17,6 +17,7 @@ import {
   Clock,
   CalendarDays,
   UserCircle,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -130,6 +131,24 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/employees",
           icon: Users,
           permission: "view_employees",
+        },
+        {
+          title: "Control Horario",
+          url: "/dashboard/time-tracking",
+          icon: Timer,
+          permission: "view_time_tracking",
+          subItems: [
+            {
+              title: "Fichajes",
+              url: "/dashboard/time-tracking",
+              permission: "view_time_tracking",
+            },
+            {
+              title: "Monitor en Vivo",
+              url: "/dashboard/time-tracking/live",
+              permission: "view_time_tracking",
+            },
+          ],
         },
         {
           title: "Contratos",

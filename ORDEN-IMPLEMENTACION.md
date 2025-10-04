@@ -99,7 +99,14 @@ Mis Documentos (complementario)
 ## 🎯 Estado Actual
 
 - [x] Mi Perfil ✅
-- [ ] Fichar
+- [x] Fichar ✅ (Implementación básica completada)
+  - ✅ Modelos de base de datos (TimeEntry, WorkdaySummary, TimeClockTerminal)
+  - ✅ Server actions para fichajes del empleado
+  - ✅ Store de Zustand para gestión de estado
+  - ✅ UI funcional de fichaje con resumen en tiempo real
+  - ✅ Permisos por rol
+  - ✅ Navegación en sidebar
+  - ⏳ Pendiente: Dashboard administrativo y monitor en vivo
 - [ ] Mi Calendario
 - [ ] Mis Vacaciones
 - [ ] Mi Espacio
@@ -107,4 +114,4 @@ Mis Documentos (complementario)
 
 ---
 
-**Próximo paso:** Empezar con **Fichar** (Sprint 2)
+**Próximo paso:** Completar **Fichar** (Dashboard Admin + Monitor en Vivo)

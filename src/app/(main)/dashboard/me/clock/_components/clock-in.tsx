@@ -1,55 +1,148 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Clock, LogIn, LogOut, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import {
+  clockIn as clockInAction,
+  clockOut as clockOutAction,
+  startBreak as startBreakAction,
+  endBreak as endBreakAction,
+  getTodaySummary,
+  getCurrentStatus,
+} from "@/server/actions/time-tracking";
 
-type ClockStatus = "clocked-out" | "clocked-in" | "on-break";
+type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
+
+interface WorkdaySummary {
+  id: string;
+  date: Date;
+  clockIn?: Date;
+  clockOut?: Date;
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+  status: string;
+  timeEntries: Array<{
+    id: string;
+    entryType: string;
+    timestamp: Date;
+  }>;
+}
 
 export function ClockIn() {
-  const [status, setStatus] = useState<ClockStatus>("clocked-out");
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentStatus, setCurrentStatus] = useState<ClockStatus>("CLOCKED_OUT");
+  const [todaySummary, setTodaySummary] = useState<WorkdaySummary | null>(null);
+  const [isClocking, setIsClocking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Actualizar hora cada segundo
-  useState(() => {
+  useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
     return () => clearInterval(interval);
-  });
+  }, []);
 
-  const handleClockIn = () => {
-    setStatus("clocked-in");
-    // TODO: Llamar API para registrar entrada
+  // Cargar estado y resumen al montar
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [status, summary] = await Promise.all([
+        getCurrentStatus(),
+        getTodaySummary(),
+      ]);
+
+      setCurrentStatus(status.status);
+      setTodaySummary(summary as any);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar datos");
+    }
   };
 
-  const handleClockOut = () => {
-    setStatus("clocked-out");
-    // TODO: Llamar API para registrar salida
+  const handleClockIn = async () => {
+    setIsClocking(true);
+    setError(null);
+    try {
+      await clockInAction();
+      setCurrentStatus("CLOCKED_IN");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al fichar entrada");
+    } finally {
+      setIsClocking(false);
+    }
   };
 
-  const handleBreak = () => {
-    setStatus(status === "on-break" ? "clocked-in" : "on-break");
-    // TODO: Llamar API para registrar pausa
+  const handleClockOut = async () => {
+    setIsClocking(true);
+    setError(null);
+    try {
+      await clockOutAction();
+      setCurrentStatus("CLOCKED_OUT");
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al fichar salida");
+    } finally {
+      setIsClocking(false);
+    }
+  };
+
+  const handleBreak = async () => {
+    setIsClocking(true);
+    setError(null);
+    try {
+      if (currentStatus === "ON_BREAK") {
+        await endBreakAction();
+        setCurrentStatus("CLOCKED_IN");
+      } else {
+        await startBreakAction();
+        setCurrentStatus("ON_BREAK");
+      }
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error con el descanso");
+    } finally {
+      setIsClocking(false);
+    }
   };
 
   const getStatusBadge = () => {
-    switch (status) {
-      case "clocked-in":
+    switch (currentStatus) {
+      case "CLOCKED_IN":
         return <Badge className="bg-green-500">Trabajando</Badge>;
-      case "on-break":
+      case "ON_BREAK":
         return <Badge className="bg-yellow-500">En pausa</Badge>;
-      case "clocked-out":
+      case "CLOCKED_OUT":
         return <Badge variant="secondary">Fuera de servicio</Badge>;
     }
+  };
+
+  // Formatear minutos a horas y minutos
+  const formatMinutes = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
   };
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader title="Fichar" />
+
+      {error && (
+        <Card className="border-destructive bg-destructive/10 p-4">
+          <p className="text-sm text-destructive">{error}</p>
+        </Card>
+      )}
 
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
         {/* Card principal de fichaje */}
@@ -77,20 +170,20 @@ export function ClockIn() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            {status === "clocked-out" ? (
-              <Button size="lg" onClick={handleClockIn} className="w-full">
+            {currentStatus === "CLOCKED_OUT" ? (
+              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isClocking}>
                 <LogIn className="mr-2 h-5 w-5" />
-                Fichar Entrada
+                {isClocking ? "Fichando..." : "Fichar Entrada"}
               </Button>
             ) : (
               <>
-                <Button size="lg" onClick={handleClockOut} variant="destructive" className="w-full">
+                <Button size="lg" onClick={handleClockOut} variant="destructive" className="w-full" disabled={isClocking}>
                   <LogOut className="mr-2 h-5 w-5" />
-                  Fichar Salida
+                  {isClocking ? "Fichando..." : "Fichar Salida"}
                 </Button>
-                <Button size="lg" onClick={handleBreak} variant="outline" className="w-full">
+                <Button size="lg" onClick={handleBreak} variant="outline" className="w-full" disabled={isClocking}>
                   <Coffee className="mr-2 h-5 w-5" />
-                  {status === "on-break" ? "Volver del descanso" : "Iniciar descanso"}
+                  {isClocking ? "Procesando..." : currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
                 </Button>
               </>
             )}
@@ -104,49 +197,81 @@ export function ClockIn() {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-sm text-muted-foreground">Entrada</span>
-              <span className="font-semibold tabular-nums">09:00:00</span>
+              <span className="font-semibold tabular-nums">
+                {todaySummary?.clockIn
+                  ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })
+                  : "--:--:--"}
+              </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Salida prevista</span>
-              <span className="font-semibold tabular-nums">18:00:00</span>
+              <span className="text-sm text-muted-foreground">Salida</span>
+              <span className="font-semibold tabular-nums">
+                {todaySummary?.clockOut
+                  ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                    })
+                  : "--:--:--"}
+              </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-sm text-muted-foreground">Tiempo trabajado</span>
-              <span className="font-semibold tabular-nums">5h 32m</span>
+              <span className="font-semibold tabular-nums">
+                {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
+              </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-sm text-muted-foreground">Pausas totales</span>
-              <span className="font-semibold tabular-nums">0h 15m</span>
+              <span className="font-semibold tabular-nums">
+                {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
+              </span>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Historial reciente */}
-      <Card className="@container/card flex flex-col gap-4 p-6">
-        <h3 className="text-lg font-semibold">Últimos fichajes</h3>
+      {/* Historial de fichajes del día */}
+      {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 && (
+        <Card className="@container/card flex flex-col gap-4 p-6">
+          <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
 
-        <div className="flex flex-col gap-2">
-          {[
-            { date: "Lunes, 29 Ene 2025", entry: "09:05", exit: "18:10", total: "8h 50m" },
-            { date: "Martes, 28 Ene 2025", entry: "08:58", exit: "17:55", total: "8h 42m" },
-            { date: "Miércoles, 27 Ene 2025", entry: "09:02", exit: "18:05", total: "8h 48m" },
-          ].map((day, idx) => (
-            <div key={idx} className="flex items-center justify-between rounded-lg border p-3">
-              <div className="flex flex-col">
-                <span className="text-sm font-medium">{day.date}</span>
-                <span className="text-xs text-muted-foreground">
-                  Entrada: {day.entry} • Salida: {day.exit}
-                </span>
+          <div className="flex flex-col gap-2">
+            {todaySummary.timeEntries.map((entry) => (
+              <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
+                <div className="flex items-center gap-3">
+                  {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
+                  {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
+                  {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
+                  {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">
+                      {entry.entryType === "CLOCK_IN" && "Entrada"}
+                      {entry.entryType === "CLOCK_OUT" && "Salida"}
+                      {entry.entryType === "BREAK_START" && "Inicio de pausa"}
+                      {entry.entryType === "BREAK_END" && "Fin de pausa"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(entry.timestamp).toLocaleString("es-ES", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <span className="font-semibold tabular-nums">{day.total}</span>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

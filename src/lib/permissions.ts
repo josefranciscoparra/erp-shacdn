@@ -20,7 +20,11 @@ export type Permission =
   | "edit_own_profile" // Editar su propio perfil
   | "view_own_documents" // Ver sus propios documentos
   | "view_payroll" // Ver nóminas
-  | "manage_payroll"; // Gestionar nóminas
+  | "manage_payroll" // Gestionar nóminas
+  | "clock_in_out" // Fichar entrada/salida
+  | "view_time_tracking" // Ver fichajes de todos los empleados
+  | "manage_time_tracking" // Gestionar fichajes (admin)
+  | "export_time_tracking"; // Exportar fichajes
 
 // Mapa de permisos por rol
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -44,6 +48,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents",
     "view_payroll",
     "manage_payroll",
+    "clock_in_out",
+    "view_time_tracking",
+    "manage_time_tracking",
+    "export_time_tracking",
   ],
   ORG_ADMIN: [
     "view_employees",
@@ -65,6 +73,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents",
     "view_payroll",
     "manage_payroll",
+    "clock_in_out",
+    "view_time_tracking",
+    "manage_time_tracking",
+    "export_time_tracking",
   ],
   HR_ADMIN: [
     "view_employees",
@@ -85,6 +97,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents",
     "view_payroll",
     "manage_payroll",
+    "clock_in_out",
+    "view_time_tracking",
+    "manage_time_tracking",
+    "export_time_tracking",
   ],
   MANAGER: [
     "view_employees", // Pueden ver empleados de su equipo
@@ -97,11 +113,14 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_profile",
     "edit_own_profile",
     "view_own_documents",
+    "clock_in_out",
+    "view_time_tracking", // Ver fichajes de su equipo
   ],
   EMPLOYEE: [
     "view_own_profile", // Solo pueden ver su propio perfil
     "edit_own_profile", // Editar algunos campos de su perfil
     "view_own_documents", // Ver solo sus documentos
+    "clock_in_out", // Todos los empleados pueden fichar
   ],
 };
 
@@ -144,6 +163,12 @@ export function canAccessPage(role: Role, page: string): boolean {
       return hasPermission(role, "view_reports");
     case "/dashboard/organization":
       return hasPermission(role, "manage_organization");
+    case "/dashboard/time-tracking":
+      return hasPermission(role, "view_time_tracking");
+    case "/dashboard/time-tracking/live":
+      return hasPermission(role, "view_time_tracking");
+    case "/dashboard/me/clock":
+      return hasPermission(role, "clock_in_out");
     default:
       return true; // Páginas públicas del dashboard
   }
