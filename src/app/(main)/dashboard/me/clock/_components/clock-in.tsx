@@ -174,7 +174,7 @@ export function ClockIn() {
 
   // Formatear tiempo con segundos para contador en vivo
   const formatTimeWithSeconds = (totalMinutes: number) => {
-    const totalSeconds = Math.floor(totalMinutes * 60); // Convertir a segundos totales
+    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60)); // Redondear para evitar pérdidas por flotantes
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -346,7 +346,7 @@ export function ClockIn() {
 
         {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
           <div className="flex flex-col gap-2">
-            {todaySummary.timeEntries.map((entry) => (
+            {todaySummary.timeEntries.slice().reverse().map((entry) => (
               <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-3">
                   {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
