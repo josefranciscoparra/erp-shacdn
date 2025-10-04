@@ -133,7 +133,11 @@ export async function getTimeTrackingRecords(filters: TimeTrackingFilters = {}) 
       ],
     });
 
-    return summaries;
+    return summaries.map(s => ({
+      ...s,
+      totalWorkedMinutes: Number(s.totalWorkedMinutes),
+      totalBreakMinutes: Number(s.totalBreakMinutes),
+    }));
   } catch (error) {
     console.error("Error al obtener fichajes:", error);
     throw error;
@@ -235,8 +239,8 @@ export async function getCurrentlyWorkingEmployees() {
         costCenter: employee.costCenter?.name || "Sin centro de coste",
         status,
         lastAction,
-        todayWorkedMinutes: todaySummary?.totalWorkedMinutes || 0,
-        todayBreakMinutes: todaySummary?.totalBreakMinutes || 0,
+        todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
+        todayBreakMinutes: todaySummary ? Number(todaySummary.totalBreakMinutes) : 0,
         clockIn: todaySummary?.clockIn,
         clockOut: todaySummary?.clockOut,
       };
@@ -276,11 +280,11 @@ export async function getTimeTrackingStats(
     });
 
     const totalWorkedMinutes = summaries.reduce(
-      (acc, s) => acc + s.totalWorkedMinutes,
+      (acc, s) => acc + Number(s.totalWorkedMinutes),
       0
     );
     const totalBreakMinutes = summaries.reduce(
-      (acc, s) => acc + s.totalBreakMinutes,
+      (acc, s) => acc + Number(s.totalBreakMinutes),
       0
     );
 

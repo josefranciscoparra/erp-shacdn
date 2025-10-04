@@ -69,7 +69,10 @@ export function ClockIn() {
           const minutesFromStart = secondsFromStart / 60;
 
           // El base es el tiempo acumulado (que NO incluye la sesión actual)
-          const baseMinutes = todaySummary.totalWorkedMinutes || 0;
+          // Convertir a Number porque viene como Decimal de Prisma
+          const baseMinutes = Number(todaySummary.totalWorkedMinutes) || 0;
+
+          console.log("🔢 Base:", baseMinutes, "Desde inicio:", minutesFromStart, "Total:", baseMinutes + minutesFromStart);
 
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }

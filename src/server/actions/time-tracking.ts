@@ -57,51 +57,69 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
   // Ordenar por timestamp
   const sorted = entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
+  console.log("🔍 Calculando minutos trabajados para", sorted.length, "entradas");
+
   for (const entry of sorted) {
+    console.log(`  📝 ${entry.entryType} a las ${new Date(entry.timestamp).toLocaleTimeString()}`);
+
     switch (entry.entryType) {
       case "CLOCK_IN":
         lastClockIn = entry.timestamp;
+        console.log("    ⏰ Inicio de sesión registrado");
         break;
 
       case "BREAK_START":
         if (lastClockIn) {
           // Calcular tiempo trabajado hasta la pausa
-          totalWorked += (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          totalWorked += minutes;
+          console.log(`    ➕ Sesión trabajada: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
           lastBreakStart = entry.timestamp;
           lastClockIn = null; // Cerrar sesión de trabajo
+        } else {
+          console.log("    ⚠️ BREAK_START sin CLOCK_IN previo");
         }
         break;
 
       case "BREAK_END":
         if (lastBreakStart) {
           // Calcular tiempo de pausa
-          totalBreak += (entry.timestamp.getTime() - lastBreakStart.getTime()) / (1000 * 60);
+          const minutes = (entry.timestamp.getTime() - lastBreakStart.getTime()) / (1000 * 60);
+          totalBreak += minutes;
+          console.log(`    ☕ Pausa: ${minutes.toFixed(2)} min (total pausas: ${totalBreak.toFixed(2)})`);
           lastClockIn = entry.timestamp; // Continuar desde aquí
           lastBreakStart = null;
+        } else {
+          console.log("    ⚠️ BREAK_END sin BREAK_START previo");
         }
         break;
 
       case "CLOCK_OUT":
         if (lastClockIn) {
           // Calcular tiempo trabajado hasta la salida
-          totalWorked += (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          totalWorked += minutes;
+          console.log(`    ➕ Sesión trabajada hasta salida: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
           lastClockIn = null;
+        } else {
+          console.log("    ⚠️ CLOCK_OUT sin CLOCK_IN activo");
         }
         if (lastBreakStart) {
           // Si estaba en pausa, cerrar la pausa también
-          totalBreak += (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
+          const minutes = (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
+          totalBreak += minutes;
+          console.log(`    ☕ Cerrando pausa pendiente: ${minutes.toFixed(2)} min`);
           lastBreakStart = null;
         }
         break;
     }
   }
 
-  // NO incluimos el tiempo en progreso - el cliente lo calculará en vivo
-  // El resumen solo guarda sesiones completadas
+  console.log(`✅ Total calculado: ${totalWorked.toFixed(2)} min trabajados, ${totalBreak.toFixed(2)} min pausa`);
 
   return {
-    worked: Math.round(totalWorked),
-    break: Math.round(totalBreak),
+    worked: totalWorked, // NO redondear, mantener decimales para segundos
+    break: totalBreak,
   };
 }
 
@@ -403,7 +421,18 @@ export async function getTodaySummary() {
     // Combinar resumen con entries
     if (summary) {
       return {
-        ...summary,
+        id: summary.id,
+        date: summary.date,
+        clockIn: summary.clockIn,
+        clockOut: summary.clockOut,
+        totalWorkedMinutes: Number(summary.totalWorkedMinutes),
+        totalBreakMinutes: Number(summary.totalBreakMinutes),
+        status: summary.status,
+        notes: summary.notes,
+        createdAt: summary.createdAt,
+        updatedAt: summary.updatedAt,
+        orgId: summary.orgId,
+        employeeId: summary.employeeId,
         timeEntries,
       };
     }
@@ -457,15 +486,19 @@ export async function getWeeklySummary() {
       },
     });
 
-    const totalWorked = summaries.reduce((acc, s) => acc + s.totalWorkedMinutes, 0);
-    const totalBreak = summaries.reduce((acc, s) => acc + s.totalBreakMinutes, 0);
+    const totalWorked = summaries.reduce((acc, s) => acc + Number(s.totalWorkedMinutes), 0);
+    const totalBreak = summaries.reduce((acc, s) => acc + Number(s.totalBreakMinutes), 0);
 
     return {
       weekStart,
       weekEnd,
       totalWorkedMinutes: totalWorked,
       totalBreakMinutes: totalBreak,
-      days: summaries,
+      days: summaries.map(s => ({
+        ...s,
+        totalWorkedMinutes: Number(s.totalWorkedMinutes),
+        totalBreakMinutes: Number(s.totalBreakMinutes),
+      })),
     };
   } catch (error) {
     console.error("Error al obtener resumen semanal:", error);
@@ -502,7 +535,11 @@ export async function getMonthlySummaries(year: number, month: number) {
       },
     });
 
-    return summaries;
+    return summaries.map(s => ({
+      ...s,
+      totalWorkedMinutes: Number(s.totalWorkedMinutes),
+      totalBreakMinutes: Number(s.totalBreakMinutes),
+    }));
   } catch (error) {
     console.error("Error al obtener resumen mensual:", error);
     throw error;

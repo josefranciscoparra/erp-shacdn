@@ -526,8 +526,8 @@ model WorkdaySummary {
   date              DateTime // Fecha del día (sin hora)
   clockIn           DateTime? // Primera entrada del día
   clockOut          DateTime? // Última salida del día
-  totalWorkedMinutes Int     @default(0) // Minutos trabajados totales
-  totalBreakMinutes  Int     @default(0) // Minutos de pausa totales
+  totalWorkedMinutes Decimal  @default(0) @db.Decimal(10,2) // Minutos trabajados totales (con decimales para segundos)
+  totalBreakMinutes  Decimal  @default(0) @db.Decimal(10,2) // Minutos de pausa totales (con decimales para segundos)
   status            WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
   notes             String?  // Notas administrativas
   createdAt         DateTime @default(now())
