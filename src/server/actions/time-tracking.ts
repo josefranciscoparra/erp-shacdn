@@ -15,7 +15,16 @@ async function getAuthenticatedEmployee() {
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
-      employee: true,
+      employee: {
+        include: {
+          employmentContracts: {
+            where: {
+              active: true,
+            },
+            take: 1,
+          },
+        },
+      },
     },
   });
 
@@ -23,14 +32,22 @@ async function getAuthenticatedEmployee() {
     throw new Error("Usuario no tiene un empleado asociado");
   }
 
+  // Obtener horas semanales del contrato activo (si existe)
+  const activeContract = user.employee.employmentContracts[0];
+  const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40; // Default 40h
+  const dailyHours = weeklyHours / 5; // Asumiendo 5 días laborables
+
   return {
     userId: user.id,
     employeeId: user.employee.id,
     orgId: user.orgId,
+    weeklyHours,
+    dailyHours,
   };
 }
 
 // Helper para calcular minutos trabajados
+// IMPORTANTE: Solo calcula sesiones CERRADAS, no incluye tiempo en progreso
 function calculateWorkedMinutes(entries: any[]): { worked: number; break: number } {
   let totalWorked = 0;
   let totalBreak = 0;
@@ -51,6 +68,7 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           // Calcular tiempo trabajado hasta la pausa
           totalWorked += (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           lastBreakStart = entry.timestamp;
+          lastClockIn = null; // Cerrar sesión de trabajo
         }
         break;
 
@@ -69,19 +87,17 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           totalWorked += (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           lastClockIn = null;
         }
+        if (lastBreakStart) {
+          // Si estaba en pausa, cerrar la pausa también
+          totalBreak += (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
+          lastBreakStart = null;
+        }
         break;
     }
   }
 
-  // Si aún está trabajando (no ha fichado salida)
-  if (lastClockIn) {
-    totalWorked += (new Date().getTime() - lastClockIn.getTime()) / (1000 * 60);
-  }
-
-  // Si aún está en pausa (no ha finalizado la pausa)
-  if (lastBreakStart) {
-    totalBreak += (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
-  }
+  // NO incluimos el tiempo en progreso - el cliente lo calculará en vivo
+  // El resumen solo guarda sesiones completadas
 
   return {
     worked: Math.round(totalWorked),
@@ -334,6 +350,17 @@ export async function endBreak() {
     return { success: true, entry };
   } catch (error) {
     console.error("Error al finalizar descanso:", error);
+    throw error;
+  }
+}
+
+// Obtener horas esperadas del día según contrato
+export async function getExpectedDailyHours() {
+  try {
+    const { dailyHours } = await getAuthenticatedEmployee();
+    return dailyHours;
+  } catch (error) {
+    console.error("Error al obtener horas esperadas:", error);
     throw error;
   }
 }

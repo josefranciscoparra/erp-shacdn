@@ -5,6 +5,7 @@ import { Clock, LogIn, LogOut, Coffee } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +17,7 @@ import {
   endBreak as endBreakAction,
   getTodaySummary,
   getCurrentStatus,
+  getExpectedDailyHours,
 } from "@/server/actions/time-tracking";
 
 type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
@@ -39,16 +41,44 @@ export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [currentStatus, setCurrentStatus] = useState<ClockStatus>("CLOCKED_OUT");
   const [todaySummary, setTodaySummary] = useState<WorkdaySummary | null>(null);
+  const [expectedDailyHours, setExpectedDailyHours] = useState<number>(8);
   const [isClocking, setIsClocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [liveWorkedMinutes, setLiveWorkedMinutes] = useState<number>(0);
 
-  // Actualizar hora cada segundo
+  // Actualizar hora y contador en vivo cada segundo
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
+
+      // Calcular tiempo trabajado en vivo si está trabajando
+      if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
+        const now = new Date();
+
+        // Buscar el último CLOCK_IN o BREAK_END (inicio de la sesión actual)
+        const entries = todaySummary.timeEntries;
+        const lastWorkStart = [...entries]
+          .reverse()
+          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
+
+        if (lastWorkStart) {
+          const startTime = new Date(lastWorkStart.timestamp);
+
+          // Calcular segundos exactos desde el inicio de esta sesión
+          const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
+          const minutesFromStart = secondsFromStart / 60;
+
+          // El base es el tiempo acumulado (que NO incluye la sesión actual)
+          const baseMinutes = todaySummary.totalWorkedMinutes || 0;
+
+          setLiveWorkedMinutes(baseMinutes + minutesFromStart);
+        }
+      } else {
+        setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes || 0);
+      }
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentStatus, todaySummary]);
 
   // Cargar estado y resumen al montar
   useEffect(() => {
@@ -57,9 +87,10 @@ export function ClockIn() {
 
   const loadData = async () => {
     try {
-      const [status, summary] = await Promise.all([
+      const [status, summary, dailyHours] = await Promise.all([
         getCurrentStatus(),
         getTodaySummary(),
+        getExpectedDailyHours(),
       ]);
 
       console.log("📊 Summary cargado:", summary);
@@ -67,6 +98,7 @@ export function ClockIn() {
 
       setCurrentStatus(status.status);
       setTodaySummary(summary as any);
+      setExpectedDailyHours(dailyHours);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
     }
@@ -137,6 +169,25 @@ export function ClockIn() {
     return `${hours}h ${mins}m`;
   };
 
+  // Formatear tiempo con segundos para contador en vivo
+  const formatTimeWithSeconds = (totalMinutes: number) => {
+    const totalSeconds = Math.floor(totalMinutes * 60); // Convertir a segundos totales
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return {
+      hours: hours.toString().padStart(2, '0'),
+      minutes: minutes.toString().padStart(2, '0'),
+      seconds: seconds.toString().padStart(2, '0'),
+    };
+  };
+
+  // Calcular tiempo restante
+  const remainingMinutes = Math.max(0, (expectedDailyHours * 60) - liveWorkedMinutes);
+  const isCompleted = liveWorkedMinutes >= expectedDailyHours * 60;
+  const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
+  const remainingTime = formatTimeWithSeconds(remainingMinutes);
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader title="Fichar" />
@@ -150,26 +201,52 @@ export function ClockIn() {
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
         {/* Card principal de fichaje */}
         <Card className="@container/card flex flex-col items-center justify-center gap-6 p-8 md:p-12">
-          <div className="flex flex-col items-center gap-4">
-            <Clock className="h-16 w-16 text-muted-foreground" />
-            <div className="text-center">
-              <h2 className="text-4xl font-bold tabular-nums">
-                {currentTime.toLocaleTimeString("es-ES", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                })}
-              </h2>
-              <p className="text-sm text-muted-foreground">
+          <div className="flex w-full flex-col items-center gap-6">
+            {/* Estado y fecha */}
+            <div className="flex flex-col items-center gap-2">
+              {getStatusBadge()}
+              <p className="text-xs text-muted-foreground">
                 {currentTime.toLocaleDateString("es-ES", {
                   weekday: "long",
-                  year: "numeric",
-                  month: "long",
                   day: "numeric",
+                  month: "long",
                 })}
               </p>
             </div>
-            {getStatusBadge()}
+
+            {/* Tiempo trabajado */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-sm font-medium text-muted-foreground">Tiempo trabajado</span>
+              <div className="flex items-center gap-1 tabular-nums">
+                <span className="text-5xl font-bold">{workedTime.hours}</span>
+                <span className="text-2xl font-bold text-muted-foreground">:</span>
+                <span className="text-5xl font-bold">{workedTime.minutes}</span>
+                <span className="text-2xl font-bold text-muted-foreground">:</span>
+                <span className="text-3xl font-bold text-muted-foreground">{workedTime.seconds}</span>
+              </div>
+            </div>
+
+            {/* Tiempo restante o completado */}
+            <div className="flex flex-col items-center gap-1">
+              {isCompleted ? (
+                <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2">
+                  <span className="text-sm font-semibold text-green-600 dark:text-green-400">
+                    ¡Jornada completada! 🎉
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-xs text-muted-foreground">Tiempo restante</span>
+                  <div className="flex items-center gap-1 tabular-nums">
+                    <span className="text-2xl font-semibold text-muted-foreground">{remainingTime.hours}</span>
+                    <span className="text-lg text-muted-foreground">:</span>
+                    <span className="text-2xl font-semibold text-muted-foreground">{remainingTime.minutes}</span>
+                    <span className="text-lg text-muted-foreground">:</span>
+                    <span className="text-xl text-muted-foreground/70">{remainingTime.seconds}</span>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div className="flex w-full flex-col gap-3">
@@ -196,6 +273,25 @@ export function ClockIn() {
         {/* Card de resumen del día */}
         <Card className="@container/card flex flex-col gap-4 p-6">
           <h3 className="text-lg font-semibold">Resumen de hoy</h3>
+
+          {/* Barra de progreso de horas */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Progreso diario</span>
+              <span className="font-semibold">
+                {formatMinutes(todaySummary?.totalWorkedMinutes || 0)} / {expectedDailyHours}h
+              </span>
+            </div>
+            <Progress
+              value={Math.min(((todaySummary?.totalWorkedMinutes || 0) / 60 / expectedDailyHours) * 100, 100)}
+              className="h-2"
+            />
+            {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
+              <p className="text-xs text-green-600 dark:text-green-400">
+                ¡Has completado tu jornada! 🎉
+              </p>
+            )}
+          </div>
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between rounded-lg border p-3">
