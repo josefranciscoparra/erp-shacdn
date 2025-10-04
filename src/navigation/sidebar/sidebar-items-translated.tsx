@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Fingerprint,
   LayoutDashboard,
   ChartBar,
   Banknote,
@@ -161,18 +160,6 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/settings",
           icon: Settings,
           permission: "manage_organization",
-        },
-      ],
-    },
-    {
-      id: 6,
-      label: t("pages"),
-      items: [
-        {
-          title: t("authentication"),
-          url: "/auth",
-          icon: Fingerprint,
-          subItems: [{ title: t("login"), url: "/auth/login", newTab: true }],
         },
       ],
     },

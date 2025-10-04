@@ -177,11 +177,9 @@ export function SystemInfoTab() {
                 Crear, editar y gestionar usuarios del sistema
               </p>
             </div>
-            <Button asChild variant="outline">
-              <Link href="/dashboard/admin">
-                Ir a usuarios
-                <ExternalLink className="ml-2 h-4 w-4" />
-              </Link>
+            <Button variant="outline" disabled>
+              Ir a usuarios
+              <ExternalLink className="ml-2 h-4 w-4" />
             </Button>
           </div>
         </div>
