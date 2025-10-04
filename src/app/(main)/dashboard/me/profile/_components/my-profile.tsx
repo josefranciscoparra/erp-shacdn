@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AppearanceSettings } from "./appearance-settings";
 
 export function MyProfile() {
   const [isEditing, setIsEditing] = useState(false);
@@ -220,6 +221,9 @@ export function MyProfile() {
           </div>
         </Card>
       </div>
+
+      {/* Preferencias de apariencia */}
+      <AppearanceSettings />
     </div>
   );
 }
