@@ -9,134 +9,203 @@ import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AppearanceSettings } from "./appearance-settings";
+import { updateProfileData, type ProfileData } from "@/server/actions/profile";
+import { toast } from "sonner";
 
-export function MyProfile() {
+interface MyProfileProps {
+  initialData: ProfileData;
+}
+
+export function MyProfile({ initialData }: MyProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    firstName: "Juan",
-    lastName: "Pérez García",
-    email: "juan.perez@empresa.com",
-    phone: "+34 612 345 678",
-    address: "Calle Mayor 123, Madrid",
-    department: "Desarrollo",
-    position: "Senior Developer",
-    startDate: "2024-06-15",
+    phone: initialData.employee?.phone || "",
+    mobilePhone: initialData.employee?.mobilePhone || "",
+    address: initialData.employee?.address || "",
+    city: initialData.employee?.city || "",
+    postalCode: initialData.employee?.postalCode || "",
+    province: initialData.employee?.province || "",
+    emergencyContactName: initialData.employee?.emergencyContactName || "",
+    emergencyContactPhone: initialData.employee?.emergencyContactPhone || "",
+    emergencyRelationship: initialData.employee?.emergencyRelationship || "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Llamar API para actualizar perfil
-    setIsEditing(false);
+    setIsSubmitting(true);
+
+    try {
+      const result = await updateProfileData(formData);
+
+      if (result.success) {
+        toast.success("Perfil actualizado", {
+          description: "Tus datos se han actualizado correctamente.",
+        });
+        setIsEditing(false);
+      } else {
+        toast.error("Error", {
+          description: result.error || "No se pudo actualizar el perfil.",
+        });
+      }
+    } catch (error) {
+      toast.error("Error", {
+        description: "Ocurrió un error al actualizar el perfil.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleCancel = () => {
+    // Resetear datos al cancelar
+    setFormData({
+      phone: initialData.employee?.phone || "",
+      mobilePhone: initialData.employee?.mobilePhone || "",
+      address: initialData.employee?.address || "",
+      city: initialData.employee?.city || "",
+      postalCode: initialData.employee?.postalCode || "",
+      province: initialData.employee?.province || "",
+      emergencyContactName: initialData.employee?.emergencyContactName || "",
+      emergencyContactPhone: initialData.employee?.emergencyContactPhone || "",
+      emergencyRelationship: initialData.employee?.emergencyRelationship || "",
+    });
+    setIsEditing(false);
+  };
+
+  // Datos calculados
+  const fullName = initialData.employee
+    ? `${initialData.employee.firstName} ${initialData.employee.lastName}${
+        initialData.employee.secondLastName ? ` ${initialData.employee.secondLastName}` : ""
+      }`
+    : initialData.user.name;
+
+  const initials = initialData.employee
+    ? `${initialData.employee.firstName[0]}${initialData.employee.lastName[0]}`
+    : initialData.user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase();
+
+  const position = initialData.activeContract?.position
+    ? initialData.activeContract.position.level
+      ? `${initialData.activeContract.position.level.name} ${initialData.activeContract.position.title}`
+      : initialData.activeContract.position.title
+    : "Sin puesto asignado";
+
+  const department = initialData.activeContract?.department?.name || "Sin departamento";
+
+  const contractTypeLabels: Record<string, string> = {
+    INDEFINIDO: "Indefinido",
+    TEMPORAL: "Temporal",
+    PRACTICAS: "Prácticas",
+    FORMACION: "Formación",
+    OBRA_SERVICIO: "Obra o servicio",
+  };
+
+  const contractType = initialData.activeContract
+    ? contractTypeLabels[initialData.activeContract.contractType] ||
+      initialData.activeContract.contractType
+    : "Sin contrato";
+
+  const weeklyHours = initialData.activeContract
+    ? `${initialData.activeContract.weeklyHours}h/semana`
+    : "No definido";
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
         title="Mi Perfil"
         actionLabel={isEditing ? "Cancelar" : "Editar Perfil"}
-        onAction={() => setIsEditing(!isEditing)}
+        onAction={handleCancel}
       />
 
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         {/* Información personal */}
         <Card className="@container/card flex flex-col items-center gap-4 p-6 @xl/main:col-span-1">
           <Avatar className="h-32 w-32">
-            <AvatarImage src="https://github.com/shadcn.png" alt="Avatar" />
-            <AvatarFallback>
-              {formData.firstName[0]}
-              {formData.lastName[0]}
-            </AvatarFallback>
+            <AvatarImage
+              src={initialData.employee?.photoUrl || initialData.user.image || undefined}
+              alt="Avatar"
+            />
+            <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
 
           <div className="text-center">
-            <h2 className="text-2xl font-bold">
-              {formData.firstName} {formData.lastName}
-            </h2>
-            <p className="text-sm text-muted-foreground">{formData.position}</p>
+            <h2 className="text-2xl font-bold">{fullName}</h2>
+            <p className="text-sm text-muted-foreground">{position}</p>
           </div>
 
           {!isEditing && (
             <div className="flex w-full flex-col gap-3">
               <div className="flex items-center gap-3 rounded-lg border p-3">
                 <Mail className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{formData.email}</span>
+                <span className="text-sm">{initialData.user.email}</span>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{formData.phone}</span>
-              </div>
+              {formData.mobilePhone && (
+                <div className="flex items-center gap-3 rounded-lg border p-3">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{formData.mobilePhone}</span>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 rounded-lg border p-3">
                 <Briefcase className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">{formData.department}</span>
+                <span className="text-sm">{department}</span>
               </div>
 
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm">
-                  Desde{" "}
-                  {new Date(formData.startDate).toLocaleDateString("es-ES", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
-              </div>
+              {initialData.activeContract?.startDate && (
+                <div className="flex items-center gap-3 rounded-lg border p-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">
+                    Desde{" "}
+                    {new Date(initialData.activeContract.startDate).toLocaleDateString(
+                      "es-ES",
+                      {
+                        month: "long",
+                        year: "numeric",
+                      }
+                    )}
+                  </span>
+                </div>
+              )}
             </div>
           )}
         </Card>
 
         {/* Formulario editable */}
         <Card className="@container/card flex flex-col gap-6 p-6 @xl/main:col-span-2">
-          <h3 className="text-lg font-semibold">Información personal</h3>
+          <h3 className="text-lg font-semibold">Información de contacto</h3>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="firstName">Nombre</Label>
-                <Input
-                  id="firstName"
-                  value={formData.firstName}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="lastName">Apellidos</Label>
-                <Input
-                  id="lastName"
-                  value={formData.lastName}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 @md/card:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="phone">Teléfono</Label>
+                <Label htmlFor="phone">Teléfono fijo</Label>
                 <Input
                   id="phone"
                   type="tel"
                   value={formData.phone}
                   onChange={(e) => handleChange("phone", e.target.value)}
                   disabled={!isEditing}
+                  placeholder="Teléfono fijo"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="mobilePhone">Teléfono móvil</Label>
+                <Input
+                  id="mobilePhone"
+                  type="tel"
+                  value={formData.mobilePhone}
+                  onChange={(e) => handleChange("mobilePhone", e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="Teléfono móvil"
                 />
               </div>
             </div>
@@ -148,34 +217,65 @@ export function MyProfile() {
                 value={formData.address}
                 onChange={(e) => handleChange("address", e.target.value)}
                 disabled={!isEditing}
+                placeholder="Dirección completa"
               />
+            </div>
+
+            <div className="grid gap-4 @md/card:grid-cols-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="city">Ciudad</Label>
+                <Input
+                  id="city"
+                  value={formData.city}
+                  onChange={(e) => handleChange("city", e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="Ciudad"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="postalCode">Código postal</Label>
+                <Input
+                  id="postalCode"
+                  value={formData.postalCode}
+                  onChange={(e) => handleChange("postalCode", e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="CP"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="province">Provincia</Label>
+                <Input
+                  id="province"
+                  value={formData.province}
+                  onChange={(e) => handleChange("province", e.target.value)}
+                  disabled={!isEditing}
+                  placeholder="Provincia"
+                />
+              </div>
             </div>
 
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label htmlFor="department">Departamento</Label>
-                <Input id="department" value={formData.department} disabled />
+                <Input id="department" value={department} disabled />
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="position">Puesto</Label>
-                <Input id="position" value={formData.position} disabled />
+                <Input id="position" value={position} disabled />
               </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="startDate">Fecha de inicio</Label>
-              <Input id="startDate" type="date" value={formData.startDate} disabled />
             </div>
 
             {isEditing && (
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditing(false)}>
+                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
                   Cancelar
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={isSubmitting}>
                   <Save className="mr-2 h-4 w-4" />
-                  Guardar cambios
+                  {isSubmitting ? "Guardando..." : "Guardar cambios"}
                 </Button>
               </div>
             )}
@@ -190,35 +290,96 @@ export function MyProfile() {
           <div className="flex flex-col gap-3">
             <div className="flex justify-between rounded-lg border p-3">
               <span className="text-sm text-muted-foreground">Tipo de contrato</span>
-              <span className="font-medium">Indefinido</span>
+              <span className="font-medium">{contractType}</span>
             </div>
             <div className="flex justify-between rounded-lg border p-3">
               <span className="text-sm text-muted-foreground">Jornada</span>
-              <span className="font-medium">Completa (40h/semana)</span>
+              <span className="font-medium">{weeklyHours}</span>
             </div>
-            <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Modalidad</span>
-              <span className="font-medium">Híbrido</span>
-            </div>
+            {initialData.activeContract?.costCenter && (
+              <div className="flex justify-between rounded-lg border p-3">
+                <span className="text-sm text-muted-foreground">Centro</span>
+                <span className="font-medium">{initialData.activeContract.costCenter.name}</span>
+              </div>
+            )}
           </div>
         </Card>
 
         <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Contacto de emergencia</h3>
-          <div className="flex flex-col gap-3">
-            <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Nombre</span>
-              <span className="font-medium">María Pérez</span>
-            </div>
-            <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Relación</span>
-              <span className="font-medium">Hermana</span>
-            </div>
-            <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Teléfono</span>
-              <span className="font-medium">+34 698 765 432</span>
-            </div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Contacto de emergencia</h3>
+            {isEditing && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  // Focus en el primer campo de emergencia
+                  document.getElementById("emergencyContactName")?.focus();
+                }}
+              >
+                Editar
+              </Button>
+            )}
           </div>
+
+          {isEditing ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="emergencyContactName">Nombre</Label>
+                <Input
+                  id="emergencyContactName"
+                  value={formData.emergencyContactName}
+                  onChange={(e) => handleChange("emergencyContactName", e.target.value)}
+                  placeholder="Nombre del contacto"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="emergencyRelationship">Relación</Label>
+                <Input
+                  id="emergencyRelationship"
+                  value={formData.emergencyRelationship}
+                  onChange={(e) => handleChange("emergencyRelationship", e.target.value)}
+                  placeholder="Ej: Hermana, Padre, etc."
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="emergencyContactPhone">Teléfono</Label>
+                <Input
+                  id="emergencyContactPhone"
+                  type="tel"
+                  value={formData.emergencyContactPhone}
+                  onChange={(e) => handleChange("emergencyContactPhone", e.target.value)}
+                  placeholder="Teléfono de contacto"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {formData.emergencyContactName ? (
+                <>
+                  <div className="flex justify-between rounded-lg border p-3">
+                    <span className="text-sm text-muted-foreground">Nombre</span>
+                    <span className="font-medium">{formData.emergencyContactName}</span>
+                  </div>
+                  {formData.emergencyRelationship && (
+                    <div className="flex justify-between rounded-lg border p-3">
+                      <span className="text-sm text-muted-foreground">Relación</span>
+                      <span className="font-medium">{formData.emergencyRelationship}</span>
+                    </div>
+                  )}
+                  {formData.emergencyContactPhone && (
+                    <div className="flex justify-between rounded-lg border p-3">
+                      <span className="text-sm text-muted-foreground">Teléfono</span>
+                      <span className="font-medium">{formData.emergencyContactPhone}</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No hay contacto de emergencia registrado</p>
+              )}
+            </div>
+          )}
         </Card>
       </div>
 
