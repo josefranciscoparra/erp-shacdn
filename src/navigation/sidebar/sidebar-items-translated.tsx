@@ -15,6 +15,9 @@ import {
   MapPin,
   Briefcase,
   FolderOpen,
+  Clock,
+  CalendarDays,
+  UserCircle,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -66,6 +69,37 @@ export function useSidebarItems(): NavGroup[] {
     },
     {
       id: 2,
+      label: "Mi Espacio",
+      items: [
+        {
+          title: "Fichar",
+          url: "/dashboard/me/clock",
+          icon: Clock,
+        },
+        {
+          title: "Mis Vacaciones",
+          url: "/dashboard/me/pto",
+          icon: CalendarDays,
+        },
+        {
+          title: "Mi Calendario",
+          url: "/dashboard/me/calendar",
+          icon: Calendar,
+        },
+        {
+          title: "Mis Documentos",
+          url: "/dashboard/me/documents",
+          icon: FileText,
+        },
+        {
+          title: "Mi Perfil",
+          url: "/dashboard/me/profile",
+          icon: UserCircle,
+        },
+      ],
+    },
+    {
+      id: 3,
       label: "Organización",
       items: [
         {
@@ -89,7 +123,7 @@ export function useSidebarItems(): NavGroup[] {
       ],
     },
     {
-      id: 3,
+      id: 4,
       label: "RRHH",
       items: [
         {
@@ -113,7 +147,7 @@ export function useSidebarItems(): NavGroup[] {
       ],
     },
     {
-      id: 4,
+      id: 5,
       label: "Configuración",
       items: [
         {
@@ -131,7 +165,7 @@ export function useSidebarItems(): NavGroup[] {
       ],
     },
     {
-      id: 5,
+      id: 6,
       label: t("pages"),
       items: [
         {
