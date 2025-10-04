@@ -91,7 +91,7 @@ export function CalendarsDataTable({ data }: { data: CalendarData[] }) {
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm" asChild>
+          <Button size="sm" asChild>
             <Link href="/dashboard/calendars/new">
               <Plus />
               <span className="hidden lg:inline">Nuevo calendario</span>

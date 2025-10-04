@@ -23,9 +23,6 @@ export default function CalendarsPage() {
         <SectionHeader
           title="Calendarios"
           subtitle="Gestiona los calendarios organizacionales"
-          actionHref="/dashboard/calendars/new"
-          actionLabel="Nuevo calendario"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -41,9 +38,6 @@ export default function CalendarsPage() {
         <SectionHeader
           title="Calendarios"
           subtitle="Gestiona los calendarios organizacionales"
-          actionHref="/dashboard/calendars/new"
-          actionLabel="Nuevo calendario"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar calendarios: {error}</span>
@@ -59,9 +53,6 @@ export default function CalendarsPage() {
       <SectionHeader
         title="Calendarios"
         subtitle="Gestiona calendarios de festivos, eventos corporativos y cierres por centro de coste"
-        actionHref="/dashboard/calendars/new"
-        actionLabel="Nuevo calendario"
-        actionIcon={<Plus className="h-4 w-4" />}
       />
 
       {hasCalendars ? (

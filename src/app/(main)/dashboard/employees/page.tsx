@@ -21,9 +21,6 @@ export default function EmployeesPage() {
         <SectionHeader
           title="Empleados"
           subtitle="Gestiona los empleados de tu organización"
-          actionHref="/dashboard/employees/new"
-          actionLabel="Nuevo empleado"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -39,9 +36,6 @@ export default function EmployeesPage() {
         <SectionHeader
           title="Empleados"
           subtitle="Gestiona los empleados de tu organización"
-          actionHref="/dashboard/employees/new"
-          actionLabel="Nuevo empleado"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar empleados: {error}</span>
@@ -70,9 +64,6 @@ export default function EmployeesPage() {
         <SectionHeader
           title="Empleados"
           subtitle="Gestiona los empleados de tu organización"
-          actionHref="/dashboard/employees/new"
-          actionLabel="Nuevo empleado"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
 
         {hasEmployees ? (

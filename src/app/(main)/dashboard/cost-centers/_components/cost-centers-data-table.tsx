@@ -99,7 +99,7 @@ export function CostCentersDataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm" onClick={onNewCostCenter}>
+          <Button size="sm" onClick={onNewCostCenter}>
             <Plus />
             <span className="hidden lg:inline">Nuevo centro</span>
           </Button>

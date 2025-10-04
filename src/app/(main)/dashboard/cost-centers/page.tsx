@@ -55,8 +55,6 @@ export default function CostCentersPage() {
         <SectionHeader
           title="Centros de coste"
           subtitle="Gestiona los centros de coste de tu organización"
-          actionLabel="Nuevo centro"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -72,8 +70,6 @@ export default function CostCentersPage() {
         <SectionHeader
           title="Centros de coste"
           subtitle="Gestiona los centros de coste de tu organización"
-          actionLabel="Nuevo centro"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar centros de coste: {error}</span>
@@ -102,9 +98,6 @@ export default function CostCentersPage() {
         <SectionHeader
           title="Centros de coste"
           subtitle="Gestiona los centros de coste de tu organización"
-          actionLabel="Nuevo centro"
-          actionIcon={<Plus className="h-4 w-4" />}
-          onAction={() => setDialogOpen(true)}
         />
 
         {hasCostCenters ? (

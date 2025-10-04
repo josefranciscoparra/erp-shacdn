@@ -56,8 +56,6 @@ export default function PositionsPage() {
         <SectionHeader
           title="Puestos de trabajo"
           subtitle="Gestiona los puestos de trabajo de tu organización"
-          actionLabel="Nuevo puesto"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -73,8 +71,6 @@ export default function PositionsPage() {
         <SectionHeader
           title="Puestos de trabajo"
           subtitle="Gestiona los puestos de trabajo de tu organización"
-          actionLabel="Nuevo puesto"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar puestos: {error}</span>

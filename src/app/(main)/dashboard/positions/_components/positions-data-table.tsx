@@ -99,7 +99,7 @@ export function PositionsDataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm" onClick={onNewPosition}>
+          <Button size="sm" onClick={onNewPosition}>
             <Plus />
             <span className="hidden lg:inline">Nuevo puesto</span>
           </Button>

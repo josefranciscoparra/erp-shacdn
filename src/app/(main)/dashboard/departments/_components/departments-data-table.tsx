@@ -102,7 +102,7 @@ export function DepartmentsDataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm" onClick={onNewDepartment}>
+          <Button size="sm" onClick={onNewDepartment}>
             <Plus />
             <span className="hidden lg:inline">Nuevo departamento</span>
           </Button>
