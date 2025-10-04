@@ -345,7 +345,9 @@ export async function getTodaySummary() {
 
     const today = new Date();
     const dayStart = startOfDay(today);
+    const dayEnd = endOfDay(today);
 
+    // Obtener el resumen del día
     const summary = await prisma.workdaySummary.findUnique({
       where: {
         orgId_employeeId_date: {
@@ -354,16 +356,44 @@ export async function getTodaySummary() {
           date: dayStart,
         },
       },
-      include: {
-        timeEntries: {
-          orderBy: {
-            timestamp: "asc",
-          },
+    });
+
+    // Obtener los fichajes del día (independientemente de si hay resumen o no)
+    const timeEntries = await prisma.timeEntry.findMany({
+      where: {
+        employeeId,
+        orgId,
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd,
         },
+      },
+      orderBy: {
+        timestamp: "asc",
       },
     });
 
-    return summary;
+    // Combinar resumen con entries
+    if (summary) {
+      return {
+        ...summary,
+        timeEntries,
+      };
+    }
+
+    // Si no hay resumen pero hay entries, retornar estructura básica
+    if (timeEntries.length > 0) {
+      return {
+        id: "",
+        date: dayStart,
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+        status: "IN_PROGRESS" as const,
+        timeEntries,
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error("Error al obtener resumen de hoy:", error);
     throw error;

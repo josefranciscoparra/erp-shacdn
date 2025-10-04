@@ -62,6 +62,9 @@ export function ClockIn() {
         getTodaySummary(),
       ]);
 
+      console.log("📊 Summary cargado:", summary);
+      console.log("📋 TimeEntries:", summary?.timeEntries);
+
       setCurrentStatus(status.status);
       setTodaySummary(summary as any);
     } catch (err) {
@@ -239,10 +242,10 @@ export function ClockIn() {
       </div>
 
       {/* Historial de fichajes del día */}
-      {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 && (
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
+      <Card className="@container/card flex flex-col gap-4 p-6">
+        <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
 
+        {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
           <div className="flex flex-col gap-2">
             {todaySummary.timeEntries.map((entry) => (
               <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
@@ -270,8 +273,10 @@ export function ClockIn() {
               </div>
             ))}
           </div>
-        </Card>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">Aún no has registrado fichajes hoy.</p>
+        )}
+      </Card>
     </div>
   );
 }
