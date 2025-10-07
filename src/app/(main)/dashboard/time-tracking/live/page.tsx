@@ -15,12 +15,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
+import { DataTable as DataTableNew } from "@/components/data-table/data-table";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+
 import { getCurrentlyWorkingEmployees } from "@/server/actions/admin-time-tracking";
+import { employeeColumns } from "../_components/employee-columns";
 
 interface EmployeeStatus {
   id: string;
   name: string | null;
   email: string;
+  image?: string | null;
   department: string;
   costCenter: string;
   status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
@@ -33,32 +40,12 @@ interface EmployeeStatus {
 
 type FilterValue = "all" | "working" | "break";
 
-const statusConfig = {
-  CLOCKED_IN: {
-    label: "Trabajando",
-    variant: "default" as const,
-    icon: "🟢",
-    color: "bg-green-500",
-  },
-  ON_BREAK: {
-    label: "En pausa",
-    variant: "secondary" as const,
-    icon: "🟡",
-    color: "bg-yellow-500",
-  },
-  CLOCKED_OUT: {
-    label: "Sin fichar",
-    variant: "outline" as const,
-    icon: "⚪",
-    color: "bg-gray-400",
-  },
+// Orden de prioridad para estados
+const statusPriority = {
+  CLOCKED_IN: 1,
+  ON_BREAK: 2,
+  CLOCKED_OUT: 3,
 };
-
-function formatMinutes(minutes: number): string {
-  const hours = Math.floor(minutes / 60);
-  const mins = Math.floor(minutes % 60);
-  return `${hours}h ${mins}m`;
-}
 
 export default function LiveMonitorPage() {
   const [employees, setEmployees] = useState<EmployeeStatus[]>([]);
@@ -67,13 +54,34 @@ export default function LiveMonitorPage() {
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<FilterValue>("all");
 
+  // Configurar la tabla
+  const table = useDataTableInstance({
+    data: filteredEmployees,
+    columns: employeeColumns,
+    getRowId: (row) => row.id,
+    initialState: {
+      sorting: [
+        { id: "status", desc: false },
+        { id: "name", desc: false },
+      ],
+    },
+  });
+
   const loadData = async () => {
     setIsLoading(true);
     try {
       const data = await getCurrentlyWorkingEmployees();
-      setEmployees(data);
+
+      // Ordenar por estado (trabajando primero) y luego por nombre
+      const sorted = data.sort((a, b) => {
+        const statusDiff = statusPriority[a.status] - statusPriority[b.status];
+        if (statusDiff !== 0) return statusDiff;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      setEmployees(sorted);
       setLastUpdate(new Date());
-      applyFilter(data, filter);
+      applyFilter(sorted, filter);
     } catch (error) {
       console.error("Error al cargar empleados:", error);
     } finally {
@@ -220,6 +228,10 @@ export default function LiveMonitorPage() {
               En pausa <Badge variant="secondary" className="ml-2">{breakCount}</Badge>
             </TabsTrigger>
           </TabsList>
+
+          <div className="flex items-center gap-2">
+            <DataTableViewOptions table={table} />
+          </div>
         </div>
 
         {["all", "working", "break"].map((tab) => (
@@ -235,60 +247,12 @@ export default function LiveMonitorPage() {
                 description={`No hay empleados ${tab === "working" ? "trabajando" : tab === "break" ? "en pausa" : "para mostrar"} en este momento`}
               />
             ) : (
-              <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-3">
-                {filteredEmployees.map((employee) => {
-                  const config = statusConfig[employee.status];
-                  return (
-                    <Card key={employee.id} className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
-                      <div className="flex flex-col gap-3">
-                        {/* Header */}
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`size-3 rounded-full ${config.color}`} />
-                            <Badge variant={config.variant}>{config.label}</Badge>
-                          </div>
-                        </div>
-
-                        {/* Nombre y email */}
-                        <div className="flex flex-col">
-                          <span className="font-semibold">{employee.name || "Sin nombre"}</span>
-                          <span className="text-sm text-muted-foreground">{employee.email}</span>
-                        </div>
-
-                        {/* Departamento */}
-                        <div className="flex flex-col gap-1 text-sm">
-                          <span className="text-muted-foreground">Departamento</span>
-                          <span className="font-medium">{employee.department}</span>
-                        </div>
-
-                        {/* Hora de entrada */}
-                        {employee.clockIn && (
-                          <div className="flex items-center gap-2 text-sm">
-                            <Clock className="size-4 text-muted-foreground" />
-                            <span className="text-muted-foreground">Entrada:</span>
-                            <span className="font-medium">
-                              {format(new Date(employee.clockIn), "HH:mm", { locale: es })}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Tiempo trabajado hoy */}
-                        <div className="flex items-center justify-between rounded-lg border bg-card p-2 text-sm">
-                          <span className="text-muted-foreground">Trabajado hoy</span>
-                          <span className="font-semibold">{formatMinutes(employee.todayWorkedMinutes)}</span>
-                        </div>
-
-                        {/* Última acción */}
-                        {employee.lastAction && (
-                          <div className="text-xs text-muted-foreground">
-                            Última acción: {format(new Date(employee.lastAction), "HH:mm:ss", { locale: es })}
-                          </div>
-                        )}
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <DataTableNew table={table} columns={employeeColumns} />
+                </div>
+                <DataTablePagination table={table} />
+              </>
             )}
           </TabsContent>
         ))}
