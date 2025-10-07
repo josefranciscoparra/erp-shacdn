@@ -42,6 +42,7 @@ export function ClockIn() {
   const [currentStatus, setCurrentStatus] = useState<ClockStatus>("CLOCKED_OUT");
   const [todaySummary, setTodaySummary] = useState<WorkdaySummary | null>(null);
   const [expectedDailyHours, setExpectedDailyHours] = useState<number>(8);
+  const [hasActiveContract, setHasActiveContract] = useState<boolean>(true);
   const [isClocking, setIsClocking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [liveWorkedMinutes, setLiveWorkedMinutes] = useState<number>(0);
@@ -90,7 +91,7 @@ export function ClockIn() {
 
   const loadData = async () => {
     try {
-      const [status, summary, dailyHours] = await Promise.all([
+      const [status, summary, hoursInfo] = await Promise.all([
         getCurrentStatus(),
         getTodaySummary(),
         getExpectedDailyHours(),
@@ -101,7 +102,8 @@ export function ClockIn() {
 
       setCurrentStatus(status.status);
       setTodaySummary(summary as any);
-      setExpectedDailyHours(dailyHours);
+      setExpectedDailyHours(hoursInfo.dailyHours);
+      setHasActiveContract(hoursInfo.hasActiveContract);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
     }
@@ -203,6 +205,25 @@ export function ClockIn() {
         </Card>
       )}
 
+      {!hasActiveContract && (
+        <Card className="border-yellow-500 bg-yellow-500/10 p-4">
+          <div className="flex items-start gap-3">
+            <div className="flex size-5 items-center justify-center rounded-full bg-yellow-500/20">
+              <span className="text-xs font-bold text-yellow-700">!</span>
+            </div>
+            <div className="flex-1 space-y-1">
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                Sin contrato activo
+              </p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+                Usando valores por defecto: <span className="font-semibold">{expectedDailyHours}h diarias ({expectedDailyHours * 5}h semanales)</span>.
+                Contacta con RRHH para configurar tu contrato laboral.
+              </p>
+            </div>
+          </div>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
         {/* Card principal de fichaje */}
         <Card className="@container/card flex flex-col items-center justify-center gap-6 p-8 md:p-12">
@@ -283,8 +304,9 @@ export function ClockIn() {
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progreso diario</span>
-              <span className="font-semibold">
+              <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
                 {formatMinutes(todaySummary?.totalWorkedMinutes || 0)} / {expectedDailyHours}h
+                {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
               </span>
             </div>
             <Progress

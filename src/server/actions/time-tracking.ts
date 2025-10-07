@@ -34,6 +34,7 @@ async function getAuthenticatedEmployee() {
 
   // Obtener horas semanales del contrato activo (si existe)
   const activeContract = user.employee.employmentContracts[0];
+  const hasActiveContract = !!activeContract;
   const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40; // Default 40h
   const dailyHours = weeklyHours / 5; // Asumiendo 5 días laborables
 
@@ -43,6 +44,7 @@ async function getAuthenticatedEmployee() {
     orgId: user.orgId,
     weeklyHours,
     dailyHours,
+    hasActiveContract, // Indica si tiene contrato o está usando valores por defecto
   };
 }
 
@@ -124,7 +126,7 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
 }
 
 // Helper para actualizar el resumen del día
-async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
+async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date, dailyHours: number = 8) {
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
@@ -247,7 +249,7 @@ export async function getCurrentStatus() {
 // Fichar entrada
 export async function clockIn() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
     // Validar que no haya fichado ya
     const currentStatus = await getCurrentStatus();
@@ -266,7 +268,7 @@ export async function clockIn() {
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
     return { success: true, entry };
   } catch (error) {
@@ -278,7 +280,7 @@ export async function clockIn() {
 // Fichar salida
 export async function clockOut() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
     // Validar que haya fichado entrada
     const currentStatus = await getCurrentStatus();
@@ -309,7 +311,7 @@ export async function clockOut() {
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
     return { success: true, entry };
   } catch (error) {
@@ -321,7 +323,7 @@ export async function clockOut() {
 // Iniciar descanso
 export async function startBreak() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
     // Validar que esté trabajando
     const currentStatus = await getCurrentStatus();
@@ -340,7 +342,7 @@ export async function startBreak() {
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
     return { success: true, entry };
   } catch (error) {
@@ -352,7 +354,7 @@ export async function startBreak() {
 // Finalizar descanso
 export async function endBreak() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
     // Validar que esté en pausa
     const currentStatus = await getCurrentStatus();
@@ -371,7 +373,7 @@ export async function endBreak() {
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
     return { success: true, entry };
   } catch (error) {
@@ -383,8 +385,8 @@ export async function endBreak() {
 // Obtener horas esperadas del día según contrato
 export async function getExpectedDailyHours() {
   try {
-    const { dailyHours } = await getAuthenticatedEmployee();
-    return dailyHours;
+    const { dailyHours, hasActiveContract } = await getAuthenticatedEmployee();
+    return { dailyHours, hasActiveContract };
   } catch (error) {
     console.error("Error al obtener horas esperadas:", error);
     throw error;
