@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Download, ArrowLeft, ShieldAlert, FileText, Clock, TrendingUp, CheckCircle } from "lucide-react";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format } from "date-fns";
 import { es } from "date-fns/locale";
+import { DateRange } from "react-day-picker";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { EmptyState } from "@/components/hr/empty-state";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -49,6 +51,7 @@ export default function EmployeeTimeTrackingPage() {
   const [weeklyRecords, setWeeklyRecords] = useState<WeeklySummary[]>([]);
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlySummary[]>([]);
   const [yearlyRecords, setYearlyRecords] = useState<YearlySummary[]>([]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const [stats, setStats] = useState({
     totalRecords: 0,
@@ -111,8 +114,13 @@ export default function EmployeeTimeTrackingPage() {
           dateTo = endOfYear(today);
           break;
         case "all":
-          dateFrom = undefined;
-          dateTo = undefined;
+          // Usar el rango de fechas seleccionado si existe
+          if (dateRange?.from) {
+            dateFrom = startOfDay(dateRange.from);
+          }
+          if (dateRange?.to) {
+            dateTo = endOfDay(dateRange.to);
+          }
           break;
       }
 
@@ -148,7 +156,7 @@ export default function EmployeeTimeTrackingPage() {
 
   useEffect(() => {
     loadData(activeTab);
-  }, [activeTab, employeeId]);
+  }, [activeTab, employeeId, dateRange]);
 
   const getInitials = (name: string) => {
     return name
@@ -375,6 +383,14 @@ export default function EmployeeTimeTrackingPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
+              {activeTab === "all" && (
+                <DateRangePicker
+                  dateRange={dateRange}
+                  onDateRangeChange={setDateRange}
+                  placeholder="Filtrar por fecha"
+                />
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
