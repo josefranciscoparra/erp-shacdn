@@ -31,18 +31,23 @@ export interface TimeTrackingRecord {
   };
 }
 
-const statusLabels = {
-  IN_PROGRESS: "En curso",
-  COMPLETED: "Completado",
-  INCOMPLETE: "Incompleto",
-  ABSENT: "Ausente",
-};
-
-const statusVariants = {
-  IN_PROGRESS: "default" as const,
-  COMPLETED: "secondary" as const,
-  INCOMPLETE: "destructive" as const,
-  ABSENT: "outline" as const,
+const statusConfig = {
+  IN_PROGRESS: {
+    label: "En curso",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+  },
+  COMPLETED: {
+    label: "Completado",
+    className: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
+  },
+  INCOMPLETE: {
+    label: "Incompleto",
+    className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950 dark:text-yellow-300",
+  },
+  ABSENT: {
+    label: "Ausente",
+    className: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  },
 };
 
 function formatMinutes(minutes: number): string {
@@ -104,10 +109,19 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     header: "Tiempo Trabajado",
     cell: ({ row }) => {
       const minutes = row.getValue("totalWorkedMinutes") as number;
+      const totalWorkedHours = row.original.totalWorkedHours || 0;
+
+      // Calcular horas esperadas desde el contrato del empleado
+      // Si no hay información del contrato, asumir 8h por defecto
+      const expectedHours = 8; // TODO: Obtener del contrato cuando esté disponible
+
       return (
-        <div className="flex items-center gap-1.5">
-          <Clock className="size-3.5 text-muted-foreground" />
-          <span>{formatMinutes(minutes)}</span>
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-1.5">
+            <Clock className="size-3.5 text-muted-foreground" />
+            <span className="font-medium">{formatMinutes(minutes)}</span>
+          </div>
+          <span className="text-xs text-muted-foreground">/ {expectedHours}h esperadas</span>
         </div>
       );
     },
@@ -132,10 +146,11 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     accessorKey: "status",
     header: "Estado",
     cell: ({ row }) => {
-      const status = row.getValue("status") as keyof typeof statusLabels;
+      const status = row.getValue("status") as keyof typeof statusConfig;
+      const config = statusConfig[status];
       return (
-        <Badge variant={statusVariants[status]}>
-          {statusLabels[status]}
+        <Badge className={config.className}>
+          {config.label}
         </Badge>
       );
     },

@@ -152,10 +152,18 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
   const lastExit = entries.reverse().find((e) => e.entryType === "CLOCK_OUT");
 
-  // Determinar el estado
+  // Determinar el estado basándose en horas trabajadas vs esperadas
   let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
   if (lastExit) {
-    status = "COMPLETED";
+    // Si fichó salida, evaluar si completó las horas
+    const workedHours = worked / 60;
+    const compliance = (workedHours / dailyHours) * 100;
+
+    if (compliance >= 95) {
+      status = "COMPLETED"; // Cumplió >= 95% de las horas esperadas
+    } else {
+      status = "INCOMPLETE"; // Fichó salida pero no cumplió las horas
+    }
   }
 
   // Buscar o crear el resumen del día

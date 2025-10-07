@@ -603,6 +603,22 @@ export async function getEmployeeTimeTrackingHistory(
 
     return summaries.map(s => {
       const contract = s.employee.employmentContracts[0];
+
+      // Recalcular el estado basándose en las horas trabajadas
+      let status = s.status;
+      if (s.clockOut) {
+        const weeklyHours = contract?.weeklyHours ? Number(contract.weeklyHours) : 40;
+        const dailyHours = weeklyHours / 5;
+        const workedHours = Number(s.totalWorkedMinutes) / 60;
+        const compliance = (workedHours / dailyHours) * 100;
+
+        if (compliance >= 95) {
+          status = "COMPLETED";
+        } else {
+          status = "INCOMPLETE";
+        }
+      }
+
       return {
         id: s.id,
         date: s.date,
@@ -610,7 +626,7 @@ export async function getEmployeeTimeTrackingHistory(
         clockOut: s.clockOut,
         totalWorkedMinutes: Number(s.totalWorkedMinutes),
         totalBreakMinutes: Number(s.totalBreakMinutes),
-        status: s.status,
+        status,
         notes: s.notes,
         createdAt: s.createdAt,
         updatedAt: s.updatedAt,
@@ -623,6 +639,8 @@ export async function getEmployeeTimeTrackingHistory(
           costCenter: contract?.costCenter || null,
         },
         timeEntries: s.timeEntries,
+        totalWorkedHours: Math.round((Number(s.totalWorkedMinutes) / 60) * 100) / 100,
+        totalBreakHours: Math.round((Number(s.totalBreakMinutes) / 60) * 100) / 100,
       };
     });
   } catch (error) {

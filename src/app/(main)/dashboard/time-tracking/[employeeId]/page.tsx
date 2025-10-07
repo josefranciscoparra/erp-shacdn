@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Download, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Download, ArrowLeft, ShieldAlert, FileText, Clock, TrendingUp, CheckCircle } from "lucide-react";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -297,28 +297,51 @@ export default function EmployeeTimeTrackingPage() {
         {/* Stats Cards (solo para vista diaria) */}
         {(activeTab === "today" || activeTab === "all") && (
           <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            <Card className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Total Registros</span>
-                <span className="text-2xl font-bold">{stats.totalRecords}</span>
+            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:border-blue-900 dark:from-blue-950 dark:to-card p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-blue-600 dark:text-blue-400">Total Registros</span>
+                  <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.totalRecords}</span>
+                </div>
+                <div className="rounded-lg bg-blue-100 dark:bg-blue-900/50 p-2">
+                  <FileText className="size-5 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
             </Card>
-            <Card className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Horas Trabajadas</span>
-                <span className="text-2xl font-bold">{stats.totalWorkedHours}h</span>
+
+            <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white dark:border-purple-900 dark:from-purple-950 dark:to-card p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-purple-600 dark:text-purple-400">Horas Trabajadas</span>
+                  <span className="text-3xl font-bold text-purple-700 dark:text-purple-300">{stats.totalWorkedHours}h</span>
+                </div>
+                <div className="rounded-lg bg-purple-100 dark:bg-purple-900/50 p-2">
+                  <Clock className="size-5 text-purple-600 dark:text-purple-400" />
+                </div>
               </div>
             </Card>
-            <Card className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Promedio Diario</span>
-                <span className="text-2xl font-bold">{Math.floor(stats.averageWorkedMinutesPerDay / 60)}h</span>
+
+            <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-900 dark:from-amber-950 dark:to-card p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-amber-600 dark:text-amber-400">Promedio Diario</span>
+                  <span className="text-3xl font-bold text-amber-700 dark:text-amber-300">{Math.floor(stats.averageWorkedMinutesPerDay / 60)}h</span>
+                </div>
+                <div className="rounded-lg bg-amber-100 dark:bg-amber-900/50 p-2">
+                  <TrendingUp className="size-5 text-amber-600 dark:text-amber-400" />
+                </div>
               </div>
             </Card>
-            <Card className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
-              <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Completados</span>
-                <span className="text-2xl font-bold">{stats.statusCounts.COMPLETED}</span>
+
+            <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white dark:border-green-900 dark:from-green-950 dark:to-card p-4 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm text-green-600 dark:text-green-400">Completados</span>
+                  <span className="text-3xl font-bold text-green-700 dark:text-green-300">{stats.statusCounts.COMPLETED}</span>
+                </div>
+                <div className="rounded-lg bg-green-100 dark:bg-green-900/50 p-2">
+                  <CheckCircle className="size-5 text-green-600 dark:text-green-400" />
+                </div>
               </div>
             </Card>
           </div>
