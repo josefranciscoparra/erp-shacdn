@@ -1,27 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SectionHeader } from "@/components/hr/section-header";
-
-interface CalendarEvent {
-  date: string;
-  type: "vacation" | "holiday" | "sick" | "personal";
-  title: string;
-}
-
-const mockEvents: CalendarEvent[] = [
-  { date: "2025-02-10", type: "vacation", title: "Vacaciones" },
-  { date: "2025-02-11", type: "vacation", title: "Vacaciones" },
-  { date: "2025-02-12", type: "vacation", title: "Vacaciones" },
-  { date: "2025-02-13", type: "vacation", title: "Vacaciones" },
-  { date: "2025-02-14", type: "vacation", title: "Vacaciones" },
-  { date: "2025-01-06", type: "holiday", title: "Día de Reyes" },
-  { date: "2025-01-28", type: "personal", title: "Asuntos personales" },
-];
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { getMyCalendars, getMyMonthEvents, CalendarData, CalendarEventData } from "@/server/actions/employee-calendars";
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay } from "date-fns";
+import { es } from "date-fns/locale";
+import { toast } from "sonner";
 
 const monthNames = [
   "Enero",
@@ -40,17 +36,59 @@ const monthNames = [
 
 const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+const eventTypeLabels: Record<string, string> = {
+  HOLIDAY: "Festivo",
+  CLOSURE: "Cierre",
+  EVENT: "Evento",
+  MEETING: "Reunión",
+  DEADLINE: "Fecha límite",
+  OTHER: "Otro",
+};
+
+type FilterType = "all" | "HOLIDAY" | "EVENT" | "CLOSURE";
+
 export function MyCalendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [calendars, setCalendars] = useState<CalendarData[]>([]);
+  const [events, setEvents] = useState<CalendarEventData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [filterType, setFilterType] = useState<FilterType>("all");
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [dayEventsDialogOpen, setDayEventsDialogOpen] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  const firstDayOfMonth = new Date(year, month, 1);
-  const lastDayOfMonth = new Date(year, month + 1, 0);
-  const daysInMonth = lastDayOfMonth.getDate();
-  const startingDayOfWeek = firstDayOfMonth.getDay();
-  const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1;
+  useEffect(() => {
+    loadCalendars();
+  }, []);
+
+  useEffect(() => {
+    loadMonthEvents();
+  }, [currentDate]);
+
+  const loadCalendars = async () => {
+    try {
+      setIsLoading(true);
+      const data = await getMyCalendars();
+      setCalendars(data);
+    } catch (error) {
+      console.error("Error loading calendars:", error);
+      toast.error("Error al cargar calendarios");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadMonthEvents = async () => {
+    try {
+      const data = await getMyMonthEvents(year, month + 1);
+      setEvents(data);
+    } catch (error) {
+      console.error("Error loading events:", error);
+      toast.error("Error al cargar eventos");
+    }
+  };
 
   const previousMonth = () => {
     setCurrentDate(new Date(year, month - 1, 1));
@@ -60,65 +98,92 @@ export function MyCalendar() {
     setCurrentDate(new Date(year, month + 1, 1));
   };
 
-  const getEventForDate = (day: number) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    return mockEvents.find((e) => e.date === dateStr);
+  // Filtrar eventos según el filtro seleccionado
+  const filteredEvents = events.filter((event) => {
+    if (filterType === "all") return true;
+    return event.eventType === filterType;
+  });
+
+  const getEventsForDate = (date: Date) => {
+    return filteredEvents.filter((event) =>
+      isSameDay(new Date(event.date), date)
+    );
   };
 
-  const getEventColor = (type: CalendarEvent["type"]) => {
-    switch (type) {
-      case "vacation":
-        return "bg-blue-500";
-      case "holiday":
-        return "bg-green-500";
-      case "sick":
-        return "bg-red-500";
-      case "personal":
-        return "bg-yellow-500";
+  const handleDayClick = (day: Date, dayEvents: CalendarEventData[]) => {
+    if (dayEvents.length > 0) {
+      setSelectedDay(day);
+      setDayEventsDialogOpen(true);
     }
   };
 
-  const days = [];
-  for (let i = 0; i < adjustedStartDay; i++) {
-    days.push(<div key={`empty-${i}`} className="h-24" />);
+  const selectedDayEvents = selectedDay ? getEventsForDate(selectedDay) : [];
+
+  // Calcular días del calendario (con días del mes anterior/siguiente para completar semanas)
+  const firstDayOfMonth = startOfMonth(currentDate);
+  const lastDayOfMonth = endOfMonth(currentDate);
+  const startDate = startOfWeek(firstDayOfMonth, { weekStartsOn: 1 }); // Lunes
+  const endDate = endOfWeek(lastDayOfMonth, { weekStartsOn: 1 });
+
+  const calendarDays = [];
+  let day = startDate;
+  while (day <= endDate) {
+    calendarDays.push(day);
+    day = addDays(day, 1);
   }
 
-  for (let day = 1; day <= daysInMonth; day++) {
-    const event = getEventForDate(day);
-    const isToday =
-      day === new Date().getDate() &&
-      month === new Date().getMonth() &&
-      year === new Date().getFullYear();
+  // Próximos eventos (ordenados por fecha)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
-    days.push(
-      <div
-        key={day}
-        className={`relative flex h-24 flex-col gap-1 rounded-lg border p-2 ${
-          isToday ? "border-primary bg-primary/5" : ""
-        } ${event ? getEventColor(event.type) + " bg-opacity-10" : ""}`}
-      >
-        <div
-          className={`text-sm font-semibold ${isToday ? "text-primary" : "text-foreground"}`}
-        >
-          {day}
+  const upcomingEvents = filteredEvents
+    .filter((e) => new Date(e.date) >= today)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5);
+
+  // Agrupar próximos eventos por calendario
+  const upcomingByCalendar = upcomingEvents.reduce((acc, event) => {
+    const calendarName = event.calendar.name;
+    if (!acc[calendarName]) {
+      acc[calendarName] = {
+        calendar: event.calendar,
+        events: [],
+      };
+    }
+    acc[calendarName].events.push(event);
+    return acc;
+  }, {} as Record<string, { calendar: CalendarEventData["calendar"]; events: CalendarEventData[] }>);
+
+  if (isLoading) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader title="Mi Calendario" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          <span className="text-muted-foreground ml-2">Cargando calendario...</span>
         </div>
-        {event && (
-          <div className="text-xs text-muted-foreground line-clamp-2">
-            {event.title}
-          </div>
-        )}
       </div>
     );
   }
 
-  const upcomingEvents = mockEvents
-    .filter((e) => new Date(e.date) >= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-    .slice(0, 5);
-
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader title="Mi Calendario" />
+
+      {/* Filtros */}
+      <div className="flex items-center gap-2">
+        <Select value={filterType} onValueChange={(value) => setFilterType(value as FilterType)}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filtrar eventos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los eventos</SelectItem>
+            <SelectItem value="HOLIDAY">Solo festivos</SelectItem>
+            <SelectItem value="EVENT">Solo eventos</SelectItem>
+            <SelectItem value="CLOSURE">Solo cierres</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         {/* Calendario principal */}
@@ -150,15 +215,58 @@ export function MyCalendar() {
           </div>
 
           {/* Días del mes */}
-          <div className="grid grid-cols-7 gap-2">{days}</div>
+          <div className="grid grid-cols-7 gap-2">
+            {calendarDays.map((day, index) => {
+              const dayEvents = getEventsForDate(day);
+              const isToday = isSameDay(day, new Date());
+              const isCurrentMonth = isSameMonth(day, currentDate);
+
+              return (
+                <div
+                  key={index}
+                  onClick={() => handleDayClick(day, dayEvents)}
+                  className={`relative flex min-h-24 flex-col gap-2 rounded-lg border p-2 transition-colors ${
+                    isToday ? "border-primary bg-primary/5" : ""
+                  } ${!isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""} ${
+                    dayEvents.length > 0 ? "cursor-pointer hover:bg-accent" : ""
+                  }`}
+                >
+                  <div
+                    className={`text-sm font-semibold ${
+                      isToday ? "text-primary" : isCurrentMonth ? "text-foreground" : "text-muted-foreground"
+                    }`}
+                  >
+                    {format(day, "d")}
+                  </div>
+
+                  {/* Puntos de eventos */}
+                  {dayEvents.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {dayEvents.slice(0, 6).map((event) => (
+                        <div
+                          key={event.id}
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: event.calendar.color }}
+                          title={`${event.name} (${event.calendar.name})`}
+                        />
+                      ))}
+                      {dayEvents.length > 6 && (
+                        <span className="text-xs text-muted-foreground">+{dayEvents.length - 6}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </Card>
 
-        {/* Eventos próximos */}
+        {/* Próximos eventos */}
         <Card className="@container/card flex flex-col gap-4 p-6">
           <h3 className="text-lg font-semibold">Próximos eventos</h3>
 
-          <div className="flex flex-col gap-3">
-            {upcomingEvents.length === 0 ? (
+          <div className="flex flex-col gap-4">
+            {Object.keys(upcomingByCalendar).length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
                 <Calendar className="h-12 w-12 text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
@@ -166,24 +274,38 @@ export function MyCalendar() {
                 </p>
               </div>
             ) : (
-              upcomingEvents.map((event, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-3 rounded-lg border p-3"
-                >
-                  <div
-                    className={`h-3 w-3 rounded-full ${getEventColor(event.type)}`}
-                  />
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">{event.title}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(event.date).toLocaleDateString("es-ES", {
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
-                    </span>
+              Object.values(upcomingByCalendar).map(({ calendar, events: calendarEvents }) => (
+                <div key={calendar.id} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="h-3 w-3 rounded-full"
+                      style={{ backgroundColor: calendar.color }}
+                    />
+                    <span className="text-sm font-medium">{calendar.name}</span>
                   </div>
+                  {calendarEvents.map((event) => (
+                    <div
+                      key={event.id}
+                      className="ml-5 flex items-start gap-3 rounded-lg border p-3"
+                    >
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{event.name}</span>
+                        {event.description && (
+                          <span className="text-xs text-muted-foreground">
+                            {event.description}
+                          </span>
+                        )}
+                        <div className="mt-1 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(event.date), "PPP", { locale: es })}
+                          </span>
+                          <Badge variant="outline" className="text-xs">
+                            {eventTypeLabels[event.eventType] || event.eventType}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ))
             )}
@@ -191,28 +313,76 @@ export function MyCalendar() {
         </Card>
       </div>
 
-      {/* Leyenda */}
-      <Card className="@container/card flex flex-col gap-4 p-6">
-        <h3 className="text-lg font-semibold">Leyenda</h3>
-        <div className="flex flex-wrap gap-4">
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-blue-500" />
-            <span className="text-sm">Vacaciones</span>
+      {/* Leyenda - Calendarios visibles */}
+      {calendars.length > 0 && (
+        <Card className="@container/card flex flex-col gap-4 p-6">
+          <h3 className="text-lg font-semibold">Calendarios visibles</h3>
+          <div className="flex flex-wrap gap-3">
+            {calendars.map((cal) => (
+              <Badge key={cal.id} variant="outline" className="flex items-center gap-2 py-1.5">
+                <div
+                  className="h-3 w-3 rounded-full"
+                  style={{ backgroundColor: cal.color }}
+                />
+                <span>{cal.name}</span>
+                {cal.costCenter && (
+                  <span className="text-xs text-muted-foreground">
+                    ({cal.costCenter.name})
+                  </span>
+                )}
+              </Badge>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-green-500" />
-            <span className="text-sm">Festivo</span>
+          {calendars.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No tienes calendarios asignados. Contacta con RRHH si crees que esto es un error.
+            </p>
+          )}
+        </Card>
+      )}
+
+      {/* Dialog de eventos del día */}
+      <Dialog open={dayEventsDialogOpen} onOpenChange={setDayEventsDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedDay && format(selectedDay, "PPP", { locale: es })}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDayEvents.length} {selectedDayEvents.length === 1 ? "evento" : "eventos"} este día
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 mt-4">
+            {selectedDayEvents.map((event) => (
+              <div
+                key={event.id}
+                className="flex items-start gap-3 rounded-lg border p-3"
+              >
+                <div
+                  className="mt-0.5 h-3 w-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: event.calendar.color }}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium">{event.name}</div>
+                  {event.description && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {event.description}
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs">
+                      {eventTypeLabels[event.eventType] || event.eventType}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {event.calendar.name}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-red-500" />
-            <span className="text-sm">Baja médica</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-yellow-500" />
-            <span className="text-sm">Asuntos personales</span>
-          </div>
-        </div>
-      </Card>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

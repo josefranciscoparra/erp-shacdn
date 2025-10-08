@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
 import { CalendarEventDialog } from "../_components/calendar-event-dialog";
+import { ImportHolidaysDialog } from "../_components/import-holidays-dialog";
 
 const calendarTypeLabels: Record<string, string> = {
   NATIONAL_HOLIDAY: "Nacional",
@@ -151,6 +152,7 @@ export default function CalendarDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <ImportHolidaysDialog calendarId={id} />
           <Button variant="outline" size="sm" asChild>
             <Link href={`/dashboard/calendars/${id}/edit`}>
               <Edit className="mr-2 h-4 w-4" />

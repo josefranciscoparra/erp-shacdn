@@ -99,19 +99,32 @@ Mis Documentos (complementario)
 ## 🎯 Estado Actual
 
 - [x] Mi Perfil ✅
-- [x] Fichar ✅ (Implementación básica completada)
+- [x] Fichar ✅ (Implementación completa)
   - ✅ Modelos de base de datos (TimeEntry, WorkdaySummary, TimeClockTerminal)
   - ✅ Server actions para fichajes del empleado
   - ✅ Store de Zustand para gestión de estado
   - ✅ UI funcional de fichaje con resumen en tiempo real
   - ✅ Permisos por rol
   - ✅ Navegación en sidebar
-  - ⏳ Pendiente: Dashboard administrativo y monitor en vivo
-- [ ] Mi Calendario
+  - ✅ Dashboard administrativo
+  - ✅ Monitor en vivo
+- [x] Mi Calendario ✅ (Implementación completa)
+  - ✅ Modelos de base de datos (Calendar, CalendarEvent)
+  - ✅ Server actions para empleados (getMyCalendars, getMyMonthEvents)
+  - ✅ API Routes para CRUD de calendarios y eventos
+  - ✅ Vista empleado con calendarios filtrados por centro
+  - ✅ Panel administrativo completo con DataTable
+  - ✅ **Importación automática de festivos** desde API nager.date
+    - ✅ Dialog de importación con preview
+    - ✅ Soporte para +15 países
+    - ✅ Integrado en listado y detalle de calendarios
+  - ✅ Sistema multi-centro funcional
+  - ✅ Colores personalizables por calendario
+  - ✅ Filtros por tipo de evento
 - [ ] Mis Vacaciones
 - [ ] Mi Espacio
 - [ ] Mis Documentos
 
 ---
 
-**Próximo paso:** Completar **Fichar** (Dashboard Admin + Monitor en Vivo)
+**Próximo paso:** Implementar **Mis Vacaciones** (PTO Requests)

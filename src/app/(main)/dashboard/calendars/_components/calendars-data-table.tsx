@@ -14,6 +14,7 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { calendarsColumns } from "./calendars-columns";
 import { CalendarData } from "@/stores/calendars-store";
+import { ImportHolidaysDialog } from "./import-holidays-dialog";
 
 export function CalendarsDataTable({ data }: { data: CalendarData[] }) {
   const [activeTab, setActiveTab] = React.useState("all");
@@ -91,6 +92,7 @@ export function CalendarsDataTable({ data }: { data: CalendarData[] }) {
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
+          <ImportHolidaysDialog />
           <Button size="sm" asChild>
             <Link href="/dashboard/calendars/new">
               <Plus />
