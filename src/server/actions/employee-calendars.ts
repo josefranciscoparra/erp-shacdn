@@ -1,8 +1,8 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth } from "date-fns";
+import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 export interface CalendarEventData {
   id: string;
@@ -49,39 +49,16 @@ export interface CalendarData {
  */
 export async function getMyCalendars(): Promise<CalendarData[]> {
   try {
-    // Obtener sesión del usuario autenticado
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    // Obtener datos del usuario y empleado
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        employee: {
-          include: {
-            employmentContracts: {
-              where: {
-                active: true,
-              },
-              take: 1,
-              include: {
-                costCenter: true,
-              },
-            },
+    const { orgId, activeContract } = await getAuthenticatedEmployee({
+      contractInclude: {
+        costCenter: {
+          select: {
+            id: true,
+            name: true,
           },
         },
       },
     });
-
-    if (!user?.employee) {
-      throw new Error("Usuario no tiene un empleado asociado");
-    }
-
-    // Obtener el centro de coste del contrato activo del empleado
-    const activeContract = user.employee.employmentContracts[0];
     const employeeCostCenterId = activeContract?.costCenterId || null;
 
     console.log("🔍 getMyCalendars - Employee Cost Center:", employeeCostCenterId);
@@ -90,7 +67,7 @@ export async function getMyCalendars(): Promise<CalendarData[]> {
     // Incluye: calendarios sin centro (nacionales) + calendarios del centro del empleado
     const calendars = await prisma.calendar.findMany({
       where: {
-        orgId: user.orgId,
+        orgId,
         active: true,
         OR: [
           { costCenterId: null }, // Calendarios nacionales/corporativos
@@ -137,45 +114,21 @@ export async function getMyCalendarEvents(
   endDate: Date
 ): Promise<CalendarEventData[]> {
   try {
-    // Obtener sesión del usuario autenticado
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    // Obtener datos del usuario y empleado
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      include: {
-        employee: {
-          include: {
-            employmentContracts: {
-              where: {
-                active: true,
-              },
-              take: 1,
-              include: {
-                costCenter: true,
-              },
-            },
+    const { orgId, activeContract } = await getAuthenticatedEmployee({
+      contractInclude: {
+        costCenter: {
+          select: {
+            id: true,
           },
         },
       },
     });
-
-    if (!user?.employee) {
-      throw new Error("Usuario no tiene un empleado asociado");
-    }
-
-    // Obtener el centro de coste del contrato activo del empleado
-    const activeContract = user.employee.employmentContracts[0];
     const employeeCostCenterId = activeContract?.costCenterId || null;
 
     // Buscar calendarios aplicables al empleado
     const calendars = await prisma.calendar.findMany({
       where: {
-        orgId: user.orgId,
+        orgId,
         active: true,
         OR: [
           { costCenterId: null }, // Calendarios nacionales/corporativos

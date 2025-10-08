@@ -23,6 +23,7 @@ import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
 import { PasswordGuard } from "@/components/auth/password-guard";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   // Verificar autenticación
@@ -75,6 +76,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <SearchDialog />
             </div>
             <div className="flex items-center gap-2">
+              <NotificationBell />
               <LayoutControls {...layoutPreferences} />
               <ThemeSwitcher />
               <AccountSwitcher users={[currentUser]} />

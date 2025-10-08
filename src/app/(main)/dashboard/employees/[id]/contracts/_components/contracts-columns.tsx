@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { MoreHorizontal, Edit, Trash2, Eye, FileText } from "lucide-react";
-import { Contract } from "@/stores/contracts-store";
+import type { Contract } from "@/stores/contracts-store";
 
 const CONTRACT_TYPES = {
   INDEFINIDO: "Indefinido",
@@ -25,7 +25,13 @@ const CONTRACT_TYPES = {
   INTERINIDAD: "Interinidad",
 } as const;
 
-export const contractsColumns: ColumnDef<Contract>[] = [
+interface ContractsColumnActions {
+  onView?: (contract: Contract) => void;
+  onEdit?: (contract: Contract) => void;
+  onFinalize?: (contract: Contract) => void;
+}
+
+export const getContractsColumns = (actions: ContractsColumnActions = {}): ColumnDef<Contract>[] => [
   {
     accessorKey: "contractType",
     header: ({ column }) => (
@@ -34,29 +40,27 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     cell: ({ row }) => {
       const type = row.getValue("contractType") as keyof typeof CONTRACT_TYPES;
       const typeLabel = CONTRACT_TYPES[type] || type;
-      
-      const getTypeVariant = (type: string) => {
+
+      const variant = (() => {
         switch (type) {
           case "INDEFINIDO":
-            return "default";
+            return "default" as const;
           case "TEMPORAL":
-            return "secondary";
+            return "secondary" as const;
           case "PRACTICAS":
-            return "outline";
+            return "outline" as const;
           default:
-            return "secondary";
+            return "secondary" as const;
         }
-      };
+      })();
 
       return (
-        <Badge variant={getTypeVariant(type)} className="font-medium">
+        <Badge variant={variant} className="font-medium">
           {typeLabel}
         </Badge>
       );
     },
-    filterFn: (row, id, value) => {
-      return value.includes(row.getValue(id));
-    },
+    filterFn: (row, id, value) => value.includes(row.getValue(id)),
   },
   {
     accessorKey: "position",
@@ -73,9 +77,7 @@ export const contractsColumns: ColumnDef<Contract>[] = [
             )}
           </div>
           {position?.level && (
-            <div className="text-muted-foreground text-xs">
-              Nivel: {position.level}
-            </div>
+            <div className="text-muted-foreground text-xs">Nivel: {position.level}</div>
           )}
         </div>
       );
@@ -112,9 +114,7 @@ export const contractsColumns: ColumnDef<Contract>[] = [
             )}
           </div>
           {costCenter?.code && (
-            <div className="text-muted-foreground font-mono text-xs">
-              {costCenter.code}
-            </div>
+            <div className="text-muted-foreground font-mono text-xs">{costCenter.code}</div>
           )}
         </div>
       );
@@ -146,10 +146,9 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     cell: ({ row }) => {
       const endDate = row.getValue("endDate") as string | null;
       if (!endDate) {
-        return (
-          <span className="text-muted-foreground text-sm">Sin fecha</span>
-        );
+        return <span className="text-muted-foreground">Sin fecha</span>;
       }
+
       const date = new Date(endDate);
       return (
         <div className="font-medium">
@@ -183,18 +182,9 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     ),
     cell: ({ row }) => {
       const salary = row.getValue("grossSalary") as number | null;
-      if (!salary) {
-        return (
-          <span className="text-muted-foreground text-sm">No especificado</span>
-        );
-      }
       return (
-        <div className="font-medium text-green-600">
-          {new Intl.NumberFormat("es-ES", {
-            style: "currency",
-            currency: "EUR",
-            maximumFractionDigits: 0,
-          }).format(salary)}
+        <div className="font-medium">
+          {salary ? `${salary.toLocaleString("es-ES") } €` : "No especificado"}
         </div>
       );
     },
@@ -207,16 +197,11 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     cell: ({ row }) => {
       const manager = row.getValue("manager") as Contract["manager"];
       if (!manager) {
-        return (
-          <span className="text-muted-foreground text-sm">Sin responsable</span>
-        );
+        return <span className="text-muted-foreground">Sin responsable</span>;
       }
-      return (
-        <div className="font-medium">
-          {manager.firstName} {manager.lastName}
-          {manager.secondLastName && ` ${manager.secondLastName}`}
-        </div>
-      );
+
+      const fullName = `${manager.firstName} ${manager.lastName}`;
+      return <div className="font-medium">{fullName}</div>;
     },
   },
   {
@@ -227,22 +212,22 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     cell: ({ row }) => {
       const active = row.getValue("active") as boolean;
       return (
-        <Badge variant={active ? "default" : "secondary"} className="font-medium">
+        <Badge variant={active ? "default" : "secondary"}>
           {active ? "Activo" : "Finalizado"}
         </Badge>
       );
-    },
-    filterFn: (row, id, value) => {
-      const active = row.getValue(id) as boolean;
-      if (value === "active") return active;
-      if (value === "inactive") return !active;
-      return true;
     },
   },
   {
     id: "actions",
     cell: ({ row }) => {
       const contract = row.original;
+
+      const handle = <T extends (...args: any[]) => void | Promise<void>>(fn: T | undefined) => () => {
+        if (fn) {
+          fn(contract);
+        }
+      };
 
       return (
         <DropdownMenu>
@@ -254,23 +239,27 @@ export const contractsColumns: ColumnDef<Contract>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(contract.id)}
-            >
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(contract.id)}>
               <FileText className="mr-2 h-4 w-4" />
               Copiar ID
             </DropdownMenuItem>
+            {actions.onView && (
+              <DropdownMenuItem onClick={handle(actions.onView)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Ver detalles
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <Eye className="mr-2 h-4 w-4" />
-              Ver detalles
-            </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handle(actions.onEdit)}>
               <Edit className="mr-2 h-4 w-4" />
               Editar contrato
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive">
+            <DropdownMenuItem
+              className="text-destructive"
+              disabled={!contract.active}
+              onClick={handle(actions.onFinalize)}
+            >
               <Trash2 className="mr-2 h-4 w-4" />
               Finalizar contrato
             </DropdownMenuItem>
@@ -280,3 +269,4 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     },
   },
 ];
+

@@ -142,6 +142,10 @@ export async function POST(request: NextRequest) {
     // Convertir fecha de nacimiento
     const birthDate = data.birthDate ? new Date(data.birthDate) : null;
 
+    if (!data.email) {
+      throw Object.assign(new Error("EMAIL_REQUIRED"), { code: "EMAIL_REQUIRED" });
+    }
+
     // Crear empleado en transacción
     const result = await prisma.$transaction(async (tx) => {
       // Crear empleado
@@ -153,7 +157,7 @@ export async function POST(request: NextRequest) {
           lastName: data.lastName,
           secondLastName: data.secondLastName,
           nifNie: data.nifNie,
-          email: data.email || null,
+          email: data.email,
           phone: data.phone,
           mobilePhone: data.mobilePhone,
           address: data.address,
@@ -170,49 +174,55 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Crear usuario si se proporciona email
-      let user = null;
-      let temporaryPassword = null;
-
-      if (data.email) {
-        // Validar que no exista ya un usuario con ese email
-        const existingUser = await tx.user.findUnique({ where: { email: data.email } });
-        if (existingUser) {
-          throw Object.assign(new Error("EMAIL_EXISTS"), { code: "EMAIL_EXISTS" });
-        }
-        temporaryPassword = generateTemporaryPassword();
-        const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
-
-        user = await tx.user.create({
-          data: {
-            orgId,
-            email: data.email,
-            password: hashedPassword,
-            name: `${data.firstName} ${data.lastName}`,
-            role: "EMPLOYEE",
-            mustChangePassword: true, // Forzar cambio de contraseña en primer login
-          },
-        });
-
-        // Crear registro de contraseña temporal
-        await tx.temporaryPassword.create({
-          data: {
-            orgId,
-            userId: user.id,
-            password: temporaryPassword, // Guardamos la contraseña en texto plano para mostrar al admin
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expira en 7 días
-            reason: "Nuevo empleado",
-            notes: `Contraseña generada automáticamente para nuevo empleado: ${data.firstName} ${data.lastName}`,
-            createdById: session.user.id, // El admin/HR que creó el empleado
-          },
-        });
-
-        // Vincular usuario con empleado
-        await tx.employee.update({
-          where: { id: employee.id },
-          data: { userId: user.id },
-        });
+      // Validar que no exista ya un usuario con ese email
+      const existingUser = await tx.user.findUnique({ where: { email: data.email } });
+      if (existingUser) {
+        throw Object.assign(new Error("EMAIL_EXISTS"), { code: "EMAIL_EXISTS" });
       }
+
+      const temporaryPassword = generateTemporaryPassword();
+      const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+      const user = await tx.user.create({
+        data: {
+          orgId,
+          email: data.email,
+          password: hashedPassword,
+          name: `${data.firstName} ${data.lastName}`,
+          role: "EMPLOYEE",
+          mustChangePassword: true, // Forzar cambio de contraseña en primer login
+        },
+      });
+
+      // Crear registro de contraseña temporal
+      await tx.temporaryPassword.create({
+        data: {
+          orgId,
+          userId: user.id,
+          password: temporaryPassword, // Guardamos la contraseña en texto plano para mostrar al admin
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Expira en 7 días
+          reason: "Nuevo empleado",
+          notes: `Contraseña generada automáticamente para nuevo empleado: ${data.firstName} ${data.lastName}`,
+          createdById: session.user.id, // El admin/HR que creó el empleado
+        },
+      });
+
+      // Vincular usuario con empleado
+      await tx.employee.update({
+        where: { id: employee.id },
+        data: { userId: user.id },
+      });
+
+      await tx.employmentContract.create({
+        data: {
+          orgId,
+          employeeId: employee.id,
+          contractType: "TEMPORAL",
+          startDate: new Date(),
+          weeklyHours: "0",
+          active: true,
+        },
+      });
 
       return { employee, user, temporaryPassword };
     });
@@ -234,6 +244,9 @@ export async function POST(request: NextRequest) {
     // Errores de negocio conocidos
     if (error?.code === "EMAIL_EXISTS") {
       return NextResponse.json({ error: "El email ya está en uso" }, { status: 409 });
+    }
+    if (error?.message === "EMAIL_REQUIRED" || error?.code === "EMAIL_REQUIRED") {
+      return NextResponse.json({ error: "El email es obligatorio" }, { status: 400 });
     }
     // Errores de unicidad Prisma
     if (typeof error?.code === "string" && error.code === "P2002") {

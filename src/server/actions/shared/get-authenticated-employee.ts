@@ -1,0 +1,121 @@
+"use server";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
+
+export interface GetAuthenticatedEmployeeOptions {
+  /**
+   * Additional relations to include on the employee record. `employmentContracts` is managed internally
+   * and will be ignored if provided.
+   */
+  employeeInclude?: Omit<Prisma.EmployeeInclude, "employmentContracts">;
+  /**
+   * Additional relations to include on the active employment contract (if any).
+   */
+  contractInclude?: Prisma.EmploymentContractInclude;
+  /**
+   * Whether to throw if the employee has no active contract. Defaults to `false`.
+   */
+  requireActiveContract?: boolean;
+  /**
+   * Weekly hours fallback when there is no active contract. Defaults to 40h.
+   */
+  defaultWeeklyHours?: number;
+}
+
+// Tipado intencionalmente laxo porque el include es dinámico según las opciones.
+export interface AuthenticatedEmployeeResult {
+  userId: string;
+  employeeId: string;
+  orgId: string;
+  employee: any;
+  activeContract: any;
+  hasActiveContract: boolean;
+  hasProvisionalContract: boolean;
+  weeklyHours: number;
+  dailyHours: number;
+}
+
+export async function getAuthenticatedEmployee(options: GetAuthenticatedEmployeeOptions = {}): Promise<AuthenticatedEmployeeResult> {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const {
+    employeeInclude,
+    contractInclude,
+    requireActiveContract = false,
+    defaultWeeklyHours = 40,
+  } = options;
+
+  const { employmentContracts: _ignoredContracts, ...remainingEmployeeInclude } = employeeInclude ?? {};
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      employee: {
+        include: {
+          ...remainingEmployeeInclude,
+          employmentContracts: {
+            where: {
+              active: true,
+            },
+            include: contractInclude,
+            orderBy: {
+              startDate: "desc",
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  if (!user?.employee) {
+    throw new Error("Usuario no tiene un empleado asociado");
+  }
+
+  const foundContract = user.employee.employmentContracts[0] ?? null;
+  const contractWeeklyHours = foundContract?.weeklyHours ? Number(foundContract.weeklyHours) : 0;
+  let activeContract = foundContract && contractWeeklyHours > 0 ? foundContract : null;
+
+  if (!activeContract) {
+    activeContract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId: user.employee.id,
+        orgId: user.orgId,
+        active: true,
+        weeklyHours: {
+          gt: 0,
+        },
+      },
+      orderBy: {
+        startDate: "desc",
+      },
+    });
+  }
+
+  const hasProvisionalContract = Boolean(foundContract) && contractWeeklyHours <= 0;
+
+  if (requireActiveContract && !activeContract) {
+    throw new Error("Empleado sin contrato activo");
+  }
+
+  const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : defaultWeeklyHours;
+  const dailyHours = weeklyHours / 5;
+
+  return {
+    userId: user.id,
+    employeeId: user.employee.id,
+    orgId: user.orgId,
+    employee: user.employee,
+    activeContract,
+    hasActiveContract: Boolean(activeContract),
+    hasProvisionalContract,
+    weeklyHours,
+    dailyHours,
+  };
+}

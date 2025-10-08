@@ -31,7 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2 } from "lucide-react";
-import { useContractsStore, type CreateContractData } from "@/stores/contracts-store";
+import { useContractsStore, type CreateContractData, type Contract } from "@/stores/contracts-store";
 
 const contractSchema = z.object({
   contractType: z.enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"], {
@@ -102,11 +102,23 @@ interface ContractSheetProps {
   onOpenChange: (open: boolean) => void;
   employeeId: string;
   employeeName: string;
+  mode?: "create" | "edit";
+  contract?: Contract | null;
   onSuccess?: () => void;
 }
 
-export function ContractSheet({ open, onOpenChange, employeeId, employeeName, onSuccess }: ContractSheetProps) {
-  const { createContract, isCreating } = useContractsStore();
+const toDateInput = (value: string | null | undefined) => (value ? value.split("T")[0] : "");
+
+export function ContractSheet({
+  open,
+  onOpenChange,
+  employeeId,
+  employeeName,
+  mode = "create",
+  contract,
+  onSuccess,
+}: ContractSheetProps) {
+  const { createContract, updateContract, isCreating, isUpdating } = useContractsStore();
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
@@ -132,8 +144,33 @@ export function ContractSheet({ open, onOpenChange, employeeId, employeeName, on
   useEffect(() => {
     if (open) {
       loadSelectData();
+      if (mode === "edit" && contract) {
+        form.reset({
+          contractType: contract.contractType as ContractFormData["contractType"],
+          startDate: toDateInput(contract.startDate),
+          endDate: toDateInput(contract.endDate) || "",
+          weeklyHours: contract.weeklyHours,
+          grossSalary: contract.grossSalary ?? undefined,
+          positionId: contract.position?.id || "",
+          departmentId: contract.department?.id || "",
+          costCenterId: contract.costCenter?.id || "",
+          managerId: contract.manager?.id || "",
+        });
+      } else {
+        form.reset({
+          contractType: "INDEFINIDO",
+          startDate: "",
+          endDate: "",
+          weeklyHours: 40,
+          grossSalary: undefined,
+          positionId: "",
+          departmentId: "",
+          costCenterId: "",
+          managerId: "",
+        });
+      }
     }
-  }, [open]);
+  }, [open, mode, contract, form]);
 
   const loadSelectData = async () => {
     setLoadingData(true);
@@ -174,7 +211,7 @@ export function ContractSheet({ open, onOpenChange, employeeId, employeeName, on
 
   const onSubmit = async (data: ContractFormData) => {
     try {
-      const contractData: CreateContractData = {
+      const sharedPayload: CreateContractData = {
         contractType: data.contractType,
         startDate: data.startDate,
         endDate: data.endDate || null,
@@ -186,17 +223,23 @@ export function ContractSheet({ open, onOpenChange, employeeId, employeeName, on
         managerId: data.managerId || null,
       };
 
-      await createContract(employeeId, contractData);
-      
-      toast.success("Contrato creado exitosamente", {
-        description: `Se ha creado el contrato ${CONTRACT_TYPES[data.contractType]} para ${employeeName}`,
-      });
+      if (mode === "edit" && contract) {
+        await updateContract(contract.id, sharedPayload);
+        toast.success("Contrato actualizado", {
+          description: `Se guardaron los cambios del contrato de ${employeeName}`,
+        });
+      } else {
+        await createContract(employeeId, sharedPayload);
+        toast.success("Contrato creado exitosamente", {
+          description: `Se ha creado el contrato ${CONTRACT_TYPES[data.contractType]} para ${employeeName}`,
+        });
+      }
 
       form.reset();
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
-      toast.error("Error al crear contrato", {
+      toast.error("Error al guardar contrato", {
         description: error.message || "Ocurrió un error inesperado",
       });
     }
@@ -216,9 +259,17 @@ export function ContractSheet({ open, onOpenChange, employeeId, employeeName, on
               <Briefcase className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <DialogTitle className="text-2xl font-semibold">Nuevo Contrato</DialogTitle>
+              <DialogTitle className="text-2xl font-semibold">
+                {mode === "edit" ? "Editar contrato" : "Nuevo Contrato"}
+              </DialogTitle>
               <DialogDescription className="text-base text-muted-foreground">
-                Crear contrato laboral para <span className="font-medium text-foreground">{employeeName}</span>
+                {mode === "edit"
+                  ? "Actualiza los datos del contrato seleccionado"
+                  : (
+                    <>
+                      Crear contrato laboral para <span className="font-medium text-foreground">{employeeName}</span>
+                    </>
+                  )}
               </DialogDescription>
             </div>
           </div>
@@ -494,13 +545,32 @@ export function ContractSheet({ open, onOpenChange, employeeId, employeeName, on
                     <X className="mr-2 h-4 w-4" />
                     Cancelar
                   </Button>
-                  <Button type="submit" disabled={isCreating}>
-                    {isCreating ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Button type="submit" disabled={mode === "edit" ? isUpdating : isCreating}>
+                    {mode === "edit" ? (
+                      isUpdating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Guardando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Guardar cambios
+                        </>
+                      )
                     ) : (
-                      <Save className="mr-2 h-4 w-4" />
+                      isCreating ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creando...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="mr-2 h-4 w-4" />
+                          Crear Contrato
+                        </>
+                      )
                     )}
-                    {isCreating ? "Creando..." : "Crear Contrato"}
                   </Button>
                 </div>
               </form>

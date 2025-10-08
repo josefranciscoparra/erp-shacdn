@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { z } from "zod";
+import { Decimal } from "@prisma/client/runtime/library";
 
 export const runtime = "nodejs";
 
@@ -137,6 +138,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       where: {
         employeeId,
         active: true,
+        weeklyHours: {
+          gt: new Decimal(0),
+        },
       },
     });
 
@@ -190,6 +194,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             secondLastName: true 
           },
         },
+      },
+    });
+
+    await prisma.employmentContract.updateMany({
+      where: {
+        employeeId,
+        active: true,
+        id: { not: contract.id },
+        weeklyHours: {
+          lte: new Decimal(0),
+        },
+      },
+      data: {
+        active: false,
       },
     });
 

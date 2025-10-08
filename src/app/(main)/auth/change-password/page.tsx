@@ -96,9 +96,8 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="@container/main flex min-h-[calc(100vh-200px)] flex-col gap-4 md:gap-6">
-      <div className="flex flex-1 flex-col items-center justify-center py-12">
-        <div className="w-full max-w-md space-y-6">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-6">
           {/* Header con icono */}
           <div className="flex flex-col items-center space-y-4">
             <div className="from-primary/5 to-card rounded-full bg-gradient-to-t p-4 shadow-xs">
@@ -263,7 +262,6 @@ export default function ChangePasswordPage() {
             </ul>
           </div>
         </div>
-      </div>
     </div>
   );
 }

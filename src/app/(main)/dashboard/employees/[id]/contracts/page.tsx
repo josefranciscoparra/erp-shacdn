@@ -1,15 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Plus,
-  Briefcase,
-  AlertCircle,
-  FileText,
-} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
+import { Plus, Briefcase, AlertCircle, FileText } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,9 +13,11 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
 import { useContractsStore } from "@/stores/contracts-store";
 import { ContractSheet } from "@/components/contracts/contract-sheet";
-import { contractsColumns } from "./_components/contracts-columns";
+import { getContractsColumns } from "./_components/contracts-columns";
 import { ContractsDataTable } from "./_components/contracts-data-table";
 import { toast } from "sonner";
+import { FinalizeContractDialog } from "./_components/finalize-contract-dialog";
+import type { Contract } from "@/stores/contracts-store";
 
 interface Employee {
   id: string;
@@ -35,12 +30,15 @@ interface Employee {
 
 export default function EmployeeContractsPage() {
   const params = useParams();
-  const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [contractSheetOpen, setContractSheetOpen] = useState(false);
+  const [editContractSheetOpen, setEditContractSheetOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("active");
+  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
+  const [contractToFinalize, setContractToFinalize] = useState<Contract | null>(null);
+  const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   
   const {
     contracts,
@@ -105,13 +103,31 @@ export default function EmployeeContractsPage() {
   const handleNewContract = () => {
     setContractSheetOpen(true);
   };
-  
-  const handleContractSuccess = () => {
-    // Refetch contracts after successful creation
+
+  const handleContractsRefresh = useCallback(() => {
     if (employee) {
       fetchContracts(employee.id, { status: currentTab === "all" ? "all" : currentTab });
     }
-  };
+  }, [employee, currentTab, fetchContracts]);
+
+  const handleEditContract = useCallback((contract: Contract) => {
+    setContractToEdit(contract);
+    setEditContractSheetOpen(true);
+  }, []);
+
+  const handleFinalizeContract = useCallback((contract: Contract) => {
+    setContractToFinalize(contract);
+    setFinalizeDialogOpen(true);
+  }, []);
+
+  const columns = useMemo(
+    () =>
+      getContractsColumns({
+        onEdit: handleEditContract,
+        onFinalize: handleFinalizeContract,
+      }),
+    [handleEditContract, handleFinalizeContract]
+  );
   
   const getFilteredContracts = () => {
     switch (currentTab) {
@@ -179,7 +195,7 @@ export default function EmployeeContractsPage() {
       />
 
       {/* Tabs de contratos */}
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <div className="flex items-center justify-between">
           {/* Mobile Select */}
           <div className="@4xl/main:hidden">
@@ -258,7 +274,7 @@ export default function EmployeeContractsPage() {
             />
           ) : (
             <ContractsDataTable
-              columns={contractsColumns}
+              columns={columns}
               data={activeContracts}
               isLoading={contractsLoading}
             />
@@ -274,7 +290,7 @@ export default function EmployeeContractsPage() {
             />
           ) : (
             <ContractsDataTable
-              columns={contractsColumns}
+              columns={columns}
               data={inactiveContracts}
               isLoading={contractsLoading}
             />
@@ -282,11 +298,11 @@ export default function EmployeeContractsPage() {
         </TabsContent>
 
         <TabsContent value="all">
-          <ContractsDataTable
-            columns={contractsColumns}
-            data={getFilteredContracts()}
-            isLoading={contractsLoading}
-          />
+            <ContractsDataTable
+              columns={columns}
+              data={getFilteredContracts()}
+              isLoading={contractsLoading}
+            />
         </TabsContent>
       </Tabs>
 
@@ -296,7 +312,40 @@ export default function EmployeeContractsPage() {
         onOpenChange={setContractSheetOpen}
         employeeId={employee.id}
         employeeName={fullName}
-        onSuccess={handleContractSuccess}
+        onSuccess={handleContractsRefresh}
+      />
+
+      <ContractSheet
+        open={editContractSheetOpen && Boolean(contractToEdit)}
+        onOpenChange={(open) => {
+          setEditContractSheetOpen(open);
+          if (!open) {
+            setContractToEdit(null);
+          }
+        }}
+        employeeId={employee.id}
+        employeeName={fullName}
+        mode="edit"
+        contract={contractToEdit}
+        onSuccess={() => {
+          handleContractsRefresh();
+          setContractToEdit(null);
+        }}
+      />
+
+      <FinalizeContractDialog
+        open={finalizeDialogOpen && Boolean(contractToFinalize)}
+        onOpenChange={(open) => {
+          setFinalizeDialogOpen(open);
+          if (!open) {
+            setContractToFinalize(null);
+          }
+        }}
+        contract={contractToFinalize}
+        onSuccess={() => {
+          handleContractsRefresh();
+          setContractToFinalize(null);
+        }}
       />
     </div>
   );

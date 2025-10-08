@@ -663,16 +663,24 @@ export async function getTimeTrackingRecords(filters: TimeTrackingFilters = {}) 
       where.employeeId = filters.employeeId;
     }
 
-    if (filters.departmentId) {
-      where.employee = {
-        departmentId: filters.departmentId,
+    if (filters.departmentId || filters.costCenterId) {
+      const contractWhere: any = {
+        active: true,
       };
-    }
 
-    if (filters.costCenterId) {
+      if (filters.departmentId) {
+        contractWhere.departmentId = filters.departmentId;
+      }
+
+      if (filters.costCenterId) {
+        contractWhere.costCenterId = filters.costCenterId;
+      }
+
       where.employee = {
-        ...where.employee,
-        costCenterId: filters.costCenterId,
+        ...(where.employee ?? {}),
+        employmentContracts: {
+          some: contractWhere,
+        },
       };
     }
 

@@ -21,6 +21,11 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Configuración de PTO (Vacaciones)
+  annualPtoDays        Int     @default(23) // Días de vacaciones anuales por defecto
+  ptoCalculationMethod String  @default("PROPORTIONAL") // PROPORTIONAL, FIXED
+  ptoAccrualStartDate  String  @default("CONTRACT_START") // CONTRACT_START, YEAR_START
+
   // Relaciones
   users               User[]
   employees           Employee[]
@@ -35,6 +40,10 @@ model Organization {
   timeClockTerminals  TimeClockTerminal[]
   timeEntries         TimeEntry[]
   workdaySummaries    WorkdaySummary[]
+  absenceTypes        AbsenceType[]
+  ptoBalances         PtoBalance[]
+  ptoRequests         PtoRequest[]
+  ptoNotifications    PtoNotification[]
 
   @@map("organizations")
 }
@@ -62,6 +71,8 @@ model User {
   uploadedDocuments  EmployeeDocument[]  // Documentos que ha subido
   temporaryPasswords TemporaryPassword[] // Contraseñas temporales generadas para este usuario
   createdTempPasswords TemporaryPassword[] @relation("CreatedBy") // Contraseñas temporales que ha creado
+  approvedPtoRequests PtoRequest[]        @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
+  ptoNotifications   PtoNotification[]   // Notificaciones recibidas
 
   @@index([email])
   @@index([orgId])
@@ -251,6 +262,8 @@ model Employee {
   managedDepartments Department[]         @relation("DepartmentManager")
   timeEntries        TimeEntry[]
   workdaySummaries   WorkdaySummary[]
+  ptoBalances        PtoBalance[]
+  ptoRequests        PtoRequest[]
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -568,6 +581,177 @@ enum WorkdayStatus {
   ABSENT       // Ausente (no fichó)
 }
 
+// ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
+
+// Tipos de ausencia configurables (Vacaciones, Asuntos personales, Baja médica, etc.)
+model AbsenceType {
+  id              String   @id @default(cuid())
+  name            String   // "Vacaciones", "Asuntos personales", "Baja médica"
+  code            String   // "VACATION", "PERSONAL", "SICK_LEAVE"
+  description     String?
+  color           String   @default("#3b82f6") // Color para identificación visual
+  isPaid          Boolean  @default(true) // Si es tiempo pagado o no
+  requiresApproval Boolean @default(true) // Si requiere aprobación
+  minDaysAdvance  Int      @default(0) // Días de anticipación requeridos
+  affectsBalance  Boolean  @default(true) // Si descuenta del balance de PTO
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  ptoRequests PtoRequest[]
+
+  @@unique([orgId, code]) // Código único por organización
+  @@index([orgId])
+  @@index([active])
+  @@map("absence_types")
+}
+
+// Balance de días de PTO por empleado y año
+model PtoBalance {
+  id                String   @id @default(cuid())
+  year              Int      // Año al que aplica el balance
+
+  // Cálculo de días (con decimales para días medios)
+  annualAllowance   Decimal  @db.Decimal(5,2) // Días asignados este año (puede ser proporcional)
+  daysUsed          Decimal  @default(0) @db.Decimal(5,2) // Días ya usados (solicitudes aprobadas)
+  daysPending       Decimal  @default(0) @db.Decimal(5,2) // Días en solicitudes pendientes
+  daysAvailable     Decimal  @db.Decimal(5,2) // Disponibles = allowance - used - pending
+
+  // Metadata para auditoría y cálculo proporcional
+  calculationDate   DateTime @default(now())
+  contractStartDate DateTime // Fecha de inicio del contrato para cálculo proporcional
+  notes             String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, employeeId, year]) // Un balance por empleado por año
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([year])
+  @@map("pto_balances")
+}
+
+// Solicitudes de ausencia (PTO)
+model PtoRequest {
+  id          String           @id @default(cuid())
+
+  // Fechas y días
+  startDate   DateTime         // Fecha de inicio
+  endDate     DateTime         // Fecha de fin
+  workingDays Decimal          @db.Decimal(5,2) // Días hábiles calculados (excluyendo festivos y fines de semana)
+
+  // Estado de la solicitud
+  status      PtoRequestStatus @default(PENDING)
+
+  // Información adicional
+  reason      String?          // Motivo de la ausencia
+  attachmentUrl String?        // URL del archivo adjunto (opcional)
+
+  // Aprobación (UN solo aprobador)
+  approverId        String?
+  approver          User?    @relation("PtoApprover", fields: [approverId], references: [id])
+  approvedAt        DateTime?
+  approverComments  String?  // Comentarios del aprobador al aprobar
+
+  // Rechazo
+  rejectedAt        DateTime?
+  rejectionReason   String?  // Motivo del rechazo
+
+  // Cancelación
+  cancelledAt       DateTime?
+  cancellationReason String? // Motivo de la cancelación
+
+  // Timestamps
+  submittedAt DateTime @default(now()) // Cuando se envió la solicitud
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado que solicita
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Tipo de ausencia
+  absenceTypeId String
+  absenceType   AbsenceType @relation(fields: [absenceTypeId], references: [id])
+
+  // Relaciones
+  notifications PtoNotification[]
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([approverId])
+  @@index([status])
+  @@index([startDate])
+  @@index([submittedAt])
+  @@map("pto_requests")
+}
+
+// Estados de solicitud de PTO
+enum PtoRequestStatus {
+  DRAFT          // Borrador (no enviada aún)
+  PENDING        // Pendiente de aprobación
+  APPROVED       // Aprobada
+  REJECTED       // Rechazada
+  CANCELLED      // Cancelada por el empleado
+}
+
+// Notificaciones del sistema (PTO y futuras funcionalidades)
+model PtoNotification {
+  id      String              @id @default(cuid())
+  type    PtoNotificationType // Tipo de notificación
+  title   String              // Título corto
+  message String              // Mensaje descriptivo
+  isRead  Boolean             @default(false)
+
+  // Solicitud relacionada (opcional)
+  ptoRequestId String?
+  ptoRequest   PtoRequest? @relation(fields: [ptoRequestId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Destinatario de la notificación
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([ptoRequestId])
+  @@map("pto_notifications")
+}
+
+// Tipos de notificaciones
+enum PtoNotificationType {
+  PTO_SUBMITTED         // Nueva solicitud enviada (notificar aprobador)
+  PTO_APPROVED          // Solicitud aprobada (notificar empleado)
+  PTO_REJECTED          // Solicitud rechazada (notificar empleado)
+  PTO_CANCELLED         // Solicitud cancelada (notificar aprobador)
+  PTO_REMINDER          // Recordatorio de solicitud sin revisar
+  DOCUMENT_UPLOADED     // Nuevo documento subido (futuro)
+  SYSTEM_ANNOUNCEMENT   // Anuncio del sistema (futuro)
+}
+
 // ==================== PRÓXIMOS SPRINTS ====================
-// Sprint 3: Añadir PtoRequest, PtoBalance, AbsenceType
 // Sprint 4: Añadir PayrollExport y configuraciones

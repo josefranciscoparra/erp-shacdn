@@ -48,7 +48,7 @@ export const createEmployeeSchema = z.object({
   nifNie: nifNieSchema,
 
   // Datos de contacto
-  email: z.string().email("Email inválido").optional().or(z.literal("")),
+  email: z.string().email("Email es obligatorio").min(1, "Email es obligatorio"),
   phone: z.string().max(20).optional(),
   mobilePhone: z.string().max(20).optional(),
 

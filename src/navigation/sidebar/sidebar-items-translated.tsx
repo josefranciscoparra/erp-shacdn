@@ -18,6 +18,7 @@ import {
   CalendarDays,
   UserCircle,
   Timer,
+  CheckSquare,
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -161,6 +162,12 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/documents",
           icon: FolderOpen,
           permission: "view_documents",
+        },
+        {
+          title: "Aprobaciones",
+          url: "/dashboard/approvals/pto",
+          icon: CheckSquare,
+          permission: "approve_requests",
         },
       ],
     },

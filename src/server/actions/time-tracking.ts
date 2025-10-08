@@ -1,52 +1,8 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
-
-// Helper para obtener el empleado del usuario autenticado
-async function getAuthenticatedEmployee() {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    throw new Error("Usuario no autenticado");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      employee: {
-        include: {
-          employmentContracts: {
-            where: {
-              active: true,
-            },
-            take: 1,
-          },
-        },
-      },
-    },
-  });
-
-  if (!user?.employee) {
-    throw new Error("Usuario no tiene un empleado asociado");
-  }
-
-  // Obtener horas semanales del contrato activo (si existe)
-  const activeContract = user.employee.employmentContracts[0];
-  const hasActiveContract = !!activeContract;
-  const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40; // Default 40h
-  const dailyHours = weeklyHours / 5; // Asumiendo 5 días laborables
-
-  return {
-    userId: user.id,
-    employeeId: user.employee.id,
-    orgId: user.orgId,
-    weeklyHours,
-    dailyHours,
-    hasActiveContract, // Indica si tiene contrato o está usando valores por defecto
-  };
-}
+import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 // Helper para calcular minutos trabajados
 // IMPORTANTE: Solo calcula sesiones CERRADAS, no incluye tiempo en progreso
