@@ -43,6 +43,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.name = user.name;
         token.email = user.email;
         token.mustChangePassword = user.mustChangePassword;
+        token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
       }
       return token;
     },
@@ -54,6 +55,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
+        session.user.employeeId = (token.employeeId as string | null | undefined) ?? null;
       }
       return session;
     },
@@ -83,6 +85,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
             include: {
               organization: true,
+              employee: {
+                select: {
+                  id: true,
+                },
+              },
             },
           });
 
@@ -115,6 +122,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             orgId: user.orgId,
             image: user.image,
             mustChangePassword: user.mustChangePassword,
+            employeeId: user.employee?.id ?? null,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -131,6 +139,7 @@ declare module "next-auth" {
     role: string;
     orgId: string;
     mustChangePassword: boolean;
+    employeeId: string | null;
   }
   interface Session {
     user: {
@@ -140,7 +149,20 @@ declare module "next-auth" {
       role: string;
       orgId: string;
       mustChangePassword: boolean;
+      employeeId: string | null;
       image?: string | null;
     };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    id: string;
+    role: string;
+    orgId: string;
+    name?: string | null;
+    email?: string | null;
+    mustChangePassword?: boolean;
+    employeeId?: string | null;
   }
 }

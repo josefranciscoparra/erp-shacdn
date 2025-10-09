@@ -73,6 +73,11 @@ export function useSidebarItems(): NavGroup[] {
       label: "Mi Espacio",
       items: [
         {
+          title: "Mi Espacio",
+          url: "/dashboard/me",
+          icon: LayoutDashboard,
+        },
+        {
           title: "Fichar",
           url: "/dashboard/me/clock",
           icon: Clock,
