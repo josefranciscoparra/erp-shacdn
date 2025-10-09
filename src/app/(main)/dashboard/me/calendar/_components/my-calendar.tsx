@@ -193,6 +193,9 @@ export function MyCalendar() {
               <Button variant="outline" size="icon" onClick={previousMonth}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
+              <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
+                Hoy
+              </Button>
               <Button variant="outline" size="icon" onClick={nextMonth}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
