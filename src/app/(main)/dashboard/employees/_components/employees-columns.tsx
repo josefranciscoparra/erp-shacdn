@@ -4,6 +4,7 @@ import Link from "next/link";
 
 import { ColumnDef } from "@tanstack/react-table";
 
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
@@ -14,7 +15,7 @@ import { EmployeeActions } from "./employee-actions";
 export const employeesColumns: ColumnDef<Employee>[] = [
   {
     accessorKey: "employeeNumber",
-    header: "Nº Empleado",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Nº Empleado" />,
     cell: ({ row }) => {
       const employee = row.original;
       return <span className="font-mono text-xs">{employee.employeeNumber ?? "Sin asignar"}</span>;
@@ -24,8 +25,9 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     },
   },
   {
+    accessorKey: "firstName",
     id: "employee",
-    header: "Empleado",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado" />,
     cell: ({ row }) => {
       const employee = row.original;
       const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
@@ -44,7 +46,12 @@ export const employeesColumns: ColumnDef<Employee>[] = [
               >
                 {fullName}
               </Link>
-              <Badge variant={employee.active ? "default" : "destructive"}>
+              <Badge
+                variant={employee.active ? "default" : "secondary"}
+                className={
+                  employee.active ? "bg-green-500/10 font-medium text-green-700 dark:text-green-400" : "font-medium"
+                }
+              >
                 {employee.active ? "Activo" : "Inactivo"}
               </Badge>
               {employee.user && (
@@ -60,8 +67,9 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     },
   },
   {
+    accessorKey: "department.name",
     id: "department",
-    header: "Departamento",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Departamento" />,
     cell: ({ row }) => {
       const employee = row.original;
       return employee.department?.name ?? "Sin asignar";
@@ -69,10 +77,15 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     meta: {
       className: "hidden md:table-cell",
     },
+    filterFn: (row, id, value) => {
+      const departmentName = row.original.department?.name;
+      return value.includes(departmentName);
+    },
   },
   {
+    accessorKey: "position.title",
     id: "position",
-    header: "Puesto",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Puesto" />,
     cell: ({ row }) => {
       const employee = row.original;
       return employee.position?.title ?? "Sin asignar";
@@ -80,10 +93,15 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     meta: {
       className: "hidden sm:table-cell",
     },
+    filterFn: (row, id, value) => {
+      const positionTitle = row.original.position?.title;
+      return value.includes(positionTitle);
+    },
   },
   {
+    accessorKey: "startDate",
     id: "startDate",
-    header: "Fecha alta",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha alta" />,
     cell: ({ row }) => {
       const employee = row.original;
       const currentContract = employee.employmentContracts.find((c) => c.active);
@@ -101,8 +119,9 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     },
   },
   {
+    accessorKey: "contractType",
     id: "contractType",
-    header: "Tipo contrato",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo contrato" />,
     cell: ({ row }) => {
       const employee = row.original;
       const currentContract = employee.employmentContracts.find((c) => c.active);
@@ -116,6 +135,10 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     },
     meta: {
       className: "hidden xl:table-cell",
+    },
+    filterFn: (row, id, value) => {
+      const currentContract = row.original.employmentContracts.find((c) => c.active);
+      return value.includes(currentContract?.contractType);
     },
   },
   {

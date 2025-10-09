@@ -4,16 +4,28 @@ import * as React from "react";
 
 import Link from "next/link";
 
-import { Plus, Users } from "lucide-react";
+import {
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { Plus, Users, Search, X } from "lucide-react";
 
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 
-import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
 import { Employee } from "../types";
@@ -22,6 +34,11 @@ import { employeesColumns } from "./employees-columns";
 
 export function EmployeesDataTable({ data }: { data: Employee[] }) {
   const [activeTab, setActiveTab] = React.useState("active");
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState({});
+  const [globalFilter, setGlobalFilter] = React.useState("");
 
   // Filtrar datos según la pestaña activa
   const filteredData = React.useMemo(() => {
@@ -47,10 +64,31 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
     }
   }, [data, activeTab]);
 
-  const table = useDataTableInstance({
+  const table = useReactTable({
     data: filteredData,
     columns: employeesColumns,
-    getRowId: (row) => row.id.toString(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter,
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
   });
 
   // Contadores para badges
@@ -69,6 +107,32 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
     }),
     [data],
   );
+
+  // Obtener opciones únicas para filtros
+  const departmentOptions = React.useMemo(() => {
+    const unique = Array.from(new Set(data.map((emp) => emp.department?.name).filter(Boolean)));
+    return unique.map((name) => ({ label: name, value: name }));
+  }, [data]);
+
+  const positionOptions = React.useMemo(() => {
+    const unique = Array.from(new Set(data.map((emp) => emp.position?.title).filter(Boolean)));
+    return unique.map((title) => ({ label: title, value: title }));
+  }, [data]);
+
+  const contractTypeOptions = React.useMemo(() => {
+    const unique = Array.from(
+      new Set(
+        data
+          .flatMap((emp) => emp.employmentContracts)
+          .filter((c) => c.active)
+          .map((c) => c.contractType)
+          .filter(Boolean),
+      ),
+    );
+    return unique.map((type) => ({ label: type, value: type }));
+  }, [data]);
+
+  const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-6">
@@ -113,10 +177,97 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
       </div>
 
       <TabsContent value="active" className="relative flex flex-col gap-4 overflow-auto">
+        {/* Toolbar con búsqueda y filtros */}
+        <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+            {/* Búsqueda global */}
+            <div className="relative flex-1 @4xl/main:max-w-sm">
+              <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+              <Input
+                placeholder="Buscar empleados..."
+                value={globalFilter}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex gap-2">
+              {table.getColumn("department") && departmentOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("department")}
+                  title="Departamento"
+                  options={departmentOptions}
+                />
+              )}
+              {table.getColumn("position") && positionOptions.length > 0 && (
+                <DataTableFacetedFilter column={table.getColumn("position")} title="Puesto" options={positionOptions} />
+              )}
+              {table.getColumn("contractType") && contractTypeOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("contractType")}
+                  title="Tipo Contrato"
+                  options={contractTypeOptions}
+                />
+              )}
+              {isFiltered && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    table.resetColumnFilters();
+                    setGlobalFilter("");
+                  }}
+                  className="h-8 px-2 lg:px-3"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {filteredData.length > 0 ? (
           <>
             <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={employeesColumns} />
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
+                        <div className="text-muted-foreground text-sm">
+                          {isFiltered
+                            ? "No se encontraron empleados con los filtros aplicados."
+                            : "No hay empleados activos."}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
             <DataTablePagination table={table} />
           </>
@@ -132,10 +283,97 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
       </TabsContent>
 
       <TabsContent value="inactive" className="relative flex flex-col gap-4 overflow-auto">
+        {/* Toolbar con búsqueda y filtros */}
+        <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+            {/* Búsqueda global */}
+            <div className="relative flex-1 @4xl/main:max-w-sm">
+              <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+              <Input
+                placeholder="Buscar empleados..."
+                value={globalFilter}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex gap-2">
+              {table.getColumn("department") && departmentOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("department")}
+                  title="Departamento"
+                  options={departmentOptions}
+                />
+              )}
+              {table.getColumn("position") && positionOptions.length > 0 && (
+                <DataTableFacetedFilter column={table.getColumn("position")} title="Puesto" options={positionOptions} />
+              )}
+              {table.getColumn("contractType") && contractTypeOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("contractType")}
+                  title="Tipo Contrato"
+                  options={contractTypeOptions}
+                />
+              )}
+              {isFiltered && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    table.resetColumnFilters();
+                    setGlobalFilter("");
+                  }}
+                  className="h-8 px-2 lg:px-3"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {filteredData.length > 0 ? (
           <>
             <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={employeesColumns} />
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
+                        <div className="text-muted-foreground text-sm">
+                          {isFiltered
+                            ? "No se encontraron empleados con los filtros aplicados."
+                            : "No hay empleados inactivos."}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
             <DataTablePagination table={table} />
           </>
@@ -151,10 +389,97 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
       </TabsContent>
 
       <TabsContent value="all" className="relative flex flex-col gap-4 overflow-auto">
+        {/* Toolbar con búsqueda y filtros */}
+        <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+            {/* Búsqueda global */}
+            <div className="relative flex-1 @4xl/main:max-w-sm">
+              <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+              <Input
+                placeholder="Buscar empleados..."
+                value={globalFilter}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex gap-2">
+              {table.getColumn("department") && departmentOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("department")}
+                  title="Departamento"
+                  options={departmentOptions}
+                />
+              )}
+              {table.getColumn("position") && positionOptions.length > 0 && (
+                <DataTableFacetedFilter column={table.getColumn("position")} title="Puesto" options={positionOptions} />
+              )}
+              {table.getColumn("contractType") && contractTypeOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("contractType")}
+                  title="Tipo Contrato"
+                  options={contractTypeOptions}
+                />
+              )}
+              {isFiltered && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    table.resetColumnFilters();
+                    setGlobalFilter("");
+                  }}
+                  className="h-8 px-2 lg:px-3"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {filteredData.length > 0 ? (
           <>
             <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={employeesColumns} />
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
+                        <div className="text-muted-foreground text-sm">
+                          {isFiltered
+                            ? "No se encontraron empleados con los filtros aplicados."
+                            : "No hay empleados registrados."}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
             <DataTablePagination table={table} />
           </>
@@ -170,10 +495,97 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
       </TabsContent>
 
       <TabsContent value="recent" className="relative flex flex-col gap-4 overflow-auto">
+        {/* Toolbar con búsqueda y filtros */}
+        <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+            {/* Búsqueda global */}
+            <div className="relative flex-1 @4xl/main:max-w-sm">
+              <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+              <Input
+                placeholder="Buscar empleados..."
+                value={globalFilter}
+                onChange={(event) => setGlobalFilter(event.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Filtros */}
+            <div className="flex gap-2">
+              {table.getColumn("department") && departmentOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("department")}
+                  title="Departamento"
+                  options={departmentOptions}
+                />
+              )}
+              {table.getColumn("position") && positionOptions.length > 0 && (
+                <DataTableFacetedFilter column={table.getColumn("position")} title="Puesto" options={positionOptions} />
+              )}
+              {table.getColumn("contractType") && contractTypeOptions.length > 0 && (
+                <DataTableFacetedFilter
+                  column={table.getColumn("contractType")}
+                  title="Tipo Contrato"
+                  options={contractTypeOptions}
+                />
+              )}
+              {isFiltered && (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    table.resetColumnFilters();
+                    setGlobalFilter("");
+                  }}
+                  className="h-8 px-2 lg:px-3"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
         {filteredData.length > 0 ? (
           <>
             <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={employeesColumns} />
+              <Table>
+                <TableHeader>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id}>
+                      {headerGroup.headers.map((header) => (
+                        <TableHead key={header.id} className={header.column.columnDef.meta?.className}>
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHeader>
+                <TableBody>
+                  {table.getRowModel().rows?.length ? (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
+                        <div className="text-muted-foreground text-sm">
+                          {isFiltered
+                            ? "No se encontraron empleados con los filtros aplicados."
+                            : "No hay empleados recientes."}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
             </div>
             <DataTablePagination table={table} />
           </>
