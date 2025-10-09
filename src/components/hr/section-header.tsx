@@ -8,10 +8,19 @@ type SectionHeaderProps = {
   actionHref?: string;
   actionLabel?: string;
   actionIcon?: React.ReactNode;
+  onAction?: () => void;
   children?: React.ReactNode;
 };
 
-export function SectionHeader({ title, subtitle, actionHref, actionLabel, actionIcon, children }: SectionHeaderProps) {
+export function SectionHeader({
+  title,
+  subtitle,
+  actionHref,
+  actionLabel,
+  actionIcon,
+  onAction,
+  children,
+}: SectionHeaderProps) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
@@ -26,6 +35,13 @@ export function SectionHeader({ title, subtitle, actionHref, actionLabel, action
             {actionIcon ? <span className="ml-2" /> : null}
             {actionLabel}
           </Link>
+        </Button>
+      ) : null}
+      {!actionHref && actionLabel && onAction ? (
+        <Button onClick={onAction} className="whitespace-nowrap">
+          {actionIcon}
+          {actionIcon ? <span className="ml-2" /> : null}
+          {actionLabel}
         </Button>
       ) : null}
     </div>

@@ -2,7 +2,7 @@
 
 import { useNotificationsStore } from "@/stores/notifications-store";
 import { Button } from "@/components/ui/button";
-import { CheckCheck, Loader2, Calendar, Check, X, Ban } from "lucide-react";
+import { CheckCheck, Loader2, Calendar, Check, X, Ban, Bell } from "lucide-react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,6 @@ export function NotificationList() {
     isLoading,
     markAsRead,
     markAllAsRead,
-    loadNotifications,
   } = useNotificationsStore();
 
   const handleNotificationClick = async (notificationId: string, ptoRequestId?: string | null) => {
@@ -42,29 +41,22 @@ export function NotificationList() {
       {/* Header */}
       <div className="flex items-center justify-between border-b p-4">
         <h3 className="font-semibold">Notificaciones</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => loadNotifications()}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Actualizar"
+        {(isLoading || notifications.some((n) => !n.isRead)) && (
+          <div className="flex items-center gap-2">
+            {isLoading && (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             )}
-          </Button>
-          {notifications.some((n) => !n.isRead) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => markAllAsRead()}
-            >
-              <CheckCheck className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
+            {notifications.some((n) => !n.isRead) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => markAllAsRead()}
+              >
+                <CheckCheck className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Lista de notificaciones */}
@@ -115,7 +107,7 @@ export function NotificationList() {
                         <div className="h-2 w-2 rounded-full bg-primary" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-muted-foreground line-clamp-2">
                       {notification.message}
                     </p>
                     <p className="text-xs text-muted-foreground">

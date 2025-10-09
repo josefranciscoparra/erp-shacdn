@@ -21,12 +21,13 @@ export function NotificationBell() {
   useEffect(() => {
     loadNotifications();
     loadUnreadCount();
-  }, []);
+  }, [loadNotifications, loadUnreadCount]);
 
   // Recargar al cambiar de ruta
   useEffect(() => {
     loadUnreadCount();
-  }, [pathname]);
+    loadNotifications();
+  }, [loadUnreadCount, loadNotifications, pathname]);
 
   // Recargar al hacer foco en la ventana
   useEffect(() => {
@@ -40,7 +41,7 @@ export function NotificationBell() {
     return () => {
       window.removeEventListener("focus", handleFocus);
     };
-  }, []);
+  }, [loadNotifications, loadUnreadCount]);
 
   // Auto-refresh cada 30 minutos (solo si la pestaña está activa)
   useEffect(() => {
@@ -52,13 +53,27 @@ export function NotificationBell() {
     }, 30 * 60 * 1000); // 30 minutos
 
     return () => clearInterval(interval);
-  }, []);
+  }, [loadNotifications, loadUnreadCount]);
 
   return (
-    <Popover>
+    <Popover
+      onOpenChange={(isOpen) => {
+        if (isOpen) {
+          loadUnreadCount();
+          loadNotifications();
+        }
+      }}
+    >
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="h-5 w-5" />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="group relative rounded-lg border border-border/60 bg-muted/40 text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:text-foreground"
+        >
+          <Bell
+            className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-foreground"
+            aria-hidden="true"
+          />
           {unreadCount > 0 && (
             <Badge
               variant="destructive"

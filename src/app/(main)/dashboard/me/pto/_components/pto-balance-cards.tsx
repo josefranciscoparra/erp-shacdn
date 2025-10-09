@@ -14,7 +14,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   if (isLoadingBalance) {
     return (
-      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-4">
+      <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
             <Skeleton className="h-4 w-32" />
@@ -61,7 +61,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   }
 
   return (
-    <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-4">
+    <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
       <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
