@@ -27,12 +27,23 @@ export function NotificationList() {
     markAllAsRead,
   } = useNotificationsStore();
 
-  const handleNotificationClick = async (notificationId: string, ptoRequestId?: string | null) => {
+  const handleNotificationClick = async (
+    notificationId: string,
+    notificationType: string,
+    ptoRequestId?: string | null
+  ) => {
     await markAsRead(notificationId);
 
-    // Navegar a la solicitud si existe
+    // Navegar según el tipo de notificación
     if (ptoRequestId) {
-      router.push(`/dashboard/me/pto?request=${ptoRequestId}`);
+      // Si es una notificación de solicitud enviada, el responsable debe ir a aprobaciones
+      if (notificationType === "PTO_SUBMITTED") {
+        router.push(`/dashboard/approvals/pto`);
+      }
+      // Si es notificación de aprobación, rechazo o cancelación, el empleado ve su solicitud
+      else {
+        router.push(`/dashboard/me/pto?request=${ptoRequestId}`);
+      }
     }
   };
 
@@ -80,7 +91,7 @@ export function NotificationList() {
               return (
                 <button
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id, notification.ptoRequestId)}
+                  onClick={() => handleNotificationClick(notification.id, notification.type, notification.ptoRequestId)}
                   className={cn(
                     "flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-accent",
                     !notification.isRead && "bg-muted/50"

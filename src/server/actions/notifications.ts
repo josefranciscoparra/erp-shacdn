@@ -111,6 +111,101 @@ export async function getMyNotifications(limit: number = 10) {
 }
 
 /**
+ * Obtiene todas las notificaciones del usuario con paginación
+ */
+export async function getAllMyNotifications(
+  page: number = 1,
+  pageSize: number = 20,
+  unreadOnly: boolean = false
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { orgId: true },
+    });
+
+    if (!user) {
+      throw new Error("Usuario no encontrado");
+    }
+
+    const where = {
+      userId: session.user.id,
+      orgId: user.orgId,
+      ...(unreadOnly ? { isRead: false } : {}),
+    };
+
+    // Obtener total para paginación
+    const total = await prisma.ptoNotification.count({ where });
+
+    // Obtener notificaciones paginadas
+    const notifications = await prisma.ptoNotification.findMany({
+      where,
+      include: {
+        ptoRequest: {
+          include: {
+            employee: {
+              select: {
+                firstName: true,
+                lastName: true,
+              },
+            },
+            absenceType: {
+              select: {
+                name: true,
+                color: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    });
+
+    return {
+      notifications: notifications.map((n) => ({
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        isRead: n.isRead,
+        createdAt: n.createdAt,
+        ptoRequestId: n.ptoRequestId,
+        ptoRequest: n.ptoRequest
+          ? {
+              id: n.ptoRequest.id,
+              startDate: n.ptoRequest.startDate,
+              endDate: n.ptoRequest.endDate,
+              workingDays: Number(n.ptoRequest.workingDays),
+              status: n.ptoRequest.status,
+              employee: n.ptoRequest.employee,
+              absenceType: n.ptoRequest.absenceType,
+            }
+          : null,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    console.error("Error al obtener todas las notificaciones:", error);
+    throw error;
+  }
+}
+
+/**
  * Obtiene el número de notificaciones no leídas
  */
 export async function getUnreadNotificationsCount() {
