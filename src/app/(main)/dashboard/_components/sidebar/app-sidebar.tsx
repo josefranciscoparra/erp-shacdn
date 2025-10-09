@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { Command } from "lucide-react";
 
 import {
@@ -34,10 +36,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <a href="#">
+              <Link href="/dashboard/me">
                 <Command />
                 <span className="text-base font-semibold">{APP_CONFIG.name}</span>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
