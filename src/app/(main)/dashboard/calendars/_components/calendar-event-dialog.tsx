@@ -124,7 +124,7 @@ export function CalendarEventDialog({ open, onOpenChange, calendarId, event = nu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[500px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar evento" : "Nuevo evento"}</DialogTitle>
           <DialogDescription>
@@ -141,7 +141,11 @@ export function CalendarEventDialog({ open, onOpenChange, calendarId, event = nu
                 <FormItem>
                   <FormLabel>Nombre</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Día de Reyes" {...field} />
+                    <Input
+                      placeholder="Ej: Día de Reyes"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -155,7 +159,12 @@ export function CalendarEventDialog({ open, onOpenChange, calendarId, event = nu
                 <FormItem>
                   <FormLabel>Descripción (opcional)</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Descripción del evento" rows={2} {...field} />
+                    <Textarea
+                      placeholder="Descripción del evento"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      rows={2}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -264,7 +273,7 @@ export function CalendarEventDialog({ open, onOpenChange, calendarId, event = nu
                   <FormLabel>Tipo de evento</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Selecciona el tipo" />
                       </SelectTrigger>
                     </FormControl>

@@ -85,7 +85,7 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[425px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>{position ? "Editar puesto de trabajo" : "Nuevo puesto de trabajo"}</DialogTitle>
           <DialogDescription>
@@ -104,7 +104,11 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
                 <FormItem>
                   <FormLabel>Título del Puesto *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Desarrollador Full Stack" {...field} />
+                    <Input
+                      placeholder="Ej: Desarrollador Full Stack"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,7 +126,7 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
                     onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
                   >
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Seleccionar nivel" />
                       </SelectTrigger>
                     </FormControl>
@@ -152,7 +156,7 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
                   <FormControl>
                     <Textarea
                       placeholder="Descripción del puesto de trabajo..."
-                      className="min-h-[100px]"
+                      className="placeholder:text-muted-foreground/50 min-h-[100px] bg-white"
                       {...field}
                       value={field.value ?? ""}
                     />

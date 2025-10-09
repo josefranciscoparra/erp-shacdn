@@ -101,7 +101,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl bg-gray-100 dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
           <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
@@ -124,7 +124,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
           <div className="flex flex-col gap-2">
             <Label htmlFor="absence-type">Tipo de ausencia *</Label>
             <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={!hasActiveContract}>
-              <SelectTrigger id="absence-type">
+              <SelectTrigger id="absence-type" className="bg-white">
                 <SelectValue placeholder="Selecciona un tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -240,6 +240,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             <Textarea
               id="reason"
               placeholder="Describe brevemente el motivo de tu ausencia"
+              className="placeholder:text-muted-foreground/50 bg-white"
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}

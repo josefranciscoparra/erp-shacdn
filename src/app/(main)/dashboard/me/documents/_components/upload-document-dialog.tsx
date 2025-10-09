@@ -178,7 +178,7 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[600px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Subir documento</DialogTitle>
           <DialogDescription>

@@ -92,7 +92,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[425px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>{costCenter ? "Editar centro de coste" : "Nuevo centro de coste"}</DialogTitle>
           <DialogDescription>
@@ -111,7 +111,11 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                 <FormItem>
                   <FormLabel>Nombre *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Oficina Central" {...field} />
+                    <Input
+                      placeholder="Ej: Oficina Central"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -125,7 +129,12 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                 <FormItem>
                   <FormLabel>Código</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: OFF-001" {...field} value={field.value ?? ""} />
+                    <Input
+                      placeholder="Ej: OFF-001"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      {...field}
+                      value={field.value ?? ""}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -141,7 +150,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                   <FormControl>
                     <Textarea
                       placeholder="Dirección completa del centro de coste..."
-                      className="min-h-[80px]"
+                      className="placeholder:text-muted-foreground/50 min-h-[80px] bg-white"
                       {...field}
                       value={field.value ?? ""}
                     />
@@ -159,7 +168,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                   <FormLabel>Zona Horaria</FormLabel>
                   <Select value={field.value ?? "none"} onValueChange={field.onChange}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Seleccionar zona horaria" />
                       </SelectTrigger>
                     </FormControl>

@@ -157,7 +157,11 @@ export default function EditCalendarPage() {
                   <FormItem>
                     <FormLabel>Nombre</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: Festivos Nacionales 2024" {...field} />
+                      <Input
+                        placeholder="Ej: Festivos Nacionales 2024"
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -171,7 +175,12 @@ export default function EditCalendarPage() {
                   <FormItem>
                     <FormLabel>Descripción (opcional)</FormLabel>
                     <FormControl>
-                      <Textarea placeholder="Descripción del calendario" rows={3} {...field} />
+                      <Textarea
+                        placeholder="Descripción del calendario"
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        rows={3}
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -186,7 +195,12 @@ export default function EditCalendarPage() {
                     <FormItem>
                       <FormLabel>Año</FormLabel>
                       <FormControl>
-                        <Input type="number" placeholder="2024" {...field} />
+                        <Input
+                          type="number"
+                          placeholder="2024"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -201,7 +215,7 @@ export default function EditCalendarPage() {
                       <FormLabel>Tipo de calendario</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white">
                             <SelectValue placeholder="Selecciona el tipo" />
                           </SelectTrigger>
                         </FormControl>
@@ -228,7 +242,7 @@ export default function EditCalendarPage() {
                       <FormLabel>Centro de Coste</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white">
                             <SelectValue placeholder="Selecciona un centro" />
                           </SelectTrigger>
                         </FormControl>
@@ -269,7 +283,7 @@ export default function EditCalendarPage() {
                         />
                       ))}
                       <FormControl>
-                        <Input type="color" className="h-8 w-16 cursor-pointer" {...field} />
+                        <Input type="color" className="h-8 w-16 cursor-pointer bg-white" {...field} />
                       </FormControl>
                     </div>
                     <FormMessage />

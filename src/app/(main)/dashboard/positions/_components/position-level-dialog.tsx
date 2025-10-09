@@ -84,7 +84,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[500px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>{level ? "Editar nivel de puesto" : "Nuevo nivel de puesto"}</DialogTitle>
           <DialogDescription>
@@ -104,7 +104,11 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                   <FormItem>
                     <FormLabel>Nombre *</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: Senior" {...field} />
+                      <Input
+                        placeholder="Ej: Senior"
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -118,7 +122,12 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                   <FormItem>
                     <FormLabel>Código</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: SR" {...field} value={field.value ?? ""} />
+                      <Input
+                        placeholder="Ej: SR"
+                        className="placeholder:text-muted-foreground/50 bg-white"
+                        {...field}
+                        value={field.value ?? ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -136,6 +145,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                     <Input
                       type="number"
                       placeholder="0"
+                      className="placeholder:text-muted-foreground/50 bg-white"
                       {...field}
                       onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
                     />
@@ -154,7 +164,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                   <FormControl>
                     <Textarea
                       placeholder="Descripción del nivel de puesto..."
-                      className="min-h-[80px]"
+                      className="placeholder:text-muted-foreground/50 min-h-[80px] bg-white"
                       {...field}
                       value={field.value ?? ""}
                     />
@@ -176,6 +186,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                         type="number"
                         step="0.01"
                         placeholder="0.00"
+                        className="placeholder:text-muted-foreground/50 bg-white"
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
@@ -197,6 +208,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                         type="number"
                         step="0.01"
                         placeholder="0.00"
+                        className="placeholder:text-muted-foreground/50 bg-white"
                         {...field}
                         value={field.value ?? ""}
                         onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}

@@ -238,7 +238,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 bg-gray-100 p-0 dark:bg-gray-900">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Importar festivos automáticamente</DialogTitle>
           <DialogDescription>
@@ -260,7 +260,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                         <FormLabel>País</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="bg-white">
                               <SelectValue placeholder="Selecciona un país" />
                             </SelectTrigger>
                           </FormControl>
@@ -284,7 +284,12 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                       <FormItem>
                         <FormLabel>Año</FormLabel>
                         <FormControl>
-                          <Input type="number" placeholder="2025" {...field} />
+                          <Input
+                            type="number"
+                            placeholder="2025"
+                            className="placeholder:text-muted-foreground/50 bg-white"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -372,7 +377,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                       <FormLabel>Calendario destino</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value ?? "__new__"}>
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="bg-white">
                             <SelectValue placeholder="Crear nuevo calendario" />
                           </SelectTrigger>
                         </FormControl>
@@ -401,7 +406,11 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                         <FormItem>
                           <FormLabel>Nombre del calendario (opcional)</FormLabel>
                           <FormControl>
-                            <Input placeholder="Ej: Festivos España 2025" {...field} />
+                            <Input
+                              placeholder="Ej: Festivos España 2025"
+                              className="placeholder:text-muted-foreground/50 bg-white"
+                              {...field}
+                            />
                           </FormControl>
                           <FormDescription>Si no especificas, se generará automáticamente</FormDescription>
                           <FormMessage />
@@ -417,7 +426,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                           <FormLabel>Tipo de calendario</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="bg-white">
                                 <SelectValue />
                               </SelectTrigger>
                             </FormControl>
@@ -442,7 +451,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                             <FormLabel>Centro de Coste</FormLabel>
                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="bg-white">
                                   <SelectValue placeholder="Selecciona un centro" />
                                 </SelectTrigger>
                               </FormControl>
@@ -483,7 +492,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                               />
                             ))}
                             <FormControl>
-                              <Input type="color" className="h-8 w-16 cursor-pointer" {...field} />
+                              <Input type="color" className="h-8 w-16 cursor-pointer bg-white" {...field} />
                             </FormControl>
                           </div>
                           <FormMessage />

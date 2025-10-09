@@ -148,7 +148,7 @@ export function DepartmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="bg-gray-100 sm:max-w-[500px] dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>{isEditing ? "Editar departamento" : "Nuevo departamento"}</DialogTitle>
           <DialogDescription>
@@ -167,7 +167,12 @@ export function DepartmentDialog({
                 <FormItem>
                   <FormLabel>Nombre *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej. Recursos Humanos" {...field} disabled={isLoading} />
+                    <Input
+                      placeholder="Ej. Recursos Humanos"
+                      className="placeholder:text-muted-foreground/50 bg-white"
+                      {...field}
+                      disabled={isLoading}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -183,6 +188,7 @@ export function DepartmentDialog({
                   <FormControl>
                     <Textarea
                       placeholder="Descripción opcional del departamento"
+                      className="placeholder:text-muted-foreground/50 bg-white"
                       {...field}
                       disabled={isLoading}
                       rows={3}
@@ -201,7 +207,7 @@ export function DepartmentDialog({
                   <FormLabel>Centro de Coste</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Seleccionar centro de coste" />
                       </SelectTrigger>
                     </FormControl>
@@ -227,7 +233,7 @@ export function DepartmentDialog({
                   <FormLabel>Responsable</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
                     <FormControl>
-                      <SelectTrigger>
+                      <SelectTrigger className="bg-white">
                         <SelectValue placeholder="Seleccionar responsable" />
                       </SelectTrigger>
                     </FormControl>

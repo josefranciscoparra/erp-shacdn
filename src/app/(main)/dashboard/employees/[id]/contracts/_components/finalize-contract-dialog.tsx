@@ -77,7 +77,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg bg-gray-100 dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl font-semibold">
             <TriangleAlert className="text-destructive h-5 w-5" />
@@ -105,7 +105,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
               <Input
                 id="endDate"
                 type="date"
-                className="pl-9"
+                className="bg-white pl-9"
                 value={endDate}
                 onChange={(event) => {
                   setEndDate(event.target.value);
