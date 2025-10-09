@@ -23,11 +23,11 @@ Usa este flag para reducir costes iniciales deshabilitando por completo el módu
 
 El provider se selecciona con `STORAGE_PROVIDER` (`local` por defecto). Cada opción requiere variables específicas:
 
-| Provider | Variables obligatorias | Notas |
-|----------|------------------------|-------|
-| `local`  | `LOCAL_STORAGE_PATH` (ruta en disco), `LOCAL_STORAGE_URL` (prefijo público) | Ideal para desarrollo; los archivos quedan en el servidor donde corre la app. |
+| Provider | Variables obligatorias                                                                          | Notas                                                                                              |
+| -------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `local`  | `LOCAL_STORAGE_PATH` (ruta en disco), `LOCAL_STORAGE_URL` (prefijo público)                     | Ideal para desarrollo; los archivos quedan en el servidor donde corre la app.                      |
 | `azure`  | `AZURE_STORAGE_CONNECTION_STRING`, `AZURE_CONTAINER_PREFIX` (opcional, por defecto `documents`) | Usa Azure Blob Storage. Asegúrate de que el connection string tenga permisos de lectura/escritura. |
-| `r2`     | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | Cloudflare R2 compatible con S3; admite `R2_ENDPOINT` y `R2_PUBLIC_URL` opcionales. |
+| `r2`     | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`                        | Cloudflare R2 compatible con S3; admite `R2_ENDPOINT` y `R2_PUBLIC_URL` opcionales.                |
 
 > **Nota:** El proveedor `aws` (S3 clásico) está reservado y aún no está implementado.
 

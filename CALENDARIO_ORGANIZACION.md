@@ -3,6 +3,7 @@
 ## 📋 Base de Datos (Prisma Schema)
 
 ### Modelos creados:
+
 ```prisma
 model Calendar {
   id           String        @id @default(cuid())
@@ -51,18 +52,22 @@ enum CalendarEventType {
 ## 🔌 API Routes
 
 ### `/api/calendars/route.ts`
+
 - **GET**: Lista todos los calendarios de la organización
 - **POST**: Crea nuevo calendario
 
 ### `/api/calendars/[id]/route.ts`
+
 - **GET**: Obtiene calendario específico con sus eventos
 - **PATCH**: Actualiza calendario
 - **DELETE**: Elimina calendario
 
 ### `/api/calendars/[id]/events/route.ts`
+
 - **POST**: Crea nuevo evento en calendario
 
 ### `/api/calendars/[id]/events/[eventId]/route.ts`
+
 - **PATCH**: Actualiza evento
 - **DELETE**: Elimina evento
 
@@ -71,12 +76,14 @@ enum CalendarEventType {
 **Archivo**: `/src/stores/calendars-store.tsx`
 
 ### State:
+
 - `calendars`: Array de calendarios
 - `selectedCalendar`: Calendario actual
 - `isLoading`: Estado de carga
 - `error`: Mensajes de error
 
 ### Actions:
+
 - `fetchCalendars()`: Obtiene todos los calendarios
 - `fetchCalendarById(id)`: Obtiene calendario específico
 - `createCalendar(data)`: Crea calendario
@@ -89,6 +96,7 @@ enum CalendarEventType {
 ## 📄 Páginas y Componentes
 
 ### Estructura de archivos:
+
 ```
 /dashboard/calendars/
 ├── page.tsx                              # Lista de calendarios
@@ -103,18 +111,21 @@ enum CalendarEventType {
 ```
 
 ### `/dashboard/calendars/page.tsx`
+
 - Lista de calendarios con DataTable
 - Tabs: Todos, Activos, Nacional, Local, Corporativo
 - Botón "Nuevo calendario" (color primario)
 - Estados vacíos por tab
 
 ### `/dashboard/calendars/new/page.tsx`
+
 - Formulario crear calendario
 - Campos: nombre, descripción, año, tipo, color, centro de coste (si es local), activo
 - Validación con Zod
 - Color picker con presets
 
 ### `/dashboard/calendars/[id]/page.tsx`
+
 - Header con color del calendario
 - Badges: tipo, año, centro de coste
 - Stats: total eventos, estado, año
@@ -125,11 +136,13 @@ enum CalendarEventType {
 - Botón "Nuevo evento" (abre diálogo)
 
 ### `/dashboard/calendars/[id]/edit/page.tsx`
+
 - Formulario pre-llenado con datos del calendario
 - Misma estructura que `/new`
 - Actualiza calendario existente
 
 ### `calendar-event-dialog.tsx`
+
 - Modal para crear/editar eventos
 - **Checkbox "Es un rango de fechas"**:
   - Por defecto OFF → muestra solo "Fecha"
@@ -138,6 +151,7 @@ enum CalendarEventType {
 - Validación: fecha fin >= fecha inicio
 
 ### `calendar-event-schema.ts`
+
 ```typescript
 z.object({
   name: z.string().min(1),
@@ -157,6 +171,7 @@ z.object({
 ## 🎨 UI/UX Patterns
 
 ### DataTable:
+
 - Tabs con badges de conteo
 - Select en móvil, Tabs en desktop
 - Botón acción primario (sin outline, color primario)
@@ -165,6 +180,7 @@ z.object({
 - Estados vacíos con iconos y mensajes
 
 ### Forms:
+
 - React Hook Form + Zod
 - Inputs, Textareas, Selects con fondo `bg-muted` / `dark:bg-white/20`
 - Checkboxes con fondo `bg-muted` / `dark:bg-white/20`
@@ -172,6 +188,7 @@ z.object({
 - Validación en tiempo real
 
 ### Navigation:
+
 - Breadcrumbs implícitos (botón "Atrás")
 - Links con `asChild` en Buttons
 - Confirmaciones con `window.confirm()`
@@ -197,6 +214,7 @@ z.object({
 ## 📝 Notas para Calendarios de Usuario
 
 Para los calendarios de usuario, necesitarás:
+
 - Relación con `Employee` en lugar de `Organization`
 - Posibilidad de ver calendarios organizacionales (solo lectura)
 - Calendarios personales (lectura/escritura)

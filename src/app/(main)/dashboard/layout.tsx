@@ -20,7 +20,6 @@ import {
   type ContentLayout,
 } from "@/types/preferences/layout";
 
-import { AccountSwitcher } from "./_components/sidebar/account-switcher";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
@@ -58,7 +57,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} />
+      <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} user={currentUser} />
       <SidebarInset
         data-content-layout={contentLayout}
         className={cn(
@@ -79,7 +78,6 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <NotificationBell />
               <LayoutControls {...layoutPreferences} />
               <ThemeSwitcher />
-              <AccountSwitcher users={[currentUser]} />
             </div>
           </div>
         </header>

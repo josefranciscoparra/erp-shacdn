@@ -76,9 +76,7 @@ async function main() {
   // 3. Actualizar todas las posiciones con la nueva relación
   console.log("\n🔗 Actualizando relaciones en Position...");
 
-  const allPositions = await prisma.$queryRaw<
-    Array<{ id: string; level: string | null; orgId: string }>
-  >`
+  const allPositions = await prisma.$queryRaw<Array<{ id: string; level: string | null; orgId: string }>>`
     SELECT id, level, "orgId" FROM positions WHERE level IS NOT NULL
   `;
 

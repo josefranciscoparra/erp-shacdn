@@ -10,16 +10,16 @@ Ruta: `src/server/actions/shared/get-authenticated-employee.ts`
 
 ```ts
 export async function getAuthenticatedEmployee(
-  options?: GetAuthenticatedEmployeeOptions
-): Promise<AuthenticatedEmployeeResult>
+  options?: GetAuthenticatedEmployeeOptions,
+): Promise<AuthenticatedEmployeeResult>;
 ```
 
 ## Parámetros (`GetAuthenticatedEmployeeOptions`)
 
-- `employeeInclude` *(opcional)*: sub‑árbol `Prisma.EmployeeInclude` que se fusionará en el `include` de la consulta del empleado. Si se pasa `employmentContracts` se ignora, porque la función lo controla internamente.
-- `contractInclude` *(opcional)*: relaciones adicionales a incluir sobre el contrato activo localizado (por ejemplo, `position`, `costCenter`).
-- `requireActiveContract` *(boolean, opcional)*: si es `true`, lanza un error cuando el empleado no tiene un contrato activo con horas > 0. Útil en flujos que dependen estrictamente de un contrato vigente. Valor por defecto: `false`.
-- `defaultWeeklyHours` *(number, opcional)*: horas semanales utilizadas cuando no existe contrato activo o éste no define horas positivas. Por defecto 40.
+- `employeeInclude` _(opcional)_: sub‑árbol `Prisma.EmployeeInclude` que se fusionará en el `include` de la consulta del empleado. Si se pasa `employmentContracts` se ignora, porque la función lo controla internamente.
+- `contractInclude` _(opcional)_: relaciones adicionales a incluir sobre el contrato activo localizado (por ejemplo, `position`, `costCenter`).
+- `requireActiveContract` _(boolean, opcional)_: si es `true`, lanza un error cuando el empleado no tiene un contrato activo con horas > 0. Útil en flujos que dependen estrictamente de un contrato vigente. Valor por defecto: `false`.
+- `defaultWeeklyHours` _(number, opcional)_: horas semanales utilizadas cuando no existe contrato activo o éste no define horas positivas. Por defecto 40.
 
 ## Retorno (`AuthenticatedEmployeeResult`)
 

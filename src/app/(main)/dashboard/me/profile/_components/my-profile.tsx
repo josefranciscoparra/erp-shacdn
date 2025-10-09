@@ -1,17 +1,12 @@
 "use client";
 
-import { useState } from "react";
-
-import { User, Mail, Phone, MapPin, Briefcase, Calendar, Save } from "lucide-react";
-import { toast } from "sonner";
+import { Mail, Phone, Briefcase, Calendar } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateProfileData, type ProfileData } from "@/server/actions/profile";
+import type { ProfileData } from "@/server/actions/profile";
 
 import { AppearanceSettings } from "./appearance-settings";
 
@@ -20,66 +15,6 @@ interface MyProfileProps {
 }
 
 export function MyProfile({ initialData }: MyProfileProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    phone: initialData.employee?.phone ?? "",
-    mobilePhone: initialData.employee?.mobilePhone ?? "",
-    address: initialData.employee?.address ?? "",
-    city: initialData.employee?.city ?? "",
-    postalCode: initialData.employee?.postalCode ?? "",
-    province: initialData.employee?.province ?? "",
-    emergencyContactName: initialData.employee?.emergencyContactName ?? "",
-    emergencyContactPhone: initialData.employee?.emergencyContactPhone ?? "",
-    emergencyRelationship: initialData.employee?.emergencyRelationship ?? "",
-  });
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const result = await updateProfileData(formData);
-
-      if (result.success) {
-        toast.success("Perfil actualizado", {
-          description: "Tus datos se han actualizado correctamente.",
-        });
-        setIsEditing(false);
-      } else {
-        toast.error("Error", {
-          description: result.error ?? "No se pudo actualizar el perfil.",
-        });
-      }
-    } catch (error) {
-      toast.error("Error", {
-        description: "Ocurrió un error al actualizar el perfil.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleCancel = () => {
-    // Resetear datos al cancelar
-    setFormData({
-      phone: initialData.employee?.phone ?? "",
-      mobilePhone: initialData.employee?.mobilePhone ?? "",
-      address: initialData.employee?.address ?? "",
-      city: initialData.employee?.city ?? "",
-      postalCode: initialData.employee?.postalCode ?? "",
-      province: initialData.employee?.province ?? "",
-      emergencyContactName: initialData.employee?.emergencyContactName ?? "",
-      emergencyContactPhone: initialData.employee?.emergencyContactPhone ?? "",
-      emergencyRelationship: initialData.employee?.emergencyRelationship ?? "",
-    });
-    setIsEditing(false);
-  };
-
   // Datos calculados
   const fullName = initialData.employee
     ? `${initialData.employee.firstName} ${initialData.employee.lastName}${
@@ -119,7 +54,7 @@ export function MyProfile({ initialData }: MyProfileProps) {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Mi Perfil" actionLabel={isEditing ? "Cancelar" : "Editar Perfil"} onAction={handleCancel} />
+      <SectionHeader title="Mi Perfil" />
 
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         {/* Información personal */}
@@ -134,142 +69,90 @@ export function MyProfile({ initialData }: MyProfileProps) {
             <p className="text-muted-foreground text-sm">{position}</p>
           </div>
 
-          {!isEditing && (
-            <div className="flex w-full flex-col gap-3">
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Mail className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">{initialData.user.email}</span>
-              </div>
-
-              {formData.mobilePhone && (
-                <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <Phone className="text-muted-foreground h-4 w-4" />
-                  <span className="text-sm">{formData.mobilePhone}</span>
-                </div>
-              )}
-
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Briefcase className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">{department}</span>
-              </div>
-
-              {initialData.activeContract?.startDate && (
-                <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <Calendar className="text-muted-foreground h-4 w-4" />
-                  <span className="text-sm">
-                    Desde{" "}
-                    {new Date(initialData.activeContract.startDate).toLocaleDateString("es-ES", {
-                      month: "long",
-                      year: "numeric",
-                    })}
-                  </span>
-                </div>
-              )}
+          <div className="flex w-full flex-col gap-3">
+            <div className="flex items-center gap-3 rounded-lg border p-3">
+              <Mail className="text-muted-foreground h-4 w-4" />
+              <span className="text-sm">{initialData.user.email}</span>
             </div>
-          )}
+
+            {initialData.employee?.mobilePhone && (
+              <div className="flex items-center gap-3 rounded-lg border p-3">
+                <Phone className="text-muted-foreground h-4 w-4" />
+                <span className="text-sm">{initialData.employee.mobilePhone}</span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 rounded-lg border p-3">
+              <Briefcase className="text-muted-foreground h-4 w-4" />
+              <span className="text-sm">{department}</span>
+            </div>
+
+            {initialData.activeContract?.startDate && (
+              <div className="flex items-center gap-3 rounded-lg border p-3">
+                <Calendar className="text-muted-foreground h-4 w-4" />
+                <span className="text-sm">
+                  Desde{" "}
+                  {new Date(initialData.activeContract.startDate).toLocaleDateString("es-ES", {
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
         </Card>
 
-        {/* Formulario editable */}
+        {/* Información de contacto */}
         <Card className="@container/card flex flex-col gap-6 p-6 @xl/main:col-span-2">
           <h3 className="text-lg font-semibold">Información de contacto</h3>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="phone">Teléfono fijo</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="Teléfono fijo"
-                />
+                <Label className="text-muted-foreground">Teléfono fijo</Label>
+                <p className="text-sm">{initialData.employee?.phone ?? "No especificado"}</p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="mobilePhone">Teléfono móvil</Label>
-                <Input
-                  id="mobilePhone"
-                  type="tel"
-                  value={formData.mobilePhone}
-                  onChange={(e) => handleChange("mobilePhone", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="Teléfono móvil"
-                />
+                <Label className="text-muted-foreground">Teléfono móvil</Label>
+                <p className="text-sm">{initialData.employee?.mobilePhone ?? "No especificado"}</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              <Label htmlFor="address">Dirección</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => handleChange("address", e.target.value)}
-                disabled={!isEditing}
-                placeholder="Dirección completa"
-              />
+              <Label className="text-muted-foreground">Dirección</Label>
+              <p className="text-sm">{initialData.employee?.address ?? "No especificada"}</p>
             </div>
 
             <div className="grid gap-4 @md/card:grid-cols-3">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="city">Ciudad</Label>
-                <Input
-                  id="city"
-                  value={formData.city}
-                  onChange={(e) => handleChange("city", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="Ciudad"
-                />
+                <Label className="text-muted-foreground">Ciudad</Label>
+                <p className="text-sm">{initialData.employee?.city ?? "No especificada"}</p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="postalCode">Código postal</Label>
-                <Input
-                  id="postalCode"
-                  value={formData.postalCode}
-                  onChange={(e) => handleChange("postalCode", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="CP"
-                />
+                <Label className="text-muted-foreground">Código postal</Label>
+                <p className="text-sm">{initialData.employee?.postalCode ?? "No especificado"}</p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="province">Provincia</Label>
-                <Input
-                  id="province"
-                  value={formData.province}
-                  onChange={(e) => handleChange("province", e.target.value)}
-                  disabled={!isEditing}
-                  placeholder="Provincia"
-                />
+                <Label className="text-muted-foreground">Provincia</Label>
+                <p className="text-sm">{initialData.employee?.province ?? "No especificada"}</p>
               </div>
             </div>
 
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="department">Departamento</Label>
-                <Input id="department" value={department} disabled />
+                <Label className="text-muted-foreground">Departamento</Label>
+                <p className="text-sm">{department}</p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="position">Puesto</Label>
-                <Input id="position" value={position} disabled />
+                <Label className="text-muted-foreground">Puesto</Label>
+                <p className="text-sm">{position}</p>
               </div>
             </div>
-
-            {isEditing && (
-              <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={isSubmitting}>
-                  <Save className="mr-2 h-4 w-4" />
-                  {isSubmitting ? "Guardando..." : "Guardar cambios"}
-                </Button>
-              </div>
-            )}
-          </form>
+          </div>
         </Card>
       </div>
 
@@ -296,80 +179,32 @@ export function MyProfile({ initialData }: MyProfileProps) {
         </Card>
 
         <Card className="@container/card flex flex-col gap-4 p-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Contacto de emergencia</h3>
-            {isEditing && (
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  // Focus en el primer campo de emergencia
-                  document.getElementById("emergencyContactName")?.focus();
-                }}
-              >
-                Editar
-              </Button>
+          <h3 className="text-lg font-semibold">Contacto de emergencia</h3>
+
+          <div className="flex flex-col gap-3">
+            {initialData.employee?.emergencyContactName ? (
+              <>
+                <div className="flex justify-between rounded-lg border p-3">
+                  <span className="text-muted-foreground text-sm">Nombre</span>
+                  <span className="font-medium">{initialData.employee.emergencyContactName}</span>
+                </div>
+                {initialData.employee.emergencyRelationship && (
+                  <div className="flex justify-between rounded-lg border p-3">
+                    <span className="text-muted-foreground text-sm">Relación</span>
+                    <span className="font-medium">{initialData.employee.emergencyRelationship}</span>
+                  </div>
+                )}
+                {initialData.employee.emergencyContactPhone && (
+                  <div className="flex justify-between rounded-lg border p-3">
+                    <span className="text-muted-foreground text-sm">Teléfono</span>
+                    <span className="font-medium">{initialData.employee.emergencyContactPhone}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-muted-foreground text-sm">No hay contacto de emergencia registrado</p>
             )}
           </div>
-
-          {isEditing ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="emergencyContactName">Nombre</Label>
-                <Input
-                  id="emergencyContactName"
-                  value={formData.emergencyContactName}
-                  onChange={(e) => handleChange("emergencyContactName", e.target.value)}
-                  placeholder="Nombre del contacto"
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="emergencyRelationship">Relación</Label>
-                <Input
-                  id="emergencyRelationship"
-                  value={formData.emergencyRelationship}
-                  onChange={(e) => handleChange("emergencyRelationship", e.target.value)}
-                  placeholder="Ej: Hermana, Padre, etc."
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="emergencyContactPhone">Teléfono</Label>
-                <Input
-                  id="emergencyContactPhone"
-                  type="tel"
-                  value={formData.emergencyContactPhone}
-                  onChange={(e) => handleChange("emergencyContactPhone", e.target.value)}
-                  placeholder="Teléfono de contacto"
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {formData.emergencyContactName ? (
-                <>
-                  <div className="flex justify-between rounded-lg border p-3">
-                    <span className="text-muted-foreground text-sm">Nombre</span>
-                    <span className="font-medium">{formData.emergencyContactName}</span>
-                  </div>
-                  {formData.emergencyRelationship && (
-                    <div className="flex justify-between rounded-lg border p-3">
-                      <span className="text-muted-foreground text-sm">Relación</span>
-                      <span className="font-medium">{formData.emergencyRelationship}</span>
-                    </div>
-                  )}
-                  {formData.emergencyContactPhone && (
-                    <div className="flex justify-between rounded-lg border p-3">
-                      <span className="text-muted-foreground text-sm">Teléfono</span>
-                      <span className="font-medium">{formData.emergencyContactPhone}</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p className="text-muted-foreground text-sm">No hay contacto de emergencia registrado</p>
-              )}
-            </div>
-          )}
         </Card>
       </div>
 

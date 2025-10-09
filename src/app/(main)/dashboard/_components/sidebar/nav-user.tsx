@@ -1,9 +1,14 @@
 "use client";
 
-import { EllipsisVertical, CircleUser, CreditCard, MessageSquareDot, LogOut } from "lucide-react";
+import { useEffect } from "react";
+
+import Link from "next/link";
+
+import { Bell, EllipsisVertical, LogOut, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,6 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { getInitials } from "@/lib/utils";
+import { logoutAction } from "@/server/actions/auth";
+import { useNotificationsStore } from "@/stores/notifications-store";
 
 export function NavUser({
   user,
@@ -27,6 +34,12 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const t = useTranslations("user");
+  const { unreadCount, loadUnreadCount } = useNotificationsStore();
+
+  // Cargar contador de notificaciones al montar
+  useEffect(() => {
+    loadUnreadCount();
+  }, [loadUnreadCount]);
 
   return (
     <SidebarMenu>
@@ -35,8 +48,17 @@ export function NavUser({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground relative"
             >
+              {/* Badge de notificaciones */}
+              {unreadCount > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full px-1 text-[10px] leading-none"
+                >
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </Badge>
+              )}
               <Avatar className="h-8 w-8 rounded-lg grayscale">
                 <AvatarImage src={user.avatar || undefined} alt={user.name} />
                 <AvatarFallback className="rounded-lg">{getInitials(user.name)}</AvatarFallback>
@@ -68,21 +90,26 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuItem>
-                <CircleUser />
-                {t("account")}
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/me/profile">
+                  <User />
+                  {t("profile")}
+                </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem>
-                <CreditCard />
-                {t("billing")}
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <MessageSquareDot />
-                {t("notifications")}
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/notifications" className="relative">
+                  <Bell />
+                  {t("notifications")}
+                  {unreadCount > 0 && (
+                    <Badge variant="destructive" className="ml-auto h-5 min-w-5 rounded-full px-1 text-xs">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </Badge>
+                  )}
+                </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => logoutAction()}>
               <LogOut />
               {t("logout")}
             </DropdownMenuItem>
