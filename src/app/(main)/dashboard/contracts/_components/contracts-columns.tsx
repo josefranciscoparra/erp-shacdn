@@ -193,7 +193,10 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     cell: ({ row }) => {
       const active = row.getValue("active");
       return (
-        <Badge variant={active ? "default" : "secondary"} className="font-medium">
+        <Badge
+          variant={active ? "default" : "secondary"}
+          className={active ? "bg-green-500/10 font-medium text-green-700 dark:text-green-400" : "font-medium"}
+        >
           {active ? "Activo" : "Finalizado"}
         </Badge>
       );

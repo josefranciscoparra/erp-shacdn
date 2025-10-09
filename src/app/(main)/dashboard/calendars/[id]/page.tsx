@@ -194,7 +194,12 @@ export default function CalendarDetailPage() {
             <CardDescription>Estado</CardDescription>
           </CardHeader>
           <CardContent>
-            <Badge variant={calendar.active ? "default" : "secondary"}>{calendar.active ? "Activo" : "Inactivo"}</Badge>
+            <Badge
+              variant={calendar.active ? "default" : "secondary"}
+              className={calendar.active ? "bg-green-500/10 text-green-700 dark:text-green-400" : ""}
+            >
+              {calendar.active ? "Activo" : "Inactivo"}
+            </Badge>
           </CardContent>
         </Card>
         <Card>

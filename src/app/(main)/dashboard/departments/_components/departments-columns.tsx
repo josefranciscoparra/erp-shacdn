@@ -95,7 +95,14 @@ export const createDepartmentsColumns = ({
     header: "Estado",
     cell: ({ row }) => {
       const active = row.getValue("active");
-      return <Badge variant={active ? "default" : "secondary"}>{active ? "Activo" : "Inactivo"}</Badge>;
+      return (
+        <Badge
+          variant={active ? "default" : "secondary"}
+          className={active ? "bg-green-500/10 text-green-700 dark:text-green-400" : ""}
+        >
+          {active ? "Activo" : "Inactivo"}
+        </Badge>
+      );
     },
   },
   {

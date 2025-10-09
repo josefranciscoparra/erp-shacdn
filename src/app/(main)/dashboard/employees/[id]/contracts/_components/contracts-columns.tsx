@@ -174,7 +174,14 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const active = row.getValue("active");
-      return <Badge variant={active ? "default" : "secondary"}>{active ? "Activo" : "Finalizado"}</Badge>;
+      return (
+        <Badge
+          variant={active ? "default" : "secondary"}
+          className={active ? "bg-green-500/10 text-green-700 dark:text-green-400" : ""}
+        >
+          {active ? "Activo" : "Finalizado"}
+        </Badge>
+      );
     },
   },
   {
