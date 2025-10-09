@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import { ColumnDef } from "@tanstack/react-table";
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -36,7 +38,12 @@ export const employeesColumns: ColumnDef<Employee>[] = [
           </Avatar>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <span className="text-foreground font-medium">{fullName}</span>
+              <Link
+                href={`/dashboard/employees/${employee.id}`}
+                className="text-foreground hover:text-primary font-medium hover:underline"
+              >
+                {fullName}
+              </Link>
               <Badge variant={employee.active ? "default" : "destructive"}>
                 {employee.active ? "Activo" : "Inactivo"}
               </Badge>

@@ -31,7 +31,7 @@ const CONTRACT_TYPES = {
 export const contractsColumns: ColumnDef<Contract>[] = [
   {
     accessorKey: "employee",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="" />,
     cell: ({ row }) => {
       const employee = row.getValue("employee");
       if (!employee) {
@@ -42,7 +42,10 @@ export const contractsColumns: ColumnDef<Contract>[] = [
 
       return (
         <div className="space-y-1">
-          <Link href={`/dashboard/employees/${employee.id}`} className="text-primary font-medium hover:underline">
+          <Link
+            href={`/dashboard/employees/${employee.id}/contracts`}
+            className="text-foreground hover:text-primary font-medium hover:underline"
+          >
             {fullName}
           </Link>
           {employee.employeeNumber && (
