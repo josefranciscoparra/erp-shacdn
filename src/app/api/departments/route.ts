@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+
 import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 

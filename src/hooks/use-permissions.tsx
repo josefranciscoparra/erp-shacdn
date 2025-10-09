@@ -1,7 +1,8 @@
 "use client";
 
-import { useSession } from "next-auth/react";
 import { Role } from "@prisma/client";
+import { useSession } from "next-auth/react";
+
 import { hasPermission, hasAllPermissions, hasAnyPermission, canAccessPage, type Permission } from "@/lib/permissions";
 
 export function usePermissions() {

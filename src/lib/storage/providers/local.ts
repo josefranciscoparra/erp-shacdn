@@ -1,22 +1,26 @@
-import fs from 'fs/promises';
-import path from 'path';
-import { StorageProvider, type UploadResult, type StorageItem, type UploadOptions, type DownloadOptions, type SignedUrlOptions } from '../types';
+import fs from "fs/promises";
+import path from "path";
+
+import {
+  StorageProvider,
+  type UploadResult,
+  type StorageItem,
+  type UploadOptions,
+  type DownloadOptions,
+  type SignedUrlOptions,
+} from "../types";
 
 export class LocalStorageProvider extends StorageProvider {
   private basePath: string;
   private baseUrl: string;
 
-  constructor(basePath: string = './uploads', baseUrl: string = '/uploads') {
+  constructor(basePath: string = "./uploads", baseUrl: string = "/uploads") {
     super();
     this.basePath = path.resolve(basePath);
     this.baseUrl = baseUrl;
   }
 
-  async upload(
-    file: File | Buffer, 
-    filePath: string, 
-    options?: UploadOptions
-  ): Promise<UploadResult> {
+  async upload(file: File | Buffer, filePath: string, options?: UploadOptions): Promise<UploadResult> {
     const fullPath = path.join(this.basePath, filePath);
     const dir = path.dirname(fullPath);
 
@@ -29,21 +33,21 @@ export class LocalStorageProvider extends StorageProvider {
 
     if (file instanceof File) {
       this.validateFile(file, [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/jpeg',
-        'image/png',
-        'image/webp'
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
       ]);
-      
+
       buffer = Buffer.from(await file.arrayBuffer());
       size = file.size;
       mimeType = file.type;
     } else {
       buffer = file;
       size = buffer.length;
-      mimeType = options?.mimeType || 'application/octet-stream';
+      mimeType = options?.mimeType ?? "application/octet-stream";
     }
 
     // Escribir archivo
@@ -53,13 +57,13 @@ export class LocalStorageProvider extends StorageProvider {
       url: `${this.baseUrl}/${filePath}`,
       path: filePath,
       size,
-      mimeType
+      mimeType,
     };
   }
 
   async download(filePath: string, options?: DownloadOptions): Promise<Blob> {
     const fullPath = path.join(this.basePath, filePath);
-    
+
     try {
       const buffer = await fs.readFile(fullPath);
       return new Blob([buffer]);
@@ -70,20 +74,17 @@ export class LocalStorageProvider extends StorageProvider {
 
   async delete(filePath: string): Promise<void> {
     const fullPath = path.join(this.basePath, filePath);
-    
+
     try {
       await fs.unlink(fullPath);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw new Error(`No se pudo eliminar el archivo: ${(error as Error).message}`);
       }
     }
   }
 
-  async getSignedUrl(
-    filePath: string, 
-    options?: SignedUrlOptions
-  ): Promise<string> {
+  async getSignedUrl(filePath: string, options?: SignedUrlOptions): Promise<string> {
     // Para almacenamiento local, simplemente devolvemos la URL pública
     // En un entorno real, podrías implementar tokens JWT temporales
     return `${this.baseUrl}/${filePath}`;
@@ -95,24 +96,24 @@ export class LocalStorageProvider extends StorageProvider {
 
     try {
       const entries = await fs.readdir(fullPrefix, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.isFile()) {
           const filePath = path.join(prefix, entry.name);
           const fullPath = path.join(this.basePath, filePath);
           const stats = await fs.stat(fullPath);
-          
+
           items.push({
             name: entry.name,
             path: filePath,
             size: stats.size,
             lastModified: stats.mtime,
-            mimeType: this.getMimeTypeFromExtension(entry.name)
+            mimeType: this.getMimeTypeFromExtension(entry.name),
           });
         }
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         throw new Error(`No se pudo listar archivos: ${(error as Error).message}`);
       }
     }
@@ -122,7 +123,7 @@ export class LocalStorageProvider extends StorageProvider {
 
   async exists(filePath: string): Promise<boolean> {
     const fullPath = path.join(this.basePath, filePath);
-    
+
     try {
       await fs.access(fullPath);
       return true;
@@ -134,15 +135,15 @@ export class LocalStorageProvider extends StorageProvider {
   private getMimeTypeFromExtension(fileName: string): string {
     const ext = path.extname(fileName).toLowerCase();
     const mimeTypes: Record<string, string> = {
-      '.pdf': 'application/pdf',
-      '.doc': 'application/msword',
-      '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.webp': 'image/webp'
+      ".pdf": "application/pdf",
+      ".doc": "application/msword",
+      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
     };
-    
-    return mimeTypes[ext] || 'application/octet-stream';
+
+    return mimeTypes[ext] || "application/octet-stream";
   }
 }

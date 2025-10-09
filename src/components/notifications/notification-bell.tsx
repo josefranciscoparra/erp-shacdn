@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { Bell } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useNotificationsStore } from "@/stores/notifications-store";
-import { NotificationList } from "./notification-list";
+
 import { usePathname } from "next/navigation";
+
+import { Bell } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useNotificationsStore } from "@/stores/notifications-store";
+
+import { NotificationList } from "./notification-list";
 
 export function NotificationBell() {
   const pathname = usePathname();
@@ -45,12 +45,15 @@ export function NotificationBell() {
 
   // Auto-refresh cada 30 minutos (solo si la pestaña está activa)
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (!document.hidden) {
-        loadUnreadCount();
-        loadNotifications();
-      }
-    }, 30 * 60 * 1000); // 30 minutos
+    const interval = setInterval(
+      () => {
+        if (!document.hidden) {
+          loadUnreadCount();
+          loadNotifications();
+        }
+      },
+      30 * 60 * 1000,
+    ); // 30 minutos
 
     return () => clearInterval(interval);
   }, [loadNotifications, loadUnreadCount]);
@@ -68,17 +71,14 @@ export function NotificationBell() {
         <Button
           variant="ghost"
           size="icon"
-          className="group relative rounded-lg border border-border/60 bg-muted/40 text-muted-foreground transition-colors hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:text-foreground"
+          className="group border-border/60 bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:text-foreground relative rounded-lg border transition-colors"
         >
           <Bell
-            className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-foreground"
+            className="text-muted-foreground group-hover:text-foreground h-5 w-5 transition-colors"
             aria-hidden="true"
           />
           {unreadCount > 0 && (
-            <Badge
-              variant="destructive"
-              className="absolute -right-1 -top-1 h-5 min-w-5 rounded-full px-1 text-xs"
-            >
+            <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 rounded-full px-1 text-xs">
               {unreadCount > 99 ? "99+" : unreadCount}
             </Badge>
           )}

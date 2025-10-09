@@ -3,8 +3,9 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
 import { Clock, Coffee } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
 
 export interface TimeTrackingRecord {
   id: string;
@@ -73,8 +74,8 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
       const email = row.original.employee.user.email;
       return (
         <div className="flex flex-col">
-          <span className="font-medium">{name || "Sin nombre"}</span>
-          <span className="text-xs text-muted-foreground">{email}</span>
+          <span className="font-medium">{name ?? "Sin nombre"}</span>
+          <span className="text-muted-foreground text-xs">{email}</span>
         </div>
       );
     },
@@ -83,7 +84,7 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     accessorKey: "employee.department.name",
     header: "Departamento",
     cell: ({ row }) => {
-      return row.original.employee.department?.name || "Sin departamento";
+      return row.original.employee.department?.name ?? "Sin departamento";
     },
   },
   {
@@ -108,8 +109,8 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     accessorKey: "totalWorkedMinutes",
     header: "Tiempo Trabajado",
     cell: ({ row }) => {
-      const minutes = row.getValue("totalWorkedMinutes") as number;
-      const totalWorkedHours = row.original.totalWorkedHours || 0;
+      const minutes = row.getValue("totalWorkedMinutes");
+      const totalWorkedHours = row.original.totalWorkedHours ?? 0;
 
       // Calcular horas esperadas desde el contrato del empleado
       // Si no hay información del contrato, asumir 8h por defecto
@@ -118,10 +119,10 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
       return (
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-1.5">
-            <Clock className="size-3.5 text-muted-foreground" />
+            <Clock className="text-muted-foreground size-3.5" />
             <span className="font-medium">{formatMinutes(minutes)}</span>
           </div>
-          <span className="text-xs text-muted-foreground">/ {expectedHours}h esperadas</span>
+          <span className="text-muted-foreground text-xs">/ {expectedHours}h esperadas</span>
         </div>
       );
     },
@@ -130,13 +131,13 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     accessorKey: "totalBreakMinutes",
     header: "Pausas",
     cell: ({ row }) => {
-      const minutes = row.getValue("totalBreakMinutes") as number;
+      const minutes = row.getValue("totalBreakMinutes");
       if (minutes === 0) {
         return <span className="text-muted-foreground">0m</span>;
       }
       return (
         <div className="flex items-center gap-1.5">
-          <Coffee className="size-3.5 text-muted-foreground" />
+          <Coffee className="text-muted-foreground size-3.5" />
           <span>{formatMinutes(minutes)}</span>
         </div>
       );
@@ -146,13 +147,9 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     accessorKey: "status",
     header: "Estado",
     cell: ({ row }) => {
-      const status = row.getValue("status") as keyof typeof statusConfig;
+      const status = row.getValue("status");
       const config = statusConfig[status];
-      return (
-        <Badge className={config.className}>
-          {config.label}
-        </Badge>
-      );
+      return <Badge className={config.className}>{config.label}</Badge>;
     },
   },
 ];

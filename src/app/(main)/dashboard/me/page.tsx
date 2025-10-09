@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { SectionHeader } from "@/components/hr/section-header";
-import { MySpaceMetrics } from "./_components/my-space-metrics";
-import { UpcomingEvents } from "./_components/upcoming-events";
-import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
-import { Clock, CalendarDays, FileText, UserCircle, Bell } from "lucide-react";
+
 import Link from "next/link";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Clock, CalendarDays, FileText, UserCircle, Bell } from "lucide-react";
+
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
+
+import { MySpaceMetrics } from "./_components/my-space-metrics";
+import { UpcomingEvents } from "./_components/upcoming-events";
 
 export default function MySpacePage() {
   const [data, setData] = useState<MySpaceDashboard | null>(null);
@@ -40,10 +44,10 @@ export default function MySpacePage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header con nombre del empleado */}
       <SectionHeader
-        title={data?.profile.name || "Mi Espacio"}
+        title={data?.profile.name ?? "Mi Espacio"}
         description={
           data?.profile.position || data?.profile.department
-            ? `${data.profile.position || ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department || ""}`
+            ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
             : "Dashboard personal del empleado"
         }
       />
@@ -51,7 +55,7 @@ export default function MySpacePage() {
       {/* Error state */}
       {error && (
         <Card className="p-6">
-          <p className="text-sm font-medium text-destructive">{error}</p>
+          <p className="text-destructive text-sm font-medium">{error}</p>
           <Button onClick={loadDashboard} className="mt-4" variant="outline" size="sm">
             Reintentar
           </Button>
@@ -101,19 +105,19 @@ export default function MySpacePage() {
           <Card className="p-6">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-muted-foreground" />
+                <Bell className="text-muted-foreground h-5 w-5" />
                 <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
               </div>
             </div>
 
             {data.recentNotifications.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No tienes notificaciones recientes</p>
+              <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
             ) : (
               <div className="space-y-3">
                 {data.recentNotifications.map((notification) => (
                   <div
                     key={notification.id}
-                    className={`rounded-lg border p-3 transition-colors hover:bg-accent ${
+                    className={`hover:bg-accent rounded-lg border p-3 transition-colors ${
                       !notification.read ? "border-primary/50 bg-primary/5" : ""
                     }`}
                   >
@@ -125,7 +129,7 @@ export default function MySpacePage() {
                         </Badge>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="text-muted-foreground mt-1 text-xs">
                       {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
                         locale: es,
                       })}

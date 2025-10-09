@@ -1,8 +1,9 @@
 "use server";
 
+import type { PtoNotificationType } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { PtoNotificationType } from "@prisma/client";
 
 /**
  * Crea una notificación en el sistema
@@ -13,7 +14,7 @@ export async function createNotification(
   type: PtoNotificationType,
   title: string,
   message: string,
-  ptoRequestId?: string
+  ptoRequestId?: string,
 ) {
   try {
     const notification = await prisma.ptoNotification.create({
@@ -113,11 +114,7 @@ export async function getMyNotifications(limit: number = 10) {
 /**
  * Obtiene todas las notificaciones del usuario con paginación
  */
-export async function getAllMyNotifications(
-  page: number = 1,
-  pageSize: number = 20,
-  unreadOnly: boolean = false
-) {
+export async function getAllMyNotifications(page: number = 1, pageSize: number = 20, unreadOnly: boolean = false) {
   try {
     const session = await auth();
 

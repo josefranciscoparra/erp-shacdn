@@ -1,7 +1,8 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
+
+import { prisma } from "@/lib/prisma";
 
 /**
  * Calcula los días de vacaciones anuales según el método de cálculo proporcional
@@ -10,7 +11,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 export async function calculateAnnualAllowance(
   contractStartDate: Date,
   year: number,
-  annualPtoDays: number
+  annualPtoDays: number,
 ): Promise<number> {
   const contractYear = contractStartDate.getFullYear();
 
@@ -47,7 +48,7 @@ export async function calculateAnnualAllowance(
  * Verifica si un año es bisiesto
  */
 function isLeapYear(year: number): boolean {
-  return (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
 }
 
 /**
@@ -56,7 +57,7 @@ function isLeapYear(year: number): boolean {
 export async function calculateOrUpdatePtoBalance(
   employeeId: string,
   orgId: string,
-  year: number
+  year: number,
 ): Promise<{
   id: string;
   year: number;
@@ -95,11 +96,7 @@ export async function calculateOrUpdatePtoBalance(
   }
 
   // Calcular días permitidos según fecha de inicio de contrato
-  const allowance = await calculateAnnualAllowance(
-    activeContract.startDate,
-    year,
-    org.annualPtoDays
-  );
+  const allowance = await calculateAnnualAllowance(activeContract.startDate, year, org.annualPtoDays);
 
   // Calcular días usados (solicitudes APPROVED)
   const approvedRequests = await prisma.ptoRequest.findMany({
@@ -117,10 +114,7 @@ export async function calculateOrUpdatePtoBalance(
     },
   });
 
-  const daysUsed = approvedRequests.reduce(
-    (sum, req) => sum + Number(req.workingDays),
-    0
-  );
+  const daysUsed = approvedRequests.reduce((sum, req) => sum + Number(req.workingDays), 0);
 
   // Calcular días pendientes (solicitudes PENDING)
   const pendingRequests = await prisma.ptoRequest.findMany({
@@ -138,10 +132,7 @@ export async function calculateOrUpdatePtoBalance(
     },
   });
 
-  const daysPending = pendingRequests.reduce(
-    (sum, req) => sum + Number(req.workingDays),
-    0
-  );
+  const daysPending = pendingRequests.reduce((sum, req) => sum + Number(req.workingDays), 0);
 
   // Días disponibles = allowance - used - pending
   const daysAvailable = allowance - daysUsed - daysPending;
@@ -189,10 +180,6 @@ export async function calculateOrUpdatePtoBalance(
  * Recalcula el balance después de un cambio en solicitudes
  * (aprobar, rechazar, cancelar)
  */
-export async function recalculatePtoBalance(
-  employeeId: string,
-  orgId: string,
-  year: number
-): Promise<void> {
+export async function recalculatePtoBalance(employeeId: string, orgId: string, year: number): Promise<void> {
   await calculateOrUpdatePtoBalance(employeeId, orgId, year);
 }

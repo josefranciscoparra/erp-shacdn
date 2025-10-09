@@ -1,12 +1,14 @@
 "use server";
 
+import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
+
 import { prisma } from "@/lib/prisma";
+
+import { getMyMonthEvents } from "./employee-calendars";
+import { getMyPtoBalance } from "./employee-pto";
+import { getAllMyNotifications } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 import { getTodaySummary, getWeeklySummary } from "./time-tracking";
-import { getMyPtoBalance } from "./employee-pto";
-import { getMyMonthEvents } from "./employee-calendars";
-import { getAllMyNotifications } from "./notifications";
-import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
 
 export interface MySpaceDashboard {
   // Resumen de fichajes
@@ -87,10 +89,7 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     });
 
     // 1. Obtener resumen de fichajes (hoy y semana)
-    const [todaySummary, weeklySummary] = await Promise.all([
-      getTodaySummary(),
-      getWeeklySummary(),
-    ]);
+    const [todaySummary, weeklySummary] = await Promise.all([getTodaySummary(), getWeeklySummary()]);
 
     const expectedDailyHours = activeContract?.dailyHours ? Number(activeContract.dailyHours) : 8;
     const expectedDailyMinutes = expectedDailyHours * 60;
@@ -115,10 +114,7 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
 
     const [currentMonthEvents, nextMonthEvents] = await Promise.all([
       getMyMonthEvents(currentYear, currentMonth + 1), // mes en base 1
-      getMyMonthEvents(
-        currentMonth === 11 ? currentYear + 1 : currentYear,
-        currentMonth === 11 ? 1 : currentMonth + 2
-      ),
+      getMyMonthEvents(currentMonth === 11 ? currentYear + 1 : currentYear, currentMonth === 11 ? 1 : currentMonth + 2),
     ]);
 
     // Combinar y filtrar solo eventos futuros
@@ -126,7 +122,7 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     const upcomingEvents = allEvents
       .filter((event) => {
         const eventDate = new Date(event.date);
-        return isAfter(eventDate, now) || isBefore(now, new Date(event.endDate || event.date));
+        return isAfter(eventDate, now) || isBefore(now, new Date(event.endDate ?? event.date));
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 5) // Solo los próximos 5 eventos
@@ -155,10 +151,10 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     // 5. Información del perfil
     const profile = {
       name: `${employee.firstName} ${employee.lastName}`,
-      email: employee.email || employee.user.email,
-      position: activeContract?.position?.title || null,
-      department: activeContract?.department?.name || null,
-      photoUrl: employee.photoUrl || null,
+      email: employee.email ?? employee.user.email,
+      position: activeContract?.position?.title ?? null,
+      department: activeContract?.department?.name ?? null,
+      photoUrl: employee.photoUrl ?? null,
     };
 
     // Determinar estado actual del fichaje
@@ -184,8 +180,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     return {
       timeTracking: {
         today: {
-          workedMinutes: todaySummary?.totalWorkedMinutes || 0,
-          breakMinutes: todaySummary?.totalBreakMinutes || 0,
+          workedMinutes: todaySummary?.totalWorkedMinutes ?? 0,
+          breakMinutes: todaySummary?.totalBreakMinutes ?? 0,
           expectedMinutes: expectedDailyMinutes,
           status: clockStatus,
         },

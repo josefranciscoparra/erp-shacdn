@@ -1,21 +1,21 @@
 "use client";
 
 import { Settings, Globe } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import type { Locale } from "@/lib/i18n";
 import { updateContentLayout } from "@/lib/layout-utils";
 import { updateThemeMode, updateThemePreset } from "@/lib/theme-utils";
+import { useLocale } from "@/providers/locale-provider";
 import { setValueToCookie } from "@/server/server-actions";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
-import { useLocale } from "@/providers/locale-provider";
-import { useTranslations } from "next-intl";
 import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 import { THEME_PRESET_OPTIONS, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
-import type { Locale } from "@/lib/i18n";
 
 type LayoutControlsProps = {
   readonly variant: SidebarVariant;

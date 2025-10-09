@@ -417,7 +417,7 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al crear puesto");
+        throw new Error(error.error ?? "Error al crear puesto");
       }
 
       const newPosition = await response.json();
@@ -438,7 +438,7 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al actualizar puesto");
+        throw new Error(error.error ?? "Error al actualizar puesto");
       }
 
       const updatedPosition = await response.json();
@@ -457,7 +457,7 @@ export const useOrganizationStore = create<OrganizationState>()((set, get) => ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al eliminar puesto");
+        throw new Error(error.error ?? "Error al eliminar puesto");
       }
 
       get().deletePosition(id);

@@ -1,27 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { usePtoStore } from "@/stores/pto-store";
-import { PtoBalanceCards } from "./_components/pto-balance-cards";
-import { PtoRequestsTable } from "./_components/pto-requests-table";
-import { NewPtoRequestDialog } from "./_components/new-pto-request-dialog";
+
 import { Loader2 } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePtoStore } from "@/stores/pto-store";
+
+import { NewPtoRequestDialog } from "./_components/new-pto-request-dialog";
+import { PtoBalanceCards } from "./_components/pto-balance-cards";
+import { PtoRequestsTable } from "./_components/pto-requests-table";
+
 export default function PtoPage() {
-  const {
-    balance,
-    requests,
-    error,
-    loadBalance,
-    loadRequests,
-    loadAbsenceTypes,
-    isLoadingRequests,
-  } = usePtoStore();
+  const { balance, requests, error, loadBalance, loadRequests, loadAbsenceTypes, isLoadingRequests } = usePtoStore();
   const [newRequestDialogOpen, setNewRequestDialogOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("active");
 
@@ -38,9 +33,7 @@ export default function PtoPage() {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  const activeCount = requests.filter(
-    (r) => r.status === "APPROVED" && new Date(r.startDate) >= now
-  ).length;
+  const activeCount = requests.filter((r) => r.status === "APPROVED" && new Date(r.startDate) >= now).length;
 
   const pendingCount = requests.filter((r) => r.status === "PENDING").length;
 
@@ -59,7 +52,7 @@ export default function PtoPage() {
         }}
       >
         {!canCreateRequests && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-muted-foreground text-sm">
             {hasProvisionalContract
               ? "Tu contrato está pendiente de completar. En cuanto RRHH añada los detalles podrás solicitar vacaciones."
               : "Aún no tienes un contrato activo. Podrás solicitar vacaciones cuando se registre."}
@@ -70,8 +63,8 @@ export default function PtoPage() {
       {/* Mostrar error si existe */}
       {error && (
         <Card className="border-destructive bg-destructive/10 p-4">
-          <p className="text-sm font-medium text-destructive">Error al cargar datos</p>
-          <p className="text-sm text-destructive/80">{error}</p>
+          <p className="text-destructive text-sm font-medium">Error al cargar datos</p>
+          <p className="text-destructive/80 text-sm">{error}</p>
         </Card>
       )}
 
@@ -87,15 +80,9 @@ export default function PtoPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="active">
-                Activas {activeCount > 0 && `(${activeCount})`}
-              </SelectItem>
-              <SelectItem value="pending">
-                Pendientes {pendingCount > 0 && `(${pendingCount})`}
-              </SelectItem>
-              <SelectItem value="all">
-                Todas {allCount > 0 && `(${allCount})`}
-              </SelectItem>
+              <SelectItem value="active">Activas {activeCount > 0 && `(${activeCount})`}</SelectItem>
+              <SelectItem value="pending">Pendientes {pendingCount > 0 && `(${pendingCount})`}</SelectItem>
+              <SelectItem value="all">Todas {allCount > 0 && `(${allCount})`}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -131,7 +118,7 @@ export default function PtoPage() {
         {/* Contenido de tabs */}
         {isLoadingRequests ? (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           </div>
         ) : (
           <>
@@ -151,10 +138,7 @@ export default function PtoPage() {
       </Tabs>
 
       {/* Dialog de nueva solicitud */}
-      <NewPtoRequestDialog
-        open={newRequestDialogOpen}
-        onOpenChange={setNewRequestDialogOpen}
-      />
+      <NewPtoRequestDialog open={newRequestDialogOpen} onOpenChange={setNewRequestDialogOpen} />
     </div>
   );
 }

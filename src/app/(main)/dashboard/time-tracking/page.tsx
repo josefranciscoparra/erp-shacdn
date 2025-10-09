@@ -1,20 +1,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import { ShieldAlert, Users, Clock, Coffee } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
 import { PermissionGuard } from "@/components/auth/permission-guard";
-
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Card } from "@/components/ui/card";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { getEmployeesForTimeTracking } from "@/server/actions/admin-time-tracking";
 
 import { employeeColumns, type EmployeeTimeTracking } from "./_components/employee-columns";
-import { getEmployeesForTimeTracking } from "@/server/actions/admin-time-tracking";
 
 export default function TimeTrackingPage() {
   const [employees, setEmployees] = useState<EmployeeTimeTracking[]>([]);
@@ -42,9 +42,9 @@ export default function TimeTrackingPage() {
     loadData();
   }, []);
 
-  const workingCount = employees.filter(e => e.status === "CLOCKED_IN").length;
-  const breakCount = employees.filter(e => e.status === "ON_BREAK").length;
-  const clockedTodayCount = employees.filter(e => e.todayWorkedMinutes > 0).length;
+  const workingCount = employees.filter((e) => e.status === "CLOCKED_IN").length;
+  const breakCount = employees.filter((e) => e.status === "ON_BREAK").length;
+  const clockedTodayCount = employees.filter((e) => e.todayWorkedMinutes > 0).length;
 
   return (
     <PermissionGuard
@@ -61,56 +61,53 @@ export default function TimeTrackingPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Control Horario"
-          description="Gestión de fichajes por empleado"
-        />
+        <SectionHeader title="Control Horario" description="Gestión de fichajes por empleado" />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
           <Card className="from-primary/5 to-card bg-gradient-to-t p-4 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10">
-                <Users className="size-5 text-primary" />
+              <div className="bg-primary/10 flex size-10 items-center justify-center rounded-full">
+                <Users className="text-primary size-5" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Total Empleados</span>
+                <span className="text-muted-foreground text-sm">Total Empleados</span>
                 <span className="text-2xl font-bold">{employees.length}</span>
               </div>
             </div>
           </Card>
 
-          <Card className="from-green-500/5 to-card bg-gradient-to-t p-4 shadow-xs">
+          <Card className="to-card bg-gradient-to-t from-green-500/5 p-4 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-green-500/10">
                 <div className="size-3 rounded-full bg-green-500" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Trabajando Ahora</span>
+                <span className="text-muted-foreground text-sm">Trabajando Ahora</span>
                 <span className="text-2xl font-bold">{workingCount}</span>
               </div>
             </div>
           </Card>
 
-          <Card className="from-yellow-500/5 to-card bg-gradient-to-t p-4 shadow-xs">
+          <Card className="to-card bg-gradient-to-t from-yellow-500/5 p-4 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-yellow-500/10">
                 <Coffee className="size-5 text-yellow-600" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">En Pausa</span>
+                <span className="text-muted-foreground text-sm">En Pausa</span>
                 <span className="text-2xl font-bold">{breakCount}</span>
               </div>
             </div>
           </Card>
 
-          <Card className="from-blue-500/5 to-card bg-gradient-to-t p-4 shadow-xs">
+          <Card className="to-card bg-gradient-to-t from-blue-500/5 p-4 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
                 <Clock className="size-5 text-blue-600" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-sm text-muted-foreground">Fichados Hoy</span>
+                <span className="text-muted-foreground text-sm">Fichados Hoy</span>
                 <span className="text-2xl font-bold">{clockedTodayCount}</span>
               </div>
             </div>

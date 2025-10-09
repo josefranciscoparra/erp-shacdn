@@ -1,32 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  ArrowLeft,
-  Save,
-  User,
-  Briefcase,
-  Phone,
-  AlertCircle,
-  Shield,
-  Loader2,
-} from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useParams, useRouter } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft, Save, User, Briefcase, Phone, AlertCircle, Shield, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+
 import { EmployeeStatusSelect, type EmploymentStatus } from "@/components/employees/employee-status-select";
 import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 
 const editEmployeeSchema = z.object({
   // Datos personales
@@ -161,27 +154,27 @@ export default function EditEmployeePage() {
       form.reset({
         firstName: data.firstName,
         lastName: data.lastName,
-        secondLastName: data.secondLastName || "",
+        secondLastName: data.secondLastName ?? "",
         nifNie: data.nifNie,
         birthDate: data.birthDate ? data.birthDate.split("T")[0] : "",
-        nationality: data.nationality || "",
-        employeeNumber: data.employeeNumber || "",
+        nationality: data.nationality ?? "",
+        employeeNumber: data.employeeNumber ?? "",
         employmentStatus: data.employmentStatus,
-        email: data.email || "",
-        phone: data.phone || "",
-        mobilePhone: data.mobilePhone || "",
-        address: data.address || "",
-        city: data.city || "",
-        postalCode: data.postalCode || "",
-        province: data.province || "",
-        country: data.country || "ES",
-        emergencyContactName: data.emergencyContactName || "",
-        emergencyContactPhone: data.emergencyContactPhone || "",
-        emergencyRelationship: data.emergencyRelationship || "",
+        email: data.email ?? "",
+        phone: data.phone ?? "",
+        mobilePhone: data.mobilePhone ?? "",
+        address: data.address ?? "",
+        city: data.city ?? "",
+        postalCode: data.postalCode ?? "",
+        province: data.province ?? "",
+        country: data.country ?? "ES",
+        emergencyContactName: data.emergencyContactName ?? "",
+        emergencyContactPhone: data.emergencyContactPhone ?? "",
+        emergencyRelationship: data.emergencyRelationship ?? "",
         iban: "",
         createUser: false,
-        userRole: data.user?.role || "EMPLOYEE",
-        notes: data.notes || "",
+        userRole: data.user?.role ?? "EMPLOYEE",
+        notes: data.notes ?? "",
       });
     } catch (error: any) {
       setError(error.message);
@@ -211,7 +204,7 @@ export default function EditEmployeePage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || errorData.message || "Error al actualizar empleado");
+        throw new Error(errorData.error ?? errorData.message ?? "Error al actualizar empleado");
       }
 
       // Redirigir al perfil del empleado
@@ -261,7 +254,7 @@ export default function EditEmployeePage() {
         </div>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error || "No se pudo cargar la información del empleado"}</AlertDescription>
+          <AlertDescription>{error ?? "No se pudo cargar la información del empleado"}</AlertDescription>
         </Alert>
       </div>
     );
@@ -635,7 +628,7 @@ export default function EditEmployeePage() {
                         <FormControl>
                           <Textarea
                             placeholder="Información adicional, observaciones..."
-                            className="placeholder:text-muted-foreground/50 bg-white min-h-[100px]"
+                            className="placeholder:text-muted-foreground/50 min-h-[100px] bg-white"
                             {...field}
                           />
                         </FormControl>
@@ -919,7 +912,7 @@ export default function EditEmployeePage() {
               {employee.user && (
                 <TemporaryPasswordManager
                   userId={employee.user.id}
-                  temporaryPasswords={employee.user.temporaryPasswords || []}
+                  temporaryPasswords={employee.user.temporaryPasswords ?? []}
                   onPasswordReset={fetchEmployee}
                 />
               )}

@@ -1,45 +1,34 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2 } from "lucide-react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { z } from "zod";
+
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useContractsStore, type CreateContractData, type Contract } from "@/stores/contracts-store";
 
 const contractSchema = z.object({
-  contractType: z.enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"], {
-    required_error: "Selecciona un tipo de contrato",
-  }),
+  contractType: z.enum(
+    ["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"],
+    {
+      required_error: "Selecciona un tipo de contrato",
+    },
+  ),
   startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
   endDate: z.string().optional(),
-  weeklyHours: z.number().min(1, "Las horas semanales deben ser mayor a 0").max(60, "Las horas semanales no pueden exceder 60"),
+  weeklyHours: z
+    .number()
+    .min(1, "Las horas semanales deben ser mayor a 0")
+    .max(60, "Las horas semanales no pueden exceder 60"),
   grossSalary: z.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
   positionId: z.string().optional(),
   departmentId: z.string().optional(),
@@ -151,10 +140,10 @@ export function ContractSheet({
           endDate: toDateInput(contract.endDate) || "",
           weeklyHours: contract.weeklyHours,
           grossSalary: contract.grossSalary ?? undefined,
-          positionId: contract.position?.id || "",
-          departmentId: contract.department?.id || "",
-          costCenterId: contract.costCenter?.id || "",
-          managerId: contract.manager?.id || "",
+          positionId: contract.position?.id ?? "",
+          departmentId: contract.department?.id ?? "",
+          costCenterId: contract.costCenter?.id ?? "",
+          managerId: contract.manager?.id ?? "",
         });
       } else {
         form.reset({
@@ -214,13 +203,13 @@ export function ContractSheet({
       const sharedPayload: CreateContractData = {
         contractType: data.contractType,
         startDate: data.startDate,
-        endDate: data.endDate || null,
+        endDate: data.endDate ?? null,
         weeklyHours: data.weeklyHours,
         grossSalary: data.grossSalary && data.grossSalary > 0 ? data.grossSalary : null,
-        positionId: data.positionId || null,
-        departmentId: data.departmentId || null,
-        costCenterId: data.costCenterId || null,
-        managerId: data.managerId || null,
+        positionId: data.positionId ?? null,
+        departmentId: data.departmentId ?? null,
+        costCenterId: data.costCenterId ?? null,
+        managerId: data.managerId ?? null,
       };
 
       if (mode === "edit" && contract) {
@@ -240,7 +229,7 @@ export function ContractSheet({
       onSuccess?.();
     } catch (error: any) {
       toast.error("Error al guardar contrato", {
-        description: error.message || "Ocurrió un error inesperado",
+        description: error.message ?? "Ocurrió un error inesperado",
       });
     }
   };
@@ -252,24 +241,24 @@ export function ContractSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-gray-50">
+      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto bg-gray-50">
         <DialogHeader className="space-y-3 pb-6">
           <div className="flex items-center gap-3">
             <div className="from-primary/10 to-primary/5 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-t shadow-sm">
-              <Briefcase className="h-6 w-6 text-primary" />
+              <Briefcase className="text-primary h-6 w-6" />
             </div>
             <div>
               <DialogTitle className="text-2xl font-semibold">
                 {mode === "edit" ? "Editar contrato" : "Nuevo Contrato"}
               </DialogTitle>
-              <DialogDescription className="text-base text-muted-foreground">
-                {mode === "edit"
-                  ? "Actualiza los datos del contrato seleccionado"
-                  : (
-                    <>
-                      Crear contrato laboral para <span className="font-medium text-foreground">{employeeName}</span>
-                    </>
-                  )}
+              <DialogDescription className="text-muted-foreground text-base">
+                {mode === "edit" ? (
+                  "Actualiza los datos del contrato seleccionado"
+                ) : (
+                  <>
+                    Crear contrato laboral para <span className="text-foreground font-medium">{employeeName}</span>
+                  </>
+                )}
               </DialogDescription>
             </div>
           </div>
@@ -285,12 +274,12 @@ export function ContractSheet({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 {/* Información del Contrato */}
-                <div className="bg-white p-6 rounded-lg border space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="space-y-4 rounded-lg border bg-white p-6">
+                  <div className="mb-4 flex items-center gap-2">
                     <Briefcase className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Información del Contrato</Label>
                   </div>
-                  
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -325,14 +314,14 @@ export function ContractSheet({
                           <FormLabel>Horas Semanales *</FormLabel>
                           <FormControl>
                             <div className="relative">
-                              <Clock className="text-muted-foreground absolute left-3 top-3 h-4 w-4" />
+                              <Clock className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
                               <Input
                                 type="number"
                                 min="1"
                                 max="60"
                                 step="0.5"
                                 placeholder="40"
-                                className="pl-9 bg-white"
+                                className="bg-white pl-9"
                                 {...field}
                                 onChange={(e) => field.onChange(Number(e.target.value))}
                               />
@@ -346,12 +335,12 @@ export function ContractSheet({
                 </div>
 
                 {/* Fechas */}
-                <div className="bg-white p-6 rounded-lg border space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="space-y-4 rounded-lg border bg-white p-6">
+                  <div className="mb-4 flex items-center gap-2">
                     <Calendar className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Período del Contrato</Label>
                   </div>
-                  
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -384,12 +373,12 @@ export function ContractSheet({
                 </div>
 
                 {/* Salario */}
-                <div className="bg-white p-6 rounded-lg border space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="space-y-4 rounded-lg border bg-white p-6">
+                  <div className="mb-4 flex items-center gap-2">
                     <span className="text-primary text-lg font-bold">€</span>
                     <Label className="text-lg font-semibold">Información Salarial</Label>
                   </div>
-                  
+
                   <FormField
                     control={form.control}
                     name="grossSalary"
@@ -398,15 +387,15 @@ export function ContractSheet({
                         <FormLabel>Salario Bruto Anual (€)</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <span className="text-muted-foreground absolute left-3 top-3 text-sm font-medium">€</span>
+                            <span className="text-muted-foreground absolute top-3 left-3 text-sm font-medium">€</span>
                             <Input
                               type="number"
                               min="0"
                               step="100"
                               placeholder="30000"
-                              className="pl-8 bg-white"
+                              className="bg-white pl-8"
                               {...field}
-                              value={field.value || ""}
+                              value={field.value ?? ""}
                               onChange={(e) => {
                                 const value = e.target.value;
                                 field.onChange(value === "" ? undefined : Number(value));
@@ -421,12 +410,12 @@ export function ContractSheet({
                 </div>
 
                 {/* Organización */}
-                <div className="bg-white p-6 rounded-lg border space-y-4">
-                  <div className="flex items-center gap-2 mb-4">
+                <div className="space-y-4 rounded-lg border bg-white p-6">
+                  <div className="mb-4 flex items-center gap-2">
                     <Building2 className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Organización</Label>
                   </div>
-                  
+
                   <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                       control={form.control}
@@ -540,7 +529,7 @@ export function ContractSheet({
                 </div>
 
                 {/* Botones */}
-                <div className="flex justify-end gap-3 pt-8 border-t bg-gray-50 -mx-6 -mb-6 px-6 py-4">
+                <div className="-mx-6 -mb-6 flex justify-end gap-3 border-t bg-gray-50 px-6 py-4 pt-8">
                   <Button type="button" variant="outline" onClick={handleClose}>
                     <X className="mr-2 h-4 w-4" />
                     Cancelar
@@ -558,18 +547,16 @@ export function ContractSheet({
                           Guardar cambios
                         </>
                       )
+                    ) : isCreating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Creando...
+                      </>
                     ) : (
-                      isCreating ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creando...
-                        </>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          Crear Contrato
-                        </>
-                      )
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Crear Contrato
+                      </>
                     )}
                   </Button>
                 </div>

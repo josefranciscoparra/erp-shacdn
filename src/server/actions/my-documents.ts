@@ -1,9 +1,10 @@
 "use server";
 
+import { features } from "@/config/features";
 import { prisma } from "@/lib/prisma";
 import type { DocumentKind } from "@/lib/validations/document";
+
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
-import { features } from "@/config/features";
 
 export interface MyDocument {
   id: string;
@@ -51,9 +52,7 @@ const EMPLOYEE_ALLOWED_DOCUMENT_TYPES = ["MEDICAL", "CERTIFICATE", "OTHER"] as c
 /**
  * Obtiene los documentos del empleado autenticado
  */
-export async function getMyDocuments(
-  filters: MyDocumentsFilters = {}
-): Promise<MyDocumentsResponse> {
+export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<MyDocumentsResponse> {
   const { userId, employeeId, orgId } = await getAuthenticatedEmployee();
 
   const { documentKind, search, page = 1, limit = 50 } = filters;
@@ -127,7 +126,7 @@ export async function getMyDocuments(
       acc[doc.kind] = (acc[doc.kind] || 0) + 1;
       return acc;
     },
-    {} as Record<string, number>
+    {} as Record<string, number>,
   );
 
   // Transformar documentos
@@ -143,9 +142,7 @@ export async function getMyDocuments(
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
     uploadedBy: doc.uploadedBy,
-    canDelete:
-      doc.uploadedById === userId &&
-      EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(doc.kind as any),
+    canDelete: doc.uploadedById === userId && EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(doc.kind as any),
   }));
 
   return {
@@ -197,14 +194,15 @@ export async function getMyDocumentsStats() {
         acc[doc.kind] = (acc[doc.kind] || 0) + 1;
         return acc;
       },
-      {} as Record<string, number>
+      {} as Record<string, number>,
     ),
     totalSize: documents.reduce((acc, doc) => acc + doc.fileSize, 0),
-    lastUploaded: documents.length > 0
-      ? documents.reduce((latest, doc) =>
-          new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest
-        ).createdAt.toISOString()
-      : null,
+    lastUploaded:
+      documents.length > 0
+        ? documents
+            .reduce((latest, doc) => (new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest))
+            .createdAt.toISOString()
+        : null,
   };
 
   return stats;

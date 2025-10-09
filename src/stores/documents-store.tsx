@@ -1,9 +1,10 @@
 "use client";
 
-import { create } from "zustand";
 import { toast } from "sonner";
-import type { DocumentKind } from "@/lib/validations/document";
+import { create } from "zustand";
+
 import { features } from "@/config/features";
+import type { DocumentKind } from "@/lib/validations/document";
 
 // Tipos para el store
 export interface EmployeeDocument {
@@ -169,13 +170,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       }
 
       const response = await fetch(`/api/employees/${employeeId}/documents?${params}`);
-      
+
       if (!response.ok) {
         throw new Error("Error al cargar documentos");
       }
 
       const data = await response.json();
-      
+
       set({
         documents: data.documents,
         pagination: data.pagination,
@@ -205,7 +206,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Error al subir documento");
+        throw new Error(data.error ?? "Error al subir documento");
       }
 
       // Añadir el nuevo documento al estado
@@ -236,14 +237,13 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     }
 
     try {
-      const response = await fetch(
-        `/api/employees/${employeeId}/documents?documentId=${documentId}`,
-        { method: "DELETE" }
-      );
+      const response = await fetch(`/api/employees/${employeeId}/documents?documentId=${documentId}`, {
+        method: "DELETE",
+      });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Error al eliminar documento");
+        throw new Error(data.error ?? "Error al eliminar documento");
       }
 
       // Remover del estado
@@ -272,9 +272,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
     }
 
     try {
-      const response = await fetch(
-        `/api/employees/${employeeId}/documents/${documentId}/download`
-      );
+      const response = await fetch(`/api/employees/${employeeId}/documents/${documentId}/download`);
 
       if (!response.ok) {
         throw new Error("Error al descargar documento");
@@ -282,7 +280,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
       // Obtener el blob del archivo
       const blob = await response.blob();
-      
+
       // Crear una URL temporal para el blob
       const url = window.URL.createObjectURL(blob);
       return url;
@@ -297,12 +295,12 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   setFilters: (newFilters) => {
     const state = get();
     const updatedFilters = { ...state.filters, ...newFilters };
-    
-    set({ 
+
+    set({
       filters: updatedFilters,
-      pagination: { ...state.pagination, page: 1 } // Resetear a página 1
+      pagination: { ...state.pagination, page: 1 }, // Resetear a página 1
     });
-    
+
     // Refetch con nuevos filtros
     if (state.currentEmployeeId) {
       get().fetchDocuments(state.currentEmployeeId, { refresh: true });
@@ -311,11 +309,11 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   clearFilters: () => {
     const state = get();
-    set({ 
+    set({
       filters: {},
-      pagination: { ...state.pagination, page: 1 }
+      pagination: { ...state.pagination, page: 1 },
     });
-    
+
     // Refetch sin filtros
     if (state.currentEmployeeId) {
       get().fetchDocuments(state.currentEmployeeId, { refresh: true });
@@ -326,7 +324,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   setPage: (page) => {
     const state = get();
     set({ pagination: { ...state.pagination, page } });
-    
+
     // Refetch con nueva página
     if (state.currentEmployeeId) {
       get().fetchDocuments(state.currentEmployeeId, { refresh: true });
@@ -335,10 +333,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   setLimit: (limit) => {
     const state = get();
-    set({ 
-      pagination: { ...state.pagination, limit, page: 1 } // Resetear a página 1
+    set({
+      pagination: { ...state.pagination, limit, page: 1 }, // Resetear a página 1
     });
-    
+
     // Refetch con nuevo límite
     if (state.currentEmployeeId) {
       get().fetchDocuments(state.currentEmployeeId, { refresh: true });
@@ -466,14 +464,17 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 // Hook personalizado para obtener documentos agrupados por tipo
 export const useDocumentsByKind = () => {
   const documents = useDocumentsStore((state) => state.documents);
-  
-  const groupedDocuments = documents.reduce((acc, doc) => {
-    if (!acc[doc.kind]) {
-      acc[doc.kind] = [];
-    }
-    acc[doc.kind].push(doc);
-    return acc;
-  }, {} as Record<DocumentKind, EmployeeDocument[]>);
+
+  const groupedDocuments = documents.reduce(
+    (acc, doc) => {
+      if (!acc[doc.kind]) {
+        acc[doc.kind] = [];
+      }
+      acc[doc.kind].push(doc);
+      return acc;
+    },
+    {} as Record<DocumentKind, EmployeeDocument[]>,
+  );
 
   return groupedDocuments;
 };
@@ -484,16 +485,18 @@ export const useDocumentStats = () => {
 
   const stats = {
     total: documents.length,
-    byKind: documents.reduce((acc, doc) => {
-      acc[doc.kind] = (acc[doc.kind] || 0) + 1;
-      return acc;
-    }, {} as Record<DocumentKind, number>),
+    byKind: documents.reduce(
+      (acc, doc) => {
+        acc[doc.kind] = (acc[doc.kind] || 0) + 1;
+        return acc;
+      },
+      {} as Record<DocumentKind, number>,
+    ),
     totalSize: documents.reduce((acc, doc) => acc + doc.fileSize, 0),
-    lastUploaded: documents.length > 0
-      ? documents.reduce((latest, doc) =>
-          new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest
-        )
-      : null,
+    lastUploaded:
+      documents.length > 0
+        ? documents.reduce((latest, doc) => (new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest))
+        : null,
   };
 
   return stats;
@@ -503,13 +506,16 @@ export const useDocumentStats = () => {
 export const useGlobalDocumentsByKind = () => {
   const documents = useDocumentsStore((state) => state.globalDocuments);
 
-  const groupedDocuments = documents.reduce((acc, doc) => {
-    if (!acc[doc.kind]) {
-      acc[doc.kind] = [];
-    }
-    acc[doc.kind].push(doc);
-    return acc;
-  }, {} as Record<DocumentKind, EmployeeDocument[]>);
+  const groupedDocuments = documents.reduce(
+    (acc, doc) => {
+      if (!acc[doc.kind]) {
+        acc[doc.kind] = [];
+      }
+      acc[doc.kind].push(doc);
+      return acc;
+    },
+    {} as Record<DocumentKind, EmployeeDocument[]>,
+  );
 
   return groupedDocuments;
 };
@@ -522,17 +528,19 @@ export const useGlobalDocumentStats = () => {
   const stats = {
     total: pagination.total, // Usar el total de la paginación
     currentPage: globalDocuments.length,
-    byKind: globalDocuments.reduce((acc, doc) => {
-      acc[doc.kind] = (acc[doc.kind] || 0) + 1;
-      return acc;
-    }, {} as Record<DocumentKind, number>),
+    byKind: globalDocuments.reduce(
+      (acc, doc) => {
+        acc[doc.kind] = (acc[doc.kind] || 0) + 1;
+        return acc;
+      },
+      {} as Record<DocumentKind, number>,
+    ),
     totalSize: globalDocuments.reduce((acc, doc) => acc + doc.fileSize, 0),
-    lastUploaded: globalDocuments.length > 0
-      ? globalDocuments.reduce((latest, doc) =>
-          new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest
-        )
-      : null,
-    uniqueEmployees: new Set(globalDocuments.map(doc => doc.employeeId)).size,
+    lastUploaded:
+      globalDocuments.length > 0
+        ? globalDocuments.reduce((latest, doc) => (new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest))
+        : null,
+    uniqueEmployees: new Set(globalDocuments.map((doc) => doc.employeeId)).size,
   };
 
   return stats;

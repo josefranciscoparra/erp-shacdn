@@ -2,8 +2,9 @@
 
 import * as React from "react";
 
-import { Plus, Users } from "lucide-react";
 import Link from "next/link";
+
+import { Plus, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,9 +16,9 @@ import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
+import { Employee } from "../types";
 
 import { employeesColumns } from "./employees-columns";
-import { Employee } from "../types";
 
 export function EmployeesDataTable({ data }: { data: Employee[] }) {
   const [activeTab, setActiveTab] = React.useState("active");
@@ -31,7 +32,7 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
         return data.filter((emp) => !emp.active);
       case "all":
         return data;
-      case "recent":
+      case "recent": {
         // Empleados contratados en los últimos 30 días
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -40,6 +41,7 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
           if (!currentContract) return false;
           return new Date(currentContract.startDate) > thirtyDaysAgo;
         });
+      }
       default:
         return data;
     }

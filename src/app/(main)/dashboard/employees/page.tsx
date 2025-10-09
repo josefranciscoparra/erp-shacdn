@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { PermissionGuard } from "@/components/auth/permission-guard";
-import { EmployeesDataTable } from "./_components/employees-data-table";
+
 import { Plus, UserRound, Loader2, ShieldAlert } from "lucide-react";
+
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { useEmployeesStore } from "@/stores/employees-store";
+
+import { EmployeesDataTable } from "./_components/employees-data-table";
 
 export default function EmployeesPage() {
   const { employees, isLoading, error, fetchEmployees } = useEmployeesStore();
@@ -18,10 +21,7 @@ export default function EmployeesPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Empleados"
-          subtitle="Gestiona los empleados de tu organización"
-        />
+        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando empleados...</span>
@@ -33,10 +33,7 @@ export default function EmployeesPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Empleados"
-          subtitle="Gestiona los empleados de tu organización"
-        />
+        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar empleados: {error}</span>
         </div>
@@ -61,10 +58,7 @@ export default function EmployeesPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Empleados"
-          subtitle="Gestiona los empleados de tu organización"
-        />
+        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
 
         {hasEmployees ? (
           <EmployeesDataTable data={employees} />

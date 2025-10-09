@@ -1,14 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Download, Loader2, Calendar as CalendarIcon, Check } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -18,28 +23,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-  FormDescription,
-} from "@/components/ui/form";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendarsStore } from "@/stores/calendars-store";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
 
@@ -50,7 +37,10 @@ const importFormSchema = z.object({
   calendarName: z.string().optional(),
   calendarType: z.enum(["NATIONAL_HOLIDAY", "LOCAL_HOLIDAY", "CORPORATE_EVENT", "CUSTOM"]).optional(),
   costCenterId: z.string().optional(),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-F]{6}$/i)
+    .optional(),
   isRecurring: z.boolean().default(false),
 });
 
@@ -114,7 +104,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
     defaultValues: {
       year: currentYear,
       countryCode: "ES",
-      calendarId: calendarId || "__new__",
+      calendarId: calendarId ?? "__new__",
       calendarName: "",
       calendarType: "NATIONAL_HOLIDAY",
       costCenterId: "",
@@ -142,16 +132,14 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
 
     setIsLoadingPreview(true);
     try {
-      const response = await fetch(
-        `/api/calendars/import-holidays?year=${year}&countryCode=${countryCode}`
-      );
+      const response = await fetch(`/api/calendars/import-holidays?year=${year}&countryCode=${countryCode}`);
 
       if (!response.ok) {
         throw new Error("Error al cargar vista previa");
       }
 
       const data = await response.json();
-      setPreview(data.holidays || []);
+      setPreview(data.holidays ?? []);
 
       // Seleccionar todos por defecto
       const allHolidayKeys = new Set(data.holidays.map((h: HolidayPreview) => h.date));
@@ -207,13 +195,13 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         body: JSON.stringify({
           ...data,
           calendarId: data.calendarId === "__new__" ? undefined : data.calendarId,
-          costCenterId: data.costCenterId || undefined,
+          costCenterId: data.costCenterId ?? undefined,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || "Error al importar festivos");
+        throw new Error(error.error ?? "Error al importar festivos");
       }
 
       const result = await response.json();
@@ -243,14 +231,14 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || (
+        {trigger ?? (
           <Button variant="outline" size="sm">
             <Download className="mr-2 h-4 w-4" />
             Importar festivos
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Importar festivos automáticamente</DialogTitle>
           <DialogDescription>
@@ -259,7 +247,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 overflow-y-auto px-6">
               <div className="space-y-4 pb-4">
                 {/* País y año */}
@@ -347,7 +335,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                           {preview.map((holiday, index) => (
                             <div
                               key={`${holiday.date}-${index}`}
-                              className="flex items-center gap-3 rounded-lg border p-2 cursor-pointer hover:bg-accent"
+                              className="hover:bg-accent flex cursor-pointer items-center gap-3 rounded-lg border p-2"
                               onClick={() => toggleHoliday(holiday.date)}
                             >
                               <Checkbox
@@ -363,7 +351,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                                     </Badge>
                                   )}
                                 </div>
-                                <span className="text-xs text-muted-foreground">
+                                <span className="text-muted-foreground text-xs">
                                   {format(new Date(holiday.date), "PPP", { locale: es })}
                                 </span>
                               </div>
@@ -382,7 +370,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Calendario destino</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value || "__new__"}>
+                      <Select onValueChange={field.onChange} defaultValue={field.value ?? "__new__"}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Crear nuevo calendario" />
@@ -397,9 +385,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>
-                        Elige si añadir a un calendario existente o crear uno nuevo
-                      </FormDescription>
+                      <FormDescription>Elige si añadir a un calendario existente o crear uno nuevo</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -417,9 +403,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                           <FormControl>
                             <Input placeholder="Ej: Festivos España 2025" {...field} />
                           </FormControl>
-                          <FormDescription>
-                            Si no especificas, se generará automáticamente
-                          </FormDescription>
+                          <FormDescription>Si no especificas, se generará automáticamente</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -488,7 +472,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                               <button
                                 key={preset.value}
                                 type="button"
-                                className="h-8 w-8 rounded-full ring-offset-background transition-all hover:scale-110"
+                                className="ring-offset-background h-8 w-8 rounded-full transition-all hover:scale-110"
                                 style={{
                                   backgroundColor: preset.value,
                                   outline: field.value === preset.value ? "2px solid currentColor" : "none",
@@ -514,7 +498,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                   control={form.control}
                   name="isRecurring"
                   render={({ field }) => (
-                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                    <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
                       <FormControl>
                         <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                       </FormControl>
@@ -530,7 +514,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
               </div>
             </div>
 
-            <DialogFooter className="border-t px-6 py-4 bg-background">
+            <DialogFooter className="bg-background border-t px-6 py-4">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isImporting}>
                 Cancelar
               </Button>

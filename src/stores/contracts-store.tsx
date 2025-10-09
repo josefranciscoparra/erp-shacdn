@@ -81,23 +81,23 @@ interface ContractsState {
   // Data
   contracts: Contract[];
   selectedContract: Contract | null;
-  
+
   // UI State
   isLoading: boolean;
   isCreating: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
-  
+
   // Pagination
   page: number;
   limit: number;
   total: number;
   totalPages: number;
-  
+
   // Filters
   status: "all" | "active" | "inactive";
-  
+
   // Actions
   fetchContracts: (employeeId: string, params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
   fetchAllContracts: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
@@ -150,7 +150,7 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cargar contratos");
+        throw new Error(errorData.error ?? "Error al cargar contratos");
       }
 
       const data: ContractsResponse = await response.json();
@@ -194,7 +194,7 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cargar contratos");
+        throw new Error(errorData.error ?? "Error al cargar contratos");
       }
 
       const data: ContractsResponse = await response.json();
@@ -219,7 +219,7 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
   createContract: async (employeeId: string, data: CreateContractData) => {
     set({ isCreating: true, error: null });
-    
+
     try {
       const response = await fetch(`/api/employees/${employeeId}/contracts`, {
         method: "POST",
@@ -229,14 +229,14 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
         credentials: "include",
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al crear contrato");
+        throw new Error(errorData.error ?? "Error al crear contrato");
       }
-      
+
       const newContract: Contract = await response.json();
-      
+
       // Actualizar la lista de contratos
       const { contracts } = get();
       set({
@@ -244,7 +244,7 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
         total: get().total + 1,
         isCreating: false,
       });
-      
+
       return newContract;
     } catch (error: any) {
       set({
@@ -257,7 +257,7 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
   updateContract: async (contractId: string, data: UpdateContractData) => {
     set({ isUpdating: true, error: null });
-    
+
     try {
       const response = await fetch(`/api/contracts/${contractId}`, {
         method: "PUT",
@@ -267,24 +267,22 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
         credentials: "include",
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al actualizar contrato");
+        throw new Error(errorData.error ?? "Error al actualizar contrato");
       }
-      
+
       const updatedContract: Contract = await response.json();
-      
+
       // Actualizar la lista de contratos
       const { contracts } = get();
       set({
-        contracts: contracts.map((contract) =>
-          contract.id === contractId ? updatedContract : contract
-        ),
+        contracts: contracts.map((contract) => (contract.id === contractId ? updatedContract : contract)),
         selectedContract: get().selectedContract?.id === contractId ? updatedContract : get().selectedContract,
         isUpdating: false,
       });
-      
+
       return updatedContract;
     } catch (error: any) {
       set({
@@ -297,23 +295,23 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
 
   deleteContract: async (contractId: string) => {
     set({ isDeleting: true, error: null });
-    
+
     try {
       const response = await fetch(`/api/contracts/${contractId}`, {
         method: "DELETE",
         credentials: "include",
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al eliminar contrato");
+        throw new Error(errorData.error ?? "Error al eliminar contrato");
       }
-      
+
       // Actualizar la lista de contratos (marcar como inactivo)
       const { contracts } = get();
       set({
         contracts: contracts.map((contract) =>
-          contract.id === contractId ? { ...contract, active: false } : contract
+          contract.id === contractId ? { ...contract, active: false } : contract,
         ),
         total: get().total - 1,
         selectedContract: get().selectedContract?.id === contractId ? null : get().selectedContract,

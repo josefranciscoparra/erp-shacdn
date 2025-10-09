@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentFiltersSchema } from "@/lib/validations/document";
-import { features } from "@/config/features";
 
 export async function GET(request: NextRequest) {
   if (!features.documents) {
-    return NextResponse.json(
-      { error: "El módulo de documentos está deshabilitado" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
   }
 
   try {
@@ -21,13 +19,13 @@ export async function GET(request: NextRequest) {
     // Obtener parámetros de consulta
     const searchParams = request.nextUrl.searchParams;
     const filters = documentFiltersSchema.parse({
-      employeeId: searchParams.get("employeeId") || undefined,
-      documentKind: searchParams.get("documentKind") || undefined,
-      dateFrom: searchParams.get("dateFrom") || undefined,
-      dateTo: searchParams.get("dateTo") || undefined,
-      page: parseInt(searchParams.get("page") || "1"),
-      limit: parseInt(searchParams.get("limit") || "20"),
-      search: searchParams.get("search") || undefined,
+      employeeId: searchParams.get("employeeId") ?? undefined,
+      documentKind: searchParams.get("documentKind") ?? undefined,
+      dateFrom: searchParams.get("dateFrom") ?? undefined,
+      dateTo: searchParams.get("dateTo") ?? undefined,
+      page: parseInt(searchParams.get("page") ?? "1"),
+      limit: parseInt(searchParams.get("limit") ?? "20"),
+      search: searchParams.get("search") ?? undefined,
     });
 
     // Construir filtros para Prisma

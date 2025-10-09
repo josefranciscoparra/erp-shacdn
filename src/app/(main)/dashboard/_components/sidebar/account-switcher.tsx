@@ -5,8 +5,6 @@ import { useState } from "react";
 import { BadgeCheck, Bell, CreditCard, LogOut } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-import { logoutAction } from "@/server/actions/auth";
-
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -17,6 +15,7 @@ import {
   DropdownMenuGroup,
 } from "@/components/ui/dropdown-menu";
 import { cn, getInitials } from "@/lib/utils";
+import { logoutAction } from "@/server/actions/auth";
 
 export function AccountSwitcher({
   users,

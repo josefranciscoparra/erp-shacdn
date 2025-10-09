@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { z } from "zod";
+
+import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { documentKindSchema } from "@/lib/validations/document";
-import { z } from "zod";
-import { features } from "@/config/features";
 
 // Schema para validar form data
 const uploadFormSchema = z.object({
@@ -12,15 +14,9 @@ const uploadFormSchema = z.object({
   description: z.string().optional(),
 });
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!features.documents) {
-    return NextResponse.json(
-      { error: "El módulo de documentos está deshabilitado" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
   }
 
   try {
@@ -57,14 +53,17 @@ export async function POST(
     // Validar datos del formulario
     const validationResult = uploadFormSchema.safeParse({
       documentKind,
-      description: description || undefined,
+      description: description ?? undefined,
     });
 
     if (!validationResult.success) {
-      return NextResponse.json({ 
-        error: "Datos inválidos", 
-        details: validationResult.error.issues 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Datos inválidos",
+          details: validationResult.error.issues,
+        },
+        { status: 400 },
+      );
     }
 
     const { documentKind: validDocumentKind, description: validDescription } = validationResult.data;
@@ -76,18 +75,21 @@ export async function POST(
     }
 
     const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/webp'
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "image/jpeg",
+      "image/png",
+      "image/webp",
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ 
-        error: "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP" 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP",
+        },
+        { status: 400 },
+      );
     }
 
     // Subir archivo al storage
@@ -99,7 +101,7 @@ export async function POST(
       {
         uploadedBy: session.user.name || session.user.email,
         uploadedById: session.user.id,
-      }
+      },
     );
 
     // Guardar metadata en la base de datos
@@ -139,7 +141,7 @@ export async function POST(
     });
   } catch (error) {
     console.error("❌ Error al subir documento:", error);
-    
+
     // Manejar errores específicos del storage
     if (error instanceof Error) {
       if (error.message.includes("Tipo de archivo no permitido")) {

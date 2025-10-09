@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+
 import {
   clockIn as clockInAction,
   clockOut as clockOutAction,
@@ -109,7 +110,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         currentStatus: "CLOCKED_IN",
-        isClocking: false
+        isClocking: false,
       });
 
       // Recargar resumen del día
@@ -117,7 +118,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al fichar entrada",
-        isClocking: false
+        isClocking: false,
       });
     }
   },
@@ -129,7 +130,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         currentStatus: "CLOCKED_OUT",
-        isClocking: false
+        isClocking: false,
       });
 
       // Recargar resumen del día
@@ -137,7 +138,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al fichar salida",
-        isClocking: false
+        isClocking: false,
       });
     }
   },
@@ -149,7 +150,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         currentStatus: "ON_BREAK",
-        isClocking: false
+        isClocking: false,
       });
 
       // Recargar resumen del día
@@ -157,7 +158,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al iniciar descanso",
-        isClocking: false
+        isClocking: false,
       });
     }
   },
@@ -169,7 +170,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         currentStatus: "CLOCKED_IN",
-        isClocking: false
+        isClocking: false,
       });
 
       // Recargar resumen del día
@@ -177,7 +178,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al finalizar descanso",
-        isClocking: false
+        isClocking: false,
       });
     }
   },
@@ -190,12 +191,12 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         todaySummary: summary as any,
-        isLoading: false
+        isLoading: false,
       });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al cargar resumen del día",
-        isLoading: false
+        isLoading: false,
       });
     }
   },
@@ -207,12 +208,12 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         weeklySummary: summary as any,
-        isLoading: false
+        isLoading: false,
       });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al cargar resumen semanal",
-        isLoading: false
+        isLoading: false,
       });
     }
   },
@@ -224,12 +225,12 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       set({
         monthlySummaries: summaries as any,
-        isLoading: false
+        isLoading: false,
       });
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al cargar resumen mensual",
-        isLoading: false
+        isLoading: false,
       });
     }
   },

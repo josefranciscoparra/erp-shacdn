@@ -22,9 +22,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+
+import { features } from "@/config/features";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type Permission } from "@/lib/permissions";
-import { features } from "@/config/features";
 
 export interface NavSubItem {
   title: string;
@@ -59,17 +60,6 @@ export function useSidebarItems(): NavGroup[] {
   const documentsEnabled = features.documents;
 
   const allItems = [
-    {
-      id: 1,
-      label: t("dashboards"),
-      items: [
-        {
-          title: t("default"),
-          url: "/dashboard",
-          icon: LayoutDashboard,
-        },
-      ],
-    },
     {
       id: 2,
       label: "Mi Espacio",

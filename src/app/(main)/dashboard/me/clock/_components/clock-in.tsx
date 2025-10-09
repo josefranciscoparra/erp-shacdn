@@ -1,15 +1,17 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import { Clock, LogIn, LogOut, Coffee } from "lucide-react";
+
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { SectionHeader } from "@/components/hr/section-header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   clockIn as clockInAction,
   clockOut as clockOutAction,
@@ -73,12 +75,19 @@ export function ClockIn() {
           // Convertir a Number porque viene como Decimal de Prisma
           const baseMinutes = Number(todaySummary.totalWorkedMinutes) || 0;
 
-          console.log("🔢 Base:", baseMinutes, "Desde inicio:", minutesFromStart, "Total:", baseMinutes + minutesFromStart);
+          console.log(
+            "🔢 Base:",
+            baseMinutes,
+            "Desde inicio:",
+            minutesFromStart,
+            "Total:",
+            baseMinutes + minutesFromStart,
+          );
 
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }
       } else {
-        setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes || 0);
+        setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -183,14 +192,14 @@ export function ClockIn() {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return {
-      hours: hours.toString().padStart(2, '0'),
-      minutes: minutes.toString().padStart(2, '0'),
-      seconds: seconds.toString().padStart(2, '0'),
+      hours: hours.toString().padStart(2, "0"),
+      minutes: minutes.toString().padStart(2, "0"),
+      seconds: seconds.toString().padStart(2, "0"),
     };
   };
 
   // Calcular tiempo restante
-  const remainingMinutes = Math.max(0, (expectedDailyHours * 60) - liveWorkedMinutes);
+  const remainingMinutes = Math.max(0, expectedDailyHours * 60 - liveWorkedMinutes);
   const isCompleted = liveWorkedMinutes >= expectedDailyHours * 60;
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
@@ -201,7 +210,7 @@ export function ClockIn() {
 
       {error && (
         <Card className="border-destructive bg-destructive/10 p-4">
-          <p className="text-sm text-destructive">{error}</p>
+          <p className="text-destructive text-sm">{error}</p>
         </Card>
       )}
 
@@ -212,12 +221,13 @@ export function ClockIn() {
               <span className="text-xs font-bold text-yellow-700">!</span>
             </div>
             <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                Sin contrato activo
-              </p>
+              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Sin contrato activo</p>
               <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                Usando valores por defecto: <span className="font-semibold">{expectedDailyHours}h diarias ({expectedDailyHours * 5}h semanales)</span>.
-                Contacta con RRHH para configurar tu contrato laboral.
+                Usando valores por defecto:{" "}
+                <span className="font-semibold">
+                  {expectedDailyHours}h diarias ({expectedDailyHours * 5}h semanales)
+                </span>
+                . Contacta con RRHH para configurar tu contrato laboral.
               </p>
             </div>
           </div>
@@ -231,7 +241,7 @@ export function ClockIn() {
             {/* Estado y fecha */}
             <div className="flex flex-col items-center gap-2">
               {getStatusBadge()}
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {currentTime.toLocaleDateString("es-ES", {
                   weekday: "long",
                   day: "numeric",
@@ -242,13 +252,13 @@ export function ClockIn() {
 
             {/* Tiempo trabajado */}
             <div className="flex flex-col items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">Tiempo trabajado</span>
+              <span className="text-muted-foreground text-sm font-medium">Tiempo trabajado</span>
               <div className="flex items-center gap-1 tabular-nums">
                 <span className="text-5xl font-bold">{workedTime.hours}</span>
-                <span className="text-2xl font-bold text-muted-foreground">:</span>
+                <span className="text-muted-foreground text-2xl font-bold">:</span>
                 <span className="text-5xl font-bold">{workedTime.minutes}</span>
-                <span className="text-2xl font-bold text-muted-foreground">:</span>
-                <span className="text-3xl font-bold text-muted-foreground">{workedTime.seconds}</span>
+                <span className="text-muted-foreground text-2xl font-bold">:</span>
+                <span className="text-muted-foreground text-3xl font-bold">{workedTime.seconds}</span>
               </div>
             </div>
 
@@ -262,13 +272,13 @@ export function ClockIn() {
                 </div>
               ) : (
                 <>
-                  <span className="text-xs text-muted-foreground">Tiempo restante</span>
+                  <span className="text-muted-foreground text-xs">Tiempo restante</span>
                   <div className="flex items-center gap-1 tabular-nums">
-                    <span className="text-2xl font-semibold text-muted-foreground">{remainingTime.hours}</span>
-                    <span className="text-lg text-muted-foreground">:</span>
-                    <span className="text-2xl font-semibold text-muted-foreground">{remainingTime.minutes}</span>
-                    <span className="text-lg text-muted-foreground">:</span>
-                    <span className="text-xl text-muted-foreground/70">{remainingTime.seconds}</span>
+                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.hours}</span>
+                    <span className="text-muted-foreground text-lg">:</span>
+                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.minutes}</span>
+                    <span className="text-muted-foreground text-lg">:</span>
+                    <span className="text-muted-foreground/70 text-xl">{remainingTime.seconds}</span>
                   </div>
                 </>
               )}
@@ -283,13 +293,23 @@ export function ClockIn() {
               </Button>
             ) : (
               <>
-                <Button size="lg" onClick={handleClockOut} variant="destructive" className="w-full" disabled={isClocking}>
+                <Button
+                  size="lg"
+                  onClick={handleClockOut}
+                  variant="destructive"
+                  className="w-full"
+                  disabled={isClocking}
+                >
                   <LogOut className="mr-2 h-5 w-5" />
                   {isClocking ? "Fichando..." : "Fichar Salida"}
                 </Button>
                 <Button size="lg" onClick={handleBreak} variant="outline" className="w-full" disabled={isClocking}>
                   <Coffee className="mr-2 h-5 w-5" />
-                  {isClocking ? "Procesando..." : currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
+                  {isClocking
+                    ? "Procesando..."
+                    : currentStatus === "ON_BREAK"
+                      ? "Volver del descanso"
+                      : "Iniciar descanso"}
                 </Button>
               </>
             )}
@@ -305,24 +325,22 @@ export function ClockIn() {
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Progreso diario</span>
               <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                {formatMinutes(todaySummary?.totalWorkedMinutes || 0)} / {expectedDailyHours}h
+                {formatMinutes(todaySummary?.totalWorkedMinutes ?? 0)} / {expectedDailyHours}h
                 {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
               </span>
             </div>
             <Progress
-              value={Math.min(((todaySummary?.totalWorkedMinutes || 0) / 60 / expectedDailyHours) * 100, 100)}
+              value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
               className="h-2"
             />
             {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
-              <p className="text-xs text-green-600 dark:text-green-400">
-                ¡Has completado tu jornada! 🎉
-              </p>
+              <p className="text-xs text-green-600 dark:text-green-400">¡Has completado tu jornada! 🎉</p>
             )}
           </div>
 
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Entrada</span>
+              <span className="text-muted-foreground text-sm">Entrada</span>
               <span className="font-semibold tabular-nums">
                 {todaySummary?.clockIn
                   ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
@@ -335,7 +353,7 @@ export function ClockIn() {
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Salida</span>
+              <span className="text-muted-foreground text-sm">Salida</span>
               <span className="font-semibold tabular-nums">
                 {todaySummary?.clockOut
                   ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
@@ -348,14 +366,14 @@ export function ClockIn() {
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Tiempo trabajado</span>
+              <span className="text-muted-foreground text-sm">Tiempo trabajado</span>
               <span className="font-semibold tabular-nums">
                 {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
               </span>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Pausas totales</span>
+              <span className="text-muted-foreground text-sm">Pausas totales</span>
               <span className="font-semibold tabular-nums">
                 {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
               </span>
@@ -370,34 +388,37 @@ export function ClockIn() {
 
         {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
           <div className="flex flex-col gap-2">
-            {todaySummary.timeEntries.slice().reverse().map((entry) => (
-              <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div className="flex items-center gap-3">
-                  {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
-                  {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
-                  {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
-                  {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
-                  <div className="flex flex-col">
-                    <span className="text-sm font-medium">
-                      {entry.entryType === "CLOCK_IN" && "Entrada"}
-                      {entry.entryType === "CLOCK_OUT" && "Salida"}
-                      {entry.entryType === "BREAK_START" && "Inicio de pausa"}
-                      {entry.entryType === "BREAK_END" && "Fin de pausa"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(entry.timestamp).toLocaleString("es-ES", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </span>
+            {todaySummary.timeEntries
+              .slice()
+              .reverse()
+              .map((entry) => (
+                <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="flex items-center gap-3">
+                    {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
+                    {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
+                    {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
+                    {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">
+                        {entry.entryType === "CLOCK_IN" && "Entrada"}
+                        {entry.entryType === "CLOCK_OUT" && "Salida"}
+                        {entry.entryType === "BREAK_START" && "Inicio de pausa"}
+                        {entry.entryType === "BREAK_END" && "Fin de pausa"}
+                      </span>
+                      <span className="text-muted-foreground text-xs">
+                        {new Date(entry.timestamp).toLocaleString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Aún no has registrado fichajes hoy.</p>
+          <p className="text-muted-foreground text-sm">Aún no has registrado fichajes hoy.</p>
         )}
       </Card>
     </div>

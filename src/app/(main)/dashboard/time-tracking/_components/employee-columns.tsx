@@ -1,13 +1,15 @@
 "use client";
 
+import Link from "next/link";
+
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { ArrowRight, Clock } from "lucide-react";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ArrowRight, Clock } from "lucide-react";
-import Link from "next/link";
 
 export interface EmployeeTimeTracking {
   id: string;
@@ -47,7 +49,7 @@ function formatMinutes(minutes: number): string {
 function getInitials(name: string): string {
   return name
     .split(" ")
-    .map(n => n[0])
+    .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
@@ -58,19 +60,19 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     accessorKey: "name",
     header: "Empleado",
     cell: ({ row }) => {
-      const name = row.getValue("name") as string;
+      const name = row.getValue("name");
       const email = row.original.email;
       const image = row.original.image;
 
       return (
         <div className="flex items-center gap-3">
           <Avatar className="size-9">
-            <AvatarImage src={image || undefined} alt={name} />
+            <AvatarImage src={image ?? undefined} alt={name} />
             <AvatarFallback>{getInitials(name)}</AvatarFallback>
           </Avatar>
           <div className="flex flex-col">
             <span className="font-medium">{name}</span>
-            <span className="text-xs text-muted-foreground">{email}</span>
+            <span className="text-muted-foreground text-xs">{email}</span>
           </div>
         </div>
       );
@@ -80,14 +82,14 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     accessorKey: "department",
     header: "Departamento",
     cell: ({ row }) => {
-      return row.getValue("department") || "Sin departamento";
+      return row.getValue("department") ?? "Sin departamento";
     },
   },
   {
     accessorKey: "status",
     header: "Estado",
     cell: ({ row }) => {
-      const status = row.getValue("status") as keyof typeof statusConfig;
+      const status = row.getValue("status");
       const config = statusConfig[status];
 
       return (
@@ -102,13 +104,13 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     accessorKey: "todayWorkedMinutes",
     header: "Hoy",
     cell: ({ row }) => {
-      const minutes = row.getValue("todayWorkedMinutes") as number;
+      const minutes = row.getValue("todayWorkedMinutes");
       if (minutes === 0) {
         return <span className="text-muted-foreground">--</span>;
       }
       return (
         <div className="flex items-center gap-1.5">
-          <Clock className="size-3.5 text-muted-foreground" />
+          <Clock className="text-muted-foreground size-3.5" />
           <span>{formatMinutes(minutes)}</span>
         </div>
       );
@@ -118,7 +120,7 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     accessorKey: "lastAction",
     header: "Última Actividad",
     cell: ({ row }) => {
-      const lastAction = row.getValue("lastAction") as Date | null;
+      const lastAction = row.getValue("lastAction");
       if (!lastAction) {
         return <span className="text-muted-foreground">Sin actividad</span>;
       }
@@ -131,11 +133,7 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            asChild
-          >
+          <Button variant="ghost" size="sm" asChild>
             <Link href={`/dashboard/time-tracking/${row.original.id}`}>
               Ver fichajes
               <ArrowRight className="size-4" />

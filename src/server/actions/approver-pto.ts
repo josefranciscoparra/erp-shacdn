@@ -2,8 +2,9 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { recalculatePtoBalance } from "./pto-balance";
+
 import { createNotification } from "./notifications";
+import { recalculatePtoBalance } from "./pto-balance";
 
 /**
  * Obtiene las solicitudes pendientes de aprobación para el usuario autenticado
@@ -150,8 +151,7 @@ export async function getTeamPtoRequests() {
     }
 
     // Si es MANAGER, solo ve las solicitudes de sus subordinados
-    const subordinateIds =
-      user.employee?.managedContracts.map((c) => c.employeeId) || [];
+    const subordinateIds = user.employee?.managedContracts.map((c) => c.employeeId) ?? [];
 
     const requests = await prisma.ptoRequest.findMany({
       where: {
@@ -263,7 +263,7 @@ export async function approvePtoRequest(requestId: string, comments?: string) {
         "PTO_APPROVED",
         "Solicitud aprobada",
         `Tu solicitud de ${request.absenceType.name} ha sido aprobada`,
-        requestId
+        requestId,
       );
     }
 
@@ -335,7 +335,7 @@ export async function rejectPtoRequest(requestId: string, reason: string) {
         "PTO_REJECTED",
         "Solicitud rechazada",
         `Tu solicitud de ${request.absenceType.name} ha sido rechazada`,
-        requestId
+        requestId,
       );
     }
 

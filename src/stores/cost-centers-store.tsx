@@ -23,7 +23,10 @@ interface CostCentersState {
 interface CostCentersActions {
   fetchCostCenters: () => Promise<void>;
   addCostCenter: (costCenter: Omit<CostCenterData, "id" | "createdAt" | "updatedAt">) => Promise<CostCenterData>;
-  updateCostCenter: (id: string, updates: Partial<Omit<CostCenterData, "id" | "createdAt" | "updatedAt">>) => Promise<CostCenterData>;
+  updateCostCenter: (
+    id: string,
+    updates: Partial<Omit<CostCenterData, "id" | "createdAt" | "updatedAt">>,
+  ) => Promise<CostCenterData>;
   deleteCostCenter: (id: string) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -68,7 +71,7 @@ export const useCostCentersStore = create<CostCentersStore>()(
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || "Error al crear centro de coste");
+            throw new Error(errorData.error ?? "Error al crear centro de coste");
           }
 
           const newCostCenter = await response.json();
@@ -96,14 +99,12 @@ export const useCostCentersStore = create<CostCentersStore>()(
 
           if (!response.ok) {
             const errorData = await response.json();
-            throw new Error(errorData.error || "Error al actualizar centro de coste");
+            throw new Error(errorData.error ?? "Error al actualizar centro de coste");
           }
 
           const updatedCostCenter = await response.json();
           set((state) => ({
-            costCenters: state.costCenters.map((costCenter) =>
-              costCenter.id === id ? updatedCostCenter : costCenter
-            ),
+            costCenters: state.costCenters.map((costCenter) => (costCenter.id === id ? updatedCostCenter : costCenter)),
           }));
 
           return updatedCostCenter;
@@ -122,6 +123,6 @@ export const useCostCentersStore = create<CostCentersStore>()(
     }),
     {
       name: "cost-centers-store",
-    }
-  )
+    },
+  ),
 );

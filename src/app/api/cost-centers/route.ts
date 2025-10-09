@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -72,9 +73,9 @@ export async function POST(request: NextRequest) {
     const costCenter = await prisma.costCenter.create({
       data: {
         name,
-        code: code || null,
-        address: address || null,
-        timezone: timezone || null,
+        code: code ?? null,
+        address: address ?? null,
+        timezone: timezone ?? null,
         active,
         orgId,
       },

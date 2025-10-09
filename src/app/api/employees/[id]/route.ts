@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
+
 import { z } from "zod";
+
+import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
+import { prisma } from "@/lib/prisma";
 
 const updateEmployeeSchema = z.object({
   // Datos personales
@@ -133,7 +135,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       employmentContracts: employee.employmentContracts.map((contract) => ({
         ...contract,
         startDate: contract.startDate.toISOString(),
-        endDate: contract.endDate?.toISOString() || null,
+        endDate: contract.endDate?.toISOString() ?? null,
         createdAt: contract.createdAt.toISOString(),
         updatedAt: contract.updatedAt.toISOString(),
         grossSalary: contract.grossSalary ? Number(contract.grossSalary) : null,
@@ -212,24 +214,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const updateData: any = {
       firstName: data.firstName,
       lastName: data.lastName,
-      secondLastName: data.secondLastName || null,
+      secondLastName: data.secondLastName ?? null,
       nifNie: data.nifNie,
       birthDate: data.birthDate ? new Date(data.birthDate) : null,
-      nationality: data.nationality || null,
+      nationality: data.nationality ?? null,
       employmentStatus: data.employmentStatus,
-      employeeNumber: data.employeeNumber || null,
-      email: data.email || null,
-      phone: data.phone || null,
-      mobilePhone: data.mobilePhone || null,
-      address: data.address || null,
-      city: data.city || null,
-      postalCode: data.postalCode || null,
-      province: data.province || null,
+      employeeNumber: data.employeeNumber ?? null,
+      email: data.email ?? null,
+      phone: data.phone ?? null,
+      mobilePhone: data.mobilePhone ?? null,
+      address: data.address ?? null,
+      city: data.city ?? null,
+      postalCode: data.postalCode ?? null,
+      province: data.province ?? null,
       country: data.country,
-      emergencyContactName: data.emergencyContactName || null,
-      emergencyContactPhone: data.emergencyContactPhone || null,
-      emergencyRelationship: data.emergencyRelationship || null,
-      notes: data.notes || null,
+      emergencyContactName: data.emergencyContactName ?? null,
+      emergencyContactPhone: data.emergencyContactPhone ?? null,
+      emergencyRelationship: data.emergencyRelationship ?? null,
+      notes: data.notes ?? null,
     };
 
     // Cifrar IBAN si se proporciona

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
+import bcrypt from "bcryptjs";
+
 import { auth } from "@/lib/auth";
 import { generateTemporaryPassword } from "@/lib/password";
-import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -19,8 +21,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page = parseInt(searchParams.get("page") ?? "1");
+    const limit = parseInt(searchParams.get("limit") ?? "10");
     const status = searchParams.get("status"); // active, inactive, with-temp-password, all
     const skip = (page - 1) * limit;
 
@@ -99,9 +101,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: [
-          { createdAt: "desc" },
-        ],
+        orderBy: [{ createdAt: "desc" }],
         skip,
         take: limit,
       }),
@@ -141,13 +141,13 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case "reset-password":
         return await resetUserPassword(userId, orgId, session.user.id, data.reason);
-      
+
       case "change-role":
         return await changeUserRole(userId, orgId, data.role);
-      
+
       case "toggle-active":
         return await toggleUserActive(userId, orgId);
-      
+
       default:
         return NextResponse.json({ error: "Acción no válida" }, { status: 400 });
     }
@@ -208,8 +208,8 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
         userId,
         password: temporaryPassword,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
-        reason: reason || "Reset por administrador",
-        notes: `Contraseña reseteada por administrador para ${user.employee?.firstName || user.name}`,
+        reason: reason ?? "Reset por administrador",
+        notes: `Contraseña reseteada por administrador para ${user.employee?.firstName ?? user.name}`,
         createdById,
       },
     });
@@ -224,7 +224,7 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
 
 async function changeUserRole(userId: string, orgId: string, newRole: string) {
   const validRoles = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "ORG_ADMIN"];
-  
+
   if (!validRoles.includes(newRole)) {
     return NextResponse.json({ error: "Rol no válido" }, { status: 400 });
   }

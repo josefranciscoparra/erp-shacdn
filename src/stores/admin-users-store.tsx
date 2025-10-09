@@ -58,21 +58,21 @@ interface AdminUsersState {
   // Data
   users: AdminUser[];
   selectedUser: AdminUser | null;
-  
+
   // UI State
   isLoading: boolean;
   isActionLoading: boolean;
   error: string | null;
-  
+
   // Pagination
   page: number;
   limit: number;
   total: number;
   totalPages: number;
-  
+
   // Filters
   status: "all" | "active" | "inactive" | "with-temp-password";
-  
+
   // Actions
   fetchUsers: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
   resetPassword: (userId: string, data: ResetPasswordData) => Promise<{ temporaryPassword: string; expiresAt: string }>;
@@ -103,30 +103,30 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
 
   fetchUsers: async (params = {}) => {
     const { page = 1, limit = 10, status = "all" } = params;
-    
+
     set({ isLoading: true, error: null });
-    
+
     try {
       const searchParams = new URLSearchParams({
         page: page.toString(),
         limit: limit.toString(),
       });
-      
+
       if (status !== "all") {
         searchParams.append("status", status);
       }
-      
+
       const response = await fetch(`/api/admin/users?${searchParams}`, {
         credentials: "include",
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cargar usuarios");
+        throw new Error(errorData.error ?? "Error al cargar usuarios");
       }
-      
+
       const data: UsersResponse = await response.json();
-      
+
       set({
         users: data.users,
         total: data.total,
@@ -147,7 +147,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
 
   resetPassword: async (userId: string, data: ResetPasswordData) => {
     set({ isActionLoading: true, error: null });
-    
+
     try {
       const response = await fetch("/api/admin/users", {
         method: "POST",
@@ -161,23 +161,23 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
           ...data,
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al resetear contraseña");
+        throw new Error(errorData.error ?? "Error al resetear contraseña");
       }
-      
+
       const result = await response.json();
-      
+
       // Actualizar la lista de usuarios para reflejar los cambios
       await get().fetchUsers({
         page: get().page,
         limit: get().limit,
         status: get().status,
       });
-      
+
       set({ isActionLoading: false });
-      
+
       return {
         temporaryPassword: result.temporaryPassword,
         expiresAt: result.expiresAt,
@@ -193,7 +193,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
 
   changeRole: async (userId: string, role: string) => {
     set({ isActionLoading: true, error: null });
-    
+
     try {
       const response = await fetch("/api/admin/users", {
         method: "POST",
@@ -207,21 +207,17 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
           role,
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cambiar rol");
+        throw new Error(errorData.error ?? "Error al cambiar rol");
       }
-      
+
       // Actualizar la lista de usuarios
       const { users } = get();
       set({
-        users: users.map((user) =>
-          user.id === userId ? { ...user, role } : user
-        ),
-        selectedUser: get().selectedUser?.id === userId 
-          ? { ...get().selectedUser!, role } 
-          : get().selectedUser,
+        users: users.map((user) => (user.id === userId ? { ...user, role } : user)),
+        selectedUser: get().selectedUser?.id === userId ? { ...get().selectedUser!, role } : get().selectedUser,
         isActionLoading: false,
       });
     } catch (error: any) {
@@ -235,7 +231,7 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
 
   toggleActive: async (userId: string) => {
     set({ isActionLoading: true, error: null });
-    
+
     try {
       const response = await fetch("/api/admin/users", {
         method: "POST",
@@ -248,23 +244,20 @@ export const useAdminUsersStore = create<AdminUsersState>((set, get) => ({
           userId,
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Error al cambiar estado");
+        throw new Error(errorData.error ?? "Error al cambiar estado");
       }
-      
+
       const result = await response.json();
-      
+
       // Actualizar la lista de usuarios
       const { users } = get();
       set({
-        users: users.map((user) =>
-          user.id === userId ? { ...user, active: result.active } : user
-        ),
-        selectedUser: get().selectedUser?.id === userId 
-          ? { ...get().selectedUser!, active: result.active } 
-          : get().selectedUser,
+        users: users.map((user) => (user.id === userId ? { ...user, active: result.active } : user)),
+        selectedUser:
+          get().selectedUser?.id === userId ? { ...get().selectedUser!, active: result.active } : get().selectedUser,
         isActionLoading: false,
       });
     } catch (error: any) {

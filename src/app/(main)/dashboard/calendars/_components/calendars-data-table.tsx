@@ -1,19 +1,23 @@
 "use client";
 
 import * as React from "react";
-import { Plus, Calendar } from "lucide-react";
+
 import Link from "next/link";
+
+import { Plus, Calendar } from "lucide-react";
+
+import { DataTable as DataTableNew } from "@/components/data-table/data-table";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
-import { DataTable as DataTableNew } from "@/components/data-table/data-table";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { calendarsColumns } from "./calendars-columns";
 import { CalendarData } from "@/stores/calendars-store";
+
+import { calendarsColumns } from "./calendars-columns";
 import { ImportHolidaysDialog } from "./import-holidays-dialog";
 
 export function CalendarsDataTable({ data }: { data: CalendarData[] }) {
@@ -52,7 +56,7 @@ export function CalendarsDataTable({ data }: { data: CalendarData[] }) {
       corporate: data.filter((cal) => cal.calendarType === "CORPORATE_EVENT").length,
       active: data.filter((cal) => cal.active).length,
     }),
-    [data]
+    [data],
   );
 
   return (

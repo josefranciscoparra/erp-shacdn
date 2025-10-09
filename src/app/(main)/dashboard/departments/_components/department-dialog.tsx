@@ -1,9 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -14,48 +15,35 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { DepartmentData, useDepartmentsStore } from "@/stores/departments-store";
 
 import { departmentFormSchema, DepartmentFormData } from "./department-schema";
-import { DepartmentData, useDepartmentsStore } from "@/stores/departments-store";
 
 interface DepartmentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   department?: DepartmentData | null;
   costCenters?: Array<{ id: string; name: string; code: string | null }>;
-  employees?: Array<{ 
-    id: string; 
-    firstName: string; 
-    lastName: string; 
+  employees?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
     secondLastName: string | null;
     email: string | null;
   }>;
 }
 
-export function DepartmentDialog({ 
-  open, 
-  onOpenChange, 
+export function DepartmentDialog({
+  open,
+  onOpenChange,
   department = null,
   costCenters = [],
-  employees = []
+  employees = [],
 }: DepartmentDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false);
   const { addDepartment, updateDepartment, fetchDepartments } = useDepartmentsStore();
@@ -77,9 +65,9 @@ export function DepartmentDialog({
     if (department) {
       form.reset({
         name: department.name,
-        description: department.description || "",
-        costCenterId: department.costCenter?.id || "none",
-        managerId: department.manager?.id || "none",
+        description: department.description ?? "",
+        costCenterId: department.costCenter?.id ?? "none",
+        managerId: department.manager?.id ?? "none",
       });
     } else {
       form.reset({
@@ -96,9 +84,9 @@ export function DepartmentDialog({
     try {
       const payload = {
         name: data.name,
-        description: data.description || undefined,
-        costCenterId: data.costCenterId === "none" ? undefined : data.costCenterId || undefined,
-        managerId: data.managerId === "none" ? undefined : data.managerId || undefined,
+        description: data.description ?? undefined,
+        costCenterId: data.costCenterId === "none" ? undefined : (data.costCenterId ?? undefined),
+        managerId: data.managerId === "none" ? undefined : (data.managerId ?? undefined),
       };
 
       if (isEditing && department) {
@@ -113,7 +101,7 @@ export function DepartmentDialog({
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Error al actualizar departamento");
+          throw new Error(error.error ?? "Error al actualizar departamento");
         }
 
         const updatedDepartment = await response.json();
@@ -130,7 +118,7 @@ export function DepartmentDialog({
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Error al crear departamento");
+          throw new Error(error.error ?? "Error al crear departamento");
         }
 
         const newDepartment = await response.json();
@@ -139,7 +127,7 @@ export function DepartmentDialog({
 
       // Refrescar datos
       await fetchDepartments();
-      
+
       // Limpiar formulario y cerrar modal
       form.reset();
       onOpenChange(false);
@@ -162,9 +150,7 @@ export function DepartmentDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? "Editar departamento" : "Nuevo departamento"}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Editar departamento" : "Nuevo departamento"}</DialogTitle>
           <DialogDescription>
             {isEditing
               ? "Modifica los datos del departamento."
@@ -181,11 +167,7 @@ export function DepartmentDialog({
                 <FormItem>
                   <FormLabel>Nombre *</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Ej. Recursos Humanos"
-                      {...field}
-                      disabled={isLoading}
-                    />
+                    <Input placeholder="Ej. Recursos Humanos" {...field} disabled={isLoading} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -217,11 +199,7 @@ export function DepartmentDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Centro de Coste</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isLoading}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar centro de coste" />
@@ -247,11 +225,7 @@ export function DepartmentDialog({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Responsable</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isLoading}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoading}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar responsable" />
@@ -260,21 +234,15 @@ export function DepartmentDialog({
                     <SelectContent>
                       <SelectItem value="none">Sin responsable</SelectItem>
                       {employees.map((employee) => {
-                        const fullName = [
-                          employee.firstName,
-                          employee.lastName,
-                          employee.secondLastName,
-                        ]
+                        const fullName = [employee.firstName, employee.lastName, employee.secondLastName]
                           .filter(Boolean)
                           .join(" ");
-                        
+
                         return (
                           <SelectItem key={employee.id} value={employee.id}>
                             {fullName}
                             {employee.email && (
-                              <span className="text-muted-foreground text-sm ml-2">
-                                ({employee.email})
-                              </span>
+                              <span className="text-muted-foreground ml-2 text-sm">({employee.email})</span>
                             )}
                           </SelectItem>
                         );
@@ -287,12 +255,7 @@ export function DepartmentDialog({
             />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={isLoading}
-              >
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isLoading}>

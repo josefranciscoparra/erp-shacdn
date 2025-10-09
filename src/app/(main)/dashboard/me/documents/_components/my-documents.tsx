@@ -1,19 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { FileText, Download, Eye, Search, Upload as UploadIcon, Trash, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+
 import { SectionHeader } from "@/components/hr/section-header";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,17 +18,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { UploadDocumentDialog } from "./upload-document-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { documentKindLabels, documentKindColors, formatFileSize, type DocumentKind } from "@/lib/validations/document";
 import { getMyDocuments, type MyDocument } from "@/server/actions/my-documents";
-import {
-  documentKindLabels,
-  documentKindColors,
-  formatFileSize,
-  type DocumentKind,
-} from "@/lib/validations/document";
-import { toast } from "sonner";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+
+import { UploadDocumentDialog } from "./upload-document-dialog";
 
 export function MyDocuments() {
   const [documents, setDocuments] = useState<MyDocument[]>([]);
@@ -138,7 +130,7 @@ export function MyDocuments() {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || "Error al eliminar documento");
+        throw new Error(data.error ?? "Error al eliminar documento");
       }
 
       toast.success("Documento eliminado exitosamente");
@@ -159,8 +151,7 @@ export function MyDocuments() {
       doc.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory =
-      filterCategory === "all" || doc.kind === filterCategory;
+    const matchesCategory = filterCategory === "all" || doc.kind === filterCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -174,21 +165,17 @@ export function MyDocuments() {
       acc[doc.kind].push(doc);
       return acc;
     },
-    {} as Record<DocumentKind, MyDocument[]>
+    {} as Record<DocumentKind, MyDocument[]>,
   );
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Mis Documentos"
-        actionLabel="Subir documento"
-        onAction={() => setUploadDialogOpen(true)}
-      />
+      <SectionHeader title="Mis Documentos" actionLabel="Subir documento" onAction={() => setUploadDialogOpen(true)} />
 
       {/* Filtros */}
       <Card className="@container/card flex flex-col gap-4 p-4 @md/card:flex-row @md/card:items-center @md/card:justify-between">
         <div className="relative flex-1 @md/card:max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
           <Input
             placeholder="Buscar documentos..."
             value={searchQuery}
@@ -215,8 +202,8 @@ export function MyDocuments() {
       {/* Estado de carga */}
       {isLoading ? (
         <Card className="@container/card flex flex-col items-center justify-center gap-4 p-12">
-          <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Cargando documentos...</p>
+          <Loader2 className="text-muted-foreground h-12 w-12 animate-spin" />
+          <p className="text-muted-foreground text-sm">Cargando documentos...</p>
         </Card>
       ) : (
         <>
@@ -229,25 +216,20 @@ export function MyDocuments() {
                     <div
                       className={`h-3 w-3 rounded-full ${documentKindColors[category as DocumentKind]?.split(" ")[0] || "bg-gray-500"}`}
                     />
-                    <h3 className="text-lg font-semibold">
-                      {documentKindLabels[category as DocumentKind]}
-                    </h3>
+                    <h3 className="text-lg font-semibold">{documentKindLabels[category as DocumentKind]}</h3>
                     <Badge variant="secondary">{docs.length}</Badge>
                   </div>
 
                   <div className="flex flex-col gap-2">
                     {docs.map((doc) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between gap-4 rounded-lg border p-4"
-                      >
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted flex-shrink-0">
-                            <FileText className="h-5 w-5 text-muted-foreground" />
+                      <div key={doc.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <div className="bg-muted flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg">
+                            <FileText className="text-muted-foreground h-5 w-5" />
                           </div>
-                          <div className="flex flex-col min-w-0 flex-1">
-                            <span className="font-medium truncate">{doc.fileName}</span>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                          <div className="flex min-w-0 flex-1 flex-col">
+                            <span className="truncate font-medium">{doc.fileName}</span>
+                            <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
                               <span>{formatFileSize(doc.fileSize)}</span>
                               <span>•</span>
                               <span>
@@ -265,7 +247,7 @@ export function MyDocuments() {
                           </div>
                         </div>
 
-                        <div className="flex gap-2 flex-shrink-0">
+                        <div className="flex flex-shrink-0 gap-2">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -305,10 +287,10 @@ export function MyDocuments() {
             </div>
           ) : (
             <Card className="@container/card flex flex-col items-center justify-center gap-4 p-12">
-              <FileText className="h-12 w-12 text-muted-foreground" />
+              <FileText className="text-muted-foreground h-12 w-12" />
               <div className="text-center">
                 <h3 className="font-semibold">No se encontraron documentos</h3>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   {searchQuery || filterCategory !== "all"
                     ? "Intenta ajustar los filtros de búsqueda"
                     : "Sube tu primer documento usando el botón de arriba"}
@@ -333,22 +315,16 @@ export function MyDocuments() {
       />
 
       {/* Dialog de confirmación para eliminar */}
-      <AlertDialog
-        open={!!deleteDocumentId}
-        onOpenChange={() => setDeleteDocumentId(null)}
-      >
+      <AlertDialog open={!!deleteDocumentId} onOpenChange={() => setDeleteDocumentId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El documento será eliminado
-              permanentemente del sistema.
+              Esta acción no se puede deshacer. El documento será eliminado permanentemente del sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingDocument}>
-              Cancelar
-            </AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingDocument}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive hover:bg-destructive/90"

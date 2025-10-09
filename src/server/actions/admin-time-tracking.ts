@@ -1,21 +1,27 @@
 "use server";
 
+import {
+  startOfDay,
+  endOfDay,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  startOfYear,
+  endOfYear,
+  eachDayOfInterval,
+  isWeekend,
+} from "date-fns";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { startOfDay, endOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfYear, endOfYear, eachDayOfInterval, isWeekend } from "date-fns";
 
 // Helper: Calcular días laborables en un período
 // Considera: inicio de contrato, fines de semana
 // TODO: En el futuro, excluir también festivos y vacaciones
-function calculateWorkableDays(
-  periodStart: Date,
-  periodEnd: Date,
-  contractStartDate: Date | null
-): number {
+function calculateWorkableDays(periodStart: Date, periodEnd: Date, contractStartDate: Date | null): number {
   // El período efectivo empieza en la fecha más tardía entre el inicio del período y el inicio del contrato
-  const effectiveStart = contractStartDate && contractStartDate > periodStart
-    ? contractStartDate
-    : periodStart;
+  const effectiveStart = contractStartDate && contractStartDate > periodStart ? contractStartDate : periodStart;
 
   // Si el contrato empieza después del período, no hay días laborables
   if (effectiveStart > periodEnd) return 0;
@@ -24,7 +30,7 @@ function calculateWorkableDays(
 
   // Contar solo días laborables (lunes a viernes)
   // TODO: Aquí se podrán excluir festivos y días de vacaciones en el futuro
-  const workableDays = days.filter(day => !isWeekend(day)).length;
+  const workableDays = days.filter((day) => !isWeekend(day)).length;
 
   return workableDays;
 }
@@ -157,10 +163,10 @@ export async function getEmployeesForTimeTracking() {
 
       return {
         id: employee.id,
-        name: employee.user?.name || "Sin nombre",
-        email: employee.user?.email || "",
+        name: employee.user?.name ?? "Sin nombre",
+        email: employee.user?.email ?? "",
         image: employee.user?.image,
-        department: contract?.department?.name || "Sin departamento",
+        department: contract?.department?.name ?? "Sin departamento",
         status,
         lastAction: lastEntry?.timestamp || null,
         todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
@@ -173,11 +179,7 @@ export async function getEmployeesForTimeTracking() {
 }
 
 // Obtener resumen semanal de un empleado
-export async function getEmployeeWeeklySummary(
-  employeeId: string,
-  dateFrom?: Date,
-  dateTo?: Date
-) {
+export async function getEmployeeWeeklySummary(employeeId: string, dateFrom?: Date, dateTo?: Date) {
   try {
     const { orgId } = await checkAdminPermissions();
 
@@ -195,7 +197,7 @@ export async function getEmployeeWeeklySummary(
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
     const dailyHours = weeklyHours / 5; // Asumiendo 5 días laborables por semana
-    const contractStartDate = activeContract?.startDate || null;
+    const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
       orgId,
@@ -220,18 +222,21 @@ export async function getEmployeeWeeklySummary(
     });
 
     // Agrupar por semana
-    const weeklyData = new Map<string, {
-      weekStart: Date;
-      weekEnd: Date;
-      totalWorkedMinutes: number;
-      totalBreakMinutes: number;
-      daysWorked: number;
-      daysCompleted: number;
-      daysIncomplete: number;
-      daysAbsent: number;
-    }>();
+    const weeklyData = new Map<
+      string,
+      {
+        weekStart: Date;
+        weekEnd: Date;
+        totalWorkedMinutes: number;
+        totalBreakMinutes: number;
+        daysWorked: number;
+        daysCompleted: number;
+        daysIncomplete: number;
+        daysAbsent: number;
+      }
+    >();
 
-    summaries.forEach(summary => {
+    summaries.forEach((summary) => {
       const weekStart = startOfWeek(new Date(summary.date), { weekStartsOn: 1 });
       const weekEnd = endOfWeek(new Date(summary.date), { weekStartsOn: 1 });
       const weekKey = weekStart.toISOString();
@@ -259,7 +264,7 @@ export async function getEmployeeWeeklySummary(
       if (summary.status === "ABSENT") week.daysAbsent++;
     });
 
-    return Array.from(weeklyData.values()).map(week => {
+    return Array.from(weeklyData.values()).map((week) => {
       // Calcular días laborables esperados en esta semana (considerando inicio de contrato)
       const expectedDays = calculateWorkableDays(week.weekStart, week.weekEnd, contractStartDate);
       const expectedHours = expectedDays * dailyHours;
@@ -297,11 +302,7 @@ export async function getEmployeeWeeklySummary(
 }
 
 // Obtener resumen mensual de un empleado
-export async function getEmployeeMonthlySummary(
-  employeeId: string,
-  dateFrom?: Date,
-  dateTo?: Date
-) {
+export async function getEmployeeMonthlySummary(employeeId: string, dateFrom?: Date, dateTo?: Date) {
   try {
     const { orgId } = await checkAdminPermissions();
 
@@ -318,7 +319,7 @@ export async function getEmployeeMonthlySummary(
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
     const dailyHours = weeklyHours / 5;
-    const contractStartDate = activeContract?.startDate || null;
+    const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
       orgId,
@@ -343,17 +344,20 @@ export async function getEmployeeMonthlySummary(
     });
 
     // Agrupar por mes
-    const monthlyData = new Map<string, {
-      month: Date;
-      totalWorkedMinutes: number;
-      totalBreakMinutes: number;
-      daysWorked: number;
-      daysCompleted: number;
-      daysIncomplete: number;
-      daysAbsent: number;
-    }>();
+    const monthlyData = new Map<
+      string,
+      {
+        month: Date;
+        totalWorkedMinutes: number;
+        totalBreakMinutes: number;
+        daysWorked: number;
+        daysCompleted: number;
+        daysIncomplete: number;
+        daysAbsent: number;
+      }
+    >();
 
-    summaries.forEach(summary => {
+    summaries.forEach((summary) => {
       const month = startOfMonth(new Date(summary.date));
       const monthKey = month.toISOString();
 
@@ -379,7 +383,7 @@ export async function getEmployeeMonthlySummary(
       if (summary.status === "ABSENT") monthData.daysAbsent++;
     });
 
-    return Array.from(monthlyData.values()).map(month => {
+    return Array.from(monthlyData.values()).map((month) => {
       // Calcular días laborables esperados en este mes (considerando inicio de contrato)
       const monthEnd = endOfMonth(month.month);
       const expectedDays = calculateWorkableDays(month.month, monthEnd, contractStartDate);
@@ -413,11 +417,7 @@ export async function getEmployeeMonthlySummary(
 }
 
 // Obtener resumen anual de un empleado
-export async function getEmployeeYearlySummary(
-  employeeId: string,
-  dateFrom?: Date,
-  dateTo?: Date
-) {
+export async function getEmployeeYearlySummary(employeeId: string, dateFrom?: Date, dateTo?: Date) {
   try {
     const { orgId } = await checkAdminPermissions();
 
@@ -434,7 +434,7 @@ export async function getEmployeeYearlySummary(
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
     const dailyHours = weeklyHours / 5;
-    const contractStartDate = activeContract?.startDate || null;
+    const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
       orgId,
@@ -459,17 +459,20 @@ export async function getEmployeeYearlySummary(
     });
 
     // Agrupar por año
-    const yearlyData = new Map<string, {
-      year: number;
-      totalWorkedMinutes: number;
-      totalBreakMinutes: number;
-      daysWorked: number;
-      daysCompleted: number;
-      daysIncomplete: number;
-      daysAbsent: number;
-    }>();
+    const yearlyData = new Map<
+      string,
+      {
+        year: number;
+        totalWorkedMinutes: number;
+        totalBreakMinutes: number;
+        daysWorked: number;
+        daysCompleted: number;
+        daysIncomplete: number;
+        daysAbsent: number;
+      }
+    >();
 
-    summaries.forEach(summary => {
+    summaries.forEach((summary) => {
       const year = new Date(summary.date).getFullYear();
       const yearKey = year.toString();
 
@@ -495,7 +498,7 @@ export async function getEmployeeYearlySummary(
       if (summary.status === "ABSENT") yearData.daysAbsent++;
     });
 
-    return Array.from(yearlyData.values()).map(year => {
+    return Array.from(yearlyData.values()).map((year) => {
       // Calcular días laborables esperados en este año (considerando inicio de contrato)
       const yearStart = startOfYear(new Date(year.year, 0, 1));
       const yearEnd = endOfYear(new Date(year.year, 11, 31));
@@ -504,9 +507,7 @@ export async function getEmployeeYearlySummary(
 
       const actualHours = year.totalWorkedMinutes / 60;
       const averageMonthly = actualHours / 12;
-      const attendanceRate = year.daysWorked > 0
-        ? (year.daysCompleted / year.daysWorked) * 100
-        : 0;
+      const attendanceRate = year.daysWorked > 0 ? (year.daysCompleted / year.daysWorked) * 100 : 0;
 
       return {
         year: year.year,
@@ -532,7 +533,7 @@ export async function getEmployeeYearlySummary(
 // Obtener historial de fichajes de un empleado
 export async function getEmployeeTimeTrackingHistory(
   employeeId: string,
-  filters: Omit<TimeTrackingFilters, "employeeId"> = {}
+  filters: Omit<TimeTrackingFilters, "employeeId"> = {},
 ) {
   try {
     const { orgId } = await checkAdminPermissions();
@@ -601,7 +602,7 @@ export async function getEmployeeTimeTrackingHistory(
       },
     });
 
-    return summaries.map(s => {
+    return summaries.map((s) => {
       const contract = s.employee.employmentContracts[0];
 
       // Recalcular el estado basándose en las horas trabajadas
@@ -635,8 +636,8 @@ export async function getEmployeeTimeTrackingHistory(
         employee: {
           id: s.employee.id,
           user: s.employee.user,
-          department: contract?.department || null,
-          costCenter: contract?.costCenter || null,
+          department: contract?.department ?? null,
+          costCenter: contract?.costCenter ?? null,
         },
         timeEntries: s.timeEntries,
         totalWorkedHours: Math.round((Number(s.totalWorkedMinutes) / 60) * 100) / 100,
@@ -751,7 +752,7 @@ export async function getTimeTrackingRecords(filters: TimeTrackingFilters = {}) 
       ],
     });
 
-    return summaries.map(s => {
+    return summaries.map((s) => {
       const contract = s.employee.employmentContracts[0];
       return {
         id: s.id,
@@ -769,8 +770,8 @@ export async function getTimeTrackingRecords(filters: TimeTrackingFilters = {}) 
         employee: {
           id: s.employee.id,
           user: s.employee.user,
-          department: contract?.department || null,
-          costCenter: contract?.costCenter || null,
+          department: contract?.department ?? null,
+          costCenter: contract?.costCenter ?? null,
         },
         timeEntries: s.timeEntries,
       };
@@ -881,8 +882,8 @@ export async function getCurrentlyWorkingEmployees() {
         id: employee.id,
         name: employee.user.name,
         email: employee.user.email,
-        department: contract?.department?.name || "Sin departamento",
-        costCenter: contract?.costCenter?.name || "Sin centro de coste",
+        department: contract?.department?.name ?? "Sin departamento",
+        costCenter: contract?.costCenter?.name ?? "Sin centro de coste",
         status,
         lastAction,
         todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
@@ -900,10 +901,7 @@ export async function getCurrentlyWorkingEmployees() {
 }
 
 // Obtener estadísticas generales
-export async function getTimeTrackingStats(
-  dateFrom?: Date,
-  dateTo?: Date
-) {
+export async function getTimeTrackingStats(dateFrom?: Date, dateTo?: Date) {
   try {
     const { orgId } = await checkAdminPermissions();
 
@@ -925,14 +923,8 @@ export async function getTimeTrackingStats(
       where,
     });
 
-    const totalWorkedMinutes = summaries.reduce(
-      (acc, s) => acc + Number(s.totalWorkedMinutes),
-      0
-    );
-    const totalBreakMinutes = summaries.reduce(
-      (acc, s) => acc + Number(s.totalBreakMinutes),
-      0
-    );
+    const totalWorkedMinutes = summaries.reduce((acc, s) => acc + Number(s.totalWorkedMinutes), 0);
+    const totalBreakMinutes = summaries.reduce((acc, s) => acc + Number(s.totalBreakMinutes), 0);
 
     const statusCounts = {
       IN_PROGRESS: summaries.filter((s) => s.status === "IN_PROGRESS").length,
@@ -946,10 +938,7 @@ export async function getTimeTrackingStats(
       totalWorkedHours: Math.round(totalWorkedMinutes / 60),
       totalBreakHours: Math.round(totalBreakMinutes / 60),
       statusCounts,
-      averageWorkedMinutesPerDay:
-        summaries.length > 0
-          ? Math.round(totalWorkedMinutes / summaries.length)
-          : 0,
+      averageWorkedMinutesPerDay: summaries.length > 0 ? Math.round(totalWorkedMinutes / summaries.length) : 0,
     };
   } catch (error) {
     console.error("Error al obtener estadísticas:", error);
@@ -1070,23 +1059,16 @@ export async function exportTimeTrackingToCSV(filters: TimeTrackingFilters = {})
       new Date(summary.date).toLocaleDateString("es-ES"),
       summary.employee.user.name || "Sin nombre",
       summary.employee.user.email,
-      summary.employee.department?.name || "Sin departamento",
-      summary.employee.costCenter?.name || "Sin centro de coste",
-      summary.clockIn
-        ? new Date(summary.clockIn).toLocaleTimeString("es-ES")
-        : "--:--:--",
-      summary.clockOut
-        ? new Date(summary.clockOut).toLocaleTimeString("es-ES")
-        : "--:--:--",
+      summary.employee.department?.name ?? "Sin departamento",
+      summary.employee.costCenter?.name ?? "Sin centro de coste",
+      summary.clockIn ? new Date(summary.clockIn).toLocaleTimeString("es-ES") : "--:--:--",
+      summary.clockOut ? new Date(summary.clockOut).toLocaleTimeString("es-ES") : "--:--:--",
       `${Math.floor(summary.totalWorkedMinutes / 60)}h ${summary.totalWorkedMinutes % 60}m`,
       `${summary.totalBreakMinutes}m`,
       summary.status,
     ]);
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.join(",")),
-    ].join("\n");
+    const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
 
     return csvContent;
   } catch (error) {

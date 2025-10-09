@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -17,8 +18,8 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page = parseInt(searchParams.get("page") ?? "1");
+    const limit = parseInt(searchParams.get("limit") ?? "10");
     const status = searchParams.get("status"); // active, inactive, all
     const skip = (page - 1) * limit;
 
@@ -72,7 +73,7 @@ export async function GET(request: NextRequest) {
               id: true,
               firstName: true,
               lastName: true,
-              secondLastName: true
+              secondLastName: true,
             },
           },
         },

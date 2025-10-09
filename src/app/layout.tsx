@@ -2,16 +2,17 @@ import { ReactNode } from "react";
 
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 
+import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
+import { type Locale, defaultLocale } from "@/lib/i18n";
 import { getPreference } from "@/server/server-actions";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
-import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { THEME_MODE_VALUES, THEME_PRESET_VALUES, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
-import { type Locale, defaultLocale } from "@/lib/i18n";
 
 import "./globals.css";
 

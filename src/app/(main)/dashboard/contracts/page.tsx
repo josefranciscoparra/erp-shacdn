@@ -1,29 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
+
+import { Briefcase, AlertCircle, FileText, ShieldAlert } from "lucide-react";
+
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useContractsStore } from "@/stores/contracts-store";
+
 import { contractsColumns } from "./_components/contracts-columns";
 import { ContractsDataTable } from "./_components/contracts-data-table";
-import { Briefcase, AlertCircle, FileText, ShieldAlert } from "lucide-react";
 
 export default function ContractsPage() {
   const [currentTab, setCurrentTab] = useState("active");
 
-  const {
-    contracts,
-    isLoading,
-    status,
-    total,
-    fetchAllContracts,
-    setStatus,
-    reset,
-  } = useContractsStore();
+  const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
 
   useEffect(() => {
     // Cargar todos los contratos al montar
@@ -72,10 +67,7 @@ export default function ContractsPage() {
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         {/* Header */}
-        <SectionHeader
-          title="Contratos"
-          subtitle="Gestión de todos los contratos laborales de la organización"
-        />
+        <SectionHeader title="Contratos" subtitle="Gestión de todos los contratos laborales de la organización" />
 
         {/* Tabs de contratos */}
         <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
@@ -148,11 +140,7 @@ export default function ContractsPage() {
                 description="No hay contratos activos en este momento en la organización"
               />
             ) : (
-              <ContractsDataTable
-                columns={contractsColumns}
-                data={activeContracts}
-                isLoading={isLoading}
-              />
+              <ContractsDataTable columns={contractsColumns} data={activeContracts} isLoading={isLoading} />
             )}
           </TabsContent>
 
@@ -164,11 +152,7 @@ export default function ContractsPage() {
                 description="No hay contratos en el historial"
               />
             ) : (
-              <ContractsDataTable
-                columns={contractsColumns}
-                data={inactiveContracts}
-                isLoading={isLoading}
-              />
+              <ContractsDataTable columns={contractsColumns} data={inactiveContracts} isLoading={isLoading} />
             )}
           </TabsContent>
 
@@ -180,11 +164,7 @@ export default function ContractsPage() {
                 description="No hay contratos en la organización"
               />
             ) : (
-              <ContractsDataTable
-                columns={contractsColumns}
-                data={getFilteredContracts()}
-                isLoading={isLoading}
-              />
+              <ContractsDataTable columns={contractsColumns} data={getFilteredContracts()} isLoading={isLoading} />
             )}
           </TabsContent>
         </Tabs>

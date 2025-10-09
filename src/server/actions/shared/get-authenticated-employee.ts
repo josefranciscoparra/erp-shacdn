@@ -1,8 +1,9 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
 
 export interface GetAuthenticatedEmployeeOptions {
   /**
@@ -37,19 +38,16 @@ export interface AuthenticatedEmployeeResult {
   dailyHours: number;
 }
 
-export async function getAuthenticatedEmployee(options: GetAuthenticatedEmployeeOptions = {}): Promise<AuthenticatedEmployeeResult> {
+export async function getAuthenticatedEmployee(
+  options: GetAuthenticatedEmployeeOptions = {},
+): Promise<AuthenticatedEmployeeResult> {
   const session = await auth();
 
   if (!session?.user?.id) {
     throw new Error("Usuario no autenticado");
   }
 
-  const {
-    employeeInclude,
-    contractInclude,
-    requireActiveContract = false,
-    defaultWeeklyHours = 40,
-  } = options;
+  const { employeeInclude, contractInclude, requireActiveContract = false, defaultWeeklyHours = 40 } = options;
 
   const { employmentContracts: _ignoredContracts, ...remainingEmployeeInclude } = employeeInclude ?? {};
 
@@ -82,21 +80,19 @@ export async function getAuthenticatedEmployee(options: GetAuthenticatedEmployee
   const contractWeeklyHours = foundContract?.weeklyHours ? Number(foundContract.weeklyHours) : 0;
   let activeContract = foundContract && contractWeeklyHours > 0 ? foundContract : null;
 
-  if (!activeContract) {
-    activeContract = await prisma.employmentContract.findFirst({
-      where: {
-        employeeId: user.employee.id,
-        orgId: user.orgId,
-        active: true,
-        weeklyHours: {
-          gt: 0,
-        },
+  activeContract ??= await prisma.employmentContract.findFirst({
+    where: {
+      employeeId: user.employee.id,
+      orgId: user.orgId,
+      active: true,
+      weeklyHours: {
+        gt: 0,
       },
-      orderBy: {
-        startDate: "desc",
-      },
-    });
-  }
+    },
+    orderBy: {
+      startDate: "desc",
+    },
+  });
 
   const hasProvisionalContract = Boolean(foundContract) && contractWeeklyHours <= 0;
 

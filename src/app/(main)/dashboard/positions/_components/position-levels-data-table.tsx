@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { PositionLevel } from "@/stores/organization-store";
 
 import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
 
 import { createPositionLevelsColumns } from "./position-levels-columns";
-import { PositionLevel } from "@/stores/organization-store";
 
 interface PositionLevelsDataTableProps {
   data: PositionLevel[];
@@ -25,12 +25,7 @@ interface PositionLevelsDataTableProps {
   onDelete?: (level: PositionLevel) => void;
 }
 
-export function PositionLevelsDataTable({
-  data,
-  onNewLevel,
-  onEdit,
-  onDelete
-}: PositionLevelsDataTableProps) {
+export function PositionLevelsDataTable({ data, onNewLevel, onEdit, onDelete }: PositionLevelsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
 
   const columns = React.useMemo(() => createPositionLevelsColumns({ onEdit, onDelete }), [onEdit, onDelete]);
@@ -44,7 +39,7 @@ export function PositionLevelsDataTable({
       case "all":
         return data;
       case "with-salary":
-        return data.filter((level) => (level.minSalary || level.maxSalary) && level.active);
+        return data.filter((level) => (level.minSalary ?? level.maxSalary) && level.active);
       default:
         return data;
     }
@@ -61,7 +56,7 @@ export function PositionLevelsDataTable({
       active: data.filter((level) => level.active).length,
       inactive: data.filter((level) => !level.active).length,
       all: data.length,
-      withSalary: data.filter((level) => (level.minSalary || level.maxSalary) && level.active).length,
+      withSalary: data.filter((level) => (level.minSalary ?? level.maxSalary) && level.active).length,
     }),
     [data],
   );

@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { PermissionGuard } from "@/components/auth/permission-guard";
-import { DepartmentsDataTable } from "./_components/departments-data-table";
-import { DepartmentDialog } from "./_components/department-dialog";
+
 import { Plus, Building2, Loader2, ShieldAlert } from "lucide-react";
+
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { useDepartmentsStore } from "@/stores/departments-store";
+
+import { DepartmentDialog } from "./_components/department-dialog";
+import { DepartmentsDataTable } from "./_components/departments-data-table";
 
 export default function DepartmentsPage() {
   const { departments, isLoading, error, fetchDepartments, deleteDepartment } = useDepartmentsStore();
@@ -59,7 +62,7 @@ export default function DepartmentsPage() {
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Error al eliminar departamento");
+          throw new Error(error.error ?? "Error al eliminar departamento");
         }
 
         deleteDepartment(department.id);
@@ -79,10 +82,7 @@ export default function DepartmentsPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Departamentos"
-          subtitle="Gestiona los departamentos de tu organización"
-        />
+        <SectionHeader title="Departamentos" subtitle="Gestiona los departamentos de tu organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando departamentos...</span>
@@ -94,10 +94,7 @@ export default function DepartmentsPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Departamentos"
-          subtitle="Gestiona los departamentos de tu organización"
-        />
+        <SectionHeader title="Departamentos" subtitle="Gestiona los departamentos de tu organización" />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar departamentos: {error}</span>
         </div>
@@ -122,14 +119,11 @@ export default function DepartmentsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Departamentos"
-          subtitle="Gestiona los departamentos de tu organización"
-        />
+        <SectionHeader title="Departamentos" subtitle="Gestiona los departamentos de tu organización" />
 
         {hasDepartments ? (
-          <DepartmentsDataTable 
-            data={departments} 
+          <DepartmentsDataTable
+            data={departments}
             onNewDepartment={() => setDialogOpen(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}

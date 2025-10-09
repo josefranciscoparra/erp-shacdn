@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,19 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { positionLevelSchema, type PositionLevelFormData } from "./position-level-schema";
+import { Textarea } from "@/components/ui/textarea";
 import { useOrganizationStore, type PositionLevel } from "@/stores/organization-store";
+
+import { positionLevelSchema, type PositionLevelFormData } from "./position-level-schema";
 
 interface PositionLevelDialogProps {
   open: boolean;
@@ -52,9 +48,9 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
     if (level) {
       form.reset({
         name: level.name,
-        code: level.code || undefined,
+        code: level.code ?? undefined,
         order: level.order,
-        description: level.description || undefined,
+        description: level.description ?? undefined,
         minSalary: level.minSalary ? Number(level.minSalary) : undefined,
         maxSalary: level.maxSalary ? Number(level.maxSalary) : undefined,
         active: level.active,
@@ -90,14 +86,11 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>
-            {level ? "Editar nivel de puesto" : "Nuevo nivel de puesto"}
-          </DialogTitle>
+          <DialogTitle>{level ? "Editar nivel de puesto" : "Nuevo nivel de puesto"}</DialogTitle>
           <DialogDescription>
             {level
               ? "Modifica los datos del nivel de puesto seleccionado."
-              : "Completa la información para crear un nuevo nivel de puesto."
-            }
+              : "Completa la información para crear un nuevo nivel de puesto."}
           </DialogDescription>
         </DialogHeader>
 
@@ -125,11 +118,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                   <FormItem>
                     <FormLabel>Código</FormLabel>
                     <FormControl>
-                      <Input
-                        placeholder="Ej: SR"
-                        {...field}
-                        value={field.value || ""}
-                      />
+                      <Input placeholder="Ej: SR" {...field} value={field.value ?? ""} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -167,7 +156,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                       placeholder="Descripción del nivel de puesto..."
                       className="min-h-[80px]"
                       {...field}
-                      value={field.value || ""}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage />
@@ -226,7 +215,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel>Nivel activo</FormLabel>
-                    <div className="text-[0.8rem] text-muted-foreground">
+                    <div className="text-muted-foreground text-[0.8rem]">
                       Los niveles inactivos no aparecerán en las listas de selección
                     </div>
                   </div>
@@ -241,9 +230,7 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
-                {level ? "Actualizar" : "Crear"} nivel
-              </Button>
+              <Button type="submit">{level ? "Actualizar" : "Crear"} nivel</Button>
             </DialogFooter>
           </form>
         </Form>

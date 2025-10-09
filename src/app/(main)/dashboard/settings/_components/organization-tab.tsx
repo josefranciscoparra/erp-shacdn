@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Building2, Save } from "lucide-react";
-import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Building2, Save } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import * as z from "zod";
+
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 const organizationSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
@@ -81,9 +83,7 @@ export function OrganizationTab() {
                   <FormControl>
                     <Input placeholder="Mi Empresa S.L." {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Nombre legal de tu empresa u organización
-                  </FormDescription>
+                  <FormDescription>Nombre legal de tu empresa u organización</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -98,9 +98,7 @@ export function OrganizationTab() {
                   <FormControl>
                     <Input placeholder="B12345678" {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Número de identificación fiscal de la empresa
-                  </FormDescription>
+                  <FormDescription>Número de identificación fiscal de la empresa</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -113,15 +111,10 @@ export function OrganizationTab() {
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Estado de la organización</FormLabel>
-                    <FormDescription>
-                      {field.value ? "Organización activa" : "Organización inactiva"}
-                    </FormDescription>
+                    <FormDescription>{field.value ? "Organización activa" : "Organización inactiva"}</FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}

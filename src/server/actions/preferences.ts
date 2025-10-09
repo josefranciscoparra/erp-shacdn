@@ -1,7 +1,8 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
+
 import type { Locale } from "@/lib/i18n";
 import type { ThemeMode, ThemePreset } from "@/types/preferences/theme";
 

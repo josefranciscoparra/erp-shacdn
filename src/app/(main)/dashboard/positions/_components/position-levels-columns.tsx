@@ -3,6 +3,8 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { MoreHorizontal, Pencil, Trash2, Briefcase } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,9 +13,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, Pencil, Trash2, Briefcase } from "lucide-react";
 import { PositionLevel } from "@/stores/organization-store";
 
 interface PositionLevelsColumnsProps {
@@ -23,7 +24,7 @@ interface PositionLevelsColumnsProps {
 
 export const createPositionLevelsColumns = ({
   onEdit,
-  onDelete
+  onDelete,
 }: PositionLevelsColumnsProps = {}): ColumnDef<PositionLevel>[] => [
   {
     accessorKey: "order",
@@ -44,11 +45,7 @@ export const createPositionLevelsColumns = ({
       return (
         <div className="flex flex-col">
           <span className="font-medium">{level.name}</span>
-          {level.code && (
-            <span className="text-muted-foreground text-sm font-mono">
-              {level.code}
-            </span>
-          )}
+          {level.code && <span className="text-muted-foreground font-mono text-sm">{level.code}</span>}
         </div>
       );
     },
@@ -57,30 +54,26 @@ export const createPositionLevelsColumns = ({
     accessorKey: "description",
     header: "Descripción",
     cell: ({ row }) => {
-      const description = row.getValue("description") as string | null;
+      const description = row.getValue("description");
       if (!description) {
         return <span className="text-muted-foreground">-</span>;
       }
-      return (
-        <span className="text-sm truncate max-w-[300px] block">
-          {description}
-        </span>
-      );
+      return <span className="block max-w-[300px] truncate text-sm">{description}</span>;
     },
   },
   {
     accessorKey: "minSalary",
     header: "Salario Mín.",
     cell: ({ row }) => {
-      const minSalary = row.getValue("minSalary") as number | null;
+      const minSalary = row.getValue("minSalary");
       if (!minSalary) {
         return <span className="text-muted-foreground">-</span>;
       }
       return (
         <span className="text-sm font-medium">
-          {new Intl.NumberFormat('es-ES', {
-            style: 'currency',
-            currency: 'EUR'
+          {new Intl.NumberFormat("es-ES", {
+            style: "currency",
+            currency: "EUR",
           }).format(minSalary)}
         </span>
       );
@@ -90,15 +83,15 @@ export const createPositionLevelsColumns = ({
     accessorKey: "maxSalary",
     header: "Salario Máx.",
     cell: ({ row }) => {
-      const maxSalary = row.getValue("maxSalary") as number | null;
+      const maxSalary = row.getValue("maxSalary");
       if (!maxSalary) {
         return <span className="text-muted-foreground">-</span>;
       }
       return (
         <span className="text-sm font-medium">
-          {new Intl.NumberFormat('es-ES', {
-            style: 'currency',
-            currency: 'EUR'
+          {new Intl.NumberFormat("es-ES", {
+            style: "currency",
+            currency: "EUR",
           }).format(maxSalary)}
         </span>
       );
@@ -108,10 +101,10 @@ export const createPositionLevelsColumns = ({
     accessorKey: "_count.positions",
     header: "Puestos",
     cell: ({ row }) => {
-      const count = row.original._count?.positions || 0;
+      const count = row.original._count?.positions ?? 0;
       return (
         <div className="flex items-center gap-2">
-          <Briefcase className="h-4 w-4 text-muted-foreground" />
+          <Briefcase className="text-muted-foreground h-4 w-4" />
           <span>{count}</span>
         </div>
       );
@@ -121,23 +114,17 @@ export const createPositionLevelsColumns = ({
     accessorKey: "active",
     header: "Estado",
     cell: ({ row }) => {
-      const active = row.getValue("active") as boolean;
-      return (
-        <Badge variant={active ? "default" : "secondary"}>
-          {active ? "Activo" : "Inactivo"}
-        </Badge>
-      );
+      const active = row.getValue("active");
+      return <Badge variant={active ? "default" : "secondary"}>{active ? "Activo" : "Inactivo"}</Badge>;
     },
   },
   {
     accessorKey: "createdAt",
     header: "Creado",
     cell: ({ row }) => {
-      const date = row.getValue("createdAt") as Date;
+      const date = row.getValue("createdAt");
       return (
-        <span className="text-muted-foreground text-sm">
-          {format(new Date(date), "dd/MM/yyyy", { locale: es })}
-        </span>
+        <span className="text-muted-foreground text-sm">{format(new Date(date), "dd/MM/yyyy", { locale: es })}</span>
       );
     },
   },
@@ -156,21 +143,14 @@ export const createPositionLevelsColumns = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(level.id)}
-            >
-              Copiar ID
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(level.id)}>Copiar ID</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onEdit?.(level)}>
               <Pencil className="mr-2 h-4 w-4" />
               Editar nivel
             </DropdownMenuItem>
             {level.active && (
-              <DropdownMenuItem
-                className="text-destructive"
-                onClick={() => onDelete?.(level)}
-              >
+              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(level)}>
                 <Trash2 className="mr-2 h-4 w-4" />
                 Eliminar nivel
               </DropdownMenuItem>

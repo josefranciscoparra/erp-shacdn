@@ -1,10 +1,12 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";
-import { createNotification } from "./notifications";
 import { Decimal } from "@prisma/client/runtime/library";
 import { isSameDay } from "date-fns";
+
+import { prisma } from "@/lib/prisma";
+
+import { createNotification } from "./notifications";
+import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 /**
@@ -58,7 +60,7 @@ export async function calculateWorkingDays(
   startDate: Date,
   endDate: Date,
   employeeId: string,
-  orgId: string
+  orgId: string,
 ): Promise<{ workingDays: number; holidays: Array<{ date: Date; name: string }> }> {
   // Obtener el centro de coste del empleado para saber qué calendarios aplican
   const employee = await prisma.employee.findUnique({
@@ -110,7 +112,7 @@ export async function calculateWorkingDays(
 
   // Contar días hábiles
   let workingDays = 0;
-  let currentDate = new Date(startDate);
+  const currentDate = new Date(startDate);
   const end = new Date(endDate);
 
   while (currentDate <= end) {
@@ -139,7 +141,8 @@ export async function calculateWorkingDays(
  */
 export async function getMyPtoBalance() {
   try {
-    const { employeeId, orgId, hasActiveContract, hasProvisionalContract, activeContract } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, hasActiveContract, hasProvisionalContract, activeContract } =
+      await getAuthenticatedEmployee();
     const currentYear = new Date().getFullYear();
 
     if (!hasActiveContract || !activeContract) {
@@ -274,22 +277,13 @@ export async function createPtoRequest(data: {
     }
 
     // Calcular días hábiles
-    const { workingDays, holidays } = await calculateWorkingDays(
-      data.startDate,
-      data.endDate,
-      employeeId,
-      orgId
-    );
+    const { workingDays, holidays } = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId);
 
     // Validar días de anticipación
-    const daysUntilStart = Math.ceil(
-      (data.startDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-    );
+    const daysUntilStart = Math.ceil((data.startDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
     if (absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
-      throw new Error(
-        `Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`
-      );
+      throw new Error(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
     }
 
     // Validar que no haya solapamiento con otras solicitudes aprobadas
@@ -322,7 +316,7 @@ export async function createPtoRequest(data: {
 
       if (balance.daysAvailable < workingDays) {
         throw new Error(
-          `No tienes suficientes días disponibles (te faltan ${workingDays - balance.daysAvailable} días)`
+          `No tienes suficientes días disponibles (te faltan ${workingDays - balance.daysAvailable} días)`,
         );
       }
     }
@@ -367,7 +361,7 @@ export async function createPtoRequest(data: {
         "PTO_SUBMITTED",
         "Nueva solicitud de vacaciones",
         `${employee.firstName} ${employee.lastName} ha solicitado ${workingDays} días de ${absenceType.name}`,
-        request.id
+        request.id,
       );
     }
 
@@ -433,7 +427,7 @@ export async function cancelPtoRequest(requestId: string, reason?: string) {
         "PTO_CANCELLED",
         "Solicitud cancelada",
         `${employee.firstName} ${employee.lastName} ha cancelado su solicitud de ${request.absenceType.name}`,
-        requestId
+        requestId,
       );
     }
 

@@ -1,34 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import { useParams, useRouter } from "next/navigation";
-import { Download, ArrowLeft, ShieldAlert, FileText, Clock, TrendingUp, CheckCircle } from "lucide-react";
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format } from "date-fns";
+
+import {
+  startOfDay,
+  endOfDay,
+  startOfWeek,
+  endOfWeek,
+  startOfMonth,
+  endOfMonth,
+  startOfYear,
+  endOfYear,
+  format,
+} from "date-fns";
 import { es } from "date-fns/locale";
+import { Download, ArrowLeft, ShieldAlert, FileText, Clock, TrendingUp, CheckCircle } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
 import { PermissionGuard } from "@/components/auth/permission-guard";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
-
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
-
-import { columns, type TimeTrackingRecord } from "../_components/columns";
-import { weeklyColumns, type WeeklySummary } from "../_components/weekly-columns";
-import { monthlyColumns, type MonthlySummary } from "../_components/monthly-columns";
-import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns";
-
+import { exportToCSV } from "@/lib/export-csv";
 import {
   getEmployeeTimeTrackingHistory,
   getEmployeeWeeklySummary,
@@ -37,7 +43,10 @@ import {
   getTimeTrackingStats,
 } from "@/server/actions/admin-time-tracking";
 
-import { exportToCSV } from "@/lib/export-csv";
+import { columns, type TimeTrackingRecord } from "../_components/columns";
+import { monthlyColumns, type MonthlySummary } from "../_components/monthly-columns";
+import { weeklyColumns, type WeeklySummary } from "../_components/weekly-columns";
+import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns";
 
 type TabValue = "today" | "week" | "month" | "year" | "all";
 
@@ -135,7 +144,7 @@ export default function EmployeeTimeTrackingPage() {
 
         if (recordsData.length > 0) {
           setEmployeeName(recordsData[0].employee.user.name || "Sin nombre");
-          setEmployeeImage(recordsData[0].employee.user.image || null);
+          setEmployeeImage(recordsData[0].employee.user.image ?? null);
         }
       } else if (tab === "week") {
         const data = await getEmployeeWeeklySummary(employeeId, dateFrom, dateTo);
@@ -161,7 +170,7 @@ export default function EmployeeTimeTrackingPage() {
   const getInitials = (name: string) => {
     return name
       .split(" ")
-      .map(n => n[0])
+      .map((n) => n[0])
       .join("")
       .toUpperCase()
       .slice(0, 2);
@@ -174,45 +183,55 @@ export default function EmployeeTimeTrackingPage() {
 
     switch (activeTab) {
       case "today":
-      case "all":
-        const dailyData = dailyRecords.map(record => ({
+      case "all": {
+        const dailyData = dailyRecords.map((record) => ({
           Fecha: format(new Date(record.date), "dd/MM/yyyy", { locale: es }),
           "Hora Entrada": record.clockIn ? format(new Date(record.clockIn), "HH:mm", { locale: es }) : "",
           "Hora Salida": record.clockOut ? format(new Date(record.clockOut), "HH:mm", { locale: es }) : "",
           "Horas Trabajadas": `${record.totalWorkedHours}h`,
-          "Pausas": `${record.totalBreakHours}h`,
-          "Estado": record.status === "COMPLETED" ? "Completado" : record.status === "IN_PROGRESS" ? "En progreso" : record.status === "INCOMPLETE" ? "Incompleto" : "Ausente",
+          Pausas: `${record.totalBreakHours}h`,
+          Estado:
+            record.status === "COMPLETED"
+              ? "Completado"
+              : record.status === "IN_PROGRESS"
+                ? "En progreso"
+                : record.status === "INCOMPLETE"
+                  ? "Incompleto"
+                  : "Ausente",
         }));
         exportToCSV(dailyData, `fichajes-${employeeSlug}-${activeTab === "today" ? "hoy" : "historico"}-${dateStr}`);
         break;
+      }
 
-      case "week":
-        const weeklyData = weeklyRecords.map(record => ({
-          "Semana": `${format(record.weekStart, "dd/MM", { locale: es })} - ${format(record.weekEnd, "dd/MM/yyyy", { locale: es })}`,
+      case "week": {
+        const weeklyData = weeklyRecords.map((record) => ({
+          Semana: `${format(record.weekStart, "dd/MM", { locale: es })} - ${format(record.weekEnd, "dd/MM/yyyy", { locale: es })}`,
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
           "Horas Trabajadas": `${record.actualHours}h`,
           "Horas Esperadas": `${record.expectedHours}h`,
-          "Cumplimiento": `${record.compliance}%`,
+          Cumplimiento: `${record.compliance}%`,
           "Promedio Diario": `${record.averageDaily}h`,
         }));
         exportToCSV(weeklyData, `fichajes-${employeeSlug}-semanas-${dateStr}`);
         break;
+      }
 
-      case "month":
-        const monthlyData = monthlyRecords.map(record => ({
-          "Mes": format(record.month, "MMMM yyyy", { locale: es }),
+      case "month": {
+        const monthlyData = monthlyRecords.map((record) => ({
+          Mes: format(record.month, "MMMM yyyy", { locale: es }),
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
           "Horas Trabajadas": `${record.actualHours}h`,
           "Horas Esperadas": `${record.expectedHours}h`,
-          "Cumplimiento": `${record.compliance}%`,
+          Cumplimiento: `${record.compliance}%`,
           "Promedio Semanal": `${record.averageWeekly}h`,
         }));
         exportToCSV(monthlyData, `fichajes-${employeeSlug}-meses-${dateStr}`);
         break;
+      }
 
-      case "year":
-        const yearlyData = yearlyRecords.map(record => ({
-          "Año": record.year.toString(),
+      case "year": {
+        const yearlyData = yearlyRecords.map((record) => ({
+          Año: record.year.toString(),
           "Días Trabajados": `${record.daysWorked}/${record.expectedDays}`,
           "Horas Trabajadas": `${record.actualHours}h`,
           "Horas Esperadas": `${record.expectedHours}h`,
@@ -220,6 +239,7 @@ export default function EmployeeTimeTrackingPage() {
         }));
         exportToCSV(yearlyData, `fichajes-${employeeSlug}-años-${dateStr}`);
         break;
+      }
     }
   };
 
@@ -279,11 +299,7 @@ export default function EmployeeTimeTrackingPage() {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         {/* Header con info del empleado */}
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => router.push("/dashboard/time-tracking")}
-          >
+          <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/time-tracking")}>
             <ArrowLeft />
             Volver
           </Button>
@@ -291,12 +307,12 @@ export default function EmployeeTimeTrackingPage() {
           {employeeName && (
             <div className="flex items-center gap-3">
               <Avatar className="size-12">
-                <AvatarImage src={employeeImage || undefined} alt={employeeName} />
+                <AvatarImage src={employeeImage ?? undefined} alt={employeeName} />
                 <AvatarFallback>{getInitials(employeeName)}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
                 <span className="text-lg font-semibold">{employeeName}</span>
-                <span className="text-sm text-muted-foreground">Historial de fichajes</span>
+                <span className="text-muted-foreground text-sm">Historial de fichajes</span>
               </div>
             </div>
           )}
@@ -305,49 +321,55 @@ export default function EmployeeTimeTrackingPage() {
         {/* Stats Cards (solo para vista diaria) */}
         {(activeTab === "today" || activeTab === "all") && (
           <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white dark:border-blue-900 dark:from-blue-950 dark:to-card p-4 shadow-sm">
+            <Card className="dark:to-card border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm dark:border-blue-900 dark:from-blue-950">
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-blue-600 dark:text-blue-400">Total Registros</span>
                   <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.totalRecords}</span>
                 </div>
-                <div className="rounded-lg bg-blue-100 dark:bg-blue-900/50 p-2">
+                <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
                   <FileText className="size-5 text-blue-600 dark:text-blue-400" />
                 </div>
               </div>
             </Card>
 
-            <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-white dark:border-purple-900 dark:from-purple-950 dark:to-card p-4 shadow-sm">
+            <Card className="dark:to-card border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 shadow-sm dark:border-purple-900 dark:from-purple-950">
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-purple-600 dark:text-purple-400">Horas Trabajadas</span>
-                  <span className="text-3xl font-bold text-purple-700 dark:text-purple-300">{stats.totalWorkedHours}h</span>
+                  <span className="text-3xl font-bold text-purple-700 dark:text-purple-300">
+                    {stats.totalWorkedHours}h
+                  </span>
                 </div>
-                <div className="rounded-lg bg-purple-100 dark:bg-purple-900/50 p-2">
+                <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/50">
                   <Clock className="size-5 text-purple-600 dark:text-purple-400" />
                 </div>
               </div>
             </Card>
 
-            <Card className="border-amber-200 bg-gradient-to-br from-amber-50 to-white dark:border-amber-900 dark:from-amber-950 dark:to-card p-4 shadow-sm">
+            <Card className="dark:to-card border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm dark:border-amber-900 dark:from-amber-950">
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-amber-600 dark:text-amber-400">Promedio Diario</span>
-                  <span className="text-3xl font-bold text-amber-700 dark:text-amber-300">{Math.floor(stats.averageWorkedMinutesPerDay / 60)}h</span>
+                  <span className="text-3xl font-bold text-amber-700 dark:text-amber-300">
+                    {Math.floor(stats.averageWorkedMinutesPerDay / 60)}h
+                  </span>
                 </div>
-                <div className="rounded-lg bg-amber-100 dark:bg-amber-900/50 p-2">
+                <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/50">
                   <TrendingUp className="size-5 text-amber-600 dark:text-amber-400" />
                 </div>
               </div>
             </Card>
 
-            <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white dark:border-green-900 dark:from-green-950 dark:to-card p-4 shadow-sm">
+            <Card className="dark:to-card border-green-200 bg-gradient-to-br from-green-50 to-white p-4 shadow-sm dark:border-green-900 dark:from-green-950">
               <div className="flex items-start justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-sm text-green-600 dark:text-green-400">Completados</span>
-                  <span className="text-3xl font-bold text-green-700 dark:text-green-300">{stats.statusCounts.COMPLETED}</span>
+                  <span className="text-3xl font-bold text-green-700 dark:text-green-300">
+                    {stats.statusCounts.COMPLETED}
+                  </span>
                 </div>
-                <div className="rounded-lg bg-green-100 dark:bg-green-900/50 p-2">
+                <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/50">
                   <CheckCircle className="size-5 text-green-600 dark:text-green-400" />
                 </div>
               </div>
@@ -356,7 +378,11 @@ export default function EmployeeTimeTrackingPage() {
         )}
 
         {/* DataTable con Tabs */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="w-full flex-col justify-start gap-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as TabValue)}
+          className="w-full flex-col justify-start gap-6"
+        >
           <div className="flex items-center justify-between">
             <Label htmlFor="view-selector" className="sr-only">
               Período
@@ -395,13 +421,18 @@ export default function EmployeeTimeTrackingPage() {
                 variant="outline"
                 size="sm"
                 onClick={handleExport}
-                disabled={isLoading || (
-                  activeTab === "today" ? dailyRecords.length === 0 :
-                  activeTab === "week" ? weeklyRecords.length === 0 :
-                  activeTab === "month" ? monthlyRecords.length === 0 :
-                  activeTab === "year" ? yearlyRecords.length === 0 :
-                  dailyRecords.length === 0
-                )}
+                disabled={
+                  isLoading ||
+                  (activeTab === "today"
+                    ? dailyRecords.length === 0
+                    : activeTab === "week"
+                      ? weeklyRecords.length === 0
+                      : activeTab === "month"
+                        ? monthlyRecords.length === 0
+                        : activeTab === "year"
+                          ? yearlyRecords.length === 0
+                          : dailyRecords.length === 0)
+                }
               >
                 <Download className="size-4" />
                 Exportar CSV
@@ -409,11 +440,19 @@ export default function EmployeeTimeTrackingPage() {
 
               {(activeTab === "today" || activeTab === "week" || activeTab === "month" || activeTab === "year") && (
                 <>
-                  {activeTab !== "today" && <DataTableViewOptions table={
-                    activeTab === "week" ? weeklyTable :
-                    activeTab === "month" ? monthlyTable :
-                    activeTab === "year" ? yearlyTable : dailyTable
-                  } />}
+                  {activeTab !== "today" && (
+                    <DataTableViewOptions
+                      table={
+                        activeTab === "week"
+                          ? weeklyTable
+                          : activeTab === "month"
+                            ? monthlyTable
+                            : activeTab === "year"
+                              ? yearlyTable
+                              : dailyTable
+                      }
+                    />
+                  )}
                   {activeTab === "today" && <DataTableViewOptions table={dailyTable} />}
                 </>
               )}

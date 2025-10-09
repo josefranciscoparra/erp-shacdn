@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
+import bcrypt from "bcryptjs";
+
 import { auth } from "@/lib/auth";
-import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
-import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/prisma";
+import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 
 export const runtime = "nodejs";
 
@@ -68,8 +70,8 @@ export async function GET(request: NextRequest) {
         secondLastName: employee.secondLastName,
         email: employee.email,
         active: employee.active,
-        department: currentContract?.department || null,
-        position: currentContract?.position || null,
+        department: currentContract?.department ?? null,
+        position: currentContract?.position ?? null,
         employmentContracts: employee.employmentContracts.map((contract) => ({
           contractType: contract.contractType,
           startDate: contract.startDate,
@@ -122,7 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generar número de empleado si no se proporciona
-    const employeeNumber = data.employeeNumber || generateEmployeeNumber();
+    const employeeNumber = data.employeeNumber ?? generateEmployeeNumber();
 
     // Verificar número de empleado único
     const existingNumber = await prisma.employee.findFirst({

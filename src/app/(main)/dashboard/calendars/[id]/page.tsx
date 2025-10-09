@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Plus, Calendar, Edit, Trash2, Loader2 } from "lucide-react";
+
 import Link from "next/link";
-import { useCalendarsStore, CalendarEventData } from "@/stores/calendars-store";
+import { useParams, useRouter } from "next/navigation";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { ArrowLeft, Plus, Calendar, Edit, Trash2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useCalendarsStore, CalendarEventData } from "@/stores/calendars-store";
+
 import { CalendarEventDialog } from "../_components/calendar-event-dialog";
 import { ImportHolidaysDialog } from "../_components/import-holidays-dialog";
 
@@ -101,24 +105,27 @@ export default function CalendarDetailPage() {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <div className="text-destructive flex items-center justify-center py-12">
-          <span>Error al cargar calendario: {error || "No encontrado"}</span>
+          <span>Error al cargar calendario: {error ?? "No encontrado"}</span>
         </div>
       </div>
     );
   }
 
   const calendar = selectedCalendar;
-  const events = calendar.events || [];
+  const events = calendar.events ?? [];
 
   // Agrupar eventos por mes
-  const eventsByMonth = events.reduce((acc, event) => {
-    const month = format(new Date(event.date), "MMMM yyyy", { locale: es });
-    if (!acc[month]) {
-      acc[month] = [];
-    }
-    acc[month].push(event);
-    return acc;
-  }, {} as Record<string, typeof events>);
+  const eventsByMonth = events.reduce(
+    (acc, event) => {
+      const month = format(new Date(event.date), "MMMM yyyy", { locale: es });
+      if (!acc[month]) {
+        acc[month] = [];
+      }
+      acc[month].push(event);
+      return acc;
+    },
+    {} as Record<string, typeof events>,
+  );
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -131,13 +138,10 @@ export default function CalendarDetailPage() {
             </Link>
           </Button>
           <div className="flex items-center gap-3">
-            <div
-              className="h-4 w-4 rounded-full"
-              style={{ backgroundColor: calendar.color }}
-            />
+            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: calendar.color }} />
             <div className="space-y-1">
               <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{calendar.name}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm">
                 <Badge variant="outline">{calendarTypeLabels[calendar.calendarType]}</Badge>
                 <span>•</span>
                 <span>{calendar.year}</span>
@@ -159,17 +163,8 @@ export default function CalendarDetailPage() {
               Editar
             </Link>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="mr-2 h-4 w-4" />
-            )}
+          <Button variant="outline" size="sm" onClick={handleDelete} disabled={isDeleting}>
+            {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
             Eliminar
           </Button>
         </div>
@@ -199,9 +194,7 @@ export default function CalendarDetailPage() {
             <CardDescription>Estado</CardDescription>
           </CardHeader>
           <CardContent>
-            <Badge variant={calendar.active ? "default" : "secondary"}>
-              {calendar.active ? "Activo" : "Inactivo"}
-            </Badge>
+            <Badge variant={calendar.active ? "default" : "secondary"}>{calendar.active ? "Activo" : "Inactivo"}</Badge>
           </CardContent>
         </Card>
         <Card>
@@ -242,10 +235,7 @@ export default function CalendarDetailPage() {
                   <h3 className="mb-3 text-sm font-medium capitalize">{month}</h3>
                   <div className="space-y-2">
                     {monthEvents.map((event) => (
-                      <div
-                        key={event.id}
-                        className="flex items-center justify-between rounded-lg border p-3"
-                      >
+                      <div key={event.id} className="flex items-center justify-between rounded-lg border p-3">
                         <div className="flex items-center gap-3">
                           <div className="text-muted-foreground flex h-12 w-12 flex-col items-center justify-center rounded-md border">
                             <div className="text-lg font-semibold tabular-nums">
@@ -273,18 +263,10 @@ export default function CalendarDetailPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditEvent(event)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleEditEvent(event)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteEvent(event.id)}
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteEvent(event.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>

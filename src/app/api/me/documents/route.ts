@@ -1,36 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { z } from "zod";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { documentKindSchema } from "@/lib/validations/document";
-import { z } from "zod";
 
 // Tipos de documentos que los empleados pueden subir
 const EMPLOYEE_ALLOWED_DOCUMENT_TYPES = ["MEDICAL", "CERTIFICATE", "OTHER"] as const;
 
 // Límites por tipo de documento
 const EMPLOYEE_UPLOAD_LIMITS: Record<string, number> = {
-  MEDICAL: 50,      // Máximo 50 justificantes médicos
-  CERTIFICATE: 50,  // Máximo 50 certificados
-  OTHER: 100,       // Máximo 100 otros documentos
+  MEDICAL: 50, // Máximo 50 justificantes médicos
+  CERTIFICATE: 50, // Máximo 50 certificados
+  OTHER: 100, // Máximo 100 otros documentos
 };
 
 // Schema para validar form data
 const uploadFormSchema = z.object({
-  documentKind: documentKindSchema.refine(
-    (kind) => EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(kind as any),
-    { message: "Tipo de documento no permitido para empleados" }
-  ),
+  documentKind: documentKindSchema.refine((kind) => EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(kind as any), {
+    message: "Tipo de documento no permitido para empleados",
+  }),
   description: z.string().optional(),
 });
 
 const ensureDocumentsEnabled = () => {
   if (!features.documents) {
-    return NextResponse.json(
-      { error: "El módulo de documentos está deshabilitado" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
   }
 
   return null;
@@ -54,8 +52,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const documentKind = searchParams.get("documentKind");
     const search = searchParams.get("search");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "50");
+    const page = parseInt(searchParams.get("page") ?? "1");
+    const limit = parseInt(searchParams.get("limit") ?? "50");
 
     // Construir filtros para Prisma
     const whereClause: any = {
@@ -99,8 +97,7 @@ export async function GET(request: NextRequest) {
       ...doc,
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
-      canDelete: doc.uploadedById === session.user.id &&
-                 EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(doc.kind as any),
+      canDelete: doc.uploadedById === session.user.id && EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(doc.kind as any),
     }));
 
     return NextResponse.json({
@@ -146,7 +143,7 @@ export async function POST(request: NextRequest) {
     // Validar datos del formulario
     const validationResult = uploadFormSchema.safeParse({
       documentKind,
-      description: description || undefined,
+      description: description ?? undefined,
     });
 
     if (!validationResult.success) {
@@ -155,12 +152,11 @@ export async function POST(request: NextRequest) {
           error: "Datos inválidos",
           details: validationResult.error.issues,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const { documentKind: validDocumentKind, description: validDescription } =
-      validationResult.data;
+    const { documentKind: validDocumentKind, description: validDescription } = validationResult.data;
 
     // Verificar límite de documentos por tipo
     const currentCount = await prisma.employeeDocument.count({
@@ -177,17 +173,14 @@ export async function POST(request: NextRequest) {
         {
           error: `Has alcanzado el límite de ${limit} documentos de tipo ${validDocumentKind}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Validar archivo
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: "El archivo es demasiado grande (máximo 10MB)" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El archivo es demasiado grande (máximo 10MB)" }, { status: 400 });
     }
 
     const allowedTypes = [
@@ -202,10 +195,9 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         {
-          error:
-            "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP",
+          error: "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -218,7 +210,7 @@ export async function POST(request: NextRequest) {
       {
         uploadedBy: session.user.name || session.user.email,
         uploadedById: session.user.id,
-      }
+      },
     );
 
     // Guardar metadata en la base de datos
@@ -270,10 +262,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
@@ -295,10 +284,7 @@ export async function DELETE(request: NextRequest) {
     const documentId = searchParams.get("documentId");
 
     if (!documentId) {
-      return NextResponse.json(
-        { error: "ID de documento requerido" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "ID de documento requerido" }, { status: 400 });
     }
 
     // Verificar que el documento existe y fue subido por el empleado actual
@@ -314,16 +300,13 @@ export async function DELETE(request: NextRequest) {
     if (!document) {
       return NextResponse.json(
         { error: "Documento no encontrado o no tienes permiso para eliminarlo" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Verificar que sea un tipo de documento que el empleado puede eliminar
     if (!EMPLOYEE_ALLOWED_DOCUMENT_TYPES.includes(document.kind as any)) {
-      return NextResponse.json(
-        { error: "No tienes permiso para eliminar este tipo de documento" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "No tienes permiso para eliminar este tipo de documento" }, { status: 403 });
     }
 
     // Eliminar archivo del storage
@@ -342,9 +325,6 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("❌ Error al eliminar documento:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }

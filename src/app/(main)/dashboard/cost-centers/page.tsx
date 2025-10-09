@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { PermissionGuard } from "@/components/auth/permission-guard";
-import { CostCentersDataTable } from "./_components/cost-centers-data-table";
-import { CostCenterDialog } from "./_components/cost-center-dialog";
+
 import { Plus, Landmark, Loader2, ShieldAlert } from "lucide-react";
+
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
+
+import { CostCenterDialog } from "./_components/cost-center-dialog";
+import { CostCentersDataTable } from "./_components/cost-centers-data-table";
 
 export default function CostCentersPage() {
   const { costCenters, isLoading, error, fetchCostCenters, deleteCostCenter } = useCostCentersStore();
@@ -32,7 +35,7 @@ export default function CostCentersPage() {
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Error al eliminar centro de coste");
+          throw new Error(error.error ?? "Error al eliminar centro de coste");
         }
 
         deleteCostCenter(costCenter.id);
@@ -52,10 +55,7 @@ export default function CostCentersPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Centros de coste"
-          subtitle="Gestiona los centros de coste de tu organización"
-        />
+        <SectionHeader title="Centros de coste" subtitle="Gestiona los centros de coste de tu organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando centros de coste...</span>
@@ -67,10 +67,7 @@ export default function CostCentersPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Centros de coste"
-          subtitle="Gestiona los centros de coste de tu organización"
-        />
+        <SectionHeader title="Centros de coste" subtitle="Gestiona los centros de coste de tu organización" />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar centros de coste: {error}</span>
         </div>
@@ -95,14 +92,11 @@ export default function CostCentersPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Centros de coste"
-          subtitle="Gestiona los centros de coste de tu organización"
-        />
+        <SectionHeader title="Centros de coste" subtitle="Gestiona los centros de coste de tu organización" />
 
         {hasCostCenters ? (
-          <CostCentersDataTable 
-            data={costCenters} 
+          <CostCentersDataTable
+            data={costCenters}
             onNewCostCenter={() => setDialogOpen(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}
@@ -117,11 +111,7 @@ export default function CostCentersPage() {
           />
         )}
 
-        <CostCenterDialog
-          open={dialogOpen}
-          onOpenChange={handleCloseDialog}
-          costCenter={editingCostCenter}
-        />
+        <CostCenterDialog open={dialogOpen} onOpenChange={handleCloseDialog} costCenter={editingCostCenter} />
       </div>
     </PermissionGuard>
   );

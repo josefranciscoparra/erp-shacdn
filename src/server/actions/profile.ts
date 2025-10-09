@@ -1,9 +1,11 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
+import { z } from "zod";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { revalidatePath } from "next/cache";
-import { z } from "zod";
 
 // Schema de validación para actualización de perfil
 const updateProfileSchema = z.object({
@@ -162,7 +164,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
     }
 
     // Formatear datos para el componente
-    const activeContract = user.employee?.employmentContracts[0] || null;
+    const activeContract = user.employee?.employmentContracts[0] ?? null;
 
     return {
       user: {
@@ -218,9 +220,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
 /**
  * Actualiza los datos editables del perfil del empleado
  */
-export async function updateProfileData(
-  data: UpdateProfileInput
-): Promise<{ success: boolean; error?: string }> {
+export async function updateProfileData(data: UpdateProfileInput): Promise<{ success: boolean; error?: string }> {
   try {
     // Obtener sesión del usuario autenticado
     const session = await auth();

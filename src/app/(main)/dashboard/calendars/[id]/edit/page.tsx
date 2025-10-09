@@ -1,25 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 import { z } from "zod";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
-import Link from "next/link";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useCalendarsStore } from "@/stores/calendars-store";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
 
@@ -84,11 +81,11 @@ export default function EditCalendarPage() {
     if (selectedCalendar) {
       form.reset({
         name: selectedCalendar.name,
-        description: selectedCalendar.description || "",
+        description: selectedCalendar.description ?? "",
         year: selectedCalendar.year,
         calendarType: selectedCalendar.calendarType as any,
         color: selectedCalendar.color,
-        costCenterId: selectedCalendar.costCenter?.id || "",
+        costCenterId: selectedCalendar.costCenter?.id ?? "",
         active: selectedCalendar.active,
       });
     }
@@ -102,7 +99,7 @@ export default function EditCalendarPage() {
     try {
       await updateCalendar(id, {
         ...data,
-        costCenterId: data.costCenterId || null,
+        costCenterId: data.costCenterId ?? null,
       });
 
       toast.success("Calendario actualizado exitosamente", {
@@ -243,9 +240,7 @@ export default function EditCalendarPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>
-                        Requerido para calendarios locales
-                      </FormDescription>
+                      <FormDescription>Requerido para calendarios locales</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -263,7 +258,7 @@ export default function EditCalendarPage() {
                         <button
                           key={preset.value}
                           type="button"
-                          className="h-8 w-8 rounded-full ring-offset-background transition-all hover:scale-110"
+                          className="ring-offset-background h-8 w-8 rounded-full transition-all hover:scale-110"
                           style={{
                             backgroundColor: preset.value,
                             outline: field.value === preset.value ? "2px solid currentColor" : "none",
@@ -274,11 +269,7 @@ export default function EditCalendarPage() {
                         />
                       ))}
                       <FormControl>
-                        <Input
-                          type="color"
-                          className="h-8 w-16 cursor-pointer"
-                          {...field}
-                        />
+                        <Input type="color" className="h-8 w-16 cursor-pointer" {...field} />
                       </FormControl>
                     </div>
                     <FormMessage />

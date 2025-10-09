@@ -3,33 +3,35 @@ import { z } from "zod";
 // Tipos de documentos permitidos
 export const documentKindSchema = z.enum([
   "CONTRACT",
-  "PAYSLIP", 
+  "PAYSLIP",
   "ID_DOCUMENT",
   "SS_DOCUMENT",
   "CERTIFICATE",
   "MEDICAL",
-  "OTHER"
+  "OTHER",
 ]);
 
 // Schema para subir documento
 export const uploadDocumentSchema = z.object({
-  file: z.any().refine(
-    (file) => file instanceof File,
-    "Debe ser un archivo válido"
-  ).refine(
-    (file) => file.size <= 10 * 1024 * 1024, // 10MB
-    "El archivo no puede superar los 10MB"
-  ).refine(
-    (file) => [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'image/jpeg',
-      'image/png',
-      'image/webp'
-    ].includes(file.type),
-    "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP"
-  ),
+  file: z
+    .any()
+    .refine((file) => file instanceof File, "Debe ser un archivo válido")
+    .refine(
+      (file) => file.size <= 10 * 1024 * 1024, // 10MB
+      "El archivo no puede superar los 10MB",
+    )
+    .refine(
+      (file) =>
+        [
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+        ].includes(file.type),
+      "Tipo de archivo no permitido. Solo se permiten PDF, DOC, DOCX, JPG, PNG, WEBP",
+    ),
   documentKind: documentKindSchema,
   description: z.string().optional(),
   employeeId: z.string().min(1, "ID de empleado requerido"),
@@ -66,7 +68,7 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   SS_DOCUMENT: "Seguridad Social",
   CERTIFICATE: "Certificado",
   MEDICAL: "Médico",
-  OTHER: "Otro"
+  OTHER: "Otro",
 };
 
 // Colores para badges de tipos de documento
@@ -77,7 +79,7 @@ export const documentKindColors: Record<DocumentKind, string> = {
   SS_DOCUMENT: "bg-orange-50 text-orange-700 border-orange-200",
   CERTIFICATE: "bg-cyan-50 text-cyan-700 border-cyan-200",
   MEDICAL: "bg-red-50 text-red-700 border-red-200",
-  OTHER: "bg-gray-50 text-gray-700 border-gray-200"
+  OTHER: "bg-gray-50 text-gray-700 border-gray-200",
 };
 
 // Iconos para tipos de documento (usando lucide-react)
@@ -88,53 +90,53 @@ export const documentKindIcons: Record<DocumentKind, string> = {
   SS_DOCUMENT: "Shield",
   CERTIFICATE: "Award",
   MEDICAL: "Heart",
-  OTHER: "File"
+  OTHER: "File",
 };
 
 // Helper para validar tipo MIME
 export function isValidMimeType(mimeType: string): boolean {
   const allowedTypes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'image/jpeg',
-    'image/png',
-    'image/webp'
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
   ];
-  
+
   return allowedTypes.includes(mimeType);
 }
 
 // Helper para obtener extensión de archivo
 export function getFileExtension(fileName: string): string {
-  return fileName.split('.').pop()?.toLowerCase() || '';
+  return fileName.split(".").pop()?.toLowerCase() ?? "";
 }
 
 // Helper para formatear tamaño de archivo
 export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  
+  if (bytes === 0) return "0 Bytes";
+
   const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const sizes = ["Bytes", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
 }
 
 // Helper para determinar si un archivo es imagen
 export function isImageFile(mimeType: string): boolean {
-  return mimeType.startsWith('image/');
+  return mimeType.startsWith("image/");
 }
 
 // Helper para determinar si un archivo es PDF
 export function isPdfFile(mimeType: string): boolean {
-  return mimeType === 'application/pdf';
+  return mimeType === "application/pdf";
 }
 
 // Helper para obtener icono basado en tipo MIME
 export function getFileIcon(mimeType: string): string {
-  if (isPdfFile(mimeType)) return 'FileText';
-  if (isImageFile(mimeType)) return 'Image';
-  if (mimeType.includes('word')) return 'FileText';
-  return 'File';
+  if (isPdfFile(mimeType)) return "FileText";
+  if (isImageFile(mimeType)) return "Image";
+  if (mimeType.includes("word")) return "FileText";
+  return "File";
 }

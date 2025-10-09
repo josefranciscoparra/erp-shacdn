@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -37,11 +38,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: [
-        { year: "desc" },
-        { calendarType: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ year: "desc" }, { calendarType: "asc" }, { name: "asc" }],
     });
 
     console.log("🔍 Calendars API - Found calendars:", calendars.length);
@@ -65,18 +62,12 @@ export async function POST(request: NextRequest) {
 
     // Validar datos requeridos
     if (!body.name || !body.year) {
-      return NextResponse.json(
-        { error: "Faltan datos requeridos: name, year" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Faltan datos requeridos: name, year" }, { status: 400 });
     }
 
     // Validar que el año sea válido
     if (typeof body.year !== "number" || body.year < 2000 || body.year > 2100) {
-      return NextResponse.json(
-        { error: "El año debe estar entre 2000 y 2100" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El año debe estar entre 2000 y 2100" }, { status: 400 });
     }
 
     // Crear calendario
@@ -84,11 +75,11 @@ export async function POST(request: NextRequest) {
       data: {
         orgId,
         name: body.name,
-        description: body.description || null,
+        description: body.description ?? null,
         year: body.year,
-        calendarType: body.calendarType || "NATIONAL_HOLIDAY",
-        color: body.color || "#3b82f6",
-        costCenterId: body.costCenterId || null,
+        calendarType: body.calendarType ?? "NATIONAL_HOLIDAY",
+        color: body.color ?? "#3b82f6",
+        costCenterId: body.costCenterId ?? null,
         active: body.active !== undefined ? body.active : true,
       },
       include: {
@@ -110,10 +101,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     // Errores de unicidad Prisma
     if (typeof error?.code === "string" && error.code === "P2002") {
-      return NextResponse.json(
-        { error: "Ya existe un calendario con ese nombre" },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Ya existe un calendario con ese nombre" }, { status: 409 });
     }
     console.error("Error al crear calendario:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+
 import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -207,7 +209,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (existingDepartment._count.employmentContracts > 0) {
       return NextResponse.json(
         { error: "No se puede eliminar un departamento que tiene empleados asignados" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

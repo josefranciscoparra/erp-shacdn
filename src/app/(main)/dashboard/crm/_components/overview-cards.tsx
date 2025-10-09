@@ -2,8 +2,8 @@
 
 import { format, subMonths } from "date-fns";
 import { Wallet, BadgeDollarSign } from "lucide-react";
-import { Area, AreaChart, Line, LineChart, Bar, BarChart, XAxis } from "recharts";
 import { useTranslations } from "next-intl";
+import { Area, AreaChart, Line, LineChart, Bar, BarChart, XAxis } from "recharts";
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";

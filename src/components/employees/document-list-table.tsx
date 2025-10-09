@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -11,21 +12,9 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Eye, Download, Trash, FileText, Image, File, ArrowUpDown, ExternalLink } from "lucide-react";
+import { toast } from "sonner";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,20 +25,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  MoreHorizontal,
-  Eye,
-  Download,
-  Trash,
-  FileText,
-  Image,
-  File,
-  ArrowUpDown,
-  ExternalLink,
-} from "lucide-react";
-import { useDocumentsStore } from "@/stores/documents-store";
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   documentKindLabels,
   documentKindColors,
@@ -58,7 +43,7 @@ import {
   isPdfFile,
   type DocumentKind,
 } from "@/lib/validations/document";
-import { toast } from "sonner";
+import { useDocumentsStore } from "@/stores/documents-store";
 
 // Tipos
 interface EmployeeDocument {
@@ -111,12 +96,12 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Limpiar la URL temporal después de un momento
         setTimeout(() => {
           window.URL.revokeObjectURL(url);
         }, 1000);
-        
+
         toast.success("Descarga iniciada");
       }
     } catch (error) {
@@ -145,7 +130,7 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
   // Manejar eliminación
   const handleDelete = async () => {
     if (!deleteDocumentId) return;
-    
+
     const success = await deleteDocument(employeeId, deleteDocumentId);
     if (success) {
       setDeleteDocumentId(null);
@@ -173,15 +158,9 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
             <div className="flex items-center gap-3">
               <FileIcon mimeType={doc.mimeType} />
               <div className="min-w-0 flex-1">
-                <p className="font-medium truncate">{doc.fileName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatFileSize(doc.fileSize)}
-                </p>
-                {doc.description && (
-                  <p className="text-xs text-muted-foreground truncate mt-1">
-                    {doc.description}
-                  </p>
-                )}
+                <p className="truncate font-medium">{doc.fileName}</p>
+                <p className="text-muted-foreground text-sm">{formatFileSize(doc.fileSize)}</p>
+                {doc.description && <p className="text-muted-foreground mt-1 truncate text-xs">{doc.description}</p>}
               </div>
             </div>
           );
@@ -191,12 +170,9 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
         accessorKey: "kind",
         header: "Tipo",
         cell: ({ row }) => {
-          const kind = row.getValue("kind") as DocumentKind;
+          const kind = row.getValue("kind");
           return (
-            <Badge
-              variant="secondary"
-              className={documentKindColors[kind]}
-            >
+            <Badge variant="secondary" className={documentKindColors[kind]}>
               {documentKindLabels[kind]}
             </Badge>
           );
@@ -206,13 +182,11 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
         accessorKey: "uploadedBy",
         header: "Subido por",
         cell: ({ row }) => {
-          const uploadedBy = row.getValue("uploadedBy") as EmployeeDocument["uploadedBy"];
+          const uploadedBy = row.getValue("uploadedBy");
           return (
             <div>
               <p className="font-medium">{uploadedBy.name}</p>
-              <p className="text-sm text-muted-foreground">
-                {uploadedBy.email}
-              </p>
+              <p className="text-muted-foreground text-sm">{uploadedBy.email}</p>
             </div>
           );
         },
@@ -234,9 +208,7 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
           return (
             <div className="text-sm">
               <p>{format(date, "dd/MM/yyyy", { locale: es })}</p>
-              <p className="text-muted-foreground">
-                {format(date, "HH:mm", { locale: es })}
-              </p>
+              <p className="text-muted-foreground">{format(date, "HH:mm", { locale: es })}</p>
             </div>
           );
         },
@@ -276,7 +248,7 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
         },
       },
     ],
-    [employeeId, deleteDocument, downloadDocument]
+    [employeeId, deleteDocument, downloadDocument],
   );
 
   // Configurar tabla
@@ -300,12 +272,7 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -314,31 +281,18 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center gap-2">
-                    <FileText className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-muted-foreground">
-                      No hay documentos en esta categoría
-                    </p>
+                    <FileText className="text-muted-foreground h-8 w-8" />
+                    <p className="text-muted-foreground">No hay documentos en esta categoría</p>
                   </div>
                 </TableCell>
               </TableRow>
@@ -348,24 +302,17 @@ export function DocumentListTable({ documents, employeeId }: DocumentListTablePr
       </div>
 
       {/* Dialog de confirmación para eliminar */}
-      <AlertDialog
-        open={!!deleteDocumentId}
-        onOpenChange={() => setDeleteDocumentId(null)}
-      >
+      <AlertDialog open={!!deleteDocumentId} onOpenChange={() => setDeleteDocumentId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar documento?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. El documento será eliminado
-              permanentemente del sistema.
+              Esta acción no se puede deshacer. El documento será eliminado permanentemente del sistema.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">
               Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>

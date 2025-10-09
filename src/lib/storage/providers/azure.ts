@@ -1,5 +1,18 @@
-import { BlobServiceClient, StorageSharedKeyCredential, BlobSASPermissions, generateBlobSASQueryParameters } from '@azure/storage-blob';
-import { StorageProvider, type UploadResult, type StorageItem, type UploadOptions, type DownloadOptions, type SignedUrlOptions } from '../types';
+import {
+  BlobServiceClient,
+  StorageSharedKeyCredential,
+  BlobSASPermissions,
+  generateBlobSASQueryParameters,
+} from "@azure/storage-blob";
+
+import {
+  StorageProvider,
+  type UploadResult,
+  type StorageItem,
+  type UploadOptions,
+  type DownloadOptions,
+  type SignedUrlOptions,
+} from "../types";
 
 export class AzureStorageProvider extends StorageProvider {
   private blobServiceClient: BlobServiceClient;
@@ -7,53 +20,49 @@ export class AzureStorageProvider extends StorageProvider {
   private accountKey: string;
   private containerPrefix: string;
 
-  constructor(connectionString: string, containerPrefix: string = 'documents') {
+  constructor(connectionString: string, containerPrefix: string = "documents") {
     super();
-    
+
     this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
     this.containerPrefix = containerPrefix;
-    
+
     // Extraer account name y key del connection string para SAS tokens
     const connectionParams = this.parseConnectionString(connectionString);
     this.accountName = connectionParams.accountName;
     this.accountKey = connectionParams.accountKey;
   }
 
-  async upload(
-    file: File | Buffer, 
-    filePath: string, 
-    options?: UploadOptions
-  ): Promise<UploadResult> {
+  async upload(file: File | Buffer, filePath: string, options?: UploadOptions): Promise<UploadResult> {
     let buffer: Buffer;
     let size: number;
     let mimeType: string;
 
     if (file instanceof File) {
       this.validateFile(file, [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'image/jpeg',
-        'image/png',
-        'image/webp'
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "image/jpeg",
+        "image/png",
+        "image/webp",
       ]);
-      
+
       buffer = Buffer.from(await file.arrayBuffer());
       size = file.size;
       mimeType = file.type;
     } else {
       buffer = file;
       size = buffer.length;
-      mimeType = options?.mimeType || 'application/octet-stream';
+      mimeType = options?.mimeType ?? "application/octet-stream";
     }
 
     // Obtener o crear contenedor basado en el path
     const containerName = this.getContainerName(filePath);
     const containerClient = this.blobServiceClient.getContainerClient(containerName);
-    
+
     // Crear contenedor si no existe
     await containerClient.createIfNotExists({
-      access: 'private' // Solo acceso autenticado
+      access: "private", // Solo acceso autenticado
     });
 
     // Obtener blob client
@@ -64,41 +73,41 @@ export class AzureStorageProvider extends StorageProvider {
     await blockBlobClient.uploadData(buffer, {
       blobHTTPHeaders: {
         blobContentType: mimeType,
-        blobContentLength: size
+        blobContentLength: size,
       },
       metadata: {
-        originalName: file instanceof File ? file.name : 'uploaded-file',
+        originalName: file instanceof File ? file.name : "uploaded-file",
         uploadedAt: new Date().toISOString(),
-        ...options?.metadata
-      }
+        ...options?.metadata,
+      },
     });
 
     return {
       url: blockBlobClient.url,
       path: filePath,
       size,
-      mimeType
+      mimeType,
     };
   }
 
   async download(filePath: string, options?: DownloadOptions): Promise<Blob> {
     const containerName = this.getContainerName(filePath);
     const blobName = this.getBlobName(filePath);
-    
+
     const containerClient = this.blobServiceClient.getContainerClient(containerName);
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
     try {
       const downloadResponse = await blockBlobClient.download();
-      
+
       if (!downloadResponse.readableStreamBody) {
-        throw new Error('No se pudo obtener el contenido del archivo');
+        throw new Error("No se pudo obtener el contenido del archivo");
       }
 
       // Convertir stream a buffer y luego a Blob
       const chunks: Uint8Array[] = [];
       const reader = downloadResponse.readableStreamBody.getReader();
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -112,8 +121,8 @@ export class AzureStorageProvider extends StorageProvider {
         offset += chunk.length;
       }
 
-      return new Blob([buffer], { 
-        type: downloadResponse.contentType || 'application/octet-stream' 
+      return new Blob([buffer], {
+        type: downloadResponse.contentType ?? "application/octet-stream",
       });
     } catch (error) {
       throw new Error(`No se pudo descargar el archivo: ${(error as Error).message}`);
@@ -123,7 +132,7 @@ export class AzureStorageProvider extends StorageProvider {
   async delete(filePath: string): Promise<void> {
     const containerName = this.getContainerName(filePath);
     const blobName = this.getBlobName(filePath);
-    
+
     const containerClient = this.blobServiceClient.getContainerClient(containerName);
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
@@ -134,21 +143,15 @@ export class AzureStorageProvider extends StorageProvider {
     }
   }
 
-  async getSignedUrl(
-    filePath: string, 
-    options?: SignedUrlOptions
-  ): Promise<string> {
+  async getSignedUrl(filePath: string, options?: SignedUrlOptions): Promise<string> {
     const containerName = this.getContainerName(filePath);
     const blobName = this.getBlobName(filePath);
-    
-    const expiresIn = options?.expiresIn || 3600; // 1 hora por defecto
-    const permissions = options?.operation === 'write' ? 'w' : 'r';
+
+    const expiresIn = options?.expiresIn ?? 3600; // 1 hora por defecto
+    const permissions = options?.operation === "write" ? "w" : "r";
 
     try {
-      const sharedKeyCredential = new StorageSharedKeyCredential(
-        this.accountName, 
-        this.accountKey
-      );
+      const sharedKeyCredential = new StorageSharedKeyCredential(this.accountName, this.accountKey);
 
       const sasOptions = {
         containerName,
@@ -158,10 +161,7 @@ export class AzureStorageProvider extends StorageProvider {
         expiresOn: new Date(Date.now() + expiresIn * 1000),
       };
 
-      const sasToken = generateBlobSASQueryParameters(
-        sasOptions,
-        sharedKeyCredential
-      ).toString();
+      const sasToken = generateBlobSASQueryParameters(sasOptions, sharedKeyCredential).toString();
 
       const containerClient = this.blobServiceClient.getContainerClient(containerName);
       const blockBlobClient = containerClient.getBlockBlobClient(blobName);
@@ -175,18 +175,18 @@ export class AzureStorageProvider extends StorageProvider {
   async list(prefix: string): Promise<StorageItem[]> {
     const containerName = this.getContainerName(prefix);
     const blobPrefix = this.getBlobName(prefix);
-    
+
     const containerClient = this.blobServiceClient.getContainerClient(containerName);
     const items: StorageItem[] = [];
 
     try {
       for await (const blob of containerClient.listBlobsFlat({ prefix: blobPrefix })) {
         items.push({
-          name: blob.name.split('/').pop() || blob.name,
+          name: blob.name.split("/").pop() ?? blob.name,
           path: `${containerName}/${blob.name}`,
-          size: blob.properties.contentLength || 0,
+          size: blob.properties.contentLength ?? 0,
           lastModified: blob.properties.lastModified || new Date(),
-          mimeType: blob.properties.contentType || 'application/octet-stream'
+          mimeType: blob.properties.contentType ?? "application/octet-stream",
         });
       }
     } catch (error) {
@@ -199,7 +199,7 @@ export class AzureStorageProvider extends StorageProvider {
   async exists(filePath: string): Promise<boolean> {
     const containerName = this.getContainerName(filePath);
     const blobName = this.getBlobName(filePath);
-    
+
     const containerClient = this.blobServiceClient.getContainerClient(containerName);
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
@@ -212,21 +212,21 @@ export class AzureStorageProvider extends StorageProvider {
   }
 
   private parseConnectionString(connectionString: string): { accountName: string; accountKey: string } {
-    const params = new URLSearchParams(connectionString.replace(/;/g, '&'));
-    const accountName = params.get('AccountName');
-    const accountKey = params.get('AccountKey');
-    
+    const params = new URLSearchParams(connectionString.replace(/;/g, "&"));
+    const accountName = params.get("AccountName");
+    const accountKey = params.get("AccountKey");
+
     if (!accountName || !accountKey) {
-      throw new Error('Connection string inválido: falta AccountName o AccountKey');
+      throw new Error("Connection string inválido: falta AccountName o AccountKey");
     }
-    
+
     return { accountName, accountKey };
   }
 
   private getContainerName(filePath: string): string {
     // El primer segmento del path será el nombre del contenedor
     // Ejemplo: "org-123/employees/456/contracts/file.pdf" -> "documents-org-123"
-    const segments = filePath.split('/');
+    const segments = filePath.split("/");
     const orgSegment = segments[0]; // "org-123"
     return `${this.containerPrefix}-${orgSegment}`.toLowerCase();
   }
@@ -234,7 +234,7 @@ export class AzureStorageProvider extends StorageProvider {
   private getBlobName(filePath: string): string {
     // El resto del path después del primer segmento
     // Ejemplo: "org-123/employees/456/contracts/file.pdf" -> "employees/456/contracts/file.pdf"
-    const segments = filePath.split('/');
-    return segments.slice(1).join('/');
+    const segments = filePath.split("/");
+    return segments.slice(1).join("/");
   }
 }

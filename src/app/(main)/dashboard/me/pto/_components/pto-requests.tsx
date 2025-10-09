@@ -1,18 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import {
-  CalendarDays,
-  Plus,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Calendar as CalendarIcon,
-} from "lucide-react";
+
+import { CalendarDays, Plus, CheckCircle2, Clock, XCircle, Calendar as CalendarIcon } from "lucide-react";
+
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { SectionHeader } from "@/components/hr/section-header";
 import {
   Dialog,
   DialogContent,
@@ -21,16 +16,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 
@@ -109,26 +98,18 @@ export function PtoRequests() {
   };
 
   const totalDaysAvailable = 23;
-  const daysUsed = requests
-    .filter((r) => r.status === "approved")
-    .reduce((sum, r) => sum + r.days, 0);
-  const daysPending = requests
-    .filter((r) => r.status === "pending")
-    .reduce((sum, r) => sum + r.days, 0);
+  const daysUsed = requests.filter((r) => r.status === "approved").reduce((sum, r) => sum + r.days, 0);
+  const daysPending = requests.filter((r) => r.status === "pending").reduce((sum, r) => sum + r.days, 0);
   const daysRemaining = totalDaysAvailable - daysUsed - daysPending;
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Mis Vacaciones"
-        actionLabel="Nueva Solicitud"
-        onAction={() => setOpen(true)}
-      />
+      <SectionHeader title="Mis Vacaciones" actionLabel="Nueva Solicitud" onAction={() => setOpen(true)} />
 
       {/* Resumen de días */}
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <CalendarDays className="h-4 w-4" />
             Días disponibles
           </div>
@@ -136,7 +117,7 @@ export function PtoRequests() {
         </Card>
 
         <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <CheckCircle2 className="h-4 w-4" />
             Días usados
           </div>
@@ -144,7 +125,7 @@ export function PtoRequests() {
         </Card>
 
         <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <Clock className="h-4 w-4" />
             Días restantes
           </div>
@@ -159,10 +140,8 @@ export function PtoRequests() {
         <div className="flex flex-col gap-3">
           {requests.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-              <CalendarDays className="h-12 w-12 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                No tienes solicitudes todavía
-              </p>
+              <CalendarDays className="text-muted-foreground h-12 w-12" />
+              <p className="text-muted-foreground text-sm">No tienes solicitudes todavía</p>
             </div>
           ) : (
             requests.map((request) => (
@@ -175,7 +154,7 @@ export function PtoRequests() {
                     <span className="font-semibold">{request.type}</span>
                     {getStatusBadge(request.status)}
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-muted-foreground text-sm">
                     {new Date(request.startDate).toLocaleDateString("es-ES", {
                       day: "numeric",
                       month: "short",
@@ -188,18 +167,12 @@ export function PtoRequests() {
                       year: "numeric",
                     })}
                   </div>
-                  {request.reason && (
-                    <div className="text-sm text-muted-foreground">
-                      {request.reason}
-                    </div>
-                  )}
+                  {request.reason && <div className="text-muted-foreground text-sm">{request.reason}</div>}
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-end">
                     <span className="text-2xl font-bold">{request.days}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {request.days === 1 ? "día" : "días"}
-                    </span>
+                    <span className="text-muted-foreground text-xs">{request.days === 1 ? "día" : "días"}</span>
                   </div>
                 </div>
               </div>
@@ -213,9 +186,7 @@ export function PtoRequests() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Nueva solicitud de vacaciones</DialogTitle>
-            <DialogDescription>
-              Completa el formulario para solicitar días de vacaciones o ausencia.
-            </DialogDescription>
+            <DialogDescription>Completa el formulario para solicitar días de vacaciones o ausencia.</DialogDescription>
           </DialogHeader>
 
           <form className="flex flex-col gap-4">
@@ -247,11 +218,7 @@ export function PtoRequests() {
 
             <div className="flex flex-col gap-2">
               <Label htmlFor="reason">Motivo (opcional)</Label>
-              <Textarea
-                id="reason"
-                placeholder="Describe brevemente el motivo de tu ausencia"
-                rows={3}
-              />
+              <Textarea id="reason" placeholder="Describe brevemente el motivo de tu ausencia" rows={3} />
             </div>
 
             <div className="flex justify-end gap-2">

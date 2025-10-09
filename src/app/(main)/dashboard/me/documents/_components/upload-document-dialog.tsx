@@ -1,40 +1,19 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
 import { Upload, FileText, X, Loader2 } from "lucide-react";
-import {
-  documentKindLabels,
-  formatFileSize,
-  type DocumentKind,
-} from "@/lib/validations/document";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { documentKindLabels, formatFileSize, type DocumentKind } from "@/lib/validations/document";
 
 // Solo tipos de documentos que los empleados pueden subir
 const EMPLOYEE_ALLOWED_TYPES: Record<string, string> = {
@@ -57,11 +36,7 @@ interface UploadDocumentDialogProps {
   onUploadSuccess: () => void;
 }
 
-export function UploadDocumentDialog({
-  open,
-  onOpenChange,
-  onUploadSuccess,
-}: UploadDocumentDialogProps) {
+export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: UploadDocumentDialogProps) {
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -121,7 +96,7 @@ export function UploadDocumentDialog({
       form.setValue("file", file);
       form.clearErrors("file");
     },
-    [form]
+    [form],
   );
 
   // Manejar drag & drop
@@ -145,7 +120,7 @@ export function UploadDocumentDialog({
         handleFileSelect(e.dataTransfer.files[0]);
       }
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   // Manejar input de archivo
@@ -187,7 +162,7 @@ export function UploadDocumentDialog({
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Error al subir documento");
+        throw new Error(result.error ?? "Error al subir documento");
       }
 
       toast.success("Documento subido exitosamente");
@@ -216,15 +191,11 @@ export function UploadDocumentDialog({
             {/* Zona de drag & drop */}
             <div className="space-y-4">
               <div
-                className={`
-                  relative border-2 border-dashed rounded-lg p-8 text-center transition-colors cursor-pointer
-                  ${
-                    dragActive
-                      ? "border-primary bg-primary/5"
-                      : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
-                  }
-                  ${selectedFile ? "border-green-500 bg-green-50 dark:bg-green-950/20" : ""}
-                `}
+                className={`relative cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                  dragActive
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
+                } ${selectedFile ? "border-green-500 bg-green-50 dark:bg-green-950/20" : ""} `}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
@@ -244,9 +215,7 @@ export function UploadDocumentDialog({
                     <div className="flex items-center justify-center gap-3">
                       <FileText className="h-8 w-8 text-green-600" />
                       <div className="text-left">
-                        <p className="font-medium text-green-700 dark:text-green-400">
-                          {selectedFile.name}
-                        </p>
+                        <p className="font-medium text-green-700 dark:text-green-400">{selectedFile.name}</p>
                         <p className="text-sm text-green-600 dark:text-green-500">
                           {formatFileSize(selectedFile.size)}
                         </p>
@@ -270,23 +239,17 @@ export function UploadDocumentDialog({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <Upload className="text-muted-foreground mx-auto h-12 w-12" />
                     <div>
-                      <p className="text-lg font-medium">
-                        Arrastra archivos aquí o haz clic para seleccionar
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        PDF, DOC, DOCX, JPG, PNG, WEBP (máx. 10MB)
-                      </p>
+                      <p className="text-lg font-medium">Arrastra archivos aquí o haz clic para seleccionar</p>
+                      <p className="text-muted-foreground mt-1 text-sm">PDF, DOC, DOCX, JPG, PNG, WEBP (máx. 10MB)</p>
                     </div>
                   </div>
                 )}
               </div>
 
               {form.formState.errors.file && (
-                <p className="text-sm text-destructive">
-                  {form.formState.errors.file.message}
-                </p>
+                <p className="text-destructive text-sm">{form.formState.errors.file.message}</p>
               )}
             </div>
 
@@ -338,12 +301,7 @@ export function UploadDocumentDialog({
 
             {/* Botones */}
             <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-                disabled={isUploading}
-              >
+              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isUploading}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isUploading || !selectedFile}>

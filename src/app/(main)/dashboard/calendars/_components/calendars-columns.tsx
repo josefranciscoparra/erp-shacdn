@@ -1,12 +1,14 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
-import { Badge } from "@/components/ui/badge";
-import { CalendarData } from "@/stores/calendars-store";
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { Calendar, Building2 } from "lucide-react";
 import Link from "next/link";
+
+import { ColumnDef } from "@tanstack/react-table";
+import { Calendar, Building2 } from "lucide-react";
+
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CalendarData } from "@/stores/calendars-store";
 
 const calendarTypeLabels: Record<string, string> = {
   NATIONAL_HOLIDAY: "Nacional",
@@ -30,10 +32,7 @@ export const calendarsColumns: ColumnDef<CalendarData>[] = [
       const calendar = row.original;
       return (
         <div className="flex items-center gap-3">
-          <div
-            className="h-3 w-3 rounded-full"
-            style={{ backgroundColor: calendar.color }}
-          />
+          <div className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
           <Link href={`/dashboard/calendars/${calendar.id}`}>
             <Button variant="link" className="h-auto p-0 font-medium">
               {calendar.name}
@@ -54,12 +53,8 @@ export const calendarsColumns: ColumnDef<CalendarData>[] = [
     accessorKey: "calendarType",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => {
-      const type = row.getValue("calendarType") as string;
-      return (
-        <Badge variant={calendarTypeVariants[type] || "outline"}>
-          {calendarTypeLabels[type] || type}
-        </Badge>
-      );
+      const type = row.getValue("calendarType");
+      return <Badge variant={calendarTypeVariants[type] ?? "outline"}>{calendarTypeLabels[type] ?? type}</Badge>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -85,7 +80,7 @@ export const calendarsColumns: ColumnDef<CalendarData>[] = [
     id: "events",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Eventos" />,
     cell: ({ row }) => {
-      const count = row.original._count?.events || 0;
+      const count = row.original._count?.events ?? 0;
       return (
         <div className="flex items-center gap-2">
           <Calendar className="text-muted-foreground h-4 w-4" />
@@ -99,11 +94,7 @@ export const calendarsColumns: ColumnDef<CalendarData>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const active = row.getValue("active");
-      return (
-        <Badge variant={active ? "default" : "secondary"}>
-          {active ? "Activo" : "Inactivo"}
-        </Badge>
-      );
+      return <Badge variant={active ? "default" : "secondary"}>{active ? "Activo" : "Inactivo"}</Badge>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));

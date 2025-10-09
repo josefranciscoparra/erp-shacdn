@@ -1,6 +1,9 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
+import { MoreHorizontal, Edit, Trash2, Eye, FileText } from "lucide-react";
+
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,8 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { MoreHorizontal, Edit, Trash2, Eye, FileText } from "lucide-react";
 import type { Contract } from "@/stores/contracts-store";
 
 const CONTRACT_TYPES = {
@@ -34,12 +35,10 @@ interface ContractsColumnActions {
 export const getContractsColumns = (actions: ContractsColumnActions = {}): ColumnDef<Contract>[] => [
   {
     accessorKey: "contractType",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Tipo de Contrato" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Contrato" />,
     cell: ({ row }) => {
-      const type = row.getValue("contractType") as keyof typeof CONTRACT_TYPES;
-      const typeLabel = CONTRACT_TYPES[type] || type;
+      const type = row.getValue("contractType");
+      const typeLabel = CONTRACT_TYPES[type] ?? type;
 
       const variant = (() => {
         switch (type) {
@@ -64,67 +63,49 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
   },
   {
     accessorKey: "position",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Puesto" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Puesto" />,
     cell: ({ row }) => {
-      const position = row.getValue("position") as Contract["position"];
+      const position = row.getValue("position");
       return (
         <div className="space-y-1">
           <div className="font-medium">
-            {position?.title || (
-              <span className="text-muted-foreground">Sin puesto asignado</span>
-            )}
+            {position?.title ?? <span className="text-muted-foreground">Sin puesto asignado</span>}
           </div>
-          {position?.level && (
-            <div className="text-muted-foreground text-xs">Nivel: {position.level}</div>
-          )}
+          {position?.level && <div className="text-muted-foreground text-xs">Nivel: {position.level}</div>}
         </div>
       );
     },
   },
   {
     accessorKey: "department",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Departamento" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Departamento" />,
     cell: ({ row }) => {
-      const department = row.getValue("department") as Contract["department"];
+      const department = row.getValue("department");
       return (
         <div className="font-medium">
-          {department?.name || (
-            <span className="text-muted-foreground">Sin departamento</span>
-          )}
+          {department?.name ?? <span className="text-muted-foreground">Sin departamento</span>}
         </div>
       );
     },
   },
   {
     accessorKey: "costCenter",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Centro de Coste" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Centro de Coste" />,
     cell: ({ row }) => {
-      const costCenter = row.getValue("costCenter") as Contract["costCenter"];
+      const costCenter = row.getValue("costCenter");
       return (
         <div className="space-y-1">
           <div className="font-medium">
-            {costCenter?.name || (
-              <span className="text-muted-foreground">Sin centro</span>
-            )}
+            {costCenter?.name ?? <span className="text-muted-foreground">Sin centro</span>}
           </div>
-          {costCenter?.code && (
-            <div className="text-muted-foreground font-mono text-xs">{costCenter.code}</div>
-          )}
+          {costCenter?.code && <div className="text-muted-foreground font-mono text-xs">{costCenter.code}</div>}
         </div>
       );
     },
   },
   {
     accessorKey: "startDate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Fecha Inicio" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Inicio" />,
     cell: ({ row }) => {
       const date = new Date(row.getValue("startDate"));
       return (
@@ -140,11 +121,9 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
   },
   {
     accessorKey: "endDate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Fecha Fin" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Fin" />,
     cell: ({ row }) => {
-      const endDate = row.getValue("endDate") as string | null;
+      const endDate = row.getValue("endDate");
       if (!endDate) {
         return <span className="text-muted-foreground">Sin fecha</span>;
       }
@@ -163,39 +142,25 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
   },
   {
     accessorKey: "weeklyHours",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Jornada" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
     cell: ({ row }) => {
-      const hours = row.getValue("weeklyHours") as number;
-      return (
-        <div className="font-medium">
-          {hours}h/semana
-        </div>
-      );
+      const hours = row.getValue("weeklyHours");
+      return <div className="font-medium">{hours}h/semana</div>;
     },
   },
   {
     accessorKey: "grossSalary",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Salario Bruto" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Salario Bruto" />,
     cell: ({ row }) => {
-      const salary = row.getValue("grossSalary") as number | null;
-      return (
-        <div className="font-medium">
-          {salary ? `${salary.toLocaleString("es-ES") } €` : "No especificado"}
-        </div>
-      );
+      const salary = row.getValue("grossSalary");
+      return <div className="font-medium">{salary ? `${salary.toLocaleString("es-ES")} €` : "No especificado"}</div>;
     },
   },
   {
     accessorKey: "manager",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Responsable" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Responsable" />,
     cell: ({ row }) => {
-      const manager = row.getValue("manager") as Contract["manager"];
+      const manager = row.getValue("manager");
       if (!manager) {
         return <span className="text-muted-foreground">Sin responsable</span>;
       }
@@ -206,16 +171,10 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
   },
   {
     accessorKey: "active",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Estado" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
-      const active = row.getValue("active") as boolean;
-      return (
-        <Badge variant={active ? "default" : "secondary"}>
-          {active ? "Activo" : "Finalizado"}
-        </Badge>
-      );
+      const active = row.getValue("active");
+      return <Badge variant={active ? "default" : "secondary"}>{active ? "Activo" : "Finalizado"}</Badge>;
     },
   },
   {
@@ -223,11 +182,13 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
     cell: ({ row }) => {
       const contract = row.original;
 
-      const handle = <T extends (...args: any[]) => void | Promise<void>>(fn: T | undefined) => () => {
-        if (fn) {
-          fn(contract);
-        }
-      };
+      const handle =
+        <T extends (...args: any[]) => void | Promise<void>>(fn: T | undefined) =>
+        () => {
+          if (fn) {
+            fn(contract);
+          }
+        };
 
       return (
         <DropdownMenu>
@@ -269,4 +230,3 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
     },
   },
 ];
-

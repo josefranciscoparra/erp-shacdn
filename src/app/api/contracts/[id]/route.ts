@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+
 import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 const updateContractSchema = z.object({
-  contractType: z.enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"]).optional(),
+  contractType: z
+    .enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"])
+    .optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional().nullable(),
   weeklyHours: z.number().min(1).max(60).optional(),
@@ -50,11 +54,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           select: { id: true, name: true, code: true },
         },
         manager: {
-          select: { 
-            id: true, 
-            firstName: true, 
+          select: {
+            id: true,
+            firstName: true,
             lastName: true,
-            secondLastName: true 
+            secondLastName: true,
           },
         },
       },
@@ -85,12 +89,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     const body = await request.json();
     const validation = updateContractSchema.safeParse(body);
-    
+
     if (!validation.success) {
-      return NextResponse.json({ 
-        error: "Datos inválidos", 
-        details: validation.error.issues 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Datos inválidos",
+          details: validation.error.issues,
+        },
+        { status: 400 },
+      );
     }
 
     const data = validation.data;
@@ -122,9 +129,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Validar fechas si se proporcionan
     if (updateData.startDate && updateData.endDate && updateData.endDate <= updateData.startDate) {
-      return NextResponse.json({ 
-        error: "La fecha de fin debe ser posterior a la fecha de inicio" 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "La fecha de fin debe ser posterior a la fecha de inicio",
+        },
+        { status: 400 },
+      );
     }
 
     // Si se está desactivando un contrato, verificar que no sea el único activo
@@ -157,11 +167,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
           select: { id: true, name: true, code: true },
         },
         manager: {
-          select: { 
-            id: true, 
-            firstName: true, 
+          select: {
+            id: true,
+            firstName: true,
             lastName: true,
-            secondLastName: true 
+            secondLastName: true,
           },
         },
       },
@@ -204,9 +214,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       data: { active: false },
     });
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       message: "Contrato desactivado exitosamente",
-      contract: deletedContract 
+      contract: deletedContract,
     });
   } catch (error) {
     console.error("Error al eliminar contrato:", error);

@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
+
 import { auth } from "@/lib/auth";
 
 // Rutas públicas que no requieren autenticación

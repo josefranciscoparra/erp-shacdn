@@ -1,27 +1,27 @@
-import { StorageProvider, type StorageConfig, type StorageProviderType } from './types';
-import { AzureStorageProvider } from './providers/azure';
-import { LocalStorageProvider } from './providers/local';
-import { R2StorageProvider } from './providers/r2';
+import { AzureStorageProvider } from "./providers/azure";
+import { LocalStorageProvider } from "./providers/local";
+import { R2StorageProvider } from "./providers/r2";
+import type { StorageConfig, StorageProvider, StorageProviderType } from "./types";
 
 // Configuración por defecto
 const defaultConfig: StorageConfig = {
-  provider: (process.env.STORAGE_PROVIDER as StorageProviderType) || 'local',
+  provider: (process.env.STORAGE_PROVIDER as StorageProviderType) || "local",
   azure: {
-    connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING || '',
-    containerPrefix: process.env.AZURE_CONTAINER_PREFIX || 'documents'
+    connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING ?? "",
+    containerPrefix: process.env.AZURE_CONTAINER_PREFIX ?? "documents",
   },
   r2: {
-    accountId: process.env.R2_ACCOUNT_ID || '',
-    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
-    bucket: process.env.R2_BUCKET || '',
-    endpoint: process.env.R2_ENDPOINT || undefined,
-    publicUrl: process.env.R2_PUBLIC_URL || undefined
+    accountId: process.env.R2_ACCOUNT_ID ?? "",
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? "",
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? "",
+    bucket: process.env.R2_BUCKET ?? "",
+    endpoint: process.env.R2_ENDPOINT ?? undefined,
+    publicUrl: process.env.R2_PUBLIC_URL ?? undefined,
   },
   local: {
-    basePath: process.env.LOCAL_STORAGE_PATH || './uploads',
-    baseUrl: process.env.LOCAL_STORAGE_URL || '/uploads'
-  }
+    basePath: process.env.LOCAL_STORAGE_PATH ?? "./uploads",
+    baseUrl: process.env.LOCAL_STORAGE_URL ?? "/uploads",
+  },
 };
 
 // Factory function para crear el provider correcto
@@ -29,22 +29,24 @@ export function createStorageProvider(config?: Partial<StorageConfig>): StorageP
   const finalConfig = { ...defaultConfig, ...config };
 
   switch (finalConfig.provider) {
-    case 'azure':
+    case "azure":
       if (!finalConfig.azure?.connectionString) {
-        throw new Error('AZURE_STORAGE_CONNECTION_STRING es requerido para el proveedor Azure');
+        throw new Error("AZURE_STORAGE_CONNECTION_STRING es requerido para el proveedor Azure");
       }
-      return new AzureStorageProvider(
-        finalConfig.azure.connectionString,
-        finalConfig.azure.containerPrefix
-      );
+      return new AzureStorageProvider(finalConfig.azure.connectionString, finalConfig.azure.containerPrefix);
 
-    case 'aws':
+    case "aws":
       // TODO: Implementar S3StorageProvider cuando sea necesario
-      throw new Error('AWS S3 provider no implementado aún');
+      throw new Error("AWS S3 provider no implementado aún");
 
-    case 'r2':
-      if (!finalConfig.r2?.accountId || !finalConfig.r2.accessKeyId || !finalConfig.r2.secretAccessKey || !finalConfig.r2.bucket) {
-        throw new Error('R2 requiere R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET configurados');
+    case "r2":
+      if (
+        !finalConfig.r2?.accountId ||
+        !finalConfig.r2.accessKeyId ||
+        !finalConfig.r2.secretAccessKey ||
+        !finalConfig.r2.bucket
+      ) {
+        throw new Error("R2 requiere R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET configurados");
       }
 
       return new R2StorageProvider({
@@ -53,42 +55,34 @@ export function createStorageProvider(config?: Partial<StorageConfig>): StorageP
         secretAccessKey: finalConfig.r2.secretAccessKey,
         bucket: finalConfig.r2.bucket,
         endpoint: finalConfig.r2.endpoint,
-        publicUrl: finalConfig.r2.publicUrl
+        publicUrl: finalConfig.r2.publicUrl,
       });
 
-    case 'local':
+    case "local":
     default:
-      return new LocalStorageProvider(
-        finalConfig.local?.basePath,
-        finalConfig.local?.baseUrl
-      );
+      return new LocalStorageProvider(finalConfig.local?.basePath, finalConfig.local?.baseUrl);
   }
 }
 
 // Instancia singleton del storage provider
-let _storageProvider: StorageProvider | null = null;
+let storageProviderSingleton: StorageProvider | null = null;
 
 export function getStorageProvider(): StorageProvider {
-  if (!_storageProvider) {
-    _storageProvider = createStorageProvider();
-  }
-  return _storageProvider;
+  storageProviderSingleton ??= createStorageProvider();
+  return storageProviderSingleton;
 }
 
 // Función para limpiar la instancia (útil para testing)
 export function resetStorageProvider(): void {
-  _storageProvider = null;
+  storageProviderSingleton = null;
 }
-
-// Re-export de tipos útiles
-export type { StorageProvider, UploadResult, StorageItem, UploadOptions, DownloadOptions, SignedUrlOptions } from './types';
 
 // Helpers para trabajar con documentos
 export class DocumentStorageService {
   private storageProvider: StorageProvider;
 
   constructor(provider?: StorageProvider) {
-    this.storageProvider = provider || getStorageProvider();
+    this.storageProvider = provider ?? getStorageProvider();
   }
 
   // Subir documento de empleado
@@ -97,11 +91,11 @@ export class DocumentStorageService {
     employeeId: string,
     file: File,
     documentKind: string,
-    metadata?: Record<string, string>
+    metadata?: Record<string, string>,
   ) {
     const fileName = file.name;
     const path = this.generateDocumentPath(orgId, employeeId, fileName, documentKind);
-    
+
     return await this.storageProvider.upload(file, path, {
       mimeType: file.type,
       metadata: {
@@ -109,8 +103,8 @@ export class DocumentStorageService {
         employeeId,
         documentKind,
         originalName: fileName,
-        ...metadata
-      }
+        ...metadata,
+      },
     });
   }
 
@@ -136,21 +130,16 @@ export class DocumentStorageService {
   }
 
   // Generar path para documento
-  private generateDocumentPath(
-    orgId: string,
-    employeeId: string,
-    fileName: string,
-    documentKind: string
-  ): string {
+  private generateDocumentPath(orgId: string, employeeId: string, fileName: string, documentKind: string): string {
     const timestamp = Date.now();
-    const extension = fileName.split('.').pop();
+    const extension = fileName.split(".").pop();
     const sanitizedName = fileName
-      .replace(`.${extension}`, '')
-      .replace(/[^a-zA-Z0-9.-]/g, '_')
+      .replace(`.${extension}`, "")
+      .replace(/[^a-zA-Z0-9.-]/g, "_")
       .toLowerCase();
-    
+
     const finalFileName = `${timestamp}-${sanitizedName}.${extension}`;
-    
+
     return `org-${orgId}/employees/${employeeId}/${documentKind}/${finalFileName}`;
   }
 }

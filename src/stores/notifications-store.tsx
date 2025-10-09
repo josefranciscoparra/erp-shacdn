@@ -1,6 +1,7 @@
 "use client";
 
 import { create } from "zustand";
+
 import {
   getMyNotifications,
   getUnreadNotificationsCount,
@@ -92,9 +93,7 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
       await markNotificationAsRead(notificationId);
 
       // Actualizar estado local
-      const notifications = get().notifications.map((n) =>
-        n.id === notificationId ? { ...n, isRead: true } : n
-      );
+      const notifications = get().notifications.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n));
 
       const unreadCount = notifications.filter((n) => !n.isRead).length;
 

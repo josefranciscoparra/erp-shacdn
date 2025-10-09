@@ -1,14 +1,9 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface SimplePaginationProps {
   currentPage: number;
@@ -42,10 +37,7 @@ export function SimplePagination({
         {onPageSizeChange && (
           <div className="hidden items-center gap-2 lg:flex">
             <p className="text-sm font-medium">Filas por página</p>
-            <Select
-              value={pageSize.toString()}
-              onValueChange={(value) => onPageSizeChange(parseInt(value))}
-            >
+            <Select value={pageSize.toString()} onValueChange={(value) => onPageSizeChange(parseInt(value))}>
               <SelectTrigger className="h-8 w-[70px]">
                 <SelectValue placeholder={pageSize.toString()} />
               </SelectTrigger>

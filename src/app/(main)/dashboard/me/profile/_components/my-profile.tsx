@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+
 import { User, Mail, Phone, MapPin, Briefcase, Calendar, Save } from "lucide-react";
+import { toast } from "sonner";
+
+import { SectionHeader } from "@/components/hr/section-header";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SectionHeader } from "@/components/hr/section-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AppearanceSettings } from "./appearance-settings";
 import { updateProfileData, type ProfileData } from "@/server/actions/profile";
-import { toast } from "sonner";
+
+import { AppearanceSettings } from "./appearance-settings";
 
 interface MyProfileProps {
   initialData: ProfileData;
@@ -20,15 +23,15 @@ export function MyProfile({ initialData }: MyProfileProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    phone: initialData.employee?.phone || "",
-    mobilePhone: initialData.employee?.mobilePhone || "",
-    address: initialData.employee?.address || "",
-    city: initialData.employee?.city || "",
-    postalCode: initialData.employee?.postalCode || "",
-    province: initialData.employee?.province || "",
-    emergencyContactName: initialData.employee?.emergencyContactName || "",
-    emergencyContactPhone: initialData.employee?.emergencyContactPhone || "",
-    emergencyRelationship: initialData.employee?.emergencyRelationship || "",
+    phone: initialData.employee?.phone ?? "",
+    mobilePhone: initialData.employee?.mobilePhone ?? "",
+    address: initialData.employee?.address ?? "",
+    city: initialData.employee?.city ?? "",
+    postalCode: initialData.employee?.postalCode ?? "",
+    province: initialData.employee?.province ?? "",
+    emergencyContactName: initialData.employee?.emergencyContactName ?? "",
+    emergencyContactPhone: initialData.employee?.emergencyContactPhone ?? "",
+    emergencyRelationship: initialData.employee?.emergencyRelationship ?? "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,7 +48,7 @@ export function MyProfile({ initialData }: MyProfileProps) {
         setIsEditing(false);
       } else {
         toast.error("Error", {
-          description: result.error || "No se pudo actualizar el perfil.",
+          description: result.error ?? "No se pudo actualizar el perfil.",
         });
       }
     } catch (error) {
@@ -64,15 +67,15 @@ export function MyProfile({ initialData }: MyProfileProps) {
   const handleCancel = () => {
     // Resetear datos al cancelar
     setFormData({
-      phone: initialData.employee?.phone || "",
-      mobilePhone: initialData.employee?.mobilePhone || "",
-      address: initialData.employee?.address || "",
-      city: initialData.employee?.city || "",
-      postalCode: initialData.employee?.postalCode || "",
-      province: initialData.employee?.province || "",
-      emergencyContactName: initialData.employee?.emergencyContactName || "",
-      emergencyContactPhone: initialData.employee?.emergencyContactPhone || "",
-      emergencyRelationship: initialData.employee?.emergencyRelationship || "",
+      phone: initialData.employee?.phone ?? "",
+      mobilePhone: initialData.employee?.mobilePhone ?? "",
+      address: initialData.employee?.address ?? "",
+      city: initialData.employee?.city ?? "",
+      postalCode: initialData.employee?.postalCode ?? "",
+      province: initialData.employee?.province ?? "",
+      emergencyContactName: initialData.employee?.emergencyContactName ?? "",
+      emergencyContactPhone: initialData.employee?.emergencyContactPhone ?? "",
+      emergencyRelationship: initialData.employee?.emergencyRelationship ?? "",
     });
     setIsEditing(false);
   };
@@ -98,7 +101,7 @@ export function MyProfile({ initialData }: MyProfileProps) {
       : initialData.activeContract.position.title
     : "Sin puesto asignado";
 
-  const department = initialData.activeContract?.department?.name || "Sin departamento";
+  const department = initialData.activeContract?.department?.name ?? "Sin departamento";
 
   const contractTypeLabels: Record<string, string> = {
     INDEFINIDO: "Indefinido",
@@ -109,69 +112,56 @@ export function MyProfile({ initialData }: MyProfileProps) {
   };
 
   const contractType = initialData.activeContract
-    ? contractTypeLabels[initialData.activeContract.contractType] ||
-      initialData.activeContract.contractType
+    ? contractTypeLabels[initialData.activeContract.contractType] || initialData.activeContract.contractType
     : "Sin contrato";
 
-  const weeklyHours = initialData.activeContract
-    ? `${initialData.activeContract.weeklyHours}h/semana`
-    : "No definido";
+  const weeklyHours = initialData.activeContract ? `${initialData.activeContract.weeklyHours}h/semana` : "No definido";
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Mi Perfil"
-        actionLabel={isEditing ? "Cancelar" : "Editar Perfil"}
-        onAction={handleCancel}
-      />
+      <SectionHeader title="Mi Perfil" actionLabel={isEditing ? "Cancelar" : "Editar Perfil"} onAction={handleCancel} />
 
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         {/* Información personal */}
         <Card className="@container/card flex flex-col items-center gap-4 p-6 @xl/main:col-span-1">
           <Avatar className="h-32 w-32">
-            <AvatarImage
-              src={initialData.employee?.photoUrl || initialData.user.image || undefined}
-              alt="Avatar"
-            />
+            <AvatarImage src={initialData.employee?.photoUrl ?? initialData.user.image ?? undefined} alt="Avatar" />
             <AvatarFallback>{initials}</AvatarFallback>
           </Avatar>
 
           <div className="text-center">
             <h2 className="text-2xl font-bold">{fullName}</h2>
-            <p className="text-sm text-muted-foreground">{position}</p>
+            <p className="text-muted-foreground text-sm">{position}</p>
           </div>
 
           {!isEditing && (
             <div className="flex w-full flex-col gap-3">
               <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Mail className="h-4 w-4 text-muted-foreground" />
+                <Mail className="text-muted-foreground h-4 w-4" />
                 <span className="text-sm">{initialData.user.email}</span>
               </div>
 
               {formData.mobilePhone && (
                 <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <Phone className="text-muted-foreground h-4 w-4" />
                   <span className="text-sm">{formData.mobilePhone}</span>
                 </div>
               )}
 
               <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Briefcase className="h-4 w-4 text-muted-foreground" />
+                <Briefcase className="text-muted-foreground h-4 w-4" />
                 <span className="text-sm">{department}</span>
               </div>
 
               {initialData.activeContract?.startDate && (
                 <div className="flex items-center gap-3 rounded-lg border p-3">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Calendar className="text-muted-foreground h-4 w-4" />
                   <span className="text-sm">
                     Desde{" "}
-                    {new Date(initialData.activeContract.startDate).toLocaleDateString(
-                      "es-ES",
-                      {
-                        month: "long",
-                        year: "numeric",
-                      }
-                    )}
+                    {new Date(initialData.activeContract.startDate).toLocaleDateString("es-ES", {
+                      month: "long",
+                      year: "numeric",
+                    })}
                   </span>
                 </div>
               )}
@@ -289,16 +279,16 @@ export function MyProfile({ initialData }: MyProfileProps) {
           <h3 className="text-lg font-semibold">Información laboral</h3>
           <div className="flex flex-col gap-3">
             <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Tipo de contrato</span>
+              <span className="text-muted-foreground text-sm">Tipo de contrato</span>
               <span className="font-medium">{contractType}</span>
             </div>
             <div className="flex justify-between rounded-lg border p-3">
-              <span className="text-sm text-muted-foreground">Jornada</span>
+              <span className="text-muted-foreground text-sm">Jornada</span>
               <span className="font-medium">{weeklyHours}</span>
             </div>
             {initialData.activeContract?.costCenter && (
               <div className="flex justify-between rounded-lg border p-3">
-                <span className="text-sm text-muted-foreground">Centro</span>
+                <span className="text-muted-foreground text-sm">Centro</span>
                 <span className="font-medium">{initialData.activeContract.costCenter.name}</span>
               </div>
             )}
@@ -359,24 +349,24 @@ export function MyProfile({ initialData }: MyProfileProps) {
               {formData.emergencyContactName ? (
                 <>
                   <div className="flex justify-between rounded-lg border p-3">
-                    <span className="text-sm text-muted-foreground">Nombre</span>
+                    <span className="text-muted-foreground text-sm">Nombre</span>
                     <span className="font-medium">{formData.emergencyContactName}</span>
                   </div>
                   {formData.emergencyRelationship && (
                     <div className="flex justify-between rounded-lg border p-3">
-                      <span className="text-sm text-muted-foreground">Relación</span>
+                      <span className="text-muted-foreground text-sm">Relación</span>
                       <span className="font-medium">{formData.emergencyRelationship}</span>
                     </div>
                   )}
                   {formData.emergencyContactPhone && (
                     <div className="flex justify-between rounded-lg border p-3">
-                      <span className="text-sm text-muted-foreground">Teléfono</span>
+                      <span className="text-muted-foreground text-sm">Teléfono</span>
                       <span className="font-medium">{formData.emergencyContactPhone}</span>
                     </div>
                   )}
                 </>
               ) : (
-                <p className="text-sm text-muted-foreground">No hay contacto de emergencia registrado</p>
+                <p className="text-muted-foreground text-sm">No hay contacto de emergencia registrado</p>
               )}
             </div>
           )}

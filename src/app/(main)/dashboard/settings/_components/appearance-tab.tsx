@@ -1,16 +1,17 @@
 "use client";
 
+import { Moon, Sun, Palette } from "lucide-react";
+import { toast } from "sonner";
+
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { updateThemeMode, updateThemePreset } from "@/server/actions/preferences";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
 import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS } from "@/types/preferences/theme";
-import { updateThemeMode, updateThemePreset } from "@/server/actions/preferences";
-import { Moon, Sun, Palette } from "lucide-react";
 // import { useLocale } from "next-intl";
 // import { useRouter } from "next/navigation";
-import { toast } from "sonner";
 
 export function AppearanceTab() {
   const { themeMode, themePreset, setThemeMode, setThemePreset } = usePreferencesStore((state) => state);
@@ -61,11 +62,7 @@ export function AppearanceTab() {
                 >
                   <RadioGroupItem value={option.value} id={`theme-${option.value}`} />
                   <div className="flex items-center gap-2">
-                    {option.value === "light" ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
+                    {option.value === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     <span className="font-medium">{option.label}</span>
                   </div>
                 </Label>

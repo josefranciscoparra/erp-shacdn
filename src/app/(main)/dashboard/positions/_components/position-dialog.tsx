@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,19 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { positionSchema, type PositionFormData } from "./position-schema";
+import { Textarea } from "@/components/ui/textarea";
 import { useOrganizationStore, type Position } from "@/stores/organization-store";
+
+import { positionSchema, type PositionFormData } from "./position-schema";
 
 interface PositionDialogProps {
   open: boolean;
@@ -33,7 +29,8 @@ interface PositionDialogProps {
 }
 
 export function PositionDialog({ open, onOpenChange, position }: PositionDialogProps) {
-  const { createPosition, updatePositionById, fetchPositions, positionLevels, fetchPositionLevels } = useOrganizationStore();
+  const { createPosition, updatePositionById, fetchPositions, positionLevels, fetchPositionLevels } =
+    useOrganizationStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<PositionFormData>({
@@ -55,8 +52,8 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
     if (position) {
       form.reset({
         title: position.title,
-        description: position.description || undefined,
-        levelId: position.levelId || undefined,
+        description: position.description ?? undefined,
+        levelId: position.levelId ?? undefined,
       });
     } else {
       form.reset({
@@ -90,14 +87,11 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
-            {position ? "Editar puesto de trabajo" : "Nuevo puesto de trabajo"}
-          </DialogTitle>
+          <DialogTitle>{position ? "Editar puesto de trabajo" : "Nuevo puesto de trabajo"}</DialogTitle>
           <DialogDescription>
             {position
               ? "Modifica los datos del puesto seleccionado."
-              : "Completa la información para crear un nuevo puesto de trabajo."
-            }
+              : "Completa la información para crear un nuevo puesto de trabajo."}
           </DialogDescription>
         </DialogHeader>
 
@@ -124,7 +118,7 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
                 <FormItem>
                   <FormLabel>Nivel</FormLabel>
                   <Select
-                    value={field.value || "none"}
+                    value={field.value ?? "none"}
                     onValueChange={(value) => field.onChange(value === "none" ? undefined : value)}
                   >
                     <FormControl>
@@ -160,7 +154,7 @@ export function PositionDialog({ open, onOpenChange, position }: PositionDialogP
                       placeholder="Descripción del puesto de trabajo..."
                       className="min-h-[100px]"
                       {...field}
-                      value={field.value || ""}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage />

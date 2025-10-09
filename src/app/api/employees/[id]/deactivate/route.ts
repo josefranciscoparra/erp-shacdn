@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
+
+import { z } from "zod";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { z } from "zod";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

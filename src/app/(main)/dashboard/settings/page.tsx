@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { ShieldAlert } from "lucide-react";
+
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
-import { ShieldAlert } from "lucide-react";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { OrganizationTab } from "./_components/organization-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 
@@ -33,10 +36,7 @@ export default function SettingsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Configuración"
-          subtitle="Gestiona las preferencias de tu organización"
-        />
+        <SectionHeader title="Configuración" subtitle="Gestiona las preferencias de tu organización" />
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <div className="flex items-center justify-between gap-4">

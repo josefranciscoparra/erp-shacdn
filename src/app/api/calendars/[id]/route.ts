@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -82,11 +83,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name: body.name !== undefined ? body.name : existingCalendar.name,
         description: body.description !== undefined ? body.description : existingCalendar.description,
         year: body.year !== undefined ? body.year : existingCalendar.year,
-        calendarType:
-          body.calendarType !== undefined ? body.calendarType : existingCalendar.calendarType,
+        calendarType: body.calendarType !== undefined ? body.calendarType : existingCalendar.calendarType,
         color: body.color !== undefined ? body.color : existingCalendar.color,
-        costCenterId:
-          body.costCenterId !== undefined ? body.costCenterId : existingCalendar.costCenterId,
+        costCenterId: body.costCenterId !== undefined ? body.costCenterId : existingCalendar.costCenterId,
         active: body.active !== undefined ? body.active : existingCalendar.active,
       },
       include: {

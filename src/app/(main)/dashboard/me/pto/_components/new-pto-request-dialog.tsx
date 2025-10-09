@@ -1,33 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarIcon, Loader2, AlertCircle, CheckCircle } from "lucide-react";
-import { usePtoStore } from "@/stores/pto-store";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { calculateWorkingDays } from "@/server/actions/employee-pto";
+import { usePtoStore } from "@/stores/pto-store";
 
 interface NewPtoRequestDialogProps {
   open: boolean;
@@ -114,9 +104,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
-          <DialogDescription>
-            Completa el formulario para solicitar días de ausencia
-          </DialogDescription>
+          <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -143,19 +131,14 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 {absenceTypes.map((type) => (
                   <SelectItem key={type.id} value={type.id}>
                     <div className="flex items-center gap-2">
-                      <div
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: type.color }}
-                      />
+                      <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
                       {type.name}
                     </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            {selectedType?.description && (
-              <p className="text-xs text-muted-foreground">{selectedType.description}</p>
-            )}
+            {selectedType?.description && <p className="text-muted-foreground text-xs">{selectedType.description}</p>}
           </div>
 
           {/* Fechas */}
@@ -166,10 +149,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={cn(
-                      "justify-start text-left font-normal",
-                      !startDate && "text-muted-foreground"
-                    )}
+                    className={cn("justify-start text-left font-normal", !startDate && "text-muted-foreground")}
                     disabled={!hasActiveContract}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -194,10 +174,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className={cn(
-                      "justify-start text-left font-normal",
-                      !endDate && "text-muted-foreground"
-                    )}
+                    className={cn("justify-start text-left font-normal", !endDate && "text-muted-foreground")}
                     disabled={!hasActiveContract}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -222,14 +199,12 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
           {/* Cálculo de días hábiles */}
           {startDate && endDate && (
-            <Alert className={cn(
-              !hasEnoughDays && "border-destructive bg-destructive/10"
-            )}>
+            <Alert className={cn(!hasEnoughDays && "border-destructive bg-destructive/10")}>
               <div className="flex items-start gap-2">
                 {isCalculating ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : !hasEnoughDays ? (
-                  <AlertCircle className="h-4 w-4 text-destructive" />
+                  <AlertCircle className="text-destructive h-4 w-4" />
                 ) : (
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 )}
@@ -243,14 +218,12 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                           {workingDaysCalc} {workingDaysCalc === 1 ? "día hábil" : "días hábiles"}
                         </p>
                         {holidays.length > 0 && (
-                          <p className="mt-1 text-xs">
-                            Festivos en el rango: {holidays.map((h) => h.name).join(", ")}
-                          </p>
+                          <p className="mt-1 text-xs">Festivos en el rango: {holidays.map((h) => h.name).join(", ")}</p>
                         )}
                         {!hasEnoughDays && (
-                          <p className="mt-1 text-xs text-destructive">
+                          <p className="text-destructive mt-1 text-xs">
                             No tienes suficientes días disponibles (faltan{" "}
-                            {(workingDaysCalc - (balance?.daysAvailable || 0)).toFixed(1)} días)
+                            {(workingDaysCalc - (balance?.daysAvailable ?? 0)).toFixed(1)} días)
                           </p>
                         )}
                       </>
@@ -276,12 +249,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
           {/* Botones */}
           <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
             <Button

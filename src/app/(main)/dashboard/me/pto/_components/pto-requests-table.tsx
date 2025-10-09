@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -13,27 +13,12 @@ import {
   type SortingState,
   type ColumnFiltersState,
 } from "@tanstack/react-table";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +29,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
   PENDING: {
@@ -106,10 +101,7 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
           const type = row.original.absenceType;
           return (
             <div className="flex items-center gap-2">
-              <div
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: type.color }}
-              />
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
               <span className="font-medium">{type.name}</span>
             </div>
           );
@@ -128,9 +120,7 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => (
-          <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>
-        ),
+        cell: ({ row }) => <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>,
       },
       {
         accessorKey: "status",
@@ -183,7 +173,7 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
         },
       },
     ],
-    [cancelRequest]
+    [cancelRequest],
   );
 
   // Filtrar solicitudes según el tab seleccionado
@@ -193,18 +183,11 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
 
     switch (status) {
       case "active":
-        return requests.filter(
-          (r) => r.status === "APPROVED" && new Date(r.startDate) >= now
-        );
+        return requests.filter((r) => r.status === "APPROVED" && new Date(r.startDate) >= now);
       case "pending":
         return requests.filter((r) => r.status === "PENDING");
       case "history":
-        return requests.filter(
-          (r) =>
-            r.status === "APPROVED" ||
-            r.status === "REJECTED" ||
-            r.status === "CANCELLED"
-        );
+        return requests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED" || r.status === "CANCELLED");
       default:
         return requests;
     }
@@ -239,9 +222,7 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
               </TableRow>
@@ -252,9 +233,7 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
@@ -277,15 +256,12 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Cancelar solicitud?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción no se puede deshacer. La solicitud será marcada como cancelada
-              y se notificará al aprobador.
+              Esta acción no se puede deshacer. La solicitud será marcada como cancelada y se notificará al aprobador.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>No, mantener</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCancelRequest}>
-              Sí, cancelar
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleCancelRequest}>Sí, cancelar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

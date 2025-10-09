@@ -2,10 +2,11 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 
-import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 import { Employee } from "../types";
+
 import { EmployeeActions } from "./employee-actions";
 
 export const employeesColumns: ColumnDef<Employee>[] = [
@@ -14,7 +15,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Nº Empleado",
     cell: ({ row }) => {
       const employee = row.original;
-      return <span className="font-mono text-xs">{employee.employeeNumber || "Sin asignar"}</span>;
+      return <span className="font-mono text-xs">{employee.employeeNumber ?? "Sin asignar"}</span>;
     },
     meta: {
       className: "hidden lg:table-cell w-20",
@@ -45,7 +46,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
                 </Badge>
               )}
             </div>
-            <span className="text-muted-foreground text-xs">{employee.email || "Sin email"}</span>
+            <span className="text-muted-foreground text-xs">{employee.email ?? "Sin email"}</span>
           </div>
         </div>
       );
@@ -56,7 +57,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Departamento",
     cell: ({ row }) => {
       const employee = row.original;
-      return employee.department?.name || "Sin asignar";
+      return employee.department?.name ?? "Sin asignar";
     },
     meta: {
       className: "hidden md:table-cell",
@@ -67,7 +68,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     header: "Puesto",
     cell: ({ row }) => {
       const employee = row.original;
-      return employee.position?.title || "Sin asignar";
+      return employee.position?.title ?? "Sin asignar";
     },
     meta: {
       className: "hidden sm:table-cell",

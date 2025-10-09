@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,20 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { costCenterSchema, type CostCenterFormData } from "./cost-center-schema";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { useCostCentersStore, type CostCenterData } from "@/stores/cost-centers-store";
+
+import { costCenterSchema, type CostCenterFormData } from "./cost-center-schema";
 
 interface CostCenterDialogProps {
   open: boolean;
@@ -35,7 +31,7 @@ interface CostCenterDialogProps {
 
 const timezones = [
   "Europe/Madrid",
-  "Europe/London", 
+  "Europe/London",
   "America/New_York",
   "America/Los_Angeles",
   "America/Mexico_City",
@@ -63,9 +59,9 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
     if (costCenter) {
       form.reset({
         name: costCenter.name,
-        code: costCenter.code || undefined,
-        address: costCenter.address || undefined,
-        timezone: costCenter.timezone || undefined,
+        code: costCenter.code ?? undefined,
+        address: costCenter.address ?? undefined,
+        timezone: costCenter.timezone ?? undefined,
         active: costCenter.active,
       });
     } else {
@@ -98,14 +94,11 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>
-            {costCenter ? "Editar centro de coste" : "Nuevo centro de coste"}
-          </DialogTitle>
+          <DialogTitle>{costCenter ? "Editar centro de coste" : "Nuevo centro de coste"}</DialogTitle>
           <DialogDescription>
-            {costCenter 
-              ? "Modifica los datos del centro de coste seleccionado." 
-              : "Completa la información para crear un nuevo centro de coste."
-            }
+            {costCenter
+              ? "Modifica los datos del centro de coste seleccionado."
+              : "Completa la información para crear un nuevo centro de coste."}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,11 +125,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                 <FormItem>
                   <FormLabel>Código</FormLabel>
                   <FormControl>
-                    <Input 
-                      placeholder="Ej: OFF-001" 
-                      {...field} 
-                      value={field.value || ""} 
-                    />
+                    <Input placeholder="Ej: OFF-001" {...field} value={field.value ?? ""} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -150,11 +139,11 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                 <FormItem>
                   <FormLabel>Dirección</FormLabel>
                   <FormControl>
-                    <Textarea 
+                    <Textarea
                       placeholder="Dirección completa del centro de coste..."
                       className="min-h-[80px]"
-                      {...field} 
-                      value={field.value || ""} 
+                      {...field}
+                      value={field.value ?? ""}
                     />
                   </FormControl>
                   <FormMessage />
@@ -168,10 +157,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Zona Horaria</FormLabel>
-                  <Select 
-                    value={field.value || "none"} 
-                    onValueChange={field.onChange}
-                  >
+                  <Select value={field.value ?? "none"} onValueChange={field.onChange}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleccionar zona horaria" />
@@ -198,7 +184,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                   <div className="space-y-0.5">
                     <FormLabel>Centro activo</FormLabel>
-                    <div className="text-[0.8rem] text-muted-foreground">
+                    <div className="text-muted-foreground text-[0.8rem]">
                       Los centros inactivos no aparecerán en las listas de selección
                     </div>
                   </div>
@@ -213,9 +199,7 @@ export function CostCenterDialog({ open, onOpenChange, costCenter }: CostCenterD
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit">
-                {costCenter ? "Actualizar" : "Crear"} centro
-              </Button>
+              <Button type="submit">{costCenter ? "Actualizar" : "Crear"} centro</Button>
             </DialogFooter>
           </form>
         </Form>

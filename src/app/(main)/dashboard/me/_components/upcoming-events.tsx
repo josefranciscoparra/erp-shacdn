@@ -1,13 +1,15 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Calendar, ArrowRight, CalendarDays } from "lucide-react";
+import Link from "next/link";
+
 import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
-import Link from "next/link";
-import type { MySpaceDashboard } from "@/server/actions/my-space";
+import { Calendar, ArrowRight, CalendarDays } from "lucide-react";
+
 import { EmptyState } from "@/components/hr/empty-state";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import type { MySpaceDashboard } from "@/server/actions/my-space";
 
 interface UpcomingEventsProps {
   events: MySpaceDashboard["upcomingEvents"];
@@ -19,7 +21,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
       <Card className="p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-muted-foreground" />
+            <Calendar className="text-muted-foreground h-5 w-5" />
             <h3 className="text-lg font-semibold">Próximos eventos</h3>
           </div>
         </div>
@@ -36,7 +38,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
     <Card className="p-6">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-muted-foreground" />
+          <Calendar className="text-muted-foreground h-5 w-5" />
           <h3 className="text-lg font-semibold">Próximos eventos</h3>
         </div>
         <Button variant="ghost" size="sm" asChild>
@@ -56,7 +58,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
           return (
             <div
               key={event.id}
-              className="flex items-start gap-3 rounded-lg border p-3 transition-colors hover:bg-accent"
+              className="hover:bg-accent flex items-start gap-3 rounded-lg border p-3 transition-colors"
             >
               {/* Indicador de color del calendario */}
               <div
@@ -67,7 +69,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
               <div className="flex-1 space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium">{event.name}</p>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-muted-foreground text-xs">
                     {event.eventType === "HOLIDAY" && "🏖️"}
                     {event.eventType === "COMPANY_EVENT" && "🏢"}
                     {event.eventType === "TRAINING" && "📚"}
@@ -76,14 +78,13 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="text-muted-foreground flex items-center gap-2 text-xs">
                   <span>{event.calendar.name}</span>
                   <span>•</span>
                   <span>
                     {isMultiDay ? (
                       <>
-                        {format(startDate, "d MMM", { locale: es })} -{" "}
-                        {format(endDate, "d MMM", { locale: es })}
+                        {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
                       </>
                     ) : (
                       format(startDate, "EEEE, d 'de' MMMM", { locale: es })

@@ -1,27 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+
 import { Search, Filter, Loader2, FileText } from "lucide-react";
+
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { features } from "@/config/features";
+import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
 import { useDocumentsStore, useGlobalDocumentsByKind, useGlobalDocumentStats } from "@/stores/documents-store";
 import { useEmployeesStore } from "@/stores/employees-store";
-import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
+
 import { DocumentStatsCards } from "./_components/document-stats-cards";
 import { GlobalDocumentsTable } from "./_components/global-documents-table";
 import { SimplePagination } from "./_components/simple-pagination";
-import { SectionHeader } from "@/components/hr/section-header";
-import { features } from "@/config/features";
 
 // Tipos de documentos para tabs
 const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
@@ -68,9 +65,7 @@ export default function GlobalDocumentsPage() {
   }, [documentsEnabled, fetchAllDocuments, employees.length, fetchEmployees]);
 
   // Filtrar documentos según tab activo
-  const filteredDocuments = activeTab === "all"
-    ? globalDocuments
-    : documentsByKind[activeTab as DocumentKind] || [];
+  const filteredDocuments = activeTab === "all" ? globalDocuments : documentsByKind[activeTab as DocumentKind] || [];
 
   // Manejar cambio de tab
   const handleTabChange = (value: string) => {
@@ -110,9 +105,9 @@ export default function GlobalDocumentsPage() {
         />
         <Card className="bg-card rounded-lg border">
           <CardContent className="p-6">
-            <p className="text-sm text-muted-foreground">
-              El módulo de documentos está desactivado. Puedes habilitarlo estableciendo la variable
-              de entorno <code className="rounded bg-muted px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>.
+            <p className="text-muted-foreground text-sm">
+              El módulo de documentos está desactivado. Puedes habilitarlo estableciendo la variable de entorno{" "}
+              <code className="bg-muted rounded px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>.
             </p>
           </CardContent>
         </Card>
@@ -123,10 +118,7 @@ export default function GlobalDocumentsPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <SectionHeader
-        title="Documentos"
-        subtitle="Gestiona todos los documentos de tu organización"
-      />
+      <SectionHeader title="Documentos" subtitle="Gestiona todos los documentos de tu organización" />
 
       {/* Estadísticas */}
       <DocumentStatsCards />
@@ -137,21 +129,18 @@ export default function GlobalDocumentsPage() {
           <div className="flex flex-col gap-4 @md/main:flex-row @md/main:items-center @md/main:justify-between">
             <div className="flex flex-1 flex-col gap-4 @md/main:flex-row @md/main:items-center">
               {/* Búsqueda */}
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <div className="relative max-w-sm flex-1">
+                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
                 <Input
                   placeholder="Buscar documentos o empleados..."
                   value={searchTerm}
                   onChange={(e) => handleSearch(e.target.value)}
-                  className="bg-white pl-9 placeholder:text-muted-foreground/50"
+                  className="placeholder:text-muted-foreground/50 bg-white pl-9"
                 />
               </div>
 
               {/* Filtro por empleado */}
-              <Select
-                value={selectedEmployeeId || "all"}
-                onValueChange={handleEmployeeFilter}
-              >
+              <Select value={selectedEmployeeId ?? "all"} onValueChange={handleEmployeeFilter}>
                 <SelectTrigger className="w-full @md/main:w-[250px]">
                   <SelectValue placeholder="Filtrar por empleado" />
                 </SelectTrigger>
@@ -168,13 +157,8 @@ export default function GlobalDocumentsPage() {
             </div>
 
             {/* Botón limpiar filtros */}
-            {(globalFilters.search || globalFilters.employeeId || globalFilters.documentKind) && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearGlobalFilters}
-                className="whitespace-nowrap"
-              >
+            {(globalFilters.search ?? globalFilters.employeeId ?? globalFilters.documentKind) && (
+              <Button variant="outline" size="sm" onClick={clearGlobalFilters} className="whitespace-nowrap">
                 <Filter className="mr-2 h-4 w-4" />
                 Limpiar filtros
               </Button>
@@ -196,9 +180,7 @@ export default function GlobalDocumentsPage() {
                 <SelectItem key={tab.key} value={tab.key}>
                   <div className="flex items-center gap-2">
                     {tab.label}
-                    <Badge variant="secondary">
-                      {getTabCount(tab.key)}
-                    </Badge>
+                    <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
                   </div>
                 </SelectItem>
               ))}
@@ -210,9 +192,7 @@ export default function GlobalDocumentsPage() {
             {documentTabs.map((tab) => (
               <TabsTrigger key={tab.key} value={tab.key} className="gap-2">
                 {tab.label}
-                <Badge variant="secondary">
-                  {getTabCount(tab.key)}
-                </Badge>
+                <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -225,10 +205,8 @@ export default function GlobalDocumentsPage() {
               <CardContent className="p-0">
                 {isLoadingGlobal ? (
                   <div className="flex items-center justify-center py-12">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-muted-foreground">
-                      Cargando documentos...
-                    </span>
+                    <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                    <span className="text-muted-foreground ml-2">Cargando documentos...</span>
                   </div>
                 ) : filteredDocuments.length > 0 ? (
                   <>
@@ -248,15 +226,12 @@ export default function GlobalDocumentsPage() {
                   </>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-medium mb-2">
-                      No hay documentos
-                    </h3>
+                    <FileText className="text-muted-foreground mb-4 h-12 w-12" />
+                    <h3 className="mb-2 text-lg font-medium">No hay documentos</h3>
                     <p className="text-muted-foreground mb-4 max-w-sm">
                       {tab.key === "all"
                         ? "No se han subido documentos en tu organización"
-                        : `No hay documentos de tipo "${tab.label}" en tu organización`
-                      }
+                        : `No hay documentos de tipo "${tab.label}" en tu organización`}
                     </p>
                   </div>
                 )}

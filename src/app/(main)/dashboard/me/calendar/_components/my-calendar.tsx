@@ -1,23 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { SectionHeader } from "@/components/hr/section-header";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { getMyCalendars, getMyMonthEvents, CalendarData, CalendarEventData } from "@/server/actions/employee-calendars";
+
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
+import { Calendar, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 import { toast } from "sonner";
+
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getMyCalendars, getMyMonthEvents, CalendarData, CalendarEventData } from "@/server/actions/employee-calendars";
 
 const monthNames = [
   "Enero",
@@ -105,9 +101,7 @@ export function MyCalendar() {
   });
 
   const getEventsForDate = (date: Date) => {
-    return filteredEvents.filter((event) =>
-      isSameDay(new Date(event.date), date)
-    );
+    return filteredEvents.filter((event) => isSameDay(new Date(event.date), date));
   };
 
   const handleDayClick = (day: Date, dayEvents: CalendarEventData[]) => {
@@ -142,17 +136,20 @@ export function MyCalendar() {
     .slice(0, 5);
 
   // Agrupar próximos eventos por calendario
-  const upcomingByCalendar = upcomingEvents.reduce((acc, event) => {
-    const calendarName = event.calendar.name;
-    if (!acc[calendarName]) {
-      acc[calendarName] = {
-        calendar: event.calendar,
-        events: [],
-      };
-    }
-    acc[calendarName].events.push(event);
-    return acc;
-  }, {} as Record<string, { calendar: CalendarEventData["calendar"]; events: CalendarEventData[] }>);
+  const upcomingByCalendar = upcomingEvents.reduce(
+    (acc, event) => {
+      const calendarName = event.calendar.name;
+      if (!acc[calendarName]) {
+        acc[calendarName] = {
+          calendar: event.calendar,
+          events: [],
+        };
+      }
+      acc[calendarName].events.push(event);
+      return acc;
+    },
+    {} as Record<string, { calendar: CalendarEventData["calendar"]; events: CalendarEventData[] }>,
+  );
 
   if (isLoading) {
     return (
@@ -205,10 +202,7 @@ export function MyCalendar() {
           {/* Días de la semana */}
           <div className="grid grid-cols-7 gap-2">
             {dayNames.map((day) => (
-              <div
-                key={day}
-                className="text-center text-sm font-semibold text-muted-foreground"
-              >
+              <div key={day} className="text-muted-foreground text-center text-sm font-semibold">
                 {day}
               </div>
             ))}
@@ -228,7 +222,7 @@ export function MyCalendar() {
                   className={`relative flex min-h-24 flex-col gap-2 rounded-lg border p-2 transition-colors ${
                     isToday ? "border-primary bg-primary/5" : ""
                   } ${!isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""} ${
-                    dayEvents.length > 0 ? "cursor-pointer hover:bg-accent" : ""
+                    dayEvents.length > 0 ? "hover:bg-accent cursor-pointer" : ""
                   }`}
                 >
                   <div
@@ -251,7 +245,7 @@ export function MyCalendar() {
                         />
                       ))}
                       {dayEvents.length > 6 && (
-                        <span className="text-xs text-muted-foreground">+{dayEvents.length - 6}</span>
+                        <span className="text-muted-foreground text-xs">+{dayEvents.length - 6}</span>
                       )}
                     </div>
                   )}
@@ -268,35 +262,25 @@ export function MyCalendar() {
           <div className="flex flex-col gap-4">
             {Object.keys(upcomingByCalendar).length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <Calendar className="h-12 w-12 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  No tienes eventos próximos
-                </p>
+                <Calendar className="text-muted-foreground h-12 w-12" />
+                <p className="text-muted-foreground text-sm">No tienes eventos próximos</p>
               </div>
             ) : (
               Object.values(upcomingByCalendar).map(({ calendar, events: calendarEvents }) => (
                 <div key={calendar.id} className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div
-                      className="h-3 w-3 rounded-full"
-                      style={{ backgroundColor: calendar.color }}
-                    />
+                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
                     <span className="text-sm font-medium">{calendar.name}</span>
                   </div>
                   {calendarEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="ml-5 flex items-start gap-3 rounded-lg border p-3"
-                    >
+                    <div key={event.id} className="ml-5 flex items-start gap-3 rounded-lg border p-3">
                       <div className="flex flex-col">
                         <span className="text-sm font-medium">{event.name}</span>
                         {event.description && (
-                          <span className="text-xs text-muted-foreground">
-                            {event.description}
-                          </span>
+                          <span className="text-muted-foreground text-xs">{event.description}</span>
                         )}
                         <div className="mt-1 flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-muted-foreground text-xs">
                             {format(new Date(event.date), "PPP", { locale: es })}
                           </span>
                           <Badge variant="outline" className="text-xs">
@@ -320,21 +304,14 @@ export function MyCalendar() {
           <div className="flex flex-wrap gap-3">
             {calendars.map((cal) => (
               <Badge key={cal.id} variant="outline" className="flex items-center gap-2 py-1.5">
-                <div
-                  className="h-3 w-3 rounded-full"
-                  style={{ backgroundColor: cal.color }}
-                />
+                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cal.color }} />
                 <span>{cal.name}</span>
-                {cal.costCenter && (
-                  <span className="text-xs text-muted-foreground">
-                    ({cal.costCenter.name})
-                  </span>
-                )}
+                {cal.costCenter && <span className="text-muted-foreground text-xs">({cal.costCenter.name})</span>}
               </Badge>
             ))}
           </div>
           {calendars.length === 0 && (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               No tienes calendarios asignados. Contacta con RRHH si crees que esto es un error.
             </p>
           )}
@@ -345,37 +322,26 @@ export function MyCalendar() {
       <Dialog open={dayEventsDialogOpen} onOpenChange={setDayEventsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>
-              {selectedDay && format(selectedDay, "PPP", { locale: es })}
-            </DialogTitle>
+            <DialogTitle>{selectedDay && format(selectedDay, "PPP", { locale: es })}</DialogTitle>
             <DialogDescription>
               {selectedDayEvents.length} {selectedDayEvents.length === 1 ? "evento" : "eventos"} este día
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 mt-4">
+          <div className="mt-4 space-y-3">
             {selectedDayEvents.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-start gap-3 rounded-lg border p-3"
-              >
+              <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
                 <div
-                  className="mt-0.5 h-3 w-3 rounded-full flex-shrink-0"
+                  className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full"
                   style={{ backgroundColor: event.calendar.color }}
                 />
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <div className="font-medium">{event.name}</div>
-                  {event.description && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {event.description}
-                    </p>
-                  )}
-                  <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  {event.description && <p className="text-muted-foreground mt-1 text-sm">{event.description}</p>}
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="text-xs">
                       {eventTypeLabels[event.eventType] || event.eventType}
                     </Badge>
-                    <span className="text-xs text-muted-foreground">
-                      {event.calendar.name}
-                    </span>
+                    <span className="text-muted-foreground text-xs">{event.calendar.name}</span>
                   </div>
                 </div>
               </div>

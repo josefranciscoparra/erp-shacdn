@@ -1,23 +1,25 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
-import { Plus, Briefcase, AlertCircle, FileText } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
-import { useContractsStore } from "@/stores/contracts-store";
+import { useParams } from "next/navigation";
+
+import { Plus, Briefcase, AlertCircle, FileText } from "lucide-react";
+import { toast } from "sonner";
+
 import { ContractSheet } from "@/components/contracts/contract-sheet";
+import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { type Contract, useContractsStore } from "@/stores/contracts-store";
+
 import { getContractsColumns } from "./_components/contracts-columns";
 import { ContractsDataTable } from "./_components/contracts-data-table";
-import { toast } from "sonner";
 import { FinalizeContractDialog } from "./_components/finalize-contract-dialog";
-import type { Contract } from "@/stores/contracts-store";
 
 interface Employee {
   id: string;
@@ -39,7 +41,7 @@ export default function EmployeeContractsPage() {
   const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToFinalize, setContractToFinalize] = useState<Contract | null>(null);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
-  
+
   const {
     contracts,
     isLoading: contractsLoading,
@@ -58,12 +60,12 @@ export default function EmployeeContractsPage() {
       const response = await fetch(`/api/employees/${params.id}`);
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || "Error al cargar empleado");
+        throw new Error(errorData.message ?? "Error al cargar empleado");
       }
 
       const employeeData = await response.json();
       setEmployee(employeeData);
-      
+
       // Cargar contratos
       await fetchContracts(params.id as string, { status: currentTab === "all" ? "all" : currentTab });
     } catch (error: any) {
@@ -81,13 +83,13 @@ export default function EmployeeContractsPage() {
     if (params.id) {
       fetchEmployee();
     }
-    
+
     // Cleanup store on unmount
     return () => {
       reset();
     };
   }, [params.id]);
-  
+
   // Refetch contracts when tab changes
   useEffect(() => {
     if (employee) {
@@ -99,7 +101,7 @@ export default function EmployeeContractsPage() {
 
   const activeContracts = contracts.filter((contract) => contract.active);
   const inactiveContracts = contracts.filter((contract) => !contract.active);
-  
+
   const handleNewContract = () => {
     setContractSheetOpen(true);
   };
@@ -126,9 +128,9 @@ export default function EmployeeContractsPage() {
         onEdit: handleEditContract,
         onFinalize: handleFinalizeContract,
       }),
-    [handleEditContract, handleFinalizeContract]
+    [handleEditContract, handleFinalizeContract],
   );
-  
+
   const getFilteredContracts = () => {
     switch (currentTab) {
       case "active":
@@ -151,8 +153,8 @@ export default function EmployeeContractsPage() {
           }}
         />
         <div className="flex items-center justify-center py-12">
-          <div className="text-center space-y-2">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent mx-auto"></div>
+          <div className="space-y-2 text-center">
+            <div className="border-primary mx-auto h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"></div>
             <p className="text-muted-foreground text-sm">Cargando contratos del empleado...</p>
           </div>
         </div>
@@ -173,7 +175,7 @@ export default function EmployeeContractsPage() {
         <EmptyState
           icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
           title="Error al cargar contratos"
-          description={error || "No se pudieron cargar los contratos del empleado"}
+          description={error ?? "No se pudieron cargar los contratos del empleado"}
         />
       </div>
     );
@@ -195,7 +197,7 @@ export default function EmployeeContractsPage() {
       />
 
       {/* Tabs de contratos */}
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <div className="flex items-center justify-between">
           {/* Mobile Select */}
           <div className="@4xl/main:hidden">
@@ -273,11 +275,7 @@ export default function EmployeeContractsPage() {
               description="Este empleado no tiene contratos activos en este momento"
             />
           ) : (
-            <ContractsDataTable
-              columns={columns}
-              data={activeContracts}
-              isLoading={contractsLoading}
-            />
+            <ContractsDataTable columns={columns} data={activeContracts} isLoading={contractsLoading} />
           )}
         </TabsContent>
 
@@ -289,20 +287,12 @@ export default function EmployeeContractsPage() {
               description="Este empleado no tiene contratos en el historial"
             />
           ) : (
-            <ContractsDataTable
-              columns={columns}
-              data={inactiveContracts}
-              isLoading={contractsLoading}
-            />
+            <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={contractsLoading} />
           )}
         </TabsContent>
 
         <TabsContent value="all">
-            <ContractsDataTable
-              columns={columns}
-              data={getFilteredContracts()}
-              isLoading={contractsLoading}
-            />
+          <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={contractsLoading} />
         </TabsContent>
       </Tabs>
 

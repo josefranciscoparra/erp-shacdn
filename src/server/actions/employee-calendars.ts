@@ -1,7 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { startOfMonth, endOfMonth } from "date-fns";
+
+import { prisma } from "@/lib/prisma";
+
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 export interface CalendarEventData {
@@ -59,7 +61,7 @@ export async function getMyCalendars(): Promise<CalendarData[]> {
         },
       },
     });
-    const employeeCostCenterId = activeContract?.costCenterId || null;
+    const employeeCostCenterId = activeContract?.costCenterId ?? null;
 
     console.log("🔍 getMyCalendars - Employee Cost Center:", employeeCostCenterId);
 
@@ -89,11 +91,7 @@ export async function getMyCalendars(): Promise<CalendarData[]> {
           },
         },
       },
-      orderBy: [
-        { year: "desc" },
-        { calendarType: "asc" },
-        { name: "asc" },
-      ],
+      orderBy: [{ year: "desc" }, { calendarType: "asc" }, { name: "asc" }],
     });
 
     console.log(`📅 Found ${calendars.length} calendars for employee`);
@@ -109,10 +107,7 @@ export async function getMyCalendars(): Promise<CalendarData[]> {
  * Obtener eventos de los calendarios del empleado en un rango de fechas
  * Combina eventos de todos los calendarios aplicables al empleado
  */
-export async function getMyCalendarEvents(
-  startDate: Date,
-  endDate: Date
-): Promise<CalendarEventData[]> {
+export async function getMyCalendarEvents(startDate: Date, endDate: Date): Promise<CalendarEventData[]> {
   try {
     const { orgId, activeContract } = await getAuthenticatedEmployee({
       contractInclude: {
@@ -123,7 +118,7 @@ export async function getMyCalendarEvents(
         },
       },
     });
-    const employeeCostCenterId = activeContract?.costCenterId || null;
+    const employeeCostCenterId = activeContract?.costCenterId ?? null;
 
     // Buscar calendarios aplicables al empleado
     const calendars = await prisma.calendar.findMany({

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { getPendingPtoRequests, approvePtoRequest, rejectPtoRequest } from "@/server/actions/approver-pto";
-import { Loader2 } from "lucide-react";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -13,20 +11,16 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Clock, Check, X } from "lucide-react";
+import { Check, Clock, Loader2, X } from "lucide-react";
+import { toast } from "sonner";
+
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -36,9 +30,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
-import { Card } from "@/components/ui/card";
+import { getPendingPtoRequests, approvePtoRequest, rejectPtoRequest } from "@/server/actions/approver-pto";
 
 interface PendingRequest {
   id: string;
@@ -134,7 +128,7 @@ export default function PtoApprovalsPage() {
           const employee = row.original.employee;
           return (
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+              <div className="bg-primary/10 text-primary flex h-8 w-8 items-center justify-center rounded-full font-semibold">
                 {employee.firstName[0]}
                 {employee.lastName[0]}
               </div>
@@ -142,7 +136,7 @@ export default function PtoApprovalsPage() {
                 <span className="font-medium">
                   {employee.firstName} {employee.lastName}
                 </span>
-                <span className="text-xs text-muted-foreground">{employee.email}</span>
+                <span className="text-muted-foreground text-xs">{employee.email}</span>
               </div>
             </div>
           );
@@ -155,10 +149,7 @@ export default function PtoApprovalsPage() {
           const type = row.original.absenceType;
           return (
             <div className="flex items-center gap-2">
-              <div
-                className="h-3 w-3 rounded-full"
-                style={{ backgroundColor: type.color }}
-              />
+              <div className="h-3 w-3 rounded-full" style={{ backgroundColor: type.color }} />
               <span className="font-medium">{type.name}</span>
             </div>
           );
@@ -177,9 +168,7 @@ export default function PtoApprovalsPage() {
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => (
-          <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>
-        ),
+        cell: ({ row }) => <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>,
       },
       {
         accessorKey: "submittedAt",
@@ -216,7 +205,7 @@ export default function PtoApprovalsPage() {
         },
       },
     ],
-    []
+    [],
   );
 
   const table = useReactTable({
@@ -243,7 +232,7 @@ export default function PtoApprovalsPage() {
       {/* Contador */}
       <Card className="from-primary/5 to-card flex items-center justify-between bg-gradient-to-t p-4 shadow-xs">
         <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-muted-foreground" />
+          <Clock className="text-muted-foreground h-5 w-5" />
           <span className="font-medium">Solicitudes pendientes de aprobación</span>
         </div>
         <Badge variant="secondary" className="text-lg font-bold">
@@ -254,7 +243,7 @@ export default function PtoApprovalsPage() {
       {/* Tabla */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
         </div>
       ) : (
         <>
@@ -265,9 +254,7 @@ export default function PtoApprovalsPage() {
                   <TableRow key={headerGroup.id}>
                     {headerGroup.headers.map((header) => (
                       <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(header.column.columnDef.header, header.getContext())}
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                       </TableHead>
                     ))}
                   </TableRow>
@@ -278,9 +265,7 @@ export default function PtoApprovalsPage() {
                   table.getRowModel().rows.map((row) => (
                     <TableRow key={row.id}>
                       {row.getVisibleCells().map((cell) => (
-                        <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </TableCell>
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                       ))}
                     </TableRow>
                   ))
@@ -303,9 +288,7 @@ export default function PtoApprovalsPage() {
       <Dialog open={actionDialogOpen} onOpenChange={setActionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {actionType === "approve" ? "Aprobar solicitud" : "Rechazar solicitud"}
-            </DialogTitle>
+            <DialogTitle>{actionType === "approve" ? "Aprobar solicitud" : "Rechazar solicitud"}</DialogTitle>
             <DialogDescription>
               {selectedRequest &&
                 `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName} - ${selectedRequest.absenceType.name}`}
@@ -318,15 +301,11 @@ export default function PtoApprovalsPage() {
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Fecha inicio:</span>
-                    <p className="font-medium">
-                      {format(new Date(selectedRequest.startDate), "PP", { locale: es })}
-                    </p>
+                    <p className="font-medium">{format(new Date(selectedRequest.startDate), "PP", { locale: es })}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Fecha fin:</span>
-                    <p className="font-medium">
-                      {format(new Date(selectedRequest.endDate), "PP", { locale: es })}
-                    </p>
+                    <p className="font-medium">{format(new Date(selectedRequest.endDate), "PP", { locale: es })}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Días hábiles:</span>
@@ -334,14 +313,12 @@ export default function PtoApprovalsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Solicitado:</span>
-                    <p className="font-medium">
-                      {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
-                    </p>
+                    <p className="font-medium">{format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}</p>
                   </div>
                 </div>
                 {selectedRequest.reason && (
                   <div className="mt-4">
-                    <span className="text-sm text-muted-foreground">Motivo:</span>
+                    <span className="text-muted-foreground text-sm">Motivo:</span>
                     <p className="mt-1 text-sm">{selectedRequest.reason}</p>
                   </div>
                 )}
@@ -354,9 +331,7 @@ export default function PtoApprovalsPage() {
                 <Textarea
                   id="comments"
                   placeholder={
-                    actionType === "approve"
-                      ? "Comentarios opcionales..."
-                      : "Motivo del rechazo (obligatorio)"
+                    actionType === "approve" ? "Comentarios opcionales..." : "Motivo del rechazo (obligatorio)"
                   }
                   rows={3}
                   value={comments}
@@ -367,22 +342,13 @@ export default function PtoApprovalsPage() {
           )}
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setActionDialogOpen(false)}
-              disabled={isSubmitting}
-            >
+            <Button type="button" variant="outline" onClick={() => setActionDialogOpen(false)} disabled={isSubmitting}>
               Cancelar
             </Button>
             <Button
               onClick={handleSubmitAction}
               disabled={isSubmitting || (actionType === "reject" && !comments.trim())}
-              className={
-                actionType === "approve"
-                  ? "bg-green-600 hover:bg-green-700"
-                  : "bg-red-600 hover:bg-red-700"
-              }
+              className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
             >
               {isSubmitting ? (
                 <>

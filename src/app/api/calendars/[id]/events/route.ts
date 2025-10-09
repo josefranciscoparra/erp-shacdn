@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -69,10 +70,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // Validar datos requeridos
     if (!body.name || !body.date) {
-      return NextResponse.json(
-        { error: "Faltan datos requeridos: name, date" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Faltan datos requeridos: name, date" }, { status: 400 });
     }
 
     // Crear evento
@@ -80,11 +78,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: {
         calendarId: id,
         name: body.name,
-        description: body.description || null,
+        description: body.description ?? null,
         date: new Date(body.date),
         endDate: body.endDate ? new Date(body.endDate) : null,
-        eventType: body.eventType || "HOLIDAY",
-        isRecurring: body.isRecurring || false,
+        eventType: body.eventType ?? "HOLIDAY",
+        isRecurring: body.isRecurring ?? false,
       },
     });
 

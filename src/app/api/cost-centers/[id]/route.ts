@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -45,10 +43,7 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -94,9 +89,9 @@ export async function PUT(
       where: { id },
       data: {
         name,
-        code: code || null,
-        address: address || null,
-        timezone: timezone || null,
+        code: code ?? null,
+        address: address ?? null,
+        timezone: timezone ?? null,
         active: active !== undefined ? active : existingCostCenter.active,
       },
     });
@@ -108,10 +103,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -141,7 +133,7 @@ export async function DELETE(
     if (existingCostCenter.departments.length > 0) {
       return NextResponse.json(
         { error: "No se puede eliminar un centro de coste que tiene departamentos asociados" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

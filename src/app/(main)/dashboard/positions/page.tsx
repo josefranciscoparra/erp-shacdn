@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { PermissionGuard } from "@/components/auth/permission-guard";
-import { PositionsDataTable } from "./_components/positions-data-table";
-import { PositionDialog } from "./_components/position-dialog";
-import { Plus, BriefcaseBusiness, Loader2, ShieldAlert, Layers } from "lucide-react";
-import { useOrganizationStore } from "@/stores/organization-store";
-import { Button } from "@/components/ui/button";
+
 import Link from "next/link";
+
+import { Plus, BriefcaseBusiness, Loader2, ShieldAlert, Layers } from "lucide-react";
+
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Button } from "@/components/ui/button";
+import { useOrganizationStore } from "@/stores/organization-store";
+
+import { PositionDialog } from "./_components/position-dialog";
+import { PositionsDataTable } from "./_components/positions-data-table";
 
 export default function PositionsPage() {
   const { positions, isLoading, error, fetchPositions } = useOrganizationStore();
@@ -34,7 +38,7 @@ export default function PositionsPage() {
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.error || "Error al eliminar puesto");
+          throw new Error(error.error ?? "Error al eliminar puesto");
         }
 
         await fetchPositions();
@@ -53,10 +57,7 @@ export default function PositionsPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Puestos de trabajo"
-          subtitle="Gestiona los puestos de trabajo de tu organización"
-        />
+        <SectionHeader title="Puestos de trabajo" subtitle="Gestiona los puestos de trabajo de tu organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando puestos...</span>
@@ -68,10 +69,7 @@ export default function PositionsPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Puestos de trabajo"
-          subtitle="Gestiona los puestos de trabajo de tu organización"
-        />
+        <SectionHeader title="Puestos de trabajo" subtitle="Gestiona los puestos de trabajo de tu organización" />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar puestos: {error}</span>
         </div>
@@ -102,20 +100,13 @@ export default function PositionsPage() {
             <p className="text-muted-foreground text-sm">Gestiona los puestos de trabajo de tu organización</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              asChild
-            >
+            <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/position-levels">
                 <Layers className="h-4 w-4" />
                 <span className="hidden md:inline">Niveles</span>
               </Link>
             </Button>
-            <Button
-              size="sm"
-              onClick={() => setDialogOpen(true)}
-            >
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nuevo puesto</span>
             </Button>
@@ -139,11 +130,7 @@ export default function PositionsPage() {
           />
         )}
 
-        <PositionDialog
-          open={dialogOpen}
-          onOpenChange={handleCloseDialog}
-          position={editingPosition}
-        />
+        <PositionDialog open={dialogOpen} onOpenChange={handleCloseDialog} position={editingPosition} />
       </div>
     </PermissionGuard>
   );

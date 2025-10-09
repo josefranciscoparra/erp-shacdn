@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { useParams, useRouter } from "next/navigation";
+
 import {
   ArrowLeft,
   Pencil,
@@ -19,15 +21,15 @@ import {
   FolderOpen,
 } from "lucide-react";
 
+import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
 
 interface Employee {
@@ -155,7 +157,7 @@ export default function EmployeeProfilePage() {
         <EmptyState
           icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
           title="Empleado no encontrado"
-          description={error || "El empleado que buscas no existe o no tienes permisos para verlo"}
+          description={error ?? "El empleado que buscas no existe o no tienes permisos para verlo"}
         />
       </div>
     );
@@ -315,7 +317,7 @@ export default function EmployeeProfilePage() {
             </Card>
 
             {/* Dirección */}
-            {(employee.address || employee.city) && (
+            {(employee.address ?? employee.city) && (
               <Card className="rounded-lg border shadow-xs">
                 <CardHeader className="pb-4">
                   <CardTitle className="text-lg">
@@ -358,7 +360,6 @@ export default function EmployeeProfilePage() {
                 </CardContent>
               </Card>
             )}
-
           </div>
         </TabsContent>
 
@@ -474,7 +475,7 @@ export default function EmployeeProfilePage() {
               {/* Contraseñas Temporales */}
               <TemporaryPasswordManager
                 userId={employee.user.id}
-                temporaryPasswords={employee.user.temporaryPasswords || []}
+                temporaryPasswords={employee.user.temporaryPasswords ?? []}
                 onPasswordReset={() => fetchEmployee(true)}
               />
             </div>
@@ -498,10 +499,8 @@ export default function EmployeeProfilePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground mb-4">
-                    Accede a la gestión completa de documentos del empleado
-                  </p>
+                <div className="py-8 text-center">
+                  <p className="text-muted-foreground mb-4">Accede a la gestión completa de documentos del empleado</p>
                   <Button
                     onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
                     className="w-full @md/main:w-auto"

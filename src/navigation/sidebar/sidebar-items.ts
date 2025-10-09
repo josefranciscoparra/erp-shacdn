@@ -6,7 +6,7 @@ import {
   Settings,
   ClipboardCheck,
   Bell,
-  type LucideIcon
+  type LucideIcon,
 } from "lucide-react";
 
 export interface NavSubItem {
@@ -39,11 +39,6 @@ export const sidebarItems: NavGroup[] = [
     id: 1,
     label: "Dashboards",
     items: [
-      {
-        title: "Default",
-        url: "/dashboard/default",
-        icon: LayoutDashboard,
-      },
       {
         title: "CRM",
         url: "/dashboard/crm",

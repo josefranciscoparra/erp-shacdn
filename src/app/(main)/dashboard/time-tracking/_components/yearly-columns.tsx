@@ -1,9 +1,10 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export interface YearlySummary {
   year: number;
@@ -25,7 +26,7 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
     accessorKey: "year",
     header: "Año",
     cell: ({ row }) => {
-      const year = row.getValue("year") as number;
+      const year = row.getValue("year");
       return (
         <div className="flex flex-col">
           <span className="font-medium">{year}</span>
@@ -37,7 +38,7 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
     accessorKey: "actualHours",
     header: "Horas Trabajadas",
     cell: ({ row }) => {
-      const actual = row.getValue("actualHours") as number;
+      const actual = row.getValue("actualHours");
       const expected = row.original.expectedHours;
       const compliance = expected > 0 ? (actual / expected) * 100 : 0;
 
@@ -47,17 +48,13 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
       if (compliance < 70) progressColor = "bg-red-500";
 
       return (
-        <div className="flex flex-col gap-2 min-w-[200px]">
+        <div className="flex min-w-[200px] flex-col gap-2">
           <div className="flex items-center justify-between text-sm">
             <span className="font-medium">{actual}h</span>
             <span className="text-muted-foreground">/ {expected}h</span>
           </div>
-          <Progress
-            value={Math.min(compliance, 100)}
-            className="h-2"
-            indicatorClassName={progressColor}
-          />
-          <span className="text-xs text-muted-foreground">{Math.round(compliance)}% cumplimiento</span>
+          <Progress value={Math.min(compliance, 100)} className="h-2" indicatorClassName={progressColor} />
+          <span className="text-muted-foreground text-xs">{Math.round(compliance)}% cumplimiento</span>
         </div>
       );
     },
@@ -66,7 +63,7 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
     accessorKey: "daysWorked",
     header: "Días",
     cell: ({ row }) => {
-      const worked = row.getValue("daysWorked") as number;
+      const worked = row.getValue("daysWorked");
       const expected = row.original.expectedDays;
       const completed = row.original.daysCompleted;
       const incomplete = row.original.daysIncomplete;
@@ -74,8 +71,10 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
       return (
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{worked}/{expected}</span>
-            <span className="text-xs text-muted-foreground">días</span>
+            <span className="font-medium">
+              {worked}/{expected}
+            </span>
+            <span className="text-muted-foreground text-xs">días</span>
           </div>
           <div className="flex gap-2 text-xs">
             <span className="text-green-600">{completed} ✓</span>
@@ -89,12 +88,13 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
     accessorKey: "totalBreakMinutes",
     header: "Pausas",
     cell: ({ row }) => {
-      const minutes = row.getValue("totalBreakMinutes") as number;
+      const minutes = row.getValue("totalBreakMinutes");
       const hours = Math.floor(minutes / 60);
       const mins = Math.floor(minutes % 60);
       return (
         <span className="text-muted-foreground">
-          {hours > 0 ? `${hours}h ` : ''}{mins}m
+          {hours > 0 ? `${hours}h ` : ""}
+          {mins}m
         </span>
       );
     },
@@ -103,11 +103,16 @@ export const yearlyColumns: ColumnDef<YearlySummary>[] = [
     accessorKey: "averageMonthly",
     header: "Promedio Mensual",
     cell: ({ row }) => {
-      const average = row.getValue("averageMonthly") as number;
+      const average = row.getValue("averageMonthly");
       const expectedMonthly = row.original.expectedHours / 12;
 
       const Icon = average > expectedMonthly ? TrendingUp : average < expectedMonthly ? TrendingDown : Minus;
-      const color = average >= expectedMonthly ? "text-green-600" : average >= expectedMonthly * 0.75 ? "text-yellow-600" : "text-red-600";
+      const color =
+        average >= expectedMonthly
+          ? "text-green-600"
+          : average >= expectedMonthly * 0.75
+            ? "text-yellow-600"
+            : "text-red-600";
 
       return (
         <div className="flex items-center gap-2">

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+
 import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -81,10 +83,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      return NextResponse.json(
-        { error: `Ya existe un nivel con el nombre "${validatedData.name}"` },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Ya existe un nivel con el nombre "${validatedData.name}"` }, { status: 400 });
     }
 
     const level = await prisma.positionLevel.create({

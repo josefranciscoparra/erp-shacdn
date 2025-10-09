@@ -1,7 +1,9 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+
+import { prisma } from "@/lib/prisma";
+
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 // Helper para calcular minutos trabajados
@@ -57,7 +59,9 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           // Calcular tiempo trabajado hasta la salida
           const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           totalWorked += minutes;
-          console.log(`    ➕ Sesión trabajada hasta salida: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
+          console.log(
+            `    ➕ Sesión trabajada hasta salida: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`,
+          );
           lastClockIn = null;
         } else {
           console.log("    ⚠️ CLOCK_OUT sin CLOCK_IN activo");
@@ -460,7 +464,7 @@ export async function getWeeklySummary() {
       weekEnd,
       totalWorkedMinutes: totalWorked,
       totalBreakMinutes: totalBreak,
-      days: summaries.map(s => ({
+      days: summaries.map((s) => ({
         ...s,
         totalWorkedMinutes: Number(s.totalWorkedMinutes),
         totalBreakMinutes: Number(s.totalBreakMinutes),
@@ -501,7 +505,7 @@ export async function getMonthlySummaries(year: number, month: number) {
       },
     });
 
-    return summaries.map(s => ({
+    return summaries.map((s) => ({
       ...s,
       totalWorkedMinutes: Number(s.totalWorkedMinutes),
       totalBreakMinutes: Number(s.totalBreakMinutes),

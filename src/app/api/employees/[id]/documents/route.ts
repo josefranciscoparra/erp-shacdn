@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentFiltersSchema } from "@/lib/validations/document";
-import { features } from "@/config/features";
 
-export async function GET(
-  request: NextRequest, 
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!features.documents) {
-    return NextResponse.json(
-      { error: "El módulo de documentos está deshabilitado" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
   }
 
   try {
@@ -22,7 +17,7 @@ export async function GET(
     }
 
     const { id: employeeId } = await params;
-    
+
     // Validar que el empleado existe y pertenece a la organización
     const employee = await prisma.employee.findFirst({
       where: {
@@ -39,12 +34,12 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const filters = documentFiltersSchema.parse({
       employeeId,
-      documentKind: searchParams.get("documentKind") || undefined,
-      dateFrom: searchParams.get("dateFrom") || undefined,
-      dateTo: searchParams.get("dateTo") || undefined,
-      page: parseInt(searchParams.get("page") || "1"),
-      limit: parseInt(searchParams.get("limit") || "10"),
-      search: searchParams.get("search") || undefined,
+      documentKind: searchParams.get("documentKind") ?? undefined,
+      dateFrom: searchParams.get("dateFrom") ?? undefined,
+      dateTo: searchParams.get("dateTo") ?? undefined,
+      page: parseInt(searchParams.get("page") ?? "1"),
+      limit: parseInt(searchParams.get("limit") ?? "10"),
+      search: searchParams.get("search") ?? undefined,
     });
 
     // Construir filtros para Prisma
@@ -116,15 +111,9 @@ export async function GET(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!features.documents) {
-    return NextResponse.json(
-      { error: "El módulo de documentos está deshabilitado" },
-      { status: 503 }
-    );
+    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
   }
 
   try {

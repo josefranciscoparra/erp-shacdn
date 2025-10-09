@@ -1,6 +1,8 @@
 "use client";
 
+import type { AbsenceType } from "@prisma/client";
 import { create } from "zustand";
+
 import {
   getMyPtoBalance,
   getAbsenceTypes,
@@ -9,7 +11,6 @@ import {
   cancelPtoRequest as cancelPtoRequestAction,
   calculateWorkingDays as calculateWorkingDaysAction,
 } from "@/server/actions/employee-pto";
-import type { AbsenceType } from "@prisma/client";
 
 export interface PtoBalance {
   id: string;
@@ -78,7 +79,7 @@ interface PtoState {
   cancelRequest: (requestId: string, reason?: string) => Promise<void>;
   calculateWorkingDays: (
     startDate: Date,
-    endDate: Date
+    endDate: Date,
   ) => Promise<{ workingDays: number; holidays: Array<{ date: Date; name: string }> }>;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -108,8 +109,7 @@ export const usePtoStore = create<PtoState>((set, get) => ({
         isLoadingBalance: false,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error al cargar balance";
+      const message = error instanceof Error ? error.message : "Error al cargar balance";
       set({
         error: `[Balance] ${message}`,
         isLoadingBalance: false,
@@ -127,8 +127,7 @@ export const usePtoStore = create<PtoState>((set, get) => ({
         isLoadingRequests: false,
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Error al cargar solicitudes";
+      const message = error instanceof Error ? error.message : "Error al cargar solicitudes";
       set({
         error: `[Solicitudes] ${message}`,
         isLoadingRequests: false,
@@ -146,10 +145,7 @@ export const usePtoStore = create<PtoState>((set, get) => ({
         isLoadingTypes: false,
       });
     } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "Error al cargar tipos de ausencia";
+      const message = error instanceof Error ? error.message : "Error al cargar tipos de ausencia";
       set({
         error: `[Tipos] ${message}`,
         isLoadingTypes: false,

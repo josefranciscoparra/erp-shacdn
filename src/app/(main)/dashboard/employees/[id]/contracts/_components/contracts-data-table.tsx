@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -13,28 +14,21 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { Settings2, Plus, Search, Filter, X } from "lucide-react";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
-import { Settings2, Plus, Search, Filter, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Contract } from "@/stores/contracts-store";
 
 interface ContractsDataTableProps<TData, TValue> {
@@ -105,7 +99,7 @@ export function ContractsDataTable<TData, TValue>({
         <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
           {/* Búsqueda global */}
           <div className="relative flex-1 @4xl/main:max-w-sm">
-            <Search className="text-muted-foreground absolute left-3 top-3 h-4 w-4" />
+            <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
             <Input
               placeholder="Buscar contratos..."
               value={globalFilter}
@@ -124,11 +118,7 @@ export function ContractsDataTable<TData, TValue>({
               />
             )}
             {table.getColumn("active") && (
-              <DataTableFacetedFilter
-                column={table.getColumn("active")}
-                title="Estado"
-                options={statusOptions}
-              />
+              <DataTableFacetedFilter column={table.getColumn("active")} title="Estado" options={statusOptions} />
             )}
             {isFiltered && (
               <Button
@@ -161,12 +151,7 @@ export function ContractsDataTable<TData, TValue>({
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                      {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                     </TableHead>
                   );
                 })}
@@ -178,24 +163,16 @@ export function ContractsDataTable<TData, TValue>({
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex items-center justify-center space-x-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent"></div>
+                    <div className="border-primary h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"></div>
                     <span className="text-muted-foreground">Cargando contratos...</span>
                   </div>
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                >
+                <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
                 </TableRow>
               ))
@@ -204,7 +181,9 @@ export function ContractsDataTable<TData, TValue>({
                 <TableCell colSpan={columns.length} className="h-24 text-center">
                   <div className="flex flex-col items-center justify-center space-y-2">
                     <div className="text-muted-foreground text-sm">
-                      {isFiltered ? "No se encontraron contratos con los filtros aplicados." : "No hay contratos registrados."}
+                      {isFiltered
+                        ? "No se encontraron contratos con los filtros aplicados."
+                        : "No hay contratos registrados."}
                     </div>
                   </div>
                 </TableCell>
@@ -218,13 +197,10 @@ export function ContractsDataTable<TData, TValue>({
       <DataTablePagination table={table} />
 
       {/* Stats */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex items-center justify-between text-sm">
+        <div>{table.getFilteredRowModel().rows.length} contrato(s) total(es)</div>
         <div>
-          {table.getFilteredRowModel().rows.length} contrato(s) total(es)
-        </div>
-        <div>
-          Página {table.getState().pagination.pageIndex + 1} de{" "}
-          {table.getPageCount()}
+          Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
         </div>
       </div>
     </div>

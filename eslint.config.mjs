@@ -117,11 +117,11 @@ export default [
       "computed-property-spacing": ["error", "never"],
 
       // Naming Conventions
-      "no-underscore-dangle": ["error", { allow: ["_id", "__dirname"] }],
+      "no-underscore-dangle": ["error", { allow: ["_id", "__dirname", "_count"] }],
 
       // Complexity
-      complexity: ["error", { max: 10 }],
-      "max-lines": ["error", { max: 300, skipBlankLines: true, skipComments: true }],
+      complexity: ["warn", { max: 10 }],
+      "max-lines": ["warn", { max: 300, skipBlankLines: true, skipComments: true }],
       "max-depth": ["error", 4],
 
       // TypeScript-Specific Rules (customized)

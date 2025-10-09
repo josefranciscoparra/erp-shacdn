@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+import { Calendar, CheckCircle, Loader2, TriangleAlert } from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
-import { Calendar, CheckCircle, Loader2, TriangleAlert } from "lucide-react";
 import { useContractsStore, type Contract } from "@/stores/contracts-store";
 
 interface FinalizeContractDialogProps {
@@ -66,7 +68,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
       onSuccess?.();
     } catch (err: any) {
       toast.error("Error al finalizar contrato", {
-        description: err?.message || "Ocurrió un error inesperado",
+        description: err?.message ?? "Ocurrió un error inesperado",
       });
     }
   };
@@ -90,9 +92,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
           {!isActive && (
             <Alert className="border-secondary bg-secondary/10">
               <CheckCircle className="text-secondary h-4 w-4" />
-              <AlertDescription>
-                Este contrato ya está finalizado.
-              </AlertDescription>
+              <AlertDescription>Este contrato ya está finalizado.</AlertDescription>
             </Alert>
           )}
 
@@ -101,7 +101,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
               Fecha de fin
             </Label>
             <div className="relative">
-              <Calendar className="text-muted-foreground absolute left-3 top-3 h-4 w-4" />
+              <Calendar className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
               <Input
                 id="endDate"
                 type="date"
@@ -117,11 +117,9 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
             {error && <p className="text-destructive text-sm">{error}</p>}
           </div>
 
-          <div className="flex items-start gap-3 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="border-destructive/40 bg-destructive/10 text-destructive flex items-start gap-3 rounded-md border p-3 text-sm">
             <TriangleAlert className="mt-0.5 h-4 w-4" />
-            <p>
-              Finalizar el contrato lo marcará como inactivo y ya no aparecerá en la lista de contratos activos.
-            </p>
+            <p>Finalizar el contrato lo marcará como inactivo y ya no aparecerá en la lista de contratos activos.</p>
           </div>
         </div>
 
@@ -129,11 +127,7 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isUpdating}>
             Cancelar
           </Button>
-          <Button
-            variant="destructive"
-            onClick={handleFinalize}
-            disabled={!isActive || isUpdating}
-          >
+          <Button variant="destructive" onClick={handleFinalize} disabled={!isActive || isUpdating}>
             {isUpdating ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -148,4 +142,3 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
     </Dialog>
   );
 }
-

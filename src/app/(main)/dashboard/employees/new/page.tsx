@@ -1,18 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 import { useEmployeesStore } from "@/stores/employees-store";
 
@@ -61,7 +64,7 @@ export default function NewEmployeePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Error al crear empleado");
+        throw new Error(result.error ?? "Error al crear empleado");
       }
 
       toast.success("Empleado creado exitosamente", {

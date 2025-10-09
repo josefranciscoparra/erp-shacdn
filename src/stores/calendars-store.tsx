@@ -144,11 +144,8 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
         }
         const updatedCalendar = await response.json();
         set((state) => ({
-          calendars: state.calendars.map((cal) =>
-            cal.id === id ? updatedCalendar : cal
-          ),
-          selectedCalendar:
-            state.selectedCalendar?.id === id ? updatedCalendar : state.selectedCalendar,
+          calendars: state.calendars.map((cal) => (cal.id === id ? updatedCalendar : cal)),
+          selectedCalendar: state.selectedCalendar?.id === id ? updatedCalendar : state.selectedCalendar,
           isLoading: false,
         }));
       } catch (error) {
@@ -171,8 +168,7 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
         }
         set((state) => ({
           calendars: state.calendars.filter((cal) => cal.id !== id),
-          selectedCalendar:
-            state.selectedCalendar?.id === id ? null : state.selectedCalendar,
+          selectedCalendar: state.selectedCalendar?.id === id ? null : state.selectedCalendar,
           isLoading: false,
         }));
       } catch (error) {
@@ -203,7 +199,7 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
           set({
             selectedCalendar: {
               ...state.selectedCalendar,
-              events: [...(state.selectedCalendar.events || []), newEvent],
+              events: [...(state.selectedCalendar.events ?? []), newEvent],
             },
             isLoading: false,
           });
@@ -241,8 +237,8 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
           set({
             selectedCalendar: {
               ...state.selectedCalendar,
-              events: (state.selectedCalendar.events || []).map((event) =>
-                event.id === eventId ? updatedEvent : event
+              events: (state.selectedCalendar.events ?? []).map((event) =>
+                event.id === eventId ? updatedEvent : event,
               ),
             },
             isLoading: false,
@@ -275,9 +271,7 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
           set({
             selectedCalendar: {
               ...state.selectedCalendar,
-              events: (state.selectedCalendar.events || []).filter(
-                (event) => event.id !== eventId
-              ),
+              events: (state.selectedCalendar.events ?? []).filter((event) => event.id !== eventId),
             },
             isLoading: false,
           });
@@ -299,5 +293,5 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
     reset: () => {
       set(initialState);
     },
-  }))
+  })),
 );

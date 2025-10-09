@@ -1,7 +1,11 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
+
+import { ColumnDef } from "@tanstack/react-table";
+import { MoreHorizontal, Edit, Trash2, Eye, FileText, UserRound } from "lucide-react";
+
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,8 +16,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { MoreHorizontal, Edit, Trash2, Eye, FileText, UserRound } from "lucide-react";
 import { Contract } from "@/stores/contracts-store";
 
 const CONTRACT_TYPES = {
@@ -29,31 +31,22 @@ const CONTRACT_TYPES = {
 export const contractsColumns: ColumnDef<Contract>[] = [
   {
     accessorKey: "employee",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Empleado" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado" />,
     cell: ({ row }) => {
-      const employee = row.getValue("employee") as Contract["employee"];
+      const employee = row.getValue("employee");
       if (!employee) {
-        return (
-          <span className="text-muted-foreground text-sm">Sin empleado</span>
-        );
+        return <span className="text-muted-foreground text-sm">Sin empleado</span>;
       }
 
       const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
       return (
         <div className="space-y-1">
-          <Link
-            href={`/dashboard/employees/${employee.id}`}
-            className="font-medium hover:underline text-primary"
-          >
+          <Link href={`/dashboard/employees/${employee.id}`} className="text-primary font-medium hover:underline">
             {fullName}
           </Link>
           {employee.employeeNumber && (
-            <div className="text-muted-foreground font-mono text-xs">
-              #{employee.employeeNumber}
-            </div>
+            <div className="text-muted-foreground font-mono text-xs">#{employee.employeeNumber}</div>
           )}
         </div>
       );
@@ -61,12 +54,10 @@ export const contractsColumns: ColumnDef<Contract>[] = [
   },
   {
     accessorKey: "contractType",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Tipo de Contrato" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Contrato" />,
     cell: ({ row }) => {
-      const type = row.getValue("contractType") as keyof typeof CONTRACT_TYPES;
-      const typeLabel = CONTRACT_TYPES[type] || type;
+      const type = row.getValue("contractType");
+      const typeLabel = CONTRACT_TYPES[type] ?? type;
 
       const getTypeVariant = (type: string) => {
         switch (type) {
@@ -93,71 +84,49 @@ export const contractsColumns: ColumnDef<Contract>[] = [
   },
   {
     accessorKey: "position",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Puesto" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Puesto" />,
     cell: ({ row }) => {
-      const position = row.getValue("position") as Contract["position"];
+      const position = row.getValue("position");
       return (
         <div className="space-y-1">
           <div className="font-medium">
-            {position?.title || (
-              <span className="text-muted-foreground">Sin puesto asignado</span>
-            )}
+            {position?.title ?? <span className="text-muted-foreground">Sin puesto asignado</span>}
           </div>
-          {position?.level?.name && (
-            <div className="text-muted-foreground text-xs">
-              Nivel: {position.level.name}
-            </div>
-          )}
+          {position?.level?.name && <div className="text-muted-foreground text-xs">Nivel: {position.level.name}</div>}
         </div>
       );
     },
   },
   {
     accessorKey: "department",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Departamento" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Departamento" />,
     cell: ({ row }) => {
-      const department = row.getValue("department") as Contract["department"];
+      const department = row.getValue("department");
       return (
         <div className="font-medium">
-          {department?.name || (
-            <span className="text-muted-foreground">Sin departamento</span>
-          )}
+          {department?.name ?? <span className="text-muted-foreground">Sin departamento</span>}
         </div>
       );
     },
   },
   {
     accessorKey: "costCenter",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Centro de Coste" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Centro de Coste" />,
     cell: ({ row }) => {
-      const costCenter = row.getValue("costCenter") as Contract["costCenter"];
+      const costCenter = row.getValue("costCenter");
       return (
         <div className="space-y-1">
           <div className="font-medium">
-            {costCenter?.name || (
-              <span className="text-muted-foreground">Sin centro</span>
-            )}
+            {costCenter?.name ?? <span className="text-muted-foreground">Sin centro</span>}
           </div>
-          {costCenter?.code && (
-            <div className="text-muted-foreground font-mono text-xs">
-              {costCenter.code}
-            </div>
-          )}
+          {costCenter?.code && <div className="text-muted-foreground font-mono text-xs">{costCenter.code}</div>}
         </div>
       );
     },
   },
   {
     accessorKey: "startDate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Fecha Inicio" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Inicio" />,
     cell: ({ row }) => {
       const date = new Date(row.getValue("startDate"));
       return (
@@ -173,15 +142,11 @@ export const contractsColumns: ColumnDef<Contract>[] = [
   },
   {
     accessorKey: "endDate",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Fecha Fin" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha Fin" />,
     cell: ({ row }) => {
-      const endDate = row.getValue("endDate") as string | null;
+      const endDate = row.getValue("endDate");
       if (!endDate) {
-        return (
-          <span className="text-muted-foreground text-sm">Sin fecha</span>
-        );
+        return <span className="text-muted-foreground text-sm">Sin fecha</span>;
       }
       const date = new Date(endDate);
       return (
@@ -197,29 +162,19 @@ export const contractsColumns: ColumnDef<Contract>[] = [
   },
   {
     accessorKey: "weeklyHours",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Jornada" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Jornada" />,
     cell: ({ row }) => {
-      const hours = row.getValue("weeklyHours") as number;
-      return (
-        <div className="font-medium">
-          {hours}h/semana
-        </div>
-      );
+      const hours = row.getValue("weeklyHours");
+      return <div className="font-medium">{hours}h/semana</div>;
     },
   },
   {
     accessorKey: "grossSalary",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Salario Bruto" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Salario Bruto" />,
     cell: ({ row }) => {
-      const salary = row.getValue("grossSalary") as number | null;
+      const salary = row.getValue("grossSalary");
       if (!salary) {
-        return (
-          <span className="text-muted-foreground text-sm">No especificado</span>
-        );
+        return <span className="text-muted-foreground text-sm">No especificado</span>;
       }
       return (
         <div className="font-medium text-green-600">
@@ -234,11 +189,9 @@ export const contractsColumns: ColumnDef<Contract>[] = [
   },
   {
     accessorKey: "active",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Estado" />
-    ),
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
-      const active = row.getValue("active") as boolean;
+      const active = row.getValue("active");
       return (
         <Badge variant={active ? "default" : "secondary"} className="font-medium">
           {active ? "Activo" : "Finalizado"}
@@ -246,7 +199,7 @@ export const contractsColumns: ColumnDef<Contract>[] = [
       );
     },
     filterFn: (row, id, value) => {
-      const active = row.getValue(id) as boolean;
+      const active = row.getValue(id);
       if (value === "active") return active;
       if (value === "inactive") return !active;
       return true;
@@ -285,9 +238,7 @@ export const contractsColumns: ColumnDef<Contract>[] = [
                 <DropdownMenuSeparator />
               </>
             )}
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(contract.id)}
-            >
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(contract.id)}>
               <FileText className="mr-2 h-4 w-4" />
               Copiar ID
             </DropdownMenuItem>

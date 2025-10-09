@@ -1,25 +1,22 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
-import { toast } from "sonner";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useCalendarsStore } from "@/stores/calendars-store";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
 
@@ -84,7 +81,7 @@ export default function NewCalendarPage() {
     try {
       const calendar = await createCalendar({
         ...data,
-        costCenterId: data.costCenterId || null,
+        costCenterId: data.costCenterId ?? null,
       });
 
       if (calendar) {
@@ -218,9 +215,7 @@ export default function NewCalendarPage() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <FormDescription>
-                        Requerido para calendarios locales
-                      </FormDescription>
+                      <FormDescription>Requerido para calendarios locales</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -238,7 +233,7 @@ export default function NewCalendarPage() {
                         <button
                           key={preset.value}
                           type="button"
-                          className="h-8 w-8 rounded-full ring-offset-background transition-all hover:scale-110"
+                          className="ring-offset-background h-8 w-8 rounded-full transition-all hover:scale-110"
                           style={{
                             backgroundColor: preset.value,
                             outline: field.value === preset.value ? "2px solid currentColor" : "none",
@@ -249,11 +244,7 @@ export default function NewCalendarPage() {
                         />
                       ))}
                       <FormControl>
-                        <Input
-                          type="color"
-                          className="h-8 w-16 cursor-pointer"
-                          {...field}
-                        />
+                        <Input type="color" className="h-8 w-16 cursor-pointer" {...field} />
                       </FormControl>
                     </div>
                     <FormMessage />

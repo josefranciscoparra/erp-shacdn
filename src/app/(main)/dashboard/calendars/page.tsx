@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
-import { CalendarsDataTable } from "./_components/calendars-data-table";
+
 import { Plus, Calendar, Loader2 } from "lucide-react";
+
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { useCalendarsStore } from "@/stores/calendars-store";
+
+import { CalendarsDataTable } from "./_components/calendars-data-table";
 
 export default function CalendarsPage() {
   const calendars = useCalendarsStore((state) => state.calendars);
@@ -20,10 +23,7 @@ export default function CalendarsPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Calendarios"
-          subtitle="Gestiona los calendarios organizacionales"
-        />
+        <SectionHeader title="Calendarios" subtitle="Gestiona los calendarios organizacionales" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando calendarios...</span>
@@ -35,10 +35,7 @@ export default function CalendarsPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Calendarios"
-          subtitle="Gestiona los calendarios organizacionales"
-        />
+        <SectionHeader title="Calendarios" subtitle="Gestiona los calendarios organizacionales" />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar calendarios: {error}</span>
         </div>

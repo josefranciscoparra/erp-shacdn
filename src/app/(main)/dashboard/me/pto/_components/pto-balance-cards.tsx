@@ -1,9 +1,10 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { CalendarDays, CheckCircle2, Clock, Calendar } from "lucide-react";
-import { usePtoStore } from "@/stores/pto-store";
+
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePtoStore } from "@/stores/pto-store";
 
 interface PtoBalanceCardsProps {
   error?: string | null;
@@ -14,7 +15,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   if (isLoadingBalance) {
     return (
-      <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+      <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
         {[1, 2, 3, 4].map((i) => (
           <Card key={i} className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
             <Skeleton className="h-4 w-32" />
@@ -28,19 +29,9 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   if (!balance) {
     return (
       <Card className="p-6">
-        <p className="text-sm font-medium text-muted-foreground">
-          No se pudo cargar el balance de vacaciones
-        </p>
-        {error && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            {error}
-          </p>
-        )}
-        {!error && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Si el problema persiste, contacta con RRHH.
-          </p>
-        )}
+        <p className="text-muted-foreground text-sm font-medium">No se pudo cargar el balance de vacaciones</p>
+        {error && <p className="text-muted-foreground mt-2 text-xs">{error}</p>}
+        {!error && <p className="text-muted-foreground mt-2 text-xs">Si el problema persiste, contacta con RRHH.</p>}
       </Card>
     );
   }
@@ -48,12 +39,12 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   if (balance.hasActiveContract === false) {
     return (
       <Card className="p-6">
-        <p className="text-sm font-medium text-muted-foreground">
+        <p className="text-muted-foreground text-sm font-medium">
           {balance.hasProvisionalContract
             ? "Tu contrato está pendiente de completar. Contacta con RRHH para que registren los detalles."
             : "Aún no tienes un contrato activo asignado."}
         </p>
-        <p className="mt-2 text-xs text-muted-foreground">
+        <p className="text-muted-foreground mt-2 text-xs">
           Cuando RRHH registre tu contrato, verás aquí tus días disponibles.
         </p>
       </Card>
@@ -61,25 +52,23 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   }
 
   return (
-    <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))' }}>
+    <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
       <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
           <Calendar className="h-4 w-4" />
           Días asignados
         </div>
         <div className="text-3xl font-bold">{balance.annualAllowance.toFixed(1)}</div>
-        <div className="text-xs text-muted-foreground">
-          Año {balance.year}
-        </div>
+        <div className="text-muted-foreground text-xs">Año {balance.year}</div>
       </Card>
 
       <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
           <CheckCircle2 className="h-4 w-4" />
           Días usados
         </div>
         <div className="text-3xl font-bold">{balance.daysUsed.toFixed(1)}</div>
-        <div className="text-xs text-muted-foreground">
+        <div className="text-muted-foreground text-xs">
           {balance.annualAllowance > 0
             ? `${((balance.daysUsed / balance.annualAllowance) * 100).toFixed(0)}% del total`
             : "A la espera de asignación"}
@@ -87,25 +76,21 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
       </Card>
 
       <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
           <Clock className="h-4 w-4" />
           Días pendientes
         </div>
         <div className="text-3xl font-bold">{balance.daysPending.toFixed(1)}</div>
-        <div className="text-xs text-muted-foreground">
-          En revisión
-        </div>
+        <div className="text-muted-foreground text-xs">En revisión</div>
       </Card>
 
       <Card className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
           <CalendarDays className="h-4 w-4" />
           Días disponibles
         </div>
         <div className="text-3xl font-bold">{balance.daysAvailable.toFixed(1)}</div>
-        <div className="text-xs text-muted-foreground">
-          Puedes solicitar
-        </div>
+        <div className="text-muted-foreground text-xs">Puedes solicitar</div>
       </Card>
     </div>
   );

@@ -10,13 +10,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { DepartmentData } from "@/stores/departments-store";
 
 import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
 
 import { createDepartmentsColumns } from "./departments-columns";
-import { DepartmentData } from "@/stores/departments-store";
 
 interface DepartmentsDataTableProps {
   data: DepartmentData[];
@@ -25,12 +25,7 @@ interface DepartmentsDataTableProps {
   onDelete?: (department: DepartmentData) => void;
 }
 
-export function DepartmentsDataTable({ 
-  data, 
-  onNewDepartment, 
-  onEdit, 
-  onDelete 
-}: DepartmentsDataTableProps) {
+export function DepartmentsDataTable({ data, onNewDepartment, onEdit, onDelete }: DepartmentsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
 
   // Crear columnas con callbacks

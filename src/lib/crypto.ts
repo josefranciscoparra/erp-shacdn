@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
 
 // Clave de encriptación - debe estar en variables de entorno en producción (32 bytes para AES-256)
-const RAW_KEY = process.env.ENCRYPTION_KEY || "defaultkey32characterslong!!!";
+const RAW_KEY = process.env.ENCRYPTION_KEY ?? "defaultkey32characterslong!!!";
 const KEY = Buffer.from(RAW_KEY);
 
 if (KEY.length !== 32) {

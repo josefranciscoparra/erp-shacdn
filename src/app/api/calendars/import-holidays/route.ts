@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -59,18 +60,12 @@ export async function POST(request: NextRequest) {
 
     // Validar datos requeridos
     if (!body.year || !body.countryCode) {
-      return NextResponse.json(
-        { error: "Faltan datos requeridos: year, countryCode" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Faltan datos requeridos: year, countryCode" }, { status: 400 });
     }
 
     // Validar año
     if (body.year < 2000 || body.year > 2100) {
-      return NextResponse.json(
-        { error: "El año debe estar entre 2000 y 2100" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El año debe estar entre 2000 y 2100" }, { status: 400 });
     }
 
     console.log(`📅 Importing holidays: ${body.countryCode} ${body.year}`);
@@ -81,19 +76,13 @@ export async function POST(request: NextRequest) {
 
     if (!nagerResponse.ok) {
       console.error("❌ Error fetching from nager.date:", nagerResponse.statusText);
-      return NextResponse.json(
-        { error: "Error al obtener festivos desde la API externa" },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "Error al obtener festivos desde la API externa" }, { status: 502 });
     }
 
     const holidays: NagerHoliday[] = await nagerResponse.json();
 
     if (!Array.isArray(holidays) || holidays.length === 0) {
-      return NextResponse.json(
-        { error: "No se encontraron festivos para este país y año" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No se encontraron festivos para este país y año" }, { status: 404 });
     }
 
     console.log(`✅ Fetched ${holidays.length} holidays from nager.date`);
@@ -115,9 +104,9 @@ export async function POST(request: NextRequest) {
     } else {
       // Crear nuevo calendario
       const countryName = COUNTRY_NAMES[body.countryCode] || body.countryCode;
-      const defaultCalendarName = body.calendarName || `Festivos ${countryName} ${body.year}`;
-      const defaultCalendarType = body.calendarType || "NATIONAL_HOLIDAY";
-      const defaultColor = body.color || "#3b82f6";
+      const defaultCalendarName = body.calendarName ?? `Festivos ${countryName} ${body.year}`;
+      const defaultCalendarType = body.calendarType ?? "NATIONAL_HOLIDAY";
+      const defaultColor = body.color ?? "#3b82f6";
 
       calendar = await prisma.calendar.create({
         data: {
@@ -127,7 +116,7 @@ export async function POST(request: NextRequest) {
           year: body.year,
           calendarType: defaultCalendarType,
           color: defaultColor,
-          costCenterId: body.costCenterId || null,
+          costCenterId: body.costCenterId ?? null,
           active: true,
         },
       });
@@ -146,9 +135,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const existingEventKeys = new Set(
-      existingEvents.map((e) => `${e.date.toISOString().split("T")[0]}-${e.name}`)
-    );
+    const existingEventKeys = new Set(existingEvents.map((e) => `${e.date.toISOString().split("T")[0]}-${e.name}`));
 
     // Crear eventos desde los festivos importados
     const eventsToCreate = holidays
@@ -157,13 +144,13 @@ export async function POST(request: NextRequest) {
         return !existingEventKeys.has(eventKey); // Evitar duplicados
       })
       .map((holiday) => ({
-        calendarId: calendar!.id,
+        calendarId: calendar.id,
         name: holiday.localName,
         description: `${holiday.name}${holiday.global ? " (Nacional)" : " (Regional)"}`,
         date: new Date(holiday.date),
         endDate: null,
         eventType: "HOLIDAY" as const,
-        isRecurring: body.isRecurring || false,
+        isRecurring: body.isRecurring ?? false,
       }));
 
     if (eventsToCreate.length === 0) {
@@ -211,14 +198,11 @@ export async function POST(request: NextRequest) {
         },
         events: createdEvents,
       },
-      { status: 201 }
+      { status: 201 },
     );
   } catch (error: any) {
     console.error("❌ Error importing holidays:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor", details: error.message }, { status: 500 });
   }
 }
 
@@ -231,18 +215,12 @@ export async function GET(request: NextRequest) {
     const countryCode = searchParams.get("countryCode");
 
     if (!year || !countryCode) {
-      return NextResponse.json(
-        { error: "Faltan parámetros: year, countryCode" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Faltan parámetros: year, countryCode" }, { status: 400 });
     }
 
     const yearNum = parseInt(year);
     if (yearNum < 2000 || yearNum > 2100) {
-      return NextResponse.json(
-        { error: "El año debe estar entre 2000 y 2100" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El año debe estar entre 2000 y 2100" }, { status: 400 });
     }
 
     // Fetch festivos desde nager.date API
@@ -250,10 +228,7 @@ export async function GET(request: NextRequest) {
     const nagerResponse = await fetch(nagerUrl);
 
     if (!nagerResponse.ok) {
-      return NextResponse.json(
-        { error: "Error al obtener festivos desde la API externa" },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: "Error al obtener festivos desde la API externa" }, { status: 502 });
     }
 
     const holidays: NagerHoliday[] = await nagerResponse.json();
@@ -271,9 +246,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("❌ Error fetching holidays preview:", error);
-    return NextResponse.json(
-      { error: "Error interno del servidor", details: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error interno del servidor", details: error.message }, { status: 500 });
   }
 }

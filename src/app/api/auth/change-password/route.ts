@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+
 import { prisma } from "@/lib/prisma";
 
 const changePasswordSchema = z.object({

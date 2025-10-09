@@ -1,13 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
-import { z } from "zod";
+
 import { Decimal } from "@prisma/client/runtime/library";
+import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
 const contractSchema = z.object({
-  contractType: z.enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"]),
+  contractType: z.enum([
+    "INDEFINIDO",
+    "TEMPORAL",
+    "PRACTICAS",
+    "FORMACION",
+    "OBRA_SERVICIO",
+    "EVENTUAL",
+    "INTERINIDAD",
+  ]),
   startDate: z.string(),
   endDate: z.string().optional().nullable(),
   weeklyHours: z.number().min(1).max(60),
@@ -26,8 +36,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const page = parseInt(searchParams.get("page") ?? "1");
+    const limit = parseInt(searchParams.get("limit") ?? "10");
     const status = searchParams.get("status"); // active, inactive, all
     const skip = (page - 1) * limit;
 
@@ -70,11 +80,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             select: { id: true, name: true, code: true },
           },
           manager: {
-            select: { 
-              id: true, 
-              firstName: true, 
+            select: {
+              id: true,
+              firstName: true,
               lastName: true,
-              secondLastName: true 
+              secondLastName: true,
             },
           },
         },
@@ -112,12 +122,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     const body = await request.json();
     const validation = contractSchema.safeParse(body);
-    
+
     if (!validation.success) {
-      return NextResponse.json({ 
-        error: "Datos inválidos", 
-        details: validation.error.issues 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "Datos inválidos",
+          details: validation.error.issues,
+        },
+        { status: 400 },
+      );
     }
 
     const data = validation.data;
@@ -145,9 +158,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
 
     if (activeContracts > 0) {
-      return NextResponse.json({ 
-        error: "El empleado ya tiene un contrato activo. Finaliza el contrato actual antes de crear uno nuevo." 
-      }, { status: 409 });
+      return NextResponse.json(
+        {
+          error: "El empleado ya tiene un contrato activo. Finaliza el contrato actual antes de crear uno nuevo.",
+        },
+        { status: 409 },
+      );
     }
 
     // Validar fechas
@@ -155,9 +171,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const endDate = data.endDate ? new Date(data.endDate) : null;
 
     if (endDate && endDate <= startDate) {
-      return NextResponse.json({ 
-        error: "La fecha de fin debe ser posterior a la fecha de inicio" 
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "La fecha de fin debe ser posterior a la fecha de inicio",
+        },
+        { status: 400 },
+      );
     }
 
     // Crear contrato
@@ -187,11 +206,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           select: { id: true, name: true, code: true },
         },
         manager: {
-          select: { 
-            id: true, 
-            firstName: true, 
+          select: {
+            id: true,
+            firstName: true,
             lastName: true,
-            secondLastName: true 
+            secondLastName: true,
           },
         },
       },

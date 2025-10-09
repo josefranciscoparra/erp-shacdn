@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
@@ -53,17 +54,14 @@ export async function GET(request: NextRequest) {
           take: 1,
         },
       },
-      orderBy: [
-        { lastName: "asc" },
-        { firstName: "asc" },
-      ],
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
 
     // Transformar los datos para mejor uso en el frontend
     const managersData = managers.map((employee) => {
       const currentContract = employee.employmentContracts[0];
       const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
-      
+
       return {
         id: employee.id,
         firstName: employee.firstName,
@@ -72,8 +70,8 @@ export async function GET(request: NextRequest) {
         fullName,
         employeeNumber: employee.employeeNumber,
         email: employee.email,
-        position: currentContract?.position?.title || null,
-        department: currentContract?.department?.name || null,
+        position: currentContract?.position?.title ?? null,
+        department: currentContract?.department?.name ?? null,
       };
     });
 
