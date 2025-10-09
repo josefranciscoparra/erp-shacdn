@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import type { DocumentKind } from "@/lib/validations/document";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+import { features } from "@/config/features";
 
 export interface MyDocument {
   id: string;
@@ -56,6 +57,22 @@ export async function getMyDocuments(
   const { userId, employeeId, orgId } = await getAuthenticatedEmployee();
 
   const { documentKind, search, page = 1, limit = 50 } = filters;
+
+  if (!features.documents) {
+    return {
+      documents: [],
+      pagination: {
+        page,
+        limit,
+        total: 0,
+        totalPages: 0,
+      },
+      stats: {
+        total: 0,
+        byKind: {},
+      },
+    };
+  }
 
   // Construir filtros para Prisma
   const whereClause: any = {
@@ -151,6 +168,15 @@ export async function getMyDocuments(
  */
 export async function getMyDocumentsStats() {
   const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+  if (!features.documents) {
+    return {
+      total: 0,
+      byKind: {},
+      totalSize: 0,
+      lastUploaded: null,
+    };
+  }
 
   const documents = await prisma.employeeDocument.findMany({
     where: {

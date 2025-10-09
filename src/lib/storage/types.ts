@@ -76,7 +76,7 @@ export abstract class StorageProvider {
   }
 }
 
-export type StorageProviderType = 'azure' | 'aws' | 'local';
+export type StorageProviderType = 'azure' | 'aws' | 'local' | 'r2';
 
 export interface StorageConfig {
   provider: StorageProviderType;
@@ -89,6 +89,14 @@ export interface StorageConfig {
     secretAccessKey: string;
     region: string;
     bucket: string;
+  };
+  r2?: {
+    accountId: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucket: string;
+    endpoint?: string;
+    publicUrl?: string;
   };
   local?: {
     basePath: string;

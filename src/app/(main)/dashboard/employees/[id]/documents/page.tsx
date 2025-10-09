@@ -21,6 +21,7 @@ import { useEmployeesStore } from "@/stores/employees-store";
 import { DocumentUploadDialog } from "@/components/employees/document-upload-dialog";
 import { DocumentListTable } from "@/components/employees/document-list-table";
 import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
+import { features } from "@/config/features";
 
 // Tipos de documentos para tabs
 const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
@@ -41,6 +42,7 @@ export default function EmployeeDocumentsPage() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const documentsEnabled = features.documents;
   
   // Stores
   const {
@@ -61,13 +63,15 @@ export default function EmployeeDocumentsPage() {
 
   // Cargar datos al montar
   useEffect(() => {
-    if (employeeId) {
-      fetchDocuments(employeeId);
-      if (employees.length === 0) {
-        fetchEmployees();
-      }
+    if (!documentsEnabled || !employeeId) {
+      return;
     }
-  }, [employeeId, fetchDocuments, employees.length, fetchEmployees]);
+
+    fetchDocuments(employeeId);
+    if (employees.length === 0) {
+      fetchEmployees();
+    }
+  }, [documentsEnabled, employeeId, fetchDocuments, employees.length, fetchEmployees]);
 
   // Filtrar documentos según tab activo
   const filteredDocuments = activeTab === "all" 
@@ -109,6 +113,30 @@ export default function EmployeeDocumentsPage() {
             <h1 className="text-2xl font-semibold tracking-tight">Empleado no encontrado</h1>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  if (!documentsEnabled) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Card className="bg-card rounded-lg border">
+          <CardContent className="flex flex-col gap-4 p-6">
+            <div>
+              <h2 className="text-lg font-semibold">Documentos deshabilitados</h2>
+              <p className="text-sm text-muted-foreground">
+                El módulo de documentos no está disponible actualmente. Activa la variable de entorno
+                <code className="ml-1 rounded bg-muted px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>
+                para volver a habilitarlo.
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href={`/dashboard/employees/${employeeId}`}>
+                <ArrowLeft className="mr-2 h-4 w-4" /> Volver al perfil del empleado
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

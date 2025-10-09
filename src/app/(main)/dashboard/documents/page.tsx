@@ -21,6 +21,7 @@ import { DocumentStatsCards } from "./_components/document-stats-cards";
 import { GlobalDocumentsTable } from "./_components/global-documents-table";
 import { SimplePagination } from "./_components/simple-pagination";
 import { SectionHeader } from "@/components/hr/section-header";
+import { features } from "@/config/features";
 
 // Tipos de documentos para tabs
 const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
@@ -38,6 +39,7 @@ export default function GlobalDocumentsPage() {
   const [activeTab, setActiveTab] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | undefined>();
+  const documentsEnabled = features.documents;
 
   // Stores
   const {
@@ -57,11 +59,13 @@ export default function GlobalDocumentsPage() {
 
   // Cargar datos al montar
   useEffect(() => {
+    if (!documentsEnabled) return;
+
     fetchAllDocuments();
     if (employees.length === 0) {
       fetchEmployees();
     }
-  }, [fetchAllDocuments, employees.length, fetchEmployees]);
+  }, [documentsEnabled, fetchAllDocuments, employees.length, fetchEmployees]);
 
   // Filtrar documentos según tab activo
   const filteredDocuments = activeTab === "all"
@@ -96,6 +100,25 @@ export default function GlobalDocumentsPage() {
     if (tabKey === "all") return stats.total;
     return stats.byKind[tabKey as DocumentKind] || 0;
   };
+
+  if (!documentsEnabled) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Documentos deshabilitados"
+          subtitle="Esta sección no está disponible en la configuración actual."
+        />
+        <Card className="bg-card rounded-lg border">
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">
+              El módulo de documentos está desactivado. Puedes habilitarlo estableciendo la variable
+              de entorno <code className="rounded bg-muted px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">

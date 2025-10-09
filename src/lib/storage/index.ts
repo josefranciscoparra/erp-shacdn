@@ -1,6 +1,7 @@
 import { StorageProvider, type StorageConfig, type StorageProviderType } from './types';
 import { AzureStorageProvider } from './providers/azure';
 import { LocalStorageProvider } from './providers/local';
+import { R2StorageProvider } from './providers/r2';
 
 // Configuración por defecto
 const defaultConfig: StorageConfig = {
@@ -8,6 +9,14 @@ const defaultConfig: StorageConfig = {
   azure: {
     connectionString: process.env.AZURE_STORAGE_CONNECTION_STRING || '',
     containerPrefix: process.env.AZURE_CONTAINER_PREFIX || 'documents'
+  },
+  r2: {
+    accountId: process.env.R2_ACCOUNT_ID || '',
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || '',
+    bucket: process.env.R2_BUCKET || '',
+    endpoint: process.env.R2_ENDPOINT || undefined,
+    publicUrl: process.env.R2_PUBLIC_URL || undefined
   },
   local: {
     basePath: process.env.LOCAL_STORAGE_PATH || './uploads',
@@ -32,6 +41,20 @@ export function createStorageProvider(config?: Partial<StorageConfig>): StorageP
     case 'aws':
       // TODO: Implementar S3StorageProvider cuando sea necesario
       throw new Error('AWS S3 provider no implementado aún');
+
+    case 'r2':
+      if (!finalConfig.r2?.accountId || !finalConfig.r2.accessKeyId || !finalConfig.r2.secretAccessKey || !finalConfig.r2.bucket) {
+        throw new Error('R2 requiere R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET configurados');
+      }
+
+      return new R2StorageProvider({
+        accountId: finalConfig.r2.accountId,
+        accessKeyId: finalConfig.r2.accessKeyId,
+        secretAccessKey: finalConfig.r2.secretAccessKey,
+        bucket: finalConfig.r2.bucket,
+        endpoint: finalConfig.r2.endpoint,
+        publicUrl: finalConfig.r2.publicUrl
+      });
 
     case 'local':
     default:

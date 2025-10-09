@@ -2,11 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
+import { features } from "@/config/features";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
+  if (!features.documents) {
+    return NextResponse.json(
+      { error: "El módulo de documentos está deshabilitado" },
+      { status: 503 }
+    );
+  }
+
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
@@ -78,6 +86,10 @@ export async function HEAD(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
+  if (!features.documents) {
+    return new NextResponse(null, { status: 503 });
+  }
+
   try {
     const session = await auth();
     if (!session?.user?.orgId) {

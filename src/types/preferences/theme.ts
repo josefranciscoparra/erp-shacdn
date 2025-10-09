@@ -20,15 +20,15 @@ export const THEME_PRESET_OPTIONS = [
     label: "Default",
     value: "default",
     primary: {
-      light: "oklch(0.205 0 0)",
-      dark: "oklch(0.922 0 0)",
+      light: "oklch(0.6723 0.1606 244.9955)",
+      dark: "oklch(0.6692 0.1607 245.011)",
     },
   },
   {
     label: "Brutalist",
     value: "brutalist",
     primary: {
-      light: "oklch(0.6489 0.2370 26.9728)",
+      light: "oklch(0.6489 0.237 26.9728)",
       dark: "oklch(0.7044 0.1872 23.1858)",
     },
   },

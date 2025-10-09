@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { SectionHeader } from "@/components/hr/section-header";
 import { EmptyState } from "@/components/hr/empty-state";
 import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
+import { features } from "@/config/features";
 
 interface Employee {
   id: string;
@@ -96,6 +97,7 @@ export default function EmployeeProfilePage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const documentsEnabled = features.documents;
 
   const fetchEmployee = async (silent = false) => {
     try {
@@ -214,14 +216,16 @@ export default function EmployeeProfilePage() {
             <FileText className="mr-2 h-4 w-4" />
             Contratos
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
-          >
-            <FolderOpen className="mr-2 h-4 w-4" />
-            Documentos
-          </Button>
+          {documentsEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
+            >
+              <FolderOpen className="mr-2 h-4 w-4" />
+              Documentos
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/employees/${employee.id}/edit`)}>
             <Pencil className="mr-2 h-4 w-4" />
             Editar
@@ -231,11 +235,11 @@ export default function EmployeeProfilePage() {
 
       {/* Tabs Content */}
       <Tabs defaultValue="information" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-5" : "grid-cols-4"}`}>
           <TabsTrigger value="information">Información</TabsTrigger>
           <TabsTrigger value="contract">Contrato Actual</TabsTrigger>
           <TabsTrigger value="access">Acceso</TabsTrigger>
-          <TabsTrigger value="documents">Documentos</TabsTrigger>
+          {documentsEnabled && <TabsTrigger value="documents">Documentos</TabsTrigger>}
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
 
@@ -484,30 +488,32 @@ export default function EmployeeProfilePage() {
         </TabsContent>
 
         {/* Documentos */}
-        <TabsContent value="documents">
-          <Card className="rounded-lg border shadow-xs">
-            <CardHeader>
-              <CardTitle className="text-lg">
-                <FolderOpen className="mr-2 inline h-5 w-5" />
-                Gestión de Documentos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  Accede a la gestión completa de documentos del empleado
-                </p>
-                <Button 
-                  onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
-                  className="w-full @md/main:w-auto"
-                >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  Ver Documentos
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {documentsEnabled && (
+          <TabsContent value="documents">
+            <Card className="rounded-lg border shadow-xs">
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  <FolderOpen className="mr-2 inline h-5 w-5" />
+                  Gestión de Documentos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground mb-4">
+                    Accede a la gestión completa de documentos del empleado
+                  </p>
+                  <Button
+                    onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
+                    className="w-full @md/main:w-auto"
+                  >
+                    <FolderOpen className="mr-2 h-4 w-4" />
+                    Ver Documentos
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
 
         {/* Historial */}
         <TabsContent value="history">

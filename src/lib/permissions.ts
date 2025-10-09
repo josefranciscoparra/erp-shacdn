@@ -1,4 +1,5 @@
 import { Role } from "@prisma/client";
+import { features } from "@/config/features";
 
 // Definir permisos del sistema
 export type Permission =
@@ -158,6 +159,7 @@ export function canAccessPage(role: Role, page: string): boolean {
     case "/dashboard/contracts":
       return hasPermission(role, "view_contracts");
     case "/dashboard/documents":
+      if (!features.documents) return false;
       return hasPermission(role, "view_documents");
     case "/dashboard/reports":
       return hasPermission(role, "view_reports");

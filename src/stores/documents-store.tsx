@@ -3,6 +3,7 @@
 import { create } from "zustand";
 import { toast } from "sonner";
 import type { DocumentKind } from "@/lib/validations/document";
+import { features } from "@/config/features";
 
 // Tipos para el store
 export interface EmployeeDocument {
@@ -95,6 +96,17 @@ interface DocumentsActions {
 
 type DocumentsStore = DocumentsState & DocumentsActions;
 
+const DOCUMENTS_ENABLED = features.documents;
+
+const ensureDocumentsEnabled = (): boolean => {
+  if (DOCUMENTS_ENABLED) {
+    return true;
+  }
+
+  toast.info("El módulo de documentos está deshabilitado.");
+  return false;
+};
+
 const initialState: DocumentsState = {
   documents: [],
   isLoading: false,
@@ -124,8 +136,11 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   // Obtener documentos
   fetchDocuments: async (employeeId: string, options = {}) => {
     const { refresh = false } = options;
+    if (!ensureDocumentsEnabled()) {
+      return;
+    }
     const state = get();
-    
+
     // Si es el mismo empleado y no es refresh, no hacer nada
     if (state.currentEmployeeId === employeeId && !refresh && state.documents.length > 0) {
       return;
@@ -175,6 +190,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   // Subir documento
   uploadDocument: async (employeeId: string, formData: FormData) => {
+    if (!ensureDocumentsEnabled()) {
+      return false;
+    }
+
     set({ isUploading: true });
 
     try {
@@ -212,6 +231,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   // Eliminar documento
   deleteDocument: async (employeeId: string, documentId: string) => {
+    if (!ensureDocumentsEnabled()) {
+      return false;
+    }
+
     try {
       const response = await fetch(
         `/api/employees/${employeeId}/documents?documentId=${documentId}`,
@@ -244,6 +267,10 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
 
   // Descargar documento
   downloadDocument: async (employeeId: string, documentId: string) => {
+    if (!ensureDocumentsEnabled()) {
+      return null;
+    }
+
     try {
       const response = await fetch(
         `/api/employees/${employeeId}/documents/${documentId}/download`
@@ -337,6 +364,9 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   // Obtener todos los documentos de la organización
   fetchAllDocuments: async (options = {}) => {
     const { refresh = false } = options;
+    if (!ensureDocumentsEnabled()) {
+      return;
+    }
     const state = get();
 
     // Si ya hay datos y no es refresh, no hacer nada

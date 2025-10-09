@@ -24,6 +24,7 @@ import {
 import { useTranslations } from "next-intl";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type Permission } from "@/lib/permissions";
+import { features } from "@/config/features";
 
 export interface NavSubItem {
   title: string;
@@ -55,6 +56,7 @@ export interface NavGroup {
 export function useSidebarItems(): NavGroup[] {
   const t = useTranslations("navigation");
   const { hasPermission, isAuthenticated } = usePermissions();
+  const documentsEnabled = features.documents;
 
   const allItems = [
     {
@@ -92,11 +94,15 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/calendar",
           icon: Calendar,
         },
-        {
-          title: "Mis Documentos",
-          url: "/dashboard/me/documents",
-          icon: FileText,
-        },
+        ...(documentsEnabled
+          ? [
+              {
+                title: "Mis Documentos",
+                url: "/dashboard/me/documents",
+                icon: FileText,
+              },
+            ]
+          : []),
         {
           title: "Mi Perfil",
           url: "/dashboard/me/profile",
@@ -162,12 +168,16 @@ export function useSidebarItems(): NavGroup[] {
           icon: FileText,
           permission: "view_contracts",
         },
-        {
-          title: "Documentos",
-          url: "/dashboard/documents",
-          icon: FolderOpen,
-          permission: "view_documents",
-        },
+        ...(documentsEnabled
+          ? [
+              {
+                title: "Documentos",
+                url: "/dashboard/documents",
+                icon: FolderOpen,
+                permission: "view_documents",
+              },
+            ]
+          : []),
         {
           title: "Aprobaciones",
           url: "/dashboard/approvals/pto",

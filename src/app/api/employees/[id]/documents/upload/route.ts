@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { documentKindSchema } from "@/lib/validations/document";
 import { z } from "zod";
+import { features } from "@/config/features";
 
 // Schema para validar form data
 const uploadFormSchema = z.object({
@@ -15,6 +16,13 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  if (!features.documents) {
+    return NextResponse.json(
+      { error: "El módulo de documentos está deshabilitado" },
+      { status: 503 }
+    );
+  }
+
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
