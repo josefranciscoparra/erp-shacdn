@@ -9,22 +9,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Locale } from "@/lib/i18n";
-import { updateContentLayout } from "@/lib/layout-utils";
 import { updateThemeMode, updateThemePreset } from "@/lib/theme-utils";
 import { useLocale } from "@/providers/locale-provider";
 import { setValueToCookie } from "@/server/server-actions";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
-import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 import { THEME_PRESET_OPTIONS, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
 
-type LayoutControlsProps = {
-  readonly variant: SidebarVariant;
-  readonly collapsible: SidebarCollapsible;
-  readonly contentLayout: ContentLayout;
-};
-
-export function LayoutControls(props: LayoutControlsProps) {
-  const { variant, collapsible, contentLayout } = props;
+export function LayoutControls() {
   const t = useTranslations("settings");
   const { locale, setLocale } = useLocale();
 
@@ -44,9 +35,6 @@ export function LayoutControls(props: LayoutControlsProps) {
       setThemePreset(value as ThemePreset);
     }
 
-    if (key === "content_layout") {
-      updateContentLayout(value);
-    }
     await setValueToCookie(key, value);
   };
 
@@ -121,66 +109,6 @@ export function LayoutControls(props: LayoutControlsProps) {
                 </ToggleGroupItem>
                 <ToggleGroupItem className="text-xs" value="dark" aria-label="Toggle dark">
                   {t("darkMode")}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">{t("sidebarVariant")}</Label>
-              <ToggleGroup
-                className="w-full"
-                size="sm"
-                variant="outline"
-                type="single"
-                value={variant}
-                onValueChange={(value) => handleValueChange("sidebar_variant", value)}
-              >
-                <ToggleGroupItem className="text-xs" value="inset" aria-label="Toggle inset">
-                  {t("inset")}
-                </ToggleGroupItem>
-                <ToggleGroupItem className="text-xs" value="sidebar" aria-label="Toggle sidebar">
-                  {t("sidebar")}
-                </ToggleGroupItem>
-                <ToggleGroupItem className="text-xs" value="floating" aria-label="Toggle floating">
-                  {t("floating")}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">{t("sidebarCollapsible")}</Label>
-              <ToggleGroup
-                className="w-full"
-                size="sm"
-                variant="outline"
-                type="single"
-                value={collapsible}
-                onValueChange={(value) => handleValueChange("sidebar_collapsible", value)}
-              >
-                <ToggleGroupItem className="text-xs" value="icon" aria-label="Toggle icon">
-                  {t("icon")}
-                </ToggleGroupItem>
-                <ToggleGroupItem className="text-xs" value="offcanvas" aria-label="Toggle offcanvas">
-                  {t("offcanvas")}
-                </ToggleGroupItem>
-              </ToggleGroup>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">{t("contentLayout")}</Label>
-              <ToggleGroup
-                className="w-full"
-                size="sm"
-                variant="outline"
-                type="single"
-                value={contentLayout}
-                onValueChange={(value) => handleValueChange("content_layout", value)}
-              >
-                <ToggleGroupItem className="text-xs" value="centered" aria-label="Toggle centered">
-                  {t("centered")}
-                </ToggleGroupItem>
-                <ToggleGroupItem className="text-xs" value="full-width" aria-label="Toggle full-width">
-                  {t("fullWidth")}
                 </ToggleGroupItem>
               </ToggleGroup>
             </div>

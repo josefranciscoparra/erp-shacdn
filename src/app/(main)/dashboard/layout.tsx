@@ -10,19 +10,10 @@ import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { getPreference } from "@/server/server-actions";
-import {
-  SIDEBAR_VARIANT_VALUES,
-  SIDEBAR_COLLAPSIBLE_VALUES,
-  CONTENT_LAYOUT_VALUES,
-  type SidebarVariant,
-  type SidebarCollapsible,
-  type ContentLayout,
-} from "@/types/preferences/layout";
+import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
-import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   // Verificar autenticación
@@ -34,11 +25,10 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
 
-  const [sidebarVariant, sidebarCollapsible, contentLayout] = await Promise.all([
-    getPreference<SidebarVariant>("sidebar_variant", SIDEBAR_VARIANT_VALUES, "inset"),
-    getPreference<SidebarCollapsible>("sidebar_collapsible", SIDEBAR_COLLAPSIBLE_VALUES, "icon"),
-    getPreference<ContentLayout>("content_layout", CONTENT_LAYOUT_VALUES, "centered"),
-  ]);
+  // Valores fijos para sidebar y layout (no personalizables)
+  const sidebarVariant: SidebarVariant = "inset";
+  const sidebarCollapsible: SidebarCollapsible = "icon";
+  const contentLayout: ContentLayout = "centered";
 
   // Crear usuario para AccountSwitcher desde la sesión
   const currentUser = {
@@ -47,12 +37,6 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     email: session.user.email,
     avatar: session.user.image ?? "",
     role: session.user.role,
-  };
-
-  const layoutPreferences = {
-    contentLayout,
-    variant: sidebarVariant,
-    collapsible: sidebarCollapsible,
   };
 
   return (
@@ -76,8 +60,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <LayoutControls {...layoutPreferences} />
-              <ThemeSwitcher />
+              <LayoutControls />
             </div>
           </div>
         </header>
