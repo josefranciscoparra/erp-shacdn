@@ -52,6 +52,7 @@ export interface NavGroup {
   id: number;
   label?: string;
   items: NavMainItem[];
+  permission?: Permission;
 }
 
 export function useSidebarItems(): NavGroup[] {
@@ -63,6 +64,7 @@ export function useSidebarItems(): NavGroup[] {
     {
       id: 2,
       label: "Mi Espacio",
+      permission: "has_employee_profile",
       items: [
         {
           title: "Mi Espacio",
@@ -219,5 +221,12 @@ export function useSidebarItems(): NavGroup[] {
           }),
         })),
     }))
-    .filter((group) => group.items.length > 0); // Filtrar grupos vacíos
+    .filter((group) => {
+      // Filtrar grupo si tiene permiso requerido y el usuario no lo tiene
+      if (group.permission && !hasPermission(group.permission)) {
+        return false;
+      }
+      // Filtrar grupos vacíos
+      return group.items.length > 0;
+    });
 }

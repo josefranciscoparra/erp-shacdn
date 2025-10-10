@@ -26,7 +26,9 @@ export type Permission =
   | "clock_in_out" // Fichar entrada/salida
   | "view_time_tracking" // Ver fichajes de todos los empleados
   | "manage_time_tracking" // Gestionar fichajes (admin)
-  | "export_time_tracking"; // Exportar fichajes
+  | "export_time_tracking" // Exportar fichajes
+  | "has_employee_profile" // Indica que el usuario tiene perfil de empleado
+  | "approve_requests"; // Aprobar solicitudes (PTO, etc.)
 
 // Mapa de permisos por rol
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -103,6 +105,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
+    "has_employee_profile",
+    "approve_requests",
   ],
   MANAGER: [
     "view_employees", // Pueden ver empleados de su equipo
@@ -117,12 +121,15 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents",
     "clock_in_out",
     "view_time_tracking", // Ver fichajes de su equipo
+    "has_employee_profile",
+    "approve_requests",
   ],
   EMPLOYEE: [
     "view_own_profile", // Solo pueden ver su propio perfil
     "edit_own_profile", // Editar algunos campos de su perfil
     "view_own_documents", // Ver solo sus documentos
     "clock_in_out", // Todos los empleados pueden fichar
+    "has_employee_profile",
   ],
 };
 
