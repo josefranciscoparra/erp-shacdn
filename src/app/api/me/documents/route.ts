@@ -8,6 +8,8 @@ import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { documentKindSchema } from "@/lib/validations/document";
 
+export const runtime = "nodejs";
+
 // Tipos de documentos que los empleados pueden subir
 const EMPLOYEE_ALLOWED_DOCUMENT_TYPES = ["MEDICAL", "CERTIFICATE", "OTHER"] as const;
 

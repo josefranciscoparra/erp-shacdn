@@ -2,6 +2,7 @@
 
 import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { getMyMonthEvents } from "./employee-calendars";
@@ -72,6 +73,12 @@ export interface MySpaceDashboard {
  * Obtiene todos los datos necesarios para el dashboard "Mi Espacio"
  */
 export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
+  const session = await auth();
+
+  if (!session?.user) {
+    throw new Error("Usuario no autenticado");
+  }
+
   try {
     const { employee, orgId, activeContract } = await getAuthenticatedEmployee({
       contractInclude: {
@@ -199,7 +206,43 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
   } catch (error) {
     console.error("❌ Error en getMySpaceDashboard:", error);
 
-    // Proporcionar mensaje de error más específico
+    if (error instanceof Error && error.message === "Usuario no tiene un empleado asociado") {
+      const notificationsResult = await getAllMyNotifications(1, 5);
+      const recentNotifications = notificationsResult.notifications.map((notif) => ({
+        id: notif.id,
+        type: notif.type,
+        message: notif.message,
+        read: notif.isRead,
+        createdAt: notif.createdAt,
+      }));
+
+      return {
+        timeTracking: {
+          today: {
+            workedMinutes: 0,
+            breakMinutes: 0,
+            expectedMinutes: 0,
+            status: "CLOCKED_OUT",
+          },
+          week: {
+            totalWorkedMinutes: 0,
+            totalBreakMinutes: 0,
+            expectedMinutes: 0,
+          },
+        },
+        pto: null,
+        upcomingEvents: [],
+        recentNotifications,
+        profile: {
+          name: session.user.name ?? session.user.email ?? "Usuario",
+          email: session.user.email ?? "",
+          position: null,
+          department: null,
+          photoUrl: session.user.image ?? null,
+        },
+      };
+    }
+
     if (error instanceof Error) {
       throw new Error(`Error al cargar dashboard: ${error.message}`);
     }

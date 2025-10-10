@@ -42,11 +42,15 @@ export const createPositionsColumns = ({ onEdit, onDelete }: PositionsColumnsPro
     accessorKey: "level",
     header: "Nivel",
     cell: ({ row }) => {
-      const level = row.getValue("level");
-      if (!level) {
+      const levelValue = row.getValue("level");
+      if (!levelValue) {
         return <span className="text-muted-foreground">Sin especificar</span>;
       }
-      return <Badge variant="outline">{level}</Badge>;
+      const levelLabel = typeof levelValue === "string" ? levelValue : levelValue?.name;
+      if (!levelLabel) {
+        return <span className="text-muted-foreground">Sin especificar</span>;
+      }
+      return <Badge variant="outline">{levelLabel}</Badge>;
     },
   },
   {

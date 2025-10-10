@@ -14,6 +14,8 @@ const uploadFormSchema = z.object({
   description: z.string().optional(),
 });
 
+export const runtime = "nodejs";
+
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!features.documents) {
     return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });

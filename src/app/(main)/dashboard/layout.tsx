@@ -15,6 +15,8 @@ import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 
+export const runtime = "nodejs";
+
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   // Verificar autenticación
   const session = await auth();

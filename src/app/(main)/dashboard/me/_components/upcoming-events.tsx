@@ -26,7 +26,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
           </div>
         </div>
         <EmptyState
-          icon={CalendarDays}
+          icon={<CalendarDays className="text-muted-foreground/60 h-10 w-10" />}
           title="No hay eventos próximos"
           description="No tienes eventos programados en tu calendario para los próximos días."
         />
@@ -63,7 +63,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
               {/* Indicador de color del calendario */}
               <div
                 className="mt-1 h-3 w-3 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: event.calendar.color }}
+                style={{ backgroundColor: event.calendar?.color ?? "var(--border)" }}
               />
 
               <div className="flex-1 space-y-1">
@@ -79,7 +79,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                 </div>
 
                 <div className="text-muted-foreground flex items-center gap-2 text-xs">
-                  <span>{event.calendar.name}</span>
+                  <span>{event.calendar?.name ?? "Calendario"}</span>
                   <span>•</span>
                   <span>
                     {isMultiDay ? (

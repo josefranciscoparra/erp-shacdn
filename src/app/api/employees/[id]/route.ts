@@ -6,6 +6,8 @@ import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 const updateEmployeeSchema = z.object({
   // Datos personales
   firstName: z.string().min(1, "El nombre es requerido"),

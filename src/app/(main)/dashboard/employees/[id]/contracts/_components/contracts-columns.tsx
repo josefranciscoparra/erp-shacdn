@@ -71,7 +71,7 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
           <div className="font-medium">
             {position?.title ?? <span className="text-muted-foreground">Sin puesto asignado</span>}
           </div>
-          {position?.level && <div className="text-muted-foreground text-xs">Nivel: {position.level}</div>}
+          {position?.level?.name && <div className="text-muted-foreground text-xs">Nivel: {position.level.name}</div>}
         </div>
       );
     },

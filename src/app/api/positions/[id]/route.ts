@@ -13,7 +13,7 @@ const positionUpdateSchema = z.object({
   levelId: z.string().optional(),
 });
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -23,11 +23,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const orgId = session.user.orgId;
     const body = await request.json();
     const validatedData = positionUpdateSchema.parse(body);
+    const { id } = await params;
 
     // Verificar que el puesto pertenece a la organización
     const existingPosition = await prisma.position.findFirst({
       where: {
-        id: params.id,
+        id,
         orgId,
       },
     });
@@ -37,7 +38,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const position = await prisma.position.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
     });
 
@@ -51,7 +52,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -59,11 +60,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const orgId = session.user.orgId;
+    const { id } = await params;
 
     // Verificar que el puesto pertenece a la organización
     const existingPosition = await prisma.position.findFirst({
       where: {
-        id: params.id,
+        id,
         orgId,
       },
     });
@@ -75,7 +77,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     // Verificar si hay contratos activos con este puesto
     const contractsCount = await prisma.employmentContract.count({
       where: {
-        positionId: params.id,
+        positionId: id,
         active: true,
       },
     });
@@ -89,7 +91,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Soft delete
     await prisma.position.update({
-      where: { id: params.id },
+      where: { id },
       data: { active: false },
     });
 

@@ -5,6 +5,8 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+export const runtime = "nodejs";
+
 const changePasswordSchema = z.object({
   userId: z.string().cuid(),
   currentPassword: z.string().min(1),

@@ -16,7 +16,7 @@ const positionLevelUpdateSchema = z.object({
   maxSalary: z.number().optional(),
 });
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -26,11 +26,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const orgId = session.user.orgId;
     const body = await request.json();
     const validatedData = positionLevelUpdateSchema.parse(body);
+    const { id } = await params;
 
     // Verificar que el nivel pertenece a la organización
     const existingLevel = await prisma.positionLevel.findFirst({
       where: {
-        id: params.id,
+        id,
         orgId,
       },
     });
@@ -59,7 +60,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     const level = await prisma.positionLevel.update({
-      where: { id: params.id },
+      where: { id },
       data: validatedData,
     });
 
@@ -73,7 +74,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -81,11 +82,12 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const orgId = session.user.orgId;
+    const { id } = await params;
 
     // Verificar que el nivel pertenece a la organización
     const existingLevel = await prisma.positionLevel.findFirst({
       where: {
-        id: params.id,
+        id,
         orgId,
       },
     });
@@ -97,7 +99,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     // Verificar si hay puestos asignados a este nivel
     const positionsCount = await prisma.position.count({
       where: {
-        levelId: params.id,
+        levelId: id,
         active: true,
       },
     });
@@ -111,7 +113,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Soft delete
     await prisma.positionLevel.update({
-      where: { id: params.id },
+      where: { id },
       data: { active: false },
     });
 

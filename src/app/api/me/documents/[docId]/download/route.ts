@@ -5,6 +5,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 
+export const runtime = "nodejs";
+
 export async function GET(request: NextRequest, { params }: { params: Promise<{ docId: string }> }) {
   if (!features.documents) {
     return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });

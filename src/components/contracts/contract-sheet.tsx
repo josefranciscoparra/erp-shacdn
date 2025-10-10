@@ -38,10 +38,16 @@ const contractSchema = z.object({
 
 type ContractFormData = z.infer<typeof contractSchema>;
 
+interface PositionLevelSummary {
+  id: string;
+  name: string | null;
+  order: number | null;
+}
+
 interface Position {
   id: string;
   title: string;
-  level: string | null;
+  level: PositionLevelSummary | null;
   description: string | null;
 }
 
@@ -173,7 +179,20 @@ export function ContractSheet({
 
       if (positionsRes.ok) {
         const positionsData = await positionsRes.json();
-        setPositions(positionsData);
+        setPositions(
+          positionsData.map((position: any) => ({
+            id: position.id,
+            title: position.title,
+            description: position.description ?? null,
+            level: position.level
+              ? {
+                  id: position.level.id,
+                  name: position.level.name ?? null,
+                  order: position.level.order ?? null,
+                }
+              : null,
+          })),
+        );
       }
 
       if (departmentsRes.ok) {
@@ -433,8 +452,8 @@ export function ContractSheet({
                               {positions.map((position) => (
                                 <SelectItem key={position.id} value={position.id}>
                                   {position.title}
-                                  {position.level && (
-                                    <span className="text-muted-foreground text-sm"> • {position.level}</span>
+                                  {position.level?.name && (
+                                    <span className="text-muted-foreground text-sm"> • {position.level.name}</span>
                                   )}
                                 </SelectItem>
                               ))}
