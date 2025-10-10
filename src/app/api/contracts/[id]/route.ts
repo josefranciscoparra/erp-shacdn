@@ -115,16 +115,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     // Preparar datos de actualización
     const updateData: any = {};
+    const normalizeId = (value?: string | null) => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      if (trimmed.length === 0 || trimmed === "__none__") {
+        return null;
+      }
+      return trimmed;
+    };
 
     if (data.contractType) updateData.contractType = data.contractType;
     if (data.startDate) updateData.startDate = new Date(data.startDate);
     if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.weeklyHours) updateData.weeklyHours = data.weeklyHours;
     if (data.grossSalary !== undefined) updateData.grossSalary = data.grossSalary;
-    if (data.positionId !== undefined) updateData.positionId = data.positionId;
-    if (data.departmentId !== undefined) updateData.departmentId = data.departmentId;
-    if (data.costCenterId !== undefined) updateData.costCenterId = data.costCenterId;
-    if (data.managerId !== undefined) updateData.managerId = data.managerId;
+    if (data.positionId !== undefined) updateData.positionId = normalizeId(data.positionId);
+    if (data.departmentId !== undefined) updateData.departmentId = normalizeId(data.departmentId);
+    if (data.costCenterId !== undefined) updateData.costCenterId = normalizeId(data.costCenterId);
+    if (data.managerId !== undefined) updateData.managerId = normalizeId(data.managerId);
     if (data.active !== undefined) updateData.active = data.active;
 
     // Validar fechas si se proporcionan
@@ -141,6 +149,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.active === false && existingContract.active) {
       // Opcional: Aquí podrías implementar lógica adicional
       // Por ejemplo, actualizar el estado del empleado si no tiene más contratos activos
+    }
+
+    if (updateData.managerId) {
+      const manager = await prisma.employee.findFirst({
+        where: {
+          id: updateData.managerId,
+          orgId,
+          active: true,
+        },
+      });
+
+      if (!manager) {
+        return NextResponse.json({ error: "Responsable no válido" }, { status: 400 });
+      }
     }
 
     // Actualizar contrato

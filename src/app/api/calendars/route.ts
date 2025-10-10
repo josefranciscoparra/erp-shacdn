@@ -71,6 +71,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Crear calendario
+    const rawCostCenterId = typeof body.costCenterId === "string" ? body.costCenterId.trim() : null;
+    const costCenterId = rawCostCenterId && rawCostCenterId !== "__none__" ? rawCostCenterId : null;
+
+    if (body.calendarType === "LOCAL_HOLIDAY" && !costCenterId) {
+      return NextResponse.json({ error: "Selecciona un centro de coste para calendarios locales" }, { status: 400 });
+    }
+
+    if (costCenterId) {
+      const costCenter = await prisma.costCenter.findFirst({
+        where: {
+          id: costCenterId,
+          orgId,
+          active: true,
+        },
+      });
+
+      if (!costCenter) {
+        return NextResponse.json({ error: "Centro de coste inválido" }, { status: 400 });
+      }
+    }
+
     const calendar = await prisma.calendar.create({
       data: {
         orgId,
@@ -79,7 +100,7 @@ export async function POST(request: NextRequest) {
         year: body.year,
         calendarType: body.calendarType ?? "NATIONAL_HOLIDAY",
         color: body.color ?? "#3b82f6",
-        costCenterId: body.costCenterId ?? null,
+        costCenterId,
         active: body.active !== undefined ? body.active : true,
       },
       include: {

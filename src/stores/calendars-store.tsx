@@ -106,11 +106,25 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
     createCalendar: async (data: Partial<CalendarData>) => {
       set({ isLoading: true, error: null });
       try {
+        const normalizeId = (value?: string | null) => {
+          if (!value) return null;
+          const trimmed = String(value).trim();
+          if (!trimmed || trimmed === "__none__") {
+            return null;
+          }
+          return trimmed;
+        };
+
+        const payload = {
+          ...data,
+          costCenterId: normalizeId(data.costCenterId as string | null | undefined) ?? null,
+        };
+
         const response = await fetch("/api/calendars", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) {
           throw new Error("Error al crear calendario");
@@ -133,11 +147,25 @@ export const useCalendarsStore = create<CalendarsState & CalendarsActions>()(
     updateCalendar: async (id: string, data: Partial<CalendarData>) => {
       set({ isLoading: true, error: null });
       try {
+        const normalizeId = (value?: string | null) => {
+          if (!value) return null;
+          const trimmed = String(value).trim();
+          if (!trimmed || trimmed === "__none__") {
+            return null;
+          }
+          return trimmed;
+        };
+
+        const payload = {
+          ...data,
+          costCenterId: normalizeId(data.costCenterId as string | null | undefined),
+        };
+
         const response = await fetch(`/api/calendars/${id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
-          body: JSON.stringify(data),
+          body: JSON.stringify(payload),
         });
         if (!response.ok) {
           throw new Error("Error al actualizar calendario");

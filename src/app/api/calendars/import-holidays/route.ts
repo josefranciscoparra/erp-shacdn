@@ -89,6 +89,9 @@ export async function POST(request: NextRequest) {
 
     // Determinar calendario destino
     let calendar;
+    const rawCostCenterId = typeof body.costCenterId === "string" ? body.costCenterId.trim() : null;
+    const costCenterId = rawCostCenterId && rawCostCenterId !== "__none__" ? rawCostCenterId : null;
+
     if (body.calendarId) {
       // Usar calendario existente
       calendar = await prisma.calendar.findFirst({
@@ -101,12 +104,34 @@ export async function POST(request: NextRequest) {
       if (!calendar) {
         return NextResponse.json({ error: "Calendario no encontrado" }, { status: 404 });
       }
+
+      if (calendar.calendarType === "LOCAL_HOLIDAY" && !calendar.costCenterId && !costCenterId) {
+        return NextResponse.json({ error: "El calendario destino requiere un centro de coste" }, { status: 400 });
+      }
     } else {
       // Crear nuevo calendario
       const countryName = COUNTRY_NAMES[body.countryCode] || body.countryCode;
       const defaultCalendarName = body.calendarName ?? `Festivos ${countryName} ${body.year}`;
       const defaultCalendarType = body.calendarType ?? "NATIONAL_HOLIDAY";
       const defaultColor = body.color ?? "#3b82f6";
+
+      if (defaultCalendarType === "LOCAL_HOLIDAY" && !costCenterId) {
+        return NextResponse.json({ error: "Selecciona un centro de coste para calendarios locales" }, { status: 400 });
+      }
+
+      if (costCenterId) {
+        const costCenter = await prisma.costCenter.findFirst({
+          where: {
+            id: costCenterId,
+            orgId,
+            active: true,
+          },
+        });
+
+        if (!costCenter) {
+          return NextResponse.json({ error: "Centro de coste inválido" }, { status: 400 });
+        }
+      }
 
       calendar = await prisma.calendar.create({
         data: {
@@ -116,7 +141,7 @@ export async function POST(request: NextRequest) {
           year: body.year,
           calendarType: defaultCalendarType,
           color: defaultColor,
-          costCenterId: body.costCenterId ?? null,
+          costCenterId,
           active: true,
         },
       });

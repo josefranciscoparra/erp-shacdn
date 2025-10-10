@@ -121,6 +121,12 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
   const selectedCalendarType = form.watch("calendarType");
   const requiresCostCenter = selectedCalendarType === "LOCAL_HOLIDAY";
 
+  React.useEffect(() => {
+    if (!requiresCostCenter && form.getValues("costCenterId") !== "__none__") {
+      form.setValue("costCenterId", "__none__");
+    }
+  }, [requiresCostCenter, form]);
+
   const handlePreview = async () => {
     const year = form.getValues("year");
     const countryCode = form.getValues("countryCode");
@@ -186,6 +192,25 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
       return;
     }
 
+    const normalizeId = (value?: string | null) => {
+      if (!value) return undefined;
+      const trimmed = value.trim();
+      if (!trimmed || trimmed === "__none__") {
+        return undefined;
+      }
+      return trimmed;
+    };
+
+    const normalizedCostCenterId = normalizeId(data.costCenterId ?? undefined);
+
+    if (requiresCostCenter && !normalizedCostCenterId) {
+      form.setError("costCenterId", {
+        type: "manual",
+        message: "Selecciona un centro de coste para calendarios locales",
+      });
+      return;
+    }
+
     setIsImporting(true);
     try {
       const response = await fetch("/api/calendars/import-holidays", {
@@ -195,7 +220,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         body: JSON.stringify({
           ...data,
           calendarId: data.calendarId === "__new__" ? undefined : data.calendarId,
-          costCenterId: data.costCenterId ?? undefined,
+          costCenterId: normalizedCostCenterId,
         }),
       });
 
@@ -210,8 +235,13 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         description: `${result.imported} eventos importados${result.skipped > 0 ? ` (${result.skipped} ya existían)` : ""}`,
       });
 
-      // Refrescar calendarios
+      // Refrescar calendarios y el calendario en detalle (si aplica)
       await fetchCalendars();
+      const targetCalendarId =
+        (data.calendarId && data.calendarId !== "__new__" ? data.calendarId : result.calendar?.id) ?? null;
+      if (targetCalendarId) {
+        await fetchCalendarById(targetCalendarId);
+      }
 
       // Cerrar dialog y resetear
       setOpen(false);
@@ -442,33 +472,41 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                       )}
                     />
 
-                    {requiresCostCenter && (
-                      <FormField
-                        control={form.control}
-                        name="costCenterId"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Centro de Coste</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="bg-white">
-                                  <SelectValue placeholder="Selecciona un centro" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {costCenters.map((center) => (
-                                  <SelectItem key={center.id} value={center.id}>
-                                    {center.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormDescription>Requerido para calendarios locales</FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )}
+                    <FormField
+                      control={form.control}
+                      name="costCenterId"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Centro de Coste</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value ?? "__none__"}
+                            disabled={!requiresCostCenter}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="bg-white" aria-disabled={!requiresCostCenter}>
+                                <SelectValue placeholder="Selecciona un centro" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="__none__">Sin centro asignado</SelectItem>
+                              {costCenters.map((center) => (
+                                <SelectItem key={center.id} value={center.id}>
+                                  {center.name}
+                                  {center.code ? ` (${center.code})` : ""}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            {requiresCostCenter
+                              ? "Selecciona el centro que usará este calendario"
+                              : "Solo necesario para calendarios locales"}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <FormField
                       control={form.control}

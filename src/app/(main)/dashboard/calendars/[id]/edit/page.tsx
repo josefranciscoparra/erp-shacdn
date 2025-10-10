@@ -64,7 +64,7 @@ export default function EditCalendarPage() {
       year: new Date().getFullYear(),
       calendarType: "NATIONAL_HOLIDAY",
       color: "#3b82f6",
-      costCenterId: "",
+      costCenterId: "__none__",
       active: true,
     },
   });
@@ -85,7 +85,7 @@ export default function EditCalendarPage() {
         year: selectedCalendar.year,
         calendarType: selectedCalendar.calendarType as any,
         color: selectedCalendar.color,
-        costCenterId: selectedCalendar.costCenter?.id ?? "",
+        costCenterId: selectedCalendar.costCenter?.id ?? "__none__",
         active: selectedCalendar.active,
       });
     }
@@ -94,12 +94,38 @@ export default function EditCalendarPage() {
   const selectedCalendarType = form.watch("calendarType");
   const requiresCostCenter = selectedCalendarType === "LOCAL_HOLIDAY";
 
+  useEffect(() => {
+    if (!requiresCostCenter && form.getValues("costCenterId") !== "__none__") {
+      form.setValue("costCenterId", "__none__");
+    }
+  }, [requiresCostCenter, form]);
+
   const onSubmit = async (data: CalendarFormData) => {
     setIsLoading(true);
     try {
+      const normalizeId = (value?: string | null) => {
+        if (!value) return null;
+        const trimmed = value.trim();
+        if (trimmed.length === 0 || trimmed === "__none__") {
+          return null;
+        }
+        return trimmed;
+      };
+
+      const normalizedCostCenterId = normalizeId(data.costCenterId);
+
+      if (requiresCostCenter && !normalizedCostCenterId) {
+        form.setError("costCenterId", {
+          type: "manual",
+          message: "Selecciona un centro de coste para calendarios locales",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       await updateCalendar(id, {
         ...data,
-        costCenterId: data.costCenterId ?? null,
+        costCenterId: normalizedCostCenterId,
       });
 
       toast.success("Calendario actualizado exitosamente", {
@@ -233,33 +259,41 @@ export default function EditCalendarPage() {
                 />
               </div>
 
-              {requiresCostCenter && (
-                <FormField
-                  control={form.control}
-                  name="costCenterId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Centro de Coste</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Selecciona un centro" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {costCenters.map((center) => (
-                            <SelectItem key={center.id} value={center.id}>
-                              {center.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>Requerido para calendarios locales</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
+              <FormField
+                control={form.control}
+                name="costCenterId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Centro de Coste</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value ?? "__none__"}
+                      disabled={!requiresCostCenter}
+                    >
+                      <FormControl>
+                        <SelectTrigger className="bg-white" aria-disabled={!requiresCostCenter}>
+                          <SelectValue placeholder="Selecciona un centro" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="__none__">Sin centro asignado</SelectItem>
+                        {costCenters.map((center) => (
+                          <SelectItem key={center.id} value={center.id}>
+                            {center.name}
+                            {center.code ? ` (${center.code})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {requiresCostCenter
+                        ? "Selecciona el centro que usará este calendario"
+                        : "Solo necesario para calendarios locales"}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

@@ -80,6 +80,7 @@ interface Manager {
   email: string | null;
   position: string | null;
   department: string | null;
+  role?: string | null;
 }
 
 const CONTRACT_TYPES = {
@@ -128,10 +129,10 @@ export function ContractSheet({
       endDate: "",
       weeklyHours: 40,
       grossSalary: undefined,
-      positionId: "",
-      departmentId: "",
-      costCenterId: "",
-      managerId: "",
+      positionId: "__none__",
+      departmentId: "__none__",
+      costCenterId: "__none__",
+      managerId: "__none__",
     },
   });
 
@@ -146,10 +147,10 @@ export function ContractSheet({
           endDate: toDateInput(contract.endDate) || "",
           weeklyHours: contract.weeklyHours,
           grossSalary: contract.grossSalary ?? undefined,
-          positionId: contract.position?.id ?? "",
-          departmentId: contract.department?.id ?? "",
-          costCenterId: contract.costCenter?.id ?? "",
-          managerId: contract.manager?.id ?? "",
+          positionId: contract.position?.id ?? "__none__",
+          departmentId: contract.department?.id ?? "__none__",
+          costCenterId: contract.costCenter?.id ?? "__none__",
+          managerId: contract.manager?.id ?? "__none__",
         });
       } else {
         form.reset({
@@ -158,10 +159,10 @@ export function ContractSheet({
           endDate: "",
           weeklyHours: 40,
           grossSalary: undefined,
-          positionId: "",
-          departmentId: "",
-          costCenterId: "",
-          managerId: "",
+          positionId: "__none__",
+          departmentId: "__none__",
+          costCenterId: "__none__",
+          managerId: "__none__",
         });
       }
     }
@@ -219,16 +220,26 @@ export function ContractSheet({
 
   const onSubmit = async (data: ContractFormData) => {
     try {
+      const normalizeId = (value?: string | null) => {
+        if (!value) return null;
+        const trimmed = value.trim();
+        if (trimmed.length === 0 || trimmed === "__none__") {
+          return null;
+        }
+        return trimmed;
+      };
+      const normalizedEndDate = data.endDate && data.endDate.trim().length > 0 ? data.endDate : null;
+
       const sharedPayload: CreateContractData = {
         contractType: data.contractType,
         startDate: data.startDate,
-        endDate: data.endDate ?? null,
+        endDate: normalizedEndDate,
         weeklyHours: data.weeklyHours,
         grossSalary: data.grossSalary && data.grossSalary > 0 ? data.grossSalary : null,
-        positionId: data.positionId ?? null,
-        departmentId: data.departmentId ?? null,
-        costCenterId: data.costCenterId ?? null,
-        managerId: data.managerId ?? null,
+        positionId: normalizeId(data.positionId),
+        departmentId: normalizeId(data.departmentId),
+        costCenterId: normalizeId(data.costCenterId),
+        managerId: normalizeId(data.managerId),
       };
 
       if (mode === "edit" && contract) {
@@ -341,8 +352,15 @@ export function ContractSheet({
                                 step="0.5"
                                 placeholder="40"
                                 className="bg-white pl-9"
-                                {...field}
-                                onChange={(e) => field.onChange(Number(e.target.value))}
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === "") {
+                                    field.onChange(undefined);
+                                  } else {
+                                    field.onChange(Number(value));
+                                  }
+                                }}
                               />
                             </div>
                           </FormControl>
@@ -449,6 +467,7 @@ export function ContractSheet({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="__none__">Sin puesto asignado</SelectItem>
                               {positions.map((position) => (
                                 <SelectItem key={position.id} value={position.id}>
                                   {position.title}
@@ -477,6 +496,7 @@ export function ContractSheet({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="__none__">Sin departamento asignado</SelectItem>
                               {departments.map((department) => (
                                 <SelectItem key={department.id} value={department.id}>
                                   {department.name}
@@ -502,6 +522,7 @@ export function ContractSheet({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="__none__">Sin centro asignado</SelectItem>
                               {costCenters.map((center) => (
                                 <SelectItem key={center.id} value={center.id}>
                                   {center.name}
@@ -530,6 +551,7 @@ export function ContractSheet({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="__none__">Sin responsable asignado</SelectItem>
                               {managers.map((manager) => (
                                 <SelectItem key={manager.id} value={manager.id}>
                                   {manager.fullName}

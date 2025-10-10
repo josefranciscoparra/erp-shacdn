@@ -76,6 +76,40 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Calendario no encontrado" }, { status: 404 });
     }
 
+    const hasCostCenterField = Object.prototype.hasOwnProperty.call(body, "costCenterId");
+    let resolvedCostCenterId: string | null | undefined = undefined;
+
+    if (hasCostCenterField) {
+      if (body.costCenterId === null) {
+        resolvedCostCenterId = null;
+      } else if (typeof body.costCenterId === "string") {
+        const trimmed = body.costCenterId.trim();
+        resolvedCostCenterId = trimmed && trimmed !== "__none__" ? trimmed : null;
+      }
+    }
+
+    const nextCalendarType = body.calendarType ?? existingCalendar.calendarType;
+    const effectiveCostCenterId =
+      resolvedCostCenterId !== undefined ? resolvedCostCenterId : existingCalendar.costCenterId;
+
+    if (nextCalendarType === "LOCAL_HOLIDAY" && !effectiveCostCenterId) {
+      return NextResponse.json({ error: "Selecciona un centro de coste para calendarios locales" }, { status: 400 });
+    }
+
+    if (resolvedCostCenterId) {
+      const costCenter = await prisma.costCenter.findFirst({
+        where: {
+          id: resolvedCostCenterId,
+          orgId,
+          active: true,
+        },
+      });
+
+      if (!costCenter) {
+        return NextResponse.json({ error: "Centro de coste inválido" }, { status: 400 });
+      }
+    }
+
     // Actualizar calendario
     const calendar = await prisma.calendar.update({
       where: { id },
@@ -83,9 +117,9 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         name: body.name !== undefined ? body.name : existingCalendar.name,
         description: body.description !== undefined ? body.description : existingCalendar.description,
         year: body.year !== undefined ? body.year : existingCalendar.year,
-        calendarType: body.calendarType !== undefined ? body.calendarType : existingCalendar.calendarType,
+        calendarType: nextCalendarType,
         color: body.color !== undefined ? body.color : existingCalendar.color,
-        costCenterId: body.costCenterId !== undefined ? body.costCenterId : existingCalendar.costCenterId,
+        costCenterId: resolvedCostCenterId !== undefined ? resolvedCostCenterId : existingCalendar.costCenterId,
         active: body.active !== undefined ? body.active : existingCalendar.active,
       },
       include: {

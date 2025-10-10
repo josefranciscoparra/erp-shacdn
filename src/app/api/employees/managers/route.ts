@@ -20,12 +20,24 @@ export async function GET(request: NextRequest) {
       where: {
         orgId,
         active: true,
-        employmentStatus: "ACTIVE",
-        employmentContracts: {
-          some: {
-            active: true,
+        OR: [
+          {
+            employmentStatus: "ACTIVE",
+            employmentContracts: {
+              some: {
+                active: true,
+              },
+            },
           },
-        },
+          {
+            user: {
+              active: true,
+              role: {
+                in: ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER"],
+              },
+            },
+          },
+        ],
       },
       select: {
         id: true,
@@ -34,6 +46,11 @@ export async function GET(request: NextRequest) {
         secondLastName: true,
         employeeNumber: true,
         email: true,
+        user: {
+          select: {
+            role: true,
+          },
+        },
         employmentContracts: {
           where: {
             active: true,
@@ -72,6 +89,7 @@ export async function GET(request: NextRequest) {
         email: employee.email,
         position: currentContract?.position?.title ?? null,
         department: currentContract?.department?.name ?? null,
+        role: employee.user?.role ?? null,
       };
     });
 

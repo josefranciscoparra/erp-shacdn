@@ -146,6 +146,34 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
     }
 
+    const normalizeId = (value?: string | null) => {
+      if (!value) return null;
+      const trimmed = value.trim();
+      if (trimmed.length === 0 || trimmed === "__none__") {
+        return null;
+      }
+      return trimmed;
+    };
+
+    const positionId = normalizeId(data.positionId);
+    const departmentId = normalizeId(data.departmentId);
+    const costCenterId = normalizeId(data.costCenterId);
+    const managerId = normalizeId(data.managerId);
+
+    if (managerId) {
+      const manager = await prisma.employee.findFirst({
+        where: {
+          id: managerId,
+          orgId,
+          active: true,
+        },
+      });
+
+      if (!manager) {
+        return NextResponse.json({ error: "Responsable no válido" }, { status: 400 });
+      }
+    }
+
     // Validar que no haya más de un contrato activo
     const activeContracts = await prisma.employmentContract.count({
       where: {
@@ -189,10 +217,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         endDate,
         weeklyHours: data.weeklyHours,
         grossSalary: data.grossSalary,
-        positionId: data.positionId,
-        departmentId: data.departmentId,
-        costCenterId: data.costCenterId,
-        managerId: data.managerId,
+        positionId,
+        departmentId,
+        costCenterId,
+        managerId,
         active: true,
       },
       include: {
