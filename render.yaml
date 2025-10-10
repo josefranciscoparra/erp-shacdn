@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: erp-shacdn
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        sync: false  # Configura esto manualmente en Render Dashboard
+      - key: NEXTAUTH_SECRET
+        sync: false  # Configura esto manualmente en Render Dashboard
+      - key: NEXTAUTH_URL
+        sync: false  # Configura esto manualmente en Render Dashboard
