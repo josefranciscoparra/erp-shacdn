@@ -2,9 +2,6 @@
 
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
-
 export default function NotFound() {
   return (
     <div className="bg-background flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
