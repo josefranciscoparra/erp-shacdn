@@ -79,7 +79,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           // Buscar usuario con organización activa
-          const user = await prisma.user.findUnique({
+          const user = await prisma.user.findFirst({
             where: {
               email: validated.data.email,
               active: true,
@@ -94,14 +94,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             },
           });
 
+          console.log("🔎 Usuario encontrado:", user ? "SI" : "NO");
+          if (user) {
+            console.log("🔎 Organización incluida:", user.organization ? "SI" : "NO");
+            if (user.organization) {
+              console.log("🔎 Org activa:", user.organization.active);
+            }
+          }
+
           if (!user) {
             console.error("User not found:", validated.data.email);
             return null;
           }
 
           // Verificar que la organización esté activa
-          if (!user.organization.active) {
-            console.error("Organization inactive for user:", user.email);
+          if (!user.organization || !user.organization.active) {
+            console.error("Organization inactive or missing for user:", user.email);
             return null;
           }
 
