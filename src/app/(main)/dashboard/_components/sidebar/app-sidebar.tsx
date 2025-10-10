@@ -1,8 +1,7 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
-
-import { Command } from "lucide-react";
 
 import {
   Sidebar,
@@ -35,10 +34,25 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-1.5">
-              <Link href="/dashboard/me">
-                <Command />
-                <span className="text-base font-semibold">{APP_CONFIG.name}</span>
+            <SidebarMenuButton asChild className="h-auto data-[slot=sidebar-menu-button]:!p-2">
+              <Link href="/dashboard/me" className="flex items-center py-1">
+                <Image
+                  src="/logo/cutnobacklight.png"
+                  alt={APP_CONFIG.name}
+                  width={140}
+                  height={50}
+                  className="object-contain dark:hidden"
+                  priority
+                />
+                <Image
+                  src="/logo/cutnobackdark.png"
+                  alt={APP_CONFIG.name}
+                  width={140}
+                  height={50}
+                  className="hidden object-contain dark:block"
+                  priority
+                />
+                <span className="sr-only">{APP_CONFIG.name}</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
