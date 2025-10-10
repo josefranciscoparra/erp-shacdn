@@ -1,6 +1,7 @@
-"use client";
-
 import Link from "next/link";
+
+export const revalidate = false;
+export const dynamic = "force-dynamic";
 
 export default function NotFound() {
   return (
