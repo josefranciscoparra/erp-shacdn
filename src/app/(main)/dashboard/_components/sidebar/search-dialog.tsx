@@ -1,7 +1,9 @@
 "use client";
 import * as React from "react";
 
-import { LayoutDashboard, ChartBar, Gauge, ShoppingBag, GraduationCap, Forklift, Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+import { Search } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -14,24 +16,57 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { useSidebarItems, type NavMainItem, type NavSubItem } from "@/navigation/sidebar/sidebar-items-translated";
 
-const searchItems = [
-  { group: "Dashboards", icon: LayoutDashboard, label: "Default" },
-  { group: "Dashboards", icon: ChartBar, label: "CRM", disabled: true },
-  { group: "Dashboards", icon: Gauge, label: "Analytics", disabled: true },
-  { group: "Dashboards", icon: ShoppingBag, label: "E-Commerce", disabled: true },
-  { group: "Dashboards", icon: GraduationCap, label: "Academy", disabled: true },
-  { group: "Dashboards", icon: Forklift, label: "Logistics", disabled: true },
-  { group: "Authentication", label: "Login v1" },
-  { group: "Authentication", label: "Login v2" },
-  { group: "Authentication", label: "Register v1" },
-  { group: "Authentication", label: "Register v2" },
-];
+interface SearchItem {
+  group: string;
+  label: string;
+  url: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  comingSoon?: boolean;
+}
+
+function flattenSidebarItems(items: ReturnType<typeof useSidebarItems>): SearchItem[] {
+  const flatItems: SearchItem[] = [];
+
+  items.forEach((group) => {
+    const groupLabel = group.label ?? "General";
+
+    group.items.forEach((item: NavMainItem) => {
+      // Agregar el item principal
+      flatItems.push({
+        group: groupLabel,
+        label: item.title,
+        url: item.url,
+        icon: item.icon,
+        comingSoon: item.comingSoon,
+      });
+
+      // Agregar los sub-items si existen
+      if (item.subItems && item.subItems.length > 0) {
+        item.subItems.forEach((subItem: NavSubItem) => {
+          flatItems.push({
+            group: groupLabel,
+            label: subItem.title,
+            url: subItem.url,
+            icon: subItem.icon,
+            comingSoon: subItem.comingSoon,
+          });
+        });
+      }
+    });
+  });
+
+  return flatItems;
+}
 
 export function SearchDialog() {
   const [open, setOpen] = React.useState(false);
   const t = useTranslations("header");
-  const tNav = useTranslations("navigation");
+  const router = useRouter();
+  const sidebarItems = useSidebarItems();
+  const searchItems = React.useMemo(() => flattenSidebarItems(sidebarItems), [sidebarItems]);
+
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "j" && (e.metaKey || e.ctrlKey)) {
@@ -42,6 +77,13 @@ export function SearchDialog() {
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
+
+  const handleSelect = (item: SearchItem) => {
+    setOpen(false);
+    if (!item.comingSoon) {
+      router.push(item.url);
+    }
+  };
 
   return (
     <>
@@ -66,12 +108,23 @@ export function SearchDialog() {
               <CommandGroup heading={group} key={group}>
                 {searchItems
                   .filter((item) => item.group === group)
-                  .map((item) => (
-                    <CommandItem className="!py-1.5" key={item.label} onSelect={() => setOpen(false)}>
-                      {item.icon && <item.icon />}
-                      <span>{item.label}</span>
-                    </CommandItem>
-                  ))}
+                  .map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <CommandItem
+                        className="!py-1.5"
+                        key={`${item.group}-${item.label}-${item.url}`}
+                        onSelect={() => handleSelect(item)}
+                        disabled={item.comingSoon}
+                      >
+                        {Icon && <Icon className="mr-2 size-4" />}
+                        <span>{item.label}</span>
+                        {item.comingSoon && (
+                          <span className="text-muted-foreground ml-auto text-xs">(Próximamente)</span>
+                        )}
+                      </CommandItem>
+                    );
+                  })}
               </CommandGroup>
             </React.Fragment>
           ))}
