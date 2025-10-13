@@ -122,18 +122,16 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
       throw new Error("Usuario no autenticado");
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { orgId: true },
-    });
+    // Usar orgId directamente de la sesión
+    const orgId = session.user.orgId;
 
-    if (!user) {
-      throw new Error("Usuario no encontrado");
+    if (!orgId) {
+      throw new Error("Usuario sin organización asociada");
     }
 
     const where = {
       userId: session.user.id,
-      orgId: user.orgId,
+      orgId: orgId,
       ...(unreadOnly ? { isRead: false } : {}),
     };
 

@@ -12,6 +12,9 @@ import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 import { getTodaySummary, getWeeklySummary } from "./time-tracking";
 
 export interface MySpaceDashboard {
+  // Flag para identificar administradores sin empleado
+  isAdminWithoutEmployee: boolean;
+
   // Resumen de fichajes
   timeTracking: {
     today: {
@@ -78,6 +81,10 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
   if (!session?.user) {
     throw new Error("Usuario no autenticado");
   }
+
+  // Verificar si es un administrador sin empleado asociado
+  const userRole = session.user.role;
+  const isAdminRole = userRole === "SUPER_ADMIN" || userRole === "ORG_ADMIN";
 
   try {
     const { employee, orgId, activeContract } = await getAuthenticatedEmployee({
@@ -185,6 +192,7 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     }
 
     return {
+      isAdminWithoutEmployee: false,
       timeTracking: {
         today: {
           workedMinutes: todaySummary?.totalWorkedMinutes ?? 0,
@@ -206,7 +214,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
   } catch (error) {
     console.error("❌ Error en getMySpaceDashboard:", error);
 
-    if (error instanceof Error && error.message === "Usuario no tiene un empleado asociado") {
+    if (error instanceof Error && error.message === "Usuario no tiene un empleado asociado" && isAdminRole) {
+      // Es un administrador sin empleado - comportamiento esperado
       const notificationsResult = await getAllMyNotifications(1, 5);
       const recentNotifications = notificationsResult.notifications.map((notif) => ({
         id: notif.id,
@@ -217,6 +226,7 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       }));
 
       return {
+        isAdminWithoutEmployee: true,
         timeTracking: {
           today: {
             workedMinutes: 0,
