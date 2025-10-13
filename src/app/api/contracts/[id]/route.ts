@@ -14,6 +14,7 @@ const updateContractSchema = z.object({
   startDate: z.string().optional(),
   endDate: z.string().optional().nullable(),
   weeklyHours: z.number().min(1).max(60).optional(),
+  workingDaysPerWeek: z.number().min(0.5).max(7).optional().nullable(),
   grossSalary: z.number().min(0).optional().nullable(),
   positionId: z.string().optional().nullable(),
   departmentId: z.string().optional().nullable(),
@@ -128,6 +129,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.startDate) updateData.startDate = new Date(data.startDate);
     if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
     if (data.weeklyHours) updateData.weeklyHours = data.weeklyHours;
+    if (data.workingDaysPerWeek !== undefined) updateData.workingDaysPerWeek = data.workingDaysPerWeek ?? 5;
     if (data.grossSalary !== undefined) updateData.grossSalary = data.grossSalary;
     if (data.positionId !== undefined) updateData.positionId = normalizeId(data.positionId);
     if (data.departmentId !== undefined) updateData.departmentId = normalizeId(data.departmentId);

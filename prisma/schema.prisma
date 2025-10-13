@@ -279,6 +279,7 @@ model EmploymentContract {
   startDate   DateTime
   endDate     DateTime? // null para indefinidos
   weeklyHours Decimal   @db.Decimal(5,2) // Horas semanales pactadas
+  workingDaysPerWeek Decimal? @default(5) @db.Decimal(3,1) // Días laborables por semana (4, 5, 6, etc.)
   grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
   
   // Metadatos

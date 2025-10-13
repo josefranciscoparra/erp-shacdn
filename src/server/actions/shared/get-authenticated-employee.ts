@@ -101,7 +101,8 @@ export async function getAuthenticatedEmployee(
   }
 
   const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : defaultWeeklyHours;
-  const dailyHours = weeklyHours / 5;
+  const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
+  const dailyHours = weeklyHours / workingDaysPerWeek;
 
   return {
     userId: user.id,

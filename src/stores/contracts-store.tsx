@@ -42,6 +42,7 @@ export interface Contract {
   startDate: string;
   endDate: string | null;
   weeklyHours: number;
+  workingDaysPerWeek?: number | null;
   grossSalary: number | null;
   active: boolean;
   createdAt: string;
@@ -66,6 +67,7 @@ export interface CreateContractData {
   startDate: string;
   endDate?: string | null;
   weeklyHours: number;
+  workingDaysPerWeek?: number | null;
   grossSalary?: number | null;
   positionId?: string | null;
   departmentId?: string | null;

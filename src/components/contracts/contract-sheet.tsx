@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2 } from "lucide-react";
+import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2, AlertTriangle } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -29,6 +30,12 @@ const contractSchema = z.object({
     .number()
     .min(1, "Las horas semanales deben ser mayor a 0")
     .max(60, "Las horas semanales no pueden exceder 60"),
+  workingDaysPerWeek: z
+    .number()
+    .min(0.5, "Los días laborables deben ser al menos 0.5")
+    .max(7, "Los días laborables no pueden exceder 7")
+    .optional()
+    .nullable(),
   grossSalary: z.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
   positionId: z.string().optional(),
   departmentId: z.string().optional(),
@@ -128,6 +135,7 @@ export function ContractSheet({
       startDate: "",
       endDate: "",
       weeklyHours: 40,
+      workingDaysPerWeek: 5,
       grossSalary: undefined,
       positionId: "__none__",
       departmentId: "__none__",
@@ -135,6 +143,26 @@ export function ContractSheet({
       managerId: "__none__",
     },
   });
+
+  // Calcular horas diarias y nivel de alerta
+  const weeklyHours = form.watch("weeklyHours");
+  const workingDaysPerWeek = form.watch("workingDaysPerWeek");
+
+  const dailyHoursInfo = useMemo(() => {
+    if (!weeklyHours || !workingDaysPerWeek || workingDaysPerWeek === 0) {
+      return { dailyHours: 0, alertLevel: "none" as const };
+    }
+
+    const dailyHours = weeklyHours / workingDaysPerWeek;
+
+    if (dailyHours > 12) {
+      return { dailyHours, alertLevel: "danger" as const };
+    } else if (dailyHours > 10) {
+      return { dailyHours, alertLevel: "warning" as const };
+    } else {
+      return { dailyHours, alertLevel: "none" as const };
+    }
+  }, [weeklyHours, workingDaysPerWeek]);
 
   // Cargar datos de los selects
   useEffect(() => {
@@ -146,6 +174,7 @@ export function ContractSheet({
           startDate: toDateInput(contract.startDate),
           endDate: toDateInput(contract.endDate) || "",
           weeklyHours: contract.weeklyHours,
+          workingDaysPerWeek: contract.workingDaysPerWeek ?? 5,
           grossSalary: contract.grossSalary ?? undefined,
           positionId: contract.position?.id ?? "__none__",
           departmentId: contract.department?.id ?? "__none__",
@@ -158,6 +187,7 @@ export function ContractSheet({
           startDate: "",
           endDate: "",
           weeklyHours: 40,
+          workingDaysPerWeek: 5,
           grossSalary: undefined,
           positionId: "__none__",
           departmentId: "__none__",
@@ -235,6 +265,7 @@ export function ContractSheet({
         startDate: data.startDate,
         endDate: normalizedEndDate,
         weeklyHours: data.weeklyHours,
+        workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
         grossSalary: data.grossSalary && data.grossSalary > 0 ? data.grossSalary : null,
         positionId: normalizeId(data.positionId),
         departmentId: normalizeId(data.departmentId),
@@ -271,7 +302,7 @@ export function ContractSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto bg-gray-50">
+      <DialogContent className="bg-background max-h-[90vh] max-w-4xl overflow-y-auto">
         <DialogHeader className="space-y-3 pb-6">
           <div className="flex items-center gap-3">
             <div className="from-primary/10 to-primary/5 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-t shadow-sm">
@@ -304,7 +335,7 @@ export function ContractSheet({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 {/* Información del Contrato */}
-                <div className="space-y-4 rounded-lg border bg-white p-6">
+                <div className="bg-card space-y-4 rounded-lg border p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <Briefcase className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Información del Contrato</Label>
@@ -319,7 +350,7 @@ export function ContractSheet({
                           <FormLabel>Tipo de Contrato *</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Selecciona el tipo" />
                               </SelectTrigger>
                             </FormControl>
@@ -351,7 +382,40 @@ export function ContractSheet({
                                 max="60"
                                 step="0.5"
                                 placeholder="40"
-                                className="bg-white pl-9"
+                                className="pl-9"
+                                value={field.value ?? ""}
+                                onChange={(e) => {
+                                  const value = e.target.value;
+                                  if (value === "") {
+                                    field.onChange(undefined);
+                                  } else {
+                                    field.onChange(Number(value));
+                                  }
+                                }}
+                              />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="workingDaysPerWeek"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Días laborables por semana *</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Calendar className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                              <Input
+                                type="number"
+                                min="0.5"
+                                max="7"
+                                step="0.5"
+                                placeholder="5"
+                                className="pl-9"
                                 value={field.value ?? ""}
                                 onChange={(e) => {
                                   const value = e.target.value;
@@ -369,10 +433,47 @@ export function ContractSheet({
                       )}
                     />
                   </div>
+
+                  {/* Cálculo y avisos de horas diarias */}
+                  {dailyHoursInfo.dailyHours > 0 && (
+                    <div className="space-y-3">
+                      <div className="bg-muted/30 rounded-md border p-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <Clock className="text-muted-foreground h-4 w-4" />
+                            <span className="text-muted-foreground">Jornada diaria:</span>
+                          </div>
+                          <span className="text-primary text-base font-semibold">
+                            {dailyHoursInfo.dailyHours.toFixed(2)} horas
+                          </span>
+                        </div>
+                      </div>
+
+                      {dailyHoursInfo.alertLevel === "warning" && (
+                        <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                          <AlertTriangle className="h-4 w-4 text-orange-600" />
+                          <AlertDescription className="text-orange-800 dark:text-orange-200">
+                            ⚠️ La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 10 horas
+                            recomendadas.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {dailyHoursInfo.alertLevel === "danger" && (
+                        <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+                          <AlertTriangle className="h-4 w-4 text-red-600" />
+                          <AlertDescription className="text-red-800 dark:text-red-200">
+                            🚨 La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 12 horas.
+                            Verifica que esto sea correcto.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Fechas */}
-                <div className="space-y-4 rounded-lg border bg-white p-6">
+                <div className="bg-card space-y-4 rounded-lg border p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <Calendar className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Período del Contrato</Label>
@@ -386,7 +487,7 @@ export function ContractSheet({
                         <FormItem>
                           <FormLabel>Fecha de Inicio *</FormLabel>
                           <FormControl>
-                            <Input type="date" className="bg-white" {...field} />
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -400,7 +501,7 @@ export function ContractSheet({
                         <FormItem>
                           <FormLabel>Fecha de Fin (opcional)</FormLabel>
                           <FormControl>
-                            <Input type="date" className="bg-white" {...field} />
+                            <Input type="date" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -410,7 +511,7 @@ export function ContractSheet({
                 </div>
 
                 {/* Salario */}
-                <div className="space-y-4 rounded-lg border bg-white p-6">
+                <div className="bg-card space-y-4 rounded-lg border p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <span className="text-primary text-lg font-bold">€</span>
                     <Label className="text-lg font-semibold">Información Salarial</Label>
@@ -430,7 +531,7 @@ export function ContractSheet({
                               min="0"
                               step="100"
                               placeholder="30000"
-                              className="bg-white pl-8"
+                              className="pl-8"
                               {...field}
                               value={field.value ?? ""}
                               onChange={(e) => {
@@ -447,7 +548,7 @@ export function ContractSheet({
                 </div>
 
                 {/* Organización */}
-                <div className="space-y-4 rounded-lg border bg-white p-6">
+                <div className="bg-card space-y-4 rounded-lg border p-6">
                   <div className="mb-4 flex items-center gap-2">
                     <Building2 className="text-primary h-5 w-5" />
                     <Label className="text-lg font-semibold">Organización</Label>
@@ -462,7 +563,7 @@ export function ContractSheet({
                           <FormLabel>Puesto</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Selecciona puesto" />
                               </SelectTrigger>
                             </FormControl>
@@ -491,7 +592,7 @@ export function ContractSheet({
                           <FormLabel>Departamento</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Selecciona departamento" />
                               </SelectTrigger>
                             </FormControl>
@@ -517,7 +618,7 @@ export function ContractSheet({
                           <FormLabel>Centro de Coste</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Selecciona centro" />
                               </SelectTrigger>
                             </FormControl>
@@ -546,7 +647,7 @@ export function ContractSheet({
                           <FormLabel>Responsable</FormLabel>
                           <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <SelectTrigger className="bg-white">
+                              <SelectTrigger>
                                 <SelectValue placeholder="Selecciona responsable" />
                               </SelectTrigger>
                             </FormControl>
@@ -570,7 +671,7 @@ export function ContractSheet({
                 </div>
 
                 {/* Botones */}
-                <div className="-mx-6 -mb-6 flex justify-end gap-3 border-t bg-gray-50 px-6 py-4 pt-8">
+                <div className="bg-muted/30 -mx-6 -mb-6 flex justify-end gap-3 border-t px-6 py-4 pt-8">
                   <Button type="button" variant="outline" onClick={handleClose}>
                     <X className="mr-2 h-4 w-4" />
                     Cancelar

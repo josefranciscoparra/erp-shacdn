@@ -196,7 +196,8 @@ export async function getEmployeeWeeklySummary(employeeId: string, dateFrom?: Da
 
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
-    const dailyHours = weeklyHours / 5; // Asumiendo 5 días laborables por semana
+    const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
+    const dailyHours = weeklyHours / workingDaysPerWeek;
     const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
@@ -318,7 +319,8 @@ export async function getEmployeeMonthlySummary(employeeId: string, dateFrom?: D
 
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
-    const dailyHours = weeklyHours / 5;
+    const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
+    const dailyHours = weeklyHours / workingDaysPerWeek;
     const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
@@ -433,7 +435,8 @@ export async function getEmployeeYearlySummary(employeeId: string, dateFrom?: Da
 
     const activeContract = employee?.employmentContracts[0];
     const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
-    const dailyHours = weeklyHours / 5;
+    const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
+    const dailyHours = weeklyHours / workingDaysPerWeek;
     const contractStartDate = activeContract?.startDate ?? null;
 
     const where: any = {
@@ -609,7 +612,8 @@ export async function getEmployeeTimeTrackingHistory(
       let status = s.status;
       if (s.clockOut) {
         const weeklyHours = contract?.weeklyHours ? Number(contract.weeklyHours) : 40;
-        const dailyHours = weeklyHours / 5;
+        const workingDaysPerWeek = contract?.workingDaysPerWeek ? Number(contract.workingDaysPerWeek) : 5;
+        const dailyHours = weeklyHours / workingDaysPerWeek;
         const workedHours = Number(s.totalWorkedMinutes) / 60;
         const compliance = (workedHours / dailyHours) * 100;
 
