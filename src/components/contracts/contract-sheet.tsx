@@ -22,7 +22,6 @@ import { z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -41,6 +40,9 @@ const isValidDayForMonth = (mmdd: string): boolean => {
   const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
   return day <= daysInMonth[month - 1];
 };
+
+const countActiveDays = (values: Array<number | null | undefined>): number =>
+  values.reduce((total, value) => (value !== null && value !== undefined && value > 0 ? total + 1 : total), 0);
 
 const contractSchema = z
   .object({
@@ -339,6 +341,15 @@ export function ContractSheet({
   const intensiveSaturdayHours = form.watch("intensiveSaturdayHours");
   const intensiveSundayHours = form.watch("intensiveSundayHours");
 
+  const syncWorkingDaysWithPattern = (days: number) => {
+    if (Number.isNaN(days) || days <= 0) return;
+    form.setValue("workingDaysPerWeek", days, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  };
+
   const dailyHoursInfo = useMemo(() => {
     if (!weeklyHours || !workingDaysPerWeek || workingDaysPerWeek === 0) {
       return { dailyHours: 0, alertLevel: "none" as const };
@@ -402,6 +413,39 @@ export function ContractSheet({
     weeklyHours,
   ]);
 
+  const customWeeklyDaysInfo = useMemo(() => {
+    if (!hasCustomWeeklyPattern) {
+      return { activeDays: 0, matches: true };
+    }
+
+    const activeDays = countActiveDays([
+      mondayHours,
+      tuesdayHours,
+      wednesdayHours,
+      thursdayHours,
+      fridayHours,
+      saturdayHours,
+      sundayHours,
+    ]);
+
+    const hasWorkingDaysValue = typeof workingDaysPerWeek === "number" && !Number.isNaN(workingDaysPerWeek);
+    const matches = !hasWorkingDaysValue || Math.abs(activeDays - (workingDaysPerWeek ?? 0)) < 0.01;
+
+    return { activeDays, matches };
+  }, [
+    hasCustomWeeklyPattern,
+    mondayHours,
+    tuesdayHours,
+    wednesdayHours,
+    thursdayHours,
+    fridayHours,
+    saturdayHours,
+    sundayHours,
+    workingDaysPerWeek,
+  ]);
+
+  const customPatternIsConsistent = customWeeklyTotalInfo.isValid && customWeeklyDaysInfo.matches;
+
   // Calcular suma de horas semanales intensivas personalizadas
   const intensiveWeeklyTotalInfo = useMemo(() => {
     if (!hasIntensiveSchedule || !hasCustomWeeklyPattern) {
@@ -447,6 +491,40 @@ export function ContractSheet({
     intensiveSundayHours,
     intensiveWeeklyHours,
   ]);
+
+  const intensiveWeeklyDaysInfo = useMemo(() => {
+    if (!hasIntensiveSchedule || !hasCustomWeeklyPattern) {
+      return { activeDays: 0, matches: true };
+    }
+
+    const activeDays = countActiveDays([
+      intensiveMondayHours,
+      intensiveTuesdayHours,
+      intensiveWednesdayHours,
+      intensiveThursdayHours,
+      intensiveFridayHours,
+      intensiveSaturdayHours,
+      intensiveSundayHours,
+    ]);
+
+    const hasWorkingDaysValue = typeof workingDaysPerWeek === "number" && !Number.isNaN(workingDaysPerWeek);
+    const matches = !hasWorkingDaysValue || Math.abs(activeDays - (workingDaysPerWeek ?? 0)) < 0.01;
+
+    return { activeDays, matches };
+  }, [
+    hasIntensiveSchedule,
+    hasCustomWeeklyPattern,
+    intensiveMondayHours,
+    intensiveTuesdayHours,
+    intensiveWednesdayHours,
+    intensiveThursdayHours,
+    intensiveFridayHours,
+    intensiveSaturdayHours,
+    intensiveSundayHours,
+    workingDaysPerWeek,
+  ]);
+
+  const intensivePatternIsConsistent = intensiveWeeklyTotalInfo.isValid && intensiveWeeklyDaysInfo.matches;
 
   // Cargar datos de los selects
   useEffect(() => {
@@ -757,778 +835,890 @@ export function ContractSheet({
                         </FormItem>
                       )}
                     />
-
-                    <FormField
-                      control={form.control}
-                      name="weeklyHours"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Horas Semanales *</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Clock className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                              <Input
-                                type="number"
-                                min="1"
-                                max="60"
-                                step="0.5"
-                                placeholder="40"
-                                className="pl-9"
-                                value={field.value ?? ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  if (value === "") {
-                                    field.onChange(undefined);
-                                  } else {
-                                    field.onChange(Number(value));
-                                  }
-                                }}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="workingDaysPerWeek"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Días laborables por semana *</FormLabel>
-                          <FormControl>
-                            <div className="relative">
-                              <Calendar className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                              <Input
-                                type="number"
-                                min="0.5"
-                                max="7"
-                                step="0.5"
-                                placeholder="5"
-                                className="pl-9"
-                                value={field.value ?? ""}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  if (value === "") {
-                                    field.onChange(undefined);
-                                  } else {
-                                    field.onChange(Number(value));
-                                  }
-                                }}
-                              />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Cálculo y avisos de horas diarias */}
-                  {dailyHoursInfo.dailyHours > 0 && (
-                    <div className="space-y-3">
-                      <div className="bg-muted/30 rounded-md border p-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <Clock className="text-muted-foreground h-4 w-4" />
-                            <span className="text-muted-foreground">Jornada diaria:</span>
-                          </div>
-                          <span className="text-primary text-base font-semibold">
-                            {dailyHoursInfo.dailyHours.toFixed(2)} horas
-                          </span>
-                        </div>
-                      </div>
-
-                      {dailyHoursInfo.alertLevel === "warning" && (
-                        <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-                          <AlertTriangle className="h-4 w-4 text-orange-600" />
-                          <AlertDescription className="text-orange-800 dark:text-orange-200">
-                            ⚠️ La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 10 horas
-                            recomendadas.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-
-                      {dailyHoursInfo.alertLevel === "danger" && (
-                        <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
-                          <AlertTriangle className="h-4 w-4 text-red-600" />
-                          <AlertDescription className="text-red-800 dark:text-red-200">
-                            🚨 La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 12 horas.
-                            Verifica que esto sea correcto.
-                          </AlertDescription>
-                        </Alert>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Jornada Intensiva */}
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex items-center gap-2">
-                      <Sun className="text-primary h-5 w-5" />
-                      <Label className="text-base font-semibold">Jornada Intensiva (ej: horario de verano)</Label>
-                    </div>
-
-                    <FormField
-                      control={form.control}
-                      name="hasIntensiveSchedule"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
-                          <FormControl>
-                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
-                          </FormControl>
-                          <div className="space-y-1 leading-none">
-                            <FormLabel>Tiene jornada intensiva</FormLabel>
-                            <p className="text-muted-foreground text-sm">
-                              Activa si el trabajador tiene un horario especial durante ciertos períodos (ej: verano)
-                            </p>
-                          </div>
-                        </FormItem>
-                      )}
-                    />
-
-                    {hasIntensiveSchedule && (
-                      <div className="bg-muted/20 space-y-4 rounded-md border p-4">
-                        <div className="grid gap-4 md:grid-cols-2">
-                          {/* Fecha de Inicio */}
-                          <div className="space-y-2">
-                            <FormLabel>Fecha de Inicio *</FormLabel>
-                            <div className="grid grid-cols-2 gap-2">
-                              <Select value={intensiveStartMonth} onValueChange={setIntensiveStartMonth}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Mes" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {MONTHS.map((month) => (
-                                    <SelectItem key={month.value} value={month.value}>
-                                      {month.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-
-                              <Select
-                                value={intensiveStartDay}
-                                onValueChange={setIntensiveStartDay}
-                                disabled={!intensiveStartMonth}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Día" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: getDaysInMonth(intensiveStartMonth) }, (_, i) => {
-                                    const day = String(i + 1).padStart(2, "0");
-                                    return (
-                                      <SelectItem key={day} value={day}>
-                                        {day}
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <p className="text-muted-foreground text-xs">Selecciona mes y día. Ejemplo: Junio - 15</p>
-                            {form.formState.errors.intensiveStartDate && (
-                              <p className="text-destructive text-sm font-medium">
-                                {form.formState.errors.intensiveStartDate.message}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* Fecha de Fin */}
-                          <div className="space-y-2">
-                            <FormLabel>Fecha de Fin *</FormLabel>
-                            <div className="grid grid-cols-2 gap-2">
-                              <Select value={intensiveEndMonth} onValueChange={setIntensiveEndMonth}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Mes" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {MONTHS.map((month) => (
-                                    <SelectItem key={month.value} value={month.value}>
-                                      {month.label}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-
-                              <Select
-                                value={intensiveEndDay}
-                                onValueChange={setIntensiveEndDay}
-                                disabled={!intensiveEndMonth}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Día" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: getDaysInMonth(intensiveEndMonth) }, (_, i) => {
-                                    const day = String(i + 1).padStart(2, "0");
-                                    return (
-                                      <SelectItem key={day} value={day}>
-                                        {day}
-                                      </SelectItem>
-                                    );
-                                  })}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <p className="text-muted-foreground text-xs">
-                              Selecciona mes y día. Ejemplo: Septiembre - 15
-                            </p>
-                            {form.formState.errors.intensiveEndDate && (
-                              <p className="text-destructive text-sm font-medium">
-                                {form.formState.errors.intensiveEndDate.message}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-
-                        <FormField
-                          control={form.control}
-                          name="intensiveWeeklyHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Horas Semanales *</FormLabel>
-                              <FormControl>
-                                <div className="relative">
-                                  <Clock className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
-                                  <Input
-                                    type="number"
-                                    min="1"
-                                    max="60"
-                                    step="0.5"
-                                    placeholder="35"
-                                    className="pl-9"
-                                    value={field.value ?? ""}
-                                    onChange={(e) => {
-                                      const value = e.target.value;
-                                      if (value === "") {
-                                        field.onChange(undefined);
-                                      } else {
-                                        field.onChange(Number(value));
-                                      }
-                                    }}
-                                  />
-                                </div>
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        {/* Cálculo y avisos de horas diarias intensivas */}
-                        {intensiveDailyHoursInfo.dailyHours > 0 && (
-                          <div className="space-y-3">
-                            <div className="bg-muted/30 rounded-md border p-3">
-                              <div className="flex items-center justify-between text-sm">
-                                <div className="flex items-center gap-2">
-                                  <Sun className="text-muted-foreground h-4 w-4" />
-                                  <span className="text-muted-foreground">Jornada diaria intensiva:</span>
-                                </div>
-                                <span className="text-primary text-base font-semibold">
-                                  {intensiveDailyHoursInfo.dailyHours.toFixed(2)} horas
-                                </span>
-                              </div>
-                            </div>
-
-                            {intensiveDailyHoursInfo.alertLevel === "warning" && (
-                              <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-                                <AlertTriangle className="h-4 w-4 text-orange-600" />
-                                <AlertDescription className="text-orange-800 dark:text-orange-200">
-                                  ⚠️ La jornada diaria intensiva de {intensiveDailyHoursInfo.dailyHours.toFixed(2)}{" "}
-                                  horas supera las 10 horas recomendadas.
-                                </AlertDescription>
-                              </Alert>
-                            )}
-
-                            {intensiveDailyHoursInfo.alertLevel === "danger" && (
-                              <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
-                                <AlertTriangle className="h-4 w-4 text-red-600" />
-                                <AlertDescription className="text-red-800 dark:text-red-200">
-                                  🚨 La jornada diaria intensiva de {intensiveDailyHoursInfo.dailyHours.toFixed(2)}{" "}
-                                  horas supera las 12 horas. Verifica que esto sea correcto.
-                                </AlertDescription>
-                              </Alert>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Patrón semanal para jornada intensiva */}
-                        {hasCustomWeeklyPattern && (
-                          <div className="space-y-4 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50/50 p-4 dark:border-orange-700 dark:bg-orange-950/20">
-                            <div className="flex items-center gap-2">
-                              <CalendarDays className="h-4 w-4 text-orange-600" />
-                              <Label className="text-sm font-semibold text-orange-900 dark:text-orange-200">
-                                Distribución horaria semanal (período intensivo)
-                              </Label>
-                            </div>
-                            <p className="text-muted-foreground text-xs">
-                              Define las horas específicas para cada día durante el período de jornada intensiva
-                            </p>
-
-                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                              <FormField
-                                control={form.control}
-                                name="intensiveMondayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Lunes</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="7"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveTuesdayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Martes</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="7"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveWednesdayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Miércoles</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="7"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveThursdayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Jueves</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="7"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveFridayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Viernes</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="7"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveSaturdayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Sábado</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="0"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-
-                              <FormField
-                                control={form.control}
-                                name="intensiveSundayHours"
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel className="text-xs">Domingo</FormLabel>
-                                    <FormControl>
-                                      <Input
-                                        type="number"
-                                        min="0"
-                                        max="24"
-                                        step="0.5"
-                                        placeholder="0"
-                                        value={field.value ?? ""}
-                                        onChange={(e) => {
-                                          const value = e.target.value;
-                                          field.onChange(value === "" ? undefined : Number(value));
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-
-                            {/* Validación de horas semanales intensivas */}
-                            <div className="space-y-3">
-                              <div className="bg-muted/30 rounded-md border p-3">
-                                <div className="flex items-center justify-between text-sm">
-                                  <div className="flex items-center gap-2">
-                                    <Clock className="text-muted-foreground h-4 w-4" />
-                                    <span className="text-muted-foreground">Total intensivo semanal:</span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <span
-                                      className={`text-base font-semibold ${
-                                        intensiveWeeklyTotalInfo.isValid ? "text-primary" : "text-destructive"
-                                      }`}
-                                    >
-                                      {intensiveWeeklyTotalInfo.total.toFixed(2)} h
-                                    </span>
-                                    {intensiveWeeklyHours && (
-                                      <span className="text-muted-foreground text-xs">
-                                        / {intensiveWeeklyHours} h esperadas
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {!intensiveWeeklyTotalInfo.isValid && intensiveWeeklyHours && (
-                                <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
-                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
-                                  <AlertDescription className="text-orange-800 dark:text-orange-200">
-                                    ⚠️ La suma de horas intensivas ({intensiveWeeklyTotalInfo.total.toFixed(2)}h) no
-                                    coincide con las horas semanales intensivas totales ({intensiveWeeklyHours}h).
-                                    Diferencia: {intensiveWeeklyTotalInfo.difference.toFixed(2)}h
-                                  </AlertDescription>
-                                </Alert>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
                 </div>
 
-                {/* Patrón Semanal Personalizado */}
-                <div className="bg-card space-y-4 rounded-lg border p-6">
-                  <div className="mb-4 flex items-center gap-2">
-                    <CalendarDays className="text-primary h-5 w-5" />
-                    <Label className="text-lg font-semibold">Patrón Semanal Personalizado</Label>
+                {/* Jornada y Horarios */}
+                <div className="bg-card space-y-6 rounded-lg border p-6">
+                  <div className="flex items-center gap-2">
+                    <Clock className="text-primary h-5 w-5" />
+                    <Label className="text-lg font-semibold">Jornada y Horarios</Label>
                   </div>
 
-                  <FormField
-                    control={form.control}
-                    name="hasCustomWeeklyPattern"
-                    render={({ field }) => (
-                      <FormItem className="flex items-center justify-between space-y-0 rounded-lg border p-4">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-base">Horario variable por día</FormLabel>
-                          <FormDescription>
-                            Activa esta opción para definir horas específicas para cada día de la semana (útil para
-                            tiendas con horarios variables)
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
-                        </FormControl>
-                      </FormItem>
+                  <div className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="hasCustomWeeklyPattern"
+                      render={({ field }) => (
+                        <FormItem className="border-muted-foreground/40 flex flex-col gap-3 rounded-lg border border-dashed p-4 md:flex-row md:items-center md:justify-between">
+                          <div className="space-y-1">
+                            <FormLabel className="text-base">Patrón semanal personalizado</FormLabel>
+                            <FormDescription>
+                              Activa esta opción para definir horas diferentes para cada día de la semana.
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <FormField
+                        control={form.control}
+                        name="weeklyHours"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Horas Semanales *</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Clock className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="60"
+                                  step="0.5"
+                                  placeholder="40"
+                                  className="pl-9"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === "") {
+                                      field.onChange(undefined);
+                                    } else {
+                                      field.onChange(Number(value));
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="workingDaysPerWeek"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Días laborables por semana *</FormLabel>
+                            <FormControl>
+                              <div className="relative">
+                                <Calendar className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                                <Input
+                                  type="number"
+                                  min="0.5"
+                                  max="7"
+                                  step="0.5"
+                                  placeholder="5"
+                                  className="pl-9"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    if (value === "") {
+                                      field.onChange(undefined);
+                                    } else {
+                                      field.onChange(Number(value));
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    {hasCustomWeeklyPattern && (
+                      <p className="text-muted-foreground text-xs">
+                        Ajusta las horas y los días laborables para mantener consistente el patrón semanal.
+                      </p>
                     )}
-                  />
 
-                  {hasCustomWeeklyPattern && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                        <FormField
-                          control={form.control}
-                          name="mondayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Lunes</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="8"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="tuesdayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Martes</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="8"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="wednesdayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Miércoles</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="8"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="thursdayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Jueves</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="8"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="fridayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Viernes</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="8"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="saturdayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Sábado</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="0"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="sundayHours"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Domingo</FormLabel>
-                              <FormControl>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  max="24"
-                                  step="0.5"
-                                  placeholder="0"
-                                  value={field.value ?? ""}
-                                  onChange={(e) => {
-                                    const value = e.target.value;
-                                    field.onChange(value === "" ? undefined : Number(value));
-                                  }}
-                                />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-
-                      {/* Validación de horas semanales */}
+                    {dailyHoursInfo.dailyHours > 0 && (
                       <div className="space-y-3">
                         <div className="bg-muted/30 rounded-md border p-3">
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center gap-2">
                               <Clock className="text-muted-foreground h-4 w-4" />
-                              <span className="text-muted-foreground">Total de horas semanales:</span>
+                              <span className="text-muted-foreground">Jornada diaria estimada:</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`text-base font-semibold ${
-                                  customWeeklyTotalInfo.isValid ? "text-primary" : "text-destructive"
-                                }`}
-                              >
-                                {customWeeklyTotalInfo.total.toFixed(2)} h
-                              </span>
-                              {weeklyHours && (
-                                <span className="text-muted-foreground text-xs">/ {weeklyHours} h esperadas</span>
-                              )}
-                            </div>
+                            <span className="text-primary text-base font-semibold">
+                              {dailyHoursInfo.dailyHours.toFixed(2)} horas
+                            </span>
                           </div>
                         </div>
 
-                        {!customWeeklyTotalInfo.isValid && weeklyHours && (
+                        {dailyHoursInfo.alertLevel === "warning" && (
                           <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
                             <AlertTriangle className="h-4 w-4 text-orange-600" />
                             <AlertDescription className="text-orange-800 dark:text-orange-200">
-                              ⚠️ La suma de horas ({customWeeklyTotalInfo.total.toFixed(2)}h) no coincide con las horas
-                              semanales totales ({weeklyHours}h). Diferencia:{" "}
-                              {customWeeklyTotalInfo.difference.toFixed(2)}h
+                              ⚠️ La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 10 horas
+                              recomendadas.
+                            </AlertDescription>
+                          </Alert>
+                        )}
+
+                        {dailyHoursInfo.alertLevel === "danger" && (
+                          <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+                            <AlertTriangle className="h-4 w-4 text-red-600" />
+                            <AlertDescription className="text-red-800 dark:text-red-200">
+                              🚨 La jornada diaria de {dailyHoursInfo.dailyHours.toFixed(2)} horas supera las 12 horas.
+                              Verifica que esto sea correcto.
                             </AlertDescription>
                           </Alert>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
 
+                    {hasCustomWeeklyPattern && (
+                      <div
+                        className={`space-y-4 rounded-lg border border-dashed p-4 ${
+                          customPatternIsConsistent
+                            ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-950/30"
+                            : "border-orange-300 bg-orange-50/60 dark:border-orange-700 dark:bg-orange-950/20"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <CalendarDays
+                              className={`h-4 w-4 ${
+                                customPatternIsConsistent ? "text-emerald-600 dark:text-emerald-300" : "text-orange-600"
+                              }`}
+                            />
+                            <Label className="text-foreground text-sm font-semibold">
+                              Distribución horaria semanal
+                            </Label>
+                          </div>
+                          <span className="text-muted-foreground text-xs">Completa las horas por día</span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                          <FormField
+                            control={form.control}
+                            name="mondayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Lunes</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="8"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="tuesdayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Martes</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="8"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="wednesdayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Miércoles</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="8"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="thursdayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Jueves</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="8"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="fridayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Viernes</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="8"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="saturdayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Sábado</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="0"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          <FormField
+                            control={form.control}
+                            name="sundayHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Domingo</FormLabel>
+                                <FormControl>
+                                  <Input
+                                    type="number"
+                                    min="0"
+                                    max="24"
+                                    step="0.5"
+                                    placeholder="0"
+                                    value={field.value ?? ""}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="border-muted-foreground/20 bg-background/80 text-muted-foreground flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-xs">
+                            <span>
+                              Días con horas:{" "}
+                              <span className="text-foreground font-semibold">{customWeeklyDaysInfo.activeDays}</span>
+                            </span>
+                            {typeof workingDaysPerWeek === "number" && !Number.isNaN(workingDaysPerWeek) && (
+                              <span
+                                className={
+                                  customWeeklyDaysInfo.matches
+                                    ? "text-emerald-600 dark:text-emerald-300"
+                                    : "text-destructive font-medium"
+                                }
+                              >
+                                {customWeeklyDaysInfo.matches
+                                  ? "Coincide con los días laborables"
+                                  : `Esperados: ${workingDaysPerWeek}`}
+                              </span>
+                            )}
+                            {!customWeeklyDaysInfo.matches && customWeeklyDaysInfo.activeDays > 0 && (
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant="outline"
+                                onClick={() => syncWorkingDaysWithPattern(customWeeklyDaysInfo.activeDays)}
+                              >
+                                Usar {customWeeklyDaysInfo.activeDays} días
+                              </Button>
+                            )}
+                          </div>
+
+                          {!customWeeklyDaysInfo.matches &&
+                            typeof workingDaysPerWeek === "number" &&
+                            !Number.isNaN(workingDaysPerWeek) && (
+                              <p className="text-destructive text-xs font-medium">
+                                Revisa las horas por día o ajusta los días laborables para mantener la coherencia del
+                                contrato.
+                              </p>
+                            )}
+                        </div>
+
+                        <div className="space-y-3">
+                          <div className="bg-muted/30 rounded-md border p-3">
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <Clock className="text-muted-foreground h-4 w-4" />
+                                <span className="text-muted-foreground">Total de horas semanales:</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`text-base font-semibold ${
+                                    customPatternIsConsistent
+                                      ? "text-emerald-600 dark:text-emerald-300"
+                                      : "text-destructive"
+                                  }`}
+                                >
+                                  {customWeeklyTotalInfo.total.toFixed(2)} h
+                                </span>
+                                {weeklyHours && (
+                                  <span className="text-muted-foreground text-xs">/ {weeklyHours} h esperadas</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {!customWeeklyTotalInfo.isValid && weeklyHours && (
+                            <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                              <AlertTriangle className="h-4 w-4 text-orange-600" />
+                              <AlertDescription className="text-orange-800 dark:text-orange-200">
+                                ⚠️ La suma de horas ({customWeeklyTotalInfo.total.toFixed(2)}h) no coincide con las
+                                horas semanales totales ({weeklyHours}h). Diferencia:{" "}
+                                {customWeeklyTotalInfo.difference.toFixed(2)}h
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-4 border-t pt-6">
+                      <div className="flex items-center gap-2">
+                        <Sun className="text-primary h-5 w-5" />
+                        <Label className="text-base font-semibold">Jornada intensiva (ej: horario de verano)</Label>
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="hasIntensiveSchedule"
+                        render={({ field }) => (
+                          <FormItem className="border-muted-foreground/40 flex flex-col gap-3 rounded-lg border border-dashed p-4 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-1">
+                              <FormLabel className="text-base">Activar jornada intensiva</FormLabel>
+                              <FormDescription>
+                                Usa esta opción si el trabajador cambia temporalmente su horario (por ejemplo, en
+                                verano).
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      {hasIntensiveSchedule && (
+                        <div className="bg-muted/20 space-y-6 rounded-md border p-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div className="space-y-2">
+                              <FormLabel>Fecha de inicio *</FormLabel>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Select value={intensiveStartMonth} onValueChange={setIntensiveStartMonth}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Mes" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {MONTHS.map((month) => (
+                                      <SelectItem key={month.value} value={month.value}>
+                                        {month.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                <Select
+                                  value={intensiveStartDay}
+                                  onValueChange={setIntensiveStartDay}
+                                  disabled={!intensiveStartMonth}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Día" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: getDaysInMonth(intensiveStartMonth) }, (_, i) => {
+                                      const day = String(i + 1).padStart(2, "0");
+                                      return (
+                                        <SelectItem key={day} value={day}>
+                                          {day}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <p className="text-muted-foreground text-xs">Selecciona mes y día. Ejemplo: Junio - 15</p>
+                              {form.formState.errors.intensiveStartDate && (
+                                <p className="text-destructive text-sm font-medium">
+                                  {form.formState.errors.intensiveStartDate.message}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="space-y-2">
+                              <FormLabel>Fecha de fin *</FormLabel>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Select value={intensiveEndMonth} onValueChange={setIntensiveEndMonth}>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Mes" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {MONTHS.map((month) => (
+                                      <SelectItem key={month.value} value={month.value}>
+                                        {month.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+
+                                <Select
+                                  value={intensiveEndDay}
+                                  onValueChange={setIntensiveEndDay}
+                                  disabled={!intensiveEndMonth}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Día" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Array.from({ length: getDaysInMonth(intensiveEndMonth) }, (_, i) => {
+                                      const day = String(i + 1).padStart(2, "0");
+                                      return (
+                                        <SelectItem key={day} value={day}>
+                                          {day}
+                                        </SelectItem>
+                                      );
+                                    })}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <p className="text-muted-foreground text-xs">
+                                Selecciona mes y día. Ejemplo: Septiembre - 15
+                              </p>
+                              {form.formState.errors.intensiveEndDate && (
+                                <p className="text-destructive text-sm font-medium">
+                                  {form.formState.errors.intensiveEndDate.message}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name="intensiveWeeklyHours"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Horas semanales *</FormLabel>
+                                <FormControl>
+                                  <div className="relative">
+                                    <Clock className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                                    <Input
+                                      type="number"
+                                      min="1"
+                                      max="60"
+                                      step="0.5"
+                                      placeholder="35"
+                                      className="pl-9"
+                                      value={field.value ?? ""}
+                                      onChange={(e) => {
+                                        const value = e.target.value;
+                                        if (value === "") {
+                                          field.onChange(undefined);
+                                        } else {
+                                          field.onChange(Number(value));
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+
+                          {intensiveDailyHoursInfo.dailyHours > 0 && (
+                            <div className="space-y-3">
+                              <div className="bg-muted/30 rounded-md border p-3">
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Sun className="text-muted-foreground h-4 w-4" />
+                                    <span className="text-muted-foreground">Jornada diaria intensiva:</span>
+                                  </div>
+                                  <span className="text-primary text-base font-semibold">
+                                    {intensiveDailyHoursInfo.dailyHours.toFixed(2)} horas
+                                  </span>
+                                </div>
+                              </div>
+
+                              {intensiveDailyHoursInfo.alertLevel === "warning" && (
+                                <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <AlertDescription className="text-orange-800 dark:text-orange-200">
+                                    ⚠️ La jornada diaria intensiva de {intensiveDailyHoursInfo.dailyHours.toFixed(2)}{" "}
+                                    horas supera las 10 horas recomendadas.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+
+                              {intensiveDailyHoursInfo.alertLevel === "danger" && (
+                                <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+                                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                                  <AlertDescription className="text-red-800 dark:text-red-200">
+                                    🚨 La jornada diaria intensiva de {intensiveDailyHoursInfo.dailyHours.toFixed(2)}{" "}
+                                    horas supera las 12 horas. Verifica que esto sea correcto.
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </div>
+                          )}
+
+                          {hasCustomWeeklyPattern && (
+                            <div
+                              className={`space-y-4 rounded-lg border-2 border-dashed p-4 ${
+                                intensivePatternIsConsistent
+                                  ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-950/30"
+                                  : "border-orange-300 bg-orange-50/60 dark:border-orange-700 dark:bg-orange-950/20"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <CalendarDays
+                                  className={`h-4 w-4 ${
+                                    intensivePatternIsConsistent
+                                      ? "text-emerald-600 dark:text-emerald-300"
+                                      : "text-orange-600"
+                                  }`}
+                                />
+                                <Label className="text-foreground text-sm font-semibold">
+                                  Distribución horaria semanal (período intensivo)
+                                </Label>
+                              </div>
+                              <p className="text-muted-foreground text-xs">
+                                Define las horas específicas para cada día durante el período de jornada intensiva.
+                              </p>
+
+                              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveMondayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Lunes</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="7"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveTuesdayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Martes</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="7"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveWednesdayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Miércoles</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="7"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveThursdayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Jueves</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="7"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveFridayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Viernes</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="7"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveSaturdayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Sábado</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="0"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+
+                                <FormField
+                                  control={form.control}
+                                  name="intensiveSundayHours"
+                                  render={({ field }) => (
+                                    <FormItem>
+                                      <FormLabel className="text-xs">Domingo</FormLabel>
+                                      <FormControl>
+                                        <Input
+                                          type="number"
+                                          min="0"
+                                          max="24"
+                                          step="0.5"
+                                          placeholder="0"
+                                          value={field.value ?? ""}
+                                          onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                        />
+                                      </FormControl>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="border-muted-foreground/20 bg-background/80 text-muted-foreground flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-xs">
+                                  <span>
+                                    Días con horas intensivas:{" "}
+                                    <span className="text-foreground font-semibold">
+                                      {intensiveWeeklyDaysInfo.activeDays}
+                                    </span>
+                                  </span>
+                                  {typeof workingDaysPerWeek === "number" && !Number.isNaN(workingDaysPerWeek) && (
+                                    <span
+                                      className={
+                                        intensiveWeeklyDaysInfo.matches
+                                          ? "text-emerald-600 dark:text-emerald-300"
+                                          : "text-destructive font-medium"
+                                      }
+                                    >
+                                      {intensiveWeeklyDaysInfo.matches
+                                        ? "Coincide con los días laborables"
+                                        : `Esperados: ${workingDaysPerWeek}`}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {!intensiveWeeklyDaysInfo.matches &&
+                                  typeof workingDaysPerWeek === "number" &&
+                                  !Number.isNaN(workingDaysPerWeek) && (
+                                    <p className="text-destructive text-xs font-medium">
+                                      Ajusta las horas intensivas por día o los días laborables para mantener la
+                                      coherencia del contrato.
+                                    </p>
+                                  )}
+                              </div>
+
+                              <div className="space-y-3">
+                                <div className="bg-muted/30 rounded-md border p-3">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <div className="flex items-center gap-2">
+                                      <Clock className="text-muted-foreground h-4 w-4" />
+                                      <span className="text-muted-foreground">Total intensivo semanal:</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={`text-base font-semibold ${
+                                          intensivePatternIsConsistent
+                                            ? "text-emerald-600 dark:text-emerald-300"
+                                            : "text-destructive"
+                                        }`}
+                                      >
+                                        {intensiveWeeklyTotalInfo.total.toFixed(2)} h
+                                      </span>
+                                      {intensiveWeeklyHours && (
+                                        <span className="text-muted-foreground text-xs">
+                                          / {intensiveWeeklyHours} h esperadas
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {!intensiveWeeklyTotalInfo.isValid && intensiveWeeklyHours && (
+                                  <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                                    <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                    <AlertDescription className="text-orange-800 dark:text-orange-200">
+                                      ⚠️ La suma de horas intensivas ({intensiveWeeklyTotalInfo.total.toFixed(2)}h) no
+                                      coincide con las horas semanales intensivas totales ({intensiveWeeklyHours}h).
+                                      Diferencia: {intensiveWeeklyTotalInfo.difference.toFixed(2)}h
+                                    </AlertDescription>
+                                  </Alert>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
                 {/* Fechas */}
                 <div className="bg-card space-y-4 rounded-lg border p-6">
                   <div className="mb-4 flex items-center gap-2">
