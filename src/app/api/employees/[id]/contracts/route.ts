@@ -48,6 +48,21 @@ const contractSchema = z
       .optional()
       .nullable(),
     intensiveWeeklyHours: z.number().min(1).max(60).optional().nullable(),
+    hasCustomWeeklyPattern: z.boolean().optional().nullable(),
+    mondayHours: z.number().min(0).max(24).optional().nullable(),
+    tuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    wednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    thursdayHours: z.number().min(0).max(24).optional().nullable(),
+    fridayHours: z.number().min(0).max(24).optional().nullable(),
+    saturdayHours: z.number().min(0).max(24).optional().nullable(),
+    sundayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveMondayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveTuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveWednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveThursdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveFridayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSaturdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSundayHours: z.number().min(0).max(24).optional().nullable(),
     positionId: z.string().optional().nullable(),
     departmentId: z.string().optional().nullable(),
     costCenterId: z.string().optional().nullable(),
@@ -71,6 +86,55 @@ const contractSchema = z
     {
       message:
         "Si activas la jornada intensiva, debes proporcionar fecha de inicio (MM-DD), fecha de fin (MM-DD) y horas semanales",
+    },
+  )
+  .refine(
+    (data) => {
+      // Si tiene patrón semanal personalizado, todos los campos deben estar completos
+      if (data.hasCustomWeeklyPattern) {
+        return (
+          data.mondayHours !== null &&
+          data.mondayHours !== undefined &&
+          data.tuesdayHours !== null &&
+          data.tuesdayHours !== undefined &&
+          data.wednesdayHours !== null &&
+          data.wednesdayHours !== undefined &&
+          data.thursdayHours !== null &&
+          data.thursdayHours !== undefined &&
+          data.fridayHours !== null &&
+          data.fridayHours !== undefined &&
+          data.saturdayHours !== null &&
+          data.saturdayHours !== undefined &&
+          data.sundayHours !== null &&
+          data.sundayHours !== undefined
+        );
+      }
+      return true;
+    },
+    {
+      message: "Si activas el patrón semanal personalizado, debes proporcionar las horas de todos los días",
+    },
+  )
+  .refine(
+    (data) => {
+      // Si tiene patrón semanal personalizado, la suma debe coincidir con weeklyHours
+      if (data.hasCustomWeeklyPattern) {
+        const totalHours =
+          (data.mondayHours ?? 0) +
+          (data.tuesdayHours ?? 0) +
+          (data.wednesdayHours ?? 0) +
+          (data.thursdayHours ?? 0) +
+          (data.fridayHours ?? 0) +
+          (data.saturdayHours ?? 0) +
+          (data.sundayHours ?? 0);
+
+        const difference = Math.abs(totalHours - data.weeklyHours);
+        return difference < 0.51;
+      }
+      return true;
+    },
+    {
+      message: "La suma de las horas semanales personalizadas debe coincidir con las horas semanales totales",
     },
   );
 
@@ -268,6 +332,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         intensiveStartDate: data.intensiveStartDate ?? null,
         intensiveEndDate: data.intensiveEndDate ?? null,
         intensiveWeeklyHours: data.intensiveWeeklyHours,
+        hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
+        mondayHours: data.mondayHours,
+        tuesdayHours: data.tuesdayHours,
+        wednesdayHours: data.wednesdayHours,
+        thursdayHours: data.thursdayHours,
+        fridayHours: data.fridayHours,
+        saturdayHours: data.saturdayHours,
+        sundayHours: data.sundayHours,
+        intensiveMondayHours: data.intensiveMondayHours,
+        intensiveTuesdayHours: data.intensiveTuesdayHours,
+        intensiveWednesdayHours: data.intensiveWednesdayHours,
+        intensiveThursdayHours: data.intensiveThursdayHours,
+        intensiveFridayHours: data.intensiveFridayHours,
+        intensiveSaturdayHours: data.intensiveSaturdayHours,
+        intensiveSundayHours: data.intensiveSundayHours,
         positionId,
         departmentId,
         costCenterId,

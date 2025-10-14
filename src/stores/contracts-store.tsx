@@ -48,6 +48,21 @@ export interface Contract {
   intensiveStartDate?: string | null;
   intensiveEndDate?: string | null;
   intensiveWeeklyHours?: number | null;
+  hasCustomWeeklyPattern?: boolean | null;
+  mondayHours?: number | null;
+  tuesdayHours?: number | null;
+  wednesdayHours?: number | null;
+  thursdayHours?: number | null;
+  fridayHours?: number | null;
+  saturdayHours?: number | null;
+  sundayHours?: number | null;
+  intensiveMondayHours?: number | null;
+  intensiveTuesdayHours?: number | null;
+  intensiveWednesdayHours?: number | null;
+  intensiveThursdayHours?: number | null;
+  intensiveFridayHours?: number | null;
+  intensiveSaturdayHours?: number | null;
+  intensiveSundayHours?: number | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -77,6 +92,21 @@ export interface CreateContractData {
   intensiveStartDate?: string | null;
   intensiveEndDate?: string | null;
   intensiveWeeklyHours?: number | null;
+  hasCustomWeeklyPattern?: boolean | null;
+  mondayHours?: number | null;
+  tuesdayHours?: number | null;
+  wednesdayHours?: number | null;
+  thursdayHours?: number | null;
+  fridayHours?: number | null;
+  saturdayHours?: number | null;
+  sundayHours?: number | null;
+  intensiveMondayHours?: number | null;
+  intensiveTuesdayHours?: number | null;
+  intensiveWednesdayHours?: number | null;
+  intensiveThursdayHours?: number | null;
+  intensiveFridayHours?: number | null;
+  intensiveSaturdayHours?: number | null;
+  intensiveSundayHours?: number | null;
   positionId?: string | null;
   departmentId?: string | null;
   costCenterId?: string | null;
@@ -94,6 +124,21 @@ export interface BulkUpdateContractData {
   intensiveStartDate?: string | null;
   intensiveEndDate?: string | null;
   intensiveWeeklyHours?: number | null;
+  hasCustomWeeklyPattern?: boolean | null;
+  mondayHours?: number | null;
+  tuesdayHours?: number | null;
+  wednesdayHours?: number | null;
+  thursdayHours?: number | null;
+  fridayHours?: number | null;
+  saturdayHours?: number | null;
+  sundayHours?: number | null;
+  intensiveMondayHours?: number | null;
+  intensiveTuesdayHours?: number | null;
+  intensiveWednesdayHours?: number | null;
+  intensiveThursdayHours?: number | null;
+  intensiveFridayHours?: number | null;
+  intensiveSaturdayHours?: number | null;
+  intensiveSundayHours?: number | null;
 }
 
 interface ContractsState {

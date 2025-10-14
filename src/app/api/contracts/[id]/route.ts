@@ -41,6 +41,21 @@ const updateContractSchema = z
       .optional()
       .nullable(),
     intensiveWeeklyHours: z.number().min(1).max(60).optional().nullable(),
+    hasCustomWeeklyPattern: z.boolean().optional().nullable(),
+    mondayHours: z.number().min(0).max(24).optional().nullable(),
+    tuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    wednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    thursdayHours: z.number().min(0).max(24).optional().nullable(),
+    fridayHours: z.number().min(0).max(24).optional().nullable(),
+    saturdayHours: z.number().min(0).max(24).optional().nullable(),
+    sundayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveMondayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveTuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveWednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveThursdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveFridayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSaturdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSundayHours: z.number().min(0).max(24).optional().nullable(),
     positionId: z.string().optional().nullable(),
     departmentId: z.string().optional().nullable(),
     costCenterId: z.string().optional().nullable(),
@@ -176,6 +191,26 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.weeklyHours) updateData.weeklyHours = data.weeklyHours;
     if (data.workingDaysPerWeek !== undefined) updateData.workingDaysPerWeek = data.workingDaysPerWeek ?? 5;
     if (data.grossSalary !== undefined) updateData.grossSalary = data.grossSalary;
+    if (data.hasIntensiveSchedule !== undefined) updateData.hasIntensiveSchedule = data.hasIntensiveSchedule ?? false;
+    if (data.intensiveStartDate !== undefined) updateData.intensiveStartDate = data.intensiveStartDate ?? null;
+    if (data.intensiveEndDate !== undefined) updateData.intensiveEndDate = data.intensiveEndDate ?? null;
+    if (data.intensiveWeeklyHours !== undefined) updateData.intensiveWeeklyHours = data.intensiveWeeklyHours;
+    if (data.hasCustomWeeklyPattern !== undefined)
+      updateData.hasCustomWeeklyPattern = data.hasCustomWeeklyPattern ?? false;
+    if (data.mondayHours !== undefined) updateData.mondayHours = data.mondayHours;
+    if (data.tuesdayHours !== undefined) updateData.tuesdayHours = data.tuesdayHours;
+    if (data.wednesdayHours !== undefined) updateData.wednesdayHours = data.wednesdayHours;
+    if (data.thursdayHours !== undefined) updateData.thursdayHours = data.thursdayHours;
+    if (data.fridayHours !== undefined) updateData.fridayHours = data.fridayHours;
+    if (data.saturdayHours !== undefined) updateData.saturdayHours = data.saturdayHours;
+    if (data.sundayHours !== undefined) updateData.sundayHours = data.sundayHours;
+    if (data.intensiveMondayHours !== undefined) updateData.intensiveMondayHours = data.intensiveMondayHours;
+    if (data.intensiveTuesdayHours !== undefined) updateData.intensiveTuesdayHours = data.intensiveTuesdayHours;
+    if (data.intensiveWednesdayHours !== undefined) updateData.intensiveWednesdayHours = data.intensiveWednesdayHours;
+    if (data.intensiveThursdayHours !== undefined) updateData.intensiveThursdayHours = data.intensiveThursdayHours;
+    if (data.intensiveFridayHours !== undefined) updateData.intensiveFridayHours = data.intensiveFridayHours;
+    if (data.intensiveSaturdayHours !== undefined) updateData.intensiveSaturdayHours = data.intensiveSaturdayHours;
+    if (data.intensiveSundayHours !== undefined) updateData.intensiveSundayHours = data.intensiveSundayHours;
     if (data.positionId !== undefined) updateData.positionId = normalizeId(data.positionId);
     if (data.departmentId !== undefined) updateData.departmentId = normalizeId(data.departmentId);
     if (data.costCenterId !== undefined) updateData.costCenterId = normalizeId(data.costCenterId);

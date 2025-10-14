@@ -3,7 +3,19 @@
 import { useState, useEffect, useMemo } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Save, X, Briefcase, Calendar, Clock, User, Building2, AlertTriangle, Sun } from "lucide-react";
+import {
+  Loader2,
+  Save,
+  X,
+  Briefcase,
+  Calendar,
+  CalendarDays,
+  Clock,
+  User,
+  Building2,
+  AlertTriangle,
+  Sun,
+} from "lucide-react";
 import { useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -12,10 +24,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useContractsStore, type CreateContractData, type Contract } from "@/stores/contracts-store";
 
 // Regex para validar formato MM-DD (mes: 01-12, día: 01-31)
@@ -69,6 +82,21 @@ const contractSchema = z
       .max(60, "Las horas semanales no pueden exceder 60")
       .optional()
       .nullable(),
+    hasCustomWeeklyPattern: z.boolean().optional().nullable(),
+    mondayHours: z.number().min(0).max(24).optional().nullable(),
+    tuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    wednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    thursdayHours: z.number().min(0).max(24).optional().nullable(),
+    fridayHours: z.number().min(0).max(24).optional().nullable(),
+    saturdayHours: z.number().min(0).max(24).optional().nullable(),
+    sundayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveMondayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveTuesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveWednesdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveThursdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveFridayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSaturdayHours: z.number().min(0).max(24).optional().nullable(),
+    intensiveSundayHours: z.number().min(0).max(24).optional().nullable(),
     positionId: z.string().optional(),
     departmentId: z.string().optional(),
     costCenterId: z.string().optional(),
@@ -92,6 +120,54 @@ const contractSchema = z
     {
       message: "Si activas la jornada intensiva, debes proporcionar fecha de inicio, fecha de fin y horas semanales",
       path: ["hasIntensiveSchedule"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.hasCustomWeeklyPattern) {
+        return (
+          data.mondayHours !== null &&
+          data.mondayHours !== undefined &&
+          data.tuesdayHours !== null &&
+          data.tuesdayHours !== undefined &&
+          data.wednesdayHours !== null &&
+          data.wednesdayHours !== undefined &&
+          data.thursdayHours !== null &&
+          data.thursdayHours !== undefined &&
+          data.fridayHours !== null &&
+          data.fridayHours !== undefined &&
+          data.saturdayHours !== null &&
+          data.saturdayHours !== undefined &&
+          data.sundayHours !== null &&
+          data.sundayHours !== undefined
+        );
+      }
+      return true;
+    },
+    {
+      message: "Si activas el patrón semanal personalizado, debes proporcionar las horas de todos los días",
+      path: ["hasCustomWeeklyPattern"],
+    },
+  )
+  .refine(
+    (data) => {
+      if (data.hasCustomWeeklyPattern) {
+        const totalHours =
+          (data.mondayHours ?? 0) +
+          (data.tuesdayHours ?? 0) +
+          (data.wednesdayHours ?? 0) +
+          (data.thursdayHours ?? 0) +
+          (data.fridayHours ?? 0) +
+          (data.saturdayHours ?? 0) +
+          (data.sundayHours ?? 0);
+        const difference = Math.abs(totalHours - data.weeklyHours);
+        return difference < 0.51;
+      }
+      return true;
+    },
+    {
+      message: "La suma de las horas semanales personalizadas debe coincidir con las horas semanales totales",
+      path: ["hasCustomWeeklyPattern"],
     },
   );
 
@@ -214,6 +290,21 @@ export function ContractSheet({
       intensiveStartDate: "",
       intensiveEndDate: "",
       intensiveWeeklyHours: undefined,
+      hasCustomWeeklyPattern: false,
+      mondayHours: undefined,
+      tuesdayHours: undefined,
+      wednesdayHours: undefined,
+      thursdayHours: undefined,
+      fridayHours: undefined,
+      saturdayHours: undefined,
+      sundayHours: undefined,
+      intensiveMondayHours: undefined,
+      intensiveTuesdayHours: undefined,
+      intensiveWednesdayHours: undefined,
+      intensiveThursdayHours: undefined,
+      intensiveFridayHours: undefined,
+      intensiveSaturdayHours: undefined,
+      intensiveSundayHours: undefined,
       positionId: "__none__",
       departmentId: "__none__",
       costCenterId: "__none__",
@@ -232,6 +323,21 @@ export function ContractSheet({
   const workingDaysPerWeek = form.watch("workingDaysPerWeek");
   const hasIntensiveSchedule = form.watch("hasIntensiveSchedule");
   const intensiveWeeklyHours = form.watch("intensiveWeeklyHours");
+  const hasCustomWeeklyPattern = form.watch("hasCustomWeeklyPattern");
+  const mondayHours = form.watch("mondayHours");
+  const tuesdayHours = form.watch("tuesdayHours");
+  const wednesdayHours = form.watch("wednesdayHours");
+  const thursdayHours = form.watch("thursdayHours");
+  const fridayHours = form.watch("fridayHours");
+  const saturdayHours = form.watch("saturdayHours");
+  const sundayHours = form.watch("sundayHours");
+  const intensiveMondayHours = form.watch("intensiveMondayHours");
+  const intensiveTuesdayHours = form.watch("intensiveTuesdayHours");
+  const intensiveWednesdayHours = form.watch("intensiveWednesdayHours");
+  const intensiveThursdayHours = form.watch("intensiveThursdayHours");
+  const intensiveFridayHours = form.watch("intensiveFridayHours");
+  const intensiveSaturdayHours = form.watch("intensiveSaturdayHours");
+  const intensiveSundayHours = form.watch("intensiveSundayHours");
 
   const dailyHoursInfo = useMemo(() => {
     if (!weeklyHours || !workingDaysPerWeek || workingDaysPerWeek === 0) {
@@ -265,6 +371,83 @@ export function ContractSheet({
     }
   }, [hasIntensiveSchedule, intensiveWeeklyHours, workingDaysPerWeek]);
 
+  // Calcular suma de horas semanales personalizadas
+  const customWeeklyTotalInfo = useMemo(() => {
+    if (!hasCustomWeeklyPattern) {
+      return { total: 0, difference: 0, isValid: true };
+    }
+
+    const total =
+      (mondayHours ?? 0) +
+      (tuesdayHours ?? 0) +
+      (wednesdayHours ?? 0) +
+      (thursdayHours ?? 0) +
+      (fridayHours ?? 0) +
+      (saturdayHours ?? 0) +
+      (sundayHours ?? 0);
+
+    const difference = Math.abs(total - (weeklyHours ?? 0));
+    const isValid = difference < 0.51;
+
+    return { total, difference, isValid };
+  }, [
+    hasCustomWeeklyPattern,
+    mondayHours,
+    tuesdayHours,
+    wednesdayHours,
+    thursdayHours,
+    fridayHours,
+    saturdayHours,
+    sundayHours,
+    weeklyHours,
+  ]);
+
+  // Calcular suma de horas semanales intensivas personalizadas
+  const intensiveWeeklyTotalInfo = useMemo(() => {
+    if (!hasIntensiveSchedule || !hasCustomWeeklyPattern) {
+      return { total: 0, difference: 0, isValid: true };
+    }
+
+    const hasAnyValue = [
+      intensiveMondayHours,
+      intensiveTuesdayHours,
+      intensiveWednesdayHours,
+      intensiveThursdayHours,
+      intensiveFridayHours,
+      intensiveSaturdayHours,
+      intensiveSundayHours,
+    ].some((h) => h !== null && h !== undefined);
+
+    if (!hasAnyValue) {
+      return { total: 0, difference: 0, isValid: true };
+    }
+
+    const total =
+      (intensiveMondayHours ?? 0) +
+      (intensiveTuesdayHours ?? 0) +
+      (intensiveWednesdayHours ?? 0) +
+      (intensiveThursdayHours ?? 0) +
+      (intensiveFridayHours ?? 0) +
+      (intensiveSaturdayHours ?? 0) +
+      (intensiveSundayHours ?? 0);
+
+    const difference = Math.abs(total - (intensiveWeeklyHours ?? 0));
+    const isValid = difference < 0.51;
+
+    return { total, difference, isValid };
+  }, [
+    hasIntensiveSchedule,
+    hasCustomWeeklyPattern,
+    intensiveMondayHours,
+    intensiveTuesdayHours,
+    intensiveWednesdayHours,
+    intensiveThursdayHours,
+    intensiveFridayHours,
+    intensiveSaturdayHours,
+    intensiveSundayHours,
+    intensiveWeeklyHours,
+  ]);
+
   // Cargar datos de los selects
   useEffect(() => {
     if (open) {
@@ -282,6 +465,21 @@ export function ContractSheet({
           intensiveStartDate: contract.intensiveStartDate ?? "",
           intensiveEndDate: contract.intensiveEndDate ?? "",
           intensiveWeeklyHours: contract.intensiveWeeklyHours ?? undefined,
+          hasCustomWeeklyPattern: contract.hasCustomWeeklyPattern ?? false,
+          mondayHours: contract.mondayHours ?? undefined,
+          tuesdayHours: contract.tuesdayHours ?? undefined,
+          wednesdayHours: contract.wednesdayHours ?? undefined,
+          thursdayHours: contract.thursdayHours ?? undefined,
+          fridayHours: contract.fridayHours ?? undefined,
+          saturdayHours: contract.saturdayHours ?? undefined,
+          sundayHours: contract.sundayHours ?? undefined,
+          intensiveMondayHours: contract.intensiveMondayHours ?? undefined,
+          intensiveTuesdayHours: contract.intensiveTuesdayHours ?? undefined,
+          intensiveWednesdayHours: contract.intensiveWednesdayHours ?? undefined,
+          intensiveThursdayHours: contract.intensiveThursdayHours ?? undefined,
+          intensiveFridayHours: contract.intensiveFridayHours ?? undefined,
+          intensiveSaturdayHours: contract.intensiveSaturdayHours ?? undefined,
+          intensiveSundayHours: contract.intensiveSundayHours ?? undefined,
           positionId: contract.position?.id ?? "__none__",
           departmentId: contract.department?.id ?? "__none__",
           costCenterId: contract.costCenter?.id ?? "__none__",
@@ -318,6 +516,21 @@ export function ContractSheet({
           intensiveStartDate: "",
           intensiveEndDate: "",
           intensiveWeeklyHours: undefined,
+          hasCustomWeeklyPattern: false,
+          mondayHours: undefined,
+          tuesdayHours: undefined,
+          wednesdayHours: undefined,
+          thursdayHours: undefined,
+          fridayHours: undefined,
+          saturdayHours: undefined,
+          sundayHours: undefined,
+          intensiveMondayHours: undefined,
+          intensiveTuesdayHours: undefined,
+          intensiveWednesdayHours: undefined,
+          intensiveThursdayHours: undefined,
+          intensiveFridayHours: undefined,
+          intensiveSaturdayHours: undefined,
+          intensiveSundayHours: undefined,
           positionId: "__none__",
           departmentId: "__none__",
           costCenterId: "__none__",
@@ -430,6 +643,21 @@ export function ContractSheet({
         intensiveStartDate: normalizedIntensiveStartDate,
         intensiveEndDate: normalizedIntensiveEndDate,
         intensiveWeeklyHours: data.intensiveWeeklyHours,
+        hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
+        mondayHours: data.mondayHours,
+        tuesdayHours: data.tuesdayHours,
+        wednesdayHours: data.wednesdayHours,
+        thursdayHours: data.thursdayHours,
+        fridayHours: data.fridayHours,
+        saturdayHours: data.saturdayHours,
+        sundayHours: data.sundayHours,
+        intensiveMondayHours: data.intensiveMondayHours,
+        intensiveTuesdayHours: data.intensiveTuesdayHours,
+        intensiveWednesdayHours: data.intensiveWednesdayHours,
+        intensiveThursdayHours: data.intensiveThursdayHours,
+        intensiveFridayHours: data.intensiveFridayHours,
+        intensiveSaturdayHours: data.intensiveSaturdayHours,
+        intensiveSundayHours: data.intensiveSundayHours,
         positionId: normalizeId(data.positionId),
         departmentId: normalizeId(data.departmentId),
         costCenterId: normalizeId(data.costCenterId),
@@ -824,9 +1052,481 @@ export function ContractSheet({
                             )}
                           </div>
                         )}
+
+                        {/* Patrón semanal para jornada intensiva */}
+                        {hasCustomWeeklyPattern && (
+                          <div className="space-y-4 rounded-lg border-2 border-dashed border-orange-300 bg-orange-50/50 p-4 dark:border-orange-700 dark:bg-orange-950/20">
+                            <div className="flex items-center gap-2">
+                              <CalendarDays className="h-4 w-4 text-orange-600" />
+                              <Label className="text-sm font-semibold text-orange-900 dark:text-orange-200">
+                                Distribución horaria semanal (período intensivo)
+                              </Label>
+                            </div>
+                            <p className="text-muted-foreground text-xs">
+                              Define las horas específicas para cada día durante el período de jornada intensiva
+                            </p>
+
+                            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                              <FormField
+                                control={form.control}
+                                name="intensiveMondayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Lunes</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="7"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveTuesdayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Martes</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="7"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveWednesdayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Miércoles</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="7"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveThursdayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Jueves</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="7"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveFridayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Viernes</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="7"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveSaturdayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Sábado</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="0"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="intensiveSundayHours"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Domingo</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        type="number"
+                                        min="0"
+                                        max="24"
+                                        step="0.5"
+                                        placeholder="0"
+                                        value={field.value ?? ""}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          field.onChange(value === "" ? undefined : Number(value));
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            {/* Validación de horas semanales intensivas */}
+                            <div className="space-y-3">
+                              <div className="bg-muted/30 rounded-md border p-3">
+                                <div className="flex items-center justify-between text-sm">
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="text-muted-foreground h-4 w-4" />
+                                    <span className="text-muted-foreground">Total intensivo semanal:</span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={`text-base font-semibold ${
+                                        intensiveWeeklyTotalInfo.isValid ? "text-primary" : "text-destructive"
+                                      }`}
+                                    >
+                                      {intensiveWeeklyTotalInfo.total.toFixed(2)} h
+                                    </span>
+                                    {intensiveWeeklyHours && (
+                                      <span className="text-muted-foreground text-xs">
+                                        / {intensiveWeeklyHours} h esperadas
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {!intensiveWeeklyTotalInfo.isValid && intensiveWeeklyHours && (
+                                <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                                  <AlertTriangle className="h-4 w-4 text-orange-600" />
+                                  <AlertDescription className="text-orange-800 dark:text-orange-200">
+                                    ⚠️ La suma de horas intensivas ({intensiveWeeklyTotalInfo.total.toFixed(2)}h) no
+                                    coincide con las horas semanales intensivas totales ({intensiveWeeklyHours}h).
+                                    Diferencia: {intensiveWeeklyTotalInfo.difference.toFixed(2)}h
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* Patrón Semanal Personalizado */}
+                <div className="bg-card space-y-4 rounded-lg border p-6">
+                  <div className="mb-4 flex items-center gap-2">
+                    <CalendarDays className="text-primary h-5 w-5" />
+                    <Label className="text-lg font-semibold">Patrón Semanal Personalizado</Label>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="hasCustomWeeklyPattern"
+                    render={({ field }) => (
+                      <FormItem className="flex items-center justify-between space-y-0 rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Horario variable por día</FormLabel>
+                          <FormDescription>
+                            Activa esta opción para definir horas específicas para cada día de la semana (útil para
+                            tiendas con horarios variables)
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  {hasCustomWeeklyPattern && (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                        <FormField
+                          control={form.control}
+                          name="mondayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Lunes</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="8"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="tuesdayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Martes</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="8"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="wednesdayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Miércoles</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="8"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="thursdayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Jueves</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="8"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="fridayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Viernes</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="8"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="saturdayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Sábado</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="0"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="sundayHours"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Domingo</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  max="24"
+                                  step="0.5"
+                                  placeholder="0"
+                                  value={field.value ?? ""}
+                                  onChange={(e) => {
+                                    const value = e.target.value;
+                                    field.onChange(value === "" ? undefined : Number(value));
+                                  }}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      {/* Validación de horas semanales */}
+                      <div className="space-y-3">
+                        <div className="bg-muted/30 rounded-md border p-3">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <Clock className="text-muted-foreground h-4 w-4" />
+                              <span className="text-muted-foreground">Total de horas semanales:</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`text-base font-semibold ${
+                                  customWeeklyTotalInfo.isValid ? "text-primary" : "text-destructive"
+                                }`}
+                              >
+                                {customWeeklyTotalInfo.total.toFixed(2)} h
+                              </span>
+                              {weeklyHours && (
+                                <span className="text-muted-foreground text-xs">/ {weeklyHours} h esperadas</span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {!customWeeklyTotalInfo.isValid && weeklyHours && (
+                          <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950/20">
+                            <AlertTriangle className="h-4 w-4 text-orange-600" />
+                            <AlertDescription className="text-orange-800 dark:text-orange-200">
+                              ⚠️ La suma de horas ({customWeeklyTotalInfo.total.toFixed(2)}h) no coincide con las horas
+                              semanales totales ({weeklyHours}h). Diferencia:{" "}
+                              {customWeeklyTotalInfo.difference.toFixed(2)}h
+                            </AlertDescription>
+                          </Alert>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Fechas */}

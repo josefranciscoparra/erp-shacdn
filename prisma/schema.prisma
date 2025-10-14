@@ -289,6 +289,25 @@ model EmploymentContract {
   intensiveEndDate        String?   // Formato: "MM-DD" (ej: "09-15" para 15 de septiembre)
   intensiveWeeklyHours    Decimal?  @db.Decimal(5,2)
 
+  // Patrón de horario semanal personalizado (ej: tiendas con horarios variables por día)
+  hasCustomWeeklyPattern  Boolean?  @default(false)
+  mondayHours             Decimal?  @db.Decimal(4,2)
+  tuesdayHours            Decimal?  @db.Decimal(4,2)
+  wednesdayHours          Decimal?  @db.Decimal(4,2)
+  thursdayHours           Decimal?  @db.Decimal(4,2)
+  fridayHours             Decimal?  @db.Decimal(4,2)
+  saturdayHours           Decimal?  @db.Decimal(4,2)
+  sundayHours             Decimal?  @db.Decimal(4,2)
+
+  // Patrón de horario semanal para jornada intensiva (ej: distribución en verano)
+  intensiveMondayHours    Decimal?  @db.Decimal(4,2)
+  intensiveTuesdayHours   Decimal?  @db.Decimal(4,2)
+  intensiveWednesdayHours Decimal?  @db.Decimal(4,2)
+  intensiveThursdayHours  Decimal?  @db.Decimal(4,2)
+  intensiveFridayHours    Decimal?  @db.Decimal(4,2)
+  intensiveSaturdayHours  Decimal?  @db.Decimal(4,2)
+  intensiveSundayHours    Decimal?  @db.Decimal(4,2)
+
   // Metadatos
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
