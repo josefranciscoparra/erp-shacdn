@@ -44,6 +44,11 @@ const isValidDayForMonth = (mmdd: string): boolean => {
 const countActiveDays = (values: Array<number | null | undefined>): number =>
   values.reduce((total, value) => (value !== null && value !== undefined && value > 0 ? total + 1 : total), 0);
 
+const normalizeHour = (value?: number | null) => {
+  if (value === null || value === undefined) return 0;
+  return Number.isFinite(value) ? value : 0;
+};
+
 const contractSchema = z
   .object({
     contractType: z.enum(
@@ -127,42 +132,15 @@ const contractSchema = z
   .refine(
     (data) => {
       if (data.hasCustomWeeklyPattern) {
-        return (
-          data.mondayHours !== null &&
-          data.mondayHours !== undefined &&
-          data.tuesdayHours !== null &&
-          data.tuesdayHours !== undefined &&
-          data.wednesdayHours !== null &&
-          data.wednesdayHours !== undefined &&
-          data.thursdayHours !== null &&
-          data.thursdayHours !== undefined &&
-          data.fridayHours !== null &&
-          data.fridayHours !== undefined &&
-          data.saturdayHours !== null &&
-          data.saturdayHours !== undefined &&
-          data.sundayHours !== null &&
-          data.sundayHours !== undefined
-        );
-      }
-      return true;
-    },
-    {
-      message: "Si activas el patrón semanal personalizado, debes proporcionar las horas de todos los días",
-      path: ["hasCustomWeeklyPattern"],
-    },
-  )
-  .refine(
-    (data) => {
-      if (data.hasCustomWeeklyPattern) {
         const totalHours =
-          (data.mondayHours ?? 0) +
-          (data.tuesdayHours ?? 0) +
-          (data.wednesdayHours ?? 0) +
-          (data.thursdayHours ?? 0) +
-          (data.fridayHours ?? 0) +
-          (data.saturdayHours ?? 0) +
-          (data.sundayHours ?? 0);
-        const difference = Math.abs(totalHours - data.weeklyHours);
+          normalizeHour(data.mondayHours) +
+          normalizeHour(data.tuesdayHours) +
+          normalizeHour(data.wednesdayHours) +
+          normalizeHour(data.thursdayHours) +
+          normalizeHour(data.fridayHours) +
+          normalizeHour(data.saturdayHours) +
+          normalizeHour(data.sundayHours);
+        const difference = Math.abs(totalHours - (data.weeklyHours ?? 0));
         return difference < 0.51;
       }
       return true;
@@ -389,13 +367,13 @@ export function ContractSheet({
     }
 
     const total =
-      (mondayHours ?? 0) +
-      (tuesdayHours ?? 0) +
-      (wednesdayHours ?? 0) +
-      (thursdayHours ?? 0) +
-      (fridayHours ?? 0) +
-      (saturdayHours ?? 0) +
-      (sundayHours ?? 0);
+      normalizeHour(mondayHours) +
+      normalizeHour(tuesdayHours) +
+      normalizeHour(wednesdayHours) +
+      normalizeHour(thursdayHours) +
+      normalizeHour(fridayHours) +
+      normalizeHour(saturdayHours) +
+      normalizeHour(sundayHours);
 
     const difference = Math.abs(total - (weeklyHours ?? 0));
     const isValid = difference < 0.51;
@@ -467,13 +445,13 @@ export function ContractSheet({
     }
 
     const total =
-      (intensiveMondayHours ?? 0) +
-      (intensiveTuesdayHours ?? 0) +
-      (intensiveWednesdayHours ?? 0) +
-      (intensiveThursdayHours ?? 0) +
-      (intensiveFridayHours ?? 0) +
-      (intensiveSaturdayHours ?? 0) +
-      (intensiveSundayHours ?? 0);
+      normalizeHour(intensiveMondayHours) +
+      normalizeHour(intensiveTuesdayHours) +
+      normalizeHour(intensiveWednesdayHours) +
+      normalizeHour(intensiveThursdayHours) +
+      normalizeHour(intensiveFridayHours) +
+      normalizeHour(intensiveSaturdayHours) +
+      normalizeHour(intensiveSundayHours);
 
     const difference = Math.abs(total - (intensiveWeeklyHours ?? 0));
     const isValid = difference < 0.51;
@@ -710,6 +688,9 @@ export function ContractSheet({
       const normalizedIntensiveEndDate =
         data.intensiveEndDate && data.intensiveEndDate.trim().length > 0 ? data.intensiveEndDate.trim() : null;
 
+      const hasCustomPattern = data.hasCustomWeeklyPattern ?? false;
+      const hasIntensive = data.hasIntensiveSchedule ?? false;
+
       const sharedPayload: CreateContractData = {
         contractType: data.contractType,
         startDate: data.startDate,
@@ -717,25 +698,25 @@ export function ContractSheet({
         weeklyHours: data.weeklyHours,
         workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
         grossSalary: data.grossSalary && data.grossSalary > 0 ? data.grossSalary : null,
-        hasIntensiveSchedule: data.hasIntensiveSchedule ?? false,
+        hasIntensiveSchedule: hasIntensive,
         intensiveStartDate: normalizedIntensiveStartDate,
         intensiveEndDate: normalizedIntensiveEndDate,
-        intensiveWeeklyHours: data.intensiveWeeklyHours,
-        hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
-        mondayHours: data.mondayHours,
-        tuesdayHours: data.tuesdayHours,
-        wednesdayHours: data.wednesdayHours,
-        thursdayHours: data.thursdayHours,
-        fridayHours: data.fridayHours,
-        saturdayHours: data.saturdayHours,
-        sundayHours: data.sundayHours,
-        intensiveMondayHours: data.intensiveMondayHours,
-        intensiveTuesdayHours: data.intensiveTuesdayHours,
-        intensiveWednesdayHours: data.intensiveWednesdayHours,
-        intensiveThursdayHours: data.intensiveThursdayHours,
-        intensiveFridayHours: data.intensiveFridayHours,
-        intensiveSaturdayHours: data.intensiveSaturdayHours,
-        intensiveSundayHours: data.intensiveSundayHours,
+        intensiveWeeklyHours: hasIntensive ? (data.intensiveWeeklyHours ?? null) : null,
+        hasCustomWeeklyPattern: hasCustomPattern,
+        mondayHours: hasCustomPattern ? normalizeHour(data.mondayHours) : null,
+        tuesdayHours: hasCustomPattern ? normalizeHour(data.tuesdayHours) : null,
+        wednesdayHours: hasCustomPattern ? normalizeHour(data.wednesdayHours) : null,
+        thursdayHours: hasCustomPattern ? normalizeHour(data.thursdayHours) : null,
+        fridayHours: hasCustomPattern ? normalizeHour(data.fridayHours) : null,
+        saturdayHours: hasCustomPattern ? normalizeHour(data.saturdayHours) : null,
+        sundayHours: hasCustomPattern ? normalizeHour(data.sundayHours) : null,
+        intensiveMondayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveMondayHours) : null,
+        intensiveTuesdayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveTuesdayHours) : null,
+        intensiveWednesdayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveWednesdayHours) : null,
+        intensiveThursdayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveThursdayHours) : null,
+        intensiveFridayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveFridayHours) : null,
+        intensiveSaturdayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveSaturdayHours) : null,
+        intensiveSundayHours: hasCustomPattern && hasIntensive ? normalizeHour(data.intensiveSundayHours) : null,
         positionId: normalizeId(data.positionId),
         departmentId: normalizeId(data.departmentId),
         costCenterId: normalizeId(data.costCenterId),
@@ -1016,6 +997,12 @@ export function ContractSheet({
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
                                     }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1040,6 +1027,12 @@ export function ContractSheet({
                                     onChange={(e) => {
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
                                     }}
                                   />
                                 </FormControl>
@@ -1066,6 +1059,12 @@ export function ContractSheet({
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
                                     }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1090,6 +1089,12 @@ export function ContractSheet({
                                     onChange={(e) => {
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
                                     }}
                                   />
                                 </FormControl>
@@ -1116,6 +1121,12 @@ export function ContractSheet({
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
                                     }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1141,6 +1152,12 @@ export function ContractSheet({
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
                                     }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1165,6 +1182,12 @@ export function ContractSheet({
                                     onChange={(e) => {
                                       const value = e.target.value;
                                       field.onChange(value === "" ? undefined : Number(value));
+                                    }}
+                                    onBlur={(event) => {
+                                      if (event.target.value === "") {
+                                        field.onChange(0);
+                                      }
+                                      field.onBlur();
                                     }}
                                   />
                                 </FormControl>
@@ -1484,6 +1507,12 @@ export function ContractSheet({
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
                                           }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
+                                          }}
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1508,6 +1537,12 @@ export function ContractSheet({
                                           onChange={(e) => {
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
                                           }}
                                         />
                                       </FormControl>
@@ -1534,6 +1569,12 @@ export function ContractSheet({
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
                                           }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
+                                          }}
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1558,6 +1599,12 @@ export function ContractSheet({
                                           onChange={(e) => {
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
                                           }}
                                         />
                                       </FormControl>
@@ -1584,6 +1631,12 @@ export function ContractSheet({
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
                                           }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
+                                          }}
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1609,6 +1662,12 @@ export function ContractSheet({
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
                                           }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
+                                          }}
                                         />
                                       </FormControl>
                                       <FormMessage />
@@ -1633,6 +1692,12 @@ export function ContractSheet({
                                           onChange={(e) => {
                                             const value = e.target.value;
                                             field.onChange(value === "" ? undefined : Number(value));
+                                          }}
+                                          onBlur={(event) => {
+                                            if (event.target.value === "") {
+                                              field.onChange(0);
+                                            }
+                                            field.onBlur();
                                           }}
                                         />
                                       </FormControl>
