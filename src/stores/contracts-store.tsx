@@ -44,6 +44,10 @@ export interface Contract {
   weeklyHours: number;
   workingDaysPerWeek?: number | null;
   grossSalary: number | null;
+  hasIntensiveSchedule?: boolean | null;
+  intensiveStartDate?: string | null;
+  intensiveEndDate?: string | null;
+  intensiveWeeklyHours?: number | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -69,6 +73,10 @@ export interface CreateContractData {
   weeklyHours: number;
   workingDaysPerWeek?: number | null;
   grossSalary?: number | null;
+  hasIntensiveSchedule?: boolean | null;
+  intensiveStartDate?: string | null;
+  intensiveEndDate?: string | null;
+  intensiveWeeklyHours?: number | null;
   positionId?: string | null;
   departmentId?: string | null;
   costCenterId?: string | null;
@@ -77,6 +85,15 @@ export interface CreateContractData {
 
 export interface UpdateContractData extends Partial<CreateContractData> {
   active?: boolean;
+}
+
+export interface BulkUpdateContractData {
+  weeklyHours?: number | null;
+  workingDaysPerWeek?: number | null;
+  hasIntensiveSchedule?: boolean | null;
+  intensiveStartDate?: string | null;
+  intensiveEndDate?: string | null;
+  intensiveWeeklyHours?: number | null;
 }
 
 interface ContractsState {
@@ -89,6 +106,7 @@ interface ContractsState {
   isCreating: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
+  isBulkUpdating: boolean;
   error: string | null;
 
   // Pagination
@@ -105,6 +123,7 @@ interface ContractsState {
   fetchAllContracts: (params?: { page?: number; limit?: number; status?: string }) => Promise<void>;
   createContract: (employeeId: string, data: CreateContractData) => Promise<Contract>;
   updateContract: (contractId: string, data: UpdateContractData) => Promise<Contract>;
+  bulkUpdateContracts: (contractIds: string[], data: BulkUpdateContractData) => Promise<Contract[]>;
   deleteContract: (contractId: string) => Promise<void>;
   setSelectedContract: (contract: Contract | null) => void;
   setStatus: (status: "all" | "active" | "inactive") => void;
@@ -120,6 +139,7 @@ const initialState = {
   isCreating: false,
   isUpdating: false,
   isDeleting: false,
+  isBulkUpdating: false,
   error: null,
   page: 1,
   limit: 10,
@@ -290,6 +310,48 @@ export const useContractsStore = create<ContractsState>((set, get) => ({
       set({
         error: error.message,
         isUpdating: false,
+      });
+      throw error;
+    }
+  },
+
+  bulkUpdateContracts: async (contractIds: string[], data: BulkUpdateContractData) => {
+    set({ isBulkUpdating: true, error: null });
+
+    try {
+      const response = await fetch("/api/contracts/bulk-update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ contractIds, data }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error ?? "Error al actualizar contratos");
+      }
+
+      const result = await response.json();
+      const updatedContracts: Contract[] = result.contracts;
+
+      // Actualizar la lista de contratos
+      const { contracts } = get();
+      const updatedContractsMap = new Map(updatedContracts.map((c) => [c.id, c]));
+
+      set({
+        contracts: contracts.map((contract) =>
+          updatedContractsMap.has(contract.id) ? updatedContractsMap.get(contract.id)! : contract,
+        ),
+        isBulkUpdating: false,
+      });
+
+      return updatedContracts;
+    } catch (error: any) {
+      set({
+        error: error.message,
+        isBulkUpdating: false,
       });
       throw error;
     }

@@ -8,26 +8,71 @@ import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
 
-const contractSchema = z.object({
-  contractType: z.enum([
-    "INDEFINIDO",
-    "TEMPORAL",
-    "PRACTICAS",
-    "FORMACION",
-    "OBRA_SERVICIO",
-    "EVENTUAL",
-    "INTERINIDAD",
-  ]),
-  startDate: z.string(),
-  endDate: z.string().optional().nullable(),
-  weeklyHours: z.number().min(1).max(60),
-  workingDaysPerWeek: z.number().min(0.5).max(7).optional().nullable(),
-  grossSalary: z.number().min(0).optional().nullable(),
-  positionId: z.string().optional().nullable(),
-  departmentId: z.string().optional().nullable(),
-  costCenterId: z.string().optional().nullable(),
-  managerId: z.string().optional().nullable(),
-});
+// Regex para validar formato MM-DD (mes: 01-12, día: 01-31)
+const MM_DD_REGEX = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
+
+// Función para validar que el día sea válido para el mes dado
+const isValidDayForMonth = (mmdd: string): boolean => {
+  const [month, day] = mmdd.split("-").map(Number);
+  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]; // Febrero con 29 días (año bisiesto)
+  return day <= daysInMonth[month - 1];
+};
+
+const contractSchema = z
+  .object({
+    contractType: z.enum([
+      "INDEFINIDO",
+      "TEMPORAL",
+      "PRACTICAS",
+      "FORMACION",
+      "OBRA_SERVICIO",
+      "EVENTUAL",
+      "INTERINIDAD",
+    ]),
+    startDate: z.string(),
+    endDate: z.string().optional().nullable(),
+    weeklyHours: z.number().min(1).max(60),
+    workingDaysPerWeek: z.number().min(0.5).max(7).optional().nullable(),
+    grossSalary: z.number().min(0).optional().nullable(),
+    hasIntensiveSchedule: z.boolean().optional().nullable(),
+    intensiveStartDate: z
+      .string()
+      .regex(MM_DD_REGEX, "Formato inválido. Debe ser MM-DD (ej: 06-15)")
+      .refine(isValidDayForMonth, "Día inválido para el mes especificado")
+      .optional()
+      .nullable(),
+    intensiveEndDate: z
+      .string()
+      .regex(MM_DD_REGEX, "Formato inválido. Debe ser MM-DD (ej: 09-15)")
+      .refine(isValidDayForMonth, "Día inválido para el mes especificado")
+      .optional()
+      .nullable(),
+    intensiveWeeklyHours: z.number().min(1).max(60).optional().nullable(),
+    positionId: z.string().optional().nullable(),
+    departmentId: z.string().optional().nullable(),
+    costCenterId: z.string().optional().nullable(),
+    managerId: z.string().optional().nullable(),
+  })
+  .refine(
+    (data) => {
+      // Si tiene jornada intensiva, los campos deben estar completos
+      if (data.hasIntensiveSchedule) {
+        return (
+          data.intensiveStartDate &&
+          data.intensiveStartDate.trim().length > 0 &&
+          data.intensiveEndDate &&
+          data.intensiveEndDate.trim().length > 0 &&
+          data.intensiveWeeklyHours !== null &&
+          data.intensiveWeeklyHours !== undefined
+        );
+      }
+      return true;
+    },
+    {
+      message:
+        "Si activas la jornada intensiva, debes proporcionar fecha de inicio (MM-DD), fecha de fin (MM-DD) y horas semanales",
+    },
+  );
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -219,6 +264,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         weeklyHours: data.weeklyHours,
         workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
         grossSalary: data.grossSalary,
+        hasIntensiveSchedule: data.hasIntensiveSchedule ?? false,
+        intensiveStartDate: data.intensiveStartDate ?? null,
+        intensiveEndDate: data.intensiveEndDate ?? null,
+        intensiveWeeklyHours: data.intensiveWeeklyHours,
         positionId,
         departmentId,
         costCenterId,

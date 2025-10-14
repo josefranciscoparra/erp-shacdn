@@ -281,7 +281,14 @@ model EmploymentContract {
   weeklyHours Decimal   @db.Decimal(5,2) // Horas semanales pactadas
   workingDaysPerWeek Decimal? @default(5) @db.Decimal(3,1) // Días laborables por semana (4, 5, 6, etc.)
   grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
-  
+
+  // Jornada intensiva (ej: horario de verano)
+  // Las fechas se guardan como "MM-DD" para aplicar todos los años (ej: "06-15" = 15 de junio)
+  hasIntensiveSchedule    Boolean?  @default(false)
+  intensiveStartDate      String?   // Formato: "MM-DD" (ej: "06-15" para 15 de junio)
+  intensiveEndDate        String?   // Formato: "MM-DD" (ej: "09-15" para 15 de septiembre)
+  intensiveWeeklyHours    Decimal?  @db.Decimal(5,2)
+
   // Metadatos
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
