@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useContractsStore, type Contract } from "@/stores/contracts-store";
 
+import { BulkEditPreview } from "./bulk-edit-preview";
+
 // Regex para validar formato MM-DD (mes: 01-12, día: 01-31)
 const MM_DD_REGEX = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
 
@@ -620,6 +622,19 @@ export function BulkEditContractDialog({
                   </div>
                 )}
               </div>
+
+              {/* Preview de cambios */}
+              <BulkEditPreview
+                selectedContracts={selectedContracts}
+                changes={{
+                  weeklyHours: weeklyHours ?? undefined,
+                  workingDaysPerWeek: workingDaysPerWeek ?? undefined,
+                  hasIntensiveSchedule: hasIntensiveSchedule ?? undefined,
+                  intensiveStartDate: form.watch("intensiveStartDate") ?? undefined,
+                  intensiveEndDate: form.watch("intensiveEndDate") ?? undefined,
+                  intensiveWeeklyHours: intensiveWeeklyHours ?? undefined,
+                }}
+              />
 
               {/* Botones */}
               <div className="bg-muted/30 -mx-6 -mb-6 flex justify-end gap-3 border-t px-6 py-4 pt-8">

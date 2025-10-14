@@ -20,6 +20,7 @@ import { BulkEditContractDialog } from "@/components/contracts/bulk-edit-contrac
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -58,6 +59,38 @@ export function ContractsDataTable<TData, TValue>({
   const [globalFilter, setGlobalFilter] = useState("");
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
 
+  // Función de filtro inteligente para búsqueda de empleados
+  const intelligentEmployeeFilter = (row: any, columnId: string, filterValue: string) => {
+    if (!filterValue || filterValue.trim().length === 0) return true;
+
+    const contract = row.original as Contract;
+    const employee = contract.employee;
+
+    if (!employee) return false;
+
+    // Normalizar búsqueda (lowercase, sin acentos)
+    const searchTerms = filterValue
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/\s+/)
+      .filter((term) => term.length > 0);
+
+    // Construir nombre completo del empleado
+    const fullName = `${employee.firstName} ${employee.lastName} ${employee.secondLastName ?? ""}`
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    // Número de empleado
+    const employeeNumber = employee.employeeNumber?.toLowerCase() ?? "";
+
+    // Verificar que todos los términos de búsqueda coincidan con el nombre o número
+    return searchTerms.every((term) => {
+      return fullName.includes(term) || employeeNumber.includes(term);
+    });
+  };
+
   const table = useReactTable({
     data,
     columns,
@@ -70,7 +103,7 @@ export function ContractsDataTable<TData, TValue>({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
-    globalFilterFn: "includesString",
+    globalFilterFn: intelligentEmployeeFilter,
     state: {
       sorting,
       columnFilters,
@@ -126,10 +159,22 @@ export function ContractsDataTable<TData, TValue>({
               <span className="text-primary text-sm font-semibold">{selectedContracts.length}</span>
             </div>
             <div>
-              <p className="text-foreground font-medium">
-                {selectedContracts.length} contrato{selectedContracts.length > 1 ? "s" : ""} seleccionado
-                {selectedContracts.length > 1 ? "s" : ""}
-              </p>
+              <div className="flex items-center gap-2">
+                <p className="text-foreground font-medium">
+                  {selectedContracts.length} de {allFilteredContracts.length} contrato
+                  {selectedContracts.length > 1 ? "s" : ""} seleccionado
+                  {selectedContracts.length > 1 ? "s" : ""}
+                </p>
+                {allFilteredSelected ? (
+                  <Badge variant="default" className="bg-green-500/10 font-medium text-green-700 dark:text-green-400">
+                    Todos
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary" className="font-medium">
+                    Parcial
+                  </Badge>
+                )}
+              </div>
               <p className="text-muted-foreground text-sm">Puedes editar los horarios de forma masiva</p>
             </div>
           </div>
@@ -153,11 +198,16 @@ export function ContractsDataTable<TData, TValue>({
           <div className="relative flex-1 @4xl/main:max-w-sm">
             <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
             <Input
-              placeholder="Buscar contratos..."
+              placeholder="Buscar por nombre o número de empleado..."
               value={globalFilter}
               onChange={(event) => setGlobalFilter(event.target.value)}
               className="pl-9"
             />
+            {globalFilter && (
+              <div className="text-muted-foreground absolute top-full left-0 mt-1 text-xs">
+                {allFilteredContracts.length} resultado{allFilteredContracts.length !== 1 ? "s" : ""}
+              </div>
+            )}
           </div>
 
           {/* Filtros */}
