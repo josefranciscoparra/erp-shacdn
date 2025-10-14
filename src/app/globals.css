@@ -236,3 +236,12 @@ These serve as the fallback; there is no separate default.css file. */
 .disable-transitions * {
   transition: none !important;
 }
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}

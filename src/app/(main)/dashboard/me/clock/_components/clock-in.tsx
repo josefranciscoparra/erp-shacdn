@@ -46,6 +46,7 @@ export function ClockIn() {
   const [expectedDailyHours, setExpectedDailyHours] = useState<number>(8);
   const [hasActiveContract, setHasActiveContract] = useState<boolean>(true);
   const [isClocking, setIsClocking] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [liveWorkedMinutes, setLiveWorkedMinutes] = useState<number>(0);
 
@@ -100,6 +101,9 @@ export function ClockIn() {
 
   const loadData = async () => {
     try {
+      setIsLoading(true);
+      const startTime = Date.now();
+
       const [status, summary, hoursInfo] = await Promise.all([
         getCurrentStatus(),
         getTodaySummary(),
@@ -109,12 +113,21 @@ export function ClockIn() {
       console.log("📊 Summary cargado:", summary);
       console.log("📋 TimeEntries:", summary?.timeEntries);
 
+      // Duración mínima de 400ms para que se vea la animación
+      const elapsed = Date.now() - startTime;
+      const minimumLoadTime = 400;
+      if (elapsed < minimumLoadTime) {
+        await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
+      }
+
       setCurrentStatus(status.status);
       setTodaySummary(summary as any);
       setExpectedDailyHours(hoursInfo.dailyHours);
       setHasActiveContract(hoursInfo.hasActiveContract);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar datos");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -253,25 +266,45 @@ export function ClockIn() {
             {/* Tiempo trabajado */}
             <div className="flex flex-col items-center gap-2">
               <span className="text-muted-foreground text-sm font-medium">Tiempo trabajado</span>
-              <div className="flex items-center gap-1 tabular-nums">
-                <span className="text-5xl font-bold">{workedTime.hours}</span>
-                <span className="text-muted-foreground text-2xl font-bold">:</span>
-                <span className="text-5xl font-bold">{workedTime.minutes}</span>
-                <span className="text-muted-foreground text-2xl font-bold">:</span>
-                <span className="text-muted-foreground text-3xl font-bold">{workedTime.seconds}</span>
-              </div>
+              {isLoading ? (
+                <div className="flex items-center gap-1 tabular-nums">
+                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  </div>
+                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
+                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  </div>
+                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
+                  <div className="bg-muted relative h-[48px] w-[70px] overflow-hidden rounded-lg">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.4s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  </div>
+                </div>
+              ) : (
+                <div className="animate-in fade-in-0 slide-in-from-bottom-2 flex items-center gap-1 tabular-nums duration-500">
+                  <span className="text-5xl font-bold">{workedTime.hours}</span>
+                  <span className="text-muted-foreground text-2xl font-bold">:</span>
+                  <span className="text-5xl font-bold">{workedTime.minutes}</span>
+                  <span className="text-muted-foreground text-2xl font-bold">:</span>
+                  <span className="text-muted-foreground text-3xl font-bold">{workedTime.seconds}</span>
+                </div>
+              )}
             </div>
 
             {/* Tiempo restante o completado */}
             <div className="flex flex-col items-center gap-1">
-              {isCompleted ? (
-                <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2">
+              {isLoading ? (
+                <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                </div>
+              ) : isCompleted ? (
+                <div className="animate-in fade-in-0 zoom-in-95 flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2 duration-500">
                   <span className="text-sm font-semibold text-green-600 dark:text-green-400">
                     ¡Jornada completada! 🎉
                   </span>
                 </div>
               ) : (
-                <>
+                <div className="animate-in fade-in-0 slide-in-from-bottom-1 delay-100 duration-500">
                   <span className="text-muted-foreground text-xs">Tiempo restante</span>
                   <div className="flex items-center gap-1 tabular-nums">
                     <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.hours}</span>
@@ -280,16 +313,16 @@ export function ClockIn() {
                     <span className="text-muted-foreground text-lg">:</span>
                     <span className="text-muted-foreground/70 text-xl">{remainingTime.seconds}</span>
                   </div>
-                </>
+                </div>
               )}
             </div>
           </div>
 
           <div className="flex w-full flex-col gap-3">
             {currentStatus === "CLOCKED_OUT" ? (
-              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isClocking}>
+              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isLoading || isClocking}>
                 <LogIn className="mr-2 h-5 w-5" />
-                {isClocking ? "Fichando..." : "Fichar Entrada"}
+                {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Entrada"}
               </Button>
             ) : (
               <>
@@ -298,18 +331,26 @@ export function ClockIn() {
                   onClick={handleClockOut}
                   variant="destructive"
                   className="w-full"
-                  disabled={isClocking}
+                  disabled={isLoading || isClocking}
                 >
                   <LogOut className="mr-2 h-5 w-5" />
-                  {isClocking ? "Fichando..." : "Fichar Salida"}
+                  {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Salida"}
                 </Button>
-                <Button size="lg" onClick={handleBreak} variant="outline" className="w-full" disabled={isClocking}>
+                <Button
+                  size="lg"
+                  onClick={handleBreak}
+                  variant="outline"
+                  className="w-full"
+                  disabled={isLoading || isClocking}
+                >
                   <Coffee className="mr-2 h-5 w-5" />
-                  {isClocking
-                    ? "Procesando..."
-                    : currentStatus === "ON_BREAK"
-                      ? "Volver del descanso"
-                      : "Iniciar descanso"}
+                  {isLoading
+                    ? "Cargando..."
+                    : isClocking
+                      ? "Procesando..."
+                      : currentStatus === "ON_BREAK"
+                        ? "Volver del descanso"
+                        : "Iniciar descanso"}
                 </Button>
               </>
             )}
@@ -320,65 +361,106 @@ export function ClockIn() {
         <Card className="@container/card flex flex-col gap-4 p-6">
           <h3 className="text-lg font-semibold">Resumen de hoy</h3>
 
-          {/* Barra de progreso de horas */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Progreso diario</span>
-              <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                {formatMinutes(todaySummary?.totalWorkedMinutes ?? 0)} / {expectedDailyHours}h
-                {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
-              </span>
-            </div>
-            <Progress
-              value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
-              className="h-2"
-            />
-            {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
-              <p className="text-xs text-green-600 dark:text-green-400">¡Has completado tu jornada! 🎉</p>
-            )}
-          </div>
+          {isLoading ? (
+            <>
+              {/* Skeleton para barra de progreso */}
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  </div>
+                  <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
+                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.1s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                  </div>
+                </div>
+                <div className="bg-muted relative h-2 w-full overflow-hidden rounded-full">
+                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+                </div>
+              </div>
 
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Entrada</span>
-              <span className="font-semibold tabular-nums">
-                {todaySummary?.clockIn
-                  ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })
-                  : "--:--:--"}
-              </span>
-            </div>
+              {/* Skeleton para items */}
+              <div className="flex flex-col gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between rounded-lg border p-3">
+                    <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
+                      <div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1}s` }}
+                      />
+                    </div>
+                    <div className="bg-muted relative h-4 w-16 overflow-hidden rounded">
+                      <div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.05}s` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Barra de progreso de horas */}
+              <div className="animate-in fade-in-0 flex flex-col gap-2 duration-500">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Progreso diario</span>
+                  <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
+                    {formatMinutes(todaySummary?.totalWorkedMinutes ?? 0)} / {expectedDailyHours}h
+                    {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
+                  </span>
+                </div>
+                <Progress
+                  value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
+                  className="h-2"
+                />
+                {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
+                  <p className="text-xs text-green-600 dark:text-green-400">¡Has completado tu jornada! 🎉</p>
+                )}
+              </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Salida</span>
-              <span className="font-semibold tabular-nums">
-                {todaySummary?.clockOut
-                  ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })
-                  : "--:--:--"}
-              </span>
-            </div>
+              <div className="animate-in fade-in-0 flex flex-col gap-3 delay-100 duration-500">
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-muted-foreground text-sm">Entrada</span>
+                  <span className="font-semibold tabular-nums">
+                    {todaySummary?.clockIn
+                      ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : "--:--:--"}
+                  </span>
+                </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Tiempo trabajado</span>
-              <span className="font-semibold tabular-nums">
-                {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
-              </span>
-            </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-muted-foreground text-sm">Salida</span>
+                  <span className="font-semibold tabular-nums">
+                    {todaySummary?.clockOut
+                      ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : "--:--:--"}
+                  </span>
+                </div>
 
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Pausas totales</span>
-              <span className="font-semibold tabular-nums">
-                {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
-              </span>
-            </div>
-          </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-muted-foreground text-sm">Tiempo trabajado</span>
+                  <span className="font-semibold tabular-nums">
+                    {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <span className="text-muted-foreground text-sm">Pausas totales</span>
+                  <span className="font-semibold tabular-nums">
+                    {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -386,8 +468,35 @@ export function ClockIn() {
       <Card className="@container/card flex flex-col gap-4 p-6">
         <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
 
-        {todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
+        {isLoading ? (
           <div className="flex flex-col gap-2">
+            {[1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+                <div className="bg-muted relative size-4 overflow-hidden rounded">
+                  <div
+                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                    style={{ animation: `shimmer 1.5s infinite ${i * 0.15}s` }}
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
+                    <div
+                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.05}s` }}
+                    />
+                  </div>
+                  <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
+                    <div
+                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.1}s` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
+          <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
             {todaySummary.timeEntries
               .slice()
               .reverse()
@@ -418,7 +527,9 @@ export function ClockIn() {
               ))}
           </div>
         ) : (
-          <p className="text-muted-foreground text-sm">Aún no has registrado fichajes hoy.</p>
+          <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
+            Aún no has registrado fichajes hoy.
+          </p>
         )}
       </Card>
     </div>
