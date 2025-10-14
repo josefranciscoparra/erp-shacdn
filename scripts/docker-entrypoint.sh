@@ -3,12 +3,12 @@ set -e
 
 echo "🚀 Starting deployment..."
 
-# Aplicar migraciones pendientes
-echo "📦 Running database migrations..."
-npx prisma migrate deploy
+# TEMPORAL: Migraciones desactivadas para fix de producción
+# echo "📦 Running database migrations..."
+# npx prisma migrate deploy
 
 # Verificar el estado
-echo "✅ Migrations applied successfully"
+echo "⚠️  Migrations skipped (temporary fix)"
 
 # Iniciar la aplicación
 echo "🎯 Starting application..."
