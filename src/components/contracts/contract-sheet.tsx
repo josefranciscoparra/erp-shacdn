@@ -59,17 +59,17 @@ const contractSchema = z
     ),
     startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
     endDate: z.string().optional(),
-    weeklyHours: z
+    weeklyHours: z.coerce
       .number()
       .min(1, "Las horas semanales deben ser mayor a 0")
       .max(60, "Las horas semanales no pueden exceder 60"),
-    workingDaysPerWeek: z
+    workingDaysPerWeek: z.coerce
       .number()
       .min(0.5, "Los días laborables deben ser al menos 0.5")
       .max(7, "Los días laborables no pueden exceder 7")
       .optional()
       .nullable(),
-    grossSalary: z.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
+    grossSalary: z.coerce.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
     hasIntensiveSchedule: z.boolean().optional().nullable(),
     intensiveStartDate: z
       .string()
@@ -83,27 +83,27 @@ const contractSchema = z
       .refine(isValidDayForMonth, "Día inválido para el mes")
       .optional()
       .or(z.literal("")),
-    intensiveWeeklyHours: z
+    intensiveWeeklyHours: z.coerce
       .number()
       .min(1, "Las horas semanales deben ser mayor a 0")
       .max(60, "Las horas semanales no pueden exceder 60")
       .optional()
       .nullable(),
     hasCustomWeeklyPattern: z.boolean().optional().nullable(),
-    mondayHours: z.number().min(0).max(24).optional().nullable(),
-    tuesdayHours: z.number().min(0).max(24).optional().nullable(),
-    wednesdayHours: z.number().min(0).max(24).optional().nullable(),
-    thursdayHours: z.number().min(0).max(24).optional().nullable(),
-    fridayHours: z.number().min(0).max(24).optional().nullable(),
-    saturdayHours: z.number().min(0).max(24).optional().nullable(),
-    sundayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveMondayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveTuesdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveWednesdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveThursdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveFridayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveSaturdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveSundayHours: z.number().min(0).max(24).optional().nullable(),
+    mondayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    tuesdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    wednesdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    thursdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    fridayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    saturdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    sundayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveMondayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveTuesdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveWednesdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveThursdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveFridayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveSaturdayHours: z.coerce.number().min(0).max(24).optional().nullable(),
+    intensiveSundayHours: z.coerce.number().min(0).max(24).optional().nullable(),
     positionId: z.string().optional(),
     departmentId: z.string().optional(),
     costCenterId: z.string().optional(),
@@ -240,6 +240,14 @@ interface ContractSheetProps {
 }
 
 const toDateInput = (value: string | null | undefined) => (value ? value.split("T")[0] : "");
+
+// Convierte Decimal (que viene como string desde Prisma) a number
+// Si el valor es null/undefined/inválido, devuelve undefined para que Zod lo maneje
+const toNumber = (value: any): number | undefined => {
+  if (value === null || value === undefined || value === "") return undefined;
+  const num = Number(value);
+  return Number.isNaN(num) ? undefined : num;
+};
 
 export function ContractSheet({
   open,
@@ -513,29 +521,29 @@ export function ContractSheet({
           contractType: contract.contractType as ContractFormData["contractType"],
           startDate: toDateInput(contract.startDate),
           endDate: toDateInput(contract.endDate) || "",
-          weeklyHours: contract.weeklyHours,
-          workingDaysPerWeek: contract.workingDaysPerWeek ?? 5,
-          grossSalary: contract.grossSalary ?? undefined,
+          weeklyHours: toNumber(contract.weeklyHours) ?? 40,
+          workingDaysPerWeek: toNumber(contract.workingDaysPerWeek) ?? 5,
+          grossSalary: toNumber(contract.grossSalary),
           hasIntensiveSchedule: contract.hasIntensiveSchedule ?? false,
           // Las fechas intensivas ya están en formato MM-DD
           intensiveStartDate: contract.intensiveStartDate ?? "",
           intensiveEndDate: contract.intensiveEndDate ?? "",
-          intensiveWeeklyHours: contract.intensiveWeeklyHours ?? undefined,
+          intensiveWeeklyHours: toNumber(contract.intensiveWeeklyHours),
           hasCustomWeeklyPattern: contract.hasCustomWeeklyPattern ?? false,
-          mondayHours: contract.mondayHours ?? undefined,
-          tuesdayHours: contract.tuesdayHours ?? undefined,
-          wednesdayHours: contract.wednesdayHours ?? undefined,
-          thursdayHours: contract.thursdayHours ?? undefined,
-          fridayHours: contract.fridayHours ?? undefined,
-          saturdayHours: contract.saturdayHours ?? undefined,
-          sundayHours: contract.sundayHours ?? undefined,
-          intensiveMondayHours: contract.intensiveMondayHours ?? undefined,
-          intensiveTuesdayHours: contract.intensiveTuesdayHours ?? undefined,
-          intensiveWednesdayHours: contract.intensiveWednesdayHours ?? undefined,
-          intensiveThursdayHours: contract.intensiveThursdayHours ?? undefined,
-          intensiveFridayHours: contract.intensiveFridayHours ?? undefined,
-          intensiveSaturdayHours: contract.intensiveSaturdayHours ?? undefined,
-          intensiveSundayHours: contract.intensiveSundayHours ?? undefined,
+          mondayHours: toNumber(contract.mondayHours),
+          tuesdayHours: toNumber(contract.tuesdayHours),
+          wednesdayHours: toNumber(contract.wednesdayHours),
+          thursdayHours: toNumber(contract.thursdayHours),
+          fridayHours: toNumber(contract.fridayHours),
+          saturdayHours: toNumber(contract.saturdayHours),
+          sundayHours: toNumber(contract.sundayHours),
+          intensiveMondayHours: toNumber(contract.intensiveMondayHours),
+          intensiveTuesdayHours: toNumber(contract.intensiveTuesdayHours),
+          intensiveWednesdayHours: toNumber(contract.intensiveWednesdayHours),
+          intensiveThursdayHours: toNumber(contract.intensiveThursdayHours),
+          intensiveFridayHours: toNumber(contract.intensiveFridayHours),
+          intensiveSaturdayHours: toNumber(contract.intensiveSaturdayHours),
+          intensiveSundayHours: toNumber(contract.intensiveSundayHours),
           positionId: contract.position?.id ?? "__none__",
           departmentId: contract.department?.id ?? "__none__",
           costCenterId: contract.costCenter?.id ?? "__none__",
@@ -1844,12 +1852,14 @@ export function ContractSheet({
                               step="100"
                               placeholder="30000"
                               className="pl-8"
-                              {...field}
                               value={field.value ?? ""}
                               onChange={(e) => {
                                 const value = e.target.value;
                                 field.onChange(value === "" ? undefined : Number(value));
                               }}
+                              onBlur={field.onBlur}
+                              name={field.name}
+                              ref={field.ref}
                             />
                           </div>
                         </FormControl>

@@ -5,18 +5,22 @@ import { useEffect, useState } from "react";
 import { Briefcase, AlertCircle, FileText, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
+import { ContractSheet } from "@/components/contracts/contract-sheet";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useContractsStore } from "@/stores/contracts-store";
+import { type Contract, useContractsStore } from "@/stores/contracts-store";
 
-import { contractsColumns } from "./_components/contracts-columns";
+import { getContractsColumns } from "../employees/[id]/contracts/_components/contracts-columns";
+
 import { ContractsDataTable } from "./_components/contracts-data-table";
 
 export default function ContractsPage() {
   const [currentTab, setCurrentTab] = useState("active");
+  const [editContractSheetOpen, setEditContractSheetOpen] = useState(false);
+  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
 
   const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
 
@@ -50,6 +54,21 @@ export default function ContractsPage() {
         return contracts;
     }
   };
+
+  const handleEditContract = (contract: Contract) => {
+    setContractToEdit(contract);
+    setEditContractSheetOpen(true);
+  };
+
+  const handleContractUpdated = () => {
+    fetchAllContracts({ status: currentTab === "all" ? "all" : currentTab });
+    setEditContractSheetOpen(false);
+    setContractToEdit(null);
+  };
+
+  const columns = getContractsColumns({
+    onEdit: handleEditContract,
+  });
 
   return (
     <PermissionGuard
@@ -140,7 +159,7 @@ export default function ContractsPage() {
                 description="No hay contratos activos en este momento en la organización"
               />
             ) : (
-              <ContractsDataTable columns={contractsColumns} data={activeContracts} isLoading={isLoading} />
+              <ContractsDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
             )}
           </TabsContent>
 
@@ -152,7 +171,7 @@ export default function ContractsPage() {
                 description="No hay contratos en el historial"
               />
             ) : (
-              <ContractsDataTable columns={contractsColumns} data={inactiveContracts} isLoading={isLoading} />
+              <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={isLoading} />
             )}
           </TabsContent>
 
@@ -164,11 +183,28 @@ export default function ContractsPage() {
                 description="No hay contratos en la organización"
               />
             ) : (
-              <ContractsDataTable columns={contractsColumns} data={getFilteredContracts()} isLoading={isLoading} />
+              <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
             )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Dialog de edición */}
+      {contractToEdit && (
+        <ContractSheet
+          mode="edit"
+          open={editContractSheetOpen}
+          onOpenChange={setEditContractSheetOpen}
+          employeeId={contractToEdit.employee?.id ?? ""}
+          employeeName={
+            contractToEdit.employee
+              ? `${contractToEdit.employee.firstName} ${contractToEdit.employee.lastName}`
+              : "Sin empleado"
+          }
+          contract={contractToEdit}
+          onSuccess={handleContractUpdated}
+        />
+      )}
     </PermissionGuard>
   );
 }
