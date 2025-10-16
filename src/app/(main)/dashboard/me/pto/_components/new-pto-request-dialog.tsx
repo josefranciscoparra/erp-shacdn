@@ -97,7 +97,8 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   };
 
   const selectedType = absenceTypes.find((t) => t.id === selectedTypeId);
-  const hasEnoughDays = balance && workingDaysCalc ? balance.daysAvailable >= workingDaysCalc : true;
+  const hasEnoughDays =
+    selectedType?.affectsBalance && balance && workingDaysCalc ? balance.daysAvailable >= workingDaysCalc : true;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

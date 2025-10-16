@@ -77,9 +77,9 @@ async function main() {
   const organizations = await prisma.organization.findMany();
 
   if (organizations.length === 0) {
-    console.log("⚠️  No se encontraron organizaciones en la base de datos.");
-    console.log("   Crea primero una organización antes de ejecutar este script.");
-    return;
+    console.log("❌ No se encontraron organizaciones en la base de datos.");
+    console.log("   Ejecuta primero: npx tsx scripts/init-default-org.ts");
+    process.exit(1);
   }
 
   console.log(`📊 Se encontraron ${organizations.length} organizaciones\n`);

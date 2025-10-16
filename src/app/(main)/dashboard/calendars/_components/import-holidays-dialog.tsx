@@ -94,7 +94,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
   const [preview, setPreview] = React.useState<HolidayPreview[]>([]);
   const [selectedHolidays, setSelectedHolidays] = React.useState<Set<string>>(new Set());
 
-  const { calendars, fetchCalendars } = useCalendarsStore();
+  const { calendars, fetchCalendars, fetchCalendarById } = useCalendarsStore();
   const { costCenters, fetchCostCenters } = useCostCentersStore();
 
   const currentYear = new Date().getFullYear();
