@@ -28,9 +28,13 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
+import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
+import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
+
+import { EmployeePtoRequestsTable } from "./_components/employee-pto-requests-table";
+import { EmployeePtoSummary } from "./_components/employee-pto-summary";
 
 interface Employee {
   id: string;
@@ -101,6 +105,12 @@ export default function EmployeeProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const documentsEnabled = features.documents;
 
+  // Estado para PTO
+  const [ptoBalance, setPtoBalance] = useState<any>(null);
+  const [ptoRequests, setPtoRequests] = useState<any[]>([]);
+  const [isPtoLoading, setIsPtoLoading] = useState(false);
+  const [canManagePto, setCanManagePto] = useState(false);
+
   const fetchEmployee = async (silent = false) => {
     try {
       if (!silent) {
@@ -112,12 +122,35 @@ export default function EmployeeProfilePage() {
       }
       const data = await response.json();
       setEmployee(data);
+
+      // Verificar permisos de gestión de PTO
+      const userRole = await getCurrentUserRole();
+      setCanManagePto(userRole ? ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(userRole) : false);
     } catch (error: any) {
       setError(error.message);
     } finally {
       if (!silent) {
         setIsLoading(false);
       }
+    }
+  };
+
+  const loadPtoData = async () => {
+    if (!params.id) return;
+
+    setIsPtoLoading(true);
+    try {
+      const [balance, requests] = await Promise.all([
+        getEmployeePtoBalance(params.id as string),
+        getEmployeePtoRequests(params.id as string),
+      ]);
+
+      setPtoBalance(balance);
+      setPtoRequests(requests);
+    } catch (error) {
+      console.error("Error al cargar datos de PTO:", error);
+    } finally {
+      setIsPtoLoading(false);
     }
   };
 
@@ -236,12 +269,21 @@ export default function EmployeeProfilePage() {
       </div>
 
       {/* Tabs Content */}
-      <Tabs defaultValue="information" className="w-full">
-        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-5" : "grid-cols-4"}`}>
+      <Tabs
+        defaultValue="information"
+        className="w-full"
+        onValueChange={(value) => {
+          if (value === "pto" && ptoRequests.length === 0) {
+            loadPtoData();
+          }
+        }}
+      >
+        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-6" : "grid-cols-5"}`}>
           <TabsTrigger value="information">Información</TabsTrigger>
           <TabsTrigger value="contract">Contrato Actual</TabsTrigger>
           <TabsTrigger value="access">Acceso</TabsTrigger>
           {documentsEnabled && <TabsTrigger value="documents">Documentos</TabsTrigger>}
+          <TabsTrigger value="pto">Vacaciones</TabsTrigger>
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
 
@@ -513,6 +555,29 @@ export default function EmployeeProfilePage() {
             </Card>
           </TabsContent>
         )}
+
+        {/* Vacaciones */}
+        <TabsContent value="pto" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Balance de Vacaciones</h3>
+            {canManagePto && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/employees/${employee.id}/pto`)}
+              >
+                Gestión avanzada
+              </Button>
+            )}
+          </div>
+
+          <EmployeePtoSummary balance={ptoBalance} isLoading={isPtoLoading} />
+
+          <div className="space-y-4">
+            <h3 className="text-lg font-medium">Historial de Solicitudes</h3>
+            <EmployeePtoRequestsTable requests={ptoRequests} isLoading={isPtoLoading} />
+          </div>
+        </TabsContent>
 
         {/* Historial */}
         <TabsContent value="history">

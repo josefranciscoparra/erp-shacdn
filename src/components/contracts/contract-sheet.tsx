@@ -11,18 +11,18 @@ import {
   Calendar,
   CalendarDays,
   Clock,
-  User,
   Building2,
   AlertTriangle,
   Sun,
 } from "lucide-react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { EmployeeCombobox } from "@/components/ui/employee-combobox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -185,19 +185,6 @@ interface CostCenter {
   timezone: string;
 }
 
-interface Manager {
-  id: string;
-  firstName: string;
-  lastName: string;
-  secondLastName: string | null;
-  fullName: string;
-  employeeNumber: string | null;
-  email: string | null;
-  position: string | null;
-  department: string | null;
-  role?: string | null;
-}
-
 const CONTRACT_TYPES = {
   INDEFINIDO: "Indefinido",
   TEMPORAL: "Temporal",
@@ -262,7 +249,6 @@ export function ContractSheet({
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenter[]>([]);
-  const [managers, setManagers] = useState<Manager[]>([]);
   const [loadingData, setLoadingData] = useState(false);
 
   const form = useForm<ContractFormData>({
@@ -632,11 +618,10 @@ export function ContractSheet({
   const loadSelectData = async () => {
     setLoadingData(true);
     try {
-      const [positionsRes, departmentsRes, costCentersRes, managersRes] = await Promise.all([
+      const [positionsRes, departmentsRes, costCentersRes] = await Promise.all([
         fetch("/api/positions", { credentials: "include" }),
         fetch("/api/departments", { credentials: "include" }),
         fetch("/api/cost-centers", { credentials: "include" }),
-        fetch("/api/employees/managers", { credentials: "include" }),
       ]);
 
       if (positionsRes.ok) {
@@ -665,11 +650,6 @@ export function ContractSheet({
       if (costCentersRes.ok) {
         const costCentersData = await costCentersRes.json();
         setCostCenters(costCentersData);
-      }
-
-      if (managersRes.ok) {
-        const managersData = await managersRes.json();
-        setManagers(managersData);
       }
     } catch (error) {
       console.error("Error cargando datos:", error);
@@ -760,7 +740,7 @@ export function ContractSheet({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-background max-h-[90vh] max-w-4xl overflow-y-auto">
+      <DialogContent className="bg-background max-h-[90vh] max-w-5xl overflow-y-auto">
         <DialogHeader className="space-y-3 pb-6">
           <div className="flex items-center gap-3">
             <div className="from-primary/10 to-primary/5 flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-t shadow-sm">
@@ -1876,7 +1856,7 @@ export function ContractSheet({
                     <Label className="text-lg font-semibold">Organización</Label>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="flex flex-col gap-4">
                     <FormField
                       control={form.control}
                       name="positionId"
@@ -1967,24 +1947,14 @@ export function ContractSheet({
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Responsable</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona responsable" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="__none__">Sin responsable asignado</SelectItem>
-                              {managers.map((manager) => (
-                                <SelectItem key={manager.id} value={manager.id}>
-                                  {manager.fullName}
-                                  {manager.position && (
-                                    <span className="text-muted-foreground text-sm"> • {manager.position}</span>
-                                  )}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <EmployeeCombobox
+                              value={field.value}
+                              onValueChange={field.onChange}
+                              placeholder="Selecciona responsable"
+                              emptyText="Sin responsable asignado"
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

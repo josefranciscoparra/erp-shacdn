@@ -96,7 +96,23 @@ export async function calculateOrUpdatePtoBalance(
   }
 
   // Calcular días permitidos según fecha de inicio de contrato
-  const allowance = await calculateAnnualAllowance(activeContract.startDate, year, org.annualPtoDays);
+  let allowance = await calculateAnnualAllowance(activeContract.startDate, year, org.annualPtoDays);
+
+  // Sumar ajustes recurrentes activos
+  const recurringAdjustments = await prisma.recurringPtoAdjustment.findMany({
+    where: {
+      employeeId,
+      orgId,
+      active: true,
+      startYear: {
+        lte: year, // Solo los que ya están activos para este año
+      },
+    },
+  });
+
+  recurringAdjustments.forEach((adj) => {
+    allowance += Number(adj.extraDays);
+  });
 
   // Calcular días usados (solicitudes APPROVED)
   const approvedRequests = await prisma.ptoRequest.findMany({

@@ -44,6 +44,9 @@ model Organization {
   ptoBalances         PtoBalance[]
   ptoRequests         PtoRequest[]
   ptoNotifications    PtoNotification[]
+  ptoBalanceAdjustments PtoBalanceAdjustment[]
+  recurringPtoAdjustments RecurringPtoAdjustment[]
+  ptoConfig           OrganizationPtoConfig?
 
   @@map("organizations")
 }
@@ -73,6 +76,8 @@ model User {
   createdTempPasswords TemporaryPassword[] @relation("CreatedBy") // Contraseñas temporales que ha creado
   approvedPtoRequests PtoRequest[]        @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
   ptoNotifications   PtoNotification[]   // Notificaciones recibidas
+  ptoBalanceAdjustments PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
+  recurringPtoAdjustments RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
 
   @@index([email])
   @@index([orgId])
@@ -264,6 +269,7 @@ model Employee {
   workdaySummaries   WorkdaySummary[]
   ptoBalances        PtoBalance[]
   ptoRequests        PtoRequest[]
+  recurringPtoAdjustments RecurringPtoAdjustment[]
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -664,6 +670,9 @@ model PtoBalance {
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
+  // Relaciones
+  adjustments PtoBalanceAdjustment[] // Ajustes manuales realizados a este balance
+
   @@unique([orgId, employeeId, year]) // Un balance por empleado por año
   @@index([orgId])
   @@index([employeeId])
@@ -778,6 +787,116 @@ enum PtoNotificationType {
   PTO_REMINDER          // Recordatorio de solicitud sin revisar
   DOCUMENT_UPLOADED     // Nuevo documento subido (futuro)
   SYSTEM_ANNOUNCEMENT   // Anuncio del sistema (futuro)
+}
+
+// Ajustes manuales de balance de PTO (auditoría)
+model PtoBalanceAdjustment {
+  id              String   @id @default(cuid())
+
+  // Tipo de ajuste
+  adjustmentType  PtoAdjustmentType
+
+  // Cantidad (positiva o negativa)
+  daysAdjusted    Decimal  @db.Decimal(5,2)
+
+  // Justificación
+  reason          String   // Motivo corto obligatorio
+  notes           String?  // Notas adicionales opcionales
+
+  // Auditoría
+  createdAt       DateTime @default(now())
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Balance afectado
+  ptoBalanceId    String
+  ptoBalance      PtoBalance @relation(fields: [ptoBalanceId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([ptoBalanceId])
+  @@index([createdById])
+  @@index([createdAt])
+  @@map("pto_balance_adjustments")
+}
+
+// Tipos de ajuste de balance
+enum PtoAdjustmentType {
+  MANUAL_ADD           // Añadir días manualmente
+  MANUAL_SUBTRACT      // Quitar días manualmente
+  SENIORITY_BONUS      // Días por antigüedad
+  COLLECTIVE_AGREEMENT // Días por convenio colectivo
+  COMPENSATION         // Compensación
+  CORRECTION           // Corrección de error
+  MATERNITY_LEAVE      // Baja maternal registrada
+  PATERNITY_LEAVE      // Baja paternal registrada
+  SICK_LEAVE           // Baja médica registrada
+  OTHER                // Otro tipo de ajuste
+}
+
+// Configuración de PTO por organización
+model OrganizationPtoConfig {
+  id    String @id @default(cuid())
+
+  // Multi-tenancy (relación 1:1)
+  orgId        String       @unique
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Configuración de bajas legisladas (en semanas)
+  maternityLeaveWeeks  Int  @default(17) // Baja maternal
+  paternityLeaveWeeks  Int  @default(17) // Baja paternal
+
+  // Días adicionales por antigüedad (JSON con reglas)
+  // Formato: [{yearsFrom: 5, yearsTo: 10, extraDays: 2}, {yearsFrom: 10, yearsTo: null, extraDays: 4}]
+  seniorityRules       Json @default("[]")
+
+  // Otras configuraciones
+  allowNegativeBalance Boolean @default(false) // Permitir balance negativo
+  maxAdvanceRequestMonths Int  @default(12)    // Meses máximos de anticipación
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("organization_pto_config")
+}
+
+// Ajustes recurrentes de PTO (se aplican automáticamente cada año)
+model RecurringPtoAdjustment {
+  id              String   @id @default(cuid())
+
+  // Cantidad de días adicionales cada año
+  extraDays       Decimal  @db.Decimal(5,2)
+
+  // Tipo y justificación
+  adjustmentType  PtoAdjustmentType
+  reason          String   // Motivo corto obligatorio
+  notes           String?  // Notas adicionales opcionales
+
+  // Control
+  active          Boolean  @default(true)
+  startYear       Int      // Desde qué año aplica (ej: 2025)
+
+  // Auditoría
+  createdAt       DateTime @default(now())
+  createdById     String
+  createdBy       User     @relation(fields: [createdById], references: [id])
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([active])
+  @@index([startYear])
+  @@map("recurring_pto_adjustments")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
