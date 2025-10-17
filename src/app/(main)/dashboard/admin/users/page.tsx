@@ -9,7 +9,11 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 
+import { ChangeRoleDialog } from "./_components/change-role-dialog";
 import { CreateUserDialog } from "./_components/create-user-dialog";
+import { ResetPasswordDialog } from "./_components/reset-password-dialog";
+import { ToggleActiveDialog } from "./_components/toggle-active-dialog";
+import { UserDetailsDialog } from "./_components/user-details-dialog";
 import { type UserRow } from "./_components/users-columns";
 import { UsersDataTable } from "./_components/users-data-table";
 
@@ -17,8 +21,17 @@ export default function UsersManagementPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [userRole, setUserRole] = useState<Role | null>(null);
+
+  // Estados para dialogs
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [changeRoleDialogOpen, setChangeRoleDialogOpen] = useState(false);
+  const [resetPasswordDialogOpen, setResetPasswordDialogOpen] = useState(false);
+  const [toggleActiveDialogOpen, setToggleActiveDialogOpen] = useState(false);
+
+  // Usuario seleccionado para acciones
+  const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -48,6 +61,31 @@ export default function UsersManagementPage() {
 
   const handleUserCreated = () => {
     setCreateDialogOpen(false);
+    fetchUsers();
+  };
+
+  // Handlers para acciones
+  const handleViewDetails = (user: UserRow) => {
+    setSelectedUser(user);
+    setDetailsDialogOpen(true);
+  };
+
+  const handleChangeRole = (user: UserRow) => {
+    setSelectedUser(user);
+    setChangeRoleDialogOpen(true);
+  };
+
+  const handleResetPassword = (user: UserRow) => {
+    setSelectedUser(user);
+    setResetPasswordDialogOpen(true);
+  };
+
+  const handleToggleActive = (user: UserRow) => {
+    setSelectedUser(user);
+    setToggleActiveDialogOpen(true);
+  };
+
+  const handleActionSuccess = () => {
     fetchUsers();
   };
 
@@ -109,7 +147,14 @@ export default function UsersManagementPage() {
         <SectionHeader title="Usuarios y Roles" subtitle="Gestiona los usuarios y sus permisos en el sistema" />
 
         {hasUsers ? (
-          <UsersDataTable data={users} onCreateUser={() => setCreateDialogOpen(true)} />
+          <UsersDataTable
+            data={users}
+            onCreateUser={() => setCreateDialogOpen(true)}
+            onViewDetails={handleViewDetails}
+            onChangeRole={handleChangeRole}
+            onResetPassword={handleResetPassword}
+            onToggleActive={handleToggleActive}
+          />
         ) : (
           <EmptyState
             icon={<UserCog className="mx-auto h-12 w-12" />}
@@ -120,11 +165,36 @@ export default function UsersManagementPage() {
           />
         )}
 
+        {/* Dialogs */}
         <CreateUserDialog
           open={createDialogOpen}
           onOpenChange={setCreateDialogOpen}
           onUserCreated={handleUserCreated}
           allowedRoles={getAllowedRoles()}
+        />
+
+        <UserDetailsDialog user={selectedUser} open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen} />
+
+        <ChangeRoleDialog
+          user={selectedUser}
+          open={changeRoleDialogOpen}
+          onOpenChange={setChangeRoleDialogOpen}
+          onSuccess={handleActionSuccess}
+          allowedRoles={getAllowedRoles()}
+        />
+
+        <ResetPasswordDialog
+          user={selectedUser}
+          open={resetPasswordDialogOpen}
+          onOpenChange={setResetPasswordDialogOpen}
+          onSuccess={handleActionSuccess}
+        />
+
+        <ToggleActiveDialog
+          user={selectedUser}
+          open={toggleActiveDialogOpen}
+          onOpenChange={setToggleActiveDialogOpen}
+          onSuccess={handleActionSuccess}
         />
       </div>
     </PermissionGuard>

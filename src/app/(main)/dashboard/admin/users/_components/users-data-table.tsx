@@ -26,20 +26,43 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { usersColumns, type UserRow } from "./users-columns";
+import { createUsersColumns, type UserRow } from "./users-columns";
 
 interface UsersDataTableProps {
   data: UserRow[];
   onCreateUser: () => void;
+  onViewDetails: (user: UserRow) => void;
+  onChangeRole: (user: UserRow) => void;
+  onResetPassword: (user: UserRow) => void;
+  onToggleActive: (user: UserRow) => void;
 }
 
-export function UsersDataTable({ data, onCreateUser }: UsersDataTableProps) {
+export function UsersDataTable({
+  data,
+  onCreateUser,
+  onViewDetails,
+  onChangeRole,
+  onResetPassword,
+  onToggleActive,
+}: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
+
+  // Crear columnas con callbacks
+  const columns = React.useMemo(
+    () =>
+      createUsersColumns({
+        onViewDetails,
+        onChangeRole,
+        onResetPassword,
+        onToggleActive,
+      }),
+    [onViewDetails, onChangeRole, onResetPassword, onToggleActive],
+  );
 
   // Filtrar datos según la pestaña activa
   const filteredData = React.useMemo(() => {
@@ -59,7 +82,7 @@ export function UsersDataTable({ data, onCreateUser }: UsersDataTableProps) {
 
   const table = useReactTable({
     data: filteredData,
-    columns: usersColumns,
+    columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -215,7 +238,7 @@ export function UsersDataTable({ data, onCreateUser }: UsersDataTableProps) {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={usersColumns.length} className="h-24 text-center">
+                        <TableCell colSpan={columns.length} className="h-24 text-center">
                           <div className="text-muted-foreground text-sm">
                             {isFiltered
                               ? "No se encontraron usuarios con los filtros aplicados."

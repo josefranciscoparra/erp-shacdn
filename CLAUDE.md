@@ -159,6 +159,48 @@ When working with components:
 - **Puerto**: 5432
 - **URL**: postgresql://erp_user:erp_pass@localhost:5432/erp_dev
 
+## Reglas de Código (ESLint) - CRÍTICO ⚠️
+
+**IMPORTANTE**: El pre-commit hook ejecuta ESLint y BLOQUEARÁ el commit si hay errores. SIEMPRE seguir estas reglas:
+
+### Errores que BLOQUEAN commits (nunca usar):
+
+1. **NUNCA usar `||` para valores por defecto** - SIEMPRE usar `??` (nullish coalescing)
+   ```typescript
+   ❌ INCORRECTO: const value = data.value || "default"
+   ✅ CORRECTO:   const value = data.value ?? "default"
+
+   ❌ INCORRECTO: value={field.value || ""}
+   ✅ CORRECTO:   value={field.value ?? ""}
+   ```
+
+2. **NUNCA declarar variables en catch sin usar** - Usar `catch {` en lugar de `catch (err) {`
+   ```typescript
+   ❌ INCORRECTO: } catch (err) { setError("Error"); }
+   ✅ CORRECTO:   } catch { setError("Error"); }
+   ```
+
+3. **NUNCA importar componentes/funciones sin usarlos** - Eliminar imports no usados
+   ```typescript
+   ❌ INCORRECTO: import { Foo, Bar, Baz } from "lib" // Bar no se usa
+   ✅ CORRECTO:   import { Foo, Baz } from "lib"
+   ```
+
+### Warnings que son aceptables (no bloquean):
+
+- `Generic Object Injection Sink` (security warning) - Aceptable en código interno
+- `complexity` warnings - Intentar simplificar pero no bloquea
+- `max-lines` - Intentar dividir archivos grandes pero no bloquea
+
+### Validación antes de commit:
+
+**SIEMPRE ejecutar antes de hacer commit:**
+```bash
+npm run lint
+```
+
+Si hay errores, corregirlos ANTES de intentar el commit.
+
 ## Guía de Estilo UI para ERP - IMPORTANTE ⚠️
 
 ### SIEMPRE Seguir Estos Patrones de Diseño

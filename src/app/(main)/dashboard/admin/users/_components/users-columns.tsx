@@ -44,7 +44,19 @@ const ROLE_COLORS: Record<Role, string> = {
   EMPLOYEE: "bg-gray-500/10 text-gray-700 dark:text-gray-300",
 };
 
-export const usersColumns: ColumnDef<UserRow>[] = [
+interface UsersColumnsProps {
+  onViewDetails: (user: UserRow) => void;
+  onChangeRole: (user: UserRow) => void;
+  onResetPassword: (user: UserRow) => void;
+  onToggleActive: (user: UserRow) => void;
+}
+
+export const createUsersColumns = ({
+  onViewDetails,
+  onChangeRole,
+  onResetPassword,
+  onToggleActive,
+}: UsersColumnsProps): ColumnDef<UserRow>[] => [
   {
     accessorKey: "name",
     header: "Nombre",
@@ -116,18 +128,16 @@ export const usersColumns: ColumnDef<UserRow>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => console.log("Ver detalles", user.id)}>Ver detalles</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => console.log("Cambiar rol", user.id)}>Cambiar rol</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => console.log("Generar contraseña temporal", user.id)}>
-              Generar contraseña temporal
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewDetails(user)}>Ver detalles</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
             <DropdownMenuSeparator />
             {user.active ? (
-              <DropdownMenuItem className="text-destructive" onClick={() => console.log("Desactivar", user.id)}>
+              <DropdownMenuItem className="text-destructive" onClick={() => onToggleActive(user)}>
                 Desactivar usuario
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => console.log("Activar", user.id)}>Activar usuario</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onToggleActive(user)}>Activar usuario</DropdownMenuItem>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
