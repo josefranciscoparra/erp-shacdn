@@ -114,6 +114,24 @@ export async function calculateOrUpdatePtoBalance(
     allowance += Number(adj.extraDays);
   });
 
+  // Sumar ajustes manuales aplicados sobre el balance del año
+  const manualAdjustments = await prisma.ptoBalanceAdjustment.findMany({
+    where: {
+      orgId,
+      ptoBalance: {
+        employeeId,
+        year,
+      },
+    },
+    select: {
+      daysAdjusted: true,
+    },
+  });
+
+  const manualAdjustmentTotal = manualAdjustments.reduce((total, adj) => total + Number(adj.daysAdjusted), 0);
+
+  allowance += manualAdjustmentTotal;
+
   // Calcular días usados (solicitudes APPROVED)
   const approvedRequests = await prisma.ptoRequest.findMany({
     where: {
