@@ -28,7 +28,11 @@ export type Permission =
   | "manage_time_tracking" // Gestionar fichajes (admin)
   | "export_time_tracking" // Exportar fichajes
   | "has_employee_profile" // Indica que el usuario tiene perfil de empleado
-  | "approve_requests"; // Aprobar solicitudes (PTO, etc.)
+  | "approve_requests" // Aprobar solicitudes (PTO, etc.)
+  | "manage_users" // Gestionar usuarios del sistema
+  | "view_all_users" // Ver todos los usuarios
+  | "create_users" // Crear nuevos usuarios
+  | "change_roles"; // Cambiar roles de usuarios
 
 // Mapa de permisos por rol
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -56,6 +60,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
+    "manage_users",
+    "view_all_users",
+    "create_users",
+    "change_roles",
   ],
   ORG_ADMIN: [
     "view_employees",
@@ -81,6 +89,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
+    "manage_users",
+    "view_all_users",
+    "create_users",
+    "change_roles",
   ],
   HR_ADMIN: [
     "view_employees",
@@ -107,6 +119,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "export_time_tracking",
     "has_employee_profile",
     "approve_requests",
+    "manage_users",
+    "view_all_users",
+    "create_users",
+    "change_roles",
   ],
   MANAGER: [
     "view_employees", // Pueden ver empleados de su equipo
@@ -179,6 +195,8 @@ export function canAccessPage(role: Role, page: string): boolean {
       return hasPermission(role, "view_time_tracking");
     case "/dashboard/me/clock":
       return hasPermission(role, "clock_in_out");
+    case "/dashboard/admin/users":
+      return hasPermission(role, "manage_users");
     default:
       return true; // Páginas públicas del dashboard
   }

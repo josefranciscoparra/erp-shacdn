@@ -2,16 +2,12 @@
 
 import {
   LayoutDashboard,
-  ChartBar,
-  Banknote,
   Users,
   Building2,
   FileText,
   Calendar,
   Settings,
-  UserPlus,
   Building,
-  MapPin,
   Briefcase,
   FolderOpen,
   Clock,
@@ -19,9 +15,9 @@ import {
   UserCircle,
   Timer,
   CheckSquare,
+  UserCog,
   type LucideIcon,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
 
 import { features } from "@/config/features";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -56,7 +52,6 @@ export interface NavGroup {
 }
 
 export function useSidebarItems(): NavGroup[] {
-  const t = useTranslations("navigation");
   const { hasPermission, isAuthenticated } = usePermissions();
   const documentsEnabled = features.documents;
 
@@ -180,6 +175,18 @@ export function useSidebarItems(): NavGroup[] {
     },
     {
       id: 5,
+      label: "Administración",
+      items: [
+        {
+          title: "Usuarios y Roles",
+          url: "/dashboard/admin/users",
+          icon: UserCog,
+          permission: "manage_users",
+        },
+      ],
+    },
+    {
+      id: 6,
       label: "Configuración",
       items: [
         {
