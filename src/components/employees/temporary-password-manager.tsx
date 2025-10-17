@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import { Key, RotateCcw, Clock, AlertTriangle, Copy, Check, Loader2, Shield, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
+import { PasswordField } from "@/components/employees/password-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,12 +40,14 @@ interface TemporaryPasswordManagerProps {
   userId: string;
   temporaryPasswords: TemporaryPassword[];
   onPasswordReset?: () => void;
+  canViewPasswords?: boolean; // Por defecto true (mantener compatibilidad)
 }
 
 export function TemporaryPasswordManager({
   userId,
   temporaryPasswords,
   onPasswordReset,
+  canViewPasswords = true,
 }: TemporaryPasswordManagerProps) {
   const [isResetting, setIsResetting] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
@@ -131,7 +133,7 @@ export function TemporaryPasswordManager({
       toast.success("Contraseña copiada al portapapeles");
 
       setTimeout(() => setCopiedPassword(false), 2000);
-    } catch (error) {
+    } catch {
       toast.error("Error al copiar contraseña");
     }
   };
@@ -202,19 +204,14 @@ export function TemporaryPasswordManager({
             </div>
 
             <div className="bg-muted space-y-3 rounded-lg p-4">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <Label className="text-sm font-medium">Contraseña:</Label>
-                  <div className="bg-background rounded-md border p-2 font-mono">••••••••••••••••</div>
-                </div>
+              <PasswordField password={activePassword.password} label="Contraseña" canView={canViewPasswords} />
 
-                <div>
-                  <Label className="text-sm font-medium">Expira:</Label>
-                  <div className="flex items-center gap-2 text-sm">
-                    <Clock className="h-4 w-4" />
-                    {format(new Date(activePassword.expiresAt), "PPP 'a las' p", { locale: es })}
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4" />
+                <span className="text-muted-foreground">Expira:</span>
+                <span className="font-medium">
+                  {format(new Date(activePassword.expiresAt), "PPP 'a las' p", { locale: es })}
+                </span>
               </div>
 
               <div>

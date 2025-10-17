@@ -2,10 +2,13 @@
 
 import * as React from "react";
 
-import { format } from "date-fns";
+import { type Role } from "@prisma/client";
+import { format, isAfter } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Mail, Shield, User, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar, Mail, Shield, User, Clock, CheckCircle2, XCircle, Key } from "lucide-react";
 
+import { PasswordField } from "@/components/employees/password-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +27,7 @@ interface UserDetailsDialogProps {
   user: UserRow | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  currentUserRole: Role | null;
 }
 
 const ROLE_DISPLAY_NAMES: Record<string, string> = {
@@ -34,8 +38,16 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   EMPLOYEE: "Empleado",
 };
 
-export function UserDetailsDialog({ user, open, onOpenChange }: UserDetailsDialogProps) {
+export function UserDetailsDialog({ user, open, onOpenChange, currentUserRole }: UserDetailsDialogProps) {
   if (!user) return null;
+
+  // Validar permisos para ver contraseñas
+  const canViewPasswords = currentUserRole && ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(currentUserRole);
+
+  // Encontrar contraseña temporal activa
+  const activePassword =
+    user.temporaryPasswords?.find((tp) => isAfter(new Date(tp.expiresAt), new Date()) && !tp.usedAt && tp.password) ??
+    null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,6 +131,58 @@ export function UserDetailsDialog({ user, open, onOpenChange }: UserDetailsDialo
           </div>
 
           <Separator />
+
+          {/* Contraseña Temporal Activa */}
+          {activePassword && canViewPasswords && (
+            <>
+              <div className="space-y-4">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                  <Key className="h-4 w-4" />
+                  Contraseña Temporal Activa
+                </h3>
+
+                <div className="bg-muted/50 space-y-4 rounded-lg border p-4">
+                  <PasswordField password={activePassword.password} canView={canViewPasswords} />
+
+                  <div className="grid gap-3 text-sm">
+                    <div className="flex items-center gap-2">
+                      <Clock className="text-muted-foreground h-4 w-4" />
+                      <span className="text-muted-foreground">Expira:</span>
+                      <span className="font-medium">
+                        {format(new Date(activePassword.expiresAt), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es })}
+                      </span>
+                    </div>
+
+                    {activePassword.reason && (
+                      <div>
+                        <span className="text-muted-foreground">Razón:</span>{" "}
+                        <span className="font-medium">{activePassword.reason}</span>
+                      </div>
+                    )}
+
+                    {activePassword.createdBy?.name && (
+                      <div>
+                        <span className="text-muted-foreground">Creada por:</span>{" "}
+                        <span className="font-medium">
+                          {activePassword.createdBy.name} el{" "}
+                          {format(new Date(activePassword.createdAt), "d 'de' MMMM", { locale: es })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <Alert>
+                  <AlertDescription className="text-xs">
+                    <strong>Recordatorio:</strong> Comparte esta contraseña de forma segura con el usuario. Deberá
+                    cambiarla en su próximo inicio de sesión.
+                  </AlertDescription>
+                </Alert>
+              </div>
+
+              <Separator />
+            </>
+          )}
 
           {/* Fechas */}
           <div className="space-y-4">

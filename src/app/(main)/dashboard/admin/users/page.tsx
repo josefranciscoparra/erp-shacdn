@@ -173,7 +173,12 @@ export default function UsersManagementPage() {
           allowedRoles={getAllowedRoles()}
         />
 
-        <UserDetailsDialog user={selectedUser} open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen} />
+        <UserDetailsDialog
+          user={selectedUser}
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+          currentUserRole={userRole}
+        />
 
         <ChangeRoleDialog
           user={selectedUser}

@@ -26,6 +26,17 @@ export interface UserRow {
   _count?: {
     temporaryPasswords: number;
   };
+  temporaryPasswords?: Array<{
+    id: string;
+    password: string;
+    createdAt: Date | string;
+    expiresAt: Date | string;
+    reason: string | null;
+    usedAt: Date | string | null;
+    createdBy: {
+      name: string | null;
+    };
+  }>;
 }
 
 const ROLE_DISPLAY_NAMES: Record<Role, string> = {
