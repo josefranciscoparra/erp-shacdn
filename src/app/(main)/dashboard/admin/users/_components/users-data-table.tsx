@@ -35,6 +35,7 @@ interface UsersDataTableProps {
   onChangeRole: (user: UserRow) => void;
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
+  canCreateUsers: boolean;
 }
 
 export function UsersDataTable({
@@ -44,6 +45,7 @@ export function UsersDataTable({
   onChangeRole,
   onResetPassword,
   onToggleActive,
+  canCreateUsers,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -162,10 +164,12 @@ export function UsersDataTable({
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button size="sm" onClick={onCreateUser}>
-            <Plus />
-            <span className="hidden lg:inline">Nuevo usuario</span>
-          </Button>
+          {canCreateUsers && (
+            <Button size="sm" onClick={onCreateUser}>
+              <Plus />
+              <span className="hidden lg:inline">Nuevo usuario</span>
+            </Button>
+          )}
         </div>
       </div>
 

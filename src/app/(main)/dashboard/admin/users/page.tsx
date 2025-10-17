@@ -128,6 +128,8 @@ export default function UsersManagementPage() {
   }
 
   const hasUsers = users.length > 0;
+  const allowedRoles = getAllowedRoles();
+  const canCreateUsers = allowedRoles.length > 0;
 
   return (
     <PermissionGuard
@@ -154,14 +156,19 @@ export default function UsersManagementPage() {
             onChangeRole={handleChangeRole}
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
+            canCreateUsers={canCreateUsers}
           />
         ) : (
           <EmptyState
             icon={<UserCog className="mx-auto h-12 w-12" />}
             title="No hay usuarios registrados"
-            description="Comienza agregando tu primer usuario al sistema"
-            actionLabel="Crear primer usuario"
-            onAction={() => setCreateDialogOpen(true)}
+            description={
+              canCreateUsers
+                ? "Comienza agregando tu primer usuario al sistema"
+                : "Solo SUPER_ADMIN y ORG_ADMIN pueden crear usuarios administrativos"
+            }
+            actionLabel={canCreateUsers ? "Crear primer usuario" : undefined}
+            onAction={canCreateUsers ? () => setCreateDialogOpen(true) : undefined}
           />
         )}
 
