@@ -12,7 +12,6 @@ import {
   FolderOpen,
   Clock,
   CalendarDays,
-  UserCircle,
   Timer,
   CheckSquare,
   UserCog,
@@ -58,11 +57,11 @@ export function useSidebarItems(): NavGroup[] {
   const allItems = [
     {
       id: 2,
-      label: "Mi Espacio",
+      label: "Mi día a día",
       permission: "has_employee_profile",
       items: [
         {
-          title: "Mi Espacio",
+          title: "Resumen",
           url: "/dashboard/me",
           icon: LayoutDashboard,
         },
@@ -90,64 +89,17 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
-        {
-          title: "Mi Perfil",
-          url: "/dashboard/me/profile",
-          icon: UserCircle,
-        },
       ],
     },
     {
       id: 3,
-      label: "Organización",
-      items: [
-        {
-          title: "Centros de coste",
-          url: "/dashboard/cost-centers",
-          icon: Building,
-          permission: "manage_organization",
-        },
-        {
-          title: "Departamentos",
-          url: "/dashboard/departments",
-          icon: Building2,
-          permission: "view_departments",
-        },
-        {
-          title: "Puestos",
-          url: "/dashboard/positions",
-          icon: Briefcase,
-          permission: "manage_organization",
-        },
-      ],
-    },
-    {
-      id: 4,
-      label: "RRHH",
+      label: "Equipo",
       items: [
         {
           title: "Empleados",
           url: "/dashboard/employees",
           icon: Users,
           permission: "view_employees",
-        },
-        {
-          title: "Control Horario",
-          url: "/dashboard/time-tracking",
-          icon: Timer,
-          permission: "view_time_tracking",
-          subItems: [
-            {
-              title: "Fichajes",
-              url: "/dashboard/time-tracking",
-              permission: "view_time_tracking",
-            },
-            {
-              title: "Monitor en Vivo",
-              url: "/dashboard/time-tracking/live",
-              permission: "view_time_tracking",
-            },
-          ],
         },
         {
           title: "Contratos",
@@ -174,21 +126,33 @@ export function useSidebarItems(): NavGroup[] {
       ],
     },
     {
-      id: 5,
-      label: "Administración",
+      id: 4,
+      label: "Organización",
       items: [
+        {
+          title: "Centros de coste",
+          url: "/dashboard/cost-centers",
+          icon: Building,
+          permission: "manage_organization",
+        },
+        {
+          title: "Departamentos",
+          url: "/dashboard/departments",
+          icon: Building2,
+          permission: "view_departments",
+        },
+        {
+          title: "Puestos",
+          url: "/dashboard/positions",
+          icon: Briefcase,
+          permission: "manage_organization",
+        },
         {
           title: "Usuarios y Roles",
           url: "/dashboard/admin/users",
           icon: UserCog,
           permission: "manage_users",
         },
-      ],
-    },
-    {
-      id: 6,
-      label: "Configuración",
-      items: [
         {
           title: "Calendarios",
           url: "/dashboard/calendars",
@@ -196,7 +160,31 @@ export function useSidebarItems(): NavGroup[] {
           permission: "manage_organization",
         },
         {
-          title: "Configuración",
+          title: "Tiempo y presencia",
+          url: "/dashboard/time-tracking",
+          icon: Timer,
+          permission: "view_time_tracking",
+          subItems: [
+            {
+              title: "Fichajes",
+              url: "/dashboard/time-tracking",
+              permission: "view_time_tracking",
+            },
+            {
+              title: "Monitor en Vivo",
+              url: "/dashboard/time-tracking/live",
+              permission: "view_time_tracking",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: 5,
+      label: "Configuración",
+      items: [
+        {
+          title: "Ajustes generales",
           url: "/dashboard/settings",
           icon: Settings,
           permission: "manage_organization",
