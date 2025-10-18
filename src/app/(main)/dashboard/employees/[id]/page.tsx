@@ -575,7 +575,12 @@ export default function EmployeeProfilePage() {
 
           <div className="space-y-4">
             <h3 className="text-lg font-medium">Historial de Solicitudes</h3>
-            <EmployeePtoRequestsTable requests={ptoRequests} isLoading={isPtoLoading} />
+            <EmployeePtoRequestsTable
+              requests={ptoRequests}
+              isLoading={isPtoLoading}
+              canManage={canManagePto}
+              onRefresh={loadPtoData}
+            />
           </div>
         </TabsContent>
 

@@ -18,6 +18,7 @@ import {
   getEmployeePtoAdjustments,
   getRecurringAdjustments,
 } from "@/server/actions/admin-pto";
+import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 
 import { EmployeePtoRequestsTable } from "../_components/employee-pto-requests-table";
 import { EmployeePtoSummary } from "../_components/employee-pto-summary";
@@ -43,9 +44,13 @@ export default function EmployeePtoManagementPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [adjustBalanceDialogOpen, setAdjustBalanceDialogOpen] = useState(false);
+  const [canManageRequests, setCanManageRequests] = useState(false);
 
-  const loadData = async () => {
-    setIsLoading(true);
+  const loadData = async (silent = false) => {
+    if (!silent) {
+      setIsLoading(true);
+      setError(null);
+    }
     try {
       // Cargar datos del empleado
       const empResponse = await fetch(`/api/employees/${params.id}`);
@@ -55,22 +60,26 @@ export default function EmployeePtoManagementPage() {
       const empData = await empResponse.json();
       setEmployee(empData);
 
-      // Cargar datos de PTO
-      const [balance, requests, adjustments, recurring] = await Promise.all([
+      // Cargar datos de PTO y rol del usuario actual
+      const [balance, requests, adjustments, recurring, role] = await Promise.all([
         getEmployeePtoBalance(params.id as string),
         getEmployeePtoRequests(params.id as string),
         getEmployeePtoAdjustments(params.id as string),
         getRecurringAdjustments(params.id as string),
+        getCurrentUserRole(),
       ]);
 
       setPtoBalance(balance);
       setPtoRequests(requests);
       setPtoAdjustments(adjustments);
       setRecurringAdjustments(recurring);
+      setCanManageRequests(role ? ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(role) : false);
     } catch (error: any) {
       setError(error.message);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -177,7 +186,12 @@ export default function EmployeePtoManagementPage() {
 
         <TabsContent value="requests" className="space-y-4">
           <h3 className="text-lg font-medium">Historial de Solicitudes</h3>
-          <EmployeePtoRequestsTable requests={ptoRequests} isLoading={false} />
+          <EmployeePtoRequestsTable
+            requests={ptoRequests}
+            isLoading={false}
+            canManage={canManageRequests}
+            onRefresh={() => loadData(true)}
+          />
         </TabsContent>
 
         <TabsContent value="adjustments" className="space-y-4">

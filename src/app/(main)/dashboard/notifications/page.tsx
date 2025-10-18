@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
@@ -96,6 +96,7 @@ export default function NotificationsPage() {
   const searchParams = useSearchParams();
   const searchParamsString = searchParams.toString();
   const highlightedNotificationId = searchParams.get("notification");
+  const handledHighlightRef = useRef<string | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -206,7 +207,16 @@ export default function NotificationsPage() {
   );
 
   useEffect(() => {
-    if (!highlightedNotificationId || isLoading) {
+    if (!highlightedNotificationId) {
+      handledHighlightRef.current = null;
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    if (handledHighlightRef.current === highlightedNotificationId) {
       return;
     }
 
@@ -215,6 +225,8 @@ export default function NotificationsPage() {
     if (!target) {
       return;
     }
+
+    handledHighlightRef.current = highlightedNotificationId;
 
     void (async () => {
       await handleNotificationClick(target, { skipNavigation: true });

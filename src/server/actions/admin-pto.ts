@@ -27,6 +27,7 @@ async function requireHRAdmin() {
       id: true,
       orgId: true,
       role: true,
+      name: true,
     },
   });
 
@@ -39,6 +40,277 @@ async function requireHRAdmin() {
   }
 
   return user;
+}
+
+async function notifyParticipants(params: {
+  employeeUserId?: string | null;
+  approverId?: string | null;
+  orgId: string;
+  employeeName: string;
+  absenceName: string;
+  action: "approved" | "rejected" | "cancelled";
+  performedBy: string;
+  additionalMessage?: string;
+  requestId: string;
+}) {
+  const {
+    employeeUserId,
+    approverId,
+    orgId,
+    employeeName,
+    absenceName,
+    action,
+    performedBy,
+    additionalMessage,
+    requestId,
+  } = params;
+
+  const actionMessages = {
+    approved: {
+      employee: {
+        title: "Solicitud aprobada",
+        message: `Tu solicitud de ${absenceName} ha sido aprobada por ${performedBy}.`,
+      },
+      approver: {
+        title: "Solicitud aprobada por RRHH",
+        message: `${employeeName} - ${absenceName} fue aprobada por ${performedBy}.`,
+      },
+      type: "PTO_APPROVED" as const,
+    },
+    rejected: {
+      employee: {
+        title: "Solicitud rechazada",
+        message: `Tu solicitud de ${absenceName} ha sido rechazada por ${performedBy}.${additionalMessage ? ` Motivo: ${additionalMessage}` : ""}`,
+      },
+      approver: {
+        title: "Solicitud rechazada por RRHH",
+        message: `${employeeName} - ${absenceName} fue rechazada por ${performedBy}.${additionalMessage ? ` Motivo: ${additionalMessage}` : ""}`,
+      },
+      type: "PTO_REJECTED" as const,
+    },
+    cancelled: {
+      employee: {
+        title: "Solicitud cancelada",
+        message: `Tu solicitud de ${absenceName} ha sido cancelada por ${performedBy}.${additionalMessage ? ` Motivo: ${additionalMessage}` : ""}`,
+      },
+      approver: {
+        title: "Solicitud cancelada por RRHH",
+        message: `${employeeName} - ${absenceName} fue cancelada por ${performedBy}.${additionalMessage ? ` Motivo: ${additionalMessage}` : ""}`,
+      },
+      type: "PTO_CANCELLED" as const,
+    },
+  };
+
+  const config = actionMessages[action];
+
+  if (employeeUserId) {
+    await createNotification(
+      employeeUserId,
+      orgId,
+      config.type,
+      config.employee.title,
+      config.employee.message,
+      requestId,
+    );
+  }
+
+  if (approverId && approverId !== employeeUserId) {
+    await createNotification(approverId, orgId, config.type, config.approver.title, config.approver.message, requestId);
+  }
+}
+
+async function recalcForRequest(employeeId: string, orgId: string, startDate: Date, endDate: Date) {
+  const years = new Set<number>();
+  years.add(startDate.getFullYear());
+  years.add(endDate.getFullYear());
+  years.add(new Date().getFullYear());
+
+  for (const year of years) {
+    await recalculatePtoBalance(employeeId, orgId, year);
+  }
+}
+
+// ==================== GESTIÓN DE SOLICITUDES POR RRHH ====================
+
+export async function adminApprovePtoRequest(requestId: string, comments?: string) {
+  const user = await requireHRAdmin();
+
+  const request = await prisma.ptoRequest.findFirst({
+    where: {
+      id: requestId,
+      orgId: user.orgId,
+    },
+    include: {
+      employee: {
+        include: {
+          user: true,
+        },
+      },
+      absenceType: true,
+    },
+  });
+
+  if (!request) {
+    throw new Error("Solicitud no encontrada");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Solo se pueden aprobar solicitudes pendientes");
+  }
+
+  const employeeFullName = [request.employee.firstName, request.employee.lastName, request.employee.secondLastName]
+    .filter(Boolean)
+    .join(" ");
+
+  await prisma.ptoRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "APPROVED",
+      approvedAt: new Date(),
+      approverComments: comments ?? `Aprobada por ${user.name ?? "RRHH"}`,
+      approverId: user.id,
+      rejectedAt: null,
+      rejectionReason: null,
+    },
+  });
+
+  await recalcForRequest(request.employeeId, request.orgId, request.startDate, request.endDate);
+
+  await notifyParticipants({
+    employeeUserId: request.employee.user?.id,
+    approverId: request.approverId && request.approverId !== user.id ? request.approverId : undefined,
+    orgId: request.orgId,
+    employeeName: employeeFullName,
+    absenceName: request.absenceType.name,
+    action: "approved",
+    performedBy: user.name ?? "RRHH",
+    requestId,
+  });
+
+  return { success: true };
+}
+
+export async function adminRejectPtoRequest(requestId: string, reason: string, comments?: string) {
+  const user = await requireHRAdmin();
+
+  if (!reason?.trim()) {
+    throw new Error("Debes proporcionar un motivo de rechazo");
+  }
+
+  const request = await prisma.ptoRequest.findFirst({
+    where: {
+      id: requestId,
+      orgId: user.orgId,
+    },
+    include: {
+      employee: {
+        include: {
+          user: true,
+        },
+      },
+      absenceType: true,
+    },
+  });
+
+  if (!request) {
+    throw new Error("Solicitud no encontrada");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Solo se pueden rechazar solicitudes pendientes");
+  }
+
+  const employeeFullName = [request.employee.firstName, request.employee.lastName, request.employee.secondLastName]
+    .filter(Boolean)
+    .join(" ");
+
+  await prisma.ptoRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "REJECTED",
+      rejectedAt: new Date(),
+      rejectionReason: reason,
+      approverComments: comments ?? `Rechazada por ${user.name ?? "RRHH"}`,
+      approverId: user.id,
+    },
+  });
+
+  await recalcForRequest(request.employeeId, request.orgId, request.startDate, request.endDate);
+
+  await notifyParticipants({
+    employeeUserId: request.employee.user?.id,
+    approverId: request.approverId && request.approverId !== user.id ? request.approverId : undefined,
+    orgId: request.orgId,
+    employeeName: employeeFullName,
+    absenceName: request.absenceType.name,
+    action: "rejected",
+    performedBy: user.name ?? "RRHH",
+    additionalMessage: reason,
+    requestId,
+  });
+
+  return { success: true };
+}
+
+export async function adminCancelPtoRequest(requestId: string, reason?: string) {
+  const user = await requireHRAdmin();
+
+  const request = await prisma.ptoRequest.findFirst({
+    where: {
+      id: requestId,
+      orgId: user.orgId,
+    },
+    include: {
+      employee: {
+        include: {
+          user: true,
+        },
+      },
+      absenceType: true,
+    },
+  });
+
+  if (!request) {
+    throw new Error("Solicitud no encontrada");
+  }
+
+  if (request.status !== "APPROVED") {
+    throw new Error("Solo se pueden cancelar solicitudes aprobadas");
+  }
+
+  if (request.startDate <= new Date()) {
+    throw new Error("Solo se pueden cancelar solicitudes futuras");
+  }
+
+  const employeeFullName = [request.employee.firstName, request.employee.lastName, request.employee.secondLastName]
+    .filter(Boolean)
+    .join(" ");
+
+  await prisma.ptoRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      cancellationReason: reason ?? `Cancelada por ${user.name ?? "RRHH"}`,
+      approverId: user.id,
+    },
+  });
+
+  await recalcForRequest(request.employeeId, request.orgId, request.startDate, request.endDate);
+
+  await notifyParticipants({
+    employeeUserId: request.employee.user?.id,
+    approverId: request.approverId && request.approverId !== user.id ? request.approverId : undefined,
+    orgId: request.orgId,
+    employeeName: employeeFullName,
+    absenceName: request.absenceType.name,
+    action: "cancelled",
+    performedBy: user.name ?? "RRHH",
+    additionalMessage: reason,
+    requestId,
+  });
+
+  return { success: true };
 }
 
 /**
