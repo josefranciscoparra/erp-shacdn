@@ -129,14 +129,21 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
       throw new Error("Usuario sin organización asociada");
     }
 
-    const where = {
+    const baseWhere = {
       userId: session.user.id,
-      orgId: orgId,
-      ...(unreadOnly ? { isRead: false } : {}),
-    };
+      orgId,
+    } as const;
 
-    // Obtener total para paginación
-    const total = await prisma.ptoNotification.count({ where });
+    // Calcular totales globales (todas y no leídas)
+    const [allTotal, unreadTotal] = await Promise.all([
+      prisma.ptoNotification.count({ where: baseWhere }),
+      prisma.ptoNotification.count({ where: { ...baseWhere, isRead: false } }),
+    ]);
+
+    const where = unreadOnly ? { ...baseWhere, isRead: false } : baseWhere;
+
+    // Obtener total para la vista solicitada
+    const total = unreadOnly ? unreadTotal : allTotal;
 
     // Obtener notificaciones paginadas
     const notifications = await prisma.ptoNotification.findMany({
@@ -192,6 +199,10 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
+      },
+      totals: {
+        all: allTotal,
+        unread: unreadTotal,
       },
     };
   } catch (error) {

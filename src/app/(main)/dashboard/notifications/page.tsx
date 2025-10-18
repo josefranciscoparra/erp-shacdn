@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -22,6 +22,14 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +48,26 @@ interface Notification {
   isRead: boolean;
   createdAt: Date;
   ptoRequestId?: string | null;
+  ptoRequest?: {
+    id: string;
+    startDate: Date;
+    endDate: Date;
+    workingDays: number;
+    status: string;
+    employee?: {
+      firstName: string;
+      lastName: string;
+    } | null;
+    absenceType?: {
+      name: string;
+      color: string;
+    } | null;
+  } | null;
+}
+
+interface NotificationTotals {
+  all: number;
+  unread: number;
 }
 
 const notificationIcons = {
@@ -74,6 +102,9 @@ export default function NotificationsPage() {
     total: 0,
     totalPages: 0,
   });
+  const [totals, setTotals] = useState<NotificationTotals>({ all: 0, unread: 0 });
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
   const loadNotifications = async (unreadOnly: boolean = false, page: number = 1) => {
     setIsLoading(true);
@@ -81,6 +112,9 @@ export default function NotificationsPage() {
       const data = await getAllMyNotifications(page, 20, unreadOnly);
       setNotifications(data.notifications as Notification[]);
       setPagination(data.pagination);
+      if (data.totals) {
+        setTotals({ all: data.totals.all, unread: data.totals.unread });
+      }
     } catch (error) {
       console.error("Error al cargar notificaciones:", error);
       toast.error("Error al cargar notificaciones");
@@ -104,26 +138,64 @@ export default function NotificationsPage() {
   };
 
   const handleNotificationClick = async (notification: Notification) => {
-    // Marcar como leída si no lo está
-    if (!notification.isRead) {
+    const wasUnread = !notification.isRead;
+    let updatedNotification = notification;
+
+    if (wasUnread) {
       try {
         await markNotificationAsRead(notification.id);
-        // Actualizar localmente
-        setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: true } : n)));
+        updatedNotification = { ...notification, isRead: true };
       } catch (error) {
         console.error("Error al marcar notificación:", error);
       }
     }
 
-    // Navegar según el tipo
-    if (notification.ptoRequestId) {
+    setSelectedNotification(updatedNotification);
+    setIsDetailOpen(true);
+
+    setNotifications((prev) => {
+      if (wasUnread) {
+        if (selectedTab === "unread") {
+          return prev.filter((n) => n.id !== notification.id);
+        }
+
+        return prev.map((n) => (n.id === notification.id ? updatedNotification : n));
+      }
+
+      return prev.map((n) => (n.id === notification.id ? updatedNotification : n));
+    });
+
+    if (wasUnread) {
+      setTotals((prev) => ({ ...prev, unread: Math.max(prev.unread - 1, 0) }));
+      if (selectedTab === "unread") {
+        setPagination((prev) => {
+          const newTotal = Math.max(prev.total - 1, 0);
+          const newTotalPages = Math.ceil(newTotal / prev.pageSize);
+          return {
+            ...prev,
+            total: newTotal,
+            totalPages: newTotalPages,
+          };
+        });
+      }
+    }
+  };
+
+  const handleNavigate = useCallback(
+    (notification: Notification) => {
+      if (!notification.ptoRequestId) {
+        return;
+      }
+
       if (notification.type === "PTO_SUBMITTED") {
         router.push(`/dashboard/approvals/pto`);
       } else {
         router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
       }
-    }
-  };
+      setIsDetailOpen(false);
+    },
+    [router],
+  );
 
   const columns: ColumnDef<Notification>[] = useMemo(
     () => [
@@ -192,9 +264,16 @@ export default function NotificationsPage() {
           return (
             <div className="flex gap-2">
               {notification.ptoRequestId && (
-                <Button size="sm" variant="ghost" onClick={() => handleNotificationClick(notification)}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleNavigate(notification);
+                  }}
+                >
                   <ExternalLink className="mr-1 h-4 w-4" />
-                  Ver detalles
+                  Ver solicitud
                 </Button>
               )}
             </div>
@@ -202,7 +281,7 @@ export default function NotificationsPage() {
         },
       },
     ],
-    [],
+    [handleNavigate],
   );
 
   const table = useReactTable({
@@ -219,7 +298,18 @@ export default function NotificationsPage() {
     pageCount: pagination.totalPages,
   });
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = totals.unread;
+  const totalCount = totals.all;
+
+  const selectedType = selectedNotification?.type ?? null;
+  const selectedTypeLabel =
+    selectedType !== null
+      ? (notificationTypeLabels[selectedType as keyof typeof notificationTypeLabels] ?? selectedType)
+      : null;
+  const SelectedIcon =
+    selectedType !== null ? notificationIcons[selectedType as keyof typeof notificationIcons] || Calendar : null;
+  const selectedCreatedAt =
+    selectedNotification !== null ? format(new Date(selectedNotification.createdAt), "PPpp", { locale: es }) : "";
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -235,7 +325,7 @@ export default function NotificationsPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="unread">No leídas {unreadCount > 0 && `(${unreadCount})`}</SelectItem>
-              <SelectItem value="all">Todas ({pagination.total})</SelectItem>
+              <SelectItem value="all">Todas ({totalCount})</SelectItem>
             </SelectContent>
           </Select>
 
@@ -252,7 +342,7 @@ export default function NotificationsPage() {
             <TabsTrigger value="all">
               Todas
               <Badge variant="secondary" className="ml-2">
-                {pagination.total}
+                {totalCount}
               </Badge>
             </TabsTrigger>
           </TabsList>
@@ -387,6 +477,93 @@ export default function NotificationsPage() {
           </>
         )}
       </Tabs>
+
+      <Dialog
+        open={isDetailOpen}
+        onOpenChange={(open) => {
+          setIsDetailOpen(open);
+          if (!open) {
+            setSelectedNotification(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{selectedNotification?.title ?? "Detalle de la notificación"}</DialogTitle>
+            {selectedNotification && (
+              <DialogDescription>
+                <span className="text-muted-foreground flex items-center gap-2 text-sm">
+                  {SelectedIcon && <SelectedIcon className="h-4 w-4" />}
+                  <span>{selectedTypeLabel ?? selectedNotification.type}</span>
+                  <span className="ml-auto text-xs">{selectedCreatedAt}</span>
+                </span>
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          {selectedNotification && (
+            <div className="flex flex-col gap-4">
+              <p className="text-sm leading-relaxed whitespace-pre-line">{selectedNotification.message}</p>
+
+              {selectedNotification.ptoRequest && (
+                <div className="bg-muted/40 rounded-md border p-4 text-sm">
+                  <p className="text-muted-foreground mb-3 text-xs tracking-wide uppercase">Solicitud de ausencia</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <span className="text-muted-foreground">Inicio</span>
+                      <p className="font-medium">
+                        {format(new Date(selectedNotification.ptoRequest.startDate), "PP", { locale: es })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Fin</span>
+                      <p className="font-medium">
+                        {format(new Date(selectedNotification.ptoRequest.endDate), "PP", { locale: es })}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Días hábiles</span>
+                      <p className="font-semibold">{Number(selectedNotification.ptoRequest.workingDays).toFixed(1)}</p>
+                    </div>
+                    {selectedNotification.ptoRequest.absenceType && (
+                      <div className="flex flex-col gap-1">
+                        <span className="text-muted-foreground">Tipo</span>
+                        <span className="flex items-center gap-2 font-medium">
+                          <span
+                            className="h-3 w-3 rounded-full"
+                            style={{ backgroundColor: selectedNotification.ptoRequest.absenceType.color ?? "#3b82f6" }}
+                          />
+                          {selectedNotification.ptoRequest.absenceType.name}
+                        </span>
+                      </div>
+                    )}
+                    {selectedNotification.ptoRequest.employee && (
+                      <div className="sm:col-span-2">
+                        <span className="text-muted-foreground">Empleado</span>
+                        <p className="font-medium">
+                          {`${selectedNotification.ptoRequest.employee.firstName} ${selectedNotification.ptoRequest.employee.lastName}`}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
+              Cerrar
+            </Button>
+            {selectedNotification?.ptoRequestId && (
+              <Button onClick={() => selectedNotification && handleNavigate(selectedNotification)}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Ir a la solicitud
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

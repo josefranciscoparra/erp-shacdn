@@ -9,29 +9,43 @@ import { recalculatePtoBalance } from "./pto-balance";
 /**
  * Obtiene las solicitudes pendientes de aprobación para el usuario autenticado
  */
-export async function getPendingPtoRequests() {
+type ApproverRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+interface ApproverPtoTotals {
+  pending: number;
+  approved: number;
+  rejected: number;
+}
+
+async function getApproverBaseData() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { orgId: true },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  return { session, user };
+}
+
+export async function getApproverPtoRequests(status: ApproverRequestStatus) {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { orgId: true },
-    });
-
-    if (!user) {
-      throw new Error("Usuario no encontrado");
-    }
+    const { session, user } = await getApproverBaseData();
 
     // Buscar solicitudes donde el usuario es el aprobador
     const requests = await prisma.ptoRequest.findMany({
       where: {
         orgId: user.orgId,
         approverId: session.user.id,
-        status: "PENDING",
+        status,
       },
       include: {
         employee: {
@@ -50,22 +64,64 @@ export async function getPendingPtoRequests() {
       },
     });
 
-    return requests.map((r) => ({
-      id: r.id,
-      startDate: r.startDate,
-      endDate: r.endDate,
-      workingDays: Number(r.workingDays),
-      status: r.status,
-      reason: r.reason,
-      attachmentUrl: r.attachmentUrl,
-      submittedAt: r.submittedAt,
-      employee: r.employee,
-      absenceType: r.absenceType,
-    }));
+    const [pendingTotal, approvedTotal, rejectedTotal] = await Promise.all([
+      prisma.ptoRequest.count({
+        where: {
+          orgId: user.orgId,
+          approverId: session.user.id,
+          status: "PENDING",
+        },
+      }),
+      prisma.ptoRequest.count({
+        where: {
+          orgId: user.orgId,
+          approverId: session.user.id,
+          status: "APPROVED",
+        },
+      }),
+      prisma.ptoRequest.count({
+        where: {
+          orgId: user.orgId,
+          approverId: session.user.id,
+          status: "REJECTED",
+        },
+      }),
+    ]);
+
+    const totals: ApproverPtoTotals = {
+      pending: pendingTotal,
+      approved: approvedTotal,
+      rejected: rejectedTotal,
+    };
+
+    return {
+      requests: requests.map((r) => ({
+        id: r.id,
+        startDate: r.startDate,
+        endDate: r.endDate,
+        workingDays: Number(r.workingDays),
+        status: r.status,
+        reason: r.reason,
+        attachmentUrl: r.attachmentUrl,
+        submittedAt: r.submittedAt,
+        approvedAt: r.approvedAt,
+        rejectedAt: r.rejectedAt,
+        approverComments: r.approverComments,
+        rejectionReason: r.rejectionReason,
+        employee: r.employee,
+        absenceType: r.absenceType,
+      })),
+      totals,
+    };
   } catch (error) {
-    console.error("Error al obtener solicitudes pendientes:", error);
+    console.error("Error al obtener solicitudes de PTO:", error);
     throw error;
   }
+}
+
+export async function getPendingPtoRequests() {
+  const { requests } = await getApproverPtoRequests("PENDING");
+  return requests;
 }
 
 /**
