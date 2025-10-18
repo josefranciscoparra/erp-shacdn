@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import {
   flexRender,
@@ -92,6 +92,10 @@ const notificationTypeLabels = {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchParamsString = searchParams.toString();
+  const highlightedNotificationId = searchParams.get("notification");
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -127,6 +131,12 @@ export default function NotificationsPage() {
     loadNotifications(selectedTab === "unread");
   }, [selectedTab]);
 
+  useEffect(() => {
+    if (highlightedNotificationId && selectedTab !== "all") {
+      setSelectedTab("all");
+    }
+  }, [highlightedNotificationId, selectedTab]);
+
   const handleMarkAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
@@ -137,53 +147,99 @@ export default function NotificationsPage() {
     }
   };
 
-  const handleNotificationClick = async (notification: Notification) => {
-    const wasUnread = !notification.isRead;
-    let updatedNotification = notification;
+  const handleNotificationClick = useCallback(
+    async (notification: Notification, options?: { skipNavigation?: boolean }) => {
+      const { skipNavigation = false } = options ?? {};
 
-    if (wasUnread) {
-      try {
-        await markNotificationAsRead(notification.id);
-        updatedNotification = { ...notification, isRead: true };
-      } catch (error) {
-        console.error("Error al marcar notificación:", error);
-      }
-    }
+      const wasUnread = !notification.isRead;
+      let updatedNotification = notification;
 
-    setSelectedNotification(updatedNotification);
-    setIsDetailOpen(true);
-
-    setNotifications((prev) => {
       if (wasUnread) {
-        if (selectedTab === "unread") {
-          return prev.filter((n) => n.id !== notification.id);
+        try {
+          await markNotificationAsRead(notification.id);
+          updatedNotification = { ...notification, isRead: true };
+        } catch (error) {
+          console.error("Error al marcar notificación:", error);
+        }
+      }
+
+      setSelectedNotification(updatedNotification);
+      setIsDetailOpen(true);
+
+      setNotifications((prev) => {
+        if (wasUnread) {
+          if (selectedTab === "unread") {
+            return prev.filter((n) => n.id !== notification.id);
+          }
+
+          return prev.map((n) => (n.id === notification.id ? updatedNotification : n));
         }
 
         return prev.map((n) => (n.id === notification.id ? updatedNotification : n));
+      });
+
+      if (wasUnread) {
+        setTotals((prev) => ({ ...prev, unread: Math.max(prev.unread - 1, 0) }));
+        if (selectedTab === "unread") {
+          setPagination((prev) => {
+            const newTotal = Math.max(prev.total - 1, 0);
+            const newTotalPages = Math.ceil(newTotal / prev.pageSize);
+            return {
+              ...prev,
+              total: newTotal,
+              totalPages: newTotalPages,
+            };
+          });
+        }
       }
 
-      return prev.map((n) => (n.id === notification.id ? updatedNotification : n));
-    });
-
-    if (wasUnread) {
-      setTotals((prev) => ({ ...prev, unread: Math.max(prev.unread - 1, 0) }));
-      if (selectedTab === "unread") {
-        setPagination((prev) => {
-          const newTotal = Math.max(prev.total - 1, 0);
-          const newTotalPages = Math.ceil(newTotal / prev.pageSize);
-          return {
-            ...prev,
-            total: newTotal,
-            totalPages: newTotalPages,
-          };
-        });
+      if (!skipNavigation && notification.ptoRequestId) {
+        if (notification.type === "PTO_SUBMITTED") {
+          router.push(`/dashboard/approvals/pto`);
+        } else {
+          router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
+        }
+        setIsDetailOpen(false);
       }
+    },
+    [router, selectedTab],
+  );
+
+  useEffect(() => {
+    if (!highlightedNotificationId || isLoading) {
+      return;
     }
-  };
+
+    const target = notifications.find((n) => n.id === highlightedNotificationId);
+
+    if (!target) {
+      return;
+    }
+
+    void (async () => {
+      await handleNotificationClick(target, { skipNavigation: true });
+
+      const params = new URLSearchParams(searchParamsString);
+      params.delete("notification");
+      const query = params.toString();
+
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    })();
+  }, [
+    handleNotificationClick,
+    highlightedNotificationId,
+    isLoading,
+    notifications,
+    pathname,
+    router,
+    searchParamsString,
+  ]);
 
   const handleNavigate = useCallback(
     (notification: Notification) => {
       if (!notification.ptoRequestId) {
+        router.push(`/dashboard/notifications?notification=${notification.id}`);
+        setIsDetailOpen(false);
         return;
       }
 
@@ -395,7 +451,7 @@ export default function NotificationsPage() {
                             <TableRow
                               key={row.id}
                               className={cn("cursor-pointer", !row.original.isRead && "bg-muted/50")}
-                              onClick={() => handleNotificationClick(row.original)}
+                              onClick={() => handleNotificationClick(row.original, { skipNavigation: true })}
                             >
                               {row.getVisibleCells().map((cell) => (
                                 <TableCell key={cell.id}>
@@ -451,7 +507,7 @@ export default function NotificationsPage() {
                             <TableRow
                               key={row.id}
                               className={cn("cursor-pointer", !row.original.isRead && "bg-muted/50")}
-                              onClick={() => handleNotificationClick(row.original)}
+                              onClick={() => handleNotificationClick(row.original, { skipNavigation: true })}
                             >
                               {row.getVisibleCells().map((cell) => (
                                 <TableCell key={cell.id}>

@@ -31,17 +31,7 @@ export function NotificationList() {
   ) => {
     await markAsRead(notificationId);
 
-    // Navegar según el tipo de notificación
-    if (ptoRequestId) {
-      // Si es una notificación de solicitud enviada, el responsable debe ir a aprobaciones
-      if (notificationType === "PTO_SUBMITTED") {
-        router.push(`/dashboard/approvals/pto`);
-      }
-      // Si es notificación de aprobación, rechazo o cancelación, el empleado ve su solicitud
-      else {
-        router.push(`/dashboard/me/pto?request=${ptoRequestId}`);
-      }
-    }
+    router.push(`/dashboard/notifications?notification=${notificationId}`);
   };
 
   return (
