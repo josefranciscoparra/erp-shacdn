@@ -25,14 +25,6 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
-    label: "Neutral",
-    value: "timenow-brutalist",
-    primary: {
-      light: "#4459C4",
-      dark: "#8B97E8",
-    },
-  },
-  {
     label: "Brutalist",
     value: "brutalist",
     primary: {
@@ -44,8 +36,8 @@ export const THEME_PRESET_OPTIONS = [
     label: "Soft Pop",
     value: "soft-pop",
     primary: {
-      light: "oklch(0.5106 0.2301 276.9656)",
-      dark: "oklch(0.6801 0.1583 276.9349)",
+      light: "#4459C4",
+      dark: "#8B97E8",
     },
   },
 ] as const;

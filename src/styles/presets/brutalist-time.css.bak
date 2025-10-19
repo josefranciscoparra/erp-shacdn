@@ -130,14 +130,14 @@ value: timenow-brutalist
     box-shadow: var(--shadow);
   }
   
-  /* Inputs */
-  html[data-theme-preset="timenow-brutalist"] :where(input,textarea,select):not([data-unstyled]) {
+  /* Inputs (excluimos command-input para mantener diseño original) */
+  html[data-theme-preset="timenow-brutalist"] :where(input,textarea,select):not([data-unstyled]):not([data-slot="command-input"]) {
     border-radius: calc(var(--radius) - 2px);
     border: 1px solid var(--border);
     background: var(--card);
     transition: box-shadow .15s ease, border-color .15s ease;
   }
-  html[data-theme-preset="timenow-brutalist"] :where(input,textarea,select):focus-visible {
+  html[data-theme-preset="timenow-brutalist"] :where(input,textarea,select):not([data-slot="command-input"]):focus-visible {
     border-color: var(--ring);
     box-shadow: 0 0 0 2px color-mix(in oklab,var(--ring) 24%,transparent);
   }
@@ -153,56 +153,33 @@ value: timenow-brutalist
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
   }
-  /* Command input fix para TimeNow (timenow-brutalist) */
-html[data-theme-preset="timenow-brutalist"] input[data-slot="command-input"]{
-    /* quita el flex del input para evitar métricas raras */
-    display: block;
-  
-    /* altura y padding consistentes con el resto de la UI */
-    height: 36px;                /* usa 40px si prefieres h-10 */
-    padding: 0 12px;             /* el vertical lo gestiona la altura */
-    line-height: 1;              /* evita “subir” o “bajar” el texto */
-  
-    /* look coherente con el tema */
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) - 2px);
-    background: var(--card);
-    color: var(--foreground);
-    box-shadow: var(--shadow-2xs);
-  
-    /* focus claro sin “bailes” */
-    outline: 0;
-  }
-  html[data-theme-preset="timenow-brutalist"] input[data-slot="command-input"]:focus-visible{
-    border-color: var(--ring);
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--ring) 24%, transparent);
-  }
-  
-  /* Si el input está dentro de un wrapper con padding interno, deja el input sin padding vertical */
-  html[data-theme-preset="timenow-brutalist"] [cmdk-input] input[data-slot="command-input"]{
-    padding-top: 0;
-    padding-bottom: 0;
+  /* Command input - mantener estilo original (sin borde, transparente) */
+  html[data-theme-preset="timenow-brutalist"] input[data-slot="command-input"]{
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    outline: none !important;
   }
   /* =========================================================
    INPUT FIX — estilo "blue" limpio y plano
    Para timenow-brutalist
 ========================================================= */
 
-html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]) {
+html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]):not([data-slot="command-input"]) {
     /* Layout uniforme */
     display: block;
     width: 100%;
     height: 2.5rem; /* ≈ h-10 */
     padding: 0 0.75rem;
     border-radius: calc(var(--radius) - 2px);
-  
+
     /* Apariencia plana */
     border: 1px solid var(--border);
     background-color: var(--card);
     color: var(--foreground);
     line-height: 1.25;
     font-size: 0.875rem;
-  
+
     /* Sin sombras ni halos */
     outline: none;
     box-shadow: none;
@@ -210,20 +187,20 @@ html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not(
     -webkit-appearance: none;
     appearance: none;
   }
-  
-  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]):focus-visible {
+
+  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]):not([data-slot="command-input"]):focus-visible {
     border-color: var(--ring);      /* leve cambio de color en focus */
     outline: none;
     box-shadow: none;               /* sin glow */
     background-color: var(--card);  /* mantiene fondo igual */
   }
-  
-  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]):hover {
+
+  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-unstyled]):not([data-slot="command-input"]):hover {
     border-color: color-mix(in oklab, var(--ring) 20%, var(--border));
     box-shadow: none;
   }
-  
-  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):disabled {
+
+  html[data-theme-preset="timenow-brutalist"] :where(input, textarea, select):not([data-slot="command-input"]):disabled {
     opacity: .6;
     cursor: not-allowed;
   }
