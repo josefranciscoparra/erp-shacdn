@@ -11,7 +11,7 @@ const prisma = new PrismaClient();
 const SUPER_ADMIN = {
   email: "superadmin@system.com",
   password: "Admin123!",
-  name: "Super Admin",
+  name: "Administrador Principal",
   role: "SUPER_ADMIN" as const,
   active: true,
   mustChangePassword: true, // Forzar cambio en primer login

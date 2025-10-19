@@ -8,7 +8,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 const DEFAULT_ORG = {
-  name: "Mi Empresa",
+  name: "Mi empresa",
   vat: "B00000000",
   active: true,
   annualPtoDays: 23,
@@ -17,9 +17,9 @@ const DEFAULT_ORG = {
 };
 
 const DEFAULT_COST_CENTER = {
-  name: "Oficina Central",
+  name: "Sede principal",
   code: "CC001",
-  address: "Dirección de la empresa",
+  address: "Calle Principal, 123",
   timezone: "Europe/Madrid",
   active: true,
 };

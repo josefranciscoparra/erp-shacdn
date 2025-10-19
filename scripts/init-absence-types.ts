@@ -15,7 +15,7 @@ const defaultAbsenceTypes = [
     color: "#3b82f6", // Azul
     isPaid: true,
     requiresApproval: true,
-    minDaysAdvance: 7,
+    minDaysAdvance: 0,
     affectsBalance: true,
   },
   {
@@ -25,7 +25,7 @@ const defaultAbsenceTypes = [
     color: "#8b5cf6", // Violeta
     isPaid: true,
     requiresApproval: true,
-    minDaysAdvance: 2,
+    minDaysAdvance: 0,
     affectsBalance: false,
   },
   {
@@ -45,7 +45,7 @@ const defaultAbsenceTypes = [
     color: "#f59e0b", // Naranja
     isPaid: true,
     requiresApproval: true,
-    minDaysAdvance: 15,
+    minDaysAdvance: 0,
     affectsBalance: false,
   },
   {
@@ -55,7 +55,7 @@ const defaultAbsenceTypes = [
     color: "#6b7280", // Gris
     isPaid: false,
     requiresApproval: true,
-    minDaysAdvance: 15,
+    minDaysAdvance: 0,
     affectsBalance: false,
   },
   {
@@ -65,7 +65,7 @@ const defaultAbsenceTypes = [
     color: "#10b981", // Verde
     isPaid: true,
     requiresApproval: true,
-    minDaysAdvance: 7,
+    minDaysAdvance: 0,
     affectsBalance: false,
   },
 ];
