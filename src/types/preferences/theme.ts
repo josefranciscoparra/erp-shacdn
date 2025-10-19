@@ -17,23 +17,15 @@ export type ThemeMode = (typeof THEME_MODE_VALUES)[number];
 
 export const THEME_PRESET_OPTIONS = [
   {
-    label: "Default",
-    value: "default",
-    primary: {
-      light: "oklch(0.6723 0.1606 244.9955)",
-      dark: "oklch(0.6692 0.1607 245.011)",
-    },
-  },
-  {
     label: "Blue",
     value: "blue",
     primary: {
       light: "oklch(0.6723 0.1606 244.9955)",
-      dark: "oklch(0.6692 0.1607 245.011)",
+      dark: "oklch(0.70 0.16 245.011)",
     },
   },
   {
-    label: "TimeNow Neutral Pro",
+    label: "Neutral",
     value: "timenow-brutalist",
     primary: {
       light: "#4459C4",

@@ -90,7 +90,7 @@ const defaultPrimary = {
   dark: defaultDarkPrimaryMatch?.[1]?.trim() ?? "",
 };
 
-presets.unshift({ label: "Default", value: "default", primary: defaultPrimary });
+// No incluimos "Default" como preset separado - Blue es el predeterminado
 
 const generatedBlock = `// --- generated:themePresets:start ---
 

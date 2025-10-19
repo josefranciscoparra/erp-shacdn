@@ -34,7 +34,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   const themeMode = readPreference<ThemeMode>("theme_mode", THEME_MODE_VALUES, "light");
-  const themePreset = readPreference<ThemePreset>("theme_preset", THEME_PRESET_VALUES, "default");
+  const themePreset = readPreference<ThemePreset>("theme_preset", THEME_PRESET_VALUES, "blue");
   const locale = readPreference<Locale>("locale", ["es", "en"], defaultLocale);
   const messages = await getMessages();
 
