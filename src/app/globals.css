@@ -5,6 +5,7 @@
 @import "../styles/presets/brutalist.css";
 @import "../styles/presets/soft-pop.css";
 @import "../styles/presets/blue.css";
+@import "../styles/presets/brutalist-time.css";
 
 @custom-variant dark (&:is(.dark *));
 

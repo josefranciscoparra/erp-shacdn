@@ -64,3 +64,86 @@ cp .env.example .env
 ```
 
 Y ajusta los valores para tu entorno local.
+
+---
+
+## 🚀 Post-Deploy: Inicialización de Base de Datos
+
+Después de cada deploy nuevo o cuando migres la base de datos, ejecuta estos comandos en **Render Shell**:
+
+### Acceder al Shell de Render
+
+1. Dashboard de Render → Tu servicio
+2. Click en **Shell** (botón superior derecho)
+3. Espera a que se abra la terminal
+
+### Comandos a ejecutar
+
+#### Primera vez / Base de datos vacía
+
+```bash
+# Aplicar migraciones y crear datos maestros
+npx prisma migrate deploy && npm run init:master
+```
+
+#### Solo actualizar datos maestros
+
+```bash
+# Si las migraciones ya están aplicadas
+npm run init:master
+```
+
+#### Verificar estructura de la base de datos
+
+```bash
+# Ver el schema actual
+npx prisma db pull
+
+# Abrir Prisma Studio (interfaz web)
+npx prisma studio
+```
+
+### 📋 Qué hace `npm run init:master`
+
+Este comando ejecuta (en orden):
+
+1. **Organización por defecto** - Crea organización y centro de coste
+2. **Super Admin** - Crea usuario `superadmin@system.com` (password: `Admin123!`)
+3. **Tipos de ausencia** - Vacaciones, enfermedad, etc.
+4. **Niveles de posición** - Junior, Mid, Senior, Lead, etc.
+
+> ⚠️ **Es idempotente**: Si los datos ya existen, no los duplica
+
+### 🔍 Verificar que todo está bien
+
+```bash
+# Ver usuarios creados
+npx prisma db execute --stdin <<EOF
+SELECT email, role FROM "User" WHERE role = 'SUPER_ADMIN';
+EOF
+```
+
+### 📝 Credenciales de acceso inicial
+
+Después de ejecutar `init:master`:
+
+- **Email**: `superadmin@system.com`
+- **Password**: `Admin123!`
+- **Rol**: `SUPER_ADMIN`
+
+> ⚠️ **IMPORTANTE**: El sistema obligará a cambiar la contraseña en el primer login
+
+### ⚡ Comandos útiles adicionales
+
+```bash
+# Ver logs en tiempo real (fuera del Shell, en Logs tab)
+# Render → Tu servicio → Logs
+
+# Conectar a PostgreSQL directamente
+psql $DATABASE_URL
+
+# Ejecutar una query SQL personalizada
+npx prisma db execute --stdin <<EOF
+SELECT COUNT(*) FROM "Organization";
+EOF
+```

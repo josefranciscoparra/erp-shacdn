@@ -33,6 +33,14 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
+    label: "TimeNow Neutral Pro",
+    value: "timenow-brutalist",
+    primary: {
+      light: "#4459C4",
+      dark: "#8B97E8",
+    },
+  },
+  {
     label: "Brutalist",
     value: "brutalist",
     primary: {
