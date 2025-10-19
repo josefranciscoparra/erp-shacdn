@@ -15,14 +15,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Copiar .env.production como .env para producción
-COPY .env.production .env
-
 # Variables de entorno necesarias para el build
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Generar Prisma Client
+# Las variables de entorno se inyectan desde Render automáticamente
+# No se necesita copiar .env.production
+
+# Generar Prisma Client (necesita DATABASE_URL del entorno)
 RUN npx prisma generate
 
 # Build de Next.js
