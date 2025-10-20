@@ -47,6 +47,8 @@ model Organization {
   ptoBalanceAdjustments PtoBalanceAdjustment[]
   recurringPtoAdjustments RecurringPtoAdjustment[]
   ptoConfig           OrganizationPtoConfig?
+  signableDocuments   SignableDocument[]
+  signatureRequests   SignatureRequest[]
 
   @@map("organizations")
 }
@@ -78,6 +80,7 @@ model User {
   ptoNotifications   PtoNotification[]   // Notificaciones recibidas
   ptoBalanceAdjustments PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
   recurringPtoAdjustments RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
+  createdSignableDocuments SignableDocument[] // Documentos firmables que ha creado
 
   @@index([email])
   @@index([orgId])
@@ -270,6 +273,7 @@ model Employee {
   ptoBalances        PtoBalance[]
   ptoRequests        PtoRequest[]
   recurringPtoAdjustments RecurringPtoAdjustment[]
+  signers            Signer[]
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -787,6 +791,10 @@ enum PtoNotificationType {
   PTO_REMINDER          // Recordatorio de solicitud sin revisar
   DOCUMENT_UPLOADED     // Nuevo documento subido (futuro)
   SYSTEM_ANNOUNCEMENT   // Anuncio del sistema (futuro)
+  SIGNATURE_PENDING     // Nueva solicitud de firma asignada
+  SIGNATURE_COMPLETED   // Documento firmado exitosamente
+  SIGNATURE_REJECTED    // Documento rechazado por firmante
+  SIGNATURE_EXPIRED     // Documento expirado sin firmar
 }
 
 // Ajustes manuales de balance de PTO (auditoría)
@@ -897,6 +905,194 @@ model RecurringPtoAdjustment {
   @@index([active])
   @@index([startYear])
   @@map("recurring_pto_adjustments")
+}
+
+// ==================== SISTEMA DE FIRMA ELECTRÓNICA ====================
+
+// Documento firmable - PDF que requiere firma(s)
+model SignableDocument {
+  id              String   @id @default(cuid())
+  title           String   // Título del documento
+  description     String?  // Descripción opcional
+  category        String   // CONTRATO, NOMINA, ACUERDO, POLITICA, OTRO
+
+  // Archivo original
+  originalFileUrl String   // URL en Azure Blob del PDF original
+  originalHash    String   // SHA-256 del archivo original
+  fileSize        Int      // Tamaño en bytes
+  mimeType        String   @default("application/pdf")
+
+  // Versión y metadatos
+  version         Int      @default(1)
+  expiresAt       DateTime? // Fecha de vencimiento opcional
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Creador del documento
+  createdById     String
+  createdBy       User @relation(fields: [createdById], references: [id])
+
+  // Relaciones
+  signatureRequests SignatureRequest[]
+
+  @@index([orgId])
+  @@index([createdById])
+  @@index([category])
+  @@map("signable_documents")
+}
+
+// Solicitud de firma - Workflow de firma con múltiples firmantes
+model SignatureRequest {
+  id              String   @id @default(cuid())
+
+  // Estado general de la solicitud
+  status          SignatureRequestStatus @default(PENDING)
+
+  // Política de firma aplicada
+  policy          String   @default("SES") // SES, SES_TOTP (futuro)
+
+  // Fecha límite para completar todas las firmas
+  expiresAt       DateTime
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  completedAt     DateTime? // Cuando se completaron todas las firmas
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Documento a firmar
+  documentId      String
+  document        SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  signers         Signer[]
+  evidences       SignatureEvidence[]
+
+  @@index([orgId])
+  @@index([documentId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("signature_requests")
+}
+
+// Firmante individual - Cada persona que debe firmar
+model Signer {
+  id              String   @id @default(cuid())
+
+  // Orden de firma (1, 2, 3... para firma secuencial)
+  order           Int      @default(1)
+
+  // Estado del firmante
+  status          SignerStatus @default(PENDING)
+
+  // Token único para acceder a la sesión de firma
+  signToken       String   @unique
+
+  // Empleado que debe firmar
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Datos de la firma
+  signedAt        DateTime? // Momento de la firma
+  signedFileUrl   String?   // URL del PDF firmado (solo el último firmante genera el final)
+  signedHash      String?   // Hash SHA-256 del PDF firmado
+
+  // Consentimiento (paso 1 del flujo)
+  consentGivenAt  DateTime? // Cuando marcó el checkbox de consentimiento
+  ipAddress       String?   // IP desde donde firmó
+  userAgent       String?   // User agent del navegador
+
+  // Rechazo
+  rejectedAt      DateTime?
+  rejectionReason String?   // Motivo del rechazo
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relación con la solicitud
+  requestId       String
+  request         SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  evidences       SignatureEvidence[]
+
+  @@index([requestId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([signToken])
+  @@map("signers")
+}
+
+// Evidencia de firma - Registro inmutable de auditoría
+model SignatureEvidence {
+  id              String   @id @default(cuid())
+
+  // Timeline completo de eventos (JSON array)
+  // Formato: [{event: "CREATED", timestamp: "...", user: "..."}, {...}]
+  timeline        Json
+
+  // Hashes para verificación de integridad
+  preSignHash     String   // Hash del PDF antes de la firma
+  postSignHash    String?  // Hash del PDF después de la firma (null si rechazado)
+
+  // Metadatos del firmante (JSON)
+  // Formato: {ip: "...", userAgent: "...", geolocation: {...}, sessionId: "..."}
+  signerMetadata  Json
+
+  // Política de firma aplicada
+  policy          String   // SES, SES_TOTP
+
+  // Resultado de la firma
+  result          SignatureResult
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+
+  // Relaciones
+  requestId       String
+  request         SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  signerId        String
+  signer          Signer @relation(fields: [signerId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([signerId])
+  @@index([result])
+  @@index([createdAt])
+  @@map("signature_evidences")
+}
+
+// Estados de solicitud de firma
+enum SignatureRequestStatus {
+  PENDING        // Pendiente (ninguna firma completada)
+  IN_PROGRESS    // En progreso (algunas firmas completadas)
+  COMPLETED      // Completada (todas las firmas completadas)
+  REJECTED       // Rechazada (algún firmante rechazó)
+  EXPIRED        // Expirada (venció sin completarse)
+}
+
+// Estados de firmante individual
+enum SignerStatus {
+  PENDING        // Pendiente de firmar
+  SIGNED         // Firmado exitosamente
+  REJECTED       // Rechazado por el firmante
+}
+
+// Resultado de la evidencia
+enum SignatureResult {
+  SUCCESS        // Firma exitosa
+  REJECTED       // Firma rechazada
+  EXPIRED        // Expiró sin firmar
+  ERROR          // Error durante el proceso
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

@@ -19,8 +19,15 @@ const rawDocumentsFlag =
     ? process.env.NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED
     : process.env.FEATURE_DOCUMENTS_ENABLED;
 
+const rawSignaturesFlag =
+  typeof process.env.NEXT_PUBLIC_FEATURE_SIGNATURES_ENABLED !== "undefined" &&
+  process.env.NEXT_PUBLIC_FEATURE_SIGNATURES_ENABLED !== undefined
+    ? process.env.NEXT_PUBLIC_FEATURE_SIGNATURES_ENABLED
+    : process.env.FEATURE_SIGNATURES_ENABLED;
+
 export const features = {
   documents: parseFlag(rawDocumentsFlag ?? undefined),
+  signatures: parseFlag(rawSignaturesFlag ?? undefined),
 } as const;
 
 export type FeatureFlags = typeof features;

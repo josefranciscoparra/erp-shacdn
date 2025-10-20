@@ -6,6 +6,7 @@ import {
   Settings,
   ClipboardCheck,
   Bell,
+  FileSignature,
   type LucideIcon,
 } from "lucide-react";
 
@@ -59,6 +60,18 @@ export const sidebarItems: NavGroup[] = [
         title: "Aprobaciones",
         url: "/dashboard/approvals/pto",
         icon: ClipboardCheck,
+      },
+      {
+        title: "Gestión de Firmas",
+        url: "/dashboard/signatures",
+        icon: FileSignature,
+        isNew: true,
+      },
+      {
+        title: "Mis Firmas",
+        url: "/dashboard/me/signatures",
+        icon: FileSignature,
+        isNew: true,
       },
       {
         title: "Notificaciones",
