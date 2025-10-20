@@ -25,7 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { SignatureRequest } from "@/stores/signatures-store";
+import { useSignaturesStore, type SignatureRequest } from "@/stores/signatures-store";
 
 interface SignaturesDataTableProps {
   data: SignatureRequest[];
