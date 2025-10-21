@@ -119,12 +119,19 @@ interface SignaturesState {
     status?: string;
     category?: string;
     search?: string;
+    employeeId?: string;
+    dateFrom?: string;
+    dateTo?: string;
   };
   pagination: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
+  };
+  summary: {
+    total: number;
+    byStatus: Record<string, number>;
   };
 }
 
@@ -134,6 +141,7 @@ interface SignaturesActions {
   setFilters: (filters: Partial<SignaturesState["filters"]>) => void;
   clearFilters: () => void;
   setPage: (page: number) => void;
+  setLimit: (limit: number) => void;
 
   // Empleado
   fetchMyPendingSignatures: (options?: { refresh?: boolean }) => Promise<void>;
@@ -187,6 +195,16 @@ const initialState: SignaturesState = {
     total: 0,
     totalPages: 0,
   },
+  summary: {
+    total: 0,
+    byStatus: {
+      PENDING: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      REJECTED: 0,
+      EXPIRED: 0,
+    },
+  },
 };
 
 // ==================== STORE ====================
@@ -227,6 +245,15 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
       if (state.filters.search) {
         params.append("search", state.filters.search);
       }
+      if (state.filters.employeeId && state.filters.employeeId !== "__none__") {
+        params.append("employeeId", state.filters.employeeId);
+      }
+      if (state.filters.dateFrom) {
+        params.append("dateFrom", state.filters.dateFrom);
+      }
+      if (state.filters.dateTo) {
+        params.append("dateTo", state.filters.dateTo);
+      }
 
       const response = await fetch(`/api/signatures/requests?${params}`);
 
@@ -241,18 +268,28 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
       set({
         allRequests: data.requests,
         pagination: data.pagination,
+        summary: data.summary ?? initialState.summary,
         isLoadingRequests: false,
       });
     } catch (error) {
       console.error("Error fetching signature requests:", error);
       toast.error("Error al cargar solicitudes de firma");
-      set({ isLoadingRequests: false });
+      set({ isLoadingRequests: false, summary: initialState.summary });
     }
   },
 
   setFilters: (newFilters) => {
     const state = get();
     const updatedFilters = { ...state.filters, ...newFilters };
+
+    if (typeof updatedFilters.search === "string") {
+      const trimmed = updatedFilters.search.trim();
+      updatedFilters.search = trimmed.length > 0 ? trimmed : undefined;
+    }
+
+    if (updatedFilters.employeeId === "__none__") {
+      updatedFilters.employeeId = undefined;
+    }
 
     set({
       filters: updatedFilters,
@@ -275,9 +312,19 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
 
   setPage: (page) => {
     const state = get();
-    set({ pagination: { ...state.pagination, page } });
+    const totalPages = state.pagination.totalPages || 1;
+    const nextPage = Math.min(Math.max(page, 1), totalPages);
+    set({ pagination: { ...state.pagination, page: nextPage } });
 
     // Refetch con nueva página
+    get().fetchAllRequests({ refresh: true });
+  },
+
+  setLimit: (limit) => {
+    const state = get();
+    const normalizedLimit = Math.min(Math.max(limit, 1), 100);
+    set({ pagination: { ...state.pagination, limit: normalizedLimit, page: 1 } });
+
     get().fetchAllRequests({ refresh: true });
   },
 

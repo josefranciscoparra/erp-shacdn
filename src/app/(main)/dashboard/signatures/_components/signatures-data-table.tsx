@@ -15,6 +15,7 @@ import {
 import { ArrowUpDown, Download, Eye, MoreHorizontal } from "lucide-react";
 
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -70,11 +71,25 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
         const totalCount = signers.length;
 
         return (
-          <div className="text-sm">
-            <p>
-              {signedCount} / {totalCount}
+          <div className="space-y-1 text-sm">
+            <p className="font-medium">
+              {signedCount} / {totalCount} completado{totalCount === 1 ? "" : "s"}
             </p>
-            <p className="text-muted-foreground text-xs">{signedCount === totalCount ? "Completado" : "En progreso"}</p>
+            <div className="space-y-1">
+              {signers.slice(0, 3).map((signer) => (
+                <div key={signer.id} className="flex items-center justify-between gap-2">
+                  <span className="text-muted-foreground truncate text-xs">
+                    {signer.employee.firstName} {signer.employee.lastName}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px]">
+                    {signer.status === "SIGNED" ? "Firmado" : signer.status === "REJECTED" ? "Rechazado" : "Pendiente"}
+                  </Badge>
+                </div>
+              ))}
+              {signers.length > 3 && (
+                <p className="text-muted-foreground text-[11px]">+{signers.length - 3} firmante(s) adicional(es)</p>
+              )}
+            </div>
           </div>
         );
       },
@@ -83,7 +98,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
       accessorKey: "status",
       header: "Estado",
       cell: ({ row }) => {
-        return <SignatureStatusBadge status={row.original.status as any} />;
+        return <SignatureStatusBadge status={row.original.status} />;
       },
     },
     {
@@ -194,7 +209,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows?.length ? (
+          {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                 {row.getVisibleCells().map((cell) => (

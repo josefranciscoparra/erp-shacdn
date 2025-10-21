@@ -2,13 +2,16 @@ import { randomBytes } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import { Prisma } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { calculateFileHash } from "@/lib/signatures/hash";
-import { createSignaturePendingNotification } from "@/lib/signatures/notifications";
-import { signatureStorageService } from "@/lib/signatures/storage";
-import { createSignatureRequestSchema, signatureRequestFiltersSchema } from "@/lib/validations/signature";
+import {
+  createSignatureRequestSchema,
+  signatureRequestFiltersSchema,
+  type SignatureRequestStatus,
+} from "@/lib/validations/signature";
 
 export const runtime = "nodejs";
 
@@ -46,7 +49,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Construir filtros para Prisma
-    const whereClause: any = {
+    const whereClause: Prisma.SignatureRequestWhereInput = {
       orgId: session.user.orgId,
     };
 
@@ -54,36 +57,59 @@ export async function GET(request: NextRequest) {
       whereClause.status = filters.status;
     }
 
-    // Construir filtros del documento de forma combinada
-    const documentFilters: any = {};
+    const andFilters: Prisma.SignatureRequestWhereInput[] = [];
 
     if (filters.category) {
-      documentFilters.category = filters.category;
+      andFilters.push({ document: { category: filters.category } });
     }
 
     if (filters.search) {
-      documentFilters.OR = [
-        { title: { contains: filters.search, mode: "insensitive" } },
-        { description: { contains: filters.search, mode: "insensitive" } },
-      ];
+      const search = filters.search.trim();
+      if (search.length > 0) {
+        andFilters.push({
+          OR: [
+            { document: { title: { contains: search, mode: "insensitive" } } },
+            { document: { description: { contains: search, mode: "insensitive" } } },
+            {
+              signers: {
+                some: {
+                  employee: {
+                    OR: [
+                      { firstName: { contains: search, mode: "insensitive" } },
+                      { lastName: { contains: search, mode: "insensitive" } },
+                      { employeeNumber: { contains: search, mode: "insensitive" } },
+                      { email: { contains: search, mode: "insensitive" } },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        });
+      }
     }
 
-    if (Object.keys(documentFilters).length > 0) {
-      whereClause.document = documentFilters;
+    if (filters.employeeId) {
+      andFilters.push({ signers: { some: { employeeId: filters.employeeId } } });
     }
 
     if (filters.dateFrom || filters.dateTo) {
-      whereClause.createdAt = {};
+      const dateFilter: Prisma.SignatureRequestWhereInput["createdAt"] = {};
       if (filters.dateFrom) {
-        whereClause.createdAt.gte = new Date(filters.dateFrom);
+        dateFilter.gte = new Date(filters.dateFrom);
       }
       if (filters.dateTo) {
-        whereClause.createdAt.lte = new Date(filters.dateTo);
+        dateFilter.lte = new Date(filters.dateTo);
       }
+      andFilters.push({ createdAt: dateFilter });
+    }
+
+    if (andFilters.length > 0) {
+      whereClause.AND = andFilters;
     }
 
     // Obtener solicitudes con paginación
-    const [requests, totalCount] = await Promise.all([
+    const [requests, totalCount, statusCounts] = await Promise.all([
       prisma.signatureRequest.findMany({
         where: whereClause,
         include: {
@@ -124,6 +150,11 @@ export async function GET(request: NextRequest) {
         take: filters.limit,
       }),
       prisma.signatureRequest.count({ where: whereClause }),
+      prisma.signatureRequest.groupBy({
+        by: ["status"],
+        where: { orgId: session.user.orgId },
+        _count: { status: true },
+      }),
     ]);
 
     // Transformar fechas para el cliente
@@ -146,6 +177,36 @@ export async function GET(request: NextRequest) {
       })),
     }));
 
+    const summaryByStatus: Record<SignatureRequestStatus, number> = {
+      PENDING: 0,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      REJECTED: 0,
+      EXPIRED: 0,
+    };
+
+    statusCounts.forEach((item) => {
+      switch (item.status as SignatureRequestStatus) {
+        case "PENDING":
+          summaryByStatus.PENDING = item._count.status;
+          break;
+        case "IN_PROGRESS":
+          summaryByStatus.IN_PROGRESS = item._count.status;
+          break;
+        case "COMPLETED":
+          summaryByStatus.COMPLETED = item._count.status;
+          break;
+        case "REJECTED":
+          summaryByStatus.REJECTED = item._count.status;
+          break;
+        case "EXPIRED":
+          summaryByStatus.EXPIRED = item._count.status;
+          break;
+        default:
+          break;
+      }
+    });
+
     return NextResponse.json({
       requests: transformedRequests,
       pagination: {
@@ -153,6 +214,10 @@ export async function GET(request: NextRequest) {
         limit: filters.limit,
         total: totalCount,
         totalPages: Math.ceil(totalCount / filters.limit),
+      },
+      summary: {
+        total: totalCount,
+        byStatus: summaryByStatus,
       },
     });
   } catch (error) {

@@ -56,7 +56,7 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
       accessorKey: "status",
       header: "Estado",
       cell: ({ row }) => {
-        return <SignatureStatusBadge status={row.original.status as any} />;
+        return <SignatureStatusBadge status={row.original.status} />;
       },
     },
     {
@@ -151,7 +151,7 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
           ))}
         </TableHeader>
         <TableBody>
-          {table.getRowModel().rows?.length ? (
+          {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
                 {row.getVisibleCells().map((cell) => (

@@ -24,6 +24,7 @@ interface EmployeeComboboxProps {
   placeholder?: string;
   emptyText?: string;
   disabled?: boolean;
+  minChars?: number;
 }
 
 export function EmployeeCombobox({
@@ -32,6 +33,7 @@ export function EmployeeCombobox({
   placeholder = "Selecciona responsable",
   emptyText = "Sin responsable asignado",
   disabled = false,
+  minChars = 0,
 }: EmployeeComboboxProps) {
   const [open, setOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -41,6 +43,15 @@ export function EmployeeCombobox({
 
   // Buscar empleados con debounce
   const searchEmployees = useCallback(async (query: string) => {
+    const normalizedQuery = query.trim();
+    const canSearch = normalizedQuery.length === 0 ? minChars === 0 : normalizedQuery.length >= minChars;
+
+    if (!canSearch) {
+      setEmployees([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const params = new URLSearchParams();
@@ -70,14 +81,14 @@ export function EmployeeCombobox({
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [minChars]);
 
   // Cargar empleados iniciales cuando se abre el popover
   useEffect(() => {
-    if (open && employees.length === 0) {
+    if (open && employees.length === 0 && minChars === 0) {
       searchEmployees("");
     }
-  }, [open, searchEmployees, employees.length]);
+  }, [open, searchEmployees, employees.length, minChars]);
 
   // Buscar con debounce cuando cambia el query
   useEffect(() => {
@@ -135,6 +146,11 @@ export function EmployeeCombobox({
     onValueChange("__none__");
   };
 
+  const normalizedSearch = searchQuery.trim();
+  const hasQuery = normalizedSearch.length > 0;
+  const meetsMinChars = normalizedSearch.length === 0 ? minChars === 0 : normalizedSearch.length >= minChars;
+  const shouldShowHint = minChars > 0 && (!hasQuery || normalizedSearch.length < minChars);
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -182,6 +198,10 @@ export function EmployeeCombobox({
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
                 <span className="text-muted-foreground ml-2 text-sm">Buscando...</span>
+              </div>
+            ) : shouldShowHint ? (
+              <div className="text-muted-foreground flex items-center justify-center py-6 text-sm">
+                Escribe al menos {minChars} caracteres para buscar
               </div>
             ) : (
               <>

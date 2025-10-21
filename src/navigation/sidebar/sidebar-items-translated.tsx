@@ -140,7 +140,7 @@ export function useSidebarItems(): NavGroup[] {
                 title: "Gestión de Firmas",
                 url: "/dashboard/signatures",
                 icon: FileSignature,
-                permission: "manage_organization" as Permission,
+                permission: "manage_documents" as Permission,
               },
             ]
           : []),

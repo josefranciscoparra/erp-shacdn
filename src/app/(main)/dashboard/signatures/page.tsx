@@ -1,32 +1,107 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, SlidersHorizontal } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmployeeCombobox } from "@/components/ui/employee-combobox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
+import { signatureRequestStatusLabels, signableDocumentCategoryLabels } from "@/lib/validations/signature";
 import { useSignaturesStore } from "@/stores/signatures-store";
 
 import { CreateSignatureDialog } from "./_components/create-signature-dialog";
 import { SignaturesDataTable } from "./_components/signatures-data-table";
+import { SimplePagination } from "./_components/simple-pagination";
 
 export default function SignaturesPage() {
-  const { allRequests, isLoadingRequests, fetchAllRequests } = useSignaturesStore();
+  const {
+    allRequests,
+    isLoadingRequests,
+    fetchAllRequests,
+    filters,
+    setFilters,
+    clearFilters,
+    pagination,
+    setPage,
+    setLimit,
+    summary,
+  } = useSignaturesStore();
+
+  const searchFilter = filters.search ?? "";
+  const [searchTerm, setSearchTerm] = useState(searchFilter);
 
   useEffect(() => {
     fetchAllRequests();
   }, [fetchAllRequests]);
 
-  // Filtrar por estado
-  const pendingRequests = allRequests.filter((r) => r.status === "PENDING");
-  const inProgressRequests = allRequests.filter((r) => r.status === "IN_PROGRESS");
-  const completedRequests = allRequests.filter((r) => r.status === "COMPLETED");
-  const rejectedRequests = allRequests.filter((r) => r.status === "REJECTED");
-  const expiredRequests = allRequests.filter((r) => r.status === "EXPIRED");
+  useEffect(() => {
+    setSearchTerm(searchFilter);
+  }, [searchFilter]);
 
-  if (isLoadingRequests) {
+  useEffect(() => {
+    const debounced = setTimeout(() => {
+      const normalizedSearch = searchTerm.trim();
+      const shouldClear = normalizedSearch.length === 0 && searchFilter.length > 0;
+      const canApply = normalizedSearch.length >= 2 && normalizedSearch !== searchFilter;
+
+      if (shouldClear) {
+        setFilters({ search: "" });
+      } else if (canApply) {
+        setFilters({ search: normalizedSearch });
+      }
+    }, 400);
+
+    return () => clearTimeout(debounced);
+  }, [searchTerm, searchFilter, setFilters]);
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: "Todos los estados" },
+      ...Object.entries(signatureRequestStatusLabels).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  );
+
+  const categoryOptions = useMemo(
+    () => [
+      { value: "all", label: "Todas las categorías" },
+      ...Object.entries(signableDocumentCategoryLabels).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  );
+
+  const handleStatusChange = (value: string) => {
+    setFilters({ status: value === "all" ? undefined : value });
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setFilters({ category: value === "all" ? undefined : value });
+  };
+
+  const handleEmployeeChange = (value: string) => {
+    setFilters({ employeeId: value === "__none__" ? undefined : value });
+  };
+
+  const statusSummaryBadges = useMemo(
+    () => [
+      { key: "PENDING", label: signatureRequestStatusLabels.PENDING, count: summary.byStatus.PENDING },
+      { key: "IN_PROGRESS", label: signatureRequestStatusLabels.IN_PROGRESS, count: summary.byStatus.IN_PROGRESS },
+      { key: "COMPLETED", label: signatureRequestStatusLabels.COMPLETED, count: summary.byStatus.COMPLETED },
+      { key: "REJECTED", label: signatureRequestStatusLabels.REJECTED, count: summary.byStatus.REJECTED },
+      { key: "EXPIRED", label: signatureRequestStatusLabels.EXPIRED, count: summary.byStatus.EXPIRED },
+    ],
+    [summary.byStatus],
+  );
+
+  const isInitialLoading = isLoadingRequests && summary.total === 0 && allRequests.length === 0;
+
+  if (isInitialLoading) {
     return (
       <div className="@container/main flex min-h-[400px] items-center justify-center">
         <div className="space-y-2 text-center">
@@ -39,116 +114,125 @@ export default function SignaturesPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Gestión de Firmas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Administra las solicitudes de firma electrónica</p>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Administra las solicitudes de firma electrónica por estado, trabajador o categoría
+          </p>
         </div>
         <CreateSignatureDialog onSuccess={() => fetchAllRequests({ refresh: true })} />
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="all" className="space-y-4">
-        <div className="flex items-center justify-between">
-          {/* Select para móvil */}
-          <Select defaultValue="all">
-            <SelectTrigger className="w-[200px] @4xl/main:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas ({allRequests.length})</SelectItem>
-              <SelectItem value="pending">Pendientes ({pendingRequests.length})</SelectItem>
-              <SelectItem value="in_progress">En Progreso ({inProgressRequests.length})</SelectItem>
-              <SelectItem value="completed">Completadas ({completedRequests.length})</SelectItem>
-              <SelectItem value="rejected">Rechazadas ({rejectedRequests.length})</SelectItem>
-              <SelectItem value="expired">Expiradas ({expiredRequests.length})</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* TabsList para desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="all" className="gap-2">
-              Todas
-              {allRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {allRequests.length}
+      <Card>
+        <CardContent className="flex flex-col gap-4 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="outline" className="gap-2">
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filtros activos
+            </Badge>
+            <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
+              <span>{summary.total} solicitudes totales</span>
+              {statusSummaryBadges.map((item) => (
+                <Badge key={item.key} variant="secondary" className="pointer-events-none">
+                  {item.label}: {item.count}
                 </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="pending" className="gap-2">
-              Pendientes
-              {pendingRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {pendingRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="in_progress" className="gap-2">
-              En Progreso
-              {inProgressRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {inProgressRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="gap-2">
-              Completadas
-              {completedRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {completedRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="rejected" className="gap-2">
-              Rechazadas
-              {rejectedRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {rejectedRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="expired" className="gap-2">
-              Expiradas
-              {expiredRequests.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {expiredRequests.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
-        </div>
+              ))}
+            </div>
+          </div>
 
-        {/* Todas */}
-        <TabsContent value="all" className="space-y-4">
-          <SignaturesDataTable data={allRequests} />
-        </TabsContent>
+          <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr]">
+            <div className="space-y-1">
+              <Label htmlFor="signatures-search">Buscar</Label>
+              <Input
+                id="signatures-search"
+                placeholder="Busca por título de documento, descripción o trabajador"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label>Estado</Label>
+              <Select value={filters.status ?? "all"} onValueChange={handleStatusChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>Categoría</Label>
+              <Select value={filters.category ?? "all"} onValueChange={handleCategoryChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categoryOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-        {/* Pendientes */}
-        <TabsContent value="pending" className="space-y-4">
-          <SignaturesDataTable data={pendingRequests} />
-        </TabsContent>
+          <div className="grid gap-3 md:grid-cols-[2fr,auto]">
+            <div className="space-y-1">
+              <Label>Trabajador</Label>
+              <EmployeeCombobox
+                value={filters.employeeId ?? "__none__"}
+                onValueChange={handleEmployeeChange}
+                placeholder="Filtrar por trabajador"
+                minChars={2}
+              />
+            </div>
+            <div className="flex items-end justify-end gap-2">
+              <Button variant="outline" onClick={clearFilters}>
+                Limpiar filtros
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* En progreso */}
-        <TabsContent value="in_progress" className="space-y-4">
-          <SignaturesDataTable data={inProgressRequests} />
-        </TabsContent>
+      <Separator />
 
-        {/* Completadas */}
-        <TabsContent value="completed" className="space-y-4">
-          <SignaturesDataTable data={completedRequests} />
-        </TabsContent>
-
-        {/* Rechazadas */}
-        <TabsContent value="rejected" className="space-y-4">
-          <SignaturesDataTable data={rejectedRequests} />
-        </TabsContent>
-
-        {/* Expiradas */}
-        <TabsContent value="expired" className="space-y-4">
-          <SignaturesDataTable data={expiredRequests} />
-        </TabsContent>
-      </Tabs>
+      <Card>
+        <CardContent className="p-0">
+          {isLoadingRequests ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              <span className="text-muted-foreground ml-2 text-sm">Actualizando listado...</span>
+            </div>
+          ) : allRequests.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-lg font-medium">No hay solicitudes que coincidan con los filtros actuales</p>
+              <p className="text-muted-foreground mt-1 text-sm">Ajusta los filtros o crea una nueva solicitud</p>
+            </div>
+          ) : (
+            <>
+              <SignaturesDataTable data={allRequests} />
+              <div className="border-t">
+                <SimplePagination
+                  currentPage={pagination.page}
+                  totalPages={pagination.totalPages || 1}
+                  pageSize={pagination.limit}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                  onPageSizeChange={setLimit}
+                />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

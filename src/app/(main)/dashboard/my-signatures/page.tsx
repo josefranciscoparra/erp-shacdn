@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { FileSignature, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
 import { useSignaturesStore } from "@/stores/signatures-store";
 
 import { MySignaturesDataTable } from "./_components/my-signatures-data-table";
@@ -21,6 +25,51 @@ export default function MySignaturesPage() {
     isLoadingMySignatures,
     fetchMyPendingSignatures,
   } = useSignaturesStore();
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("pending");
+
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+
+  const filtered = useMemo(() => {
+    const matchesSearch = (value: string) => {
+      if (normalizedSearch.length < 2) return true;
+      return value.toLowerCase().includes(normalizedSearch);
+    };
+
+    const matchSignature = (signature: (typeof myPendingSignatures)[number]) => {
+      const { document } = signature;
+      const searchTargets = [document.title, document.category, document.description ?? ""];
+      const passesSearch = normalizedSearch.length < 2 || searchTargets.some(matchesSearch);
+      const passesCategory = categoryFilter === "all" || document.category === categoryFilter;
+      return passesSearch && passesCategory;
+    };
+
+    return {
+      pending: myPendingSignatures.filter(matchSignature),
+      signed: mySignedSignatures.filter(matchSignature),
+      rejected: myRejectedSignatures.filter(matchSignature),
+      expired: myExpiredSignatures.filter(matchSignature),
+    };
+  }, [
+    myPendingSignatures,
+    mySignedSignatures,
+    myRejectedSignatures,
+    myExpiredSignatures,
+    normalizedSearch,
+    categoryFilter,
+  ]);
+
+  const allSignatures = useMemo(
+    () => [...filtered.pending, ...filtered.signed, ...filtered.rejected, ...filtered.expired],
+    [filtered.pending, filtered.signed, filtered.rejected, filtered.expired],
+  );
+
+  const categoryOptions = [
+    { value: "all", label: "Todas las categorías" },
+    ...Object.entries(signableDocumentCategoryLabels).map(([value, label]) => ({ value, label })),
+  ];
 
   useEffect(() => {
     fetchMyPendingSignatures();
@@ -37,17 +86,10 @@ export default function MySignaturesPage() {
     );
   }
 
-  const allSignatures = [
-    ...myPendingSignatures,
-    ...mySignedSignatures,
-    ...myRejectedSignatures,
-    ...myExpiredSignatures,
-  ];
-
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Mis Firmas</h1>
           <p className="text-muted-foreground mt-1 text-sm">Documentos que requieren tu firma electrónica</p>
@@ -60,19 +102,60 @@ export default function MySignaturesPage() {
         )}
       </div>
 
+      <div className="grid gap-3 md:grid-cols-[2fr,1fr,auto]">
+        <div className="space-y-1">
+          <Label htmlFor="my-signatures-search">Buscar</Label>
+          <Input
+            id="my-signatures-search"
+            placeholder="Busca por título o categoría"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+          {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
+            <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
+          )}
+        </div>
+        <div className="space-y-1">
+          <Label>Categoría</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {categoryOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-end justify-end">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearchTerm("");
+              setCategoryFilter("all");
+            }}
+          >
+            Limpiar filtros
+          </Button>
+        </div>
+      </div>
+
       {/* Tabs */}
-      <Tabs defaultValue="pending" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex items-center justify-between">
           {/* Select para móvil */}
-          <Select defaultValue="pending">
+          <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger className="w-[200px] @4xl/main:hidden">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="pending">Pendientes ({myPendingSignatures.length})</SelectItem>
-              <SelectItem value="signed">Firmadas ({mySignedSignatures.length})</SelectItem>
-              <SelectItem value="rejected">Rechazadas ({myRejectedSignatures.length})</SelectItem>
-              <SelectItem value="expired">Expiradas ({myExpiredSignatures.length})</SelectItem>
+              <SelectItem value="pending">Pendientes ({filtered.pending.length})</SelectItem>
+              <SelectItem value="signed">Firmadas ({filtered.signed.length})</SelectItem>
+              <SelectItem value="rejected">Rechazadas ({filtered.rejected.length})</SelectItem>
+              <SelectItem value="expired">Expiradas ({filtered.expired.length})</SelectItem>
               <SelectItem value="all">Todas ({allSignatures.length})</SelectItem>
             </SelectContent>
           </Select>
@@ -81,33 +164,33 @@ export default function MySignaturesPage() {
           <TabsList className="hidden @4xl/main:flex">
             <TabsTrigger value="pending" className="gap-2">
               Pendientes
-              {myPendingSignatures.length > 0 && (
+              {filtered.pending.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {myPendingSignatures.length}
+                  {filtered.pending.length}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="signed" className="gap-2">
               Firmadas
-              {mySignedSignatures.length > 0 && (
+              {filtered.signed.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {mySignedSignatures.length}
+                  {filtered.signed.length}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="rejected" className="gap-2">
               Rechazadas
-              {myRejectedSignatures.length > 0 && (
+              {filtered.rejected.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {myRejectedSignatures.length}
+                  {filtered.rejected.length}
                 </Badge>
               )}
             </TabsTrigger>
             <TabsTrigger value="expired" className="gap-2">
               Expiradas
-              {myExpiredSignatures.length > 0 && (
+              {filtered.expired.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
-                  {myExpiredSignatures.length}
+                  {filtered.expired.length}
                 </Badge>
               )}
             </TabsTrigger>
@@ -124,22 +207,22 @@ export default function MySignaturesPage() {
 
         {/* Pendientes */}
         <TabsContent value="pending" className="space-y-4">
-          <MySignaturesDataTable data={myPendingSignatures} />
+          <MySignaturesDataTable data={filtered.pending} />
         </TabsContent>
 
         {/* Firmadas */}
         <TabsContent value="signed" className="space-y-4">
-          <MySignaturesDataTable data={mySignedSignatures} />
+          <MySignaturesDataTable data={filtered.signed} />
         </TabsContent>
 
         {/* Rechazadas */}
         <TabsContent value="rejected" className="space-y-4">
-          <MySignaturesDataTable data={myRejectedSignatures} />
+          <MySignaturesDataTable data={filtered.rejected} />
         </TabsContent>
 
         {/* Expiradas */}
         <TabsContent value="expired" className="space-y-4">
-          <MySignaturesDataTable data={myExpiredSignatures} />
+          <MySignaturesDataTable data={filtered.expired} />
         </TabsContent>
 
         {/* Todas */}
