@@ -11,17 +11,20 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ### 1. Base de Datos (Prisma Schema) ✅
 
 **Modelos añadidos:**
+
 - `SignableDocument` - Documento firmable (PDF original)
 - `SignatureRequest` - Solicitud de firma con múltiples firmantes
 - `Signer` - Firmante individual con token único
 - `SignatureEvidence` - Evidencia inmutable de auditoría
 
 **Enums añadidos:**
+
 - `SignatureRequestStatus` (PENDING, IN_PROGRESS, COMPLETED, REJECTED, EXPIRED)
 - `SignerStatus` (PENDING, SIGNED, REJECTED)
 - `SignatureResult` (SUCCESS, REJECTED, EXPIRED, ERROR)
 
 **Enums ampliados:**
+
 - `PtoNotificationType` - Añadidos 4 tipos: SIGNATURE_PENDING, SIGNATURE_COMPLETED, SIGNATURE_REJECTED, SIGNATURE_EXPIRED
 
 **Migración:** Ejecutada con `npx prisma db push` ✅
@@ -33,17 +36,20 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 **`/src/lib/signatures/`**
 
 #### `hash.ts`
+
 - `calculateHash()` - SHA-256 de buffer
 - `calculateFileHash()` - SHA-256 de File (browser)
 - `calculateStringHash()` - SHA-256 de string
 - `verifyHash()` - Verificación de integridad
 
 #### `pdf-signer.ts`
+
 - `signPdfDocument()` - Firma PDF con metadatos
 - `generateSignatureMetadata()` - Genera metadatos de firma
 - `verifyDocumentIntegrity()` - Verifica hash del documento
 
 #### `evidence-builder.ts`
+
 - `createTimelineEvent()` - Crea evento de timeline
 - `buildSignatureEvidence()` - Construye evidencia completa
 - `addConsentEvent()` - Añade evento de consentimiento
@@ -52,6 +58,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - `validateEvidence()` - Valida evidencia
 
 #### `storage.ts`
+
 - `SignatureStorageService` - Servicio de almacenamiento
 - `uploadOriginalDocument()` - Sube PDF original
 - `uploadSignedDocument()` - Sube PDF firmado
@@ -60,6 +67,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - `getDocumentUrl()` - URL firmada temporal
 
 #### `notifications.ts`
+
 - `createSignaturePendingNotification()` - Notifica nuevo documento
 - `createSignatureCompletedNotification()` - Notifica firma completada
 - `createSignatureRejectedNotification()` - Notifica rechazo
@@ -74,6 +82,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 **`/src/lib/validations/signature.ts`**
 
 **Schemas:**
+
 - `signableDocumentCategorySchema` - Categorías de documentos
 - `signatureRequestStatusSchema` - Estados de solicitud
 - `signerStatusSchema` - Estados de firmante
@@ -86,6 +95,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - `signatureRequestFiltersSchema` - Filtros de búsqueda
 
 **Helpers:**
+
 - `calculateDaysRemaining()` - Días hasta vencimiento
 - `getUrgencyColor()` - Color según urgencia
 - `getUrgencyLabel()` - Label según urgencia
@@ -93,6 +103,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - `isRequestUrgent()` - Verifica si es urgente (< 3 días)
 
 **Labels y colores:**
+
 - `signableDocumentCategoryLabels` - Labels de categorías
 - `signatureRequestStatusLabels` - Labels de estados
 - `signatureRequestStatusColors` - Colores de badges
@@ -105,18 +116,21 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 #### **Gestión de Solicitudes (HR/Admin)**
 
 **`GET /api/signatures/requests`**
+
 - Lista todas las solicitudes de firma
 - Filtros: status, category, dateFrom, dateTo, search
 - Paginación incluida
 - Include: document, signers, evidences
 
 **`POST /api/signatures/requests`**
+
 - Crea nueva solicitud de firma
 - Valida documento y empleados
 - Genera tokens únicos para cada firmante
 - Crea notificaciones para firmantes
 
 **`GET /api/signatures/requests/[id]`**
+
 - Detalle completo de solicitud
 - Include: document, signers, evidences, timeline
 - Verifica permisos (HR o firmante)
@@ -126,6 +140,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 #### **Vista Empleado**
 
 **`GET /api/signatures/me/pending`**
+
 - Obtiene firmas pendientes del empleado
 - Agrupa por estado: pending, signed, rejected, expired
 - Ordenado por urgencia (expiresAt ASC)
@@ -136,17 +151,20 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 #### **Flujo de Firma**
 
 **`GET /api/signatures/sessions/[token]`**
+
 - Obtiene info de sesión por token único
 - Verifica que el usuario es el firmante
 - Valida que no esté expirada/firmada/rechazada
 - Devuelve documento y estado
 
 **`POST /api/signatures/sessions/[token]/consent`**
+
 - Registra consentimiento (paso 1)
 - Guarda checkbox + timestamp + IP + UA
 - Valida permisos y estado
 
 **`POST /api/signatures/sessions/[token]/confirm`**
+
 - Confirma y ejecuta firma (paso 2)
 - **Flujo completo:**
   1. Descarga documento original
@@ -165,6 +183,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
   14. Notifica al empleado
 
 **`POST /api/signatures/sessions/[token]/reject`**
+
 - Rechaza la firma
 - Guarda motivo de rechazo
 - Crea evidencia de rechazo
@@ -176,11 +195,13 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 #### **Descargas**
 
 **`GET /api/signatures/documents/[id]/download`**
+
 - Descarga PDF firmado (o original si no está firmado)
 - Verifica permisos (HR o firmante)
 - Devuelve último documento firmado
 
 **`GET /api/signatures/evidence/[id]/download`**
+
 - Descarga evidencias en JSON
 - Solo HR/Admin o firmante propio
 - Include: timeline, hashes, metadata, policy, result
@@ -190,6 +211,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ### 5. Configuración ✅
 
 **`/src/config/features.ts`**
+
 - Añadido flag `signatures: boolean`
 - Variables de entorno:
   - `FEATURE_SIGNATURES_ENABLED` (server)
@@ -204,6 +226,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 **`/src/stores/signatures-store.tsx`**
 
 **Estado:**
+
 ```typescript
 {
   // Para HR/Admin
@@ -230,26 +253,27 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ```
 
 **Acciones:**
+
 ```typescript
 {
   // HR/Admin
-  fetchAllRequests()
-  createSignatureRequest()
-  setFilters()
-  setPage()
+  fetchAllRequests();
+  createSignatureRequest();
+  setFilters();
+  setPage();
 
   // Empleado
-  fetchMyPendingSignatures()
+  fetchMyPendingSignatures();
 
   // Visor
-  fetchSessionByToken(token)
-  giveConsent(token, data)
-  confirmSignature(token, data)
-  rejectSignature(token, reason)
+  fetchSessionByToken(token);
+  giveConsent(token, data);
+  confirmSignature(token, data);
+  rejectSignature(token, reason);
 
   // Descargas
-  downloadSignedDocument(id)
-  downloadEvidence(id)
+  downloadSignedDocument(id);
+  downloadEvidence(id);
 }
 ```
 
@@ -258,35 +282,41 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ### 2. Componentes UI Base (Pendiente)
 
 #### `signature-pdf-viewer.tsx`
+
 - Visor de PDF embebido (iframe o react-pdf)
 - Controles: zoom, navegación de páginas
 - Sidebar con info de firmantes
 - Mobile-friendly
 
 #### `signature-consent-modal.tsx`
+
 - Modal con checkbox "Declaro mi conformidad..."
 - Texto legal claro
 - Botón "Aceptar" solo si checkbox marcado
 - Estado: consentGiven
 
 #### `signature-confirm-modal.tsx`
+
 - Modal de confirmación (2º paso)
 - "¿Confirmas que deseas firmar este documento?"
 - Botones: "Cancelar" y "Confirmar Firma"
 - Loading state durante firma
 
 #### `signature-timeline.tsx`
+
 - Componente de línea de tiempo visual
 - Muestra eventos: CREATED, CONSENT_GIVEN, SIGNED, REJECTED
 - Con timestamps e iconos
 - Para vista de evidencias
 
 #### `signature-status-badge.tsx`
+
 - Badge con colores según estado
 - Variantes: pending, in_progress, completed, rejected, expired
 - Props: status, size, variant
 
 #### `signature-urgency-badge.tsx`
+
 - Badge con colores según días restantes
 - Cálculo dinámico de urgencia
 - Labels: "Expirado", "¡Hoy!", "Urgente", "Próximo", "Tiempo suficiente"
@@ -296,13 +326,16 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ### 3. Páginas (Pendiente)
 
 #### `/dashboard/signatures` (HR/Admin)
+
 **Estructura:**
+
 - `page.tsx` - Layout principal
 - `_components/signatures-data-table.tsx` - DataTable profesional
 - `_components/signature-filters.tsx` - Filtros avanzados
 - `_components/create-signature-dialog.tsx` - Dialog para crear solicitud
 
 **Tabs:**
+
 - Pendientes (badge con count)
 - En Progreso (badge con count)
 - Completadas
@@ -310,6 +343,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - Expiradas
 
 **Features:**
+
 - DataTable con sorting, filtering, paginación
 - DataTableViewOptions (mostrar/ocultar columnas)
 - Select en móvil, Tabs en desktop
@@ -319,17 +353,21 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ---
 
 #### `/dashboard/me/signatures` (Empleado)
+
 **Estructura:**
+
 - `page.tsx` - Layout principal
 - `_components/my-signatures-table.tsx` - Tabla de firmas pendientes
 
 **Tabs:**
+
 - Pendientes (badge con count + urgencia)
 - Firmadas
 - Rechazadas
 - Expiradas
 
 **Features:**
+
 - Ordenamiento por urgencia (más urgente primero)
 - Badges de urgencia visuales
 - Botón "Firmar ahora" prominente
@@ -339,10 +377,13 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ---
 
 #### `/dashboard/me/signatures/[token]` (Visor y Firma)
+
 **Estructura:**
+
 - `page.tsx` - Visor principal
 
 **Layout:**
+
 ```
 ┌─────────────────────────────────────┐
 │ Header: Título del documento        │
@@ -363,6 +404,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ```
 
 **Flujo:**
+
 1. Usuario ve PDF + info
 2. Marca checkbox → guarda consentimiento
 3. Click "Firmar" → modal confirmación
@@ -376,6 +418,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 **Añadir secciones:**
 
 **Para HR/Admin:**
+
 ```typescript
 {
   title: "Firmas",
@@ -392,6 +435,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ```
 
 **Para Empleado (dentro de "Mi Área"):**
+
 ```typescript
 {
   title: "Mis Firmas",
@@ -407,6 +451,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 ## 📊 Estado de Implementación
 
 ### Backend: **100%** ✅
+
 - ✅ Base de datos (4 modelos + 3 enums)
 - ✅ Utilidades (5 librerías)
 - ✅ Validaciones Zod
@@ -414,6 +459,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 - ✅ Configuración features
 
 ### Frontend: **100%** ✅
+
 - ✅ Store Zustand
 - ✅ Componentes UI (6 componentes)
 - ✅ Página empleado: Mis firmas (/dashboard/me/signatures)
@@ -428,6 +474,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 El sistema de firma electrónica está **100% implementado y funcional**:
 
 ### ✅ Para Empleados:
+
 - Ver firmas pendientes en `/dashboard/me/signatures`
 - Badges de urgencia visuales (días restantes)
 - Firmar documentos con flujo de 2 pasos (consentimiento + confirmación)
@@ -437,6 +484,7 @@ El sistema de firma electrónica está **100% implementado y funcional**:
 - Descargar documentos firmados
 
 ### ✅ Para HR/Admin:
+
 - Gestionar solicitudes en `/dashboard/signatures`
 - Dashboard con 6 tabs (Todas, Pendientes, En Progreso, Completadas, Rechazadas, Expiradas)
 - DataTable profesional con sorting y acciones
@@ -446,6 +494,7 @@ El sistema de firma electrónica está **100% implementado y funcional**:
 - Ver detalle completo de cada solicitud
 
 ### ✅ Backend Completo:
+
 - 11 API endpoints funcionales
 - Almacenamiento versionado (original + firmado)
 - Generación de evidencias inmutables (JSON)
@@ -454,6 +503,7 @@ El sistema de firma electrónica está **100% implementado y funcional**:
 - Multi-tenancy seguro
 
 ### ✅ Navegación:
+
 - "Gestión de Firmas" para HR/Admin
 - "Mis Firmas" para Empleados
 - Ambos con badge `isNew`
@@ -463,6 +513,7 @@ El sistema de firma electrónica está **100% implementado y funcional**:
 ## 🎯 Siguiente Sprint (Opcional): TOTP
 
 ### Modelo adicional:
+
 ```prisma
 model UserMfaConfig {
   id          String   @id @default(cuid())
@@ -479,11 +530,13 @@ model UserMfaConfig {
 ```
 
 ### Endpoints adicionales:
+
 - `POST /api/mfa/totp/enroll` - Generar QR + secreto
 - `POST /api/mfa/totp/verify` - Verificar código (activación)
 - `POST /api/signatures/sessions/[token]/otp/verify` - Verificar TOTP en firma
 
 ### Configuración:
+
 - Campo en `Organization`: `requireMfaForSignatures: Boolean`
 - Si activo, pedir TOTP antes de confirmar firma
 
@@ -507,6 +560,7 @@ model UserMfaConfig {
 ## 📁 Archivos Creados
 
 ### Backend (19 archivos):
+
 ```
 prisma/schema.prisma (modificado)
 
@@ -545,6 +599,7 @@ src/app/api/signatures/
 ```
 
 ### Frontend (completado):
+
 ```
 src/stores/
 └── signatures-store.tsx ✅
@@ -586,12 +641,14 @@ Todo el sistema está implementado y listo para testing. Total: **37 archivos** 
 ## 🧪 Testing Manual - Guía Rápida
 
 ### 1. Activar Feature Flag
+
 ```env
 # .env o .env.local
 FEATURE_SIGNATURES_ENABLED=true
 ```
 
 ### 2. Iniciar Aplicación
+
 ```bash
 npm run dev
 # App disponible en http://localhost:3000
@@ -600,6 +657,7 @@ npm run dev
 ### 3. Testing del Flujo Completo
 
 **Como HR/Admin:**
+
 1. Login como HR_ADMIN o ORG_ADMIN
 2. Ir a "Gestión de Firmas" en sidebar
 3. Click "Nueva Solicitud"
@@ -612,6 +670,7 @@ npm run dev
 5. Click "Crear Solicitud" (⚠️ Nota: Implementación parcial, ver abajo)
 
 **Como Empleado:**
+
 1. Login como EMPLOYEE
 2. Ir a "Mis Firmas" en sidebar
 3. Ver documento pendiente con badge de urgencia
@@ -624,10 +683,12 @@ npm run dev
 10. Ver documento en tab "Firmadas"
 
 **Verificar Notificaciones:**
+
 - Bell icon en header debe mostrar notificación "Nuevo documento para firmar"
 - Después de firmar: "Documento firmado exitosamente"
 
 **Verificar Evidencias:**
+
 - HR puede descargar PDF firmado
 - HR puede descargar evidencias JSON con timeline completo
 
@@ -660,12 +721,13 @@ formData.append("signers", JSON.stringify(signers));
 
 const response = await fetch("/api/signatures/requests", {
   method: "POST",
-  body: formData
+  body: formData,
 });
 ```
 
 **Solución temporal para testing:**
 Crear solicitudes directamente via Prisma Studio o API:
+
 ```typescript
 // Ejemplo con Prisma Studio:
 // 1. Crear SignableDocument
@@ -680,6 +742,7 @@ Crear solicitudes directamente via Prisma Studio o API:
 ### Creados: 37 archivos
 
 **Backend (19):**
+
 - 1 schema Prisma (modificado)
 - 6 librerías (/lib/signatures/)
 - 1 validaciones Zod
@@ -687,6 +750,7 @@ Crear solicitudes directamente via Prisma Studio o API:
 - 1 config (features.ts)
 
 **Frontend (18):**
+
 - 1 store Zustand
 - 7 componentes (/components/signatures/)
 - 5 páginas + 4 componentes de página

@@ -13,6 +13,7 @@ import { calculateHash } from "@/lib/signatures/hash";
 import { createSignatureCompletedNotification, notifyDocumentCompleted } from "@/lib/signatures/notifications";
 import { generateSignatureMetadata, signPdfDocument } from "@/lib/signatures/pdf-signer";
 import { signatureStorageService } from "@/lib/signatures/storage";
+import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
 import { confirmSignatureSchema } from "@/lib/validations/signature";
 
 export const runtime = "nodejs";
@@ -91,7 +92,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     // PROCESO DE FIRMA
     // 1. Obtener el documento original
-    const originalDocUrl = await signatureStorageService.getDocumentUrl(signer.request.document.originalFileUrl);
+    const documentPath = resolveSignatureStoragePath(signer.request.document.originalFileUrl);
+    const originalDocUrl = await signatureStorageService.getDocumentUrl(documentPath);
     const originalDocResponse = await fetch(originalDocUrl);
     const originalDocBuffer = Buffer.from(await originalDocResponse.arrayBuffer());
 
@@ -119,7 +121,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { signedFileBuffer, signedFileHash } = await signPdfDocument(originalDocBuffer, signatureMetadata);
 
     // 5. Subir documento firmado al storage
-    const signedDocUrl = await signatureStorageService.uploadSignedDocument(
+    const signedDocUpload = await signatureStorageService.uploadSignedDocument(
       session.user.orgId,
       signer.request.document.id,
       signer.id,
@@ -176,7 +178,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       data: {
         status: "SIGNED",
         signedAt: now,
-        signedFileUrl: signedDocUrl.url,
+        signedFileUrl: signedDocUpload.path,
         signedHash: signedFileHash,
       },
     });
@@ -257,7 +259,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       success: true,
       signedAt: now.toISOString(),
-      signedFileUrl: signedDocUrl.url,
+      signedFileUrl: signedDocUpload.url,
       allCompleted: allSigned,
     });
   } catch (error) {

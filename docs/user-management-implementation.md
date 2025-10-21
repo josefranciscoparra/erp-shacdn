@@ -91,13 +91,13 @@ EMPLOYEE        → Nivel 1 (Empleado base)
 
 ### Matriz de Permisos de Creación
 
-| Rol que crea     | Puede crear                    |
-| ---------------- | ------------------------------ |
-| SUPER_ADMIN      | ORG_ADMIN, HR_ADMIN            |
-| ORG_ADMIN        | HR_ADMIN                       |
-| HR_ADMIN         | ❌ No puede crear admin roles  |
-| MANAGER          | ❌ No puede crear admin roles  |
-| EMPLOYEE         | ❌ No puede crear admin roles  |
+| Rol que crea | Puede crear                   |
+| ------------ | ----------------------------- |
+| SUPER_ADMIN  | ORG_ADMIN, HR_ADMIN           |
+| ORG_ADMIN    | HR_ADMIN                      |
+| HR_ADMIN     | ❌ No puede crear admin roles |
+| MANAGER      | ❌ No puede crear admin roles |
+| EMPLOYEE     | ❌ No puede crear admin roles |
 
 ### Reglas de Negocio
 
@@ -126,6 +126,7 @@ EMPLOYEE        → Nivel 1 (Empleado base)
 6. Retornar contraseña temporal al admin
 
 **Datos requeridos**:
+
 - ✅ Email
 - ✅ Nombre completo
 - ✅ Rol (ORG_ADMIN o HR_ADMIN)
@@ -152,6 +153,7 @@ EMPLOYEE        → Nivel 1 (Empleado base)
 9. Retornar contraseña temporal al admin
 
 **Datos requeridos**:
+
 - ✅ Email
 - ✅ Rol (ORG_ADMIN o HR_ADMIN)
 - ✅ Nombre (firstName)
@@ -179,6 +181,7 @@ EMPLOYEE        → Nivel 1 (Empleado base)
 **Permisos**: `HR_ADMIN`, `ORG_ADMIN`, `SUPER_ADMIN`
 
 **Query Parameters**:
+
 ```typescript
 page?: number    // Número de página (default: 1)
 limit?: number   // Registros por página (default: 10)
@@ -186,6 +189,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Success (200)**:
+
 ```typescript
 {
   users: UserRow[],
@@ -209,6 +213,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 #### Action: `create`
 
 **Request Body (Modo sin empleado)**:
+
 ```typescript
 {
   action: "create",
@@ -220,6 +225,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Request Body (Modo con empleado)**:
+
 ```typescript
 {
   action: "create",
@@ -248,6 +254,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Success (201)**:
+
 ```typescript
 {
   message: string,
@@ -270,6 +277,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Error (400)**: Validación Zod falló
+
 ```typescript
 {
   error: "Datos de entrada inválidos",
@@ -279,6 +287,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Error (403)**: Sin permisos o violación de jerarquía
+
 ```typescript
 {
   error: string,
@@ -287,6 +296,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Error (409)**: Conflicto de datos únicos
+
 ```typescript
 {
   error: string,
@@ -297,6 +307,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 #### Action: `reset-password`
 
 **Request Body**:
+
 ```typescript
 {
   action: "reset-password",
@@ -306,6 +317,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Success (200)**:
+
 ```typescript
 {
   message: "Contraseña reseteada exitosamente",
@@ -317,6 +329,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 #### Action: `change-role`
 
 **Request Body**:
+
 ```typescript
 {
   action: "change-role",
@@ -326,6 +339,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Success (200)**:
+
 ```typescript
 {
   message: "Rol actualizado exitosamente",
@@ -344,6 +358,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 #### Action: `toggle-active`
 
 **Request Body**:
+
 ```typescript
 {
   action: "toggle-active",
@@ -352,6 +367,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 ```
 
 **Response Success (200)**:
+
 ```typescript
 {
   message: string,
@@ -368,6 +384,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 **Ubicación**: `src/app/(main)/dashboard/admin/users/page.tsx`
 
 **Responsabilidades**:
+
 - Obtener lista de usuarios desde API
 - Gestionar estado de diálogo de creación
 - Calcular roles permitidos según rol actual
@@ -375,6 +392,7 @@ status?: string  // 'active' | 'inactive' | 'with-temp-password' | 'all'
 - Proteger con `PermissionGuard`
 
 **Estado manejado**:
+
 ```typescript
 const [users, setUsers] = useState<UserRow[]>([]);
 const [isLoading, setIsLoading] = useState(true);
@@ -384,6 +402,7 @@ const [userRole, setUserRole] = useState<Role | null>(null);
 ```
 
 **Función crítica**:
+
 ```typescript
 const getAllowedRoles = (): Role[] => {
   if (!userRole) return [];
@@ -392,7 +411,7 @@ const getAllowedRoles = (): Role[] => {
     case "SUPER_ADMIN":
       return ["ORG_ADMIN", "HR_ADMIN"];
     case "ORG_ADMIN":
-      return ["HR_ADMIN"];  // Solo puede crear HR_ADMIN
+      return ["HR_ADMIN"]; // Solo puede crear HR_ADMIN
     default:
       return [];
   }
@@ -402,6 +421,7 @@ const getAllowedRoles = (): Role[] => {
 ### 2. `create-user-dialog.tsx` - Diálogo de Creación
 
 **Props**:
+
 ```typescript
 interface CreateUserDialogProps {
   open: boolean;
@@ -419,6 +439,7 @@ interface CreateUserDialogProps {
 4. **Manejo de `undefined`**: Campos no usados se setean a `undefined`
 
 **Hook crítico para reactividad**:
+
 ```typescript
 const isEmployee = form.watch("isEmployee");
 
@@ -433,12 +454,13 @@ React.useEffect(() => {
     form.setValue("lastName", undefined as any);
     form.setValue("nifNie", undefined as any);
     // ... más campos
-    form.clearErrors(["firstName", "lastName", "nifNie", /* ... */]);
+    form.clearErrors(["firstName", "lastName", "nifNie" /* ... */]);
   }
 }, [isEmployee, form]);
 ```
 
 **Manejo de envío**:
+
 ```typescript
 const onSubmit = async (values: FormValues) => {
   setIsLoading(true);
@@ -482,6 +504,7 @@ const onSubmit = async (values: FormValues) => {
 ### 3. `users-data-table.tsx` - Tabla de Usuarios
 
 **Características**:
+
 - Tabs con badges (Activos, Inactivos, Con contraseña temporal, Todos)
 - Búsqueda global
 - Filtros por rol
@@ -494,6 +517,7 @@ const onSubmit = async (values: FormValues) => {
 ### 4. `users-columns.tsx` - Definición de Columnas
 
 **Columnas**:
+
 - Nombre (con icono 🔑 si `mustChangePassword: true`)
 - Email
 - Rol (badge con colores por rol)
@@ -501,6 +525,7 @@ const onSubmit = async (values: FormValues) => {
 - Acciones (dropdown menú)
 
 **Acciones disponibles**:
+
 - Ver detalles
 - Cambiar rol
 - Generar contraseña temporal
@@ -515,12 +540,14 @@ const onSubmit = async (values: FormValues) => {
 **Ubicación**: `src/validators/user.ts`
 
 **Características**:
+
 - Validación condicional con `superRefine`
 - Valida NIF/NIE con checksum
 - Valida IBAN español
 - Maneja campos opcionales correctamente
 
 **Estructura base**:
+
 ```typescript
 export const createUserAdminSchema = z
   .object({
@@ -564,6 +591,7 @@ export const createUserAdminSchema = z
 ### Lógica de `superRefine`
 
 **Modo NO empleado** (`isEmployee: false`):
+
 ```typescript
 if (!data.isEmployee) {
   // Requiere solo 'name'
@@ -578,6 +606,7 @@ if (!data.isEmployee) {
 ```
 
 **Modo empleado** (`isEmployee: true`):
+
 ```typescript
 else {
   // 1. Validar firstName
@@ -638,12 +667,17 @@ else {
 Cuando un campo se setea a `undefined` (porque no se usa en ese modo), Zod puede llamar a `superRefine` con `data.field === undefined`. Si intentamos hacer `data.field.trim()` directamente, obtenemos un error de runtime.
 
 **Solución**:
+
 ```typescript
 // ❌ MAL (puede fallar si field es undefined)
-if (!data.field || data.field.trim() === "") { /* ... */ }
+if (!data.field || data.field.trim() === "") {
+  /* ... */
+}
 
 // ✅ BIEN (primero check de tipo)
-if (!data.field || (typeof data.field === "string" && data.field.trim() === "")) { /* ... */ }
+if (!data.field || (typeof data.field === "string" && data.field.trim() === "")) {
+  /* ... */
+}
 ```
 
 ---
@@ -655,10 +689,12 @@ if (!data.field || (typeof data.field === "string" && data.field.trim() === ""))
 **Síntoma**: Al abrir el diálogo de crear usuario, el select de rol aparece vacío.
 
 **Causa raíz**:
+
 - API GET `/api/admin/users` no retornaba `currentUserRole`
 - El componente `page.tsx` necesita este dato para calcular `allowedRoles`
 
 **Solución**:
+
 ```typescript
 // En route.ts, línea 126
 return NextResponse.json({
@@ -667,11 +703,12 @@ return NextResponse.json({
   page,
   limit,
   totalPages: Math.ceil(total / limit),
-  currentUserRole: session.user.role,  // ⚠️ Añadir esto
+  currentUserRole: session.user.role, // ⚠️ Añadir esto
 });
 ```
 
 **Verificación**:
+
 ```bash
 curl -H "Cookie: auth-token=..." http://localhost:3000/api/admin/users | jq '.currentUserRole'
 # Debe retornar: "SUPER_ADMIN" o "ORG_ADMIN"
@@ -680,6 +717,7 @@ curl -H "Cookie: auth-token=..." http://localhost:3000/api/admin/users | jq '.cu
 ### Problema 2: Botón "Crear usuario" no responde
 
 **Síntoma**:
+
 - Usuario marca checkbox "¿Es empleado?"
 - Rellena todos los campos de empleado
 - Hace clic en "Crear usuario"
@@ -690,18 +728,22 @@ El campo oculto `name` (usado en modo NO empleado) contenía una cadena vacía `
 
 ```typescript
 // ❌ Este código fallaba silenciosamente
-if (!data.name || data.name.trim() === "") {  // Error: undefined.trim()
-  ctx.addIssue({ /* ... */ });
+if (!data.name || data.name.trim() === "") {
+  // Error: undefined.trim()
+  ctx.addIssue({
+    /* ... */
+  });
 }
 ```
 
 **Solución completa**:
 
 1. **Setear campos no usados a `undefined`**:
+
 ```typescript
 React.useEffect(() => {
   if (isEmployee) {
-    form.setValue("name", undefined as any);  // ✅ undefined, no ""
+    form.setValue("name", undefined as any); // ✅ undefined, no ""
     form.clearErrors("name");
   } else {
     form.setValue("firstName", undefined as any);
@@ -713,13 +755,17 @@ React.useEffect(() => {
 ```
 
 2. **Validar tipo antes de usar métodos string**:
+
 ```typescript
 if (!data.name || (typeof data.name === "string" && data.name.trim() === "")) {
-  ctx.addIssue({ /* ... */ });
+  ctx.addIssue({
+    /* ... */
+  });
 }
 ```
 
 3. **En Input components, manejar `undefined` correctamente**:
+
 ```typescript
 <Input
   {...field}
@@ -729,6 +775,7 @@ if (!data.name || (typeof data.name === "string" && data.name.trim() === "")) {
 ```
 
 4. **Default values en el form**:
+
 ```typescript
 const form = useForm<FormValues>({
   resolver: zodResolver(createUserAdminSchema),
@@ -737,7 +784,7 @@ const form = useForm<FormValues>({
     role: allowedRoles[0] || "HR_ADMIN",
     isEmployee: false,
     name: "",
-    firstName: undefined,  // ✅ undefined por defecto
+    firstName: undefined, // ✅ undefined por defecto
     lastName: undefined,
     nifNie: undefined,
     // ... resto de campos empleado a undefined
@@ -746,6 +793,7 @@ const form = useForm<FormValues>({
 ```
 
 **Verificación**:
+
 ```typescript
 // En DevTools Console
 console.log(form.getValues());
@@ -756,6 +804,7 @@ console.log(form.getValues());
 ### Problema 3: Warning de componentes no controlados
 
 **Síntoma**:
+
 ```
 Warning: A component is changing an uncontrolled input to be controlled.
 ```
@@ -763,6 +812,7 @@ Warning: A component is changing an uncontrolled input to be controlled.
 **Causa**: Input recibe `value={undefined}` en primera renderización.
 
 **Solución**: Siempre pasar string a `value`:
+
 ```typescript
 <Input {...field} value={field.value || ""} />
 ```
@@ -774,12 +824,13 @@ Warning: A component is changing an uncontrolled input to be controlled.
 **Causa**: Schema `nifNieSchema` importado puede estar usando validación estricta.
 
 **Verificación**:
+
 ```typescript
 // En src/lib/validations/employee.ts
 import { nifNieSchema } from "@/lib/validations/employee";
 
 const result = nifNieSchema.safeParse("12345678Z");
-console.log(result);  // Verificar si success: true
+console.log(result); // Verificar si success: true
 ```
 
 **Solución**: Asegurar que `nifNieSchema` valida correctamente formato y letra de control.
@@ -789,10 +840,12 @@ console.log(result);  // Verificar si success: true
 **Síntoma**: API retorna 409 aunque el email sea nuevo.
 
 **Posibles causas**:
+
 1. Email tiene espacios o mayúsculas inconsistentes
 2. Ya existe un usuario con ese email en la BD
 
 **Solución**:
+
 ```typescript
 // ✅ El schema ya hace esto:
 email: z.string().email("Email inválido").toLowerCase().trim()
@@ -807,16 +860,21 @@ npx prisma studio
 **Síntoma**: Error 500 al crear usuario con empleado, sin detalles.
 
 **Debug**:
+
 ```typescript
 // En route.ts, añadir logging detallado:
 try {
   const result = await prisma.$transaction(async (tx) => {
     console.log("1. Creando empleado...");
-    const employee = await tx.employee.create({ /* ... */ });
+    const employee = await tx.employee.create({
+      /* ... */
+    });
     console.log("✅ Empleado creado:", employee.id);
 
     console.log("2. Creando usuario...");
-    const user = await tx.user.create({ /* ... */ });
+    const user = await tx.user.create({
+      /* ... */
+    });
     console.log("✅ Usuario creado:", user.id);
 
     // ... resto de pasos
@@ -830,6 +888,7 @@ try {
 ```
 
 **Soluciones comunes**:
+
 - Verificar que `orgId` existe en tabla `Organization`
 - Verificar foreign keys están correctas
 - Verificar campos requeridos no son `null`
@@ -841,6 +900,7 @@ try {
 ### Ejemplo 1: Crear ORG_ADMIN sin empleado
 
 **Request**:
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/users \
   -H "Content-Type: application/json" \
@@ -855,6 +915,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ```
 
 **Response**:
+
 ```json
 {
   "message": "Usuario administrativo creado exitosamente",
@@ -873,6 +934,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ### Ejemplo 2: Crear HR_ADMIN con empleado
 
 **Request**:
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/users \
   -H "Content-Type: application/json" \
@@ -904,6 +966,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ```
 
 **Response**:
+
 ```json
 {
   "message": "Usuario administrativo con empleado creado exitosamente",
@@ -928,6 +991,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ### Ejemplo 3: Resetear contraseña de usuario
 
 **Request**:
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/users \
   -H "Content-Type: application/json" \
@@ -940,6 +1004,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ```
 
 **Response**:
+
 ```json
 {
   "message": "Contraseña reseteada exitosamente",
@@ -951,6 +1016,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ### Ejemplo 4: Cambiar rol de usuario
 
 **Request**:
+
 ```bash
 curl -X POST http://localhost:3000/api/admin/users \
   -H "Content-Type: application/json" \
@@ -963,6 +1029,7 @@ curl -X POST http://localhost:3000/api/admin/users \
 ```
 
 **Response**:
+
 ```json
 {
   "message": "Rol actualizado exitosamente",
@@ -990,7 +1057,7 @@ import { canManageUsers } from "@/lib/role-hierarchy";
 import { prisma } from "@/lib/prisma";
 
 const adminUser = await prisma.user.findUnique({
-  where: { id: "clx1234567890" }
+  where: { id: "clx1234567890" },
 });
 
 if (canManageUsers(adminUser.role)) {
@@ -1009,64 +1076,80 @@ const isEmployee = form.watch("isEmployee");
 return (
   <form onSubmit={form.handleSubmit(onSubmit)}>
     {/* Campo siempre visible */}
-    <FormField control={form.control} name="email" render={({ field }) => (
-      <FormItem>
-        <FormLabel>Email *</FormLabel>
-        <FormControl>
-          <Input {...field} value={field.value || ""} />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    )} />
-
-    {/* Checkbox que controla visibilidad */}
-    <FormField control={form.control} name="isEmployee" render={({ field }) => (
-      <FormItem>
-        <div className="flex items-center space-x-2">
-          <FormControl>
-            <Checkbox
-              checked={field.value}
-              onCheckedChange={field.onChange}
-              disabled={isLoading}
-            />
-          </FormControl>
-          <FormLabel className="!mt-0">¿Es empleado de la empresa?</FormLabel>
-        </div>
-      </FormItem>
-    )} />
-
-    {/* Campos condicionales */}
-    {!isEmployee ? (
-      <FormField control={form.control} name="name" render={({ field }) => (
+    <FormField
+      control={form.control}
+      name="email"
+      render={({ field }) => (
         <FormItem>
-          <FormLabel>Nombre completo *</FormLabel>
+          <FormLabel>Email *</FormLabel>
           <FormControl>
             <Input {...field} value={field.value || ""} />
           </FormControl>
           <FormMessage />
         </FormItem>
-      )} />
+      )}
+    />
+
+    {/* Checkbox que controla visibilidad */}
+    <FormField
+      control={form.control}
+      name="isEmployee"
+      render={({ field }) => (
+        <FormItem>
+          <div className="flex items-center space-x-2">
+            <FormControl>
+              <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+            </FormControl>
+            <FormLabel className="!mt-0">¿Es empleado de la empresa?</FormLabel>
+          </div>
+        </FormItem>
+      )}
+    />
+
+    {/* Campos condicionales */}
+    {!isEmployee ? (
+      <FormField
+        control={form.control}
+        name="name"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nombre completo *</FormLabel>
+            <FormControl>
+              <Input {...field} value={field.value || ""} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
     ) : (
       <>
-        <FormField control={form.control} name="firstName" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Nombre *</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value || ""} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="firstName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Nombre *</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-        <FormField control={form.control} name="lastName" render={({ field }) => (
-          <FormItem>
-            <FormLabel>Primer apellido *</FormLabel>
-            <FormControl>
-              <Input {...field} value={field.value || ""} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )} />
+        <FormField
+          control={form.control}
+          name="lastName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Primer apellido *</FormLabel>
+              <FormControl>
+                <Input {...field} value={field.value || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
       </>
     )}
   </form>
@@ -1126,6 +1209,7 @@ return (
 2. **Hash inmediato**: Antes de guardar en BD, se hace hash con bcrypt (10 rounds).
 
 3. **Tabla separada**: Registro en `TemporaryPassword` para auditoría:
+
    ```typescript
    {
      userId: string,
@@ -1146,9 +1230,10 @@ return (
 ### 🔐 Protección de Datos Sensibles
 
 1. **IBAN encriptado**:
+
    ```typescript
    import { encrypt, decrypt } from "@/lib/crypto";
-   const encrypted = encrypt(iban);  // AES-256-GCM
+   const encrypted = encrypt(iban); // AES-256-GCM
    ```
 
 2. **NIF/NIE**: Almacenado en texto plano pero:
@@ -1166,6 +1251,7 @@ return (
 1. **Validación en backend**: NUNCA confiar en validación frontend.
 
 2. **Doble check de jerarquía**:
+
    ```typescript
    // En route.ts
    const validation = validateUserCreation(session, targetRole, email, orgId);
@@ -1185,6 +1271,7 @@ return (
 ### Añadir Nuevo Rol Administrativo
 
 1. **Actualizar enum en Prisma**:
+
    ```prisma
    enum Role {
      SUPER_ADMIN
@@ -1197,11 +1284,12 @@ return (
    ```
 
 2. **Actualizar jerarquía** en `src/lib/role-hierarchy.ts`:
+
    ```typescript
    export const ROLE_HIERARCHY = {
      SUPER_ADMIN: 5,
      ORG_ADMIN: 4,
-     FINANCE_ADMIN: 3,  // ⚡ Nuevo (mismo nivel que HR_ADMIN)
+     FINANCE_ADMIN: 3, // ⚡ Nuevo (mismo nivel que HR_ADMIN)
      HR_ADMIN: 3,
      MANAGER: 2,
      EMPLOYEE: 1,
@@ -1209,8 +1297,9 @@ return (
    ```
 
 3. **Actualizar schemas Zod**:
+
    ```typescript
-   role: z.enum(["ORG_ADMIN", "HR_ADMIN", "FINANCE_ADMIN"])
+   role: z.enum(["ORG_ADMIN", "HR_ADMIN", "FINANCE_ADMIN"]);
    ```
 
 4. **Actualizar permisos** en `src/lib/permissions.ts`.
@@ -1225,23 +1314,29 @@ return (
 ### Añadir Nuevos Campos al Formulario
 
 1. **Añadir campo opcional al schema**:
+
    ```typescript
-   professionalTitle: z.string().max(100).optional()
+   professionalTitle: z.string().max(100).optional();
    ```
 
 2. **Añadir a `superRefine`** si requiere validación condicional.
 
 3. **Añadir campo al formulario**:
+
    ```tsx
-   <FormField control={form.control} name="professionalTitle" render={({ field }) => (
-     <FormItem>
-       <FormLabel>Título profesional</FormLabel>
-       <FormControl>
-         <Input {...field} value={field.value || ""} />
-       </FormControl>
-       <FormMessage />
-     </FormItem>
-   )} />
+   <FormField
+     control={form.control}
+     name="professionalTitle"
+     render={({ field }) => (
+       <FormItem>
+         <FormLabel>Título profesional</FormLabel>
+         <FormControl>
+           <Input {...field} value={field.value || ""} />
+         </FormControl>
+         <FormMessage />
+       </FormItem>
+     )}
+   />
    ```
 
 4. **Actualizar `createUser()` en API** para incluir en insert.
@@ -1249,13 +1344,13 @@ return (
 ### Añadir Nueva Acción (ej: Exportar Lista)
 
 1. **Añadir acción en `users-columns.tsx`**:
+
    ```tsx
-   <DropdownMenuItem onClick={() => exportUsers()}>
-     Exportar a CSV
-   </DropdownMenuItem>
+   <DropdownMenuItem onClick={() => exportUsers()}>Exportar a CSV</DropdownMenuItem>
    ```
 
 2. **Crear función de exportación**:
+
    ```typescript
    const exportUsers = async () => {
      const response = await fetch("/api/admin/users/export");
@@ -1297,6 +1392,7 @@ return (
 ### v1.0.0 - 2025-10-17
 
 **Implementación inicial**:
+
 - ✅ Sistema completo de gestión de usuarios administrativos
 - ✅ Creación dual (con/sin empleado)
 - ✅ Validación condicional con Zod
@@ -1306,6 +1402,7 @@ return (
 - ✅ Documentación completa
 
 **Issues resueltos**:
+
 - 🐛 Fix: Dropdown de roles vacío (añadido `currentUserRole` a API GET)
 - 🐛 Fix: Botón crear no responde (manejo correcto de `undefined` en campos)
 - 🐛 Fix: Warning componentes no controlados (`value={field.value || ""}`)

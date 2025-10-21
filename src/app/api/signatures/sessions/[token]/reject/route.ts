@@ -185,6 +185,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({
       success: true,
       rejectedAt: now.toISOString(),
+      reason: data.reason,
     });
   } catch (error) {
     console.error("❌ Error al rechazar firma:", error);

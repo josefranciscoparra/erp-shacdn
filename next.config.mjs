@@ -1,3 +1,5 @@
+import path from "path";
+
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./src/i18n.ts');
@@ -15,6 +17,17 @@ const nextConfig = {
   },
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    turbo: {
+      resolveAlias: {
+        '@radix-ui/react-id': './src/lib/radix/stable-use-id.ts',
+      },
+    },
+  },
+  webpack(config) {
+    config.resolve = config.resolve ?? {};
+    config.resolve.alias = config.resolve.alias ?? {};
+    config.resolve.alias['@radix-ui/react-id'] = path.resolve('./src/lib/radix/stable-use-id.ts');
+    return config;
   },
   async redirects() {
     return [

@@ -36,6 +36,7 @@ export interface Signer {
   signedAt?: string;
   rejectedAt?: string;
   consentGivenAt?: string;
+  rejectionReason?: string | null;
 }
 
 export interface SignatureRequest {
@@ -77,6 +78,9 @@ export interface SignSession {
   status: "PENDING" | "SIGNED" | "REJECTED";
   consentGiven: boolean;
   consentGivenAt?: string;
+  signedAt?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
   order: number;
   employee: Employee;
   request: {
@@ -422,12 +426,45 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
 
       const result = await response.json();
 
-      set({ isSigning: false });
+      const state = get();
+      const session = state.currentSession;
+
+      if (session) {
+        const updatedSigners = session.allSigners.map((signer) =>
+          signer.id === session.signerId
+            ? {
+                ...signer,
+                status: "SIGNED",
+                signedAt: result.signedAt ?? signer.signedAt,
+                rejectedAt: undefined,
+                rejectionReason: null,
+              }
+            : signer,
+        );
+
+        set({
+          currentSession: {
+            ...session,
+            status: "SIGNED",
+            consentGiven: true,
+            signedAt: result.signedAt ?? session.signedAt ?? null,
+            rejectedAt: null,
+            rejectionReason: null,
+            request: {
+              ...session.request,
+              status: result.allCompleted ? "COMPLETED" : "IN_PROGRESS",
+            },
+            allSigners: updatedSigners,
+          },
+          isSigning: false,
+        });
+      } else {
+        set({ isSigning: false });
+      }
+
+      await get().fetchMyPendingSignatures({ refresh: true });
+
       toast.success("Documento firmado exitosamente");
-
-      // Limpiar sesión
-      get().clearSession();
-
       return true;
     } catch (error) {
       console.error("Error confirming signature:", error);
@@ -456,12 +493,44 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
         throw new Error(error.error ?? "Error al rechazar firma");
       }
 
-      set({ isSigning: false });
+      const result = await response.json();
+
+      const state = get();
+      const session = state.currentSession;
+
+      if (session) {
+        const updatedSigners = session.allSigners.map((signer) =>
+          signer.id === session.signerId
+            ? {
+                ...signer,
+                status: "REJECTED",
+                rejectedAt: result.rejectedAt ?? signer.rejectedAt,
+                rejectionReason: result.reason ?? signer.rejectionReason,
+              }
+            : signer,
+        );
+
+        set({
+          currentSession: {
+            ...session,
+            status: "REJECTED",
+            rejectedAt: result.rejectedAt ?? session.rejectedAt ?? null,
+            rejectionReason: result.reason ?? session.rejectionReason ?? null,
+            request: {
+              ...session.request,
+              status: "REJECTED",
+            },
+            allSigners: updatedSigners,
+          },
+          isSigning: false,
+        });
+      } else {
+        set({ isSigning: false });
+      }
+
+      await get().fetchMyPendingSignatures({ refresh: true });
+
       toast.success("Documento rechazado");
-
-      // Limpiar sesión
-      get().clearSession();
-
       return true;
     } catch (error) {
       console.error("Error rejecting signature:", error);
@@ -482,20 +551,24 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
       const response = await fetch(`/api/signatures/documents/${id}/download`);
 
       if (!response.ok) {
-        throw new Error("Error al descargar documento");
+        const errorPayload = await response.json().catch(() => null);
+        throw new Error(errorPayload?.error ?? "Error al descargar documento");
       }
 
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const { downloadUrl, fileName } = await response.json();
 
-      // Crear link temporal y descargar
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `documento-firmado-${id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      if (!downloadUrl) {
+        throw new Error("Documento no disponible");
+      }
+
+      const anchor = document.createElement("a");
+      anchor.href = downloadUrl;
+      anchor.target = "_blank";
+      anchor.rel = "noopener";
+      anchor.download = fileName ?? `documento-firmado-${id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
 
       toast.success("Documento descargado");
     } catch (error) {

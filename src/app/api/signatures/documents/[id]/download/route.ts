@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Role } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
-import { hasPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { signatureStorageService } from "@/lib/signatures/storage";
+import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
 
 export const runtime = "nodejs";
 
@@ -38,6 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             employee: {
               select: {
                 email: true,
+                userId: true,
               },
             },
           },
@@ -51,14 +54,46 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Verificar permisos
 
-    const isHROrAdmin =
-      hasPermission(session.user.role, "pto:read") || hasPermission(session.user.role, "settings:read");
+    const privilegedRoles: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+    const hasPrivilegedRole = privilegedRoles.includes(session.user.role as Role);
 
-    if (!isHROrAdmin) {
-      // Verificar si el usuario es uno de los firmantes
-      const isSigner = signatureRequest.signers.some((signer) => signer.employee.email === session.user.email);
+    if (!hasPrivilegedRole) {
+      console.info("🔍 Verificando acceso a descarga de firma", {
+        requestId: signatureRequest.id,
+        sessionUser: {
+          id: session.user.id,
+          email: session.user.email,
+          role: session.user.role,
+        },
+        signers: signatureRequest.signers.map((signer) => ({
+          signerId: signer.id,
+          status: signer.status,
+          employeeEmail: signer.employee.email,
+          employeeUserId: signer.employee.userId,
+        })),
+      });
+
+      const sessionEmail = session.user.email?.toLowerCase().trim();
+
+      const isSigner = signatureRequest.signers.some((signer) => {
+        const signerEmail = signer.employee.email?.toLowerCase().trim();
+        if (signerEmail && sessionEmail && signerEmail === sessionEmail) {
+          return true;
+        }
+
+        if (signer.employee.userId && signer.employee.userId === session.user.id) {
+          return true;
+        }
+
+        return false;
+      });
 
       if (!isSigner) {
+        console.info("🔍 Resultado verificación firmante", {
+          requestId: signatureRequest.id,
+          isSigner,
+          sessionEmail,
+        });
         return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
       }
     }
@@ -69,29 +104,38 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .sort((a, b) => (b.signedAt?.getTime() ?? 0) - (a.signedAt?.getTime() ?? 0))[0];
 
     if (!lastSigner?.signedFileUrl) {
-      // Si no hay documento firmado, devolver el original
-      const originalUrl = await signatureStorageService.getDocumentUrl(signatureRequest.document.originalFileUrl);
-      const originalDoc = await fetch(originalUrl);
-      const buffer = await originalDoc.arrayBuffer();
+      const originalPath = resolveSignatureStoragePath(signatureRequest.document.originalFileUrl);
+      if (!originalPath) {
+        console.error("❌ Documento original sin ruta válida", {
+          requestId: signatureRequest.id,
+          originalFileUrl: signatureRequest.document.originalFileUrl,
+        });
+        return NextResponse.json({ error: "Documento no disponible" }, { status: 500 });
+      }
 
-      return new NextResponse(buffer, {
-        headers: {
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `attachment; filename="${signatureRequest.document.title}.pdf"`,
-        },
+      const originalUrl = await signatureStorageService.getDocumentUrl(originalPath);
+
+      return NextResponse.json({
+        downloadUrl: originalUrl,
+        fileName: `${signatureRequest.document.title}.pdf`,
       });
     }
 
     // Descargar el documento firmado
-    const signedUrl = await signatureStorageService.getDocumentUrl(lastSigner.signedFileUrl);
-    const signedDoc = await fetch(signedUrl);
-    const buffer = await signedDoc.arrayBuffer();
+    const signedPath = resolveSignatureStoragePath(lastSigner.signedFileUrl);
+    if (!signedPath) {
+      console.error("❌ Documento firmado sin ruta válida", {
+        signerId: lastSigner.id,
+        signedFileUrl: lastSigner.signedFileUrl,
+      });
+      return NextResponse.json({ error: "Documento firmado no disponible" }, { status: 500 });
+    }
 
-    return new NextResponse(buffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="${signatureRequest.document.title}-firmado.pdf"`,
-      },
+    const signedUrl = await signatureStorageService.getDocumentUrl(signedPath);
+
+    return NextResponse.json({
+      downloadUrl: signedUrl,
+      fileName: `${signatureRequest.document.title}-firmado.pdf`,
     });
   } catch (error) {
     console.error("❌ Error al descargar documento firmado:", error);

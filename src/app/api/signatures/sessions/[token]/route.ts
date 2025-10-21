@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { signatureStorageService } from "@/lib/signatures/storage";
+import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
 
 export const runtime = "nodejs";
 
@@ -75,26 +77,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Sin permisos para esta firma" }, { status: 403 });
     }
 
-    // Verificar que no esté expirada
-    if (signer.request.expiresAt < new Date()) {
-      return NextResponse.json({ error: "Esta solicitud de firma ha expirado" }, { status: 410 });
-    }
+    // Si ya está firmado o rechazado, devolver la información completa para mostrar el estado
+    // Generar URL firmada para el documento (válida por 1 hora)
+    const documentPath = resolveSignatureStoragePath(signer.request.document.originalFileUrl);
+    const signedUrl = await signatureStorageService.getDocumentUrl(documentPath, 3600); // 1 hora
 
-    // Verificar que no esté ya firmado o rechazado
-    if (signer.status === "SIGNED") {
-      return NextResponse.json({ error: "Este documento ya fue firmado" }, { status: 400 });
-    }
-
-    if (signer.status === "REJECTED") {
-      return NextResponse.json({ error: "Este documento fue rechazado" }, { status: 400 });
-    }
-
-    // Transformar respuesta
+    // Devolver información completa incluso si está firmado/rechazado/expirado
+    // para que la UI pueda mostrar el estado correcto
     const response = {
       signerId: signer.id,
       status: signer.status,
       consentGiven: !!signer.consentGivenAt,
       consentGivenAt: signer.consentGivenAt?.toISOString() ?? null,
+      signedAt: signer.signedAt?.toISOString() ?? null,
+      rejectedAt: signer.rejectedAt?.toISOString() ?? null,
+      rejectionReason: signer.rejectionReason ?? null,
       order: signer.order,
       employee: signer.employee,
       request: {
@@ -104,13 +101,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         expiresAt: signer.request.expiresAt.toISOString(),
         createdAt: signer.request.createdAt.toISOString(),
       },
-      document: signer.request.document,
+      document: {
+        ...signer.request.document,
+        originalFileUrl: signedUrl, // Reemplazar path con URL firmada
+      },
       allSigners: signer.request.signers.map((s) => ({
         id: s.id,
         order: s.order,
         status: s.status,
         employee: s.employee,
+        consentGivenAt: s.consentGivenAt?.toISOString() ?? null,
         signedAt: s.signedAt?.toISOString() ?? null,
+        rejectedAt: s.rejectedAt?.toISOString() ?? null,
+        rejectionReason: s.rejectionReason ?? null,
       })),
     };
 

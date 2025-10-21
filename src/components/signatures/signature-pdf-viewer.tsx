@@ -5,6 +5,7 @@ import { useState } from "react";
 import { FileText, Loader2 } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface SignaturePdfViewerProps {
   pdfUrl: string;
@@ -15,6 +16,7 @@ interface SignaturePdfViewerProps {
 export function SignaturePdfViewer({ pdfUrl, title, className = "" }: SignaturePdfViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const handleLoad = () => {
     setIsLoading(false);
@@ -26,7 +28,7 @@ export function SignaturePdfViewer({ pdfUrl, title, className = "" }: SignatureP
   };
 
   return (
-    <Card className={`relative overflow-hidden ${className}`}>
+    <Card className={cn("relative flex h-full flex-col overflow-hidden", className)}>
       {/* Loading state */}
       {isLoading && (
         <div className="bg-background/80 absolute inset-0 z-10 flex items-center justify-center">
@@ -50,6 +52,7 @@ export function SignaturePdfViewer({ pdfUrl, title, className = "" }: SignatureP
                   onClick={() => {
                     setError(false);
                     setIsLoading(true);
+                    setReloadKey((prev) => prev + 1);
                   }}
                   className="text-primary underline"
                 >
@@ -72,9 +75,11 @@ export function SignaturePdfViewer({ pdfUrl, title, className = "" }: SignatureP
 
       {/* PDF Viewer */}
       <iframe
+        key={reloadKey}
         src={`${pdfUrl}#toolbar=1&navpanes=1&scrollbar=1&view=FitH`}
         title={title}
-        className="h-full min-h-[600px] w-full border-0 md:min-h-[800px]"
+        loading="lazy"
+        className="h-[70vh] w-full flex-1 border-0 md:h-[calc(100vh-240px)]"
         onLoad={handleLoad}
         onError={handleError}
       />

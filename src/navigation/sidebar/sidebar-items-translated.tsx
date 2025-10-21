@@ -15,6 +15,7 @@ import {
   Timer,
   CheckSquare,
   UserCog,
+  FileSignature,
   type LucideIcon,
 } from "lucide-react";
 
@@ -53,6 +54,7 @@ export interface NavGroup {
 export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated } = usePermissions();
   const documentsEnabled = features.documents;
+  const signaturesEnabled = features.signatures;
 
   const allItems = [
     {
@@ -86,6 +88,15 @@ export function useSidebarItems(): NavGroup[] {
                 title: "Mis Documentos",
                 url: "/dashboard/me/documents",
                 icon: FileText,
+              },
+            ]
+          : []),
+        ...(signaturesEnabled
+          ? [
+              {
+                title: "Mis Firmas",
+                url: "/dashboard/my-signatures",
+                icon: FileSignature,
               },
             ]
           : []),
@@ -123,6 +134,16 @@ export function useSidebarItems(): NavGroup[] {
           icon: CheckSquare,
           permission: "approve_requests",
         },
+        ...(signaturesEnabled
+          ? [
+              {
+                title: "Gestión de Firmas",
+                url: "/dashboard/signatures",
+                icon: FileSignature,
+                permission: "manage_organization" as Permission,
+              },
+            ]
+          : []),
       ],
     },
     {

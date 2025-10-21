@@ -33,6 +33,7 @@ const ALLOWED_MIME_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/json", // Para evidencias de firma
   "image/jpeg",
   "image/png",
   "image/webp",

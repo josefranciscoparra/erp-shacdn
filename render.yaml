@@ -14,8 +14,8 @@ services:
       - key: PORT
         value: 3000
       - key: DATABASE_URL
-        sync: false  # Configura esto manualmente en Render Dashboard
+        sync: false # Configura esto manualmente en Render Dashboard
       - key: NEXTAUTH_SECRET
-        sync: false  # Configura esto manualmente en Render Dashboard
+        sync: false # Configura esto manualmente en Render Dashboard
       - key: NEXTAUTH_URL
-        sync: false  # Configura esto manualmente en Render Dashboard
+        sync: false # Configura esto manualmente en Render Dashboard

@@ -166,6 +166,7 @@ When working with components:
 ### Errores que BLOQUEAN commits (nunca usar):
 
 1. **NUNCA usar `||` para valores por defecto** - SIEMPRE usar `??` (nullish coalescing)
+
    ```typescript
    ❌ INCORRECTO: const value = data.value || "default"
    ✅ CORRECTO:   const value = data.value ?? "default"
@@ -175,6 +176,7 @@ When working with components:
    ```
 
 2. **NUNCA declarar variables en catch sin usar** - Usar `catch {` en lugar de `catch (err) {`
+
    ```typescript
    ❌ INCORRECTO: } catch (err) { setError("Error"); }
    ✅ CORRECTO:   } catch { setError("Error"); }
@@ -195,6 +197,7 @@ When working with components:
 ### Validación antes de commit:
 
 **SIEMPRE ejecutar antes de hacer commit:**
+
 ```bash
 npm run lint
 ```

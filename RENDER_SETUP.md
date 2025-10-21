@@ -5,23 +5,28 @@
 Configura estas variables en **Render → Tu Servicio → Environment**:
 
 ### 🔐 Base de datos
+
 ```
 DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
 ```
+
 (Render provee esto automáticamente si vinculas una PostgreSQL database)
 
 ### 🔑 Autenticación
+
 ```
 NEXTAUTH_URL=https://tu-app.onrender.com
 NEXTAUTH_SECRET=[genera con: openssl rand -base64 32]
 ```
 
 ### 🔒 Encriptación
+
 ```
 ENCRYPTION_KEY=[genera con: openssl rand -hex 16]
 ```
 
 ### ☁️ Cloudflare R2
+
 ```
 R2_ACCOUNT_ID=tu-account-id
 R2_ACCESS_KEY_ID=tu-access-key
@@ -33,6 +38,7 @@ STORAGE_PROVIDER=r2
 ```
 
 ### 🚀 Otras
+
 ```
 NODE_ENV=production
 UPSTASH_REDIS_REST_URL=  (opcional)

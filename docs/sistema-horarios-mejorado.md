@@ -33,14 +33,17 @@ El sistema actual de horarios solo permite configurar horas semanales totales qu
 ### 2.1 Modelo Actual
 
 **EmploymentContract:**
+
 - `weeklyHours`: Horas semanales totales (ej: 40.00)
 - Asume distribución uniforme: `weeklyHours / 5 = horas por día`
 
 **TimeEntry:**
+
 - Registros individuales de entrada/salida
 - No hay concepto de "horario esperado"
 
 **WorkdaySummary:**
+
 - Calcula minutos trabajados totales
 - No compara con horario esperado
 - No detecta horas extras
@@ -69,9 +72,11 @@ El sistema actual de horarios solo permite configurar horas semanales totales qu
 ### 3.1 Conceptos Clave
 
 #### **Work Schedule (Horario Base)**
+
 Configuración del horario asignado a un contrato laboral.
 
 **Atributos funcionales:**
+
 - Nombre descriptivo (ej: "Oficina Estándar", "Turno Rotativo Comercio")
 - Tipo de horario: FIXED, FLEXIBLE, SHIFT_BASED, CUSTOM
 - Horas semanales totales
@@ -93,9 +98,11 @@ Configuración del horario asignado a un contrato laboral.
    - Ejemplo: L-X-V de 9-14h, M-J de 15-20h
 
 #### **Shift Pattern (Patrón de Turno)**
+
 Plantilla reutilizable de un turno específico.
 
 **Atributos funcionales:**
+
 - Nombre: "Turno Mañana", "Turno Tarde", "Turno Noche"
 - Hora inicio y fin
 - Descansos incluidos (ej: 30min de 12-12:30h)
@@ -104,15 +111,18 @@ Plantilla reutilizable de un turno específico.
 - Tipo: MORNING, AFTERNOON, NIGHT, SPLIT (partido)
 
 **Ejemplos:**
+
 - **Turno Mañana:** 06:00-14:00 (30min descanso) = 7.5h efectivas
 - **Turno Tarde:** 14:00-22:00 (30min descanso) = 7.5h efectivas
 - **Turno Noche:** 22:00-06:00 (1h descanso) = 7h efectivas
 - **Turno Partido:** 09:00-13:00 + 17:00-21:00 = 8h efectivas
 
 #### **Shift Assignment (Asignación de Turno)**
+
 Asignación concreta de un turno a un empleado en una fecha específica.
 
 **Atributos funcionales:**
+
 - Empleado asignado
 - Fecha concreta
 - Patrón de turno aplicado
@@ -121,9 +131,11 @@ Asignación concreta de un turno a un empleado en una fecha específica.
 - Creado por (planificador)
 
 #### **Overtime Record (Registro de Horas Extras)**
+
 Registro de tiempo trabajado por encima del horario esperado.
 
 **Atributos funcionales:**
+
 - Fecha del exceso
 - Minutos de exceso
 - Cálculo automático: `(tiempo trabajado) - (tiempo esperado) - (umbral tolerancia)`
@@ -140,11 +152,13 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 4.1 Caso: Trabajador Oficina (L-V, 8h/día)
 
 **Perfil:**
+
 - Jornada: 40h/semana
 - Días: Lunes a Viernes
 - Horario: 9:00 - 18:00 (1h comida)
 
 **Configuración:**
+
 1. Crear WorkSchedule tipo FIXED
 2. Horario: L-V, entrada 9:00, salida 18:00
 3. Descanso: 13:00-14:00 (1h, no computable)
@@ -152,6 +166,7 @@ Registro de tiempo trabajado por encima del horario esperado.
 5. Umbral horas extras: A partir de 15 minutos de exceso
 
 **Flujo diario:**
+
 1. Empleado ficha entrada a las 9:05 (5min retraso, dentro de tolerancia)
 2. Ficha salida de comida 13:00, entrada 14:00
 3. Ficha salida a las 18:30 (30min de más)
@@ -163,17 +178,20 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 4.2 Caso: Trabajador Comercio (6 días/semana, turnos rotativos)
 
 **Perfil:**
+
 - Jornada: 40h/semana distribuidas en 6 días
 - Días: Lunes a Sábado (domingo descanso)
 - Turnos: Mañana (9-14h) y Tarde (16-21h) rotativos
 
 **Configuración:**
+
 1. Crear WorkSchedule tipo SHIFT_BASED
 2. Crear ShiftPattern "Turno Mañana": 9:00-14:00 = 5h
 3. Crear ShiftPattern "Turno Tarde": 16:00-21:00 = 5h
 4. Crear ShiftPattern "Jornada Completa": 9:00-14:00 + 16:00-21:00 = 10h (sábados)
 
 **Planificación semanal:**
+
 - **Lunes:** Mañana (5h)
 - **Martes:** Tarde (5h)
 - **Miércoles:** Mañana (5h)
@@ -184,6 +202,7 @@ Registro de tiempo trabajado por encima del horario esperado.
 - **Total:** 35h (ajustar según convenio)
 
 **Flujo mensual:**
+
 1. RRHH crea asignaciones para todo el mes
 2. Empleado ve su calendario con turnos asignados
 3. Sistema genera horario esperado por día automáticamente
@@ -193,11 +212,13 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 4.3 Caso: Trabajador Turnos 12h Rotativos (Industria)
 
 **Perfil:**
+
 - Jornada: 40h/semana promedio (ciclos de 2 semanas)
 - Patrón: 3 días ON (12h) / 3 días OFF
 - Turnos: Solo día (6:00-18:00) o solo noche (18:00-6:00)
 
 **Configuración:**
+
 1. Crear WorkSchedule tipo SHIFT_BASED con patrón 2 semanas
 2. Crear ShiftPattern "Turno Día 12h": 6:00-18:00 (1h descanso) = 11h efectivas
 3. Crear ShiftPattern "Turno Noche 12h": 18:00-6:00 (1h descanso) = 11h efectivas
@@ -205,10 +226,12 @@ Registro de tiempo trabajado por encima del horario esperado.
 **Planificación ciclo 2 semanas:**
 
 **Semana 1:**
+
 - L-M-X: Turno Día (33h)
 - J-V-S-D: Descanso
 
 **Semana 2:**
+
 - L-M-X: Descanso
 - J-V-S: Turno Noche (33h)
 - D: Descanso
@@ -216,6 +239,7 @@ Registro de tiempo trabajado por encima del horario esperado.
 **Total ciclo:** 66h en 2 semanas = 33h/semana promedio
 
 **Consideraciones:**
+
 - El sistema debe calcular promedios en ciclos configurables
 - Horas extras se calculan sobre el ciclo completo, no por día
 - Fichajes nocturnos cruzan días (requiere lógica especial)
@@ -223,11 +247,13 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 4.4 Caso: Trabajador Horario Flexible
 
 **Perfil:**
+
 - Jornada: 40h/semana
 - Días: L-V
 - Flexibilidad: Entrada entre 7:00-10:00, mínimo 8h/día
 
 **Configuración:**
+
 1. Crear WorkSchedule tipo FLEXIBLE
 2. Ventana entrada: 7:00-10:00
 3. Horas mínimas por día: 8h
@@ -235,15 +261,18 @@ Registro de tiempo trabajado por encima del horario esperado.
 5. Descanso mínimo: 1h (no computable)
 
 **Ejemplos válidos:**
+
 - Entrada 7:00, salida 16:00 (8h + 1h comida) ✅
 - Entrada 9:30, salida 18:30 (8h + 1h comida) ✅
 - Entrada 10:00, salida 19:00 (8h + 1h comida) ✅
 
 **Ejemplos inválidos:**
+
 - Entrada 10:15 (fuera de ventana) ❌
 - Entrada 9:00, salida 17:00 (solo 7h efectivas) ❌
 
 **Flujo:**
+
 1. Empleado ficha entrada dentro de ventana
 2. Sistema calcula hora mínima de salida: entrada + 8h + 1h comida
 3. Si sale antes, genera alerta de jornada incompleta
@@ -252,11 +281,13 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 4.5 Caso: Trabajador Tiempo Parcial Personalizado
 
 **Perfil:**
+
 - Jornada: 20h/semana
 - Días: Lunes, Miércoles, Viernes
 - Horario: Mañanas de 9:00 a 14:00 (sin descanso)
 
 **Configuración:**
+
 1. Crear WorkSchedule tipo CUSTOM
 2. **Lunes:** 9:00-14:00 = 5h
 3. **Martes:** No trabaja
@@ -288,6 +319,7 @@ Registro de tiempo trabajado por encima del horario esperado.
    - Ejemplo: Ciclo 2 semanas = 80h → Extras a partir de 82h
 
 **Umbrales configurables:**
+
 - Por organización (global)
 - Por departamento
 - Por empleado (excepciones)
@@ -339,18 +371,21 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 5.4 Políticas Configurables
 
 **Auto-aprobación:**
+
 - Activar/desactivar auto-aprobación
 - Límite de horas auto-aprobables (ej: hasta 30min)
 - Días de la semana aplicables
 - Empleados o departamentos excluidos
 
 **Alertas y límites:**
+
 - Máximo de horas extras por día (ej: no más de 2h/día)
 - Máximo de horas extras por semana (ej: no más de 10h/semana)
 - Máximo de horas extras por mes (ej: no más de 40h/mes)
 - Alertas a RRHH si se superan límites
 
 **Compensación:**
+
 - Proporción de compensación: 1:1 (1h extra = 1h libre) o 1:1.5
 - Días festivos: compensación mayor (ej: 1:2)
 - Plazo máximo para disfrutar compensación (ej: 6 meses)
@@ -363,12 +398,14 @@ Registro de tiempo trabajado por encima del horario esperado.
 ### 6.1 Vista de Planificación
 
 **Calendario mensual:**
+
 - Vista de cuadrícula: empleados (filas) x días (columnas)
 - Cada celda muestra turno asignado con color
 - Drag & drop para asignar/cambiar turnos
 - Detección de conflictos en tiempo real
 
 **Filtros:**
+
 - Por departamento
 - Por centro de coste
 - Por tipo de turno
@@ -386,6 +423,7 @@ Registro de tiempo trabajado por encima del horario esperado.
 6. **Descanso semanal:** Mínimo 1 día completo por semana
 
 **Alertas visuales:**
+
 - 🔴 Error grave: Incumple legislación (bloquea guardado)
 - 🟡 Advertencia: Excede recomendación (permite guardar con confirmación)
 - 🟢 OK: Cumple todas las reglas
@@ -395,11 +433,13 @@ Registro de tiempo trabajado por encima del horario esperado.
 **Definir patrón de rotación:**
 
 Ejemplo: "Patrón Semanal Mañana-Tarde"
+
 - **Semana 1:** Mañana (L-V)
 - **Semana 2:** Tarde (L-V)
 - **Repetir ciclo**
 
 **Generación automática:**
+
 1. Seleccionar empleados
 2. Elegir patrón de rotación
 3. Indicar período (ej: próximos 3 meses)
@@ -407,6 +447,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 5. Revisar y confirmar
 
 **Excepciones:**
+
 - Marcar días festivos (no se asignan turnos)
 - Marcar vacaciones aprobadas (se saltan)
 - Permitir ajustes manuales post-generación
@@ -414,12 +455,14 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 ### 6.4 Confirmación de Turnos
 
 **Flujo:**
+
 1. **Planificador crea turnos:** Estado SCHEDULED
 2. **Sistema notifica empleados:** "Tu horario del próximo mes está disponible"
 3. **Empleado revisa y confirma:** Estado → CONFIRMED
 4. **Cambios post-confirmación:** Requieren aprobación bilateral
 
 **Notificaciones:**
+
 - X días antes del turno (ej: recordatorio 2 días antes)
 - Al cambiar un turno ya confirmado
 - Al solicitar cambio de turno con compañero (swap)
@@ -433,6 +476,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 **Página: /dashboard/work-schedules**
 
 **Funcionalidades:**
+
 - Listado de horarios configurados (tabla con filtros)
 - Botón "Crear Horario"
 - Al crear:
@@ -449,6 +493,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 **Página: /dashboard/shift-patterns**
 
 **Funcionalidades:**
+
 - Tarjetas visuales de patrones (con color y horas)
 - Botón "Crear Patrón de Turno"
 - Formulario simple: nombre, inicio, fin, descansos, color
@@ -460,6 +505,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 **Página: /dashboard/shift-planner**
 
 **Vista principal:**
+
 - Calendario estilo Gantt
 - Empleados en eje Y, días en eje X
 - Drag & drop de patrones desde sidebar
@@ -467,11 +513,13 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 - Estadísticas en tiempo real: horas planificadas vs. requeridas
 
 **Sidebar:**
+
 - Lista de patrones disponibles (arrastrables)
 - Filtros: departamento, centro, fecha
 - Herramientas: Copiar semana, Generar patrón rotativo, Limpiar selección
 
 **Acciones batch:**
+
 - Seleccionar múltiples empleados
 - Asignar mismo turno a todos
 - Generar patrón automático
@@ -482,6 +530,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 **Página: /dashboard/my-schedule**
 
 **Vista calendario:**
+
 - Mes actual con turnos asignados
 - Hoy destacado
 - Cada día muestra:
@@ -491,12 +540,14 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
   - Estado: Pendiente / Completado / Horas extras detectadas
 
 **Información lateral:**
+
 - Resumen semanal: horas esperadas / trabajadas
 - Resumen mensual: total acumulado
 - Horas extras pendientes de aprobación
 - Próximos turnos (lista)
 
 **Acciones:**
+
 - Solicitar cambio de turno
 - Ver compañeros con mismo turno
 - Descargar horario en PDF/iCal
@@ -506,12 +557,14 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 **Página: /dashboard/overtime-approvals**
 
 **Vista de listado:**
+
 - Tabla de horas extras pendientes
 - Columnas: Empleado, Fecha, Horas extras, Justificación, Tipo
 - Filtros: Pendientes / Todas, Empleado, Fecha, Departamento
 - Ordenación: Más antiguas primero
 
 **Vista de detalle (modal):**
+
 - Información del día:
   - Horario esperado
   - Fichajes reales
@@ -525,6 +578,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
   - Tipo de compensación (si aprueba): Pago / Tiempo libre
 
 **Aprobación masiva:**
+
 - Checkbox para seleccionar múltiples
 - Botón "Aprobar seleccionadas" con confirmación
 
@@ -535,6 +589,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 ### 8.1 Validaciones de Configuración
 
 **Al crear/editar WorkSchedule:**
+
 - ✅ Horas semanales > 0 y ≤ límite legal (ej: 40h)
 - ✅ Al menos 1 día de trabajo seleccionado
 - ✅ Si tipo FIXED: horarios consistentes
@@ -543,11 +598,13 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 - ✅ Nombre único por organización
 
 **Al crear/editar ShiftPattern:**
+
 - ✅ Hora fin > hora inicio (o cruza medianoche explícito)
 - ✅ Descansos no superan duración total
 - ✅ Horas efectivas razonables (ej: entre 1h y 12h)
 
 **Al asignar ShiftAssignment:**
+
 - ✅ Empleado tiene contrato activo en esa fecha
 - ✅ No hay solapamiento con otro turno
 - ✅ Descanso mínimo desde último turno (ej: 12h)
@@ -557,6 +614,7 @@ Ejemplo: "Patrón Semanal Mañana-Tarde"
 ### 8.2 Cálculos Automáticos
 
 **Horas esperadas por día:**
+
 ```
 Si horario FIXED:
   horas_esperadas = horas_definidas_para_ese_día
@@ -572,6 +630,7 @@ Si horario CUSTOM:
 ```
 
 **Horas trabajadas:**
+
 ```
 1. Obtener todos los TimeEntry del día
 2. Agrupar por tipo: CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END
@@ -582,6 +641,7 @@ Si horario CUSTOM:
 ```
 
 **Horas extras:**
+
 ```
 diferencia = horas_trabajadas - horas_esperadas
 
@@ -596,6 +656,7 @@ Sino:
 ### 8.3 Notificaciones Automáticas
 
 **Empleado:**
+
 - 📅 Nuevo horario asignado (al crear/cambiar)
 - ⏰ Recordatorio de turno (X horas antes)
 - ✅ Horas extras aprobadas
@@ -603,11 +664,13 @@ Sino:
 - ⚠️ Jornada incompleta (no alcanzó horas mínimas)
 
 **Manager:**
+
 - 🔔 Nueva hora extra pendiente de aprobación
 - 📊 Resumen semanal de horas extras del equipo
 - ⚠️ Empleado supera límite de horas extras mensual
 
 **RRHH:**
+
 - 📈 Informe mensual de horas extras por departamento
 - 🚨 Alertas de incumplimiento legal (ej: empleado sin descanso semanal)
 - 📊 Turnos del próximo mes sin confirmar
@@ -621,6 +684,7 @@ Sino:
 **Objetivo:** Permitir configurar horarios personalizados por empleado.
 
 **Entregables:**
+
 - Modelo de datos: WorkSchedule
 - CRUD de horarios (RRHH)
 - Asignación de horario a contrato laboral
@@ -628,6 +692,7 @@ Sino:
 - UI básica de visualización de mi horario (empleado)
 
 **Criterios de aceptación:**
+
 - Un empleado puede tener un horario FIXED asignado
 - El sistema calcula correctamente las horas esperadas por día
 - La página de fichajes muestra: esperadas / trabajadas / diferencia
@@ -639,6 +704,7 @@ Sino:
 **Objetivo:** Implementar sistema de turnos y planificador visual.
 
 **Entregables:**
+
 - Modelo de datos: ShiftPattern, ShiftAssignment
 - CRUD de patrones de turno
 - Planificador de turnos (calendario drag & drop)
@@ -647,6 +713,7 @@ Sino:
 - Notificaciones de turnos asignados
 
 **Criterios de aceptación:**
+
 - Se pueden crear patrones reutilizables (Mañana, Tarde, Noche)
 - Manager puede asignar turnos visualmente en calendario
 - Sistema valida y alerta de conflictos
@@ -659,6 +726,7 @@ Sino:
 **Objetivo:** Automatizar detección y aprobación de horas extras.
 
 **Entregables:**
+
 - Modelo de datos: OvertimeRecord
 - Detección automática de horas extras (al cerrar día)
 - Configuración de umbrales (global, departamento, empleado)
@@ -668,6 +736,7 @@ Sino:
 - Dashboard de horas extras para managers
 
 **Criterios de aceptación:**
+
 - Al superar umbral, se crea registro automáticamente
 - Empleado puede justificar y solicitar compensación
 - Manager puede aprobar/rechazar con comentarios
@@ -681,6 +750,7 @@ Sino:
 **Objetivo:** Soportar patrones complejos y generación automática.
 
 **Entregables:**
+
 - Patrones de rotación configurables (ciclos N semanas)
 - Generador automático de turnos según patrón
 - Soporte para ciclos de cómputo no semanales (ej: 2 semanas)
@@ -689,6 +759,7 @@ Sino:
 - Swap de turnos entre empleados (intercambio)
 
 **Criterios de aceptación:**
+
 - Se puede definir patrón "3 días ON / 3 días OFF" de 12h
 - Sistema genera automáticamente 3 meses de turnos
 - Horas extras se calculan sobre ciclo de 2 semanas
@@ -701,11 +772,13 @@ Sino:
 ### 10.1 Migración de Datos Existentes
 
 **WorkdaySummary actual:**
+
 - Ya tiene `totalWorkedMinutes` calculado
 - Añadir campo `expectedMinutes` (calculado retroactivamente)
 - Añadir campo `overtimeMinutes` (diferencia si positiva)
 
 **EmploymentContract actual:**
+
 - Ya tiene `weeklyHours`
 - Crear WorkSchedule FIXED por defecto: L-V, horas/día = weeklyHours/5
 - Asignar a todos los contratos existentes
@@ -713,11 +786,13 @@ Sino:
 ### 10.2 Rendimiento
 
 **Consultas frecuentes:**
+
 - Horas esperadas hoy para un empleado → Cachear horario activo
 - Turnos de la próxima semana → Index por fecha
 - Horas extras pendientes de un manager → Index por approverId + status
 
 **Carga pesada:**
+
 - Generación automática de 3 meses de turnos → Job asíncrono en background
 - Cálculo de horas extras de todo un mes → Procesamiento batch nocturno
 
@@ -725,21 +800,22 @@ Sino:
 
 **Roles y acciones:**
 
-| Acción | EMPLOYEE | MANAGER | HR_ADMIN | ORG_ADMIN |
-|--------|----------|---------|----------|-----------|
-| Ver mi horario | ✅ | ✅ | ✅ | ✅ |
-| Confirmar mi turno | ✅ | ✅ | ✅ | ✅ |
-| Justificar mis extras | ✅ | ✅ | ✅ | ✅ |
-| Ver horario de mi equipo | ❌ | ✅ | ✅ | ✅ |
-| Asignar turnos a mi equipo | ❌ | ✅ | ✅ | ✅ |
-| Aprobar extras de mi equipo | ❌ | ✅ | ✅ | ✅ |
-| Configurar horarios | ❌ | ❌ | ✅ | ✅ |
-| Configurar patrones de turno | ❌ | ❌ | ✅ | ✅ |
-| Ver dashboard global | ❌ | ❌ | ✅ | ✅ |
+| Acción                       | EMPLOYEE | MANAGER | HR_ADMIN | ORG_ADMIN |
+| ---------------------------- | -------- | ------- | -------- | --------- |
+| Ver mi horario               | ✅       | ✅      | ✅       | ✅        |
+| Confirmar mi turno           | ✅       | ✅      | ✅       | ✅        |
+| Justificar mis extras        | ✅       | ✅      | ✅       | ✅        |
+| Ver horario de mi equipo     | ❌       | ✅      | ✅       | ✅        |
+| Asignar turnos a mi equipo   | ❌       | ✅      | ✅       | ✅        |
+| Aprobar extras de mi equipo  | ❌       | ✅      | ✅       | ✅        |
+| Configurar horarios          | ❌       | ❌      | ✅       | ✅        |
+| Configurar patrones de turno | ❌       | ❌      | ✅       | ✅        |
+| Ver dashboard global         | ❌       | ❌      | ✅       | ✅        |
 
 ### 10.4 Exportación para Nómina
 
 **Formato de exportación:**
+
 - CSV/Excel con columnas:
   - Empleado (número empleado)
   - Mes/Año
