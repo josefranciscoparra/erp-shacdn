@@ -138,7 +138,7 @@ export default function NotificationsPage() {
       const data = await getAllMyNotifications(page, pageSize, unreadOnly);
       setNotifications(data.notifications as Notification[]);
       // Solo actualizar total y totalPages, no page/pageSize para evitar loops
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
         total: data.pagination.total,
         totalPages: data.pagination.totalPages,
@@ -157,7 +157,7 @@ export default function NotificationsPage() {
   useEffect(() => {
     // Resetear a página 1 cuando cambia el tab
     if (pagination.page !== 1) {
-      setPagination(prev => ({ ...prev, page: 1 }));
+      setPagination((prev) => ({ ...prev, page: 1 }));
     } else {
       loadNotifications(selectedTab === "unread", 1, pagination.pageSize);
     }
@@ -403,11 +403,12 @@ export default function NotificationsPage() {
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
     onPaginationChange: (updater) => {
-      const newPagination = typeof updater === "function"
-        ? updater({ pageIndex: pagination.page - 1, pageSize: pagination.pageSize })
-        : updater;
+      const newPagination =
+        typeof updater === "function"
+          ? updater({ pageIndex: pagination.page - 1, pageSize: pagination.pageSize })
+          : updater;
 
-      setPagination(prev => ({
+      setPagination((prev) => ({
         ...prev,
         page: newPagination.pageIndex + 1,
         pageSize: newPagination.pageSize,
