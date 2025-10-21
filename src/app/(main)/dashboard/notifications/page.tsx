@@ -15,7 +15,20 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2, Bell, Calendar, Check, X, Ban, CheckCheck, ExternalLink } from "lucide-react";
+import {
+  Loader2,
+  Bell,
+  Calendar,
+  Check,
+  X,
+  Ban,
+  CheckCheck,
+  ExternalLink,
+  FileCheck,
+  FileSignature,
+  FileClock,
+  FileX,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -78,6 +91,10 @@ const notificationIcons = {
   PTO_REMINDER: Calendar,
   DOCUMENT_UPLOADED: Calendar,
   SYSTEM_ANNOUNCEMENT: Calendar,
+  SIGNATURE_PENDING: FileSignature,
+  SIGNATURE_COMPLETED: FileCheck,
+  SIGNATURE_REJECTED: FileX,
+  SIGNATURE_EXPIRED: FileClock,
 };
 
 const notificationTypeLabels = {
@@ -88,6 +105,10 @@ const notificationTypeLabels = {
   PTO_REMINDER: "Recordatorio",
   DOCUMENT_UPLOADED: "Documento subido",
   SYSTEM_ANNOUNCEMENT: "Anuncio del sistema",
+  SIGNATURE_PENDING: "Firma pendiente",
+  SIGNATURE_COMPLETED: "Firma completada",
+  SIGNATURE_REJECTED: "Firma rechazada",
+  SIGNATURE_EXPIRED: "Firma expirada",
 };
 
 export default function NotificationsPage() {
@@ -294,6 +315,12 @@ export default function NotificationsPage() {
                   type === "PTO_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                   type === "PTO_SUBMITTED" && "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
                   type === "PTO_CANCELLED" && "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+                  type === "SIGNATURE_PENDING" &&
+                    "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
+                  type === "SIGNATURE_COMPLETED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "SIGNATURE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "SIGNATURE_EXPIRED" && "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
                 )}
               >
                 <Icon className="h-4 w-4" />

@@ -237,23 +237,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       });
     }
 
-    // 13. Crear notificación de firma completada para el empleado
-    if (signer.employee.id) {
-      const employeeUser = await prisma.user.findFirst({
-        where: {
-          orgId: session.user.orgId,
-          email: signer.employee.email ?? undefined,
-        },
+    // 13. Notificar al creador del documento que alguien firmó (solo si no es él mismo)
+    if (signer.request.createdByUserId && signer.request.createdByUserId !== session.user.id) {
+      await createSignatureCompletedNotification({
+        orgId: session.user.orgId,
+        userId: signer.request.createdByUserId,
+        documentTitle: signer.request.document.title,
+        requestId: signer.requestId,
+        signerName: `${signer.employee.firstName} ${signer.employee.lastName}`,
       });
-
-      if (employeeUser) {
-        await createSignatureCompletedNotification({
-          orgId: session.user.orgId,
-          userId: employeeUser.id,
-          documentTitle: signer.request.document.title,
-          requestId: signer.requestId,
-        });
-      }
     }
 
     return NextResponse.json({

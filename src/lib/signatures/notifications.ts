@@ -29,18 +29,25 @@ export async function createSignaturePendingNotification(data: {
 
 /**
  * Crea una notificación de firma completada
+ * Si se proporciona signerName, es para el creador del documento
+ * Si no se proporciona, es para el firmante (no debería usarse)
  */
 export async function createSignatureCompletedNotification(data: {
   orgId: string;
   userId: string;
   documentTitle: string;
   requestId: string;
+  signerName?: string;
 }) {
+  const message = data.signerName
+    ? `${data.signerName} ha firmado el documento "${data.documentTitle}".`
+    : `Se ha completado una firma del documento "${data.documentTitle}".`;
+
   return await prisma.ptoNotification.create({
     data: {
       type: "SIGNATURE_COMPLETED" as PtoNotificationType,
-      title: "Documento firmado exitosamente",
-      message: `Has firmado el documento "${data.documentTitle}" exitosamente.`,
+      title: "Documento firmado",
+      message,
       isRead: false,
       orgId: data.orgId,
       userId: data.userId,
