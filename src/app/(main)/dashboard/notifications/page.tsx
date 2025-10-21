@@ -124,7 +124,7 @@ export default function NotificationsPage() {
   const [selectedTab, setSelectedTab] = useState("unread");
   const [pagination, setPagination] = useState({
     page: 1,
-    pageSize: 20,
+    pageSize: 10,
     total: 0,
     totalPages: 0,
   });
@@ -132,12 +132,17 @@ export default function NotificationsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
-  const loadNotifications = async (unreadOnly: boolean = false, page: number = 1) => {
+  const loadNotifications = async (unreadOnly: boolean = false, page: number = 1, pageSize: number = 20) => {
     setIsLoading(true);
     try {
-      const data = await getAllMyNotifications(page, 20, unreadOnly);
+      const data = await getAllMyNotifications(page, pageSize, unreadOnly);
       setNotifications(data.notifications as Notification[]);
-      setPagination(data.pagination);
+      // Solo actualizar total y totalPages, no page/pageSize para evitar loops
+      setPagination(prev => ({
+        ...prev,
+        total: data.pagination.total,
+        totalPages: data.pagination.totalPages,
+      }));
       if (data.totals) {
         setTotals({ all: data.totals.all, unread: data.totals.unread });
       }
@@ -150,8 +155,19 @@ export default function NotificationsPage() {
   };
 
   useEffect(() => {
-    loadNotifications(selectedTab === "unread");
+    // Resetear a página 1 cuando cambia el tab
+    if (pagination.page !== 1) {
+      setPagination(prev => ({ ...prev, page: 1 }));
+    } else {
+      loadNotifications(selectedTab === "unread", 1, pagination.pageSize);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTab]);
+
+  useEffect(() => {
+    loadNotifications(selectedTab === "unread", pagination.page, pagination.pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
     if (highlightedNotificationId && selectedTab !== "all") {
@@ -163,7 +179,7 @@ export default function NotificationsPage() {
     try {
       await markAllNotificationsAsRead();
       toast.success("Todas las notificaciones marcadas como leídas");
-      await loadNotifications(selectedTab === "unread");
+      await loadNotifications(selectedTab === "unread", pagination.page, pagination.pageSize);
     } catch (error) {
       toast.error("Error al marcar notificaciones como leídas");
     }
@@ -386,8 +402,23 @@ export default function NotificationsPage() {
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
+    onPaginationChange: (updater) => {
+      const newPagination = typeof updater === "function"
+        ? updater({ pageIndex: pagination.page - 1, pageSize: pagination.pageSize })
+        : updater;
+
+      setPagination(prev => ({
+        ...prev,
+        page: newPagination.pageIndex + 1,
+        pageSize: newPagination.pageSize,
+      }));
+    },
     state: {
       sorting,
+      pagination: {
+        pageIndex: pagination.page - 1,
+        pageSize: pagination.pageSize,
+      },
     },
     manualPagination: true,
     pageCount: pagination.totalPages,
@@ -468,7 +499,7 @@ export default function NotificationsPage() {
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="flex flex-col gap-4">
                   <div className="overflow-hidden rounded-lg border">
                     <Table>
                       <TableHeader>
@@ -510,7 +541,7 @@ export default function NotificationsPage() {
                     </Table>
                   </div>
                   <DataTablePagination table={table} />
-                </>
+                </div>
               )}
             </TabsContent>
 
@@ -524,7 +555,7 @@ export default function NotificationsPage() {
                   </div>
                 </div>
               ) : (
-                <>
+                <div className="flex flex-col gap-4">
                   <div className="overflow-hidden rounded-lg border">
                     <Table>
                       <TableHeader>
@@ -566,7 +597,7 @@ export default function NotificationsPage() {
                     </Table>
                   </div>
                   <DataTablePagination table={table} />
-                </>
+                </div>
               )}
             </TabsContent>
           </>
