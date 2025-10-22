@@ -15,10 +15,11 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal, CalendarOff, CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { EmptyState } from "@/components/hr/empty-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,33 +40,44 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
   PENDING: {
     label: "Pendiente",
     icon: Clock,
-    className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    className:
+      "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400",
+    tooltip: "Tu solicitud está esperando aprobación",
   },
   APPROVED: {
     label: "Aprobada",
     icon: CheckCircle2,
-    className: "bg-green-500/10 text-green-700 dark:text-green-400",
+    className:
+      "border-green-200 bg-green-50 text-green-700 hover:bg-green-100 dark:border-green-900 dark:bg-green-950/30 dark:text-green-400",
+    tooltip: "Tu solicitud ha sido aprobada",
   },
   REJECTED: {
     label: "Rechazada",
     icon: XCircle,
-    className: "bg-red-500/10 text-red-700 dark:text-red-400",
+    className:
+      "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400",
+    tooltip: "Tu solicitud ha sido rechazada",
   },
   CANCELLED: {
     label: "Cancelada",
     icon: Ban,
-    className: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
+    className:
+      "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950/30 dark:text-gray-400",
+    tooltip: "Has cancelado esta solicitud",
   },
   DRAFT: {
     label: "Borrador",
     icon: Clock,
-    className: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
+    className:
+      "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-950/30 dark:text-gray-400",
+    tooltip: "Borrador sin enviar",
   },
 };
 
@@ -130,10 +143,19 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
           const Icon = config.icon;
 
           return (
-            <Badge variant="outline" className={config.className}>
-              <Icon className="mr-1 h-3 w-3" />
-              {config.label}
-            </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge variant="outline" className={`cursor-help transition-colors ${config.className}`}>
+                    <Icon className="mr-1.5 h-3.5 w-3.5" />
+                    {config.label}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{config.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           );
         },
       },
@@ -213,15 +235,53 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
     },
   });
 
+  // Determinar el mensaje del estado vacío según el tab
+  const getEmptyStateConfig = () => {
+    switch (status) {
+      case "active":
+        return {
+          icon: CalendarCheck,
+          title: "No tienes vacaciones activas",
+          description: "Tus próximas vacaciones aprobadas aparecerán aquí",
+        };
+      case "pending":
+        return {
+          icon: Clock,
+          title: "No tienes solicitudes pendientes",
+          description: "Cuando envíes una solicitud, aparecerá aquí esperando aprobación",
+        };
+      default:
+        return {
+          icon: CalendarOff,
+          title: "Aún no has solicitado vacaciones",
+          description: "Cuando realices tu primera solicitud, la verás aquí junto con su estado",
+        };
+    }
+  };
+
+  if (!table.getRowModel().rows?.length) {
+    const emptyConfig = getEmptyStateConfig();
+    return (
+      <Card className="bg-muted/20 border-dashed p-12">
+        <EmptyState
+          icon={emptyConfig.icon}
+          title={emptyConfig.title}
+          description={emptyConfig.description}
+          iconClassName="h-12 w-12"
+        />
+      </Card>
+    );
+  }
+
   return (
     <>
-      <div className="overflow-hidden rounded-lg border">
+      <div className="overflow-hidden rounded-lg border shadow-sm">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/30">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="font-semibold">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -229,21 +289,13 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
-                  ))}
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No hay solicitudes para mostrar
-                </TableCell>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id} className="hover:bg-muted/30 transition-colors">
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                ))}
               </TableRow>
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>
