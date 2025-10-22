@@ -15,11 +15,15 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   if (isLoadingBalance) {
     return (
-      <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="from-primary/5 to-card flex flex-col gap-2 bg-gradient-to-t p-6 shadow-xs">
+          <Card
+            key={i}
+            className="flex flex-col gap-2 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-xs dark:from-blue-950/20 dark:to-blue-900/10"
+          >
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-8 w-16" />
+            <Skeleton className="h-3 w-24" />
           </Card>
         ))}
       </div>
@@ -52,8 +56,8 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   }
 
   return (
-    <div className="grid gap-4 md:gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-xs dark:from-blue-950/20 dark:to-blue-900/10">
+    <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+      <Card className="flex flex-col gap-2 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-blue-950/20 dark:to-blue-900/10">
         <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
           <Calendar className="h-4 w-4" />
           Días asignados
@@ -62,7 +66,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         <div className="text-xs text-blue-600/70 dark:text-blue-400/70">Año {balance.year}</div>
       </Card>
 
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-green-50 to-green-100/50 p-6 shadow-xs dark:from-green-950/20 dark:to-green-900/10">
+      <Card className="flex flex-col gap-2 bg-gradient-to-br from-green-50 to-green-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-green-950/20 dark:to-green-900/10">
         <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
           <CheckCircle2 className="h-4 w-4" />
           Días usados
@@ -75,7 +79,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         </div>
       </Card>
 
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-amber-50 to-amber-100/50 p-6 shadow-xs dark:from-amber-950/20 dark:to-amber-900/10">
+      <Card className="flex flex-col gap-2 bg-gradient-to-br from-amber-50 to-amber-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-amber-950/20 dark:to-amber-900/10">
         <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
           <Clock className="h-4 w-4" />
           Días pendientes
@@ -84,7 +88,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         <div className="text-xs text-amber-600/70 dark:text-amber-400/70">En revisión</div>
       </Card>
 
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 shadow-xs dark:from-purple-950/20 dark:to-purple-900/10">
+      <Card className="flex flex-col gap-2 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-purple-950/20 dark:to-purple-900/10">
         <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-400">
           <CalendarDays className="h-4 w-4" />
           Días disponibles

@@ -262,15 +262,15 @@ export function MyDocuments() {
         <>
           {/* Vista de carpetas */}
           {!currentFolder && Object.keys(groupedDocuments).length > 0 && (
-            <div className="grid grid-cols-1 gap-4 @lg/main:grid-cols-2 @3xl/main:grid-cols-3 @5xl/main:grid-cols-4">
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
               {Object.entries(groupedDocuments).map(([category, docs]) => (
                 <button
                   key={category}
                   onClick={() => setCurrentFolder(category as DocumentKind)}
-                  className="group bg-card relative flex items-center gap-4 rounded-xl border p-5 shadow-sm transition-all hover:shadow-md hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-800"
+                  className="group relative flex h-24 items-center gap-4 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5"
                 >
-                  <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg transition-colors">
-                    <Folder className="h-6 w-6" />
+                  <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-14 w-14 shrink-0 items-center justify-center rounded-lg transition-colors">
+                    <Folder className="h-7 w-7" />
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col items-start">
                     <span className="truncate font-semibold">{documentKindLabels[category as DocumentKind]}</span>
@@ -285,11 +285,11 @@ export function MyDocuments() {
 
           {/* Vista de archivos dentro de carpeta */}
           {currentFolder && groupedDocuments[currentFolder] && (
-            <div className="grid grid-cols-1 gap-4 @md/main:grid-cols-2 @2xl/main:grid-cols-3 @4xl/main:grid-cols-4 @6xl/main:grid-cols-5">
+            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
               {groupedDocuments[currentFolder].map((doc) => (
                 <div
                   key={doc.id}
-                  className="group bg-card relative flex flex-col overflow-hidden rounded-xl border shadow-sm transition-all hover:shadow-md hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-800"
+                  className="group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all hover:shadow-md dark:bg-white/5"
                 >
                   {/* Miniatura del documento */}
                   <div className="bg-muted flex h-32 items-center justify-center">
@@ -307,11 +307,16 @@ export function MyDocuments() {
                     </div>
                   </div>
 
-                  {/* Botones de acción flotantes */}
-                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  {/* Botón de acciones siempre visible */}
+                  <div className="absolute top-2 right-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon" className="h-8 w-8 shadow-md" title="Más opciones">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 border-gray-200 bg-white shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+                          title="Más opciones"
+                        >
                           <MoreVertical className="h-4 w-4" />
                           <span className="sr-only">Más opciones</span>
                         </Button>

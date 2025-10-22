@@ -185,12 +185,14 @@ When working with components:
    ```
 
 3. **NUNCA importar componentes/funciones sin usarlos** - Eliminar imports no usados
+
    ```typescript
    ❌ INCORRECTO: import { Foo, Bar, Baz } from "lib" // Bar no se usa
    ✅ CORRECTO:   import { Foo, Baz } from "lib"
    ```
 
 4. **CUIDADO con `??` y optional chaining juntos** - Usar `||` en lugar de `??` cuando ya se usa `?.`
+
    ```typescript
    ❌ INCORRECTO: event.calendar?.color ?? "default"  // Causa warning
    ✅ CORRECTO:   event.calendar?.color || "default"  // Sin warning

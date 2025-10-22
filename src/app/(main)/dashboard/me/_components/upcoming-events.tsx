@@ -19,7 +19,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
   if (events.length === 0) {
     return (
       <Card className="p-6">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Calendar className="text-muted-foreground h-5 w-5" />
             <h3 className="text-lg font-semibold">Próximos eventos</h3>
@@ -36,7 +36,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
 
   return (
     <Card className="p-6">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Calendar className="text-muted-foreground h-5 w-5" />
           <h3 className="text-lg font-semibold">Próximos eventos</h3>
@@ -49,7 +49,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         {events.map((event) => {
           const startDate = new Date(event.date);
           const endDate = event.endDate ? new Date(event.endDate) : null;
@@ -58,7 +58,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
           return (
             <div
               key={event.id}
-              className="hover:bg-accent flex items-start gap-3 rounded-lg border p-3 transition-colors"
+              className="hover:bg-accent dark:hover:bg-accent flex items-start gap-3 rounded-lg border bg-white p-3 transition-colors dark:bg-white/5"
             >
               {/* Indicador de color del calendario */}
               <div
@@ -66,10 +66,10 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                 style={{ backgroundColor: event.calendar?.color ?? "var(--border)" }}
               />
 
-              <div className="flex-1 space-y-1">
+              <div className="flex-1 space-y-0.5">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="font-medium">{event.name}</p>
-                  <span className="text-muted-foreground text-xs">
+                  <p className="text-sm font-medium">{event.name}</p>
+                  <span className="text-xs">
                     {event.eventType === "HOLIDAY" && "🏖️"}
                     {event.eventType === "COMPANY_EVENT" && "🏢"}
                     {event.eventType === "TRAINING" && "📚"}
@@ -78,7 +78,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                   </span>
                 </div>
 
-                <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
                   <span>{event.calendar?.name ?? "Calendario"}</span>
                   <span>•</span>
                   <span>

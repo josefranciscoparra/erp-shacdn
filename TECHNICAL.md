@@ -29,6 +29,7 @@
 ### ¿Qué es Timenow?
 
 **Timenow** es un sistema ERP (Enterprise Resource Planning) moderno enfocado en:
+
 - ✅ Gestión de Recursos Humanos (RRHH)
 - ✅ Control de tiempos y fichajes
 - ✅ Gestión de vacaciones (PTO - Paid Time Off)
@@ -38,6 +39,7 @@
 ### Alcance del Proyecto
 
 Este es un ERP **SaaS B2B** donde:
+
 - Múltiples organizaciones pueden usar el mismo sistema
 - Cada organización tiene sus propios empleados, departamentos, etc.
 - Hay separación total de datos entre organizaciones (multi-tenancy)
@@ -46,6 +48,7 @@ Este es un ERP **SaaS B2B** donde:
 ### ¿Por qué un stack JavaScript/TypeScript y no Java?
 
 **Ventajas clave:**
+
 - **Full-stack con un solo lenguaje**: TypeScript en frontend y backend
 - **Server-Side Rendering (SSR)**: Next.js renderiza en servidor, mejor SEO y performance
 - **Developer Experience**: Hot-reload instantáneo, ecosystem npm masivo
@@ -53,6 +56,7 @@ Este es un ERP **SaaS B2B** donde:
 - **UI moderna**: React + Tailwind CSS permite UIs complejas con menos código
 
 **Comparación con Java/Spring:**
+
 ```
 Java/Spring Boot          →  Next.js 15
 Spring MVC Controllers    →  API Routes
@@ -71,16 +75,19 @@ Spring Security          →  NextAuth
 #### **React 19** (UI Library)
 
 **¿Qué es?**
+
 - Librería de JavaScript para construir interfaces de usuario basada en componentes
 - Cada componente es una función que retorna JSX (HTML + JavaScript)
 
 **¿Por qué React y no Angular/Vue?**
+
 - ✅ **Ecosystem**: Mayor cantidad de librerías y componentes listos
 - ✅ **Talent pool**: Más desarrolladores conocen React
 - ✅ **Server Components**: React 19 permite renderizar en servidor de forma nativa
 - ✅ **Next.js**: Framework más maduro y optimizado para producción
 
 **Analogía Java:**
+
 ```
 React Component  ≈  JSP Tag / Thymeleaf Fragment
 Props           ≈  Parámetros del tag
@@ -92,6 +99,7 @@ State           ≈  Variables de instancia
 #### **Next.js 15** (Framework Full-Stack)
 
 **¿Qué es?**
+
 - Framework de React que añade:
   - **Routing** basado en sistema de archivos
   - **Server-Side Rendering (SSR)**
@@ -100,21 +108,23 @@ State           ≈  Variables de instancia
 
 **¿Por qué Next.js y no React puro?**
 
-| Aspecto | React puro (CRA/Vite) | Next.js |
-|---------|----------------------|---------|
-| **Routing** | Necesitas React Router (manual) | Basado en carpetas (automático) |
-| **SEO** | ❌ Malo (CSR = Client-Side Rendering) | ✅ Excelente (SSR/SSG) |
-| **Performance** | Depende de tu config | ✅ Optimizado out-of-the-box |
-| **Backend** | Necesitas Express/Fastify separado | ✅ API Routes integradas |
-| **Deploy** | Necesitas configurar servidor | ✅ Vercel one-click deploy |
+| Aspecto         | React puro (CRA/Vite)                 | Next.js                         |
+| --------------- | ------------------------------------- | ------------------------------- |
+| **Routing**     | Necesitas React Router (manual)       | Basado en carpetas (automático) |
+| **SEO**         | ❌ Malo (CSR = Client-Side Rendering) | ✅ Excelente (SSR/SSG)          |
+| **Performance** | Depende de tu config                  | ✅ Optimizado out-of-the-box    |
+| **Backend**     | Necesitas Express/Fastify separado    | ✅ API Routes integradas        |
+| **Deploy**      | Necesitas configurar servidor         | ✅ Vercel one-click deploy      |
 
 **Analogía Java:**
+
 ```
 Next.js  ≈  Spring Boot (framework opinionado y completo)
 React    ≈  Servlets (librería base, necesitas configurar todo)
 ```
 
 **Ejemplo de routing:**
+
 ```
 src/app/
   └── dashboard/
@@ -124,6 +134,7 @@ src/app/
 ```
 
 vs Java Spring:
+
 ```java
 @GetMapping("/dashboard")
 @GetMapping("/dashboard/employees")
@@ -134,16 +145,19 @@ vs Java Spring:
 #### **TypeScript** (Lenguaje)
 
 **¿Qué es?**
+
 - JavaScript con **tipos estáticos**
 - Se compila a JavaScript antes de ejecutarse
 
 **¿Por qué TypeScript y no JavaScript puro?**
+
 - ✅ **Type safety**: Errores en compile-time, no en runtime
 - ✅ **Autocomplete**: IntelliSense en VSCode
 - ✅ **Refactoring seguro**: Como en Java
 - ✅ **Menos bugs**: El compilador te avisa de errores
 
 **Analogía Java:**
+
 ```typescript
 // TypeScript (tipado estático)
 interface Employee {
@@ -158,6 +172,7 @@ function getEmployee(id: string): Employee {
 ```
 
 vs JavaScript puro (sin tipos):
+
 ```javascript
 // JavaScript (cualquier cosa vale)
 function getEmployee(id) {
@@ -172,19 +187,21 @@ function getEmployee(id) {
 #### **Tailwind CSS v4** (Estilos)
 
 **¿Qué es?**
+
 - Framework de CSS basado en **utility classes**
 - En lugar de escribir CSS custom, usas clases predefinidas
 
 **¿Por qué Tailwind y no CSS/SCSS/Bootstrap?**
 
-| Aspecto | CSS/SCSS | Bootstrap | Tailwind |
-|---------|----------|-----------|----------|
-| **Personalización** | ✅ Total | ❌ Difícil | ✅ Total |
-| **Tamaño bundle** | Depende | ❌ Grande | ✅ Pequeño (tree-shaking) |
-| **Consistencia** | ❌ Manual | ✅ Automática | ✅ Automática |
-| **Speed** | ❌ Lento escribir | ✅ Rápido | ✅ Muy rápido |
+| Aspecto             | CSS/SCSS          | Bootstrap     | Tailwind                  |
+| ------------------- | ----------------- | ------------- | ------------------------- |
+| **Personalización** | ✅ Total          | ❌ Difícil    | ✅ Total                  |
+| **Tamaño bundle**   | Depende           | ❌ Grande     | ✅ Pequeño (tree-shaking) |
+| **Consistencia**    | ❌ Manual         | ✅ Automática | ✅ Automática             |
+| **Speed**           | ❌ Lento escribir | ✅ Rápido     | ✅ Muy rápido             |
 
 **Ejemplo:**
+
 ```tsx
 // Con Tailwind
 <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
@@ -206,6 +223,7 @@ function getEmployee(id) {
 ```
 
 **Analogía Java:**
+
 - Tailwind es como usar **Lombok**: convenciones sobre configuración
 - CSS custom es como escribir todos tus getters/setters a mano
 
@@ -214,20 +232,22 @@ function getEmployee(id) {
 #### **shadcn/ui** (Componentes UI)
 
 **¿Qué es?**
+
 - **NO es una librería de componentes** (como Material-UI o Ant Design)
 - Es una **colección de componentes copiables** que instalas en tu proyecto
 - Basado en Radix UI (componentes headless accesibles)
 
 **¿Por qué shadcn/ui y no Material-UI/Ant Design?**
 
-| Aspecto | Material-UI | Ant Design | shadcn/ui |
-|---------|-------------|------------|-----------|
-| **Personalización** | ❌ Difícil (overrides) | ❌ Difícil (less variables) | ✅ Total (código tuyo) |
-| **Bundle size** | ❌ Grande | ❌ Grande | ✅ Pequeño (tree-shaking) |
-| **Ownership** | ❌ Dependencia externa | ❌ Dependencia externa | ✅ Código en tu repo |
-| **Accesibilidad** | ✅ Buena | ⚠️ Regular | ✅ Excelente (Radix UI) |
+| Aspecto             | Material-UI            | Ant Design                  | shadcn/ui                 |
+| ------------------- | ---------------------- | --------------------------- | ------------------------- |
+| **Personalización** | ❌ Difícil (overrides) | ❌ Difícil (less variables) | ✅ Total (código tuyo)    |
+| **Bundle size**     | ❌ Grande              | ❌ Grande                   | ✅ Pequeño (tree-shaking) |
+| **Ownership**       | ❌ Dependencia externa | ❌ Dependencia externa      | ✅ Código en tu repo      |
+| **Accesibilidad**   | ✅ Buena               | ⚠️ Regular                  | ✅ Excelente (Radix UI)   |
 
 **Filosofía:**
+
 ```bash
 # Material-UI (instalas librería)
 npm install @mui/material
@@ -246,10 +266,12 @@ npx shadcn@latest add button
 #### **Next.js API Routes** (REST API)
 
 **¿Qué es?**
+
 - **Backend integrado en Next.js**
 - Cada archivo en `src/app/api/` es un endpoint REST
 
 **Estructura:**
+
 ```
 src/app/api/
   └── employees/
@@ -259,6 +281,7 @@ src/app/api/
 ```
 
 **Ejemplo de endpoint:**
+
 ```typescript
 // src/app/api/employees/route.ts
 export async function GET(request: NextRequest) {
@@ -268,7 +291,7 @@ export async function GET(request: NextRequest) {
   }
 
   const employees = await prisma.employee.findMany({
-    where: { orgId: session.user.orgId }
+    where: { orgId: session.user.orgId },
   });
 
   return NextResponse.json(employees);
@@ -276,6 +299,7 @@ export async function GET(request: NextRequest) {
 ```
 
 **Analogía Java/Spring:**
+
 ```java
 @RestController
 @RequestMapping("/api/employees")
@@ -289,6 +313,7 @@ public class EmployeeController {
 ```
 
 **¿Por qué API Routes y no Express/Fastify separado?**
+
 - ✅ **Monorepo**: Frontend y backend en el mismo proyecto
 - ✅ **TypeScript compartido**: Interfaces y tipos reutilizables
 - ✅ **Deploy unificado**: Un solo deploy (Vercel/Cloudflare)
@@ -299,17 +324,18 @@ public class EmployeeController {
 #### **Prisma ORM** (Base de datos)
 
 **¿Qué es?**
+
 - ORM moderno para Node.js (como JPA/Hibernate para Java)
 - Type-safe queries (autocomplete en TypeScript)
 
 **¿Por qué Prisma y no Sequelize/TypeORM?**
 
-| Aspecto | Sequelize | TypeORM | Prisma |
-|---------|-----------|---------|--------|
-| **Type safety** | ❌ Débil | ⚠️ Mejorable | ✅ Perfecto |
-| **Developer Experience** | ❌ Verbose | ⚠️ Regular | ✅ Excelente |
-| **Migrations** | ⚠️ Manual | ⚠️ Auto-generate | ✅ Auto-generate + review |
-| **Autocomplete** | ❌ No | ⚠️ Parcial | ✅ Total |
+| Aspecto                  | Sequelize  | TypeORM          | Prisma                    |
+| ------------------------ | ---------- | ---------------- | ------------------------- |
+| **Type safety**          | ❌ Débil   | ⚠️ Mejorable     | ✅ Perfecto               |
+| **Developer Experience** | ❌ Verbose | ⚠️ Regular       | ✅ Excelente              |
+| **Migrations**           | ⚠️ Manual  | ⚠️ Auto-generate | ✅ Auto-generate + review |
+| **Autocomplete**         | ❌ No      | ⚠️ Parcial       | ✅ Total                  |
 
 **Ejemplo comparativo:**
 
@@ -318,30 +344,28 @@ public class EmployeeController {
 const employees = await prisma.employee.findMany({
   where: {
     orgId: "org-123",
-    active: true
+    active: true,
   },
   include: {
     user: true,
     employmentContracts: {
-      where: { active: true }
-    }
-  }
+      where: { active: true },
+    },
+  },
 });
 
 // Sequelize (sin autocomplete, prone a errores)
 const employees = await Employee.findAll({
   where: {
     orgId: "org-123",
-    active: true
+    active: true,
   },
-  include: [
-    { model: User },
-    { model: EmploymentContract, where: { active: true } }
-  ]
+  include: [{ model: User }, { model: EmploymentContract, where: { active: true } }],
 });
 ```
 
 **Analogía Java:**
+
 ```
 Prisma    ≈  JPA + Hibernate + Querydsl
 Schema    ≈  @Entity classes
@@ -350,6 +374,7 @@ Client    ≈  EntityManager
 ```
 
 **Schema Prisma:**
+
 ```prisma
 model Employee {
   id        String   @id @default(cuid())
@@ -367,6 +392,7 @@ model Employee {
 ```
 
 vs Java JPA:
+
 ```java
 @Entity
 @Table(name = "employees")
@@ -396,21 +422,23 @@ public class Employee {
 
 **¿Por qué PostgreSQL y no MySQL/MongoDB?**
 
-| Feature | MySQL | PostgreSQL | MongoDB |
-|---------|-------|------------|---------|
-| **ACID Compliance** | ✅ Sí | ✅ Sí | ⚠️ Eventual |
-| **JSON Support** | ⚠️ Limitado | ✅ Excelente | ✅ Nativo |
-| **Complex Queries** | ⚠️ Regular | ✅ Excelente | ❌ Limitado |
-| **Transacciones** | ✅ Sí | ✅ Sí | ⚠️ Limitado |
-| **Full-text Search** | ⚠️ Básico | ✅ Avanzado | ✅ Bueno |
+| Feature              | MySQL       | PostgreSQL   | MongoDB     |
+| -------------------- | ----------- | ------------ | ----------- |
+| **ACID Compliance**  | ✅ Sí       | ✅ Sí        | ⚠️ Eventual |
+| **JSON Support**     | ⚠️ Limitado | ✅ Excelente | ✅ Nativo   |
+| **Complex Queries**  | ⚠️ Regular  | ✅ Excelente | ❌ Limitado |
+| **Transacciones**    | ✅ Sí       | ✅ Sí        | ⚠️ Limitado |
+| **Full-text Search** | ⚠️ Básico   | ✅ Avanzado  | ✅ Bueno    |
 
 **PostgreSQL elegido porque:**
+
 - ✅ **Relacional**: Un ERP necesita relaciones complejas (empleados, contratos, departamentos)
 - ✅ **JSONB**: Permite campos JSON cuando son necesarios (timeline de firmas, metadata)
 - ✅ **Extensiones**: PostGIS (geolocalización), pg_trgm (búsqueda fuzzy), etc.
 - ✅ **Prisma**: Mejor soporte y features
 
 **Casos de uso JSON en SQL relacional:**
+
 ```prisma
 model SignatureEvidence {
   id       String @id
@@ -432,28 +460,30 @@ model SignatureEvidence {
 #### **Zod** (Validación)
 
 **¿Qué es?**
+
 - Librería de validación de schemas TypeScript-first
 - Validación en runtime + inferencia de tipos
 
 **¿Por qué Zod y no Yup/Joi?**
 
-| Aspecto | Joi | Yup | Zod |
-|---------|-----|-----|-----|
-| **TypeScript** | ⚠️ Addon | ⚠️ Addon | ✅ Nativo |
-| **Type inference** | ❌ No | ⚠️ Limitado | ✅ Perfecto |
-| **Bundle size** | ❌ Grande | ⚠️ Medio | ✅ Pequeño |
-| **DX** | ⚠️ Regular | ⚠️ Regular | ✅ Excelente |
+| Aspecto            | Joi        | Yup         | Zod          |
+| ------------------ | ---------- | ----------- | ------------ |
+| **TypeScript**     | ⚠️ Addon   | ⚠️ Addon    | ✅ Nativo    |
+| **Type inference** | ❌ No      | ⚠️ Limitado | ✅ Perfecto  |
+| **Bundle size**    | ❌ Grande  | ⚠️ Medio    | ✅ Pequeño   |
+| **DX**             | ⚠️ Regular | ⚠️ Regular  | ✅ Excelente |
 
 **Ejemplo:**
+
 ```typescript
-import { z } from 'zod';
+import { z } from "zod";
 
 // Schema de validación
 const employeeSchema = z.object({
   firstName: z.string().min(1, "Nombre requerido"),
   lastName: z.string().min(1, "Apellido requerido"),
   email: z.string().email("Email inválido").optional(),
-  salary: z.number().positive("Salario debe ser positivo")
+  salary: z.number().positive("Salario debe ser positivo"),
 });
 
 // TypeScript infiere el tipo automáticamente
@@ -468,6 +498,7 @@ if (!result.success) {
 ```
 
 **Analogía Java:**
+
 ```java
 // Bean Validation (JSR 380)
 public class Employee {
@@ -492,23 +523,25 @@ public class Employee {
 #### **Zustand** (State Management)
 
 **¿Qué es?**
+
 - Librería de gestión de estado global **minimalista**
 - Alternativa a Redux/MobX
 
 **¿Por qué Zustand y no Redux/Context API?**
 
-| Aspecto | Redux | Context API | Zustand |
-|---------|-------|-------------|---------|
-| **Boilerplate** | ❌ Mucho | ✅ Poco | ✅ Mínimo |
-| **Performance** | ✅ Buena | ❌ Re-renders | ✅ Excelente |
-| **DevTools** | ✅ Redux DevTools | ❌ No | ✅ Redux DevTools |
-| **Learning curve** | ❌ Alta | ✅ Baja | ✅ Muy baja |
-| **TypeScript** | ⚠️ Verbose | ✅ Bueno | ✅ Excelente |
+| Aspecto            | Redux             | Context API   | Zustand           |
+| ------------------ | ----------------- | ------------- | ----------------- |
+| **Boilerplate**    | ❌ Mucho          | ✅ Poco       | ✅ Mínimo         |
+| **Performance**    | ✅ Buena          | ❌ Re-renders | ✅ Excelente      |
+| **DevTools**       | ✅ Redux DevTools | ❌ No         | ✅ Redux DevTools |
+| **Learning curve** | ❌ Alta           | ✅ Baja       | ✅ Muy baja       |
+| **TypeScript**     | ⚠️ Verbose        | ✅ Bueno      | ✅ Excelente      |
 
 **Ejemplo de store:**
+
 ```typescript
 // src/stores/employees-store.ts
-import { create } from 'zustand';
+import { create } from "zustand";
 
 interface EmployeesState {
   employees: Employee[];
@@ -527,14 +560,15 @@ export const useEmployeesStore = create<EmployeesState>((set) => ({
 
   fetchEmployees: async () => {
     set({ isLoading: true });
-    const response = await fetch('/api/employees');
+    const response = await fetch("/api/employees");
     const employees = await response.json();
     set({ employees, isLoading: false });
-  }
+  },
 }));
 ```
 
 **Uso en componentes:**
+
 ```typescript
 function EmployeeList() {
   const { employees, fetchEmployees, isLoading } = useEmployeesStore();
@@ -549,6 +583,7 @@ function EmployeeList() {
 ```
 
 **Analogía Java:**
+
 ```
 Zustand Store  ≈  Spring @Service (Singleton)
 Actions        ≈  Métodos públicos del Service
@@ -562,42 +597,41 @@ State          ≈  Variables de instancia
 #### **NextAuth v5** (Autenticación)
 
 **¿Qué es?**
+
 - Librería de autenticación para Next.js
 - Soporta múltiples providers (credentials, OAuth, etc.)
 - Manejo de sesiones (JWT o database)
 
 **¿Por qué NextAuth y no Passport/Auth0?**
 
-| Aspecto | Passport.js | Auth0 | NextAuth |
-|---------|-------------|-------|----------|
-| **Next.js integration** | ⚠️ Manual | ⚠️ Manual | ✅ Nativo |
-| **Costo** | ✅ Gratis | ❌ Paid (límites) | ✅ Gratis |
-| **Control** | ✅ Total | ❌ SaaS | ✅ Total |
-| **OAuth providers** | ⚠️ Manual | ✅ Automático | ✅ Automático |
-| **TypeScript** | ⚠️ Tipos addon | ✅ Bueno | ✅ Excelente |
+| Aspecto                 | Passport.js    | Auth0             | NextAuth      |
+| ----------------------- | -------------- | ----------------- | ------------- |
+| **Next.js integration** | ⚠️ Manual      | ⚠️ Manual         | ✅ Nativo     |
+| **Costo**               | ✅ Gratis      | ❌ Paid (límites) | ✅ Gratis     |
+| **Control**             | ✅ Total       | ❌ SaaS           | ✅ Total      |
+| **OAuth providers**     | ⚠️ Manual      | ✅ Automático     | ✅ Automático |
+| **TypeScript**          | ⚠️ Tipos addon | ✅ Bueno          | ✅ Excelente  |
 
 **Configuración:**
+
 ```typescript
 // src/lib/auth.ts
-import NextAuth from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { prisma } from './prisma';
-import bcrypt from 'bcryptjs';
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { prisma } from "./prisma";
+import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     CredentialsProvider({
       async authorize(credentials) {
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email }
+          where: { email: credentials.email },
         });
 
         if (!user) return null;
 
-        const isValid = await bcrypt.compare(
-          credentials.password,
-          user.password
-        );
+        const isValid = await bcrypt.compare(credentials.password, user.password);
 
         if (!isValid) return null;
 
@@ -605,13 +639,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           role: user.role,
-          orgId: user.orgId
+          orgId: user.orgId,
         };
-      }
-    })
+      },
+    }),
   ],
   session: {
-    strategy: 'jwt'
+    strategy: "jwt",
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -625,12 +659,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.role = token.role;
       session.user.orgId = token.orgId;
       return session;
-    }
-  }
+    },
+  },
 });
 ```
 
 **Analogía Java/Spring Security:**
+
 ```java
 // Spring Security equivalente
 @Configuration
@@ -653,6 +688,7 @@ public class SecurityConfig {
 ```
 
 **Uso en API:**
+
 ```typescript
 // Proteger endpoint
 export async function GET(request: NextRequest) {
@@ -673,22 +709,24 @@ export async function GET(request: NextRequest) {
 #### **TanStack Table** (Data Tables)
 
 **¿Qué es?**
+
 - Librería headless (sin UI) para construir tablas complejas
 - Soporta: sorting, filtering, pagination, row selection, etc.
 
 **¿Por qué TanStack Table y no AG Grid/Material Table?**
 
-| Aspecto | AG Grid | Material Table | TanStack Table |
-|---------|---------|----------------|----------------|
-| **Licencia** | ❌ Comercial (premium) | ✅ MIT | ✅ MIT |
-| **Personalización** | ⚠️ Limitada | ❌ Difícil | ✅ Total |
-| **Bundle size** | ❌ Muy grande | ❌ Grande | ✅ Pequeño |
-| **Headless** | ❌ No | ❌ No | ✅ Sí |
-| **TypeScript** | ✅ Bueno | ⚠️ Regular | ✅ Excelente |
+| Aspecto             | AG Grid                | Material Table | TanStack Table |
+| ------------------- | ---------------------- | -------------- | -------------- |
+| **Licencia**        | ❌ Comercial (premium) | ✅ MIT         | ✅ MIT         |
+| **Personalización** | ⚠️ Limitada            | ❌ Difícil     | ✅ Total       |
+| **Bundle size**     | ❌ Muy grande          | ❌ Grande      | ✅ Pequeño     |
+| **Headless**        | ❌ No                  | ❌ No          | ✅ Sí          |
+| **TypeScript**      | ✅ Bueno               | ⚠️ Regular     | ✅ Excelente   |
 
 **Headless = Solo lógica, tú pones el HTML/CSS**
 
 Ejemplo:
+
 ```typescript
 const table = useReactTable({
   data: employees,
@@ -744,21 +782,23 @@ return (
 ### 3.1 App Router (Next.js 15)
 
 **¿Qué es App Router?**
+
 - Nuevo sistema de routing introducido en Next.js 13+
 - Basado en **carpetas y archivos** (file-system routing)
 - Soporta **React Server Components (RSC)**
 
 **Comparación con Pages Router (viejo):**
 
-| Aspecto | Pages Router | App Router |
-|---------|--------------|------------|
-| **Ubicación** | `pages/` | `src/app/` |
-| **Routing** | Archivo = ruta | Carpeta + `page.tsx` = ruta |
-| **Layouts** | ⚠️ Manual | ✅ Anidados automáticos |
-| **Server Components** | ❌ No | ✅ Sí (por defecto) |
-| **Metadata** | ⚠️ Componente Head | ✅ Función `generateMetadata` |
+| Aspecto               | Pages Router       | App Router                    |
+| --------------------- | ------------------ | ----------------------------- |
+| **Ubicación**         | `pages/`           | `src/app/`                    |
+| **Routing**           | Archivo = ruta     | Carpeta + `page.tsx` = ruta   |
+| **Layouts**           | ⚠️ Manual          | ✅ Anidados automáticos       |
+| **Server Components** | ❌ No              | ✅ Sí (por defecto)           |
+| **Metadata**          | ⚠️ Componente Head | ✅ Función `generateMetadata` |
 
 **Ejemplo de estructura:**
+
 ```
 src/app/
   ├── layout.tsx              # Layout root (para TODAS las páginas)
@@ -781,6 +821,7 @@ src/app/
 ```
 
 **Analogía Java/Spring:**
+
 ```
 src/app/dashboard/employees/page.tsx
 ≈
@@ -794,6 +835,7 @@ public String employee(@PathVariable String id) { ... }
 ```
 
 **Route Groups: `(nombre)`**
+
 - Carpetas entre paréntesis NO afectan la URL
 - Sirven para organizar rutas con layouts compartidos
 
@@ -810,10 +852,12 @@ public String employee(@PathVariable String id) { ... }
 ### 3.2 Server Components vs Client Components
 
 **Concepto revolucionario de React 19:**
+
 - Por defecto, TODO es **Server Component** (renderiza en servidor)
 - Si necesitas interactividad (useState, onClick), usas `'use client'`
 
 **Server Components:**
+
 ```typescript
 // src/app/dashboard/employees/page.tsx
 // NO tiene 'use client' → Server Component
@@ -844,6 +888,7 @@ export default async function EmployeesPage() {
 ```
 
 **Client Components:**
+
 ```typescript
 // src/components/employee-form.tsx
 'use client'; // ← Marca como Client Component
@@ -872,16 +917,17 @@ export function EmployeeForm() {
 
 **¿Cuándo usar cada uno?**
 
-| Caso de uso | Tipo |
-|-------------|------|
-| Fetch de datos | ✅ Server Component |
+| Caso de uso            | Tipo                |
+| ---------------------- | ------------------- |
+| Fetch de datos         | ✅ Server Component |
 | Formularios con estado | ✅ Client Component |
-| Layouts estáticos | ✅ Server Component |
-| Modales, dropdowns | ✅ Client Component |
-| SEO content | ✅ Server Component |
-| Animations | ✅ Client Component |
+| Layouts estáticos      | ✅ Server Component |
+| Modales, dropdowns     | ✅ Client Component |
+| SEO content            | ✅ Server Component |
+| Animations             | ✅ Client Component |
 
 **Analogía Java:**
+
 ```
 Server Component  ≈  JSP/Thymeleaf (renderiza en servidor)
 Client Component  ≈  JavaScript en el navegador
@@ -894,10 +940,12 @@ Client Component  ≈  JavaScript en el navegador
 ### 3.3 Layouts Anidados
 
 **Concepto:**
+
 - Cada carpeta puede tener su propio `layout.tsx`
 - Los layouts se anidan automáticamente
 
 **Ejemplo:**
+
 ```
 src/app/
   ├── layout.tsx                    # Layout raíz (HTML, fonts, providers)
@@ -910,10 +958,17 @@ src/app/
 ```
 
 **Cuando visitas `/dashboard/employees`, Next.js renderiza:**
+
 ```tsx
-<RootLayout>           {/* app/layout.tsx */}
-  <MainLayout>         {/* app/(main)/layout.tsx */}
-    <DashboardLayout>  {/* app/(main)/dashboard/layout.tsx */}
+<RootLayout>
+  {" "}
+  {/* app/layout.tsx */}
+  <MainLayout>
+    {" "}
+    {/* app/(main)/layout.tsx */}
+    <DashboardLayout>
+      {" "}
+      {/* app/(main)/dashboard/layout.tsx */}
       <EmployeesPage /> {/* app/(main)/dashboard/employees/page.tsx */}
     </DashboardLayout>
   </MainLayout>
@@ -921,6 +976,7 @@ src/app/
 ```
 
 **Analogía Java/Spring:**
+
 ```
 Thymeleaf layout hierarchy:
   └── layout.html (master)
@@ -940,10 +996,12 @@ Next.js:
 ### 3.4 Colocation Pattern
 
 **Patrón de organización:**
+
 - Componentes, hooks, utils específicos de una ruta se colocan en `_components/`, `_hooks/`, etc.
 - El `_` indica que NO es una ruta
 
 **Ejemplo:**
+
 ```
 src/app/(main)/dashboard/employees/
   ├── page.tsx                        # Página principal
@@ -962,6 +1020,7 @@ src/app/(main)/dashboard/employees/
 **Ventaja**: Todo lo relacionado con "employees" está en la misma carpeta.
 
 **Analogía Java/Maven:**
+
 ```
 com.timenow.employees/
   ├── EmployeeController.java
@@ -977,6 +1036,7 @@ com.timenow.employees/
 ### 3.5 Metadata y SEO
 
 **Cada página puede exportar metadata:**
+
 ```typescript
 // src/app/dashboard/employees/page.tsx
 import { Metadata } from 'next';
@@ -992,6 +1052,7 @@ export default function EmployeesPage() {
 ```
 
 **Next.js automáticamente genera:**
+
 ```html
 <head>
   <title>Empleados - Timenow</title>
@@ -1000,21 +1061,23 @@ export default function EmployeesPage() {
 ```
 
 **Metadata dinámica:**
+
 ```typescript
 // src/app/dashboard/employees/[id]/page.tsx
 export async function generateMetadata({ params }): Promise<Metadata> {
   const employee = await prisma.employee.findUnique({
-    where: { id: params.id }
+    where: { id: params.id },
   });
 
   return {
     title: `${employee.firstName} ${employee.lastName} - Timenow`,
-    description: `Perfil de ${employee.firstName}`
+    description: `Perfil de ${employee.firstName}`,
   };
 }
 ```
 
 **Analogía Java/Spring:**
+
 ```java
 // Controller retorna ModelAndView con title
 @GetMapping("/employees/{id}")
@@ -1039,6 +1102,7 @@ public ModelAndView employee(@PathVariable String id) {
 4. **Usas el cliente** con autocomplete total
 
 **Schema Prisma:**
+
 ```prisma
 // prisma/schema.prisma
 
@@ -1124,17 +1188,20 @@ model Employee {
 ```
 
 **Ventajas:**
+
 - ✅ Una sola base de datos (más barato)
 - ✅ Backups unificados
 - ✅ Queries eficientes con índices en `orgId`
 
 **Desventajas:**
+
 - ⚠️ Debes SIEMPRE filtrar por `orgId` (riesgo de data leak)
 
 **Solución: Helper de Prisma**
+
 ```typescript
 // src/lib/prisma.ts
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 export const prisma = new PrismaClient();
 
@@ -1142,21 +1209,24 @@ export const prisma = new PrismaClient();
 export function createOrgPrisma(orgId: string) {
   return {
     employee: {
-      findMany: (args) => prisma.employee.findMany({
-        ...args,
-        where: { ...args?.where, orgId }
-      }),
-      findUnique: (args) => prisma.employee.findUnique({
-        ...args,
-        where: { ...args.where, orgId }
-      }),
+      findMany: (args) =>
+        prisma.employee.findMany({
+          ...args,
+          where: { ...args?.where, orgId },
+        }),
+      findUnique: (args) =>
+        prisma.employee.findUnique({
+          ...args,
+          where: { ...args.where, orgId },
+        }),
       // ... más métodos
-    }
+    },
   };
 }
 ```
 
 **Uso:**
+
 ```typescript
 const session = await auth();
 const db = createOrgPrisma(session.user.orgId);
@@ -1166,6 +1236,7 @@ const employees = await db.employee.findMany();
 ```
 
 **Analogía Java/Spring:**
+
 ```java
 @Entity
 @Where(clause = "org_id = :orgId") // Hibernate filter
@@ -1182,6 +1253,7 @@ public class Employee {
 **Estrategia incremental (desarrollo ágil):**
 
 En lugar de crear TODO el schema de una vez:
+
 1. Sprint 0: Solo `Organization`, `User`, `Session`
 2. Sprint 1: Añadir `Employee`, `Department`, `CostCenter`
 3. Sprint 2: Añadir `TimeEntry`, `WorkdaySummary`
@@ -1205,13 +1277,14 @@ npx prisma migrate reset
 
 **IMPORTANTE: `db push` vs `migrate dev`**
 
-| Comando | Cuándo usar |
-|---------|-------------|
-| `prisma db push` | Desarrollo rápido, cambios temporales, NO perder datos |
-| `prisma migrate dev` | Cambios finales que quieres versionar |
-| `prisma migrate reset` | Solo con PERMISO EXPLÍCITO (borra todo) |
+| Comando                | Cuándo usar                                            |
+| ---------------------- | ------------------------------------------------------ |
+| `prisma db push`       | Desarrollo rápido, cambios temporales, NO perder datos |
+| `prisma migrate dev`   | Cambios finales que quieres versionar                  |
+| `prisma migrate reset` | Solo con PERMISO EXPLÍCITO (borra todo)                |
 
 **Analogía Java:**
+
 ```
 prisma migrate  ≈  Flyway/Liquibase
 db push         ≈  Hibernate hbm2ddl.auto=update
@@ -1222,10 +1295,11 @@ db push         ≈  Hibernate hbm2ddl.auto=update
 ### 4.4 Seed Data
 
 **Archivo de seed:**
+
 ```typescript
 // prisma/seed.ts
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
@@ -1235,8 +1309,8 @@ async function main() {
     data: {
       name: "Acme Corp",
       vat: "B12345678",
-      active: true
-    }
+      active: true,
+    },
   });
 
   // Crear super admin
@@ -1248,8 +1322,8 @@ async function main() {
       password: hashedPassword,
       name: "Super Admin",
       role: "SUPER_ADMIN",
-      orgId: org.id
-    }
+      orgId: org.id,
+    },
   });
 
   console.log("✅ Seed completado");
@@ -1266,11 +1340,13 @@ main()
 ```
 
 **Ejecutar seed:**
+
 ```bash
 npx prisma db seed
 ```
 
 **Configuración en `package.json`:**
+
 ```json
 {
   "prisma": {
@@ -1289,21 +1365,21 @@ npx prisma db seed
 
 ```typescript
 // src/lib/auth.ts
-import NextAuth from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-import { PrismaAdapter } from '@auth/prisma-adapter';
-import { prisma } from './prisma';
-import bcrypt from 'bcryptjs';
+import NextAuth from "next-auth";
+import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaAdapter } from "@auth/prisma-adapter";
+import { prisma } from "./prisma";
+import bcrypt from "bcryptjs";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
 
   providers: [
     CredentialsProvider({
-      name: 'Credentials',
+      name: "Credentials",
       credentials: {
         email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" }
+        password: { label: "Password", type: "password" },
       },
 
       async authorize(credentials) {
@@ -1314,7 +1390,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Buscar usuario
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
-          include: { organization: true }
+          include: { organization: true },
         });
 
         if (!user) {
@@ -1322,10 +1398,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         // Verificar contraseña
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
+        const isValid = await bcrypt.compare(credentials.password as string, user.password);
 
         if (!isValid) {
           throw new Error("Contraseña incorrecta");
@@ -1341,15 +1414,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
-          orgId: user.orgId
+          orgId: user.orgId,
         };
-      }
-    })
+      },
+    }),
   ],
 
   session: {
-    strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60 // 30 días
+    strategy: "jwt",
+    maxAge: 30 * 24 * 60 * 60, // 30 días
   },
 
   callbacks: {
@@ -1370,22 +1443,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.orgId = token.orgId as string;
       }
       return session;
-    }
+    },
   },
 
   pages: {
-    signIn: '/auth/login',
-    error: '/auth/error'
-  }
+    signIn: "/auth/login",
+    error: "/auth/error",
+  },
 });
 ```
 
 **Extender tipos de NextAuth:**
+
 ```typescript
 // src/types/next-auth.d.ts
-import 'next-auth';
+import "next-auth";
 
-declare module 'next-auth' {
+declare module "next-auth" {
   interface User {
     role: string;
     orgId: string;
@@ -1402,7 +1476,7 @@ declare module 'next-auth' {
   }
 }
 
-declare module 'next-auth/jwt' {
+declare module "next-auth/jwt" {
   interface JWT {
     role: string;
     orgId: string;
@@ -1416,34 +1490,28 @@ declare module 'next-auth/jwt' {
 
 ```typescript
 // src/app/api/employees/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   // 1. Verificar autenticación
   const session = await auth();
 
   if (!session?.user) {
-    return NextResponse.json(
-      { error: "No autorizado" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   // 2. Verificar rol
-  if (!['ORG_ADMIN', 'HR_ADMIN'].includes(session.user.role)) {
-    return NextResponse.json(
-      { error: "Sin permisos" },
-      { status: 403 }
-    );
+  if (!["ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
+    return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
 
   // 3. Query con orgId (multi-tenancy)
   const employees = await prisma.employee.findMany({
     where: {
-      orgId: session.user.orgId
-    }
+      orgId: session.user.orgId,
+    },
   });
 
   return NextResponse.json(employees);
@@ -1451,9 +1519,10 @@ export async function GET(request: NextRequest) {
 ```
 
 **Helper para permisos:**
+
 ```typescript
 // src/lib/permissions.ts
-import { auth } from './auth';
+import { auth } from "./auth";
 
 export async function requireAuth() {
   const session = await auth();
@@ -1473,7 +1542,7 @@ export async function requireRole(roles: string[]) {
 
 // Uso
 export async function GET() {
-  const session = await requireRole(['ORG_ADMIN', 'HR_ADMIN']);
+  const session = await requireRole(["ORG_ADMIN", "HR_ADMIN"]);
   // ...
 }
 ```
@@ -1510,29 +1579,30 @@ export default async function EmployeesPage() {
 ```
 
 **Middleware para rutas (opcional):**
+
 ```typescript
 // src/middleware.ts
-import { auth } from './lib/auth';
-import { NextResponse } from 'next/server';
+import { auth } from "./lib/auth";
+import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Rutas públicas
-  if (pathname.startsWith('/auth') || pathname === '/') {
+  if (pathname.startsWith("/auth") || pathname === "/") {
     return NextResponse.next();
   }
 
   // Verificar autenticación
   if (!req.auth) {
-    const loginUrl = new URL('/auth/login', req.url);
+    const loginUrl = new URL("/auth/login", req.url);
     return NextResponse.redirect(loginUrl);
   }
 
   // Verificar acceso a /admin
-  if (pathname.startsWith('/admin')) {
-    if (req.auth.user.role !== 'SUPER_ADMIN') {
-      return NextResponse.redirect(new URL('/unauthorized', req.url));
+  if (pathname.startsWith("/admin")) {
+    if (req.auth.user.role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
 
@@ -1540,7 +1610,7 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
 ```
 
@@ -1554,7 +1624,7 @@ export const config = {
 
 ```typescript
 // src/stores/employees-store.ts
-import { create } from 'zustand';
+import { create } from "zustand";
 
 export interface Employee {
   id: string;
@@ -1601,8 +1671,8 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
   fetchEmployees: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch('/api/employees');
-      if (!response.ok) throw new Error('Error al cargar empleados');
+      const response = await fetch("/api/employees");
+      if (!response.ok) throw new Error("Error al cargar empleados");
       const employees = await response.json();
       set({ employees, isLoading: false });
     } catch (error) {
@@ -1613,18 +1683,18 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
   createEmployee: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await fetch('/api/employees', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+      const response = await fetch("/api/employees", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Error al crear empleado');
+      if (!response.ok) throw new Error("Error al crear empleado");
       const newEmployee = await response.json();
 
       // Actualizar estado local
       set((state) => ({
         employees: [...state.employees, newEmployee],
-        isLoading: false
+        isLoading: false,
       }));
     } catch (error) {
       set({ error: error.message, isLoading: false });
@@ -1635,19 +1705,17 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`/api/employees/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
-      if (!response.ok) throw new Error('Error al actualizar');
+      if (!response.ok) throw new Error("Error al actualizar");
       const updated = await response.json();
 
       // Actualizar en el array
       set((state) => ({
-        employees: state.employees.map((emp) =>
-          emp.id === id ? updated : emp
-        ),
-        isLoading: false
+        employees: state.employees.map((emp) => (emp.id === id ? updated : emp)),
+        isLoading: false,
       }));
     } catch (error) {
       set({ error: error.message, isLoading: false });
@@ -1658,19 +1726,19 @@ export const useEmployeesStore = create<EmployeesState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await fetch(`/api/employees/${id}`, {
-        method: 'DELETE'
+        method: "DELETE",
       });
-      if (!response.ok) throw new Error('Error al eliminar');
+      if (!response.ok) throw new Error("Error al eliminar");
 
       // Eliminar del array local
       set((state) => ({
         employees: state.employees.filter((emp) => emp.id !== id),
-        isLoading: false
+        isLoading: false,
       }));
     } catch (error) {
       set({ error: error.message, isLoading: false });
     }
-  }
+  },
 }));
 ```
 
@@ -1721,31 +1789,32 @@ export function EmployeeList() {
 **Para guardar estado en localStorage:**
 
 ```typescript
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface PreferencesState {
-  theme: 'light' | 'dark';
+  theme: "light" | "dark";
   sidebarCollapsed: boolean;
-  setTheme: (theme: 'light' | 'dark') => void;
+  setTheme: (theme: "light" | "dark") => void;
   toggleSidebar: () => void;
 }
 
 export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({
-      theme: 'light',
+      theme: "light",
       sidebarCollapsed: false,
 
       setTheme: (theme) => set({ theme }),
-      toggleSidebar: () => set((state) => ({
-        sidebarCollapsed: !state.sidebarCollapsed
-      }))
+      toggleSidebar: () =>
+        set((state) => ({
+          sidebarCollapsed: !state.sidebarCollapsed,
+        })),
     }),
     {
-      name: 'preferences-storage', // Clave en localStorage
-    }
-  )
+      name: "preferences-storage", // Clave en localStorage
+    },
+  ),
 );
 ```
 
@@ -1777,6 +1846,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
 ```
 
 Uso en layout:
+
 ```typescript
 // src/app/layout.tsx
 import { PreferencesProvider } from '@/stores/preferences/preferences-provider';
@@ -1801,11 +1871,13 @@ export default function RootLayout({ children }) {
 ### 7.1 CSS Variables con OKLCH
 
 **¿Qué es OKLCH?**
+
 - Nuevo espacio de color moderno (reemplazo de HSL/RGB)
 - Perceptualmente uniforme (colores se ven equilibrados)
 - Mejor para manipulación programática
 
 **Estructura:**
+
 ```
 oklch(L C H)
   L = Lightness (0-1)
@@ -1814,38 +1886,39 @@ oklch(L C H)
 ```
 
 **Definición de variables:**
+
 ```css
 /* src/app/globals.css */
 
 :root {
   /* Light mode */
-  --background: oklch(1 0 0);              /* Blanco puro */
-  --foreground: oklch(0.1884 0.0128 248);  /* Texto oscuro */
-  --primary: oklch(0.6723 0.1606 245);     /* Azul primary */
-  --primary-foreground: oklch(1 0 0);      /* Texto en primary */
-  --border: oklch(0.9 0.002 286);          /* Bordes sutiles */
-  --radius: 0.5rem;                         /* Border radius */
+  --background: oklch(1 0 0); /* Blanco puro */
+  --foreground: oklch(0.1884 0.0128 248); /* Texto oscuro */
+  --primary: oklch(0.6723 0.1606 245); /* Azul primary */
+  --primary-foreground: oklch(1 0 0); /* Texto en primary */
+  --border: oklch(0.9 0.002 286); /* Bordes sutiles */
+  --radius: 0.5rem; /* Border radius */
 }
 
 .dark {
   /* Dark mode */
-  --background: oklch(0.15 0 0);           /* Negro/gris oscuro */
-  --foreground: oklch(0.98 0 0);           /* Texto claro */
-  --primary: oklch(0.7 0.19 245);          /* Azul más brillante */
-  --border: oklch(0.25 0.002 286);         /* Bordes oscuros */
+  --background: oklch(0.15 0 0); /* Negro/gris oscuro */
+  --foreground: oklch(0.98 0 0); /* Texto claro */
+  --primary: oklch(0.7 0.19 245); /* Azul más brillante */
+  --border: oklch(0.25 0.002 286); /* Bordes oscuros */
 }
 ```
 
 **Uso en Tailwind:**
+
 ```tsx
-<div className="bg-background text-foreground border border-border">
-  <button className="bg-primary text-primary-foreground">
-    Click me
-  </button>
+<div className="bg-background text-foreground border-border border">
+  <button className="bg-primary text-primary-foreground">Click me</button>
 </div>
 ```
 
 Tailwind mapea automáticamente:
+
 - `bg-background` → `var(--color-background)`
 - `text-primary` → `var(--color-primary)`
 
@@ -1859,20 +1932,21 @@ Tailwind mapea automáticamente:
 /* src/styles/presets/brutalist.css */
 [data-theme-preset="brutalist"] {
   --background: oklch(1 0 0);
-  --primary: oklch(0.1 0 0);              /* Negro brutalist */
-  --radius: 0rem;                          /* Sin border radius */
-  --shadow: none;                          /* Sin sombras */
+  --primary: oklch(0.1 0 0); /* Negro brutalist */
+  --radius: 0rem; /* Sin border radius */
+  --shadow: none; /* Sin sombras */
 }
 
 /* src/styles/presets/soft-pop.css */
 [data-theme-preset="soft-pop"] {
-  --primary: oklch(0.7 0.2 330);          /* Rosa vibrante */
-  --secondary: oklch(0.75 0.18 180);      /* Cyan */
-  --radius: 1rem;                          /* Muy redondeado */
+  --primary: oklch(0.7 0.2 330); /* Rosa vibrante */
+  --secondary: oklch(0.75 0.18 180); /* Cyan */
+  --radius: 1rem; /* Muy redondeado */
 }
 ```
 
 **Aplicar preset:**
+
 ```tsx
 <html data-theme-preset="brutalist" className="dark">
   <body>...</body>
@@ -1880,12 +1954,13 @@ Tailwind mapea automáticamente:
 ```
 
 **Store de preferencias:**
+
 ```typescript
 interface PreferencesState {
-  mode: 'light' | 'dark';
-  preset: 'blue' | 'brutalist' | 'soft-pop';
+  mode: "light" | "dark";
+  preset: "blue" | "brutalist" | "soft-pop";
 
-  setMode: (mode: 'light' | 'dark') => void;
+  setMode: (mode: "light" | "dark") => void;
   setPreset: (preset: string) => void;
 }
 ```
@@ -1898,29 +1973,29 @@ interface PreferencesState {
 
 **Convenciones Next.js:**
 
-| Archivo | HTTP Method | Ruta |
-|---------|-------------|------|
-| `api/employees/route.ts` | GET, POST | `/api/employees` |
-| `api/employees/[id]/route.ts` | GET, PUT, DELETE | `/api/employees/:id` |
-| `api/employees/[id]/contracts/route.ts` | GET, POST | `/api/employees/:id/contracts` |
+| Archivo                                 | HTTP Method      | Ruta                           |
+| --------------------------------------- | ---------------- | ------------------------------ |
+| `api/employees/route.ts`                | GET, POST        | `/api/employees`               |
+| `api/employees/[id]/route.ts`           | GET, PUT, DELETE | `/api/employees/:id`           |
+| `api/employees/[id]/contracts/route.ts` | GET, POST        | `/api/employees/:id/contracts` |
 
 **Ejemplo completo:**
 
 ```typescript
 // src/app/api/employees/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { z } from "zod";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 // Schema de validación
 const createEmployeeSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email().optional(),
-  nifNie: z.string().min(1)
+  nifNie: z.string().min(1),
 });
 
 // GET /api/employees
@@ -1928,23 +2003,20 @@ export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     const employees = await prisma.employee.findMany({
       where: { orgId: session.user.orgId },
       include: {
-        user: { select: { email: true, role: true } }
-      }
+        user: { select: { email: true, role: true } },
+      },
     });
 
     return NextResponse.json(employees);
   } catch (error) {
-    console.error('Error fetching employees:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    console.error("Error fetching employees:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 
@@ -1953,12 +2025,12 @@ export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     // Validar rol
-    if (!['ORG_ADMIN', 'HR_ADMIN'].includes(session.user.role)) {
-      return NextResponse.json({ error: 'Sin permisos' }, { status: 403 });
+    if (!["ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
+      return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
     // Parsear body
@@ -1967,10 +2039,7 @@ export async function POST(request: NextRequest) {
     // Validar con Zod
     const result = createEmployeeSchema.safeParse(body);
     if (!result.success) {
-      return NextResponse.json(
-        { error: 'Datos inválidos', details: result.error.errors },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Datos inválidos", details: result.error.errors }, { status: 400 });
     }
 
     // Crear empleado
@@ -1978,18 +2047,15 @@ export async function POST(request: NextRequest) {
       data: {
         ...result.data,
         orgId: session.user.orgId,
-        country: 'ES',
-        active: true
-      }
+        country: "ES",
+        active: true,
+      },
     });
 
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
-    console.error('Error creating employee:', error);
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500 }
-    );
+    console.error("Error creating employee:", error);
+    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
 ```
@@ -1998,44 +2064,38 @@ export async function POST(request: NextRequest) {
 
 ```typescript
 // src/app/api/employees/[id]/route.ts
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from "next/server";
 
 // GET /api/employees/:id
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   const employee = await prisma.employee.findFirst({
     where: {
       id: params.id,
-      orgId: session.user.orgId // Multi-tenancy
+      orgId: session.user.orgId, // Multi-tenancy
     },
     include: {
       employmentContracts: true,
-      documents: true
-    }
+      documents: true,
+    },
   });
 
   if (!employee) {
-    return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 });
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
   }
 
   return NextResponse.json(employee);
 }
 
 // PUT /api/employees/:id
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   const body = await request.json();
@@ -2043,41 +2103,38 @@ export async function PUT(
   const employee = await prisma.employee.updateMany({
     where: {
       id: params.id,
-      orgId: session.user.orgId // Seguridad: solo su org
+      orgId: session.user.orgId, // Seguridad: solo su org
     },
-    data: body
+    data: body,
   });
 
   if (employee.count === 0) {
-    return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 });
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });
 }
 
 // DELETE /api/employees/:id
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   // Soft delete (marcar como inactivo)
   const employee = await prisma.employee.updateMany({
     where: {
       id: params.id,
-      orgId: session.user.orgId
+      orgId: session.user.orgId,
     },
     data: {
-      active: false
-    }
+      active: false,
+    },
   });
 
   if (employee.count === 0) {
-    return NextResponse.json({ error: 'Empleado no encontrado' }, { status: 404 });
+    return NextResponse.json({ error: "Empleado no encontrado" }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });
@@ -2092,37 +2149,34 @@ export async function DELETE(
 
 ```typescript
 // src/app/api/employees/[id]/documents/upload/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
-import { prisma } from '@/lib/prisma';
-import { storage } from '@/lib/storage';
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { storage } from "@/lib/storage";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const session = await auth();
   if (!session?.user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
   const formData = await request.formData();
-  const file = formData.get('file') as File;
-  const documentKind = formData.get('kind') as string;
+  const file = formData.get("file") as File;
+  const documentKind = formData.get("kind") as string;
 
   if (!file) {
-    return NextResponse.json({ error: 'Archivo requerido' }, { status: 400 });
+    return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
   }
 
   // Validar tipo de archivo
-  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  const allowedTypes = ["application/pdf", "image/jpeg", "image/png"];
   if (!allowedTypes.includes(file.type)) {
-    return NextResponse.json({ error: 'Tipo de archivo no permitido' }, { status: 400 });
+    return NextResponse.json({ error: "Tipo de archivo no permitido" }, { status: 400 });
   }
 
   // Validar tamaño (5MB max)
   if (file.size > 5 * 1024 * 1024) {
-    return NextResponse.json({ error: 'Archivo muy grande (máx 5MB)' }, { status: 400 });
+    return NextResponse.json({ error: "Archivo muy grande (máx 5MB)" }, { status: 400 });
   }
 
   // Convertir File a Buffer
@@ -2134,7 +2188,7 @@ export async function POST(
     employeeId: params.id,
     fileName: file.name,
     buffer,
-    mimeType: file.type
+    mimeType: file.type,
   });
 
   // Guardar registro en BD
@@ -2147,8 +2201,8 @@ export async function POST(
       mimeType: file.type,
       employeeId: params.id,
       orgId: session.user.orgId,
-      uploadedById: session.user.id
-    }
+      uploadedById: session.user.id,
+    },
   });
 
   return NextResponse.json(document, { status: 201 });
@@ -2159,15 +2213,15 @@ export async function POST(
 
 ```typescript
 // src/lib/storage/providers/r2.ts
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 const r2 = new S3Client({
-  region: 'auto',
+  region: "auto",
   endpoint: process.env.R2_ENDPOINT,
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!
-  }
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  },
 });
 
 export async function uploadEmployeeDocument({
@@ -2175,7 +2229,7 @@ export async function uploadEmployeeDocument({
   employeeId,
   fileName,
   buffer,
-  mimeType
+  mimeType,
 }: {
   orgId: string;
   employeeId: string;
@@ -2185,12 +2239,14 @@ export async function uploadEmployeeDocument({
 }) {
   const key = `${orgId}/employees/${employeeId}/${Date.now()}-${fileName}`;
 
-  await r2.send(new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET,
-    Key: key,
-    Body: buffer,
-    ContentType: mimeType
-  }));
+  await r2.send(
+    new PutObjectCommand({
+      Bucket: process.env.R2_BUCKET,
+      Key: key,
+      Body: buffer,
+      ContentType: mimeType,
+    }),
+  );
 
   return `${process.env.R2_PUBLIC_URL}/${key}`;
 }
@@ -2206,29 +2262,32 @@ export async function uploadEmployeeDocument({
 
 ```typescript
 // src/lib/validations/employee.ts
-import { z } from 'zod';
+import { z } from "zod";
 
 export const createEmployeeSchema = z.object({
   employeeNumber: z.string().optional(),
   firstName: z.string().min(1, "Nombre requerido").max(100),
   lastName: z.string().min(1, "Apellido requerido").max(100),
   secondLastName: z.string().max(100).optional(),
-  nifNie: z.string()
-    .regex(/^[0-9]{8}[A-Z]$|^[XYZ][0-9]{7}[A-Z]$/, "NIF/NIE inválido"),
-  email: z.string().email("Email inválido").optional().or(z.literal('')),
+  nifNie: z.string().regex(/^[0-9]{8}[A-Z]$|^[XYZ][0-9]{7}[A-Z]$/, "NIF/NIE inválido"),
+  email: z.string().email("Email inválido").optional().or(z.literal("")),
   phone: z.string().optional(),
   mobilePhone: z.string().optional(),
   birthDate: z.string().optional(),
-  iban: z.string()
+  iban: z
+    .string()
     .regex(/^ES\d{22}$/, "IBAN español inválido")
     .optional()
-    .or(z.literal('')),
+    .or(z.literal("")),
   address: z.string().max(200).optional(),
   city: z.string().max(100).optional(),
-  postalCode: z.string().regex(/^\d{5}$/, "Código postal inválido").optional(),
+  postalCode: z
+    .string()
+    .regex(/^\d{5}$/, "Código postal inválido")
+    .optional(),
   province: z.string().max(100).optional(),
-  country: z.string().length(2).default('ES'),
-  nationality: z.string().length(2).optional()
+  country: z.string().length(2).default("ES"),
+  nationality: z.string().length(2).optional(),
 });
 
 export const updateEmployeeSchema = createEmployeeSchema.partial();
@@ -2241,7 +2300,7 @@ export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 
 ```typescript
 // src/app/api/employees/route.ts
-import { createEmployeeSchema } from '@/lib/validations/employee';
+import { createEmployeeSchema } from "@/lib/validations/employee";
 
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -2249,15 +2308,18 @@ export async function POST(request: NextRequest) {
   const result = createEmployeeSchema.safeParse(body);
 
   if (!result.success) {
-    return NextResponse.json({
-      error: 'Datos inválidos',
-      details: result.error.flatten()
-    }, { status: 400 });
+    return NextResponse.json(
+      {
+        error: "Datos inválidos",
+        details: result.error.flatten(),
+      },
+      { status: 400 },
+    );
   }
 
   // result.data está tipado y validado
   const employee = await prisma.employee.create({
-    data: result.data
+    data: result.data,
   });
 
   return NextResponse.json(employee);
@@ -2324,7 +2386,7 @@ export function EmployeeForm() {
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": true,              // Modo estricto
+    "strict": true, // Modo estricto
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",
@@ -2345,6 +2407,7 @@ export function EmployeeForm() {
 ```
 
 **Ventajas de `strict: true`:**
+
 - ✅ `strictNullChecks`: No permite `null/undefined` implícitos
 - ✅ `strictFunctionTypes`: Valida tipos de funciones
 - ✅ `noImplicitAny`: No permite `any` implícito
@@ -2356,15 +2419,16 @@ export function EmployeeForm() {
 
 ```typescript
 // Sin alias
-import { Button } from '../../../../components/ui/button';
-import { prisma } from '../../../../lib/prisma';
+import { Button } from "../../../../components/ui/button";
+import { prisma } from "../../../../lib/prisma";
 
 // Con alias @/*
-import { Button } from '@/components/ui/button';
-import { prisma } from '@/lib/prisma';
+import { Button } from "@/components/ui/button";
+import { prisma } from "@/lib/prisma";
 ```
 
 **Configurar en `tsconfig.json`:**
+
 ```json
 {
   "compilerOptions": {
@@ -2384,29 +2448,29 @@ import { prisma } from '@/lib/prisma';
 **Prisma genera tipos automáticamente:**
 
 ```typescript
-import { Employee, User, Prisma } from '@prisma/client';
+import { Employee, User, Prisma } from "@prisma/client";
 
 // Tipo generado del schema
 const employee: Employee = {
-  id: 'emp_123',
-  firstName: 'Juan',
-  lastName: 'Pérez',
+  id: "emp_123",
+  firstName: "Juan",
+  lastName: "Pérez",
   // ... todos los campos del schema
 };
 
 // Tipo para crear (sin id, sin timestamps)
 const newEmployee: Prisma.EmployeeCreateInput = {
-  firstName: 'María',
-  lastName: 'García',
+  firstName: "María",
+  lastName: "García",
   organization: {
-    connect: { id: 'org_123' }
-  }
+    connect: { id: "org_123" },
+  },
 };
 
 // Include types
 const employeeWithUser = await prisma.employee.findUnique({
-  where: { id: 'emp_123' },
-  include: { user: true }
+  where: { id: "emp_123" },
+  include: { user: true },
 });
 
 // Tipo automático: Employee & { user: User | null }
@@ -2431,6 +2495,7 @@ npx shadcn@latest add dialog
 Esto crea archivos en `src/components/ui/`:
 
 **Button component:**
+
 ```typescript
 // src/components/ui/button.tsx
 import * as React from "react"
@@ -2480,6 +2545,7 @@ export { Button, buttonVariants }
 ```
 
 **Uso:**
+
 ```tsx
 <Button>Default</Button>
 <Button variant="destructive">Eliminar</Button>
@@ -2779,22 +2845,22 @@ export function EmployeeList() {
 
 **¿Por qué R2 y no S3/Azure?**
 
-| Aspecto | AWS S3 | Azure Blob | Cloudflare R2 |
-|---------|--------|------------|---------------|
-| **Precio egress** | ❌ Caro | ❌ Caro | ✅ Gratis |
-| **Precio storage** | $0.023/GB | $0.018/GB | $0.015/GB |
-| **API** | S3 compatible | Propio | ✅ S3 compatible |
-| **Performance** | ✅ Excelente | ✅ Excelente | ✅ Excelente |
+| Aspecto            | AWS S3        | Azure Blob   | Cloudflare R2    |
+| ------------------ | ------------- | ------------ | ---------------- |
+| **Precio egress**  | ❌ Caro       | ❌ Caro      | ✅ Gratis        |
+| **Precio storage** | $0.023/GB     | $0.018/GB    | $0.015/GB        |
+| **API**            | S3 compatible | Propio       | ✅ S3 compatible |
+| **Performance**    | ✅ Excelente  | ✅ Excelente | ✅ Excelente     |
 
 **Configuración:**
 
 ```typescript
 // src/lib/storage/providers/r2.ts
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const r2 = new S3Client({
-  region: 'auto',
+  region: "auto",
   endpoint: process.env.R2_ENDPOINT, // https://[account-id].r2.cloudflarestorage.com
   credentials: {
     accessKeyId: process.env.R2_ACCESS_KEY_ID!,
@@ -2803,22 +2869,14 @@ const r2 = new S3Client({
 });
 
 export class R2Storage {
-  async upload({
-    key,
-    body,
-    contentType,
-  }: {
-    key: string;
-    body: Buffer;
-    contentType: string;
-  }): Promise<string> {
+  async upload({ key, body, contentType }: { key: string; body: Buffer; contentType: string }): Promise<string> {
     await r2.send(
       new PutObjectCommand({
         Bucket: process.env.R2_BUCKET,
         Key: key,
         Body: body,
         ContentType: contentType,
-      })
+      }),
     );
 
     return `${process.env.R2_PUBLIC_URL}/${key}`;
@@ -2841,11 +2899,11 @@ export const storage = new R2Storage();
 
 ```typescript
 // src/app/api/employees/[id]/documents/upload/route.ts
-import { storage } from '@/lib/storage/providers/r2';
+import { storage } from "@/lib/storage/providers/r2";
 
 export async function POST(request: NextRequest) {
   const formData = await request.formData();
-  const file = formData.get('file') as File;
+  const file = formData.get("file") as File;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const key = `${orgId}/employees/${employeeId}/${Date.now()}-${file.name}`;
@@ -2862,7 +2920,7 @@ export async function POST(request: NextRequest) {
       fileName: file.name,
       storageUrl: url,
       // ...
-    }
+    },
   });
 
   return NextResponse.json({ url });
@@ -2900,8 +2958,8 @@ export async function POST(request: NextRequest) {
 
 ```typescript
 // src/app/api/signatures/requests/create/route.ts
-import { storage } from '@/lib/storage';
-import { generateSignToken } from '@/lib/signatures';
+import { storage } from "@/lib/storage";
+import { generateSignToken } from "@/lib/signatures";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -2919,7 +2977,7 @@ export async function POST(request: NextRequest) {
       orgId: session.user.orgId,
       createdById: session.user.id,
       expiresAt: body.expiresAt,
-    }
+    },
   });
 
   // 2. Crear solicitud de firma
@@ -2927,9 +2985,9 @@ export async function POST(request: NextRequest) {
     data: {
       documentId: document.id,
       orgId: session.user.orgId,
-      policy: 'SES',
+      policy: "SES",
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
-    }
+    },
   });
 
   // 3. Crear firmantes
@@ -2942,7 +3000,7 @@ export async function POST(request: NextRequest) {
         employeeId: signerId,
         order: index + 1,
         signToken: token,
-      }
+      },
     });
 
     // 4. Enviar notificación
@@ -2961,33 +3019,30 @@ export async function POST(request: NextRequest) {
 
 ```typescript
 // src/app/api/signatures/sessions/[token]/route.ts
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: { token: string } }) {
   const signer = await prisma.signer.findUnique({
     where: { signToken: params.token },
     include: {
       request: {
         include: {
-          document: true
-        }
+          document: true,
+        },
       },
-      employee: true
-    }
+      employee: true,
+    },
   });
 
   if (!signer) {
-    return NextResponse.json({ error: 'Token inválido' }, { status: 404 });
+    return NextResponse.json({ error: "Token inválido" }, { status: 404 });
   }
 
-  if (signer.status !== 'PENDING') {
-    return NextResponse.json({ error: 'Ya firmado' }, { status: 400 });
+  if (signer.status !== "PENDING") {
+    return NextResponse.json({ error: "Ya firmado" }, { status: 400 });
   }
 
   // Verificar expiración
   if (new Date() > signer.request.expiresAt) {
-    return NextResponse.json({ error: 'Expirado' }, { status: 410 });
+    return NextResponse.json({ error: "Expirado" }, { status: 410 });
   }
 
   return NextResponse.json({
@@ -2996,7 +3051,7 @@ export async function GET(
     signer: {
       id: signer.id,
       order: signer.order,
-    }
+    },
   });
 }
 ```
@@ -3005,24 +3060,21 @@ export async function GET(
 
 ```typescript
 // src/app/api/signatures/sessions/[token]/confirm/route.ts
-import { createSignatureEvidence } from '@/lib/signatures/evidence-builder';
-import { signPDF } from '@/lib/signatures/pdf-signer';
+import { createSignatureEvidence } from "@/lib/signatures/evidence-builder";
+import { signPDF } from "@/lib/signatures/pdf-signer";
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { token: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { token: string } }) {
   const signer = await prisma.signer.findUnique({
     where: { signToken: params.token },
     include: {
       request: {
         include: {
           document: true,
-          signers: true
-        }
+          signers: true,
+        },
       },
-      employee: true
-    }
+      employee: true,
+    },
   });
 
   // ... validaciones
@@ -3041,8 +3093,8 @@ export async function POST(
   const evidence = await createSignatureEvidence({
     requestId: signer.request.id,
     signerId: signer.id,
-    ipAddress: request.headers.get('x-forwarded-for') ?? 'unknown',
-    userAgent: request.headers.get('user-agent') ?? 'unknown',
+    ipAddress: request.headers.get("x-forwarded-for") ?? "unknown",
+    userAgent: request.headers.get("user-agent") ?? "unknown",
     preSignHash: signer.request.document.originalHash,
     postSignHash: signedHash,
   });
@@ -3051,27 +3103,25 @@ export async function POST(
   await prisma.signer.update({
     where: { id: signer.id },
     data: {
-      status: 'SIGNED',
+      status: "SIGNED",
       signedAt: new Date(),
       signedFileUrl: signedPdfUrl,
       signedHash,
-      ipAddress: request.headers.get('x-forwarded-for'),
-      userAgent: request.headers.get('user-agent'),
-    }
+      ipAddress: request.headers.get("x-forwarded-for"),
+      userAgent: request.headers.get("user-agent"),
+    },
   });
 
   // 5. Verificar si todos firmaron
-  const allSigned = signer.request.signers.every(
-    (s) => s.id === signer.id || s.status === 'SIGNED'
-  );
+  const allSigned = signer.request.signers.every((s) => s.id === signer.id || s.status === "SIGNED");
 
   if (allSigned) {
     await prisma.signatureRequest.update({
       where: { id: signer.request.id },
       data: {
-        status: 'COMPLETED',
+        status: "COMPLETED",
         completedAt: new Date(),
-      }
+      },
     });
   }
 
@@ -3086,11 +3136,13 @@ export async function POST(
 ### 14.1 Turbopack
 
 **¿Qué es Turbopack?**
+
 - Nuevo bundler de Next.js (reemplazo de Webpack)
 - Escrito en Rust (muy rápido)
 - ~700x más rápido que Webpack en HMR
 
 **Activar en desarrollo:**
+
 ```bash
 npm run dev -- --turbopack
 # o en package.json
@@ -3098,6 +3150,7 @@ npm run dev -- --turbopack
 ```
 
 **Ventajas:**
+
 - ✅ **Fast Refresh**: Cambios instantáneos en el navegador
 - ✅ **Incremental compilation**: Solo recompila lo que cambió
 - ✅ **Better error messages**: Errores más claros
@@ -3111,6 +3164,7 @@ npm run build
 ```
 
 **Proceso:**
+
 1. **Type checking**: TypeScript valida tipos
 2. **Linting**: ESLint valida código
 3. **Compilation**: Next.js compila todo a `.next/`
@@ -3118,6 +3172,7 @@ npm run build
 5. **Optimization**: Minifica, tree-shaking, image optimization
 
 **Salida:**
+
 ```
 Page                                       Size     First Load JS
 ┌ ○ /                                      5.2 kB         90.3 kB
@@ -3135,12 +3190,13 @@ Page                                       Size     First Load JS
 
 **Tipos de variables:**
 
-| Tipo | Accesible desde | Uso |
-|------|----------------|-----|
-| `VARIABLE` | Solo servidor | Secrets (API keys, DB URL) |
-| `NEXT_PUBLIC_VARIABLE` | Cliente y servidor | Configs públicas |
+| Tipo                   | Accesible desde    | Uso                        |
+| ---------------------- | ------------------ | -------------------------- |
+| `VARIABLE`             | Solo servidor      | Secrets (API keys, DB URL) |
+| `NEXT_PUBLIC_VARIABLE` | Cliente y servidor | Configs públicas           |
 
 **Ejemplo `.env`:**
+
 ```bash
 # Solo servidor (privadas)
 DATABASE_URL="postgresql://..."
@@ -3153,6 +3209,7 @@ NEXT_PUBLIC_API_URL="https://api.timenow.com"
 ```
 
 **Uso:**
+
 ```typescript
 // src/app/api/employees/route.ts
 const dbUrl = process.env.DATABASE_URL; // ✅ Solo servidor
@@ -3174,6 +3231,7 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME; // ✅ Cliente y servidor
 3. Cada PR → preview deployment
 
 **Configuración:**
+
 ```json
 // vercel.json
 {
@@ -3186,10 +3244,12 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME; // ✅ Cliente y servidor
 ```
 
 **Environment variables en Vercel:**
+
 - Settings → Environment Variables
 - Definir para Production, Preview, Development
 
 **Alternativas a Vercel:**
+
 - **Cloudflare Pages**: Deploy optimizado
 - **Netlify**: Similar a Vercel
 - **Self-hosted**: Docker + Node.js
@@ -3217,6 +3277,7 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME; // ✅ Cliente y servidor
 ```
 
 **Prisma scripts:**
+
 ```json
 {
   "prisma": {
@@ -3268,6 +3329,7 @@ npm run lint-staged
 ```
 
 **Flujo:**
+
 1. Haces `git commit`
 2. Husky intercepta
 3. Lint-staged ejecuta ESLint + Prettier en archivos staged
@@ -3280,25 +3342,26 @@ npm run lint-staged
 
 **Timenow ERP está construido con:**
 
-| Capa | Tecnología | Por qué |
-|------|-----------|---------|
-| **Frontend** | React 19 + Next.js 15 | SSR, routing integrado, DX |
-| **Lenguaje** | TypeScript | Type safety, autocomplete |
-| **Estilos** | Tailwind CSS v4 + OKLCH | Utility-first, temas modernos |
-| **Componentes** | shadcn/ui (Radix UI) | Headless, customizable, accesible |
-| **Estado** | Zustand | Minimalista, performance |
-| **Backend** | Next.js API Routes | Monorepo, TypeScript compartido |
-| **Base de datos** | PostgreSQL + Prisma | Relacional, type-safe ORM |
-| **Autenticación** | NextAuth v5 | Integrado con Next.js, JWT |
-| **Validación** | Zod | Type inference, reutilizable |
-| **Tablas** | TanStack Table | Headless, features avanzados |
-| **Storage** | Cloudflare R2 | Sin costos de egress, S3-compatible |
-| **Build** | Turbopack | Fast Refresh, Rust-powered |
-| **Deploy** | Vercel | Optimizado para Next.js |
+| Capa              | Tecnología              | Por qué                             |
+| ----------------- | ----------------------- | ----------------------------------- |
+| **Frontend**      | React 19 + Next.js 15   | SSR, routing integrado, DX          |
+| **Lenguaje**      | TypeScript              | Type safety, autocomplete           |
+| **Estilos**       | Tailwind CSS v4 + OKLCH | Utility-first, temas modernos       |
+| **Componentes**   | shadcn/ui (Radix UI)    | Headless, customizable, accesible   |
+| **Estado**        | Zustand                 | Minimalista, performance            |
+| **Backend**       | Next.js API Routes      | Monorepo, TypeScript compartido     |
+| **Base de datos** | PostgreSQL + Prisma     | Relacional, type-safe ORM           |
+| **Autenticación** | NextAuth v5             | Integrado con Next.js, JWT          |
+| **Validación**    | Zod                     | Type inference, reutilizable        |
+| **Tablas**        | TanStack Table          | Headless, features avanzados        |
+| **Storage**       | Cloudflare R2           | Sin costos de egress, S3-compatible |
+| **Build**         | Turbopack               | Fast Refresh, Rust-powered          |
+| **Deploy**        | Vercel                  | Optimizado para Next.js             |
 
 ---
 
 **Próximos pasos para profundizar:**
+
 - 📌 Pregúntame sobre secciones específicas que quieras ampliar
 - 📌 Puedo explicar patrones avanzados (React Query, Server Actions, etc.)
 - 📌 Puedo detallar el sistema de firma electrónica o cualquier feature
@@ -3397,6 +3460,7 @@ El navegador recibe JSON vacío y JavaScript construye el HTML en el cliente.
 #### Ejemplo práctico en Next.js:
 
 **Server Component (SSR):**
+
 ```typescript
 // src/app/employees/page.tsx
 import { prisma } from '@/lib/prisma';
@@ -3421,6 +3485,7 @@ export default async function EmployeesPage() {
 ```
 
 **Flujo**:
+
 1. Usuario visita `/employees`
 2. Next.js ejecuta este código en el **servidor**
 3. Consulta base de datos
@@ -3432,12 +3497,12 @@ export default async function EmployeesPage() {
 
 #### Ventajas de SSR:
 
-| Aspecto | CSR | SSR |
-|---------|-----|-----|
-| **Primera carga** | ❌ Lenta (espera JS) | ✅ Rápida (HTML ya viene) |
-| **SEO** | ❌ Malo (Google ve HTML vacío) | ✅ Excelente (Google ve contenido) |
-| **Performance percibida** | ❌ Pantalla blanca | ✅ Contenido inmediato |
-| **Datos sensibles** | ⚠️ API key expuesta | ✅ Seguro (secretos en servidor) |
+| Aspecto                   | CSR                            | SSR                                |
+| ------------------------- | ------------------------------ | ---------------------------------- |
+| **Primera carga**         | ❌ Lenta (espera JS)           | ✅ Rápida (HTML ya viene)          |
+| **SEO**                   | ❌ Malo (Google ve HTML vacío) | ✅ Excelente (Google ve contenido) |
+| **Performance percibida** | ❌ Pantalla blanca             | ✅ Contenido inmediato             |
+| **Datos sensibles**       | ⚠️ API key expuesta            | ✅ Seguro (secretos en servidor)   |
 
 ---
 
@@ -3487,11 +3552,11 @@ Es una colección de **componentes accesibles SIN estilos** (headless). Te da la
 
 ```tsx
 // Material-UI te da funcionalidad + estilos juntos
-import { Button } from '@mui/material';
+import { Button } from "@mui/material";
 
 <Button variant="contained" color="primary">
   Click me
-</Button>
+</Button>;
 
 // Genera HTML + CSS predefinido (difícil de cambiar)
 ```
@@ -3504,12 +3569,10 @@ import { Button } from '@mui/material';
 
 ```tsx
 // Radix solo te da la lógica (estados, accesibilidad, eventos)
-import * as Dialog from '@radix-ui/react-dialog';
+import * as Dialog from "@radix-ui/react-dialog";
 
 <Dialog.Root>
-  <Dialog.Trigger className="tu-clase-aqui">
-    Abrir
-  </Dialog.Trigger>
+  <Dialog.Trigger className="tu-clase-aqui">Abrir</Dialog.Trigger>
 
   <Dialog.Portal>
     <Dialog.Overlay className="tu-overlay-custom" />
@@ -3519,10 +3582,11 @@ import * as Dialog from '@radix-ui/react-dialog';
       <Dialog.Close>Cerrar</Dialog.Close>
     </Dialog.Content>
   </Dialog.Portal>
-</Dialog.Root>
+</Dialog.Root>;
 ```
 
 **Ventaja**: Tú controlas TODO el HTML y CSS. Radix solo maneja:
+
 - ✅ Abrir/cerrar modal
 - ✅ Accesibilidad (ARIA, foco, teclado)
 - ✅ Portales (renderizar fuera del DOM)
@@ -3567,8 +3631,9 @@ Tailwind CSS (estilos)
 **Ejemplo real: Botón dropdown**
 
 **1. Radix UI proporciona la funcionalidad:**
+
 ```tsx
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 <DropdownMenu.Root>
   <DropdownMenu.Trigger>Menú</DropdownMenu.Trigger>
@@ -3577,10 +3642,11 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
     <DropdownMenu.Item>Opción 1</DropdownMenu.Item>
     <DropdownMenu.Item>Opción 2</DropdownMenu.Item>
   </DropdownMenu.Content>
-</DropdownMenu.Root>
+</DropdownMenu.Root>;
 ```
 
 **2. shadcn/ui crea un componente bonito encima:**
+
 ```tsx
 // src/components/ui/dropdown-menu.tsx (creado por shadcn)
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
@@ -3604,12 +3670,9 @@ export { DropdownMenu, DropdownMenuContent, ... }
 ```
 
 **3. Tú usas el componente de shadcn:**
+
 ```tsx
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 
 <DropdownMenu>
   <DropdownMenuTrigger>Menú</DropdownMenuTrigger>
@@ -3617,7 +3680,7 @@ import {
     <DropdownMenuItem>Editar</DropdownMenuItem>
     <DropdownMenuItem>Eliminar</DropdownMenuItem>
   </DropdownMenuContent>
-</DropdownMenu>
+</DropdownMenu>;
 ```
 
 ---
@@ -3625,18 +3688,21 @@ import {
 #### Componentes que proporciona Radix UI:
 
 **Navegación:**
+
 - **Dropdown Menu** - Menú desplegable
 - **Navigation Menu** - Menú de navegación
 - **Tabs** - Pestañas
 - **Accordion** - Acordeón expandible
 
 **Overlays:**
+
 - **Dialog** - Modal/diálogo
 - **Popover** - Popover flotante
 - **Tooltip** - Tooltip al hover
 - **Alert Dialog** - Diálogo de confirmación
 
 **Formularios:**
+
 - **Select** - Select dropdown
 - **Checkbox** - Checkbox accesible
 - **Radio Group** - Radio buttons
@@ -3644,6 +3710,7 @@ import {
 - **Slider** - Slider de rango
 
 **Otros:**
+
 - **Progress** - Barra de progreso
 - **Context Menu** - Menú contextual (click derecho)
 - **Toast** - Notificaciones
@@ -3653,32 +3720,30 @@ import {
 
 #### Ventajas de Radix UI:
 
-| Aspecto | Material-UI / Ant Design | Radix UI |
-|---------|--------------------------|----------|
-| **Estilos** | ❌ Predefinidos (difícil cambiar) | ✅ Tú controlas 100% |
-| **Accesibilidad** | ✅ Buena | ✅ Excelente (WAI-ARIA compliant) |
-| **Bundle size** | ❌ Grande (~300KB) | ✅ Pequeño (tree-shakeable) |
-| **Customización** | ⚠️ Via overrides (complicado) | ✅ Total (es tu código) |
-| **Curva de aprendizaje** | ✅ Baja (plug & play) | ⚠️ Media (más control = más trabajo) |
+| Aspecto                  | Material-UI / Ant Design          | Radix UI                             |
+| ------------------------ | --------------------------------- | ------------------------------------ |
+| **Estilos**              | ❌ Predefinidos (difícil cambiar) | ✅ Tú controlas 100%                 |
+| **Accesibilidad**        | ✅ Buena                          | ✅ Excelente (WAI-ARIA compliant)    |
+| **Bundle size**          | ❌ Grande (~300KB)                | ✅ Pequeño (tree-shakeable)          |
+| **Customización**        | ⚠️ Via overrides (complicado)     | ✅ Total (es tu código)              |
+| **Curva de aprendizaje** | ✅ Baja (plug & play)             | ⚠️ Media (más control = más trabajo) |
 
 ---
 
 #### Comparación con alternativas:
 
 **Radix UI (headless):**
+
 ```tsx
 // Tú defines TODO
 <Dialog.Root>
-  <Dialog.Trigger className="bg-blue-500 px-4 py-2 rounded">
-    Abrir
-  </Dialog.Trigger>
-  <Dialog.Content className="bg-white p-6 rounded-lg shadow-xl">
-    Tu contenido
-  </Dialog.Content>
+  <Dialog.Trigger className="rounded bg-blue-500 px-4 py-2">Abrir</Dialog.Trigger>
+  <Dialog.Content className="rounded-lg bg-white p-6 shadow-xl">Tu contenido</Dialog.Content>
 </Dialog.Root>
 ```
 
 **Material-UI (styled):**
+
 ```tsx
 // Estilos predefinidos
 <Button variant="contained" color="primary" onClick={handleOpen}>
@@ -3692,12 +3757,11 @@ import {
 ```
 
 **Headless UI (alternativa a Radix):**
+
 ```tsx
 // Similar a Radix, hecho por Tailwind Labs
 <Dialog open={isOpen}>
-  <Dialog.Panel className="bg-white p-6">
-    Tu contenido
-  </Dialog.Panel>
+  <Dialog.Panel className="bg-white p-6">Tu contenido</Dialog.Panel>
 </Dialog>
 ```
 
@@ -3705,13 +3769,13 @@ import {
 
 #### ¿Por qué Radix en lugar de Headless UI?
 
-| Aspecto | Headless UI | Radix UI |
-|---------|-------------|----------|
-| **Componentes** | ⚠️ Menos variedad | ✅ Más componentes |
-| **Composabilidad** | ⚠️ Menos flexible | ✅ Muy flexible |
-| **Accesibilidad** | ✅ Buena | ✅ Excelente |
-| **Documentación** | ✅ Buena | ✅ Excelente |
-| **TypeScript** | ✅ Bueno | ✅ Excelente |
+| Aspecto            | Headless UI       | Radix UI           |
+| ------------------ | ----------------- | ------------------ |
+| **Componentes**    | ⚠️ Menos variedad | ✅ Más componentes |
+| **Composabilidad** | ⚠️ Menos flexible | ✅ Muy flexible    |
+| **Accesibilidad**  | ✅ Buena          | ✅ Excelente       |
+| **Documentación**  | ✅ Buena          | ✅ Excelente       |
+| **TypeScript**     | ✅ Bueno          | ✅ Excelente       |
 
 ---
 
@@ -3720,6 +3784,7 @@ import {
 **Dialog (Modal) en Timenow:**
 
 **Radix proporciona la base:**
+
 ```tsx
 // @radix-ui/react-dialog
 <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -3736,6 +3801,7 @@ import {
 ```
 
 **shadcn envuelve con estilos Tailwind:**
+
 ```tsx
 // src/components/ui/dialog.tsx
 const DialogContent = React.forwardRef<...>(({ className, children, ...props }, ref) => (
@@ -3758,14 +3824,10 @@ const DialogContent = React.forwardRef<...>(({ className, children, ...props }, 
 ```
 
 **Tú usas el componente final:**
+
 ```tsx
 // src/app/dashboard/employees/_components/employee-form-dialog.tsx
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 <Dialog open={isOpen} onOpenChange={setIsOpen}>
   <DialogContent>
@@ -3774,7 +3836,7 @@ import {
     </DialogHeader>
     <EmployeeForm />
   </DialogContent>
-</Dialog>
+</Dialog>;
 ```
 
 ---
@@ -3786,6 +3848,7 @@ import {
 Es como tener un motor de coche (Radix) al que le pones la carrocería que quieras (Tailwind + shadcn).
 
 **Ventajas en Timenow:**
+
 - ✅ **Accesibilidad** perfecta (WCAG compliant)
 - ✅ **Personalización** total con Tailwind
 - ✅ **Control** completo del código (está en tu repo via shadcn)
@@ -3811,6 +3874,7 @@ Es como tener un motor de coche (Radix) al que le pones la carrocería que quier
 #### Server Components (por defecto)
 
 **Cuándo usar:**
+
 - Fetch de datos
 - Acceso a base de datos
 - Leer variables de entorno secretas
@@ -3822,21 +3886,21 @@ Es como tener un motor de coche (Radix) al que le pones la carrocería que quier
 // src/app/dashboard/employees/page.tsx
 // NO tiene 'use client' → Server Component
 
-import { prisma } from '@/lib/prisma';
-import { auth } from '@/lib/auth';
+import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export default async function EmployeesPage() {
   // Corre en el SERVIDOR
   const session = await auth();
   const employees = await prisma.employee.findMany({
-    where: { orgId: session.user.orgId }
+    where: { orgId: session.user.orgId },
   });
 
   // Genera HTML en servidor
   return (
     <div>
       <h1>Empleados</h1>
-      {employees.map(emp => (
+      {employees.map((emp) => (
         <div key={emp.id}>{emp.firstName}</div>
       ))}
     </div>
@@ -3845,6 +3909,7 @@ export default async function EmployeesPage() {
 ```
 
 **Ventajas:**
+
 - ✅ No envía JavaScript al navegador
 - ✅ Puede acceder a BD directamente
 - ✅ Secretos seguros (API keys, tokens)
@@ -3854,6 +3919,7 @@ export default async function EmployeesPage() {
 #### Client Components
 
 **Cuándo usar:**
+
 - Formularios con estado
 - Botones con onClick
 - useState, useEffect
@@ -3864,33 +3930,33 @@ export default async function EmployeesPage() {
 
 ```tsx
 // src/app/dashboard/employees/_components/employee-form.tsx
-'use client'; // ← MARCA COMO CLIENT
+"use client"; // ← MARCA COMO CLIENT
 
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 
 export function EmployeeForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm({
     defaultValues: {
-      firstName: '',
-      lastName: ''
-    }
+      firstName: "",
+      lastName: "",
+    },
   });
 
   const onSubmit = async (data) => {
     setIsSubmitting(true);
-    await fetch('/api/employees', {
-      method: 'POST',
-      body: JSON.stringify(data)
+    await fetch("/api/employees", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
     setIsSubmitting(false);
   };
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
-      <input {...form.register('firstName')} />
+      <input {...form.register("firstName")} />
       <button type="submit" disabled={isSubmitting}>
         Guardar
       </button>
@@ -3900,6 +3966,7 @@ export function EmployeeForm() {
 ```
 
 **Características:**
+
 - ✅ Puede usar useState, onClick, eventos
 - ⚠️ Envía JavaScript al navegador
 - ❌ No puede acceder a BD directamente
@@ -3915,8 +3982,8 @@ export function EmployeeForm() {
 // src/app/dashboard/employees/page.tsx
 // Server Component (sin 'use client')
 
-import { prisma } from '@/lib/prisma';
-import { EmployeeForm } from './_components/employee-form'; // Client Component
+import { prisma } from "@/lib/prisma";
+import { EmployeeForm } from "./_components/employee-form"; // Client Component
 
 export default async function EmployeesPage() {
   // Fetch en servidor
@@ -3937,6 +4004,7 @@ export default async function EmployeesPage() {
 ```
 
 **Flujo:**
+
 1. Servidor ejecuta página y consulta BD
 2. Servidor genera HTML con datos
 3. Envía HTML + JavaScript del formulario
@@ -3981,10 +4049,10 @@ export default async function EmployeesPage() {
 
 #### Tabla resumen:
 
-| Tipo | Marca | Dónde corre | Puede usar | No puede usar |
-|------|-------|-------------|------------|---------------|
-| **Server** | Nada (default) | Servidor | BD, secrets, async | useState, onClick |
-| **Client** | `'use client'` | Navegador | useState, onClick | BD directa, secrets |
+| Tipo       | Marca          | Dónde corre | Puede usar         | No puede usar       |
+| ---------- | -------------- | ----------- | ------------------ | ------------------- |
+| **Server** | Nada (default) | Servidor    | BD, secrets, async | useState, onClick   |
+| **Client** | `'use client'` | Navegador   | useState, onClick  | BD directa, secrets |
 
 **Usamos ambos:** Server para datos, Client para interactividad.
 
@@ -4009,10 +4077,10 @@ Permiten usar **estado** y otras features de React en componentes funcionales (a
 **useState - Crear estado**
 
 ```tsx
-'use client';
+"use client";
 
 function EmployeeForm() {
-  const [name, setName] = useState(''); // Estado: name
+  const [name, setName] = useState(""); // Estado: name
 
   return (
     <input
@@ -4024,6 +4092,7 @@ function EmployeeForm() {
 ```
 
 **Explicación:**
+
 - `name` = valor actual
 - `setName` = función para cambiarlo
 - Cuando cambias `name` → componente se re-renderiza
@@ -4050,6 +4119,7 @@ function EmployeeList() {
 ```
 
 **Explicación:**
+
 - Se ejecuta **después** de renderizar
 - `[]` vacío = solo la primera vez
 - `[name]` = cada vez que `name` cambie
@@ -4059,21 +4129,21 @@ function EmployeeList() {
 **useForm - Formularios (react-hook-form)**
 
 ```tsx
-'use client';
-import { useForm } from 'react-hook-form';
+"use client";
+import { useForm } from "react-hook-form";
 
 function EmployeeForm() {
   const form = useForm({
     defaultValues: {
-      firstName: '',
-      lastName: ''
-    }
+      firstName: "",
+      lastName: "",
+    },
   });
 
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
-      <input {...form.register('firstName')} />
-      <input {...form.register('lastName')} />
+      <input {...form.register("firstName")} />
+      <input {...form.register("lastName")} />
     </form>
   );
 }
@@ -4161,7 +4231,7 @@ const { employees, fetchEmployees } = useEmployeesStore();
 
 // useRouter - Navegación (Next.js)
 const router = useRouter();
-router.push('/dashboard');
+router.push("/dashboard");
 ```
 
 ---
@@ -4181,6 +4251,7 @@ public class EmployeeController {
 ```
 
 En React:
+
 ```tsx
 function EmployeeList() {
   const { employees } = useEmployeesStore(); // "Hook" que inyecta store
@@ -4255,28 +4326,28 @@ En Next.js es igual: intercepta antes de la página.
 
 ```tsx
 // src/middleware.ts
-import { auth } from './lib/auth';
-import { NextResponse } from 'next/server';
+import { auth } from "./lib/auth";
+import { NextResponse } from "next/server";
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
   // Rutas públicas (no interceptar)
-  if (pathname.startsWith('/auth') || pathname === '/') {
+  if (pathname.startsWith("/auth") || pathname === "/") {
     return NextResponse.next();
   }
 
   // Verificar autenticación
   if (!req.auth) {
     // Usuario NO autenticado → redirigir a login
-    const loginUrl = new URL('/auth/login', req.url);
+    const loginUrl = new URL("/auth/login", req.url);
     return NextResponse.redirect(loginUrl);
   }
 
   // Verificar acceso a /admin
-  if (pathname.startsWith('/admin')) {
-    if (req.auth.user.role !== 'SUPER_ADMIN') {
-      return NextResponse.redirect(new URL('/unauthorized', req.url));
+  if (pathname.startsWith("/admin")) {
+    if (req.auth.user.role !== "SUPER_ADMIN") {
+      return NextResponse.redirect(new URL("/unauthorized", req.url));
     }
   }
 
@@ -4286,7 +4357,7 @@ export default auth((req) => {
 
 // Configurar qué rutas interceptar
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)']
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
 ```
 
@@ -4311,27 +4382,31 @@ export const config = {
 #### Casos de uso en Timenow:
 
 **1. Proteger rutas autenticadas:**
+
 ```tsx
 if (!req.auth) {
-  return NextResponse.redirect('/auth/login');
+  return NextResponse.redirect("/auth/login");
 }
 ```
 
 **2. Verificar roles:**
+
 ```tsx
-if (pathname.startsWith('/admin') && req.auth.user.role !== 'SUPER_ADMIN') {
-  return NextResponse.redirect('/unauthorized');
+if (pathname.startsWith("/admin") && req.auth.user.role !== "SUPER_ADMIN") {
+  return NextResponse.redirect("/unauthorized");
 }
 ```
 
 **3. Modificar headers:**
+
 ```tsx
 const response = NextResponse.next();
-response.headers.set('x-user-id', req.auth.user.id);
+response.headers.set("x-user-id", req.auth.user.id);
 return response;
 ```
 
 **4. Logging:**
+
 ```tsx
 console.log(`${req.method} ${pathname} - ${req.auth?.user.email}`);
 ```
@@ -4342,13 +4417,12 @@ console.log(`${req.method} ${pathname} - ${req.auth?.user.email}`);
 
 ```tsx
 export const config = {
-  matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico).*)'
-  ]
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
 };
 ```
 
 **Explicación:**
+
 - `(?!...)` = negación (NOT)
 - Intercepta TODO excepto:
   - `/api/*` (API routes)
@@ -4360,32 +4434,34 @@ export const config = {
 
 #### Ventajas del Middleware:
 
-| Aspecto | Sin Middleware | Con Middleware |
-|---------|----------------|----------------|
-| **Auth check** | En cada página manualmente | ✅ Una sola vez |
-| **Código duplicado** | ❌ Mucho | ✅ Centralizado |
-| **Performance** | ⚠️ Verifica en cada componente | ✅ Una sola verificación |
-| **Seguridad** | ⚠️ Fácil olvidar proteger | ✅ Protección automática |
+| Aspecto              | Sin Middleware                 | Con Middleware           |
+| -------------------- | ------------------------------ | ------------------------ |
+| **Auth check**       | En cada página manualmente     | ✅ Una sola vez          |
+| **Código duplicado** | ❌ Mucho                       | ✅ Centralizado          |
+| **Performance**      | ⚠️ Verifica en cada componente | ✅ Una sola verificación |
+| **Seguridad**        | ⚠️ Fácil olvidar proteger      | ✅ Protección automática |
 
 ---
 
 #### Middleware vs Protección en página:
 
 **❌ Sin middleware (manual en cada página):**
+
 ```tsx
 // src/app/dashboard/employees/page.tsx
 export default async function EmployeesPage() {
   const session = await auth();
-  if (!session) redirect('/auth/login'); // Repetir en cada página
+  if (!session) redirect("/auth/login"); // Repetir en cada página
 
   // ...
 }
 ```
 
 **✅ Con middleware (automático):**
+
 ```tsx
 // src/middleware.ts
-if (!req.auth) return NextResponse.redirect('/auth/login');
+if (!req.auth) return NextResponse.redirect("/auth/login");
 
 // src/app/dashboard/employees/page.tsx
 export default async function EmployeesPage() {
@@ -4411,6 +4487,7 @@ export default auth((req) => {
 ```
 
 **¿Por qué deshabilitado?**
+
 - Actualmente verificamos auth en cada página manualmente
 - Middleware puede añadirse cuando escalemos
 
@@ -4426,6 +4503,7 @@ export default auth((req) => {
 - Similar a Filters/Interceptors de Spring
 
 **Flujo:**
+
 ```
 Request → Middleware → Página/API
 ```
@@ -4551,6 +4629,7 @@ Request → Middleware → Página/API
 ### P: ¿Qué mejorarías del proyecto?
 
 **R:**
+
 - Añadir tests (Jest + Playwright)
 - Habilitar middleware para auth centralizada
 - Implementar rate limiting
@@ -4563,6 +4642,7 @@ Request → Middleware → Página/API
 ### P: ¿Escalabilidad?
 
 **R:**
+
 - Multi-tenancy permite muchas orgs en mismo DB
 - Prisma con connection pooling (PgBouncer ready)
 - Edge functions para baja latencia
@@ -4617,6 +4697,7 @@ Request → Middleware → Página/API
 ### P: ¿Qué aprendiste construyendo esto?
 
 **R:**
+
 - Server Components vs Client Components
 - Prisma con multi-tenancy
 - NextAuth v5 (beta)

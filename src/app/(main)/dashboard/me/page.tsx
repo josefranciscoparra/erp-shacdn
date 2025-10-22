@@ -53,7 +53,7 @@ export default function MySpacePage() {
   // Vista para administradores sin empleado
   if (data?.isAdminWithoutEmployee) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <div className="@container/main flex flex-col gap-3 md:gap-5">
         {/* Header con mensaje para administrador */}
         <SectionHeader
           title={data.profile.name}
@@ -63,7 +63,7 @@ export default function MySpacePage() {
         {/* Acciones rápidas de administración */}
         <Card className="p-6">
           <h3 className="mb-4 text-lg font-semibold">Acceso rápido</h3>
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
             <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
               <Link href="/dashboard/employees">
                 <Users className="h-5 w-5" />
@@ -93,7 +93,7 @@ export default function MySpacePage() {
 
         {/* Notificaciones recientes */}
         <Card className="p-6">
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Bell className="text-muted-foreground h-5 w-5" />
               <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
@@ -103,23 +103,25 @@ export default function MySpacePage() {
           {data.recentNotifications.length === 0 ? (
             <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {data.recentNotifications.map((notification) => (
                 <div
                   key={notification.id}
-                  className={`hover:bg-accent rounded-lg border p-3 transition-colors ${
-                    !notification.read ? "border-primary/50 bg-primary/5" : ""
+                  className={`rounded-lg border p-3 transition-colors ${
+                    !notification.read
+                      ? "border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 bg-white dark:bg-white/5"
+                      : "hover:bg-accent dark:hover:bg-accent bg-white dark:bg-white/5"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm">{notification.message}</p>
+                    <p className="text-sm font-medium">{notification.message}</p>
                     {!notification.read && (
                       <Badge variant="default" className="flex-shrink-0 text-xs">
                         Nueva
                       </Badge>
                     )}
                   </div>
-                  <p className="text-muted-foreground mt-1 text-xs">
+                  <p className="text-muted-foreground mt-0.5 text-xs">
                     {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
                       locale: es,
                     })}
@@ -135,16 +137,18 @@ export default function MySpacePage() {
 
   // Vista normal para empleados
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
+    <div className="@container/main flex flex-col gap-3 md:gap-5">
       {/* Header con nombre del empleado */}
-      <SectionHeader
-        title={data?.profile.name ?? "Mi Espacio"}
-        description={
-          data?.profile.position || data?.profile.department
-            ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
-            : "Dashboard personal del empleado"
-        }
-      />
+      <div className="animate-in fade-in duration-500">
+        <SectionHeader
+          title={data?.profile.name ?? "Mi Espacio"}
+          description={
+            data?.profile.position || data?.profile.department
+              ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
+              : "Dashboard personal del empleado"
+          }
+        />
+      </div>
 
       {/* Error state */}
       {error && (
@@ -157,82 +161,94 @@ export default function MySpacePage() {
       )}
 
       {/* Métricas principales */}
-      <MySpaceMetrics data={data} isLoading={isLoading} />
+      <div className="animate-in fade-in duration-700" style={{ animationDelay: "100ms" }}>
+        <MySpaceMetrics data={data} isLoading={isLoading} />
+      </div>
 
       {/* Acciones rápidas */}
-      <Card className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Acciones rápidas</h3>
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link href="/dashboard/me/clock">
-              <Clock className="h-5 w-5" />
-              <span className="text-sm font-medium">Fichar</span>
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link href="/dashboard/me/pto">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-sm font-medium">Mis Vacaciones</span>
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link href="/dashboard/me/calendar">
-              <Clock className="h-5 w-5" />
-              <span className="text-sm font-medium">Mi Calendario</span>
-            </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-            <Link href="/dashboard/me/profile">
-              <UserCircle className="h-5 w-5" />
-              <span className="text-sm font-medium">Mi Perfil</span>
-            </Link>
-          </Button>
-        </div>
-      </Card>
+      <div className="animate-in fade-in duration-700" style={{ animationDelay: "200ms" }}>
+        <Card className="p-6">
+          <h3 className="mb-2 text-lg font-semibold">Acciones rápidas</h3>
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+              <Link href="/dashboard/me/clock">
+                <Clock className="h-5 w-5" />
+                <span className="text-sm font-medium">Fichar</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+              <Link href="/dashboard/me/pto">
+                <CalendarDays className="h-5 w-5" />
+                <span className="text-sm font-medium">Mis Vacaciones</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+              <Link href="/dashboard/me/calendar">
+                <Clock className="h-5 w-5" />
+                <span className="text-sm font-medium">Mi Calendario</span>
+              </Link>
+            </Button>
+            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+              <Link href="/dashboard/me/profile">
+                <UserCircle className="h-5 w-5" />
+                <span className="text-sm font-medium">Mi Perfil</span>
+              </Link>
+            </Button>
+          </div>
+        </Card>
+      </div>
 
-      <div className="grid gap-4 md:gap-6 lg:grid-cols-2">
+      <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
         {/* Próximos eventos */}
-        {data && <UpcomingEvents events={data.upcomingEvents} />}
+        {data && (
+          <div className="animate-in fade-in duration-700" style={{ animationDelay: "300ms" }}>
+            <UpcomingEvents events={data.upcomingEvents} />
+          </div>
+        )}
 
         {/* Notificaciones recientes */}
         {data && (
-          <Card className="p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="text-muted-foreground h-5 w-5" />
-                <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
+          <div className="animate-in fade-in duration-700" style={{ animationDelay: "400ms" }}>
+            <Card className="p-6">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="text-muted-foreground h-5 w-5" />
+                  <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
+                </div>
               </div>
-            </div>
 
-            {data.recentNotifications.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
-            ) : (
-              <div className="space-y-3">
-                {data.recentNotifications.map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`hover:bg-accent rounded-lg border p-3 transition-colors ${
-                      !notification.read ? "border-primary/50 bg-primary/5" : ""
-                    }`}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm">{notification.message}</p>
-                      {!notification.read && (
-                        <Badge variant="default" className="flex-shrink-0 text-xs">
-                          Nueva
-                        </Badge>
-                      )}
+              {data.recentNotifications.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
+              ) : (
+                <div className="space-y-2">
+                  {data.recentNotifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className={`rounded-lg border p-3 transition-colors ${
+                        !notification.read
+                          ? "border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 bg-white dark:bg-white/5"
+                          : "hover:bg-accent dark:hover:bg-accent bg-white dark:bg-white/5"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium">{notification.message}</p>
+                        {!notification.read && (
+                          <Badge variant="default" className="flex-shrink-0 text-xs">
+                            Nueva
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-muted-foreground mt-0.5 text-xs">
+                        {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
+                          locale: es,
+                        })}
+                      </p>
                     </div>
-                    <p className="text-muted-foreground mt-1 text-xs">
-                      {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
-                        locale: es,
-                      })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
         )}
       </div>
     </div>
