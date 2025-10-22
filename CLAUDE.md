@@ -29,9 +29,11 @@ npm run lint
 npm run format
 npm run format:check
 
-# Generate theme presets
+# Generate theme presets (SOLO ejecutar manualmente si se modifican presets)
 npm run generate:presets
 ```
+
+**IMPORTANTE**: El comando `generate:presets` NO debe ejecutarse automáticamente en pre-commit hooks. Solo ejecutar manualmente cuando se modifiquen archivos de presets de tema.
 
 ## IMPORTANTE: Gestión del Puerto de Desarrollo
 

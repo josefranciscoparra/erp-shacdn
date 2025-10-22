@@ -23,6 +23,11 @@ export function MyProfile({ initialData }: MyProfileProps) {
   const router = useRouter();
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState(initialData.employee?.photoUrl ?? initialData.user.image);
 
+  const infoValueClass =
+    "flex min-h-[2.5rem] flex-1 items-center rounded-md border border-border bg-background/70 px-3 py-2 text-sm font-medium text-foreground shadow-xs";
+  const summaryRowClass =
+    "flex items-center justify-between rounded-lg border border-border bg-background/80 p-3 text-sm text-foreground shadow-xs";
+
   // Datos calculados
   const fullName = initialData.employee
     ? `${initialData.employee.firstName} ${initialData.employee.lastName}${
@@ -110,33 +115,44 @@ export function MyProfile({ initialData }: MyProfileProps) {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            <div className="flex items-center gap-3 rounded-lg border p-3">
-              <Mail className="text-muted-foreground h-4 w-4" />
-              <span className="text-sm">{initialData.user.email}</span>
+            <div className="flex items-start gap-3">
+              <Mail className="text-muted-foreground mt-2 h-4 w-4" />
+              <div className="flex flex-1 flex-col gap-1">
+                <span className="text-muted-foreground text-xs tracking-wide uppercase">Correo electrónico</span>
+                <span className={infoValueClass}>{initialData.user.email}</span>
+              </div>
             </div>
 
             {initialData.employee?.mobilePhone && (
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Phone className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">{initialData.employee.mobilePhone}</span>
+              <div className="flex items-start gap-3">
+                <Phone className="text-muted-foreground mt-2 h-4 w-4" />
+                <div className="flex flex-1 flex-col gap-1">
+                  <span className="text-muted-foreground text-xs tracking-wide uppercase">Teléfono móvil</span>
+                  <span className={infoValueClass}>{initialData.employee.mobilePhone}</span>
+                </div>
               </div>
             )}
 
-            <div className="flex items-center gap-3 rounded-lg border p-3">
-              <Briefcase className="text-muted-foreground h-4 w-4" />
-              <span className="text-sm">{department}</span>
+            <div className="flex items-start gap-3">
+              <Briefcase className="text-muted-foreground mt-2 h-4 w-4" />
+              <div className="flex flex-1 flex-col gap-1">
+                <span className="text-muted-foreground text-xs tracking-wide uppercase">Departamento</span>
+                <span className={infoValueClass}>{department}</span>
+              </div>
             </div>
 
             {initialData.activeContract?.startDate && (
-              <div className="flex items-center gap-3 rounded-lg border p-3">
-                <Calendar className="text-muted-foreground h-4 w-4" />
-                <span className="text-sm">
-                  Desde{" "}
-                  {new Date(initialData.activeContract.startDate).toLocaleDateString("es-ES", {
-                    month: "long",
-                    year: "numeric",
-                  })}
-                </span>
+              <div className="flex items-start gap-3">
+                <Calendar className="text-muted-foreground mt-2 h-4 w-4" />
+                <div className="flex flex-1 flex-col gap-1">
+                  <span className="text-muted-foreground text-xs tracking-wide uppercase">Desde</span>
+                  <span className={infoValueClass}>
+                    {new Date(initialData.activeContract.startDate).toLocaleDateString("es-ES", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </span>
+                </div>
               </div>
             )}
           </div>
@@ -150,46 +166,46 @@ export function MyProfile({ initialData }: MyProfileProps) {
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Teléfono fijo</Label>
-                <p className="text-sm">{initialData.employee?.phone ?? "No especificado"}</p>
+                <span className={infoValueClass}>{initialData.employee?.phone ?? "No especificado"}</span>
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Teléfono móvil</Label>
-                <p className="text-sm">{initialData.employee?.mobilePhone ?? "No especificado"}</p>
+                <span className={infoValueClass}>{initialData.employee?.mobilePhone ?? "No especificado"}</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
               <Label className="text-muted-foreground">Dirección</Label>
-              <p className="text-sm">{initialData.employee?.address ?? "No especificada"}</p>
+              <span className={infoValueClass}>{initialData.employee?.address ?? "No especificada"}</span>
             </div>
 
             <div className="grid gap-4 @md/card:grid-cols-3">
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Ciudad</Label>
-                <p className="text-sm">{initialData.employee?.city ?? "No especificada"}</p>
+                <span className={infoValueClass}>{initialData.employee?.city ?? "No especificada"}</span>
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Código postal</Label>
-                <p className="text-sm">{initialData.employee?.postalCode ?? "No especificado"}</p>
+                <span className={infoValueClass}>{initialData.employee?.postalCode ?? "No especificado"}</span>
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Provincia</Label>
-                <p className="text-sm">{initialData.employee?.province ?? "No especificada"}</p>
+                <span className={infoValueClass}>{initialData.employee?.province ?? "No especificada"}</span>
               </div>
             </div>
 
             <div className="grid gap-4 @md/card:grid-cols-2">
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Departamento</Label>
-                <p className="text-sm">{department}</p>
+                <span className={infoValueClass}>{department}</span>
               </div>
 
               <div className="flex flex-col gap-2">
                 <Label className="text-muted-foreground">Puesto</Label>
-                <p className="text-sm">{position}</p>
+                <span className={infoValueClass}>{position}</span>
               </div>
             </div>
           </div>
@@ -201,18 +217,18 @@ export function MyProfile({ initialData }: MyProfileProps) {
         <Card className="@container/card flex flex-col gap-4 p-6">
           <h3 className="text-lg font-semibold">Información laboral</h3>
           <div className="flex flex-col gap-3">
-            <div className="flex justify-between rounded-lg border p-3">
+            <div className={summaryRowClass}>
               <span className="text-muted-foreground text-sm">Tipo de contrato</span>
-              <span className="font-medium">{contractType}</span>
+              <span className="text-foreground font-medium">{contractType}</span>
             </div>
-            <div className="flex justify-between rounded-lg border p-3">
+            <div className={summaryRowClass}>
               <span className="text-muted-foreground text-sm">Jornada</span>
-              <span className="font-medium">{weeklyHours}</span>
+              <span className="text-foreground font-medium">{weeklyHours}</span>
             </div>
             {initialData.activeContract?.costCenter && (
-              <div className="flex justify-between rounded-lg border p-3">
+              <div className={summaryRowClass}>
                 <span className="text-muted-foreground text-sm">Centro</span>
-                <span className="font-medium">{initialData.activeContract.costCenter.name}</span>
+                <span className="text-foreground font-medium">{initialData.activeContract.costCenter.name}</span>
               </div>
             )}
           </div>
@@ -224,20 +240,20 @@ export function MyProfile({ initialData }: MyProfileProps) {
           <div className="flex flex-col gap-3">
             {initialData.employee?.emergencyContactName ? (
               <>
-                <div className="flex justify-between rounded-lg border p-3">
+                <div className={summaryRowClass}>
                   <span className="text-muted-foreground text-sm">Nombre</span>
-                  <span className="font-medium">{initialData.employee.emergencyContactName}</span>
+                  <span className="text-foreground font-medium">{initialData.employee.emergencyContactName}</span>
                 </div>
                 {initialData.employee.emergencyRelationship && (
-                  <div className="flex justify-between rounded-lg border p-3">
+                  <div className={summaryRowClass}>
                     <span className="text-muted-foreground text-sm">Relación</span>
-                    <span className="font-medium">{initialData.employee.emergencyRelationship}</span>
+                    <span className="text-foreground font-medium">{initialData.employee.emergencyRelationship}</span>
                   </div>
                 )}
                 {initialData.employee.emergencyContactPhone && (
-                  <div className="flex justify-between rounded-lg border p-3">
+                  <div className={summaryRowClass}>
                     <span className="text-muted-foreground text-sm">Teléfono</span>
-                    <span className="font-medium">{initialData.employee.emergencyContactPhone}</span>
+                    <span className="text-foreground font-medium">{initialData.employee.emergencyContactPhone}</span>
                   </div>
                 )}
               </>

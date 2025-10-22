@@ -13,6 +13,9 @@ import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS } from "@/types/preferences/th
 export function AppearanceSettings() {
   const { themeMode, themePreset, setThemeMode, setThemePreset } = usePreferencesStore((state) => state);
 
+  const optionClasses =
+    "group relative flex h-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background/80 p-4 text-sm shadow-xs ring-offset-background transition hover:border-primary/40 hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10 [&:has([data-state=checked])]:shadow-md";
+
   const handleThemeModeChange = async (value: string) => {
     const mode = value as "light" | "dark";
     setThemeMode(mode);
@@ -44,12 +47,13 @@ export function AppearanceSettings() {
           <RadioGroup value={themeMode} onValueChange={handleThemeModeChange}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {THEME_MODE_OPTIONS.map((option) => (
-                <Label
-                  key={option.value}
-                  htmlFor={`profile-theme-${option.value}`}
-                  className="border-input hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary flex cursor-pointer items-center gap-3 rounded-lg border p-4"
-                >
-                  <RadioGroupItem value={option.value} id={`profile-theme-${option.value}`} />
+                <Label key={option.value} htmlFor={`profile-theme-${option.value}`} className={optionClasses}>
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`profile-theme-${option.value}`}
+                    className="size-5 border-2"
+                    aria-label={option.label}
+                  />
                   <div className="flex items-center gap-2">
                     {option.value === "light" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     <span className="font-medium">{option.label}</span>
@@ -73,12 +77,13 @@ export function AppearanceSettings() {
           <RadioGroup value={themePreset} onValueChange={handleThemePresetChange}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {THEME_PRESET_OPTIONS.map((option) => (
-                <Label
-                  key={option.value}
-                  htmlFor={`profile-preset-${option.value}`}
-                  className="border-input hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary flex cursor-pointer items-center gap-3 rounded-lg border p-4"
-                >
-                  <RadioGroupItem value={option.value} id={`profile-preset-${option.value}`} />
+                <Label key={option.value} htmlFor={`profile-preset-${option.value}`} className={optionClasses}>
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`profile-preset-${option.value}`}
+                    className="size-5 border-2"
+                    aria-label={option.label}
+                  />
                   <div className="flex flex-1 items-center justify-between">
                     <span className="font-medium">{option.label}</span>
                     <div
