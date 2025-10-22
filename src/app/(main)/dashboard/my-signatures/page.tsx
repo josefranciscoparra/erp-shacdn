@@ -102,20 +102,31 @@ export default function MySignaturesPage() {
         )}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-[2fr,1fr,auto]">
-        <div className="space-y-1">
-          <Label htmlFor="my-signatures-search">Buscar</Label>
-          <Input
-            id="my-signatures-search"
-            placeholder="Busca por título o categoría"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-          />
-          {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
-            <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
-          )}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-end gap-3">
+          <div className="w-full space-y-1 md:w-[300px]">
+            <Label htmlFor="my-signatures-search">Buscar</Label>
+            <Input
+              id="my-signatures-search"
+              placeholder="Busca por título o categoría"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+            />
+            {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
+              <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
+            )}
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setSearchTerm("");
+              setCategoryFilter("all");
+            }}
+          >
+            Limpiar filtros
+          </Button>
         </div>
-        <div className="space-y-1">
+        <div className="w-full space-y-1 md:w-[200px]">
           <Label>Categoría</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger>
@@ -129,17 +140,6 @@ export default function MySignaturesPage() {
               ))}
             </SelectContent>
           </Select>
-        </div>
-        <div className="flex items-end justify-end">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm("");
-              setCategoryFilter("all");
-            }}
-          >
-            Limpiar filtros
-          </Button>
         </div>
       </div>
 
