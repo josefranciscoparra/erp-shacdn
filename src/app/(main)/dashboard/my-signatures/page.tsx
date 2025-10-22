@@ -206,27 +206,27 @@ export default function MySignaturesPage() {
         </div>
 
         {/* Pendientes */}
-        <TabsContent value="pending" className="space-y-4">
+        <TabsContent value="pending">
           <MySignaturesDataTable data={filtered.pending} />
         </TabsContent>
 
         {/* Firmadas */}
-        <TabsContent value="signed" className="space-y-4">
+        <TabsContent value="signed">
           <MySignaturesDataTable data={filtered.signed} />
         </TabsContent>
 
         {/* Rechazadas */}
-        <TabsContent value="rejected" className="space-y-4">
+        <TabsContent value="rejected">
           <MySignaturesDataTable data={filtered.rejected} />
         </TabsContent>
 
         {/* Expiradas */}
-        <TabsContent value="expired" className="space-y-4">
+        <TabsContent value="expired">
           <MySignaturesDataTable data={filtered.expired} />
         </TabsContent>
 
         {/* Todas */}
-        <TabsContent value="all" className="space-y-4">
+        <TabsContent value="all">
           <MySignaturesDataTable data={allSignatures} />
         </TabsContent>
       </Tabs>
