@@ -68,7 +68,7 @@ export const documentKindLabels: Record<DocumentKind, string> = {
   SS_DOCUMENT: "Seguridad Social",
   CERTIFICATE: "Certificado",
   MEDICAL: "Médico",
-  OTHER: "Otro",
+  OTHER: "Otros",
 };
 
 // Colores para badges de tipos de documento

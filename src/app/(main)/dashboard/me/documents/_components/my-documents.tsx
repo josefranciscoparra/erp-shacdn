@@ -4,7 +4,19 @@ import { useState, useEffect } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileText, Download, Eye, Search, Upload as UploadIcon, Trash, Loader2 } from "lucide-react";
+import {
+  FileText,
+  Download,
+  Eye,
+  Search,
+  Upload as UploadIcon,
+  Trash,
+  Loader2,
+  Folder,
+  ChevronRight,
+  Home,
+  MoreVertical,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionHeader } from "@/components/hr/section-header";
@@ -21,6 +33,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { documentKindLabels, documentKindColors, formatFileSize, type DocumentKind } from "@/lib/validations/document";
@@ -36,6 +55,8 @@ export function MyDocuments() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState<DocumentKind | null>(null);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Cargar documentos
   const loadDocuments = async () => {
@@ -168,141 +189,200 @@ export function MyDocuments() {
     {} as Record<DocumentKind, MyDocument[]>,
   );
 
+  // Handlers para drag & drop visual
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDraggingOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingOver(false);
+    toast.info("Función de arrastrar y soltar próximamente");
+  };
+
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
+    <div
+      className="@container/main flex flex-col gap-4 md:gap-6"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <SectionHeader title="Mis Documentos" actionLabel="Subir documento" onAction={() => setUploadDialogOpen(true)} />
 
-      {/* Filtros */}
-      <Card className="@container/card flex flex-col gap-4 p-4 @md/card:flex-row @md/card:items-center @md/card:justify-between">
-        <div className="relative flex-1 @md/card:max-w-sm">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Buscar documentos..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm">
+        <button
+          onClick={() => setCurrentFolder(null)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+        >
+          <Home className="h-4 w-4" />
+          <span>Carpetas</span>
+        </button>
+        {currentFolder && (
+          <>
+            <ChevronRight className="text-muted-foreground h-4 w-4" />
+            <span className="font-medium">{documentKindLabels[currentFolder]}</span>
+          </>
+        )}
+      </div>
 
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-full @md/card:w-[200px]">
-            <SelectValue placeholder="Todas las categorías" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas las categorías</SelectItem>
-            {Object.entries(documentKindLabels).map(([kind, label]) => (
-              <SelectItem key={kind} value={kind}>
-                {label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </Card>
+      {/* Barra de búsqueda */}
+      <div className="relative">
+        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+        <Input
+          placeholder="Buscar documentos..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Zona de drop con feedback visual */}
+      {isDraggingOver && (
+        <div className="border-primary bg-primary/5 fixed inset-8 z-50 flex items-center justify-center rounded-2xl border-2 border-dashed">
+          <div className="flex flex-col items-center gap-3">
+            <UploadIcon className="text-primary h-12 w-12" />
+            <p className="text-primary text-lg font-semibold">Suelta el archivo aquí</p>
+          </div>
+        </div>
+      )}
 
       {/* Estado de carga */}
       {isLoading ? (
-        <Card className="@container/card flex flex-col items-center justify-center gap-4 p-12">
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="text-muted-foreground h-12 w-12 animate-spin" />
           <p className="text-muted-foreground text-sm">Cargando documentos...</p>
-        </Card>
+        </div>
       ) : (
         <>
-          {/* Documentos agrupados */}
-          {Object.keys(groupedDocuments).length > 0 ? (
-            <div className="flex flex-col gap-6">
+          {/* Vista de carpetas */}
+          {!currentFolder && Object.keys(groupedDocuments).length > 0 && (
+            <div className="grid grid-cols-1 gap-4 @lg/main:grid-cols-2 @3xl/main:grid-cols-3 @5xl/main:grid-cols-4">
               {Object.entries(groupedDocuments).map(([category, docs]) => (
-                <Card key={category} className="@container/card flex flex-col gap-4 p-6">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`h-3 w-3 rounded-full ${documentKindColors[category as DocumentKind]?.split(" ")[0] || "bg-gray-500"}`}
-                    />
-                    <h3 className="text-lg font-semibold">{documentKindLabels[category as DocumentKind]}</h3>
-                    <Badge variant="secondary">{docs.length}</Badge>
+                <button
+                  key={category}
+                  onClick={() => setCurrentFolder(category as DocumentKind)}
+                  className="group bg-card relative flex items-center gap-4 rounded-xl border p-5 shadow-sm transition-all hover:shadow-md hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-800"
+                >
+                  <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg transition-colors">
+                    <Folder className="h-6 w-6" />
                   </div>
-
-                  <div className="flex flex-col gap-2">
-                    {docs.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-                        <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div className="bg-muted flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg">
-                            <FileText className="text-muted-foreground h-5 w-5" />
-                          </div>
-                          <div className="flex min-w-0 flex-1 flex-col">
-                            <span className="truncate font-medium">{doc.fileName}</span>
-                            <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-                              <span>{formatFileSize(doc.fileSize)}</span>
-                              <span>•</span>
-                              <span>
-                                {format(new Date(doc.createdAt), "d 'de' MMM yyyy", {
-                                  locale: es,
-                                })}
-                              </span>
-                              {doc.description && (
-                                <>
-                                  <span>•</span>
-                                  <span className="truncate">{doc.description}</span>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-shrink-0 gap-2">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handlePreview(doc.id)}
-                            title="Ver documento"
-                          >
-                            <Eye className="h-4 w-4" />
-                            <span className="sr-only">Ver documento</span>
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDownload(doc.id, doc.fileName)}
-                            title="Descargar documento"
-                          >
-                            <Download className="h-4 w-4" />
-                            <span className="sr-only">Descargar documento</span>
-                          </Button>
-                          {doc.canDelete && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => setDeleteDocumentId(doc.id)}
-                              title="Eliminar documento"
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash className="h-4 w-4" />
-                              <span className="sr-only">Eliminar documento</span>
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex min-w-0 flex-1 flex-col items-start">
+                    <span className="truncate font-semibold">{documentKindLabels[category as DocumentKind]}</span>
+                    <span className="text-muted-foreground text-sm">
+                      {docs.length} {docs.length === 1 ? "documento" : "documentos"}
+                    </span>
                   </div>
-                </Card>
+                </button>
               ))}
             </div>
-          ) : (
-            <Card className="@container/card flex flex-col items-center justify-center gap-4 p-12">
-              <FileText className="text-muted-foreground h-12 w-12" />
+          )}
+
+          {/* Vista de archivos dentro de carpeta */}
+          {currentFolder && groupedDocuments[currentFolder] && (
+            <div className="grid grid-cols-1 gap-4 @md/main:grid-cols-2 @2xl/main:grid-cols-3 @4xl/main:grid-cols-4 @6xl/main:grid-cols-5">
+              {groupedDocuments[currentFolder].map((doc) => (
+                <div
+                  key={doc.id}
+                  className="group bg-card relative flex flex-col overflow-hidden rounded-xl border shadow-sm transition-all hover:shadow-md hover:ring-1 hover:ring-gray-200 dark:hover:ring-gray-800"
+                >
+                  {/* Miniatura del documento */}
+                  <div className="bg-muted flex h-32 items-center justify-center">
+                    <FileText className="text-muted-foreground h-12 w-12" />
+                  </div>
+
+                  {/* Información del documento */}
+                  <div className="flex flex-1 flex-col gap-2 p-4">
+                    <h4 className="truncate font-medium" title={doc.fileName}>
+                      {doc.fileName}
+                    </h4>
+                    <div className="text-muted-foreground flex flex-col gap-1 text-xs">
+                      <span>{formatFileSize(doc.fileSize)}</span>
+                      <span>{format(new Date(doc.createdAt), "d MMM yyyy", { locale: es })}</span>
+                    </div>
+                  </div>
+
+                  {/* Botones de acción flotantes */}
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" size="icon" className="h-8 w-8 shadow-md" title="Más opciones">
+                          <MoreVertical className="h-4 w-4" />
+                          <span className="sr-only">Más opciones</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePreview(doc.id)}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver documento
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(doc.id, doc.fileName)}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Descargar
+                        </DropdownMenuItem>
+                        {doc.canDelete && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => setDeleteDocumentId(doc.id)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Estado vacío */}
+          {Object.keys(groupedDocuments).length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-6 py-16">
+              <div className="bg-primary/5 flex h-24 w-24 items-center justify-center rounded-full">
+                <FileText className="text-primary h-12 w-12" />
+              </div>
               <div className="text-center">
-                <h3 className="font-semibold">No se encontraron documentos</h3>
-                <p className="text-muted-foreground text-sm">
-                  {searchQuery || filterCategory !== "all"
-                    ? "Intenta ajustar los filtros de búsqueda"
-                    : "Sube tu primer documento usando el botón de arriba"}
+                <h3 className="text-lg font-semibold">No tienes documentos aún</h3>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {searchQuery
+                    ? "No se encontraron documentos con ese criterio"
+                    : "Comienza subiendo tu primer documento"}
                 </p>
               </div>
-              {!searchQuery && filterCategory === "all" && (
-                <Button onClick={() => setUploadDialogOpen(true)} className="mt-4">
-                  <UploadIcon className="mr-2 h-4 w-4" />
-                  Subir documento
+              {!searchQuery && (
+                <Button onClick={() => setUploadDialogOpen(true)} size="lg">
+                  <UploadIcon className="mr-2 h-5 w-5" />
+                  Subir primer documento
                 </Button>
               )}
-            </Card>
+            </div>
+          )}
+
+          {/* Carpeta vacía */}
+          {currentFolder && (!groupedDocuments[currentFolder] || groupedDocuments[currentFolder].length === 0) && (
+            <div className="flex flex-col items-center justify-center gap-6 py-16">
+              <div className="bg-muted flex h-24 w-24 items-center justify-center rounded-full">
+                <Folder className="text-muted-foreground h-12 w-12" />
+              </div>
+              <div className="text-center">
+                <h3 className="text-lg font-semibold">Esta carpeta está vacía</h3>
+                <p className="text-muted-foreground mt-1 text-sm">No hay documentos en esta categoría</p>
+              </div>
+              <Button onClick={() => setUploadDialogOpen(true)} size="lg">
+                <UploadIcon className="mr-2 h-5 w-5" />
+                Subir documento
+              </Button>
+            </div>
           )}
         </>
       )}
