@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
+import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 
 // Schema de validación para login
@@ -11,7 +12,13 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
+export const {
+  handlers,
+  signIn,
+  signOut,
+  auth,
+  unstable_update: updateSession,
+} = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   // Confía en el host en entornos locales/proxy para evitar problemas de detección de origen
   trustHost: true,
@@ -45,18 +52,54 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.email = user.email;
         token.mustChangePassword = user.mustChangePassword;
         token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
+        token.image = resolveAvatarForClient(user.image ?? null, user.id, Date.now()) ?? null;
+        return token;
       }
+
+      if (!token.id) {
+        return token;
+      }
+
+      const dbUser = await prisma.user.findUnique({
+        where: { id: token.id },
+        select: {
+          name: true,
+          email: true,
+          image: true,
+          role: true,
+          orgId: true,
+          mustChangePassword: true,
+          updatedAt: true,
+          employee: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (dbUser) {
+        token.name = dbUser.name;
+        token.email = dbUser.email;
+        token.image = resolveAvatarForClient(dbUser.image, token.id, dbUser.updatedAt.getTime());
+        token.role = dbUser.role;
+        token.orgId = dbUser.orgId;
+        token.mustChangePassword = dbUser.mustChangePassword;
+        token.employeeId = dbUser.employee?.id ?? null;
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.orgId = token.orgId as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.orgId = token.orgId;
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
-        session.user.employeeId = (token.employeeId as string | null | undefined) ?? null;
+        session.user.employeeId = token.employeeId ?? null;
+        session.user.image = token.image ?? null;
       }
       return session;
     },
@@ -173,5 +216,6 @@ declare module "next-auth/jwt" {
     email?: string | null;
     mustChangePassword?: boolean;
     employeeId?: string | null;
+    image?: string | null;
   }
 }

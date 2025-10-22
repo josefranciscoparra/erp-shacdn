@@ -1,12 +1,17 @@
 "use client";
 
+import { useState } from "react";
+
+import { useRouter } from "next/navigation";
+
 import { Mail, Phone, Briefcase, Calendar } from "lucide-react";
+import { toast } from "sonner";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import type { ProfileData } from "@/server/actions/profile";
+import { updateProfilePhoto, type ProfileData } from "@/server/actions/profile";
 
 import { AppearanceSettings } from "./appearance-settings";
 
@@ -15,6 +20,9 @@ interface MyProfileProps {
 }
 
 export function MyProfile({ initialData }: MyProfileProps) {
+  const router = useRouter();
+  const [currentPhotoUrl, setCurrentPhotoUrl] = useState(initialData.employee?.photoUrl ?? initialData.user.image);
+
   // Datos calculados
   const fullName = initialData.employee
     ? `${initialData.employee.firstName} ${initialData.employee.lastName}${
@@ -52,6 +60,41 @@ export function MyProfile({ initialData }: MyProfileProps) {
 
   const weeklyHours = initialData.activeContract ? `${initialData.activeContract.weeklyHours}h/semana` : "No definido";
 
+  const handleAvatarUpload = async (file: File) => {
+    console.log("🔵 handleAvatarUpload - INICIO", file.name, file.size, file.type);
+    try {
+      // Convertir archivo a base64
+      console.log("⏳ Convirtiendo a base64...");
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const base64Image = await base64Promise;
+      console.log("✅ Base64 generado, tamaño:", base64Image.length);
+
+      // Subir usando server action
+      console.log("⏳ Llamando a updateProfilePhoto...");
+      const result = await updateProfilePhoto(base64Image);
+      console.log("✅ Respuesta recibida:", result);
+
+      if (result.success && result.photoUrl) {
+        setCurrentPhotoUrl(result.photoUrl);
+        toast.success("Foto de perfil actualizada correctamente");
+        console.log("🎉 Upload exitoso!");
+        router.refresh();
+      } else {
+        toast.error(result.error ?? "Error al actualizar la foto");
+        console.error("❌ Upload falló:", result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error en upload:", error);
+      toast.error("Error al procesar la imagen");
+    }
+  };
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader title="Mi Perfil" />
@@ -59,10 +102,7 @@ export function MyProfile({ initialData }: MyProfileProps) {
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
         {/* Información personal */}
         <Card className="@container/card flex flex-col items-center gap-4 p-6 @xl/main:col-span-1">
-          <Avatar className="h-32 w-32">
-            <AvatarImage src={initialData.employee?.photoUrl ?? initialData.user.image ?? undefined} alt="Avatar" />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
+          <AvatarUpload currentPhotoUrl={currentPhotoUrl} fallback={initials} onUpload={handleAvatarUpload} />
 
           <div className="text-center">
             <h2 className="text-2xl font-bold">{fullName}</h2>

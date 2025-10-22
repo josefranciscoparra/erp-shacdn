@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { z } from "zod";
 
-import { auth } from "@/lib/auth";
+import { auth, updateSession } from "@/lib/auth";
+import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
+import { avatarUploadService } from "@/lib/storage/avatar-service";
 
 // Schema de validación para actualización de perfil
 const updateProfileSchema = z.object({
@@ -96,6 +98,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
         name: true,
         image: true,
         role: true,
+        updatedAt: true,
         employee: {
           select: {
             id: true,
@@ -118,6 +121,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
             emergencyContactName: true,
             emergencyContactPhone: true,
             emergencyRelationship: true,
+            updatedAt: true,
             employmentContracts: {
               where: {
                 active: true,
@@ -171,7 +175,7 @@ export async function getProfileData(): Promise<ProfileData | null> {
         id: user.id,
         email: user.email,
         name: user.name,
-        image: user.image,
+        image: resolveAvatarForClient(user.image, user.id, user.updatedAt.getTime()),
         role: user.role,
       },
       employee: user.employee
@@ -191,7 +195,11 @@ export async function getProfileData(): Promise<ProfileData | null> {
             country: user.employee.country,
             birthDate: user.employee.birthDate,
             nationality: user.employee.nationality,
-            photoUrl: user.employee.photoUrl,
+            photoUrl: resolveAvatarForClient(
+              user.employee.photoUrl,
+              user.id,
+              user.employee.updatedAt?.getTime() ?? user.updatedAt.getTime(),
+            ),
             employmentStatus: user.employee.employmentStatus,
             emergencyContactName: user.employee.emergencyContactName,
             emergencyContactPhone: user.employee.emergencyContactPhone,
@@ -277,5 +285,111 @@ export async function updateProfileData(data: UpdateProfileInput): Promise<{ suc
   } catch (error) {
     console.error("Error al actualizar perfil:", error);
     return { success: false, error: "Error al actualizar el perfil" };
+  }
+}
+
+/**
+ * Actualiza la foto de perfil del empleado
+ */
+export async function updateProfilePhoto(
+  base64Image: string,
+): Promise<{ success: boolean; error?: string; photoUrl?: string }> {
+  try {
+    console.log("🔵 updateProfilePhoto - INICIO");
+
+    // Obtener sesión del usuario autenticado
+    const session = await auth();
+    if (!session?.user?.id) {
+      console.log("❌ No hay sesión");
+      return { success: false, error: "No autenticado" };
+    }
+
+    console.log("✅ Sesión válida:", session.user.id);
+
+    // Buscar usuario con su empleado y organización
+    const user = await prisma.user.findUnique({
+      where: {
+        id: session.user.id,
+      },
+      select: {
+        id: true,
+        orgId: true,
+        employee: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!user?.employee) {
+      console.log("❌ Usuario sin empleado asociado");
+      return { success: false, error: "Usuario no tiene empleado asociado" };
+    }
+
+    console.log("✅ Usuario encontrado, orgId:", user.orgId);
+
+    // Decodificar base64 y convertir a Buffer
+    const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+    console.log("✅ Buffer creado, tamaño:", buffer.length);
+
+    // Detectar mime type del base64
+    const mimeTypeMatch = base64Image.match(/^data:(image\/\w+);base64,/);
+    const mimeType = mimeTypeMatch ? mimeTypeMatch[1] : "image/jpeg";
+    console.log("✅ MIME type detectado:", mimeType);
+
+    // Subir avatar usando el servicio (usa R2/Azure según configuración)
+    console.log("⏳ Subiendo a storage...");
+    const uploadedPhotoUrl = await avatarUploadService.uploadAvatar(user.orgId, user.id, buffer, mimeType);
+    console.log("✅ Avatar subido, URL base:", uploadedPhotoUrl);
+
+    // Actualizar URL de la foto en el empleado Y en el usuario
+    // Esto asegura que tanto el perfil del empleado como el avatar de NextAuth se actualicen
+    console.log("⏳ Actualizando BD...");
+    await prisma.$transaction([
+      prisma.employee.update({
+        where: {
+          id: user.employee.id,
+        },
+        data: {
+          photoUrl: uploadedPhotoUrl,
+        },
+      }),
+      prisma.user.update({
+        where: {
+          id: user.id,
+        },
+        data: {
+          image: uploadedPhotoUrl,
+        },
+      }),
+    ]);
+    console.log("✅ BD actualizada");
+
+    const cacheVersion = Date.now();
+    const displayPhotoUrl = resolveAvatarForClient(uploadedPhotoUrl, user.id, cacheVersion) ?? uploadedPhotoUrl;
+    console.log("✅ URL pública generada:", displayPhotoUrl);
+
+    // Actualizar la sesión JWT para que refleje la nueva imagen inmediatamente
+    console.log("⏳ Actualizando sesión...");
+    await updateSession({
+      user: {
+        image: displayPhotoUrl,
+      },
+    });
+    console.log("✅ Sesión actualizada");
+
+    // Revalidar las páginas relevantes
+    console.log("⏳ Revalidando páginas...");
+    revalidatePath("/dashboard/me/profile");
+    revalidatePath("/dashboard");
+    console.log("✅ Páginas revalidadas");
+
+    console.log("🎉 updateProfilePhoto - FIN EXITOSO");
+    return { success: true, photoUrl: displayPhotoUrl };
+  } catch (error) {
+    console.error("❌ Error al actualizar foto de perfil:", error);
+    return { success: false, error: "Error al subir la imagen" };
   }
 }

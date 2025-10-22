@@ -3,6 +3,7 @@
 import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
 
 import { auth } from "@/lib/auth";
+import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 
 import { getMyMonthEvents } from "./employee-calendars";
@@ -165,10 +166,10 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     // 5. Información del perfil
     const profile = {
       name: `${employee.firstName} ${employee.lastName}`,
-      email: employee.email ?? employee.user.email,
+      email: employee.email ?? session.user.email,
       position: activeContract?.position?.title ?? null,
       department: activeContract?.department?.name ?? null,
-      photoUrl: employee.photoUrl ?? null,
+      photoUrl: resolveAvatarForClient(employee.photoUrl, session.user.id, employee.updatedAt?.getTime()),
     };
 
     // Determinar estado actual del fichaje
