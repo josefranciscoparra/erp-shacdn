@@ -188,6 +188,15 @@ When working with components:
    ✅ CORRECTO:   import { Foo, Baz } from "lib"
    ```
 
+4. **CUIDADO con `??` y optional chaining juntos** - Usar `||` en lugar de `??` cuando ya se usa `?.`
+   ```typescript
+   ❌ INCORRECTO: event.calendar?.color ?? "default"  // Causa warning
+   ✅ CORRECTO:   event.calendar?.color || "default"  // Sin warning
+
+   // Explicación: optional chaining (?.) ya maneja null/undefined,
+   // por lo que ?? es redundante y causa warnings de ESLint
+   ```
+
 ### Warnings que son aceptables (no bloquean):
 
 - `Generic Object Injection Sink` (security warning) - Aceptable en código interno
