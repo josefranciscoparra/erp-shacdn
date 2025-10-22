@@ -134,7 +134,7 @@ export default function MySpacePage() {
       {/* Header con nombre del empleado */}
       <div className="space-y-1">
         <SectionHeader
-          title={data?.profile.name ?? "Mi Espacio"}
+          title={data?.profile.name ? `Bienvenido, ${data.profile.name}` : "Bienvenido"}
           description={
             data?.profile.position || data?.profile.department
               ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`

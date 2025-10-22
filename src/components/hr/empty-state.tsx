@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type EmptyStateProps = {
-  icon?: React.ReactNode | LucideIcon;
+  icon?: LucideIcon;
   iconClassName?: string;
   title: string;
   description?: string;
@@ -26,7 +26,7 @@ export function EmptyState({
     <div className="text-muted-foreground flex flex-col items-center py-12 text-center">
       {Icon ? (
         <div className="text-muted-foreground/50 mb-6">
-          {typeof Icon === "function" ? <Icon className={cn("h-16 w-16", iconClassName)} /> : Icon}
+          <Icon className={cn("h-16 w-16", iconClassName)} />
         </div>
       ) : null}
       <h3 className="text-foreground mb-2 text-base font-semibold sm:text-lg">{title}</h3>
