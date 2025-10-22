@@ -6,6 +6,7 @@ export type Employee = {
   secondLastName: string | null;
   email: string | null;
   active: boolean;
+  photoUrl?: string | null;
   department?: {
     name: string;
   } | null;
@@ -19,6 +20,7 @@ export type Employee = {
     active: boolean;
   }[];
   user?: {
+    id?: string;
     email: string;
     role: string;
   } | null;

@@ -2,19 +2,30 @@
 
 import * as React from "react";
 
-import { Plus, BriefcaseBusiness } from "lucide-react";
+import {
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from "@tanstack/react-table";
+import { Plus, BriefcaseBusiness, Search, X } from "lucide-react";
 
+import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { Position } from "@/stores/organization-store";
-
-import { DataTable as DataTableNew } from "../../../../../components/data-table/data-table";
-import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
 
 import { createPositionsColumns } from "./positions-columns";
 
@@ -27,6 +38,11 @@ interface PositionsDataTableProps {
 
 export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: PositionsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = React.useState({});
+  const [globalFilter, setGlobalFilter] = React.useState("");
 
   const columns = React.useMemo(() => createPositionsColumns({ onEdit, onDelete }), [onEdit, onDelete]);
 
@@ -45,10 +61,31 @@ export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: Po
     }
   }, [data, activeTab]);
 
-  const table = useDataTableInstance({
+  const table = useReactTable({
     data: filteredData,
     columns,
-    getRowId: (row) => row.id.toString(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: "includesString",
+    state: {
+      sorting,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
+      globalFilter,
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
   });
 
   const counts = React.useMemo(
@@ -60,6 +97,22 @@ export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: Po
     }),
     [data],
   );
+
+  // Opciones únicas para filtros
+  const levelOptions = React.useMemo(() => {
+    const unique = Array.from(
+      new Set(data.filter((p) => p.level).map((p) => JSON.stringify({ id: p.level?.id, name: p.level?.name }))),
+    );
+    return unique.map((l) => {
+      const parsed = JSON.parse(l);
+      return {
+        label: parsed.name,
+        value: parsed.id,
+      };
+    });
+  }, [data]);
+
+  const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-6">
@@ -101,81 +154,110 @@ export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: Po
         </div>
       </div>
 
-      <TabsContent value="active" className="relative flex flex-col gap-4 overflow-auto">
-        {filteredData.length > 0 ? (
-          <>
-            <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={columns} />
-            </div>
-            <DataTablePagination table={table} />
-          </>
-        ) : (
-          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4">
-              <BriefcaseBusiness className="text-muted-foreground/30 mx-auto h-12 w-12" />
-            </div>
-            <h3 className="text-foreground mb-1 text-sm font-medium">No hay puestos activos</h3>
-            <p className="text-xs">Los puestos activos aparecerán aquí</p>
-          </div>
-        )}
-      </TabsContent>
+      {/* Contenido común para todas las tabs */}
+      {["active", "inactive", "all", "with-level"].map((tabValue) => (
+        <TabsContent key={tabValue} value={tabValue} className="relative flex flex-col gap-4 overflow-auto">
+          {/* Toolbar con búsqueda y filtros */}
+          <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+            <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
+              {/* Búsqueda global */}
+              <div className="relative flex-1 @4xl/main:max-w-sm">
+                <Search className="text-muted-foreground absolute top-3 left-3 h-4 w-4" />
+                <Input
+                  placeholder="Buscar puestos..."
+                  value={globalFilter}
+                  onChange={(event) => setGlobalFilter(event.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
-      <TabsContent value="inactive" className="relative flex flex-col gap-4 overflow-auto">
-        {filteredData.length > 0 ? (
-          <>
-            <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={columns} />
+              {/* Filtros */}
+              <div className="flex gap-2">
+                {table.getColumn("level") && levelOptions.length > 0 && (
+                  <DataTableFacetedFilter column={table.getColumn("level")} title="Nivel" options={levelOptions} />
+                )}
+                {isFiltered && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      table.resetColumnFilters();
+                      setGlobalFilter("");
+                    }}
+                    className="h-8 px-2 lg:px-3"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    Limpiar
+                  </Button>
+                )}
+              </div>
             </div>
-            <DataTablePagination table={table} />
-          </>
-        ) : (
-          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4">
-              <BriefcaseBusiness className="text-muted-foreground/30 mx-auto h-12 w-12" />
-            </div>
-            <h3 className="text-foreground mb-1 text-sm font-medium">No hay puestos inactivos</h3>
-            <p className="text-xs">Los puestos dados de baja aparecerán aquí</p>
           </div>
-        )}
-      </TabsContent>
 
-      <TabsContent value="all" className="relative flex flex-col gap-4 overflow-auto">
-        {filteredData.length > 0 ? (
-          <>
-            <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={columns} />
+          {filteredData.length > 0 ? (
+            <>
+              <div className="overflow-hidden rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    {table.getHeaderGroups().map((headerGroup) => (
+                      <TableRow key={headerGroup.id}>
+                        {headerGroup.headers.map((header) => (
+                          <TableHead key={header.id}>
+                            {header.isPlaceholder
+                              ? null
+                              : flexRender(header.column.columnDef.header, header.getContext())}
+                          </TableHead>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableHeader>
+                  <TableBody>
+                    {table.getRowModel().rows?.length ? (
+                      table.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={columns.length} className="h-24 text-center">
+                          <div className="text-muted-foreground text-sm">
+                            {isFiltered
+                              ? "No se encontraron puestos con los filtros aplicados."
+                              : "No hay puestos en esta categoría."}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <DataTablePagination table={table} />
+            </>
+          ) : (
+            <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
+              <div className="mb-4">
+                <BriefcaseBusiness className="text-muted-foreground/30 mx-auto h-12 w-12" />
+              </div>
+              <h3 className="text-foreground mb-1 text-sm font-medium">
+                {tabValue === "active" && "No hay puestos activos"}
+                {tabValue === "inactive" && "No hay puestos inactivos"}
+                {tabValue === "with-level" && "No hay puestos con nivel definido"}
+                {tabValue === "all" && "No hay puestos registrados"}
+              </h3>
+              <p className="text-xs">
+                {tabValue === "active" && "Los puestos activos aparecerán aquí"}
+                {tabValue === "inactive" && "Los puestos dados de baja aparecerán aquí"}
+                {tabValue === "with-level" && "Los puestos con nivel configurado aparecerán aquí"}
+                {tabValue === "all" && "Comienza agregando tu primer puesto de trabajo"}
+              </p>
             </div>
-            <DataTablePagination table={table} />
-          </>
-        ) : (
-          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4">
-              <BriefcaseBusiness className="text-muted-foreground/30 mx-auto h-12 w-12" />
-            </div>
-            <h3 className="text-foreground mb-1 text-sm font-medium">No hay puestos registrados</h3>
-            <p className="text-xs">Comienza agregando tu primer puesto de trabajo</p>
-          </div>
-        )}
-      </TabsContent>
-
-      <TabsContent value="with-level" className="relative flex flex-col gap-4 overflow-auto">
-        {filteredData.length > 0 ? (
-          <>
-            <div className="overflow-hidden rounded-lg border">
-              <DataTableNew table={table} columns={columns} />
-            </div>
-            <DataTablePagination table={table} />
-          </>
-        ) : (
-          <div className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4">
-              <BriefcaseBusiness className="text-muted-foreground/30 mx-auto h-12 w-12" />
-            </div>
-            <h3 className="text-foreground mb-1 text-sm font-medium">No hay puestos con nivel definido</h3>
-            <p className="text-xs">Los puestos con nivel configurado aparecerán aquí</p>
-          </div>
-        )}
-      </TabsContent>
+          )}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 }

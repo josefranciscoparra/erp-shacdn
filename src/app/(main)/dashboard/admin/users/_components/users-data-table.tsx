@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { type Role } from "@prisma/client";
 import {
   ColumnFiltersState,
   SortingState,
@@ -27,6 +28,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { createUsersColumns, type UserRow } from "./users-columns";
+
+const ROLE_DISPLAY_NAMES: Record<Role, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ORG_ADMIN: "Admin Org",
+  HR_ADMIN: "Admin RRHH",
+  MANAGER: "Manager",
+  EMPLOYEE: "Empleado",
+};
 
 interface UsersDataTableProps {
   data: UserRow[];
@@ -124,7 +133,7 @@ export function UsersDataTable({
   const roleOptions = React.useMemo(() => {
     const unique = Array.from(new Set(data.map((user) => user.role)));
     return unique.map((role) => ({
-      label: role,
+      label: ROLE_DISPLAY_NAMES[role],
       value: role,
     }));
   }, [data]);

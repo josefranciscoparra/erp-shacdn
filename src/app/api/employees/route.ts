@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
+import { resolveAvatarForClient } from "@/lib/avatar";
 import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -27,8 +28,10 @@ export async function GET(request: NextRequest) {
       include: {
         user: {
           select: {
+            id: true,
             email: true,
             role: true,
+            updatedAt: true,
           },
         },
         employmentContracts: {

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ColumnDef } from "@tanstack/react-table";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 
 import { Employee } from "../types";
@@ -31,13 +30,9 @@ export const employeesColumns: ColumnDef<Employee>[] = [
     cell: ({ row }) => {
       const employee = row.original;
       const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
-      const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`.toUpperCase();
 
       return (
         <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-          </Avatar>
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <Link

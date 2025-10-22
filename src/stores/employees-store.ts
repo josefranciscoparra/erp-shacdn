@@ -21,7 +21,7 @@ export interface Employee {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyRelationship?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   notes?: string;
   active: boolean;
   createdAt: Date;

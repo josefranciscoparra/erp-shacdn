@@ -52,6 +52,11 @@ export const createPositionsColumns = ({ onEdit, onDelete }: PositionsColumnsPro
       }
       return <Badge variant="outline">{levelLabel}</Badge>;
     },
+    filterFn: (row, id, filterValue) => {
+      const level = row.original.level;
+      if (!level) return false;
+      return filterValue.includes(level.id);
+    },
   },
   {
     accessorKey: "active",

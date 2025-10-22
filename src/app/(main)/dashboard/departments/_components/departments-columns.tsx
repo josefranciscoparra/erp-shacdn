@@ -76,6 +76,11 @@ export const createDepartmentsColumns = ({
         </div>
       );
     },
+    filterFn: (row, id, filterValue) => {
+      const costCenter = row.original.costCenter;
+      if (!costCenter) return false;
+      return filterValue.includes(costCenter.id);
+    },
   },
   {
     accessorKey: "_count.employmentContracts",

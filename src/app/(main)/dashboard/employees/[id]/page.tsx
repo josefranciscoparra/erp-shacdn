@@ -24,10 +24,11 @@ import {
 import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
@@ -56,6 +57,7 @@ interface Employee {
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   emergencyRelationship: string | null;
+  photoUrl: string | null;
   active: boolean;
   createdAt: string;
   user: {
@@ -197,7 +199,16 @@ export default function EmployeeProfilePage() {
   }
 
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
-  const initials = `${employee.firstName.charAt(0)}${employee.lastName.charAt(0)}`.toUpperCase();
+  const photoUrl = employee.photoUrl ?? null;
+
+  const profileAvatar = (
+    <Avatar className="h-12 w-12">
+      {photoUrl ? <AvatarImage src={photoUrl} alt={fullName} /> : null}
+      <AvatarFallback className="bg-muted text-muted-foreground">
+        <User className="h-5 w-5" />
+      </AvatarFallback>
+    </Avatar>
+  );
   const activeContract = employee.employmentContracts.find((c) => c.active);
 
   const formatDate = (dateString: string) => {
@@ -225,9 +236,33 @@ export default function EmployeeProfilePage() {
             Volver
           </Button>
           <div className="flex items-center gap-3">
-            <Avatar className="h-12 w-12">
-              <AvatarFallback className="text-sm font-medium">{initials}</AvatarFallback>
-            </Avatar>
+            {photoUrl ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="focus:ring-ring rounded-full focus:ring-2 focus:ring-offset-2 focus:outline-none"
+                    aria-label="Ver foto ampliada"
+                  >
+                    {profileAvatar}
+                  </button>
+                </DialogTrigger>
+                <DialogContent className="border-none bg-transparent p-0 shadow-none sm:max-w-2xl" showCloseButton>
+                  <DialogHeader className="sr-only">
+                    <DialogTitle>Foto de {fullName}</DialogTitle>
+                  </DialogHeader>
+                  <div className="bg-background rounded-lg">
+                    <img
+                      src={photoUrl}
+                      alt={`Foto de ${fullName}`}
+                      className="max-h-[80vh] w-full rounded-lg object-contain"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              profileAvatar
+            )}
             <div>
               <h1 className="text-foreground text-2xl font-semibold">{fullName}</h1>
               <div className="mt-1 flex items-center gap-2">

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { resolveAvatarForClient } from "@/lib/avatar";
 import { encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -134,6 +135,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       birthDate: employee.birthDate?.toISOString(),
       createdAt: employee.createdAt.toISOString(),
       updatedAt: employee.updatedAt.toISOString(),
+      photoUrl: resolveAvatarForClient(
+        employee.photoUrl,
+        employee.user?.id ?? employee.id,
+        employee.updatedAt.getTime(),
+      ),
       employmentContracts: employee.employmentContracts.map((contract) => ({
         ...contract,
         startDate: contract.startDate.toISOString(),
