@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
 import { PasswordGuard } from "@/components/auth/password-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
@@ -61,6 +62,8 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <SearchDialog />
             </div>
             <div className="flex items-center gap-2">
+              <QuickClockWidget />
+              <Separator orientation="vertical" className="mx-2 hidden data-[orientation=vertical]:h-4 md:block" />
               <NotificationBell />
               <LayoutControls />
             </div>

@@ -222,7 +222,7 @@ export function MyCalendar() {
                 <div
                   key={index}
                   onClick={() => handleDayClick(day, dayEvents)}
-                  className={`relative flex min-h-24 flex-col gap-2 rounded-lg border p-2 transition-colors ${
+                  className={`relative flex min-h-16 flex-col gap-1 rounded-lg border p-2 transition-colors ${
                     isToday ? "border-primary bg-primary/5" : ""
                   } ${!isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""} ${
                     dayEvents.length > 0 ? "hover:bg-accent cursor-pointer" : ""
