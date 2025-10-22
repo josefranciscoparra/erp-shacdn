@@ -110,11 +110,11 @@ function Calendar({
         range_middle: cn("rounded-none", defaultClassNames.range_middle),
         range_end: cn("rounded-r-md bg-accent", defaultClassNames.range_end),
         today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/30 dark:text-yellow-300 rounded-md font-semibold ring-2 ring-yellow-400 dark:ring-yellow-600 data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
         outside: cn(
-          "text-muted-foreground aria-selected:text-muted-foreground",
+          "text-muted-foreground/40 aria-selected:text-muted-foreground/40 opacity-50",
           defaultClassNames.outside
         ),
         disabled: cn(

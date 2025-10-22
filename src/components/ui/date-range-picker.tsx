@@ -20,6 +20,7 @@ interface DateRangePickerProps {
   onDateRangeChange: (range: DateRange | undefined) => void;
   placeholder?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export function DateRangePicker({
@@ -27,6 +28,7 @@ export function DateRangePicker({
   onDateRangeChange,
   placeholder = "Seleccionar rango",
   className,
+  disabled = false,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
 
@@ -42,8 +44,9 @@ export function DateRangePicker({
         <Button
           variant="outline"
           size="sm"
+          disabled={disabled}
           className={cn(
-            "justify-start text-left font-normal",
+            "justify-start text-left font-normal w-full",
             !dateRange && "text-muted-foreground",
             className
           )}
@@ -69,14 +72,16 @@ export function DateRangePicker({
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
+      <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="range"
           selected={dateRange}
           onSelect={onDateRangeChange}
-          numberOfMonths={2}
-          defaultMonth={dateRange?.from}
+          numberOfMonths={1}
+          defaultMonth={dateRange?.from ?? new Date()}
           initialFocus
+          locale={es}
+          disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
         />
         <div className="flex items-center justify-between border-t p-3">
           <Button
