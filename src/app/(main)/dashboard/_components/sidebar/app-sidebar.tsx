@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
   SidebarContent,
@@ -17,13 +18,18 @@ import { useSidebarItems } from "@/navigation/sidebar/sidebar-items-translated";
 
 import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
+import { SidebarOrganizationSwitcher } from "./organization-switcher";
+
+type AppSidebarUser = {
+  readonly name: string;
+  readonly email: string;
+  readonly avatar: string;
+  readonly role?: string;
+  readonly orgId?: string;
+};
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
-  user?: {
-    readonly name: string;
-    readonly email: string;
-    readonly avatar: string;
-  };
+  user?: AppSidebarUser;
 };
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
@@ -63,7 +69,17 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         {/* <NavDocuments items={data.documents} /> */}
         {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
-      <SidebarFooter>{user && <NavUser user={user} />}</SidebarFooter>
+      <SidebarFooter className="flex flex-col gap-0 p-0">
+        {user?.role === "SUPER_ADMIN" && user.orgId && (
+          <>
+            <div className="px-2 py-1.5">
+              <SidebarOrganizationSwitcher currentOrgId={user.orgId} />
+            </div>
+            <Separator className="mx-2" />
+          </>
+        )}
+        {user && <NavUser user={user} />}
+      </SidebarFooter>
     </Sidebar>
   );
 }

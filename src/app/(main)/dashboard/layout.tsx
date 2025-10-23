@@ -40,6 +40,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     email: session.user.email,
     avatar: session.user.image ?? "",
     role: session.user.role,
+    orgId: session.user.orgId,
   };
 
   return (

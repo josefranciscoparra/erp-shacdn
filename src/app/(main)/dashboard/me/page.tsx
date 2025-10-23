@@ -6,17 +6,7 @@ import Link from "next/link";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Clock,
-  CalendarDays,
-  FileText,
-  UserCircle,
-  Bell,
-  Users,
-  Settings,
-  BarChart3,
-  FolderKanban,
-} from "lucide-react";
+import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarChart3, Building2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -71,9 +61,9 @@ export default function MySpacePage() {
               </Link>
             </Button>
             <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/organization">
-                <FolderKanban className="h-5 w-5" />
-                <span className="text-sm font-medium">Organización</span>
+              <Link href="/dashboard/departments">
+                <Building2 className="h-5 w-5" />
+                <span className="text-sm font-medium">Departamentos</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>

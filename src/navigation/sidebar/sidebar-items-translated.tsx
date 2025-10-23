@@ -52,7 +52,7 @@ export interface NavGroup {
 }
 
 export function useSidebarItems(): NavGroup[] {
-  const { hasPermission, isAuthenticated } = usePermissions();
+  const { hasPermission, isAuthenticated, userRole } = usePermissions();
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
 
