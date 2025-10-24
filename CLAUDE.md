@@ -215,6 +215,20 @@ When working with components:
    // Usar ?? causa error "no-constant-binary-expression" y bloquea el commit.
    ```
 
+6. **NUNCA usar `||` en condiciones con valores opcionales** - SIEMPRE usar `??` para chequeos explícitos de null/undefined
+
+   ```typescript
+   ❌ INCORRECTO: {(obj?.field1 || obj?.field2) && <Component />}
+   ✅ CORRECTO:   {(obj?.field1 ?? obj?.field2) && <Component />}
+
+   ❌ INCORRECTO: if (notification?.ptoRequestId || notification?.manualRequestId) { }
+   ✅ CORRECTO:   if (notification?.ptoRequestId ?? notification?.manualRequestId) { }
+
+   // Explicación: Con valores opcionales, usar || puede causar comportamiento inesperado
+   // con valores falsy (0, "", false). ESLint requiere ?? para ser explícito.
+   // Error: "Prefer using nullish coalescing operator (`??`) instead of a logical or (`||`)"
+   ```
+
 ### Warnings que son aceptables (no bloquean):
 
 - `Generic Object Injection Sink` (security warning) - Aceptable en código interno
