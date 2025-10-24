@@ -2,53 +2,34 @@
 
 import { useState, useEffect } from "react";
 
-import { Clock, LogIn, LogOut, Coffee } from "lucide-react";
+import { LogIn, LogOut, Coffee } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  clockIn as clockInAction,
-  clockOut as clockOutAction,
-  startBreak as startBreakAction,
-  endBreak as endBreakAction,
-  getTodaySummary,
-  getCurrentStatus,
-  getExpectedDailyHours,
-} from "@/server/actions/time-tracking";
-
-type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
-
-interface WorkdaySummary {
-  id: string;
-  date: Date;
-  clockIn?: Date;
-  clockOut?: Date;
-  totalWorkedMinutes: number;
-  totalBreakMinutes: number;
-  status: string;
-  timeEntries: Array<{
-    id: string;
-    entryType: string;
-    timestamp: Date;
-  }>;
-}
+import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [currentStatus, setCurrentStatus] = useState<ClockStatus>("CLOCKED_OUT");
-  const [todaySummary, setTodaySummary] = useState<WorkdaySummary | null>(null);
-  const [expectedDailyHours, setExpectedDailyHours] = useState<number>(8);
-  const [hasActiveContract, setHasActiveContract] = useState<boolean>(true);
-  const [isClocking, setIsClocking] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [liveWorkedMinutes, setLiveWorkedMinutes] = useState<number>(0);
+
+  const {
+    currentStatus,
+    todaySummary,
+    expectedDailyHours,
+    hasActiveContract,
+    liveWorkedMinutes,
+    isClocking,
+    isLoading,
+    error,
+    clockIn: clockInAction,
+    clockOut: clockOutAction,
+    startBreak: startBreakAction,
+    endBreak: endBreakAction,
+    setLiveWorkedMinutes,
+    loadInitialData,
+  } = useTimeTrackingStore();
 
   // Actualizar hora y contador en vivo cada segundo
   useEffect(() => {
@@ -74,7 +55,7 @@ export function ClockIn() {
 
           // El base es el tiempo acumulado (que NO incluye la sesión actual)
           // Convertir a Number porque viene como Decimal de Prisma
-          const baseMinutes = Number(todaySummary.totalWorkedMinutes) || 0;
+          const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
 
           console.log(
             "🔢 Base:",
@@ -92,89 +73,18 @@ export function ClockIn() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentStatus, todaySummary]);
+  }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
   // Cargar estado y resumen al montar
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setIsLoading(true);
-      const startTime = Date.now();
-
-      const [status, summary, hoursInfo] = await Promise.all([
-        getCurrentStatus(),
-        getTodaySummary(),
-        getExpectedDailyHours(),
-      ]);
-
-      console.log("📊 Summary cargado:", summary);
-      console.log("📋 TimeEntries:", summary?.timeEntries);
-
-      // Duración mínima de 400ms para que se vea la animación
-      const elapsed = Date.now() - startTime;
-      const minimumLoadTime = 400;
-      if (elapsed < minimumLoadTime) {
-        await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
-      }
-
-      setCurrentStatus(status.status);
-      setTodaySummary(summary as any);
-      setExpectedDailyHours(hoursInfo.dailyHours);
-      setHasActiveContract(hoursInfo.hasActiveContract);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar datos");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleClockIn = async () => {
-    setIsClocking(true);
-    setError(null);
-    try {
-      await clockInAction();
-      setCurrentStatus("CLOCKED_IN");
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al fichar entrada");
-    } finally {
-      setIsClocking(false);
-    }
-  };
-
-  const handleClockOut = async () => {
-    setIsClocking(true);
-    setError(null);
-    try {
-      await clockOutAction();
-      setCurrentStatus("CLOCKED_OUT");
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al fichar salida");
-    } finally {
-      setIsClocking(false);
-    }
-  };
+    loadInitialData();
+  }, [loadInitialData]);
 
   const handleBreak = async () => {
-    setIsClocking(true);
-    setError(null);
-    try {
-      if (currentStatus === "ON_BREAK") {
-        await endBreakAction();
-        setCurrentStatus("CLOCKED_IN");
-      } else {
-        await startBreakAction();
-        setCurrentStatus("ON_BREAK");
-      }
-      await loadData();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error con el descanso");
-    } finally {
-      setIsClocking(false);
+    if (currentStatus === "ON_BREAK") {
+      await endBreakAction();
+    } else {
+      await startBreakAction();
     }
   };
 
@@ -320,7 +230,7 @@ export function ClockIn() {
 
           <div className="flex w-full flex-col gap-3">
             {currentStatus === "CLOCKED_OUT" ? (
-              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isLoading || isClocking}>
+              <Button size="lg" onClick={clockInAction} className="w-full" disabled={isLoading || isClocking}>
                 <LogIn className="mr-2 h-5 w-5" />
                 {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Entrada"}
               </Button>
@@ -328,7 +238,7 @@ export function ClockIn() {
               <>
                 <Button
                   size="lg"
-                  onClick={handleClockOut}
+                  onClick={clockOutAction}
                   variant="destructive"
                   className="w-full"
                   disabled={isLoading || isClocking}

@@ -1,46 +1,30 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 import { LogIn, LogOut, Coffee } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import {
-  clockIn as clockInAction,
-  clockOut as clockOutAction,
-  startBreak as startBreakAction,
-  endBreak as endBreakAction,
-  getTodaySummary,
-  getCurrentStatus,
-} from "@/server/actions/time-tracking";
-
-type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
-
-interface WorkdaySummary {
-  id: string;
-  date: Date;
-  clockIn?: Date;
-  clockOut?: Date;
-  totalWorkedMinutes: number;
-  totalBreakMinutes: number;
-  status: string;
-  timeEntries: Array<{
-    id: string;
-    entryType: string;
-    timestamp: Date;
-  }>;
-}
+import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function QuickClockWidget() {
-  const [currentStatus, setCurrentStatus] = useState<ClockStatus>("CLOCKED_OUT");
-  const [todaySummary, setTodaySummary] = useState<WorkdaySummary | null>(null);
-  const [isClocking, setIsClocking] = useState(false);
-  const [liveWorkedMinutes, setLiveWorkedMinutes] = useState<number>(0);
+  const {
+    currentStatus,
+    todaySummary,
+    liveWorkedMinutes,
+    isClocking,
+    clockIn,
+    clockOut,
+    startBreak,
+    endBreak,
+    setLiveWorkedMinutes,
+    loadInitialData,
+  } = useTimeTrackingStore();
 
   // Cargar estado inicial
   useEffect(() => {
-    loadData();
-  }, []);
+    loadInitialData();
+  }, [loadInitialData]);
 
   // Actualizar contador en vivo cada segundo
   useEffect(() => {
@@ -56,7 +40,7 @@ export function QuickClockWidget() {
           const startTime = new Date(lastWorkStart.timestamp);
           const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
           const minutesFromStart = secondsFromStart / 60;
-          const baseMinutes = Number(todaySummary.totalWorkedMinutes) || 0;
+          const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }
       } else {
@@ -64,59 +48,13 @@ export function QuickClockWidget() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentStatus, todaySummary]);
-
-  const loadData = async () => {
-    try {
-      const [status, summary] = await Promise.all([getCurrentStatus(), getTodaySummary()]);
-      setCurrentStatus(status.status);
-      setTodaySummary(summary as any);
-    } catch {
-      // Silenciar errores en widget
-    }
-  };
-
-  const handleClockIn = async () => {
-    setIsClocking(true);
-    try {
-      await clockInAction();
-      setCurrentStatus("CLOCKED_IN");
-      await loadData();
-    } catch {
-      // Silenciar errores
-    } finally {
-      setIsClocking(false);
-    }
-  };
-
-  const handleClockOut = async () => {
-    setIsClocking(true);
-    try {
-      await clockOutAction();
-      setCurrentStatus("CLOCKED_OUT");
-      await loadData();
-    } catch {
-      // Silenciar errores
-    } finally {
-      setIsClocking(false);
-    }
-  };
+  }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
   const handleBreak = async () => {
-    setIsClocking(true);
-    try {
-      if (currentStatus === "ON_BREAK") {
-        await endBreakAction();
-        setCurrentStatus("CLOCKED_IN");
-      } else {
-        await startBreakAction();
-        setCurrentStatus("ON_BREAK");
-      }
-      await loadData();
-    } catch {
-      // Silenciar errores
-    } finally {
-      setIsClocking(false);
+    if (currentStatus === "ON_BREAK") {
+      await endBreak();
+    } else {
+      await startBreak();
     }
   };
 
@@ -134,7 +72,7 @@ export function QuickClockWidget() {
       {currentStatus === "CLOCKED_OUT" && (
         <Button
           size="sm"
-          onClick={handleClockIn}
+          onClick={clockIn}
           disabled={isClocking}
           className="rounded-full bg-green-600 hover:bg-green-700"
         >
@@ -145,13 +83,7 @@ export function QuickClockWidget() {
 
       {currentStatus === "CLOCKED_IN" && (
         <>
-          <Button
-            size="sm"
-            onClick={handleClockOut}
-            disabled={isClocking}
-            variant="destructive"
-            className="rounded-full"
-          >
+          <Button size="sm" onClick={clockOut} disabled={isClocking} variant="destructive" className="rounded-full">
             <LogOut className="mr-1.5 h-3.5 w-3.5" />
             Salir
           </Button>
