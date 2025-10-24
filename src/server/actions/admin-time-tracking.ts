@@ -1040,6 +1040,176 @@ export async function getCostCentersForFilter() {
   }
 }
 
+// Obtener detalle diario con todos los TimeEntries
+export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date, dateTo?: Date) {
+  try {
+    const { orgId } = await checkAdminPermissions();
+
+    // Obtener información del contrato activo
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        employmentContracts: {
+          where: { active: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!employee) {
+      throw new Error("Empleado no encontrado");
+    }
+
+    const activeContract = employee.employmentContracts[0];
+    const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
+    const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
+    const dailyHours = weeklyHours / workingDaysPerWeek;
+
+    // Generar el rango de fechas completo
+    const startDate = dateFrom ?? startOfDay(new Date());
+    const endDate = dateTo ?? endOfDay(new Date());
+    const allDaysInRange = eachDayOfInterval({ start: startDate, end: endDate });
+
+    const where: any = {
+      orgId,
+      employeeId,
+    };
+
+    if (dateFrom || dateTo) {
+      where.date = {};
+      if (dateFrom) {
+        where.date.gte = startOfDay(dateFrom);
+      }
+      if (dateTo) {
+        where.date.lte = endOfDay(dateTo);
+      }
+    }
+
+    const summaries = await prisma.workdaySummary.findMany({
+      where,
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    // Crear un Map de summaries por fecha para búsqueda rápida
+    type SummaryType = (typeof summaries)[number];
+    const summariesByDate = new Map<string, SummaryType>();
+    summaries.forEach((summary) => {
+      const dateKey = startOfDay(summary.date).toISOString();
+      summariesByDate.set(dateKey, summary);
+    });
+
+    // Cargar todos los TimeEntries del empleado para el período
+    const timeEntriesWhere: any = {
+      orgId,
+      employeeId,
+    };
+
+    if (dateFrom || dateTo) {
+      timeEntriesWhere.timestamp = {};
+      if (dateFrom) {
+        timeEntriesWhere.timestamp.gte = dateFrom;
+      }
+      if (dateTo) {
+        timeEntriesWhere.timestamp.lte = dateTo;
+      }
+    }
+
+    const allTimeEntries = await prisma.timeEntry.findMany({
+      where: timeEntriesWhere,
+      orderBy: {
+        timestamp: "asc",
+      },
+    });
+
+    // Agrupar TimeEntries por día
+    const entriesByDay = new Map<string, typeof allTimeEntries>();
+    allTimeEntries.forEach((entry) => {
+      const dayKey = startOfDay(entry.timestamp).toISOString();
+      if (!entriesByDay.has(dayKey)) {
+        entriesByDay.set(dayKey, []);
+      }
+      entriesByDay.get(dayKey)!.push(entry);
+    });
+
+    return {
+      employee: {
+        id: employee.id,
+        name: employee.user.name ?? "Sin nombre",
+        email: employee.user.email,
+        image: employee.user.image ?? null,
+      },
+      days: allDaysInRange
+        .reverse() // Ordenar de más reciente a más antiguo
+        .map((dayDate) => {
+          const dayKey = startOfDay(dayDate).toISOString();
+          const summary = summariesByDate.get(dayKey);
+          const dayEntries = entriesByDay.get(dayKey) ?? [];
+
+          // Si existe summary, usarlo; si no, crear uno virtual
+          if (summary) {
+            const workedHours = Number(summary.totalWorkedMinutes) / 60;
+            const compliance = dailyHours > 0 ? Math.round((workedHours / dailyHours) * 100) : 0;
+
+            return {
+              id: summary.id,
+              date: summary.date,
+              clockIn: summary.clockIn,
+              clockOut: summary.clockOut,
+              totalWorkedMinutes: Number(summary.totalWorkedMinutes),
+              totalBreakMinutes: Number(summary.totalBreakMinutes),
+              status: summary.status,
+              expectedHours: dailyHours,
+              actualHours: Math.round(workedHours * 100) / 100,
+              compliance,
+              timeEntries: dayEntries.map((entry) => ({
+                id: entry.id,
+                entryType: entry.entryType,
+                timestamp: entry.timestamp,
+                location: entry.location,
+                notes: entry.notes,
+                isManual: entry.isManual,
+              })),
+            };
+          }
+
+          // Crear un summary virtual para días sin fichajes
+          return {
+            id: `virtual-${dayKey}`,
+            date: dayDate,
+            clockIn: null,
+            clockOut: null,
+            totalWorkedMinutes: 0,
+            totalBreakMinutes: 0,
+            status: "ABSENT" as const,
+            expectedHours: dailyHours,
+            actualHours: 0,
+            compliance: 0,
+            timeEntries: dayEntries.map((entry) => ({
+              id: entry.id,
+              entryType: entry.entryType,
+              timestamp: entry.timestamp,
+              location: entry.location,
+              notes: entry.notes,
+              isManual: entry.isManual,
+            })),
+          };
+        }),
+    };
+  } catch (error) {
+    console.error("Error al obtener detalle diario:", error);
+    throw error;
+  }
+}
+
 // Exportar a CSV
 export async function exportTimeTrackingToCSV(filters: TimeTrackingFilters = {}) {
   try {

@@ -110,7 +110,6 @@ export const columns: ColumnDef<TimeTrackingRecord>[] = [
     header: "Tiempo Trabajado",
     cell: ({ row }) => {
       const minutes = row.getValue("totalWorkedMinutes");
-      const totalWorkedHours = row.original.totalWorkedHours ?? 0;
 
       // Calcular horas esperadas desde el contrato del empleado
       // Si no hay información del contrato, asumir 8h por defecto

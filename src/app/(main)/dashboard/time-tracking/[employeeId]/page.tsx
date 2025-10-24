@@ -4,19 +4,9 @@ import { useState, useEffect } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import {
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  startOfYear,
-  endOfYear,
-  format,
-} from "date-fns";
+import { startOfDay, endOfDay, format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Download, ArrowLeft, ShieldAlert, FileText, Clock, TrendingUp, CheckCircle } from "lucide-react";
+import { Download, ArrowLeft, ShieldAlert } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -26,9 +16,7 @@ import { DataTableViewOptions } from "@/components/data-table/data-table-view-op
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -36,50 +24,59 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { exportToCSV } from "@/lib/export-csv";
 import {
-  getEmployeeTimeTrackingHistory,
   getEmployeeWeeklySummary,
   getEmployeeMonthlySummary,
   getEmployeeYearlySummary,
-  getTimeTrackingStats,
+  getEmployeeDailyDetail,
 } from "@/server/actions/admin-time-tracking";
 
-import { columns, type TimeTrackingRecord } from "../_components/columns";
+import { DayCard } from "../_components/day-card";
 import { monthlyColumns, type MonthlySummary } from "../_components/monthly-columns";
+import { QuickPeriodFilter } from "../_components/quick-period-filter";
 import { weeklyColumns, type WeeklySummary } from "../_components/weekly-columns";
 import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns";
 
-type TabValue = "today" | "week" | "month" | "year" | "all";
+type TabValue = "detail" | "week" | "month" | "year";
+type PeriodOption = "today" | "7days" | "30days" | "thisMonth" | "lastMonth" | "custom";
+
+interface DayDetailData {
+  id: string;
+  date: Date;
+  clockIn?: Date | null;
+  clockOut?: Date | null;
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+  status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "ABSENT";
+  expectedHours: number;
+  actualHours: number;
+  compliance: number;
+  timeEntries: {
+    id: string;
+    entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+    timestamp: Date;
+    location?: string | null;
+    notes?: string | null;
+    isManual: boolean;
+  }[];
+}
 
 export default function EmployeeTimeTrackingPage() {
   const params = useParams();
   const router = useRouter();
   const employeeId = params.employeeId as string;
 
-  const [activeTab, setActiveTab] = useState<TabValue>("today");
-  const [dailyRecords, setDailyRecords] = useState<TimeTrackingRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<TabValue>("detail");
+  const [selectedPeriod, setSelectedPeriod] = useState<PeriodOption>("today");
+  const [dailyDetailRecords, setDailyDetailRecords] = useState<DayDetailData[]>([]);
   const [weeklyRecords, setWeeklyRecords] = useState<WeeklySummary[]>([]);
   const [monthlyRecords, setMonthlyRecords] = useState<MonthlySummary[]>([]);
   const [yearlyRecords, setYearlyRecords] = useState<YearlySummary[]>([]);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
-
-  const [stats, setStats] = useState({
-    totalRecords: 0,
-    totalWorkedHours: 0,
-    totalBreakHours: 0,
-    statusCounts: { IN_PROGRESS: 0, COMPLETED: 0, INCOMPLETE: 0, ABSENT: 0 },
-    averageWorkedMinutesPerDay: 0,
-  });
   const [isLoading, setIsLoading] = useState(true);
   const [employeeName, setEmployeeName] = useState("");
   const [employeeImage, setEmployeeImage] = useState<string | null>(null);
 
   // Tablas separadas para cada tipo de datos
-  const dailyTable = useDataTableInstance({
-    data: dailyRecords,
-    columns,
-    getRowId: (row) => row.id,
-  });
-
   const weeklyTable = useDataTableInstance({
     data: weeklyRecords,
     columns: weeklyColumns,
@@ -101,51 +98,30 @@ export default function EmployeeTimeTrackingPage() {
   const loadData = async (tab: TabValue) => {
     setIsLoading(true);
     try {
-      const today = new Date();
       let dateFrom: Date | undefined;
       let dateTo: Date | undefined;
 
-      switch (tab) {
-        case "today":
-          dateFrom = startOfDay(today);
-          dateTo = endOfDay(today);
-          break;
-        case "week":
-          dateFrom = startOfWeek(today, { weekStartsOn: 1 });
-          dateTo = endOfWeek(today, { weekStartsOn: 1 });
-          break;
-        case "month":
-          dateFrom = startOfMonth(today);
-          dateTo = endOfMonth(today);
-          break;
-        case "year":
-          dateFrom = startOfYear(today);
-          dateTo = endOfYear(today);
-          break;
-        case "all":
-          // Usar el rango de fechas seleccionado si existe
-          if (dateRange?.from) {
-            dateFrom = startOfDay(dateRange.from);
-          }
-          if (dateRange?.to) {
-            dateTo = endOfDay(dateRange.to);
-          }
-          break;
+      // Para el tab de detalle, usar el dateRange que viene del filtro de período
+      if (tab === "detail") {
+        if (dateRange?.from) {
+          dateFrom = startOfDay(dateRange.from);
+        }
+        if (dateRange?.to) {
+          dateTo = endOfDay(dateRange.to);
+        }
+      } else {
+        // Para los tabs de resumen, usar todo el historial
+        // O podríamos filtrar por año actual, etc.
       }
 
       // Cargar datos según el tab
-      if (tab === "today" || tab === "all") {
-        const [recordsData, statsData] = await Promise.all([
-          getEmployeeTimeTrackingHistory(employeeId, { dateFrom, dateTo }),
-          getTimeTrackingStats(dateFrom, dateTo),
-        ]);
-        setDailyRecords(recordsData);
-        setStats(statsData);
+      if (tab === "detail") {
+        const data = await getEmployeeDailyDetail(employeeId, dateFrom, dateTo);
+        setDailyDetailRecords(data.days);
 
-        if (recordsData.length > 0) {
-          setEmployeeName(recordsData[0].employee.user.name || "Sin nombre");
-          setEmployeeImage(recordsData[0].employee.user.image ?? null);
-        }
+        // Actualizar información del empleado
+        setEmployeeName(data.employee.name);
+        setEmployeeImage(data.employee.image);
       } else if (tab === "week") {
         const data = await getEmployeeWeeklySummary(employeeId, dateFrom, dateTo);
         setWeeklyRecords(data);
@@ -167,6 +143,22 @@ export default function EmployeeTimeTrackingPage() {
     loadData(activeTab);
   }, [activeTab, employeeId, dateRange]);
 
+  // Inicializar con "hoy" en el primer render
+  useEffect(() => {
+    const today = new Date();
+    setDateRange({
+      from: startOfDay(today),
+      to: startOfDay(today),
+    });
+  }, []);
+
+  const handlePeriodChange = (period: PeriodOption, newDateRange?: DateRange) => {
+    setSelectedPeriod(period);
+    if (newDateRange) {
+      setDateRange(newDateRange);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(" ")
@@ -182,24 +174,61 @@ export default function EmployeeTimeTrackingPage() {
     const employeeSlug = employeeName.toLowerCase().replace(/\s+/g, "-");
 
     switch (activeTab) {
-      case "today":
-      case "all": {
-        const dailyData = dailyRecords.map((record) => ({
-          Fecha: format(new Date(record.date), "dd/MM/yyyy", { locale: es }),
-          "Hora Entrada": record.clockIn ? format(new Date(record.clockIn), "HH:mm", { locale: es }) : "",
-          "Hora Salida": record.clockOut ? format(new Date(record.clockOut), "HH:mm", { locale: es }) : "",
-          "Horas Trabajadas": `${record.totalWorkedHours}h`,
-          Pausas: `${record.totalBreakHours}h`,
-          Estado:
-            record.status === "COMPLETED"
-              ? "Completado"
-              : record.status === "IN_PROGRESS"
-                ? "En progreso"
-                : record.status === "INCOMPLETE"
-                  ? "Incompleto"
-                  : "Ausente",
-        }));
-        exportToCSV(dailyData, `fichajes-${employeeSlug}-${activeTab === "today" ? "hoy" : "historico"}-${dateStr}`);
+      case "detail": {
+        // Exportación detallada con formato jerárquico
+        const detailData: any[] = [];
+
+        dailyDetailRecords.forEach((day) => {
+          // Fila de encabezado del día
+          detailData.push({
+            Fecha: format(new Date(day.date), "dd/MM/yyyy", { locale: es }),
+            Tipo: "RESUMEN",
+            Hora: "",
+            "Horas Esperadas": `${day.expectedHours}h`,
+            "Horas Trabajadas": `${day.actualHours}h`,
+            Cumplimiento: `${day.compliance}%`,
+            Estado:
+              day.status === "COMPLETED"
+                ? "Completado"
+                : day.status === "IN_PROGRESS"
+                  ? "En progreso"
+                  : day.status === "INCOMPLETE"
+                    ? "Incompleto"
+                    : "Ausente",
+          });
+
+          // Filas de cada fichaje
+          day.timeEntries.forEach((entry) => {
+            const typeLabels = {
+              CLOCK_IN: "Entrada",
+              CLOCK_OUT: "Salida",
+              BREAK_START: "Inicio pausa",
+              BREAK_END: "Fin pausa",
+            };
+            detailData.push({
+              Fecha: "",
+              Tipo: typeLabels[entry.entryType],
+              Hora: format(new Date(entry.timestamp), "HH:mm", { locale: es }),
+              "Horas Esperadas": "",
+              "Horas Trabajadas": "",
+              Cumplimiento: "",
+              Estado: entry.isManual ? "Manual" : "",
+            });
+          });
+
+          // Fila en blanco para separar días
+          detailData.push({
+            Fecha: "",
+            Tipo: "",
+            Hora: "",
+            "Horas Esperadas": "",
+            "Horas Trabajadas": "",
+            Cumplimiento: "",
+            Estado: "",
+          });
+        });
+
+        exportToCSV(detailData, `fichajes-${employeeSlug}-detalle-${dateStr}`);
         break;
       }
 
@@ -243,7 +272,7 @@ export default function EmployeeTimeTrackingPage() {
     }
   };
 
-  const renderTable = () => {
+  const renderContent = () => {
     if (isLoading) {
       return (
         <div className="flex h-96 items-center justify-center">
@@ -252,12 +281,30 @@ export default function EmployeeTimeTrackingPage() {
       );
     }
 
+    if (activeTab === "detail") {
+      if (dailyDetailRecords.length === 0) {
+        return (
+          <EmptyState
+            icon="clock"
+            title="No hay fichajes"
+            description="No se encontraron registros para el período seleccionado"
+          />
+        );
+      }
+
+      return (
+        <div className="space-y-4">
+          {dailyDetailRecords.map((day) => (
+            <DayCard key={day.id} day={day} />
+          ))}
+        </div>
+      );
+    }
+
     const tabConfig = {
-      today: { data: dailyRecords, table: dailyTable, columns, emptyMsg: "hoy" },
       week: { data: weeklyRecords, table: weeklyTable, columns: weeklyColumns, emptyMsg: "esta semana" },
       month: { data: monthlyRecords, table: monthlyTable, columns: monthlyColumns, emptyMsg: "este mes" },
       year: { data: yearlyRecords, table: yearlyTable, columns: yearlyColumns, emptyMsg: "este año" },
-      all: { data: dailyRecords, table: dailyTable, columns, emptyMsg: "el período seleccionado" },
     };
 
     const config = tabConfig[activeTab];
@@ -266,7 +313,7 @@ export default function EmployeeTimeTrackingPage() {
       return (
         <EmptyState
           icon="clock"
-          title="No hay fichajes"
+          title="No hay datos"
           description={`No se encontraron registros para ${config.emptyMsg}`}
         />
       );
@@ -318,62 +365,17 @@ export default function EmployeeTimeTrackingPage() {
           )}
         </div>
 
-        {/* Stats Cards (solo para vista diaria) */}
-        {(activeTab === "today" || activeTab === "all") && (
-          <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-            <Card className="dark:to-card border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm dark:border-blue-900 dark:from-blue-950">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-blue-600 dark:text-blue-400">Total Registros</span>
-                  <span className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.totalRecords}</span>
-                </div>
-                <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/50">
-                  <FileText className="size-5 text-blue-600 dark:text-blue-400" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="dark:to-card border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 shadow-sm dark:border-purple-900 dark:from-purple-950">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-purple-600 dark:text-purple-400">Horas Trabajadas</span>
-                  <span className="text-3xl font-bold text-purple-700 dark:text-purple-300">
-                    {stats.totalWorkedHours}h
-                  </span>
-                </div>
-                <div className="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/50">
-                  <Clock className="size-5 text-purple-600 dark:text-purple-400" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="dark:to-card border-amber-200 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm dark:border-amber-900 dark:from-amber-950">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-amber-600 dark:text-amber-400">Promedio Diario</span>
-                  <span className="text-3xl font-bold text-amber-700 dark:text-amber-300">
-                    {Math.floor(stats.averageWorkedMinutesPerDay / 60)}h
-                  </span>
-                </div>
-                <div className="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/50">
-                  <TrendingUp className="size-5 text-amber-600 dark:text-amber-400" />
-                </div>
-              </div>
-            </Card>
-
-            <Card className="dark:to-card border-green-200 bg-gradient-to-br from-green-50 to-white p-4 shadow-sm dark:border-green-900 dark:from-green-950">
-              <div className="flex items-start justify-between">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-green-600 dark:text-green-400">Completados</span>
-                  <span className="text-3xl font-bold text-green-700 dark:text-green-300">
-                    {stats.statusCounts.COMPLETED}
-                  </span>
-                </div>
-                <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/50">
-                  <CheckCircle className="size-5 text-green-600 dark:text-green-400" />
-                </div>
-              </div>
-            </Card>
+        {/* Filtros de período (solo para tab Detalle) */}
+        {activeTab === "detail" && (
+          <div className="flex flex-col gap-4">
+            <QuickPeriodFilter selectedPeriod={selectedPeriod} onPeriodChange={handlePeriodChange} />
+            {selectedPeriod === "custom" && (
+              <DateRangePicker
+                dateRange={dateRange}
+                onDateRangeChange={setDateRange}
+                placeholder="Seleccionar rango de fechas"
+              />
+            )}
           </div>
         )}
 
@@ -389,80 +391,54 @@ export default function EmployeeTimeTrackingPage() {
             </Label>
             <Select value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)}>
               <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="view-selector">
-                <SelectValue placeholder="Seleccionar período" />
+                <SelectValue placeholder="Seleccionar vista" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">Hoy</SelectItem>
-                <SelectItem value="week">Semanas</SelectItem>
-                <SelectItem value="month">Meses</SelectItem>
-                <SelectItem value="year">Años</SelectItem>
-                <SelectItem value="all">Histórico</SelectItem>
+                <SelectItem value="detail">Detalle</SelectItem>
+                <SelectItem value="week">Resumen Semanal</SelectItem>
+                <SelectItem value="month">Resumen Mensual</SelectItem>
+                <SelectItem value="year">Resumen Anual</SelectItem>
               </SelectContent>
             </Select>
 
             <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="today">Hoy</TabsTrigger>
-              <TabsTrigger value="week">Semanas</TabsTrigger>
-              <TabsTrigger value="month">Meses</TabsTrigger>
-              <TabsTrigger value="year">Años</TabsTrigger>
-              <TabsTrigger value="all">Histórico</TabsTrigger>
+              <TabsTrigger value="detail">Detalle</TabsTrigger>
+              <TabsTrigger value="week">Resumen Semanal</TabsTrigger>
+              <TabsTrigger value="month">Resumen Mensual</TabsTrigger>
+              <TabsTrigger value="year">Resumen Anual</TabsTrigger>
             </TabsList>
 
             <div className="flex items-center gap-2">
-              {activeTab === "all" && (
-                <DateRangePicker
-                  dateRange={dateRange}
-                  onDateRangeChange={setDateRange}
-                  placeholder="Filtrar por fecha"
-                />
-              )}
-
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleExport}
                 disabled={
                   isLoading ||
-                  (activeTab === "today"
-                    ? dailyRecords.length === 0
+                  (activeTab === "detail"
+                    ? dailyDetailRecords.length === 0
                     : activeTab === "week"
                       ? weeklyRecords.length === 0
                       : activeTab === "month"
                         ? monthlyRecords.length === 0
-                        : activeTab === "year"
-                          ? yearlyRecords.length === 0
-                          : dailyRecords.length === 0)
+                        : yearlyRecords.length === 0)
                 }
               >
                 <Download className="size-4" />
                 Exportar CSV
               </Button>
 
-              {(activeTab === "today" || activeTab === "week" || activeTab === "month" || activeTab === "year") && (
-                <>
-                  {activeTab !== "today" && (
-                    <DataTableViewOptions
-                      table={
-                        activeTab === "week"
-                          ? weeklyTable
-                          : activeTab === "month"
-                            ? monthlyTable
-                            : activeTab === "year"
-                              ? yearlyTable
-                              : dailyTable
-                      }
-                    />
-                  )}
-                  {activeTab === "today" && <DataTableViewOptions table={dailyTable} />}
-                </>
+              {activeTab !== "detail" && (
+                <DataTableViewOptions
+                  table={activeTab === "week" ? weeklyTable : activeTab === "month" ? monthlyTable : yearlyTable}
+                />
               )}
-              {activeTab === "all" && <DataTableViewOptions table={dailyTable} />}
             </div>
           </div>
 
-          {["today", "week", "month", "year", "all"].map((tab) => (
+          {["detail", "week", "month", "year"].map((tab) => (
             <TabsContent key={tab} value={tab} className="relative flex flex-col gap-4">
-              {renderTable()}
+              {renderContent()}
             </TabsContent>
           ))}
         </Tabs>
