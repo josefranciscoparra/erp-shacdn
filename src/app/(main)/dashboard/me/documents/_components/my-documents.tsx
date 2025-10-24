@@ -207,7 +207,7 @@ export function MyDocuments() {
 
   return (
     <div
-      className="@container/main flex flex-col gap-4 md:gap-6"
+      className="bg-muted/40 @container/main -m-4 flex flex-col gap-4 p-4 md:-m-6 md:gap-6 md:p-6"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -232,13 +232,13 @@ export function MyDocuments() {
       </div>
 
       {/* Barra de búsqueda */}
-      <div className="relative">
+      <div className="relative max-w-md">
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <Input
           placeholder="Buscar documentos..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
+          className="h-9 pl-9"
         />
       </div>
 
