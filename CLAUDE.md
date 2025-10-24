@@ -201,6 +201,20 @@ When working with components:
    // por lo que ?? es redundante y causa warnings de ESLint
    ```
 
+5. **NUNCA usar `??` después de conversiones de tipo** - `Number()`, `String()`, etc. NUNCA devuelven null/undefined
+
+   ```typescript
+   ❌ INCORRECTO: const value = Number(data.field) ?? 0  // Number() nunca es null
+   ✅ CORRECTO:   const value = Number(data.field || 0)  // Usar || con el valor original
+   ✅ CORRECTO:   const value = Number(data.field) || 0  // Usar || para manejar NaN
+
+   ❌ INCORRECTO: const total = Number(todaySummary.totalWorkedMinutes) ?? 0
+   ✅ CORRECTO:   const total = Number(todaySummary.totalWorkedMinutes || 0)
+
+   // Explicación: Number(x) devuelve un número (puede ser NaN, pero no null/undefined).
+   // Usar ?? causa error "no-constant-binary-expression" y bloquea el commit.
+   ```
+
 ### Warnings que son aceptables (no bloquean):
 
 - `Generic Object Injection Sink` (security warning) - Aceptable en código interno
