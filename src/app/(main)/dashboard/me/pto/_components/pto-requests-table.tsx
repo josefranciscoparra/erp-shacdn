@@ -44,7 +44,7 @@ const statusConfig = {
   PENDING: {
     label: "Pendiente",
     icon: Clock,
-    className: "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400",
+    className: "bg-yellow-500/20 text-yellow-800 dark:bg-yellow-500/30 dark:text-yellow-300 font-semibold",
   },
   APPROVED: {
     label: "Aprobada",
@@ -69,10 +69,11 @@ const statusConfig = {
 };
 
 interface PtoRequestsTableProps {
-  status?: "all" | "active" | "pending" | "history";
+  status?: "all" | "pending" | "approved" | "rejected";
+  yearFilter?: string;
 }
 
-export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
+export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequestsTableProps) {
   const { requests, cancelRequest } = usePtoStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -176,22 +177,43 @@ export function PtoRequestsTable({ status = "all" }: PtoRequestsTableProps) {
     [cancelRequest],
   );
 
-  // Filtrar solicitudes según el tab seleccionado
+  // Filtrar solicitudes según el tab seleccionado y año
   const filteredRequests = useMemo(() => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+    // Primero filtrar por año
+    let filtered =
+      yearFilter === "all"
+        ? requests
+        : requests.filter((r) => {
+            const year = new Date(r.startDate).getFullYear();
+            return year === parseInt(yearFilter);
+          });
 
+    // Luego filtrar por estado
     switch (status) {
-      case "active":
-        return requests.filter((r) => r.status === "APPROVED" && new Date(r.startDate) >= now);
       case "pending":
-        return requests.filter((r) => r.status === "PENDING");
-      case "history":
-        return requests.filter((r) => r.status === "APPROVED" || r.status === "REJECTED" || r.status === "CANCELLED");
+        filtered = filtered.filter((r) => r.status === "PENDING");
+        break;
+      case "approved":
+        filtered = filtered.filter((r) => r.status === "APPROVED");
+        break;
+      case "rejected":
+        filtered = filtered.filter((r) => r.status === "REJECTED" || r.status === "CANCELLED");
+        break;
       default:
-        return requests;
+        // "all" - no filtrar por estado
+        break;
     }
-  }, [requests, status]);
+
+    // Ordenar: PENDING primero, luego por fecha de inicio descendente
+    return filtered.sort((a, b) => {
+      // Prioridad 1: PENDING primero
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+
+      // Prioridad 2: Por fecha de inicio (más reciente primero)
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+  }, [requests, status, yearFilter]);
 
   const table = useReactTable({
     data: filteredRequests,
