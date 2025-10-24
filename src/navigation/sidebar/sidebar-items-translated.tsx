@@ -113,16 +113,22 @@ export function useSidebarItems(): NavGroup[] {
       label: "Equipo",
       items: [
         {
-          title: "Empleados",
+          title: "Gestión de Personal",
           url: "/dashboard/employees",
           icon: Users,
           permission: "view_employees",
-        },
-        {
-          title: "Contratos",
-          url: "/dashboard/contracts",
-          icon: FileText,
-          permission: "view_contracts",
+          subItems: [
+            {
+              title: "Empleados",
+              url: "/dashboard/employees",
+              permission: "view_employees",
+            },
+            {
+              title: "Contratos",
+              url: "/dashboard/contracts",
+              permission: "view_contracts",
+            },
+          ],
         },
         ...(documentsEnabled
           ? [
@@ -169,34 +175,45 @@ export function useSidebarItems(): NavGroup[] {
       label: "Organización",
       items: [
         {
-          title: "Centros de coste",
-          url: "/dashboard/cost-centers",
-          icon: Building,
-          permission: "manage_organization",
-        },
-        {
-          title: "Departamentos",
+          title: "Estructura",
           url: "/dashboard/departments",
           icon: Building2,
           permission: "view_departments",
+          subItems: [
+            {
+              title: "Departamentos",
+              url: "/dashboard/departments",
+              permission: "view_departments",
+            },
+            {
+              title: "Puestos",
+              url: "/dashboard/positions",
+              permission: "manage_organization",
+            },
+            {
+              title: "Centros de coste",
+              url: "/dashboard/cost-centers",
+              permission: "manage_organization",
+            },
+          ],
         },
         {
-          title: "Puestos",
-          url: "/dashboard/positions",
-          icon: Briefcase,
-          permission: "manage_organization",
-        },
-        {
-          title: "Usuarios y Roles",
+          title: "Administración",
           url: "/dashboard/admin/users",
           icon: UserCog,
           permission: "manage_users",
-        },
-        {
-          title: "Calendarios",
-          url: "/dashboard/calendars",
-          icon: Calendar,
-          permission: "manage_organization",
+          subItems: [
+            {
+              title: "Usuarios y Roles",
+              url: "/dashboard/admin/users",
+              permission: "manage_users",
+            },
+            {
+              title: "Calendarios",
+              url: "/dashboard/calendars",
+              permission: "manage_organization",
+            },
+          ],
         },
         {
           title: "Tiempo y presencia",
