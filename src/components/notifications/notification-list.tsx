@@ -16,6 +16,7 @@ import {
   FileSignature,
   FileClock,
   FileX,
+  Clock,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -34,6 +35,9 @@ const notificationIcons = {
   SIGNATURE_COMPLETED: FileCheck,
   SIGNATURE_REJECTED: FileX,
   SIGNATURE_EXPIRED: FileClock,
+  MANUAL_TIME_ENTRY_SUBMITTED: Clock,
+  MANUAL_TIME_ENTRY_APPROVED: Check,
+  MANUAL_TIME_ENTRY_REJECTED: X,
 };
 
 export function NotificationList() {
@@ -45,9 +49,7 @@ export function NotificationList() {
     notificationType: string,
     ptoRequestId?: string | null,
   ) => {
-    await markAsRead(notificationId);
-
-    router.push(`/dashboard/notifications?notification=${notificationId}`);
+    router.push(`/dashboard/notifications`);
   };
 
   return (
@@ -102,7 +104,7 @@ export function NotificationList() {
                       notification.type === "PTO_SUBMITTED" &&
                         "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
                       notification.type === "PTO_CANCELLED" &&
-                        "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+                        "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                       notification.type === "SIGNATURE_PENDING" &&
                         "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                       notification.type === "SIGNATURE_COMPLETED" &&
@@ -110,7 +112,13 @@ export function NotificationList() {
                       notification.type === "SIGNATURE_REJECTED" &&
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                       notification.type === "SIGNATURE_EXPIRED" &&
-                        "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+                        "bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400",
+                      notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" &&
+                        "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+                      notification.type === "MANUAL_TIME_ENTRY_APPROVED" &&
+                        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                      notification.type === "MANUAL_TIME_ENTRY_REJECTED" &&
+                        "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                     )}
                   >
                     <Icon className="h-4 w-4" />

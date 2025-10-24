@@ -72,16 +72,11 @@ export function useSidebarItems(): NavGroup[] {
           title: "Fichar",
           url: "/dashboard/me/clock",
           icon: Clock,
-          subItems: [
-            {
-              title: "Fichar",
-              url: "/dashboard/me/clock",
-            },
-            {
-              title: "Solicitudes de fichaje",
-              url: "/dashboard/me/clock/requests",
-            },
-          ],
+        },
+        {
+          title: "Mis fichajes",
+          url: "/dashboard/me/clock/requests",
+          icon: ClipboardList,
         },
         {
           title: "Mis Vacaciones",

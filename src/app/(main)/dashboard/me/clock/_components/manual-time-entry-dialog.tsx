@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
+import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
 interface ManualTimeEntryDialogProps {
   open: boolean;
@@ -26,6 +27,7 @@ interface ManualTimeEntryDialogProps {
 
 export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: ManualTimeEntryDialogProps) {
   const { createRequest, isLoading } = useManualTimeEntryStore();
+  const { loadMonthlyData, selectedYear, selectedMonth } = useTimeCalendarStore();
 
   // Estados del formulario
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
@@ -102,6 +104,9 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
         clockOutTime: clockOutDateTime,
         reason: reason.trim(),
       });
+
+      // Recargar el calendario para mostrar la solicitud pendiente
+      await loadMonthlyData(selectedYear, selectedMonth);
 
       toast.success("Solicitud enviada correctamente", {
         description: "Tu responsable recibirá una notificación",

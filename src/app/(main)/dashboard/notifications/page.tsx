@@ -28,6 +28,7 @@ import {
   FileSignature,
   FileClock,
   FileX,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -61,6 +62,7 @@ interface Notification {
   isRead: boolean;
   createdAt: Date;
   ptoRequestId?: string | null;
+  manualTimeEntryRequestId?: string | null;
   ptoRequest?: {
     id: string;
     startDate: Date;
@@ -95,6 +97,9 @@ const notificationIcons = {
   SIGNATURE_COMPLETED: FileCheck,
   SIGNATURE_REJECTED: FileX,
   SIGNATURE_EXPIRED: FileClock,
+  MANUAL_TIME_ENTRY_SUBMITTED: Clock,
+  MANUAL_TIME_ENTRY_APPROVED: Check,
+  MANUAL_TIME_ENTRY_REJECTED: X,
 };
 
 const notificationTypeLabels = {
@@ -109,6 +114,9 @@ const notificationTypeLabels = {
   SIGNATURE_COMPLETED: "Firma completada",
   SIGNATURE_REJECTED: "Firma rechazada",
   SIGNATURE_EXPIRED: "Firma expirada",
+  MANUAL_TIME_ENTRY_SUBMITTED: "Fichaje manual solicitado",
+  MANUAL_TIME_ENTRY_APPROVED: "Fichaje manual aprobado",
+  MANUAL_TIME_ENTRY_REJECTED: "Fichaje manual rechazado",
 };
 
 export default function NotificationsPage() {
@@ -286,6 +294,18 @@ export default function NotificationsPage() {
 
   const handleNavigate = useCallback(
     (notification: Notification) => {
+      // Manejar notificaciones de fichaje manual
+      if (notification.manualTimeEntryRequestId) {
+        if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
+          router.push(`/dashboard/approvals/time-entries`);
+        } else {
+          router.push(`/dashboard/me/clock/requests`);
+        }
+        setIsDetailOpen(false);
+        return;
+      }
+
+      // Manejar notificaciones de PTO
       if (!notification.ptoRequestId) {
         router.push(`/dashboard/notifications?notification=${notification.id}`);
         setIsDetailOpen(false);
@@ -330,13 +350,20 @@ export default function NotificationsPage() {
                   type === "PTO_APPROVED" && "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "PTO_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                   type === "PTO_SUBMITTED" && "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
-                  type === "PTO_CANCELLED" && "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+                  type === "PTO_CANCELLED" && "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                   type === "SIGNATURE_PENDING" &&
                     "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400",
                   type === "SIGNATURE_COMPLETED" &&
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "SIGNATURE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-                  type === "SIGNATURE_EXPIRED" && "bg-gray-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-400",
+                  type === "SIGNATURE_EXPIRED" &&
+                    "bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400",
+                  type === "MANUAL_TIME_ENTRY_SUBMITTED" &&
+                    "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
+                  type === "MANUAL_TIME_ENTRY_APPROVED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "MANUAL_TIME_ENTRY_REJECTED" &&
+                    "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -385,6 +412,19 @@ export default function NotificationsPage() {
                 >
                   <ExternalLink className="mr-1 h-4 w-4" />
                   Ver solicitud
+                </Button>
+              )}
+              {notification.manualTimeEntryRequestId && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleNavigate(notification);
+                  }}
+                >
+                  <ExternalLink className="mr-1 h-4 w-4" />
+                  {notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ? "Revisar solicitud" : "Ver solicitud"}
                 </Button>
               )}
             </div>
@@ -682,10 +722,12 @@ export default function NotificationsPage() {
             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
               Cerrar
             </Button>
-            {selectedNotification?.ptoRequestId && (
+            {(selectedNotification?.ptoRequestId ?? selectedNotification?.manualTimeEntryRequestId) && (
               <Button onClick={() => selectedNotification && handleNavigate(selectedNotification)}>
                 <ExternalLink className="mr-2 h-4 w-4" />
-                Ir a la solicitud
+                {selectedNotification?.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                  ? "Ir a revisar solicitud"
+                  : "Ir a la solicitud"}
               </Button>
             )}
           </DialogFooter>

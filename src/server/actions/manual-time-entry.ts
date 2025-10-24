@@ -78,7 +78,7 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
     const dayStart = startOfDay(input.date);
     const dayEnd = endOfDay(input.date);
 
-    const existingEntries = await prisma.timeEntry.findFirst({
+    const existingEntries = await prisma.timeEntry.findMany({
       where: {
         employeeId: employee.id,
         orgId,
@@ -86,11 +86,16 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
           gte: dayStart,
           lte: dayEnd,
         },
-        isManual: false, // Solo fichajes automáticos
+      },
+      select: {
+        manualRequestId: true,
       },
     });
 
-    if (existingEntries) {
+    // Consideramos automáticos los fichajes sin solicitud manual asociada
+    const hasAutomaticEntries = existingEntries.some((entry) => entry.manualRequestId === null);
+
+    if (hasAutomaticEntries) {
       throw new Error("Ya tienes fichajes registrados para ese día. No puedes solicitar un fichaje manual.");
     }
 
@@ -134,13 +139,15 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
     });
 
     // Notificar al aprobador
-    await createNotification({
-      userId: approverId,
+    await createNotification(
+      approverId,
       orgId,
-      type: "MANUAL_TIME_ENTRY_SUBMITTED",
-      title: "Nueva solicitud de fichaje manual",
-      message: `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${input.date.toLocaleDateString("es-ES")}`,
-    });
+      "MANUAL_TIME_ENTRY_SUBMITTED",
+      "Nueva solicitud de fichaje manual",
+      `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${input.date.toLocaleDateString("es-ES")}`,
+      undefined, // ptoRequestId
+      request.id, // manualTimeEntryRequestId
+    );
 
     return {
       success: true,
@@ -260,13 +267,15 @@ export async function cancelManualTimeEntryRequest(requestId: string) {
 
     // Notificar al aprobador
     if (request.approverId) {
-      await createNotification({
-        userId: request.approverId,
+      await createNotification(
+        request.approverId,
         orgId,
-        type: "PTO_CANCELLED", // Reutilizamos este tipo
-        title: "Solicitud de fichaje manual cancelada",
-        message: `Una solicitud de fichaje manual ha sido cancelada por el empleado`,
-      });
+        "PTO_CANCELLED", // Reutilizamos este tipo
+        "Solicitud de fichaje manual cancelada",
+        `Una solicitud de fichaje manual ha sido cancelada por el empleado`,
+        undefined, // ptoRequestId
+        undefined, // manualTimeEntryRequestId (la solicitud ya fue eliminada)
+      );
     }
 
     return { success: true };

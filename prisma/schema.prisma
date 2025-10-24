@@ -771,6 +771,10 @@ model PtoNotification {
   ptoRequestId String?
   ptoRequest   PtoRequest? @relation(fields: [ptoRequestId], references: [id], onDelete: Cascade)
 
+  // Solicitud de fichaje manual relacionada (opcional)
+  manualTimeEntryRequestId String?
+  manualTimeEntryRequest   ManualTimeEntryRequest? @relation(fields: [manualTimeEntryRequestId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   // Multi-tenancy
@@ -786,6 +790,7 @@ model PtoNotification {
   @@index([isRead])
   @@index([createdAt])
   @@index([ptoRequestId])
+  @@index([manualTimeEntryRequestId])
   @@map("pto_notifications")
 }
 
@@ -1148,6 +1153,9 @@ model ManualTimeEntryRequest {
   // Empleado solicitante
   employeeId      String
   employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Notificaciones relacionadas
+  notifications   PtoNotification[]
 
   @@index([orgId])
   @@index([employeeId])

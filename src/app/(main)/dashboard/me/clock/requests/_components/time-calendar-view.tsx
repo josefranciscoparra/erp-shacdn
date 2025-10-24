@@ -53,7 +53,7 @@ export function TimeCalendarView() {
 
   if (isLoading || !monthlyData) {
     return (
-      <Card className="flex h-[400px] items-center justify-center">
+      <Card className="mx-auto flex h-[340px] w-full max-w-[780px] items-center justify-center">
         <div className="text-muted-foreground text-sm">Cargando calendario...</div>
       </Card>
     );
@@ -79,30 +79,30 @@ export function TimeCalendarView() {
 
   return (
     <>
-      <Card className="p-4">
+      <Card className="mx-auto w-full max-w-[780px] p-4 sm:p-5">
         {/* Header con navegación */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="icon" onClick={handlePreviousMonth}>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <Button variant="outline" size="icon" onClick={handlePreviousMonth} className="h-8 w-8 sm:h-9 sm:w-9">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-lg font-semibold">
+            <h2 className="text-base font-semibold sm:text-lg">
               {format(new Date(selectedYear, selectedMonth - 1), "MMMM yyyy", { locale: es })}
             </h2>
-            <Button variant="outline" size="icon" onClick={handleNextMonth}>
+            <Button variant="outline" size="icon" onClick={handleNextMonth} className="h-8 w-8 sm:h-9 sm:w-9">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
         {/* Calendario */}
-        <div className="flex flex-col gap-0.5">
+        <div className="flex flex-col gap-1">
           {/* Headers de días de la semana */}
-          <div className="grid grid-cols-7 gap-0.5">
+          <div className="grid grid-cols-7 gap-1">
             {["L", "M", "X", "J", "V", "S", "D"].map((day, idx) => (
               <div
                 key={day}
-                className="text-muted-foreground flex h-5 items-center justify-center text-[10px] font-medium"
+                className="text-muted-foreground flex h-5 items-center justify-center text-[10px] font-medium sm:h-6"
                 title={["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"][idx]}
               >
                 {day}
@@ -112,7 +112,7 @@ export function TimeCalendarView() {
 
           {/* Días del mes */}
           {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-0.5">
+            <div key={weekIndex} className="grid grid-cols-7 gap-1">
               {week.map((day, dayIndex) => (
                 <DayCell key={dayIndex} day={day} onClick={day ? () => handleDayClick(day) : undefined} />
               ))}
@@ -121,26 +121,30 @@ export function TimeCalendarView() {
         </div>
 
         {/* Leyenda */}
-        <div className="mt-6 flex flex-wrap gap-3 border-t pt-4">
+        <div className="mt-4 flex flex-wrap gap-3 border-t pt-4 text-xs">
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-sm bg-green-500" />
-            <span className="text-xs">Completo</span>
+            <span>Completo</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-sm bg-amber-500" />
-            <span className="text-xs">Incompleto</span>
+            <span>Incompleto</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-sm bg-red-500" />
-            <span className="text-xs">Ausente</span>
+            <span>Ausente</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded-sm bg-orange-500" />
+            <span>Solicitud pendiente</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-sm bg-blue-100 dark:bg-blue-900" />
-            <span className="text-xs">Futuro</span>
+            <span>Futuro</span>
           </div>
           <div className="flex items-center gap-1.5">
             <div className="bg-muted h-3 w-3 rounded-sm" />
-            <span className="text-xs">No laboral</span>
+            <span>No laboral</span>
           </div>
         </div>
       </Card>
@@ -161,7 +165,7 @@ interface DayCellProps {
 
 function DayCell({ day, onClick }: DayCellProps) {
   if (!day) {
-    return <div className="aspect-square" />;
+    return <div className="h-[48px] w-full sm:h-[56px]" />;
   }
 
   const today = new Date();
@@ -172,6 +176,15 @@ function DayCell({ day, onClick }: DayCellProps) {
   const isFuture = dayDate > today;
 
   const getStatusColor = () => {
+    if (isToday) {
+      return "border border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-500/60 dark:bg-orange-500/25 dark:text-orange-100";
+    }
+
+    // Días con solicitud pendiente
+    if (day.hasPendingRequest) {
+      return "bg-orange-500 hover:bg-orange-600 text-white dark:bg-orange-600 dark:hover:bg-orange-700";
+    }
+
     // Días futuros
     if (isFuture) {
       if (day.isWorkday) {
@@ -193,7 +206,12 @@ function DayCell({ day, onClick }: DayCellProps) {
     }
   };
 
-  const isClickable = day.isWorkday && (day.status === "ABSENT" || day.status === "INCOMPLETE") && !isFuture;
+  const isClickable =
+    day.isWorkday &&
+    (day.status === "ABSENT" || day.status === "INCOMPLETE") &&
+    !isFuture &&
+    !isToday &&
+    !day.hasPendingRequest; // No permitir click si ya hay solicitud pendiente
 
   return (
     <TooltipProvider delayDuration={100}>
@@ -203,30 +221,34 @@ function DayCell({ day, onClick }: DayCellProps) {
             onClick={isClickable ? onClick : undefined}
             disabled={!isClickable}
             className={cn(
-              "group relative flex aspect-square w-full flex-col items-center justify-center rounded-sm p-0.5 text-center transition-all disabled:cursor-not-allowed",
+              "group relative flex h-[48px] w-full flex-col items-center justify-center rounded-md border border-transparent p-1 text-center transition-all disabled:cursor-not-allowed sm:h-[56px] sm:p-1.5",
               getStatusColor(),
               isClickable && "cursor-pointer",
-              isToday && "ring-primary ring-2 ring-offset-1",
+              isToday && "ring-2 ring-orange-400 ring-offset-1 dark:ring-orange-500",
             )}
           >
             {/* Número del día */}
-            <span className={cn("leading-none font-semibold", "text-[11px]")}>{format(day.date, "d")}</span>
+            <span className={cn("leading-tight font-semibold", "text-[10px] sm:text-[11px]")}>
+              {format(day.date, "d")}
+            </span>
 
             {/* Horas trabajadas (solo si es día laboral y no es futuro) */}
             {day.isWorkday && !isFuture && (
-              <span className="mt-0.5 text-[9px] leading-none opacity-80">
+              <span className="mt-0.5 text-[8px] leading-none opacity-80 sm:text-[9px]">
                 {day.workedHours > 0 ? `${day.workedHours.toFixed(1)}h` : "-"}
               </span>
             )}
 
             {/* Horas esperadas para días futuros */}
             {day.isWorkday && isFuture && (
-              <span className="mt-0.5 text-[9px] leading-none opacity-60">{day.expectedHours.toFixed(1)}h</span>
+              <span className="mt-0.5 text-[8px] leading-none opacity-60 sm:text-[9px]">
+                {day.expectedHours.toFixed(1)}h
+              </span>
             )}
 
             {/* Icono de añadir (solo en días clickeables) */}
             {isClickable && (
-              <Plus className="absolute top-0.5 right-0.5 h-2 w-2 opacity-0 transition-opacity group-hover:opacity-100" />
+              <Plus className="absolute top-0.5 right-0.5 h-2 w-2 opacity-0 transition-opacity group-hover:opacity-100 sm:h-2.5 sm:w-2.5" />
             )}
 
             {/* Badge de festivo */}
@@ -270,6 +292,9 @@ function DayCell({ day, onClick }: DayCellProps) {
               <p className="text-xs">Día no laboral</p>
             )}
             {isClickable && <p className="text-muted-foreground mt-2 text-xs">Click para solicitar fichaje</p>}
+            {day.hasPendingRequest && (
+              <p className="mt-2 text-xs text-orange-400">⏳ Solicitud de fichaje pendiente de aprobación</p>
+            )}
           </div>
         </TooltipContent>
       </Tooltip>

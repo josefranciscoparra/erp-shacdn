@@ -219,7 +219,7 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     const dayStart = startOfDay(request.date);
     const dayEnd = endOfDay(request.date);
 
-    const existingEntries = await prisma.timeEntry.findFirst({
+    const existingEntries = await prisma.timeEntry.findMany({
       where: {
         employeeId: request.employeeId,
         orgId: user.orgId,
@@ -227,11 +227,16 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
           gte: dayStart,
           lte: dayEnd,
         },
-        isManual: false,
+      },
+      select: {
+        manualRequestId: true,
       },
     });
 
-    if (existingEntries) {
+    // Consideramos automáticos los fichajes sin solicitud manual asociada
+    const hasAutomaticEntries = existingEntries.some((entry) => entry.manualRequestId === null);
+
+    if (hasAutomaticEntries) {
       throw new Error("El empleado ya tiene fichajes automáticos para ese día. No se puede aprobar.");
     }
 
@@ -324,13 +329,15 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
 
     // Notificar al empleado
     if (request.employee.userId) {
-      await createNotification({
-        userId: request.employee.userId,
-        orgId: user.orgId,
-        type: "MANUAL_TIME_ENTRY_APPROVED",
-        title: "Fichaje manual aprobado",
-        message: `Tu solicitud de fichaje manual para el ${request.date.toLocaleDateString("es-ES")} ha sido aprobada`,
-      });
+      await createNotification(
+        request.employee.userId,
+        user.orgId,
+        "MANUAL_TIME_ENTRY_APPROVED",
+        "Fichaje manual aprobado",
+        `Tu solicitud de fichaje manual para el ${request.date.toLocaleDateString("es-ES")} ha sido aprobada`,
+        undefined, // ptoRequestId
+        request.id, // manualTimeEntryRequestId
+      );
     }
 
     return {
@@ -399,13 +406,15 @@ export async function rejectManualTimeEntryRequest(input: RejectManualTimeEntryR
 
     // Notificar al empleado
     if (request.employee.userId) {
-      await createNotification({
-        userId: request.employee.userId,
-        orgId: user.orgId,
-        type: "MANUAL_TIME_ENTRY_REJECTED",
-        title: "Fichaje manual rechazado",
-        message: `Tu solicitud de fichaje manual para el ${request.date.toLocaleDateString("es-ES")} ha sido rechazada. Motivo: ${input.rejectionReason}`,
-      });
+      await createNotification(
+        request.employee.userId,
+        user.orgId,
+        "MANUAL_TIME_ENTRY_REJECTED",
+        "Fichaje manual rechazado",
+        `Tu solicitud de fichaje manual para el ${request.date.toLocaleDateString("es-ES")} ha sido rechazada. Motivo: ${input.rejectionReason}`,
+        undefined, // ptoRequestId
+        request.id, // manualTimeEntryRequestId
+      );
     }
 
     return {

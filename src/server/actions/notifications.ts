@@ -15,6 +15,7 @@ export async function createNotification(
   title: string,
   message: string,
   ptoRequestId?: string,
+  manualTimeEntryRequestId?: string,
 ) {
   try {
     const notification = await prisma.ptoNotification.create({
@@ -25,6 +26,7 @@ export async function createNotification(
         title,
         message,
         ptoRequestId,
+        manualTimeEntryRequestId,
         isRead: false,
       },
     });
@@ -93,6 +95,7 @@ export async function getMyNotifications(limit: number = 10) {
       isRead: n.isRead,
       createdAt: n.createdAt,
       ptoRequestId: n.ptoRequestId,
+      manualTimeEntryRequestId: n.manualTimeEntryRequestId,
       ptoRequest: n.ptoRequest
         ? {
             id: n.ptoRequest.id,
@@ -182,6 +185,7 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
         isRead: n.isRead,
         createdAt: n.createdAt,
         ptoRequestId: n.ptoRequestId,
+        manualTimeEntryRequestId: n.manualTimeEntryRequestId,
         ptoRequest: n.ptoRequest
           ? {
               id: n.ptoRequest.id,

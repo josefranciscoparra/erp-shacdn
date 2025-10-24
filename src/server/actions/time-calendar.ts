@@ -17,6 +17,7 @@ export interface DayCalendarData {
   workedHours: number; // Horas que realmente trabajó
   status: "COMPLETED" | "INCOMPLETE" | "ABSENT" | "NON_WORKDAY";
   workdaySummary?: any;
+  hasPendingRequest?: boolean; // Tiene solicitud de fichaje manual pendiente
 }
 
 export interface MonthlyCalendarData {
@@ -174,6 +175,21 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
 
     const summaryMap = new Map(workdaySummaries.map((s) => [format(s.date, "yyyy-MM-dd"), s]));
 
+    // Obtener solicitudes de fichaje manual pendientes del mes
+    const pendingRequests = await prisma.manualTimeEntryRequest.findMany({
+      where: {
+        orgId,
+        employeeId,
+        status: "PENDING",
+        date: {
+          gte: monthStart,
+          lte: monthEnd,
+        },
+      },
+    });
+
+    const pendingRequestMap = new Set(pendingRequests.map((r) => format(r.date, "yyyy-MM-dd")));
+
     // Procesar cada día del mes
     const days: DayCalendarData[] = daysInMonth.map((date) => {
       const dateKey = format(date, "yyyy-MM-dd");
@@ -187,6 +203,7 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
           expectedHours: 0,
           workedHours: 0,
           status: "NON_WORKDAY" as const,
+          hasPendingRequest: false,
         };
       }
 
@@ -218,6 +235,7 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
         expectedHours,
         workedHours,
         status,
+        hasPendingRequest: pendingRequestMap.has(dateKey),
         workdaySummary: summary
           ? {
               id: summary.id,
