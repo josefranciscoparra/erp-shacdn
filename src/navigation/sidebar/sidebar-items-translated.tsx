@@ -16,6 +16,7 @@ import {
   CheckSquare,
   UserCog,
   FileSignature,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -71,6 +72,16 @@ export function useSidebarItems(): NavGroup[] {
           title: "Fichar",
           url: "/dashboard/me/clock",
           icon: Clock,
+          subItems: [
+            {
+              title: "Fichar",
+              url: "/dashboard/me/clock",
+            },
+            {
+              title: "Solicitudes de fichaje",
+              url: "/dashboard/me/clock/requests",
+            },
+          ],
         },
         {
           title: "Mis Vacaciones",
@@ -133,6 +144,18 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/approvals/pto",
           icon: CheckSquare,
           permission: "approve_requests",
+          subItems: [
+            {
+              title: "Vacaciones",
+              url: "/dashboard/approvals/pto",
+              permission: "approve_requests",
+            },
+            {
+              title: "Fichajes manuales",
+              url: "/dashboard/approvals/time-entries",
+              permission: "approve_requests",
+            },
+          ],
         },
         ...(signaturesEnabled
           ? [

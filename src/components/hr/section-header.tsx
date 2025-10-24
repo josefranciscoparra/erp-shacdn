@@ -6,20 +6,24 @@ import { Button } from "@/components/ui/button";
 type SectionHeaderProps = {
   title: string;
   subtitle?: string;
+  description?: string;
   actionHref?: string;
   actionLabel?: string;
   actionIcon?: React.ReactNode;
   onAction?: () => void;
+  action?: React.ReactNode;
   children?: React.ReactNode;
 };
 
 export function SectionHeader({
   title,
   subtitle,
+  description,
   actionHref,
   actionLabel,
   actionIcon,
   onAction,
+  action,
   children,
 }: SectionHeaderProps) {
   return (
@@ -27,24 +31,25 @@ export function SectionHeader({
       <div className="space-y-1">
         <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{title}</h1>
         {subtitle ? <p className="text-muted-foreground text-sm">{subtitle}</p> : null}
+        {description ? <p className="text-muted-foreground text-sm">{description}</p> : null}
         {children}
       </div>
-      {actionHref && actionLabel ? (
-        <Button asChild>
-          <Link href={actionHref} className="whitespace-nowrap">
+      {action ??
+        (actionHref && actionLabel ? (
+          <Button asChild>
+            <Link href={actionHref} className="whitespace-nowrap">
+              {actionIcon}
+              {actionIcon ? <span className="ml-2" /> : null}
+              {actionLabel}
+            </Link>
+          </Button>
+        ) : !actionHref && actionLabel && onAction ? (
+          <Button onClick={onAction} className="whitespace-nowrap">
             {actionIcon}
             {actionIcon ? <span className="ml-2" /> : null}
             {actionLabel}
-          </Link>
-        </Button>
-      ) : null}
-      {!actionHref && actionLabel && onAction ? (
-        <Button onClick={onAction} className="whitespace-nowrap">
-          {actionIcon}
-          {actionIcon ? <span className="ml-2" /> : null}
-          {actionLabel}
-        </Button>
-      ) : null}
+          </Button>
+        ) : null)}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { LogIn, LogOut, Coffee } from "lucide-react";
+import { LogIn, LogOut, Coffee, FilePlus } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -11,8 +11,11 @@ import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
+import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
+
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
 
   const {
     currentStatus,
@@ -129,7 +132,18 @@ export function ClockIn() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Fichar" />
+      <SectionHeader
+        title="Fichar"
+        action={
+          <Button variant="outline" size="sm" onClick={() => setManualDialogOpen(true)}>
+            <FilePlus className="mr-2 h-4 w-4" />
+            Solicitar fichaje manual
+          </Button>
+        }
+      />
+
+      {/* Dialog de solicitud de fichaje manual */}
+      <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
 
       {error && (
         <Card className="border-destructive bg-destructive/10 p-4">

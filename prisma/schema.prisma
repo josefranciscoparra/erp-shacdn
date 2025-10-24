@@ -49,6 +49,7 @@ model Organization {
   ptoConfig           OrganizationPtoConfig?
   signableDocuments   SignableDocument[]
   signatureRequests   SignatureRequest[]
+  manualTimeEntryRequests ManualTimeEntryRequest[]
 
   @@map("organizations")
 }
@@ -81,6 +82,7 @@ model User {
   ptoBalanceAdjustments PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
   recurringPtoAdjustments RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
   createdSignableDocuments SignableDocument[] // Documentos firmables que ha creado
+  approvedManualTimeEntries ManualTimeEntryRequest[] @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
 
   @@index([email])
   @@index([orgId])
@@ -274,6 +276,7 @@ model Employee {
   ptoRequests        PtoRequest[]
   recurringPtoAdjustments RecurringPtoAdjustment[]
   signers            Signer[]
+  manualTimeEntryRequests ManualTimeEntryRequest[]
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -562,6 +565,10 @@ model TimeEntry {
   workdayId String?
   workday   WorkdaySummary? @relation(fields: [workdayId], references: [id])
 
+  // Fichaje manual (si fue creado desde una solicitud aprobada)
+  isManual Boolean @default(false)
+  manualRequestId String? // ID de la solicitud que lo creó
+
   @@index([orgId])
   @@index([employeeId])
   @@index([timestamp])
@@ -795,6 +802,9 @@ enum PtoNotificationType {
   SIGNATURE_COMPLETED   // Documento firmado exitosamente
   SIGNATURE_REJECTED    // Documento rechazado por firmante
   SIGNATURE_EXPIRED     // Documento expirado sin firmar
+  MANUAL_TIME_ENTRY_SUBMITTED  // Nueva solicitud de fichaje manual enviada
+  MANUAL_TIME_ENTRY_APPROVED   // Solicitud de fichaje manual aprobada
+  MANUAL_TIME_ENTRY_REJECTED   // Solicitud de fichaje manual rechazada
 }
 
 // Ajustes manuales de balance de PTO (auditoría)
@@ -1093,6 +1103,66 @@ enum SignatureResult {
   REJECTED       // Firma rechazada
   EXPIRED        // Expiró sin firmar
   ERROR          // Error durante el proceso
+}
+
+// ==================== SISTEMA DE FICHAJES MANUALES (A POSTERIORI) ====================
+
+// Solicitud de fichaje manual - Cuando un empleado olvidó fichar
+model ManualTimeEntryRequest {
+  id              String   @id @default(cuid())
+
+  // Fechas y horas solicitadas
+  date            DateTime // Fecha del fichaje olvidado (sin hora, solo día)
+  clockInTime     DateTime // Hora de entrada solicitada
+  clockOutTime    DateTime // Hora de salida solicitada
+
+  // Justificación
+  reason          String   // Motivo obligatorio
+
+  // Estado de la solicitud
+  status          ManualTimeEntryStatus @default(PENDING)
+
+  // Aprobación (UN solo aprobador - el manager del empleado)
+  approverId      String?
+  approver        User?    @relation("ManualTimeEntryApprover", fields: [approverId], references: [id])
+  approvedAt      DateTime?
+  approverComments String?  // Comentarios del aprobador al aprobar
+
+  // Rechazo
+  rejectedAt      DateTime?
+  rejectionReason String?  // Motivo del rechazo
+
+  // TimeEntries creados (si se aprueba)
+  createdClockInId  String? // ID del TimeEntry de entrada creado
+  createdClockOutId String? // ID del TimeEntry de salida creado
+
+  // Timestamps
+  submittedAt     DateTime @default(now()) // Cuando se envió la solicitud
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado solicitante
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([approverId])
+  @@index([status])
+  @@index([date])
+  @@index([submittedAt])
+  @@map("manual_time_entry_requests")
+}
+
+// Estados de solicitud de fichaje manual
+enum ManualTimeEntryStatus {
+  PENDING   // Pendiente de aprobación
+  APPROVED  // Aprobado
+  REJECTED  // Rechazado
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
