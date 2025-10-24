@@ -4,17 +4,15 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarChart3, Building2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
+import { NotificationItem } from "./_components/notification-item";
 import { UpcomingEvents } from "./_components/upcoming-events";
 
 export default function MySpacePage() {
@@ -95,28 +93,7 @@ export default function MySpacePage() {
           ) : (
             <div className="space-y-2">
               {data.recentNotifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`rounded-lg border p-3 transition-colors ${
-                    !notification.read
-                      ? "border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 bg-white dark:bg-white/5"
-                      : "hover:bg-accent dark:hover:bg-accent bg-white dark:bg-white/5"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="text-sm font-medium">{notification.message}</p>
-                    {!notification.read && (
-                      <Badge variant="default" className="flex-shrink-0 text-xs">
-                        Nueva
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-muted-foreground mt-0.5 text-xs">
-                    {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
-                      locale: es,
-                    })}
-                  </p>
-                </div>
+                <NotificationItem key={notification.id} notification={notification} />
               ))}
             </div>
           )}
@@ -212,28 +189,7 @@ export default function MySpacePage() {
               ) : (
                 <div className="space-y-2">
                   {data.recentNotifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`rounded-lg border p-3 transition-colors ${
-                        !notification.read
-                          ? "border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 bg-white dark:bg-white/5"
-                          : "hover:bg-accent dark:hover:bg-accent bg-white dark:bg-white/5"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">{notification.message}</p>
-                        {!notification.read && (
-                          <Badge variant="default" className="flex-shrink-0 text-xs">
-                            Nueva
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-muted-foreground mt-0.5 text-xs">
-                        {format(new Date(notification.createdAt), "d 'de' MMMM 'a las' HH:mm", {
-                          locale: es,
-                        })}
-                      </p>
-                    </div>
+                    <NotificationItem key={notification.id} notification={notification} />
                   ))}
                 </div>
               )}

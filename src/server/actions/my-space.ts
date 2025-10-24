@@ -61,6 +61,8 @@ export interface MySpaceDashboard {
     message: string;
     read: boolean;
     createdAt: Date;
+    ptoRequestId: string | null;
+    manualTimeEntryRequestId: string | null;
   }>;
 
   // Información del perfil
@@ -161,6 +163,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       message: notif.message,
       read: notif.isRead,
       createdAt: notif.createdAt,
+      ptoRequestId: notif.ptoRequestId,
+      manualTimeEntryRequestId: notif.manualTimeEntryRequestId,
     }));
 
     // 5. Información del perfil
@@ -224,6 +228,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
         message: notif.message,
         read: notif.isRead,
         createdAt: notif.createdAt,
+        ptoRequestId: notif.ptoRequestId,
+        manualTimeEntryRequestId: notif.manualTimeEntryRequestId,
       }));
 
       return {

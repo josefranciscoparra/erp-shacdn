@@ -56,14 +56,15 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
           const isMultiDay = endDate && !isSameDay(startDate, endDate);
 
           return (
-            <div
+            <Link
               key={event.id}
+              href="/dashboard/me/calendar"
               className="hover:bg-accent dark:hover:bg-accent flex items-start gap-3 rounded-lg border bg-white p-3 transition-colors dark:bg-white/5"
             >
               {/* Indicador de color del calendario */}
               <div
                 className="mt-1 h-3 w-3 flex-shrink-0 rounded-full"
-                style={{ backgroundColor: event.calendar?.color ?? "var(--border)" }}
+                style={{ backgroundColor: event.calendar?.color || "var(--border)" }}
               />
 
               <div className="flex-1 space-y-0.5">
@@ -79,7 +80,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                 </div>
 
                 <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                  <span>{event.calendar?.name ?? "Calendario"}</span>
+                  <span>{event.calendar?.name || "Calendario"}</span>
                   <span>•</span>
                   <span>
                     {isMultiDay ? (
@@ -92,7 +93,7 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
                   </span>
                 </div>
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
