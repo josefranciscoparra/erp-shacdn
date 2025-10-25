@@ -207,7 +207,7 @@ export function MyDocuments() {
 
   return (
     <div
-      className="bg-muted/40 @container/main -m-4 flex flex-col gap-4 p-4 md:-m-6 md:gap-6 md:p-6"
+      className="@container/main flex flex-col gap-4 md:gap-6"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

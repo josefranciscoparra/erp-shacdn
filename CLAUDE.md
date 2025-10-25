@@ -161,6 +161,32 @@ When working with components:
 - **Puerto**: 5432
 - **URL**: postgresql://erp_user:erp_pass@localhost:5432/erp_dev
 
+### Workflow de Migraciones (CRÍTICO antes de merge a main) ⚠️
+
+**SIEMPRE que cambies el schema de Prisma, crear migración ANTES de merge a main**
+
+#### Proceso obligatorio:
+
+1. **Cambias schema.prisma** → `prisma db push` (desarrollo local)
+2. **Antes de commit/merge** → Crear migración:
+   ```bash
+   npx prisma migrate dev --name descripcion_cambio
+   ```
+3. **Verificar migración creada** → Comitear con el schema
+4. **En producción** → `prisma migrate deploy` se ejecuta automáticamente (docker-entrypoint.sh)
+
+#### Validación automática (opcional - CI):
+
+```bash
+# Rompe el build si hay drift entre schema y migraciones
+npx prisma migrate diff \
+  --from-schema-datamodel ./prisma/schema.prisma \
+  --to-migrations ./prisma/migrations \
+  --exit-code
+```
+
+**NUNCA hacer merge a main sin migración si cambias schema → Producción fallará**
+
 ## Reglas de Código (ESLint) - CRÍTICO ⚠️
 
 **IMPORTANTE**: El pre-commit hook ejecuta ESLint y BLOQUEARÁ el commit si hay errores. SIEMPRE seguir estas reglas:
