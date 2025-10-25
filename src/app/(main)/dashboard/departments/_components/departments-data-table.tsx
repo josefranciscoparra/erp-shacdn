@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Plus, Building2, Search, X } from "lucide-react";
+import { Building2, Search, X } from "lucide-react";
 
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -31,12 +31,11 @@ import { createDepartmentsColumns } from "./departments-columns";
 
 interface DepartmentsDataTableProps {
   data: DepartmentData[];
-  onNewDepartment?: () => void;
   onEdit?: (department: DepartmentData) => void;
   onDelete?: (department: DepartmentData) => void;
 }
 
-export function DepartmentsDataTable({ data, onNewDepartment, onEdit, onDelete }: DepartmentsDataTableProps) {
+export function DepartmentsDataTable({ data, onEdit, onDelete }: DepartmentsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -150,13 +149,7 @@ export function DepartmentsDataTable({ data, onNewDepartment, onEdit, onDelete }
             Con responsable <Badge variant="secondary">{counts.withManager}</Badge>
           </TabsTrigger>
         </TabsList>
-        <div className="flex items-center gap-2">
-          <DataTableViewOptions table={table} />
-          <Button size="sm" onClick={onNewDepartment}>
-            <Plus />
-            <span className="hidden lg:inline">Nuevo departamento</span>
-          </Button>
-        </div>
+        <DataTableViewOptions table={table} />
       </div>
 
       {/* Contenido común para todas las tabs */}

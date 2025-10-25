@@ -7,6 +7,7 @@ import { Plus, Building2, Loader2, ShieldAlert } from "lucide-react";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Button } from "@/components/ui/button";
 import { useDepartmentsStore } from "@/stores/departments-store";
 
 import { DepartmentDialog } from "./_components/department-dialog";
@@ -119,15 +120,21 @@ export default function DepartmentsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Departamentos" subtitle="Gestiona los departamentos de tu organización" />
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Departamentos</h1>
+            <p className="text-muted-foreground text-sm">Gestiona los departamentos de tu organización</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              <span className="hidden sm:inline">Nuevo departamento</span>
+            </Button>
+          </div>
+        </div>
 
         {hasDepartments ? (
-          <DepartmentsDataTable
-            data={departments}
-            onNewDepartment={() => setDialogOpen(true)}
-            onEdit={handleEdit}
-            onDelete={handleDelete}
-          />
+          <DepartmentsDataTable data={departments} onEdit={handleEdit} onDelete={handleDelete} />
         ) : (
           <EmptyState
             icon={<Building2 className="mx-auto h-12 w-12" />}
