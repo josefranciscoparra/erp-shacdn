@@ -46,7 +46,6 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   getAllMyNotifications,
@@ -129,7 +128,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [selectedTab, setSelectedTab] = useState("unread");
+  const [filterMode, setFilterMode] = useState<"all" | "unread">("all");
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 10,
@@ -163,31 +162,31 @@ export default function NotificationsPage() {
   };
 
   useEffect(() => {
-    // Resetear a página 1 cuando cambia el tab
+    // Resetear a página 1 cuando cambia el filtro
     if (pagination.page !== 1) {
       setPagination((prev) => ({ ...prev, page: 1 }));
     } else {
-      loadNotifications(selectedTab === "unread", 1, pagination.pageSize);
+      loadNotifications(filterMode === "unread", 1, pagination.pageSize);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTab]);
+  }, [filterMode]);
 
   useEffect(() => {
-    loadNotifications(selectedTab === "unread", pagination.page, pagination.pageSize);
+    loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, pagination.pageSize]);
 
   useEffect(() => {
-    if (highlightedNotificationId && selectedTab !== "all") {
-      setSelectedTab("all");
+    if (highlightedNotificationId && filterMode !== "all") {
+      setFilterMode("all");
     }
-  }, [highlightedNotificationId, selectedTab]);
+  }, [highlightedNotificationId, filterMode]);
 
   const handleMarkAllAsRead = async () => {
     try {
       await markAllNotificationsAsRead();
       toast.success("Todas las notificaciones marcadas como leídas");
-      await loadNotifications(selectedTab === "unread", pagination.page, pagination.pageSize);
+      await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
     } catch (error) {
       toast.error("Error al marcar notificaciones como leídas");
     }
@@ -214,7 +213,7 @@ export default function NotificationsPage() {
 
       setNotifications((prev) => {
         if (wasUnread) {
-          if (selectedTab === "unread") {
+          if (filterMode === "unread") {
             return prev.filter((n) => n.id !== notification.id);
           }
 
@@ -226,7 +225,7 @@ export default function NotificationsPage() {
 
       if (wasUnread) {
         setTotals((prev) => ({ ...prev, unread: Math.max(prev.unread - 1, 0) }));
-        if (selectedTab === "unread") {
+        if (filterMode === "unread") {
           setPagination((prev) => {
             const newTotal = Math.max(prev.total - 1, 0);
             const newTotalPages = Math.ceil(newTotal / prev.pageSize);
@@ -248,7 +247,7 @@ export default function NotificationsPage() {
         setIsDetailOpen(false);
       }
     },
-    [router, selectedTab],
+    [router, filterMode],
   );
 
   useEffect(() => {
@@ -301,6 +300,18 @@ export default function NotificationsPage() {
         } else {
           router.push(`/dashboard/me/clock/requests`);
         }
+        setIsDetailOpen(false);
+        return;
+      }
+
+      // Manejar notificaciones de firma
+      if (
+        notification.type === "SIGNATURE_PENDING" ||
+        notification.type === "SIGNATURE_COMPLETED" ||
+        notification.type === "SIGNATURE_REJECTED" ||
+        notification.type === "SIGNATURE_EXPIRED"
+      ) {
+        router.push(`/dashboard/me/signatures`);
         setIsDetailOpen(false);
         return;
       }
@@ -427,6 +438,22 @@ export default function NotificationsPage() {
                   {notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ? "Revisar solicitud" : "Ver solicitud"}
                 </Button>
               )}
+              {(notification.type === "SIGNATURE_PENDING" ||
+                notification.type === "SIGNATURE_COMPLETED" ||
+                notification.type === "SIGNATURE_REJECTED" ||
+                notification.type === "SIGNATURE_EXPIRED") && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleNavigate(notification);
+                  }}
+                >
+                  <ExternalLink className="mr-1 h-4 w-4" />
+                  {notification.type === "SIGNATURE_PENDING" ? "Ir a firmar" : "Ver mis firmas"}
+                </Button>
+              )}
             </div>
           );
         },
@@ -482,168 +509,98 @@ export default function NotificationsPage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader title="Notificaciones" />
 
-      {/* Tabs */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <div className="flex items-center justify-between">
-          {/* Select para móvil */}
-          <Select value={selectedTab} onValueChange={setSelectedTab}>
-            <SelectTrigger className="w-[200px] @4xl/main:hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          {/* Contador de no leídas */}
+          {unreadCount > 0 && (
+            <Badge variant="secondary" className="gap-1.5">
+              <div className="bg-primary h-2 w-2 rounded-full" />
+              {unreadCount} sin leer
+            </Badge>
+          )}
+
+          {/* Filtro */}
+          <Select value={filterMode} onValueChange={(value) => setFilterMode(value as "all" | "unread")}>
+            <SelectTrigger className="w-[160px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="unread">No leídas {unreadCount > 0 && `(${unreadCount})`}</SelectItem>
-              <SelectItem value="all">Todas ({totalCount})</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="unread">Solo no leídas</SelectItem>
             </SelectContent>
           </Select>
-
-          {/* Tabs para desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="unread">
-              No leídas
-              {unreadCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {unreadCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all">
-              Todas
-              <Badge variant="secondary" className="ml-2">
-                {totalCount}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Botón marcar todas como leídas */}
-          {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
-              <CheckCheck className="mr-2 h-4 w-4" />
-              Marcar todas como leídas
-            </Button>
-          )}
         </div>
 
-        {/* Contenido */}
-        {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-          </div>
-        ) : (
-          <>
-            <TabsContent value="unread">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-                  <Bell className="text-muted-foreground h-12 w-12" />
-                  <div>
-                    <h3 className="font-semibold">No hay notificaciones sin leer</h3>
-                    <p className="text-muted-foreground text-sm">¡Estás al día con todas tus notificaciones!</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="overflow-hidden rounded-lg border">
-                    <Table>
-                      <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                          <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => (
-                              <TableHead key={header.id}>
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(header.column.columnDef.header, header.getContext())}
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableHeader>
-                      <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                          table.getRowModel().rows.map((row) => (
-                            <TableRow
-                              key={row.id}
-                              className={cn("cursor-pointer", !row.original.isRead && "bg-muted/50")}
-                              onClick={() => handleNotificationClick(row.original, { skipNavigation: true })}
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={columns.length} className="h-24 text-center">
-                              No hay notificaciones sin leer
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <DataTablePagination table={table} />
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="all">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-                  <Bell className="text-muted-foreground h-12 w-12" />
-                  <div>
-                    <h3 className="font-semibold">No tienes notificaciones</h3>
-                    <p className="text-muted-foreground text-sm">Cuando recibas notificaciones, aparecerán aquí</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col gap-4">
-                  <div className="overflow-hidden rounded-lg border">
-                    <Table>
-                      <TableHeader>
-                        {table.getHeaderGroups().map((headerGroup) => (
-                          <TableRow key={headerGroup.id}>
-                            {headerGroup.headers.map((header) => (
-                              <TableHead key={header.id}>
-                                {header.isPlaceholder
-                                  ? null
-                                  : flexRender(header.column.columnDef.header, header.getContext())}
-                              </TableHead>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableHeader>
-                      <TableBody>
-                        {table.getRowModel().rows?.length ? (
-                          table.getRowModel().rows.map((row) => (
-                            <TableRow
-                              key={row.id}
-                              className={cn("cursor-pointer", !row.original.isRead && "bg-muted/50")}
-                              onClick={() => handleNotificationClick(row.original, { skipNavigation: true })}
-                            >
-                              {row.getVisibleCells().map((cell) => (
-                                <TableCell key={cell.id}>
-                                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={columns.length} className="h-24 text-center">
-                              No hay notificaciones
-                            </TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </div>
-                  <DataTablePagination table={table} />
-                </div>
-              )}
-            </TabsContent>
-          </>
+        {/* Botón marcar todas como leídas */}
+        {unreadCount > 0 && (
+          <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
+            <CheckCheck className="mr-2 h-4 w-4" />
+            Marcar todas como leídas
+          </Button>
         )}
-      </Tabs>
+      </div>
+
+      {/* Contenido */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        </div>
+      ) : notifications.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+          <Bell className="text-muted-foreground h-12 w-12" />
+          <div>
+            <h3 className="font-semibold">
+              {filterMode === "unread" ? "No hay notificaciones sin leer" : "No tienes notificaciones"}
+            </h3>
+            <p className="text-muted-foreground text-sm">
+              {filterMode === "unread"
+                ? "¡Estás al día con todas tus notificaciones!"
+                : "Cuando recibas notificaciones, aparecerán aquí"}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <TableRow key={headerGroup.id}>
+                    {headerGroup.headers.map((header) => (
+                      <TableHead key={header.id}>
+                        {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableHeader>
+              <TableBody>
+                {table.getRowModel().rows?.length ? (
+                  table.getRowModel().rows.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      className={cn("cursor-pointer", !row.original.isRead && "bg-muted/50")}
+                      onClick={() => handleNotificationClick(row.original, { skipNavigation: true })}
+                    >
+                      {row.getVisibleCells().map((cell) => (
+                        <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="h-24 text-center">
+                      No hay notificaciones
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <DataTablePagination table={table} />
+        </div>
+      )}
 
       <Dialog
         open={isDetailOpen}
@@ -722,14 +679,26 @@ export default function NotificationsPage() {
             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
               Cerrar
             </Button>
-            {(selectedNotification?.ptoRequestId ?? selectedNotification?.manualTimeEntryRequestId) && (
-              <Button onClick={() => selectedNotification && handleNavigate(selectedNotification)}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                {selectedNotification?.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                  ? "Ir a revisar solicitud"
-                  : "Ir a la solicitud"}
-              </Button>
-            )}
+            {selectedNotification &&
+              (!!selectedNotification.ptoRequestId ||
+                !!selectedNotification.manualTimeEntryRequestId ||
+                selectedNotification.type === "SIGNATURE_PENDING" ||
+                selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                selectedNotification.type === "SIGNATURE_REJECTED" ||
+                selectedNotification.type === "SIGNATURE_EXPIRED") && (
+                <Button onClick={() => handleNavigate(selectedNotification)}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  {selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                    ? "Ir a revisar solicitud"
+                    : selectedNotification.type === "SIGNATURE_PENDING"
+                      ? "Ir a firmar"
+                      : selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                          selectedNotification.type === "SIGNATURE_REJECTED" ||
+                          selectedNotification.type === "SIGNATURE_EXPIRED"
+                        ? "Ver mis firmas"
+                        : "Ir a la solicitud"}
+                </Button>
+              )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
