@@ -9,6 +9,7 @@ import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarCh
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
@@ -107,10 +108,17 @@ export default function MySpacePage() {
     <div className="@container/main flex flex-col gap-3 md:gap-5">
       {/* Header con nombre del empleado */}
       <div className="animate-in fade-in duration-500">
-        <SectionHeader
-          title={`¡Bienvenido, ${data?.profile.name ?? "Usuario"}! 👋`}
-          description={data?.profile.position ?? data?.profile.department ?? " "}
-        />
+        {isLoading ? (
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+        ) : (
+          <SectionHeader
+            title={`¡Bienvenido, ${data?.profile.name ?? "Usuario"}! 👋`}
+            description={data?.profile.position ?? data?.profile.department ?? " "}
+          />
+        )}
       </div>
 
       {/* Error state */}
