@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarChart3, Building2 } from "lucide-react";
+import { Clock, CalendarDays, UserCircle, Bell, Users, Settings, BarChart3, Building2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
