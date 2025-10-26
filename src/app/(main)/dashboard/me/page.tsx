@@ -108,12 +108,8 @@ export default function MySpacePage() {
       {/* Header con nombre del empleado */}
       <div className="animate-in fade-in duration-500">
         <SectionHeader
-          title={data?.profile.name ?? "Mi Espacio"}
-          description={
-            data?.profile.position || data?.profile.department
-              ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
-              : "Dashboard personal del empleado"
-          }
+          title={`¡Bienvenido, ${data?.profile.name ?? "Usuario"}! 👋`}
+          description={data?.profile.position ?? data?.profile.department ?? " "}
         />
       </div>
 
@@ -135,7 +131,6 @@ export default function MySpacePage() {
       {/* Acciones rápidas */}
       <div className="animate-in fade-in duration-700" style={{ animationDelay: "200ms" }}>
         <Card className="p-6">
-          <h3 className="mb-2 text-lg font-semibold">Acciones rápidas</h3>
           <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
             <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
               <Link href="/dashboard/me/clock">
