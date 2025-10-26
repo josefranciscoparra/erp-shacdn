@@ -9,11 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
 import { useSignaturesStore } from "@/stores/signatures-store";
 
 import { MySignaturesDataTable } from "./_components/my-signatures-data-table";
+import { SegmentedControl } from "./_components/segmented-control";
 
 export default function MySignaturesPage() {
   const {
@@ -89,120 +90,65 @@ export default function MySignaturesPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Mis Firmas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Documentos que requieren tu firma electrónica</p>
+      <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="grid gap-1">
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">Mis Firmas</h1>
+          <p className="text-muted-foreground">
+            Aquí puedes ver y gestionar todos los documentos que has firmado o tienes pendientes de firmar.
+          </p>
         </div>
         {urgentCount > 0 && (
-          <Badge variant="destructive" className="gap-1.5">
-            <FileSignature className="h-3.5 w-3.5" />
+          <Badge variant="destructive" className="gap-1.5 text-sm">
+            <FileSignature className="h-4 w-4" />
             {urgentCount} urgente{urgentCount !== 1 ? "s" : ""}
           </Badge>
         )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        <div className="flex items-end gap-3">
-          <div className="w-full space-y-1 md:w-[300px]">
-            <Label htmlFor="my-signatures-search">Buscar</Label>
-            <Input
-              id="my-signatures-search"
-              placeholder="Busca por título o categoría"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
-              <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm("");
-              setCategoryFilter("all");
-            }}
-          >
-            Limpiar filtros
-          </Button>
-        </div>
-        <div className="w-full space-y-1 md:w-[200px]">
-          <Label>Categoría</Label>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="Categoría" />
-            </SelectTrigger>
-            <SelectContent>
-              {categoryOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <div className="flex items-center justify-between">
-          {/* Select para móvil */}
-          <Select value={activeTab} onValueChange={setActiveTab}>
-            <SelectTrigger className="w-[200px] @4xl/main:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pendientes ({filtered.pending.length})</SelectItem>
-              <SelectItem value="signed">Firmadas ({filtered.signed.length})</SelectItem>
-              <SelectItem value="rejected">Rechazadas ({filtered.rejected.length})</SelectItem>
-              <SelectItem value="expired">Expiradas ({filtered.expired.length})</SelectItem>
-              <SelectItem value="all">Todas ({allSignatures.length})</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Filtros y Tabs */}
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative w-full md:max-w-xs">
+              <Label htmlFor="my-signatures-search" className="sr-only">
+                Buscar
+              </Label>
+              <Input
+                id="my-signatures-search"
+                placeholder="Buscar por título..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-10 pl-9"
+              />
+              <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                <FileSignature className="text-muted-foreground h-4 w-4" />
+              </div>
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-full md:w-[240px]">
+                <SelectValue placeholder="Filtrar por categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* TabsList para desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="pending" className="gap-2">
-              Pendientes
-              {filtered.pending.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.pending.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="signed" className="gap-2">
-              Firmadas
-              {filtered.signed.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.signed.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="rejected" className="gap-2">
-              Rechazadas
-              {filtered.rejected.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.rejected.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="expired" className="gap-2">
-              Expiradas
-              {filtered.expired.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.expired.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all" className="gap-2">
-              Todas
-              {allSignatures.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {allSignatures.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-          </TabsList>
+          <SegmentedControl
+            options={[
+              { label: "Pendientes", value: "pending", badge: filtered.pending.length },
+              { label: "Firmadas", value: "signed", badge: filtered.signed.length },
+              { label: "Rechazadas", value: "rejected", badge: filtered.rejected.length },
+              { label: "Expiradas", value: "expired", badge: filtered.expired.length },
+              { label: "Todas", value: "all", badge: allSignatures.length },
+            ]}
+            value={activeTab}
+            onChange={setActiveTab}
+          />
         </div>
 
         {/* Pendientes */}

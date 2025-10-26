@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
+import { LiveClock } from "./live-clock";
 import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
 
 export function ClockIn() {
@@ -33,6 +35,29 @@ export function ClockIn() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
+
+  // Formatear minutos a horas/minutos para resúmenes
+  const formatMinutes = (minutes: number) => {
+    const totalSeconds = Math.max(0, Math.round(minutes * 60));
+    const hours = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${mins}m`;
+  };
+
+  // Formatear tiempo con segundos para contador en vivo
+  const formatTimeWithSeconds = (totalMinutes: number) => {
+    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60)); // Redondear para evitar pérdidas por flotantes
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return {
+      hours: hours.toString().padStart(2, "0"),
+      minutes: minutes.toString().padStart(2, "0"),
+      seconds: seconds.toString().padStart(2, "0"),
+    };
+  };
+
+  const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
 
   // Actualizar hora y contador en vivo cada segundo
   useEffect(() => {
@@ -59,15 +84,6 @@ export function ClockIn() {
           // El base es el tiempo acumulado (que NO incluye la sesión actual)
           // Convertir a Number porque viene como Decimal de Prisma
           const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
-
-          console.log(
-            "🔢 Base:",
-            baseMinutes,
-            "Desde inicio:",
-            minutesFromStart,
-            "Total:",
-            baseMinutes + minutesFromStart,
-          );
 
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }
@@ -101,34 +117,6 @@ export function ClockIn() {
         return <Badge variant="secondary">Fuera de servicio</Badge>;
     }
   };
-
-  // Formatear minutos a horas/minutos/segundos para resúmenes
-  const formatMinutes = (minutes: number) => {
-    const totalSeconds = Math.max(0, Math.round(minutes * 60));
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    return `${hours}h ${mins}m ${secs}s`;
-  };
-
-  // Formatear tiempo con segundos para contador en vivo
-  const formatTimeWithSeconds = (totalMinutes: number) => {
-    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60)); // Redondear para evitar pérdidas por flotantes
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return {
-      hours: hours.toString().padStart(2, "0"),
-      minutes: minutes.toString().padStart(2, "0"),
-      seconds: seconds.toString().padStart(2, "0"),
-    };
-  };
-
-  // Calcular tiempo restante
-  const remainingMinutes = Math.max(0, expectedDailyHours * 60 - liveWorkedMinutes);
-  const isCompleted = liveWorkedMinutes >= expectedDailyHours * 60;
-  const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
-  const remainingTime = formatTimeWithSeconds(remainingMinutes);
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -171,291 +159,197 @@ export function ClockIn() {
         </Card>
       )}
 
-      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
+      <div className="grid gap-6 @xl/main:grid-cols-3">
         {/* Card principal de fichaje */}
-        <Card className="@container/card flex flex-col items-center justify-center gap-6 p-8 md:p-12">
-          <div className="flex w-full flex-col items-center gap-6">
-            {/* Estado y fecha */}
-            <div className="flex flex-col items-center gap-2">
-              {getStatusBadge()}
-              <p className="text-muted-foreground text-xs">
-                {currentTime.toLocaleDateString("es-ES", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </p>
+        <Card className="@container/card flex flex-col items-center justify-between gap-6 p-8 md:p-12 @xl/main:col-span-2">
+          <div className="flex w-full flex-col items-center gap-8">
+            {/* Reloj y estado */}
+            <div className="flex flex-col items-center gap-4">
+              <LiveClock />
+              <div className="flex items-center gap-2">
+                {getStatusBadge()}
+                <p className="text-muted-foreground text-sm">
+                  {currentTime.toLocaleDateString("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </p>
+              </div>
             </div>
 
-            {/* Tiempo trabajado */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-muted-foreground text-sm font-medium">Tiempo trabajado</span>
-              {isLoading ? (
-                <div className="flex items-center gap-1 tabular-nums">
-                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
-                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
-                  <div className="bg-muted relative h-[48px] w-[70px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.4s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
+            {/* Tiempo trabajado y progreso */}
+            <div className="flex w-full max-w-md flex-col items-center gap-4">
+              <div className="flex w-full items-baseline justify-center gap-2 text-center">
+                <div className="flex flex-col items-center">
+                  <span className="text-muted-foreground text-xs">Trabajado</span>
+                  {isLoading ? (
+                    <Skeleton className="h-10 w-32" />
+                  ) : (
+                    <span className="text-4xl font-bold tabular-nums">
+                      {workedTime.hours}:{workedTime.minutes}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <div className="animate-in fade-in-0 slide-in-from-bottom-2 flex items-center gap-1 tabular-nums duration-500">
-                  <span className="text-5xl font-bold">{workedTime.hours}</span>
-                  <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="text-5xl font-bold">{workedTime.minutes}</span>
-                  <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="text-muted-foreground text-3xl font-bold">{workedTime.seconds}</span>
+                <div className="flex flex-col items-center">
+                  <span className="text-muted-foreground text-2xl">/</span>
                 </div>
-              )}
-            </div>
-
-            {/* Tiempo restante o completado */}
-            <div className="flex flex-col items-center gap-1">
-              {isLoading ? (
-                <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
-                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                </div>
-              ) : isCompleted ? (
-                <div className="animate-in fade-in-0 zoom-in-95 flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2 duration-500">
-                  <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    ¡Jornada completada! 🎉
+                <div className="flex flex-col items-center">
+                  <span className="text-muted-foreground text-xs">Jornada</span>
+                  <span className="text-4xl font-bold tabular-nums">
+                    {String(expectedDailyHours).padStart(2, "0")}:00
                   </span>
                 </div>
+              </div>
+              {isLoading ? (
+                <Skeleton className="h-2 w-full" />
               ) : (
-                <div className="animate-in fade-in-0 slide-in-from-bottom-1 delay-100 duration-500">
-                  <span className="text-muted-foreground text-xs">Tiempo restante</span>
-                  <div className="flex items-center gap-1 tabular-nums">
-                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.hours}</span>
-                    <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.minutes}</span>
-                    <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground/70 text-xl">{remainingTime.seconds}</span>
-                  </div>
-                </div>
+                <Progress
+                  value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
+                  className="h-2"
+                />
               )}
             </div>
           </div>
 
-          <div className="flex w-full flex-col gap-3">
+          {/* Botones de acción */}
+          <div className="grid w-full max-w-sm grid-cols-2 gap-4">
             {currentStatus === "CLOCKED_OUT" ? (
-              <Button size="lg" onClick={clockInAction} className="w-full" disabled={isLoading || isClocking}>
-                <LogIn className="mr-2 h-5 w-5" />
+              <Button
+                size="lg"
+                onClick={clockInAction}
+                className="col-span-2 h-16 text-lg"
+                disabled={isLoading || isClocking}
+              >
+                <LogIn className="mr-3 h-6 w-6" />
                 {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Entrada"}
               </Button>
             ) : (
               <>
                 <Button
                   size="lg"
-                  onClick={clockOutAction}
-                  variant="destructive"
-                  className="w-full"
+                  onClick={handleBreak}
+                  variant="outline"
+                  className="h-16 text-lg"
                   disabled={isLoading || isClocking}
                 >
-                  <LogOut className="mr-2 h-5 w-5" />
-                  {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Salida"}
+                  <Coffee className="mr-3 h-6 w-6" />
+                  {currentStatus === "ON_BREAK" ? "Volver" : "Pausa"}
                 </Button>
                 <Button
                   size="lg"
-                  onClick={handleBreak}
-                  variant="outline"
-                  className="w-full"
+                  onClick={clockOutAction}
+                  variant="destructive"
+                  className="h-16 text-lg"
                   disabled={isLoading || isClocking}
                 >
-                  <Coffee className="mr-2 h-5 w-5" />
-                  {isLoading
-                    ? "Cargando..."
-                    : isClocking
-                      ? "Procesando..."
-                      : currentStatus === "ON_BREAK"
-                        ? "Volver del descanso"
-                        : "Iniciar descanso"}
+                  <LogOut className="mr-3 h-6 w-6" />
+                  {isClocking ? "Fichando..." : "Salida"}
                 </Button>
               </>
             )}
           </div>
         </Card>
 
-        {/* Card de resumen del día */}
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Resumen de hoy</h3>
-
-          {isLoading ? (
-            <>
-              {/* Skeleton para barra de progreso */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.1s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                </div>
-                <div className="bg-muted relative h-2 w-full overflow-hidden rounded-full">
-                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                </div>
+        {/* Historial y resumen */}
+        <div className="flex flex-col gap-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+          {/* Card de resumen del día */}
+          <Card className="@container/card flex flex-col gap-4 p-6">
+            <h3 className="font-semibold">Resumen de hoy</h3>
+            {isLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-8 w-full" />
               </div>
-
-              {/* Skeleton para items */}
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1}s` }}
-                      />
-                    </div>
-                    <div className="bg-muted relative h-4 w-16 overflow-hidden rounded">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.05}s` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Barra de progreso de horas */}
-              <div className="animate-in fade-in-0 flex flex-col gap-2 duration-500">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progreso diario</span>
-                  <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                    {formatMinutes(todaySummary?.totalWorkedMinutes ?? 0)} / {expectedDailyHours}h
-                    {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
-                  className="h-2"
-                />
-                {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
-                  <p className="text-xs text-green-600 dark:text-green-400">¡Has completado tu jornada! 🎉</p>
-                )}
-              </div>
-
-              <div className="animate-in fade-in-0 flex flex-col gap-3 delay-100 duration-500">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Entrada</span>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1 rounded-lg border p-3">
+                  <span className="text-muted-foreground text-xs">Entrada</span>
                   <span className="font-semibold tabular-nums">
                     {todaySummary?.clockIn
                       ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
                           hour: "2-digit",
                           minute: "2-digit",
-                          second: "2-digit",
                         })
-                      : "--:--:--"}
+                      : "--:--"}
                   </span>
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Salida</span>
+                <div className="flex flex-col gap-1 rounded-lg border p-3">
+                  <span className="text-muted-foreground text-xs">Salida</span>
                   <span className="font-semibold tabular-nums">
                     {todaySummary?.clockOut
                       ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
                           hour: "2-digit",
                           minute: "2-digit",
-                          second: "2-digit",
                         })
-                      : "--:--:--"}
+                      : "--:--"}
                   </span>
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Tiempo trabajado</span>
+                <div className="flex flex-col gap-1 rounded-lg border p-3">
+                  <span className="text-muted-foreground text-xs">Trabajado</span>
                   <span className="font-semibold tabular-nums">
                     {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
                   </span>
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Pausas totales</span>
+                <div className="flex flex-col gap-1 rounded-lg border p-3">
+                  <span className="text-muted-foreground text-xs">Pausas</span>
                   <span className="font-semibold tabular-nums">
                     {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
                   </span>
                 </div>
               </div>
-            </>
-          )}
-        </Card>
-      </div>
+            )}
+          </Card>
 
-      {/* Historial de fichajes del día */}
-      <Card className="@container/card flex flex-col gap-4 p-6">
-        <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
-
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
-                <div className="bg-muted relative size-4 overflow-hidden rounded">
-                  <div
-                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                    style={{ animation: `shimmer 1.5s infinite ${i * 0.15}s` }}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
-                    <div
-                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.05}s` }}
-                    />
-                  </div>
-                  <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
-                    <div
-                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.1}s` }}
-                    />
-                  </div>
-                </div>
+          {/* Historial de fichajes del día */}
+          <Card className="@container/card flex flex-1 flex-col gap-4 p-6">
+            <h3 className="font-semibold">Fichajes de hoy</h3>
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
               </div>
-            ))}
-          </div>
-        ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
-          <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
-            {todaySummary.timeEntries
-              .slice()
-              .reverse()
-              .map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="flex items-center gap-3">
-                    {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
-                    {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
-                    {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
-                    {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">
-                        {entry.entryType === "CLOCK_IN" && "Entrada"}
-                        {entry.entryType === "CLOCK_OUT" && "Salida"}
-                        {entry.entryType === "BREAK_START" && "Inicio de pausa"}
-                        {entry.entryType === "BREAK_END" && "Fin de pausa"}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {new Date(entry.timestamp).toLocaleString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                      </span>
+            ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                {todaySummary.timeEntries
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex size-8 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                          {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
+                          {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
+                          {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
+                          {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {entry.entryType === "CLOCK_IN" && "Entrada"}
+                            {entry.entryType === "CLOCK_OUT" && "Salida"}
+                            {entry.entryType === "BREAK_START" && "Inicio de pausa"}
+                            {entry.entryType === "BREAK_END" && "Fin de pausa"}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {new Date(entry.timestamp).toLocaleString("es-ES", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-          </div>
-        ) : (
-          <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
-            Aún no has registrado fichajes hoy.
-          </p>
-        )}
-      </Card>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground flex-1 text-center text-sm">Aún no has registrado fichajes hoy.</p>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

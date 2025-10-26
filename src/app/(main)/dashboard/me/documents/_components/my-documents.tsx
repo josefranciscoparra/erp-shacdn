@@ -45,6 +45,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { documentKindLabels, documentKindColors, formatFileSize, type DocumentKind } from "@/lib/validations/document";
 import { getMyDocuments, type MyDocument } from "@/server/actions/my-documents";
 
+import { DocumentItem } from "./document-item";
+import { FolderItem } from "./folder-item";
 import { UploadDocumentDialog } from "./upload-document-dialog";
 
 export function MyDocuments() {
@@ -252,145 +254,76 @@ export function MyDocuments() {
         </div>
       )}
 
-      {/* Estado de carga */}
+      {/* Grid de carpetas o documentos */}
       {isLoading ? (
         <div className="flex flex-col items-center justify-center gap-4 py-16">
           <Loader2 className="text-muted-foreground h-12 w-12 animate-spin" />
           <p className="text-muted-foreground text-sm">Cargando documentos...</p>
         </div>
       ) : (
-        <>
-          {/* Vista de carpetas */}
-          {!currentFolder && Object.keys(groupedDocuments).length > 0 && (
-            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
-              {Object.entries(groupedDocuments).map(([category, docs]) => (
-                <button
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 @5xl/main:grid-cols-5">
+          {!currentFolder
+            ? Object.entries(groupedDocuments).map(([category, docs]) => (
+                <FolderItem
                   key={category}
+                  category={category as DocumentKind}
+                  count={docs.length}
                   onClick={() => setCurrentFolder(category as DocumentKind)}
-                  className="group relative flex h-24 items-center gap-4 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5"
-                >
-                  <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-14 w-14 shrink-0 items-center justify-center rounded-lg transition-colors">
-                    <Folder className="h-7 w-7" />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col items-start">
-                    <span className="truncate font-semibold">{documentKindLabels[category as DocumentKind]}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {docs.length} {docs.length === 1 ? "documento" : "documentos"}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Vista de archivos dentro de carpeta */}
-          {currentFolder && groupedDocuments[currentFolder] && (
-            <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
-              {groupedDocuments[currentFolder].map((doc) => (
-                <div
+                />
+              ))
+            : groupedDocuments[currentFolder]?.map((doc) => (
+                <DocumentItem
                   key={doc.id}
-                  className="group relative flex flex-col overflow-hidden rounded-xl border bg-white shadow-sm transition-all hover:shadow-md dark:bg-white/5"
-                >
-                  {/* Miniatura del documento */}
-                  <div className="bg-muted flex h-32 items-center justify-center">
-                    <FileText className="text-muted-foreground h-12 w-12" />
-                  </div>
-
-                  {/* Información del documento */}
-                  <div className="flex flex-1 flex-col gap-2 p-4">
-                    <h4 className="truncate font-medium" title={doc.fileName}>
-                      {doc.fileName}
-                    </h4>
-                    <div className="text-muted-foreground flex flex-col gap-1 text-xs">
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      <span>{format(new Date(doc.createdAt), "d MMM yyyy", { locale: es })}</span>
-                    </div>
-                  </div>
-
-                  {/* Botón de acciones siempre visible */}
-                  <div className="absolute top-2 right-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 border-gray-200 bg-white shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
-                          title="Más opciones"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                          <span className="sr-only">Más opciones</span>
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handlePreview(doc.id)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver documento
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDownload(doc.id, doc.fileName)}>
-                          <Download className="mr-2 h-4 w-4" />
-                          Descargar
-                        </DropdownMenuItem>
-                        {doc.canDelete && (
-                          <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => setDeleteDocumentId(doc.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+                  document={doc}
+                  onPreview={handlePreview}
+                  onDownload={handleDownload}
+                  onDelete={setDeleteDocumentId}
+                />
               ))}
-            </div>
-          )}
-
-          {/* Estado vacío */}
-          {Object.keys(groupedDocuments).length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-6 py-16">
-              <div className="bg-primary/5 flex h-24 w-24 items-center justify-center rounded-full">
-                <FileText className="text-primary h-12 w-12" />
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">No tienes documentos aún</h3>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  {searchQuery
-                    ? "No se encontraron documentos con ese criterio"
-                    : "Comienza subiendo tu primer documento"}
-                </p>
-              </div>
-              {!searchQuery && (
-                <Button onClick={() => setUploadDialogOpen(true)} size="lg">
-                  <UploadIcon className="mr-2 h-5 w-5" />
-                  Subir primer documento
-                </Button>
-              )}
-            </div>
-          )}
-
-          {/* Carpeta vacía */}
-          {currentFolder && (!groupedDocuments[currentFolder] || groupedDocuments[currentFolder].length === 0) && (
-            <div className="flex flex-col items-center justify-center gap-6 py-16">
-              <div className="bg-muted flex h-24 w-24 items-center justify-center rounded-full">
-                <Folder className="text-muted-foreground h-12 w-12" />
-              </div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">Esta carpeta está vacía</h3>
-                <p className="text-muted-foreground mt-1 text-sm">No hay documentos en esta categoría</p>
-              </div>
-              <Button onClick={() => setUploadDialogOpen(true)} size="lg">
-                <UploadIcon className="mr-2 h-5 w-5" />
-                Subir documento
-              </Button>
-            </div>
-          )}
-        </>
+        </div>
       )}
+
+      {/* Estado vacío */}
+      {!isLoading && Object.keys(groupedDocuments).length === 0 && (
+        <div className="flex flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed py-24">
+          <div className="bg-primary/5 flex h-24 w-24 items-center justify-center rounded-full">
+            <FileText className="text-primary h-12 w-12" />
+          </div>
+          <div className="text-center">
+            <h3 className="text-xl font-semibold">No tienes documentos</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {searchQuery
+                ? "No se encontraron documentos con tu búsqueda."
+                : "Sube tu primer documento para empezar a organizarlos."}
+            </p>
+          </div>
+          {!searchQuery && (
+            <Button onClick={() => setUploadDialogOpen(true)} size="lg">
+              <UploadIcon className="mr-2 h-5 w-5" />
+              Subir documento
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Carpeta vacía */}
+      {!isLoading &&
+        currentFolder &&
+        (!groupedDocuments[currentFolder] || groupedDocuments[currentFolder].length === 0) && (
+          <div className="flex flex-col items-center justify-center gap-6 rounded-lg border-2 border-dashed py-24">
+            <div className="bg-muted flex h-24 w-24 items-center justify-center rounded-full">
+              <Folder className="text-muted-foreground h-12 w-12" />
+            </div>
+            <div className="text-center">
+              <h3 className="text-xl font-semibold">Carpeta vacía</h3>
+              <p className="text-muted-foreground mt-1 text-sm">No hay documentos en esta categoría.</p>
+            </div>
+            <Button onClick={() => setUploadDialogOpen(true)} size="lg">
+              <UploadIcon className="mr-2 h-5 w-5" />
+              Subir documento
+            </Button>
+          </div>
+        )}
 
       {/* Dialog de subida */}
       <UploadDocumentDialog

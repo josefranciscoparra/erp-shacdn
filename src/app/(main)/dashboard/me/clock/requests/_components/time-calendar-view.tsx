@@ -79,72 +79,53 @@ export function TimeCalendarView() {
 
   return (
     <>
-      <Card className="mx-auto w-full max-w-[780px] p-4 sm:p-5">
+      <Card className="p-4 sm:p-6">
         {/* Header con navegación */}
         <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <Button variant="outline" size="icon" onClick={handlePreviousMonth} className="h-8 w-8 sm:h-9 sm:w-9">
+          <h2 className="text-lg font-semibold">
+            {format(new Date(selectedYear, selectedMonth - 1), "MMMM yyyy", { locale: es })}
+          </h2>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" onClick={handlePreviousMonth} className="h-8 w-8">
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h2 className="text-base font-semibold sm:text-lg">
-              {format(new Date(selectedYear, selectedMonth - 1), "MMMM yyyy", { locale: es })}
-            </h2>
-            <Button variant="outline" size="icon" onClick={handleNextMonth} className="h-8 w-8 sm:h-9 sm:w-9">
+            <Button variant="outline" size="icon" onClick={handleNextMonth} className="h-8 w-8">
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
         </div>
 
         {/* Calendario */}
-        <div className="flex flex-col gap-1">
-          {/* Headers de días de la semana */}
-          <div className="grid grid-cols-7 gap-1">
-            {["L", "M", "X", "J", "V", "S", "D"].map((day, idx) => (
-              <div
-                key={day}
-                className="text-muted-foreground flex h-5 items-center justify-center text-[10px] font-medium sm:h-6"
-                title={["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"][idx]}
-              >
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Días del mes */}
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-1">
-              {week.map((day, dayIndex) => (
-                <DayCell key={dayIndex} day={day} onClick={day ? () => handleDayClick(day) : undefined} />
-              ))}
+        <div className="text-muted-foreground grid grid-cols-7 text-center text-xs">
+          {["L", "M", "X", "J", "V", "S", "D"].map((day) => (
+            <div key={day} className="py-2">
+              {day}
             </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {weeks.flat().map((day, index) => (
+            <DayCell key={index} day={day} onClick={day ? () => handleDayClick(day) : undefined} />
           ))}
         </div>
 
         {/* Leyenda */}
-        <div className="mt-4 flex flex-wrap gap-3 border-t pt-4 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-green-500" />
+        <div className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t pt-4 text-xs">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-green-500" />
             <span>Completo</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-amber-500" />
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-amber-500" />
             <span>Incompleto</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-red-500" />
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-red-500" />
             <span>Ausente</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-orange-500" />
-            <span>Solicitud pendiente</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-sm bg-blue-100 dark:bg-blue-900" />
-            <span>Futuro</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="bg-muted h-3 w-3 rounded-sm" />
-            <span>No laboral</span>
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-orange-500" />
+            <span>Pendiente</span>
           </div>
         </div>
       </Card>
@@ -165,7 +146,7 @@ interface DayCellProps {
 
 function DayCell({ day, onClick }: DayCellProps) {
   if (!day) {
-    return <div className="h-[48px] w-full sm:h-[56px]" />;
+    return <div className="h-[56px] w-full sm:h-[64px]" />;
   }
 
   const today = new Date();
@@ -175,126 +156,71 @@ function DayCell({ day, onClick }: DayCellProps) {
   const isToday = dayDate.getTime() === today.getTime();
   const isFuture = dayDate > today;
 
-  const getStatusColor = () => {
-    if (isToday) {
-      return "border border-orange-200 bg-orange-100 text-orange-900 dark:border-orange-500/60 dark:bg-orange-500/25 dark:text-orange-100";
-    }
-
-    // Días con solicitud pendiente
+  const getStatusStyles = () => {
     if (day.hasPendingRequest) {
-      return "bg-orange-500 hover:bg-orange-600 text-white dark:bg-orange-600 dark:hover:bg-orange-700";
+      return "bg-orange-100/50 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300";
     }
-
-    // Días futuros
     if (isFuture) {
-      if (day.isWorkday) {
-        return "bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300";
-      }
-      return "bg-muted/50 text-muted-foreground";
+      return day.isWorkday
+        ? "bg-gray-50 text-gray-400 dark:bg-gray-800/30 dark:text-gray-600"
+        : "bg-transparent text-gray-400 dark:text-gray-600";
     }
-
-    // Días pasados y hoy
     switch (day.status) {
       case "COMPLETED":
-        return "bg-green-500 hover:bg-green-600 text-white dark:bg-green-600 dark:hover:bg-green-700";
+        return "bg-green-100/50 text-green-800 dark:bg-green-900/30 dark:text-green-300";
       case "INCOMPLETE":
-        return "bg-amber-500 hover:bg-amber-600 text-white dark:bg-amber-600 dark:hover:bg-amber-700";
+        return "bg-amber-100/50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300";
       case "ABSENT":
-        return "bg-red-500 hover:bg-red-600 text-white dark:bg-red-600 dark:hover:bg-red-700";
+        return "bg-red-100/50 text-red-800 dark:bg-red-900/30 dark:text-red-300";
       case "NON_WORKDAY":
-        return "bg-muted text-muted-foreground";
+        return "bg-gray-50 text-gray-400 dark:bg-gray-800/30 dark:text-gray-600";
+      default:
+        return "bg-gray-50 dark:bg-gray-800/30";
     }
   };
 
   const isClickable =
-    day.isWorkday &&
-    (day.status === "ABSENT" || day.status === "INCOMPLETE") &&
-    !isFuture &&
-    !isToday &&
-    !day.hasPendingRequest; // No permitir click si ya hay solicitud pendiente
+    day.isWorkday && (day.status === "ABSENT" || day.status === "INCOMPLETE") && !isFuture && !day.hasPendingRequest;
 
   return (
-    <TooltipProvider delayDuration={100}>
+    <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
             onClick={isClickable ? onClick : undefined}
-            disabled={!isClickable}
+            disabled={!onClick}
             className={cn(
-              "group relative flex h-[48px] w-full flex-col items-center justify-center rounded-md border border-transparent p-1 text-center transition-all disabled:cursor-not-allowed sm:h-[56px] sm:p-1.5",
-              getStatusColor(),
-              isClickable && "cursor-pointer",
-              isToday && "ring-2 ring-orange-400 ring-offset-1 dark:ring-orange-500",
+              "group relative flex h-[56px] w-full flex-col items-start justify-start rounded-lg p-2 text-left transition-all sm:h-[64px]",
+              getStatusStyles(),
+              isClickable && "cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50",
+              isToday && "ring-offset-background font-bold ring-2 ring-blue-500 ring-offset-1",
             )}
           >
-            {/* Número del día */}
-            <span className={cn("leading-tight font-semibold", "text-[10px] sm:text-[11px]")}>
-              {format(day.date, "d")}
-            </span>
-
-            {/* Horas trabajadas (solo si es día laboral y no es futuro) */}
+            <div className="flex w-full items-center justify-between">
+              <span className="text-xs font-medium">{format(day.date, "d")}</span>
+              {day.isHoliday && <span className="text-xs">🎉</span>}
+            </div>
             {day.isWorkday && !isFuture && (
-              <span className="mt-0.5 text-[8px] leading-none opacity-80 sm:text-[9px]">
+              <div className="mt-auto text-xs font-semibold">
                 {day.workedHours > 0 ? `${day.workedHours.toFixed(1)}h` : "-"}
-              </span>
+              </div>
             )}
-
-            {/* Horas esperadas para días futuros */}
-            {day.isWorkday && isFuture && (
-              <span className="mt-0.5 text-[8px] leading-none opacity-60 sm:text-[9px]">
-                {day.expectedHours.toFixed(1)}h
-              </span>
-            )}
-
-            {/* Icono de añadir (solo en días clickeables) */}
-            {isClickable && (
-              <Plus className="absolute top-0.5 right-0.5 h-2 w-2 opacity-0 transition-opacity group-hover:opacity-100 sm:h-2.5 sm:w-2.5" />
-            )}
-
-            {/* Badge de festivo */}
-            {day.isHoliday && <span className="absolute top-0.5 left-0.5 text-[9px]">🎉</span>}
-
-            {/* Indicador de hoy */}
-            {isToday && (
-              <span className="bg-primary absolute bottom-0.5 left-1/2 h-0.5 w-0.5 -translate-x-1/2 rounded-full"></span>
-            )}
+            {day.hasPendingRequest && <div className="absolute right-2 bottom-2 h-2 w-2 rounded-full bg-orange-500" />}
           </button>
         </TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs">
-          <div className="space-y-1">
-            <p className="font-medium">
-              {format(day.date, "dd 'de' MMMM", { locale: es })}
-              {isToday && " (Hoy)"}
-            </p>
-            {day.isHoliday && <p className="text-xs">{day.holidayName}</p>}
+        <TooltipContent>
+          <p className="font-semibold">{format(day.date, "EEEE, d 'de' MMMM", { locale: es })}</p>
+          <div className="text-muted-foreground mt-2 space-y-1 text-xs">
+            {day.isHoliday && <p className="text-primary font-medium">{day.holidayName}</p>}
             {day.isWorkday ? (
               <>
-                {isFuture ? (
-                  <>
-                    <p className="text-xs">Esperadas: {day.expectedHours.toFixed(1)}h</p>
-                    <p className="text-xs text-blue-400">⏳ Día futuro</p>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-xs">Esperadas: {day.expectedHours.toFixed(1)}h</p>
-                    <p className="text-xs">Trabajadas: {day.workedHours.toFixed(1)}h</p>
-                    {day.status === "COMPLETED" && <p className="text-xs text-green-400">✓ Jornada completa</p>}
-                    {day.status === "INCOMPLETE" && (
-                      <p className="text-xs text-amber-400">
-                        ⚠ Faltan {(day.expectedHours - day.workedHours).toFixed(1)}h
-                      </p>
-                    )}
-                    {day.status === "ABSENT" && <p className="text-xs text-red-400">✗ Sin fichaje</p>}
-                  </>
-                )}
+                <p>Horas esperadas: {day.expectedHours.toFixed(1)}h</p>
+                <p>Horas trabajadas: {day.workedHours.toFixed(1)}h</p>
               </>
             ) : (
-              <p className="text-xs">Día no laboral</p>
+              <p>Día no laboral</p>
             )}
-            {isClickable && <p className="text-muted-foreground mt-2 text-xs">Click para solicitar fichaje</p>}
-            {day.hasPendingRequest && (
-              <p className="mt-2 text-xs text-orange-400">⏳ Solicitud de fichaje pendiente de aprobación</p>
-            )}
+            {day.hasPendingRequest && <p className="font-medium text-orange-500">Solicitud pendiente</p>}
           </div>
         </TooltipContent>
       </Tooltip>

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 import { getMyCalendars, getMyMonthEvents, CalendarData, CalendarEventData } from "@/server/actions/employee-calendars";
 
 const monthNames = [
@@ -182,122 +183,139 @@ export function MyCalendar() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
-        {/* Calendario principal */}
-        <Card className="@container/card flex flex-col gap-4 p-6 @xl/main:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">
-              {monthNames[month]} {year}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={previousMonth}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-start">
+        {/* Columna principal del calendario */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="icon" onClick={previousMonth}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <h2 className="text-xl font-semibold">{format(currentDate, "MMMM yyyy", { locale: es })}</h2>
+                <Button variant="outline" size="icon" onClick={nextMonth}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
               <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
                 Hoy
               </Button>
-              <Button variant="outline" size="icon" onClick={nextMonth}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Días de la semana */}
-          <div className="grid grid-cols-7 gap-2">
-            {dayNames.map((day) => (
-              <div key={day} className="text-muted-foreground text-center text-sm font-semibold">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Días del mes */}
-          <div className="grid grid-cols-7 gap-2">
-            {calendarDays.map((day, index) => {
-              const dayEvents = getEventsForDate(day);
-              const isToday = isSameDay(day, new Date());
-              const isCurrentMonth = isSameMonth(day, currentDate);
-
-              return (
-                <div
-                  key={index}
-                  onClick={() => handleDayClick(day, dayEvents)}
-                  className={`relative flex min-h-16 flex-col gap-1 rounded-lg border p-2 transition-colors ${
-                    isToday ? "border-primary bg-primary/5" : ""
-                  } ${!isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""} ${
-                    dayEvents.length > 0 ? "hover:bg-accent cursor-pointer" : ""
-                  }`}
-                >
-                  <div
-                    className={`text-sm font-semibold ${
-                      isToday ? "text-primary" : isCurrentMonth ? "text-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {format(day, "d")}
+            </CardHeader>
+            <CardContent className="p-2">
+              <div className="text-muted-foreground grid grid-cols-7 text-center text-sm font-medium">
+                {dayNames.map((day) => (
+                  <div key={day} className="py-2">
+                    {day}
                   </div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day, index) => {
+                  const dayEvents = getEventsForDate(day);
+                  const isToday = isSameDay(day, new Date());
+                  const isCurrentMonth = isSameMonth(day, currentDate);
 
-                  {/* Puntos de eventos */}
-                  {dayEvents.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {dayEvents.slice(0, 6).map((event) => (
-                        <div
-                          key={event.id}
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: event.calendar.color }}
-                          title={`${event.name} (${event.calendar.name})`}
-                        />
-                      ))}
-                      {dayEvents.length > 6 && (
-                        <span className="text-muted-foreground text-xs">+{dayEvents.length - 6}</span>
+                  return (
+                    <div
+                      key={index}
+                      onClick={() => handleDayClick(day, dayEvents)}
+                      className={cn(
+                        "relative h-24 rounded-lg border p-2 transition-colors",
+                        isCurrentMonth ? "bg-transparent" : "bg-gray-50 dark:bg-gray-900",
+                        dayEvents.length > 0 && "hover:bg-accent cursor-pointer",
+                        isToday && "border-blue-500 bg-blue-50 dark:bg-blue-900/30",
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "text-sm font-semibold",
+                          isToday
+                            ? "text-blue-600 dark:text-blue-300"
+                            : isCurrentMonth
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                        )}
+                      >
+                        {format(day, "d")}
+                      </span>
+                      {dayEvents.length > 0 && (
+                        <div className="mt-1 space-y-1">
+                          {dayEvents.slice(0, 2).map((event) => (
+                            <div
+                              key={event.id}
+                              className="flex items-center gap-1.5 truncate rounded-md p-1 text-xs"
+                              style={{ backgroundColor: `${event.calendar.color}20` }}
+                            >
+                              <div className="h-2 w-2 rounded-full" style={{ backgroundColor: event.calendar.color }} />
+                              <span className="truncate font-medium" style={{ color: event.calendar.color }}>
+                                {event.name}
+                              </span>
+                            </div>
+                          ))}
+                          {dayEvents.length > 2 && (
+                            <div className="text-muted-foreground text-xs">+ {dayEvents.length - 2} más</div>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Próximos eventos */}
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Próximos eventos</h3>
-
-          <div className="flex flex-col gap-4">
-            {Object.keys(upcomingByCalendar).length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <Calendar className="text-muted-foreground h-12 w-12" />
-                <p className="text-muted-foreground text-sm">No tienes eventos próximos</p>
+                  );
+                })}
               </div>
-            ) : (
-              Object.values(upcomingByCalendar).map(({ calendar, events: calendarEvents }) => (
-                <div key={calendar.id} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
-                    <span className="text-sm font-medium">{calendar.name}</span>
-                  </div>
-                  {calendarEvents.map((event) => (
-                    <div key={event.id} className="ml-5 flex items-start gap-3 rounded-lg border p-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{event.name}</span>
-                        {event.description && (
-                          <span className="text-muted-foreground text-xs">{event.description}</span>
-                        )}
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-muted-foreground text-xs">
-                            {format(new Date(event.date), "PPP", { locale: es })}
-                          </span>
-                          <Badge variant="outline" className="text-xs">
-                            {eventTypeLabels[event.eventType] || event.eventType}
-                          </Badge>
-                        </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Barra lateral de eventos e información */}
+        <div className="space-y-6 lg:col-span-1">
+          <Card>
+            <CardHeader>
+              <CardTitle>Próximos eventos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {Object.keys(upcomingByCalendar).length === 0 ? (
+                <div className="text-muted-foreground py-8 text-center text-sm">
+                  <Calendar className="mx-auto h-10 w-10" />
+                  <p className="mt-4">No hay eventos próximos.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.values(upcomingByCalendar).map(({ calendar, events: calendarEvents }) => (
+                    <div key={calendar.id}>
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full" style={{ backgroundColor: calendar.color }} />
+                        <h4 className="text-sm font-semibold">{calendar.name}</h4>
+                      </div>
+                      <div className="mt-2 space-y-2 border-l-2 pl-4" style={{ borderColor: calendar.color }}>
+                        {calendarEvents.map((event) => (
+                          <div key={event.id} className="text-sm">
+                            <p className="font-medium">{event.name}</p>
+                            <p className="text-muted-foreground text-xs">
+                              {format(new Date(event.date), "PPP", { locale: es })}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))}
                 </div>
-              ))
-            )}
-          </div>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Mis Calendarios</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              {calendars.map((cal) => (
+                <Badge key={cal.id} variant="outline" className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: cal.color }} />
+                  {cal.name}
+                </Badge>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Leyenda - Calendarios visibles */}
@@ -321,32 +339,24 @@ export function MyCalendar() {
         </Card>
       )}
 
-      {/* Dialog de eventos del día */}
       <Dialog open={dayEventsDialogOpen} onOpenChange={setDayEventsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedDay && format(selectedDay, "PPP", { locale: es })}</DialogTitle>
-            <DialogDescription>
-              {selectedDayEvents.length} {selectedDayEvents.length === 1 ? "evento" : "eventos"} este día
-            </DialogDescription>
+            <DialogTitle>{selectedDay && format(selectedDay, "EEEE, d 'de' MMMM", { locale: es })}</DialogTitle>
           </DialogHeader>
-          <div className="mt-4 space-y-3">
+          <div className="-mx-6 mt-4 space-y-4 border-t px-6 pt-4">
             {selectedDayEvents.map((event) => (
-              <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
+              <div key={event.id} className="flex items-start gap-4">
                 <div
-                  className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full"
+                  className="mt-1.5 h-3 w-3 flex-shrink-0 rounded-full"
                   style={{ backgroundColor: event.calendar.color }}
                 />
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium">{event.name}</div>
-                  {event.description && <p className="text-muted-foreground mt-1 text-sm">{event.description}</p>}
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="outline" className="text-xs">
-                      {eventTypeLabels[event.eventType] || event.eventType}
-                    </Badge>
-                    <span className="text-muted-foreground text-xs">{event.calendar.name}</span>
-                  </div>
+                <div className="flex-1">
+                  <p className="font-semibold">{event.name}</p>
+                  <p className="text-muted-foreground text-sm">{event.calendar.name}</p>
+                  {event.description && <p className="mt-1 text-sm">{event.description}</p>}
                 </div>
+                <Badge variant="outline">{eventTypeLabels[event.eventType] || event.eventType}</Badge>
               </div>
             ))}
           </div>
