@@ -26,7 +26,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   }
 
   const cookieStore = await cookies();
-  const defaultOpen = cookieStore.get("sidebar_state")?.value === "true";
+  const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
 
   // Valores fijos para sidebar y layout (no personalizables)
   const sidebarVariant: SidebarVariant = "inset";
@@ -50,9 +50,9 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         data-content-layout={contentLayout}
         className={cn(
           "data-[content-layout=centered]:!mx-auto data-[content-layout=centered]:max-w-screen-2xl",
-          // Adds right margin for inset sidebar in centered layout up to 113rem.
+          // Adds right margin for inset sidebar in centered layout up to 101rem.
           // On wider screens with collapsed sidebar, removes margin and sets margin auto for alignment.
-          "max-[113rem]:peer-data-[variant=inset]:!mr-2 min-[101rem]:peer-data-[variant=inset]:peer-data-[state=collapsed]:!mr-auto",
+          "max-[101rem]:peer-data-[variant=inset]:!mr-2 min-[101rem]:peer-data-[variant=inset]:peer-data-[state=collapsed]:!mr-auto",
         )}
       >
         <header className="flex h-12 shrink-0 items-center gap-2 border-b transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
@@ -62,11 +62,13 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <Separator orientation="vertical" className="mx-2 data-[orientation=vertical]:h-4" />
               <SearchDialog />
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <QuickClockWidget />
               <Separator orientation="vertical" className="mx-2 hidden data-[orientation=vertical]:h-4 md:block" />
-              <NotificationBell />
-              <LayoutControls />
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <LayoutControls />
+              </div>
             </div>
           </div>
         </header>

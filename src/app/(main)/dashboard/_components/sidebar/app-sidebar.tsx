@@ -69,7 +69,8 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         {/* <NavDocuments items={data.documents} /> */}
         {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
       </SidebarContent>
-      <SidebarFooter className="flex flex-col gap-0 p-0">
+      <Separator className="mx-2 my-2" />
+      <SidebarFooter className="flex flex-col gap-0 p-0 pt-2">
         {user?.role === "SUPER_ADMIN" && user.orgId && (
           <>
             <div className="px-2 py-1.5">

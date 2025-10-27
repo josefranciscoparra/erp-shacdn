@@ -9,6 +9,7 @@ import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarCh
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
@@ -44,7 +45,7 @@ export default function MySpacePage() {
       <div className="@container/main flex flex-col gap-3 md:gap-5">
         {/* Header con mensaje para administrador */}
         <SectionHeader
-          title={data.profile.name}
+          title={`Buenas, ${data.profile.name} 👋`}
           description="Vista de administrador - Esta página está diseñada para empleados"
         />
 
@@ -107,14 +108,21 @@ export default function MySpacePage() {
     <div className="@container/main flex flex-col gap-3 md:gap-5">
       {/* Header con nombre del empleado */}
       <div className="animate-in fade-in duration-500">
-        <SectionHeader
-          title={data?.profile.name ?? "Mi Espacio"}
-          description={
-            data?.profile.position || data?.profile.department
-              ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
-              : "Dashboard personal del empleado"
-          }
-        />
+        {isLoading ? (
+          <div className="space-y-1">
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96" />
+          </div>
+        ) : (
+          <SectionHeader
+            title={data?.profile.name ? `Buenas, ${data.profile.name} 👋` : "Mi Espacio"}
+            description={
+              data?.profile.position || data?.profile.department
+                ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
+                : "Dashboard personal del empleado"
+            }
+          />
+        )}
       </div>
 
       {/* Error state */}
