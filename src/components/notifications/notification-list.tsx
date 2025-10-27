@@ -44,12 +44,8 @@ export function NotificationList() {
   const router = useRouter();
   const { notifications, isLoading, markAsRead, markAllAsRead } = useNotificationsStore();
 
-  const handleNotificationClick = async (
-    notificationId: string,
-    notificationType: string,
-    ptoRequestId?: string | null,
-  ) => {
-    router.push(`/dashboard/notifications`);
+  const handleNotificationClick = async (notificationId: string) => {
+    router.push("/dashboard/notifications");
   };
 
   return (
@@ -88,7 +84,7 @@ export function NotificationList() {
               return (
                 <button
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id, notification.type, notification.ptoRequestId)}
+                  onClick={() => handleNotificationClick(notification.id)}
                   className={cn(
                     "hover:bg-accent flex w-full items-start gap-3 p-4 text-left transition-colors",
                     !notification.isRead && "bg-muted/50",

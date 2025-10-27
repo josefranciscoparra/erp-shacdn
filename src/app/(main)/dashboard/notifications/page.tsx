@@ -311,7 +311,17 @@ export default function NotificationsPage() {
         notification.type === "SIGNATURE_REJECTED" ||
         notification.type === "SIGNATURE_EXPIRED"
       ) {
-        router.push(`/dashboard/me/signatures`);
+        // Distinguir entre notificaciones para HR/Admin vs empleados según el título
+        if (
+          notification.title === "Documento completamente firmado" ||
+          notification.title === "Documento rechazado por firmante"
+        ) {
+          // HR/Admin: ver todos los documentos de firma
+          router.push(`/dashboard/signatures`);
+        } else {
+          // Empleado: ver mis propias firmas
+          router.push(`/dashboard/me/signatures`);
+        }
         setIsDetailOpen(false);
         return;
       }
@@ -451,7 +461,12 @@ export default function NotificationsPage() {
                   }}
                 >
                   <ExternalLink className="mr-1 h-4 w-4" />
-                  {notification.type === "SIGNATURE_PENDING" ? "Ir a firmar" : "Ver mis firmas"}
+                  {notification.type === "SIGNATURE_PENDING"
+                    ? "Ir a firmar"
+                    : notification.title === "Documento completamente firmado" ||
+                        notification.title === "Documento rechazado por firmante"
+                      ? "Ver gestión de firmas"
+                      : "Ver mis firmas"}
                 </Button>
               )}
             </div>
@@ -695,7 +710,10 @@ export default function NotificationsPage() {
                       : selectedNotification.type === "SIGNATURE_COMPLETED" ||
                           selectedNotification.type === "SIGNATURE_REJECTED" ||
                           selectedNotification.type === "SIGNATURE_EXPIRED"
-                        ? "Ver mis firmas"
+                        ? selectedNotification.title === "Documento completamente firmado" ||
+                          selectedNotification.title === "Documento rechazado por firmante"
+                          ? "Ver gestión de firmas"
+                          : "Ver mis firmas"
                         : "Ir a la solicitud"}
                 </Button>
               )}
