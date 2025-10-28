@@ -70,15 +70,15 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
     --sidebar-border: oklch(0.9 0 0);
     --sidebar-ring: oklch(0.72 0.12 240);
   
-    /* Sombras brutalistas (marcadas, al estilo brutalist) */
-    --shadow-2xs: 4px 4px 0px 0px hsl(0 0% 0% / 0.5);
-    --shadow-xs:  4px 4px 0px 0px hsl(0 0% 0% / 0.5);
-    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 1px 2px -1px hsl(0 0% 0% / 1);
-    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 1px 2px -1px hsl(0 0% 0% / 1);
-    --shadow-md:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 2px 4px -1px hsl(0 0% 0% / 1);
-    --shadow-lg:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 4px 6px -1px hsl(0 0% 0% / 1);
-    --shadow-xl:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 8px 10px -1px hsl(0 0% 0% / 1);
-    --shadow-2xl: 4px 4px 0px 0px hsl(0 0% 0% / 2.5);
+    /* Sombras brutalistas (desplazadas, menos densas) */
+    --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.10);
+    --shadow-xs:  3px 3px 0px 0px hsl(0 0% 0% / 0.14);
+    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 0.16);
+    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 0.18);
+    --shadow-md:  6px 6px 0px 0px hsl(0 0% 0% / 0.20);
+    --shadow-lg:  8px 8px 0px 0px hsl(0 0% 0% / 0.20);
+    --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.22);
+    --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.12);
   }
   
   /* =========================
@@ -138,14 +138,14 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
     --sidebar-border: oklch(0.48 0.01 255);
     --sidebar-ring: oklch(0.78 0.12 240);
   
-    --shadow-2xs: 4px 4px 0px 0px hsl(0 0% 0% / 0.5);
-    --shadow-xs:  4px 4px 0px 0px hsl(0 0% 0% / 0.5);
-    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 1px 2px -1px hsl(0 0% 0% / 1);
-    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 1px 2px -1px hsl(0 0% 0% / 1);
-    --shadow-md:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 2px 4px -1px hsl(0 0% 0% / 1);
-    --shadow-lg:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 4px 6px -1px hsl(0 0% 0% / 1);
-    --shadow-xl:  4px 4px 0px 0px hsl(0 0% 0% / 1), 4px 8px 10px -1px hsl(0 0% 0% / 1);
-    --shadow-2xl: 4px 4px 0px 0px hsl(0 0% 0% / 2.5);
+    --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.16);
+    --shadow-xs:  3px 3px 0px 0px hsl(0 0% 0% / 0.20);
+    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 0.22);
+    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 0.24);
+    --shadow-md:  6px 6px 0px 0px hsl(0 0% 0% / 0.26);
+    --shadow-lg:  8px 8px 0px 0px hsl(0 0% 0% / 0.26);
+    --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.28);
+    --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.18);
   }
   
   /* =========================
