@@ -24,7 +24,7 @@ export function AppearanceSettings() {
   };
 
   const handleThemePresetChange = async (value: string) => {
-    const preset = value as "default" | "brutalist" | "soft-pop" | "tangerine";
+    const preset = value as "blue" | "brut-notion" | "brutalist" | "soft-pop";
     setThemePreset(preset);
     await updateThemePreset(preset);
     toast.success("Preset de color actualizado");

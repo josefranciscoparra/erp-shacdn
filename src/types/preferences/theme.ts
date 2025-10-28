@@ -25,6 +25,14 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
+    label: "Brut Notion",
+    value: "brut-notion",
+    primary: {
+      light: "oklch(0.72 0.12 240)",
+      dark: "oklch(0.78 0.12 240)",
+    },
+  },
+  {
     label: "Brutalist",
     value: "brutalist",
     primary: {
