@@ -21,6 +21,9 @@ model Organization {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Configuración de estructura organizacional
+  hierarchyType HierarchyType @default(DEPARTMENTAL) // Tipo de jerarquía de la organización
+
   // Configuración de PTO (Vacaciones)
   annualPtoDays        Int     @default(23) // Días de vacaciones anuales por defecto
   ptoCalculationMethod String  @default("PROPORTIONAL") // PROPORTIONAL, FIXED
@@ -99,6 +102,13 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+// Tipos de jerarquía organizacional
+enum HierarchyType {
+  FLAT           // Sin jerarquía (todos al mismo nivel, organizaciones planas)
+  DEPARTMENTAL   // Por departamentos (managers de depto + empleados)
+  HIERARCHICAL   // Jerárquico completo (CEO → directores → managers → empleados)
 }
 
 // Roles básicos del sistema

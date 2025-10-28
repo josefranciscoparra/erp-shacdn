@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   Bell,
   FileSignature,
+  Network,
   type LucideIcon,
 } from "lucide-react";
 
@@ -56,6 +57,12 @@ export const sidebarItems: NavGroup[] = [
     id: 2,
     label: "Gestión",
     items: [
+      {
+        title: "Organigrama",
+        url: "/dashboard/organization-chart",
+        icon: Network,
+        isNew: true,
+      },
       {
         title: "Aprobaciones",
         url: "/dashboard/approvals/pto",

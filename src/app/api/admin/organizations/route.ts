@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
             name: payload.name,
             vat: payload.vat ?? null,
             active: payload.active,
+            hierarchyType: payload.hierarchyType,
           },
         });
 
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
 
       case "update": {
         const payload = updateOrganizationSchema.parse(data);
-        const { id, name, vat, active } = payload;
+        const { id, name, vat, active, hierarchyType } = payload;
 
         const organization = await prisma.organization.update({
           where: { id },
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
             ...(name !== undefined ? { name } : {}),
             ...(vat !== undefined ? { vat } : {}),
             ...(active !== undefined ? { active } : {}),
+            ...(hierarchyType !== undefined ? { hierarchyType } : {}),
           },
         });
 
