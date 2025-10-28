@@ -23,7 +23,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
   
     /* Marca (azul confiable) + acentos suaves */
     --primary: oklch(0.72 0.12 240);          /* Azul medio: foco y acciones */
-    --primary-foreground: oklch(0.14 0 0);
+    --primary-foreground: oklch(1 0 0);
   
     --secondary: oklch(0.86 0.07 150);        /* Verde suave: confirmaciones/acentos */
     --secondary-foreground: oklch(0.14 0 0);
@@ -64,7 +64,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
     --sidebar: oklch(0.97 0 0);
     --sidebar-foreground: oklch(0.2 0 0);
     --sidebar-primary: oklch(0.72 0.12 240);
-    --sidebar-primary-foreground: oklch(0.14 0 0);
+    --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.86 0.08 300);
     --sidebar-accent-foreground: oklch(0.14 0 0);
     --sidebar-border: oklch(0.9 0 0);
@@ -96,7 +96,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
     --popover-foreground: oklch(0.98 0 0);
   
     --primary: oklch(0.78 0.12 240);          /* Un poco más luminoso para contraste */
-    --primary-foreground: oklch(0.12 0 0);
+    --primary-foreground: oklch(1 0 0);
   
     --secondary: oklch(0.82 0.09 150);
     --secondary-foreground: oklch(0.12 0 0);
@@ -132,7 +132,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
     --sidebar: oklch(0.13 0.01 255);
     --sidebar-foreground: oklch(0.98 0 0);
     --sidebar-primary: oklch(0.78 0.12 240);
-    --sidebar-primary-foreground: oklch(0.12 0 0);
+    --sidebar-primary-foreground: oklch(1 0 0);
     --sidebar-accent: oklch(0.8 0.1 300);
     --sidebar-accent-foreground: oklch(0.12 0 0);
     --sidebar-border: oklch(0.48 0.01 255);
@@ -186,7 +186,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
       --popover-foreground: #1a1a1a;
   
       --primary: #3b7ed0;            /* azul marca */
-      --primary-foreground: #222222;
+      --primary-foreground: #ffffff;
   
       --secondary: #57c285;          /* verde suave */
       --secondary-foreground: #222222;
@@ -222,7 +222,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
       --sidebar: #f6f7f9;
       --sidebar-foreground: #222222;
       --sidebar-primary: #3b7ed0;
-      --sidebar-primary-foreground: #222222;
+      --sidebar-primary-foreground: #ffffff;
       --sidebar-accent: #9f8fff;
       --sidebar-accent-foreground: #222222;
       --sidebar-border: #e3e6ea;
@@ -240,7 +240,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
       --popover-foreground: #f7f7f7;
   
       --primary: #6ea0e0;
-      --primary-foreground: #121212;
+      --primary-foreground: #ffffff;
   
       --secondary: #74d09d;
       --secondary-foreground: #121212;
@@ -276,7 +276,7 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
       --sidebar: #1c2128;
       --sidebar-foreground: #f7f7f7;
       --sidebar-primary: #6ea0e0;
-      --sidebar-primary-foreground: #121212;
+      --sidebar-primary-foreground: #ffffff;
       --sidebar-accent: #b2a3ff;
       --sidebar-accent-foreground: #121212;
       --sidebar-border: #3a424d;
