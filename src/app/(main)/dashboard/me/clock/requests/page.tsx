@@ -103,7 +103,7 @@ export default function MyManualTimeEntryRequestsPage() {
       <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
 
       {viewMode === "calendar" ? (
-        <div className="grid gap-6 @4xl/main:grid-cols-[minmax(0,780px)_320px] @4xl/main:items-start">
+        <div className="grid gap-6 @4xl/main:grid-cols-[minmax(0,1fr)_320px] @4xl/main:items-start">
           <TimeCalendarView />
           <TimeBalanceSidebar />
         </div>

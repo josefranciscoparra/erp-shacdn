@@ -53,7 +53,7 @@ export function TimeCalendarView() {
 
   if (isLoading || !monthlyData) {
     return (
-      <Card className="mx-auto flex h-[340px] w-full max-w-[780px] items-center justify-center">
+      <Card className="flex h-[340px] w-full items-center justify-center">
         <div className="text-muted-foreground text-sm">Cargando calendario...</div>
       </Card>
     );
@@ -79,7 +79,7 @@ export function TimeCalendarView() {
 
   return (
     <>
-      <Card className="mx-auto w-full max-w-[780px] p-4 sm:p-5">
+      <Card className="w-full p-4 sm:p-5">
         {/* Header con navegación */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-1.5 sm:gap-2">
