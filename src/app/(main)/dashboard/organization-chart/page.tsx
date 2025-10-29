@@ -15,6 +15,7 @@ import { OrgChartDepartmental } from "./_components/org-chart-departmental";
 import { OrgChartFlat } from "./_components/org-chart-flat";
 import { OrgChartHierarchical } from "./_components/org-chart-hierarchical";
 import type { EmployeeNodeData } from "./_components/org-chart-node";
+import { OrgChartUnified } from "./_components/org-chart-unified";
 
 interface DepartmentNode {
   id: string;
@@ -23,9 +24,14 @@ interface DepartmentNode {
   employees: EmployeeNodeData[];
 }
 
+interface HierarchicalEmployeeNode extends EmployeeNodeData {
+  subordinates: HierarchicalEmployeeNode[];
+}
+
 interface OrganizationChartData {
   hierarchyType: HierarchyType;
   ceo?: EmployeeNodeData | null;
+  hierarchicalTree?: HierarchicalEmployeeNode | null;
   departments: DepartmentNode[];
   employees: EmployeeNodeData[];
 }
@@ -132,7 +138,7 @@ export default function OrganizationChartPage() {
         )}
 
         {data.hierarchyType === HierarchyType.HIERARCHICAL && (
-          <OrgChartHierarchical ceo={data.ceo} departments={data.departments} searchQuery={searchQuery} />
+          <OrgChartUnified rootNode={data.hierarchicalTree ?? null} searchQuery={searchQuery} />
         )}
       </div>
     </div>

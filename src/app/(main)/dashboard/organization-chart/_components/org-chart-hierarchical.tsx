@@ -26,16 +26,16 @@ export function OrgChartHierarchical({ ceo, departments, searchQuery = "" }: Org
 
       const matchesManager = dept.manager
         ? `${dept.manager.firstName} ${dept.manager.lastName}`.toLowerCase().includes(query) ||
-          (dept.manager.position?.toLowerCase().includes(query) ?? false) ||
-          (dept.manager.email?.toLowerCase().includes(query) ?? false)
+          (dept.manager.position?.toLowerCase() ?? "").includes(query) ||
+          (dept.manager.email?.toLowerCase() ?? "").includes(query)
         : false;
 
       const matchingEmployees = dept.employees.filter((emp) => {
         const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
         return (
           fullName.includes(query) ||
-          (emp.position?.toLowerCase().includes(query) ?? false) ||
-          (emp.email?.toLowerCase().includes(query) ?? false)
+          (emp.position?.toLowerCase() ?? "").includes(query) ||
+          (emp.email?.toLowerCase() ?? "").includes(query)
         );
       });
 

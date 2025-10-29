@@ -15,9 +15,9 @@ export function OrgChartFlat({ employees, searchQuery = "" }: OrgChartFlatProps)
     const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
     return (
       fullName.includes(query) ||
-      (emp.position?.toLowerCase().includes(query) ?? false) ||
-      (emp.department?.toLowerCase().includes(query) ?? false) ||
-      (emp.email?.toLowerCase().includes(query) ?? false)
+      (emp.position?.toLowerCase() ?? "").includes(query) ||
+      (emp.department?.toLowerCase() ?? "").includes(query) ||
+      (emp.email?.toLowerCase() ?? "").includes(query)
     );
   });
 

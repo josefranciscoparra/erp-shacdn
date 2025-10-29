@@ -24,9 +24,15 @@ interface DepartmentNode {
   employees: EmployeeNode[];
 }
 
+// Nodo del árbol jerárquico con subordinados
+export interface HierarchicalEmployeeNode extends EmployeeNode {
+  subordinates: HierarchicalEmployeeNode[];
+}
+
 interface OrganizationChartData {
   hierarchyType: HierarchyType;
   ceo?: EmployeeNode | null;
+  hierarchicalTree?: HierarchicalEmployeeNode | null;
   departments: DepartmentNode[];
   employees: EmployeeNode[];
 }
@@ -165,30 +171,70 @@ export async function GET() {
       department: emp.employmentContracts[0]?.department?.name ?? null,
     }));
 
-    // Para jerarquía HIERARCHICAL, buscar CEO (empleado sin manager)
+    // Para jerarquía HIERARCHICAL, construir el árbol completo
     let ceo: EmployeeNode | null = null;
+    let hierarchicalTree: HierarchicalEmployeeNode | null = null;
+
     if (hierarchyType === HierarchyType.HIERARCHICAL) {
-      const ceoEmployee = allEmployees.find((emp) => {
+      // Crear un mapa de empleados por ID con su estructura jerárquica
+      const employeeMap = new Map<string, HierarchicalEmployeeNode>();
+
+      // Primero crear todos los nodos
+      allEmployees.forEach((emp) => {
         const contract = emp.employmentContracts[0];
-        return contract && !contract.managerId;
+        employeeMap.set(emp.id, {
+          id: emp.id,
+          firstName: emp.firstName,
+          lastName: emp.lastName,
+          email: emp.email,
+          photoUrl: emp.photoUrl,
+          position: contract?.position?.title ?? null,
+          department: contract?.department?.name ?? null,
+          subordinates: [],
+        });
       });
 
-      if (ceoEmployee) {
+      // Construir las relaciones jerárquicas
+      let ceoNode: HierarchicalEmployeeNode | null = null;
+
+      allEmployees.forEach((emp) => {
+        const contract = emp.employmentContracts[0];
+        const managerId = contract?.managerId;
+        const currentNode = employeeMap.get(emp.id);
+
+        if (!currentNode) return;
+
+        if (!managerId) {
+          // Este es el CEO (sin manager)
+          ceoNode = currentNode;
+        } else {
+          // Añadir este empleado como subordinado de su manager
+          const managerNode = employeeMap.get(managerId);
+          if (managerNode) {
+            managerNode.subordinates.push(currentNode);
+          }
+        }
+      });
+
+      hierarchicalTree = ceoNode;
+
+      // También mantener el ceo simple para compatibilidad
+      if (ceoNode) {
         ceo = {
-          id: ceoEmployee.id,
-          firstName: ceoEmployee.firstName,
-          lastName: ceoEmployee.lastName,
-          email: ceoEmployee.email,
-          photoUrl: ceoEmployee.photoUrl,
-          position: ceoEmployee.employmentContracts[0]?.position?.title ?? null,
-          department: ceoEmployee.employmentContracts[0]?.department?.name ?? null,
+          id: ceoNode.id,
+          firstName: ceoNode.firstName,
+          lastName: ceoNode.lastName,
+          email: ceoNode.email,
+          photoUrl: ceoNode.photoUrl,
+          position: ceoNode.position,
+          department: ceoNode.department,
         };
       }
     }
 
     const response: OrganizationChartData = {
       hierarchyType,
-      ...(hierarchyType === HierarchyType.HIERARCHICAL ? { ceo } : {}),
+      ...(hierarchyType === HierarchyType.HIERARCHICAL ? { ceo, hierarchicalTree } : {}),
       departments: transformedDepartments,
       employees: flatEmployees,
     };
