@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 
 import { Camera, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "./avatar";
 import { Button } from "./button";
@@ -49,13 +50,16 @@ export function AvatarUpload({
 
     // Validar tipo de archivo
     if (!file.type.startsWith("image/")) {
-      alert("Por favor selecciona una imagen válida");
+      toast.error("Por favor selecciona una imagen válida (JPG, PNG o WebP)");
       return;
     }
 
-    // Validar tamaño (2MB máx)
-    if (file.size > 2 * 1024 * 1024) {
-      alert("La imagen no puede superar los 2MB");
+    // Validar tamaño considerando conversión a base64 (aumenta ~33%)
+    // Límite real: 1.5MB para que al convertir a base64 no supere 2.2MB del servidor
+    const MAX_SIZE = 1.5 * 1024 * 1024; // 1.5MB (base64 será ~2MB)
+    if (file.size > MAX_SIZE) {
+      const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      toast.error(`La imagen es demasiado grande (${sizeMB}MB). El tamaño máximo es 1.5MB`);
       return;
     }
 
@@ -74,7 +78,7 @@ export function AvatarUpload({
     } catch (error) {
       console.error("Error subiendo avatar:", error);
       setPreviewUrl(null);
-      alert("Error al subir la imagen. Por favor intenta de nuevo.");
+      toast.error("Error al subir la imagen. Por favor intenta de nuevo.");
     } finally {
       setIsUploading(false);
       // Limpiar el input para permitir seleccionar el mismo archivo otra vez

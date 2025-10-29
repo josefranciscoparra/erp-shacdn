@@ -22,6 +22,9 @@ const nextConfig = {
         '@radix-ui/react-id': './src/lib/radix/stable-use-id.ts',
       },
     },
+    serverActions: {
+      bodySizeLimit: '2.2mb', // 2.2MB (margen de seguridad sobre límite de 2MB en cliente)
+    },
   },
   webpack(config) {
     config.resolve = config.resolve ?? {};

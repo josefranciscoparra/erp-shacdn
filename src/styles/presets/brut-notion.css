@@ -7,351 +7,365 @@ description: Pastel profesional tipo Notion, alto contraste y sin rojos agresivo
 /* =========================
    L I G H T   (default)
    ========================= */
-   :root[data-theme-preset="brut-notion"] {
-    /* Estructura brutalista */
-    --radius: 0px;
-  
-    /* Base neutra (tipo Notion) */
-    --background: oklch(0.99 0 0);
-    --foreground: oklch(0.16 0 0);
-  
-    --card: oklch(0.985 0 0);
-    --card-foreground: oklch(0.16 0 0);
-  
-    --popover: oklch(0.99 0 0);
-    --popover-foreground: oklch(0.16 0 0);
-  
-    /* Marca (azul confiable) + acentos suaves */
-    --primary: oklch(0.72 0.12 240);          /* Azul medio: foco y acciones */
-    --primary-foreground: oklch(1 0 0);
-  
-    --secondary: oklch(0.86 0.07 150);        /* Verde suave: confirmaciones/acentos */
-    --secondary-foreground: oklch(0.14 0 0);
-  
-    --accent: oklch(0.86 0.08 300);           /* Lavanda pastel: resaltes discretos */
-    --accent-foreground: oklch(0.14 0 0);
-  
-    /* Estado/semántica (sin rojos chillones) */
-    --destructive: oklch(0.75 0.09 25);       /* Coral suave para errores */
-    --destructive-foreground: oklch(0.14 0 0);
-  
-    --success: oklch(0.83 0.08 150);
-    --success-foreground: oklch(0.14 0 0);
-  
-    --warning: oklch(0.91 0.08 85);           /* Ámbar pastel */
-    --warning-foreground: oklch(0.14 0 0);
-  
-    --info: oklch(0.9 0.06 240);              /* Azul claro informativo */
-    --info-foreground: oklch(0.14 0 0);
-  
-    /* Neutros / tipografía secundaria */
-    --muted: oklch(0.965 0 0);
-    --muted-foreground: oklch(0.45 0 0);
-  
-    /* Bordes / inputs / focus ring */
-    --border: oklch(0.9 0 0);
-    --input: oklch(0.9 0 0);
-    --ring: oklch(0.72 0.12 240);
-  
-    /* Gráficas (paleta pastel armónica, legible en dashboards) */
-    --chart-1: oklch(0.72 0.12 240);  /* azul */
-    --chart-2: oklch(0.86 0.07 150);  /* verde */
-    --chart-3: oklch(0.86 0.08 300);  /* lavanda */
-    --chart-4: oklch(0.88 0.08 85);   /* ámbar pastel */
-    --chart-5: oklch(0.8 0.09 25);    /* coral suave */
-  
-    /* Sidebar (ligeramente diferenciada) */
-    --sidebar: oklch(0.97 0 0);
-    --sidebar-foreground: oklch(0.2 0 0);
-    --sidebar-primary: oklch(0.72 0.12 240);
-    --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.86 0.08 300);
-    --sidebar-accent-foreground: oklch(0.14 0 0);
-    --sidebar-border: oklch(0.9 0 0);
-    --sidebar-ring: oklch(0.72 0.12 240);
-  
-    /* Sombras brutalistas (desplazadas, menos densas) */
-    --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.10);
-    --shadow-xs:  3px 3px 0px 0px hsl(0 0% 0% / 0.14);
-    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 0.16);
-    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 0.18);
-    --shadow-md:  6px 6px 0px 0px hsl(0 0% 0% / 0.20);
-    --shadow-lg:  8px 8px 0px 0px hsl(0 0% 0% / 0.20);
-    --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.22);
-    --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.12);
-  }
-  
-  /* =========================
+:root[data-theme-preset="brut-notion"] {
+  /* Estructura brutalista */
+  --radius: 0px;
+
+  /* Base neutra (tipo Notion) */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.16 0 0);
+
+  --card: oklch(0.985 0 0);
+  --card-foreground: oklch(0.16 0 0);
+
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0.16 0 0);
+
+  /* Marca (azul confiable) + acentos suaves */
+  --primary: oklch(0.72 0.12 240); /* Azul medio: foco y acciones */
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.86 0.07 150); /* Verde suave: confirmaciones/acentos */
+  --secondary-foreground: oklch(0.14 0 0);
+
+  --accent: oklch(0.86 0.08 300); /* Lavanda pastel: resaltes discretos */
+  --accent-foreground: oklch(0.14 0 0);
+
+  /* Estado/semántica (sin rojos chillones) */
+  --destructive: oklch(0.75 0.09 25); /* Coral suave para errores */
+  --destructive-foreground: oklch(0.14 0 0);
+
+  --success: oklch(0.83 0.08 150);
+  --success-foreground: oklch(0.14 0 0);
+
+  --warning: oklch(0.91 0.08 85); /* Ámbar pastel */
+  --warning-foreground: oklch(0.14 0 0);
+
+  --info: oklch(0.9 0.06 240); /* Azul claro informativo */
+  --info-foreground: oklch(0.14 0 0);
+
+  /* Neutros / tipografía secundaria */
+  --muted: oklch(0.965 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+
+  /* Bordes / inputs / focus ring */
+  --border: oklch(0.9 0 0);
+  --input: oklch(0.9 0 0);
+  --ring: oklch(0.72 0.12 240);
+
+  /* Gráficas (paleta pastel armónica, legible en dashboards) */
+  --chart-1: oklch(0.72 0.12 240); /* azul */
+  --chart-2: oklch(0.86 0.07 150); /* verde */
+  --chart-3: oklch(0.86 0.08 300); /* lavanda */
+  --chart-4: oklch(0.88 0.08 85); /* ámbar pastel */
+  --chart-5: oklch(0.8 0.09 25); /* coral suave */
+
+  /* Sidebar (ligeramente diferenciada) */
+  --sidebar: oklch(0.97 0 0);
+  --sidebar-foreground: oklch(0.2 0 0);
+  --sidebar-primary: oklch(0.72 0.12 240);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.86 0.08 300);
+  --sidebar-accent-foreground: oklch(0.14 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: oklch(0.72 0.12 240);
+
+  /* Sombras brutalistas (desplazadas, menos densas) */
+  --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.1);
+  --shadow-xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.14);
+  --shadow-sm: 4px 4px 0px 0px hsl(0 0% 0% / 0.16);
+  --shadow: 4px 4px 0px 0px hsl(0 0% 0% / 0.18);
+  --shadow-md: 6px 6px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-lg: 8px 8px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.22);
+  --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.12);
+}
+
+/* =========================
      D A R K
      ========================= */
-  .dark:root[data-theme-preset="brut-notion"] {
-    /* Evitar negro puro; mejor gris azulado profundo para fatiga ocular */
-    --background: oklch(0.16 0.01 255);
-    --foreground: oklch(0.98 0 0);
-  
-    --card: oklch(0.2 0.01 255);
-    --card-foreground: oklch(0.98 0 0);
-  
-    --popover: oklch(0.2 0.01 255);
-    --popover-foreground: oklch(0.98 0 0);
-  
-    --primary: oklch(0.78 0.12 240);          /* Un poco más luminoso para contraste */
-    --primary-foreground: oklch(1 0 0);
-  
-    --secondary: oklch(0.82 0.09 150);
-    --secondary-foreground: oklch(0.12 0 0);
-  
-    --accent: oklch(0.8 0.1 300);
-    --accent-foreground: oklch(0.12 0 0);
-  
-    --destructive: oklch(0.75 0.11 25);
-    --destructive-foreground: oklch(0.12 0 0);
-  
-    --success: oklch(0.8 0.1 150);
-    --success-foreground: oklch(0.12 0 0);
-  
-    --warning: oklch(0.86 0.1 85);
-    --warning-foreground: oklch(0.12 0 0);
-  
-    --info: oklch(0.86 0.09 240);
-    --info-foreground: oklch(0.12 0 0);
-  
-    --muted: oklch(0.28 0.01 255);
-    --muted-foreground: oklch(0.86 0 0);
-  
-    --border: oklch(0.48 0.01 255);
-    --input: oklch(0.48 0.01 255);
-    --ring: oklch(0.78 0.12 240);
-  
-    --chart-1: oklch(0.78 0.12 240);
-    --chart-2: oklch(0.82 0.09 150);
-    --chart-3: oklch(0.8 0.1 300);
-    --chart-4: oklch(0.84 0.1 85);
-    --chart-5: oklch(0.78 0.11 25);
-  
-    --sidebar: oklch(0.13 0.01 255);
-    --sidebar-foreground: oklch(0.98 0 0);
-    --sidebar-primary: oklch(0.78 0.12 240);
-    --sidebar-primary-foreground: oklch(1 0 0);
-    --sidebar-accent: oklch(0.8 0.1 300);
-    --sidebar-accent-foreground: oklch(0.12 0 0);
-    --sidebar-border: oklch(0.48 0.01 255);
-    --sidebar-ring: oklch(0.78 0.12 240);
-  
-    --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.16);
-    --shadow-xs:  3px 3px 0px 0px hsl(0 0% 0% / 0.20);
-    --shadow-sm:  4px 4px 0px 0px hsl(0 0% 0% / 0.22);
-    --shadow:     4px 4px 0px 0px hsl(0 0% 0% / 0.24);
-    --shadow-md:  6px 6px 0px 0px hsl(0 0% 0% / 0.26);
-    --shadow-lg:  8px 8px 0px 0px hsl(0 0% 0% / 0.26);
-    --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.28);
-    --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.18);
-  }
-  
-  /* =========================
+.dark:root[data-theme-preset="brut-notion"] {
+  /* Evitar negro puro; mejor gris azulado profundo para fatiga ocular */
+  --background: oklch(0.16 0.01 255);
+  --foreground: oklch(0.98 0 0);
+
+  --card: oklch(0.2 0.01 255);
+  --card-foreground: oklch(0.98 0 0);
+
+  --popover: oklch(0.2 0.01 255);
+  --popover-foreground: oklch(0.98 0 0);
+
+  --primary: oklch(0.78 0.12 240); /* Un poco más luminoso para contraste */
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.82 0.09 150);
+  --secondary-foreground: oklch(0.12 0 0);
+
+  --accent: oklch(0.8 0.1 300);
+  --accent-foreground: oklch(0.12 0 0);
+
+  --destructive: oklch(0.75 0.11 25);
+  --destructive-foreground: oklch(0.12 0 0);
+
+  --success: oklch(0.8 0.1 150);
+  --success-foreground: oklch(0.12 0 0);
+
+  --warning: oklch(0.86 0.1 85);
+  --warning-foreground: oklch(0.12 0 0);
+
+  --info: oklch(0.86 0.09 240);
+  --info-foreground: oklch(0.12 0 0);
+
+  --muted: oklch(0.28 0.01 255);
+  --muted-foreground: oklch(0.86 0 0);
+
+  --border: oklch(0.48 0.01 255);
+  --input: oklch(0.48 0.01 255);
+  --ring: oklch(0.78 0.12 240);
+
+  --chart-1: oklch(0.78 0.12 240);
+  --chart-2: oklch(0.82 0.09 150);
+  --chart-3: oklch(0.8 0.1 300);
+  --chart-4: oklch(0.84 0.1 85);
+  --chart-5: oklch(0.78 0.11 25);
+
+  --sidebar: oklch(0.13 0.01 255);
+  --sidebar-foreground: oklch(0.98 0 0);
+  --sidebar-primary: oklch(0.78 0.12 240);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.8 0.1 300);
+  --sidebar-accent-foreground: oklch(0.12 0 0);
+  --sidebar-border: oklch(0.48 0.01 255);
+  --sidebar-ring: oklch(0.78 0.12 240);
+
+  --shadow-2xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.16);
+  --shadow-xs: 3px 3px 0px 0px hsl(0 0% 0% / 0.2);
+  --shadow-sm: 4px 4px 0px 0px hsl(0 0% 0% / 0.22);
+  --shadow: 4px 4px 0px 0px hsl(0 0% 0% / 0.24);
+  --shadow-md: 6px 6px 0px 0px hsl(0 0% 0% / 0.26);
+  --shadow-lg: 8px 8px 0px 0px hsl(0 0% 0% / 0.26);
+  --shadow-xl: 12px 12px 0px 0px hsl(0 0% 0% / 0.28);
+  --shadow-2xl: 14px 14px 0px 0px hsl(0 0% 0% / 0.18);
+}
+
+/* =========================
      A C C E S S I B I L I D A D
      - Anillos de foco visibles
      - Contraste elevado opcional
      ========================= */
-  :root[data-theme-preset="brut-notion"] *:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
+:root[data-theme-preset="brut-notion"] *:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+@media (prefers-contrast: more) {
+  :root[data-theme-preset="brut-notion"] {
+    --border: oklch(0.86 0 0);
+    --input: oklch(0.86 0 0);
+    --ring: oklch(0.68 0.14 240); /* un poco más notorio */
   }
-  
-  @media (prefers-contrast: more) {
-    :root[data-theme-preset="brut-notion"] {
-      --border: oklch(0.86 0 0);
-      --input: oklch(0.86 0 0);
-      --ring: oklch(0.68 0.14 240); /* un poco más notorio */
-    }
-    .dark:root[data-theme-preset="brut-notion"] {
-      --border: oklch(0.58 0.01 255);
-      --input: oklch(0.58 0.01 255);
-      --ring: oklch(0.82 0.14 240);
-    }
+  .dark:root[data-theme-preset="brut-notion"] {
+    --border: oklch(0.58 0.01 255);
+    --input: oklch(0.58 0.01 255);
+    --ring: oklch(0.82 0.14 240);
   }
-  
-  /* =========================
+}
+
+/* =========================
      F A L L B A C K  (sin OKLCH)
      ========================= */
-  @supports not (color: oklch(1 0 0)) {
-    :root[data-theme-preset="brut-notion"] {
-      --background: #ffffff;
-      --foreground: #1a1a1a;
-  
-      --card: #fcfcfc;
-      --card-foreground: #1a1a1a;
-  
-      --popover: #ffffff;
-      --popover-foreground: #1a1a1a;
-  
-      --primary: #3b7ed0;            /* azul marca */
-      --primary-foreground: #ffffff;
-  
-      --secondary: #57c285;          /* verde suave */
-      --secondary-foreground: #222222;
-  
-      --accent: #9f8fff;             /* lavanda */
-      --accent-foreground: #222222;
-  
-      --destructive: #d48b7a;        /* coral suave */
-      --destructive-foreground: #222222;
-  
-      --success: #55c27a;
-      --success-foreground: #222222;
-  
-      --warning: #ffd46a;
-      --warning-foreground: #222222;
-  
-      --info: #a8c9ff;
-      --info-foreground: #222222;
-  
-      --muted: #f1f3f5;
-      --muted-foreground: #6b6f76;
-  
-      --border: #e3e6ea;
-      --input: #e3e6ea;
-      --ring: #3b7ed0;
-  
-      --chart-1: #3b7ed0;
-      --chart-2: #57c285;
-      --chart-3: #9f8fff;
-      --chart-4: #f0c05a;
-      --chart-5: #d48b7a;
-  
-      --sidebar: #f6f7f9;
-      --sidebar-foreground: #222222;
-      --sidebar-primary: #3b7ed0;
-      --sidebar-primary-foreground: #ffffff;
-      --sidebar-accent: #9f8fff;
-      --sidebar-accent-foreground: #222222;
-      --sidebar-border: #e3e6ea;
-      --sidebar-ring: #3b7ed0;
-    }
-  
-    .dark:root[data-theme-preset="brut-notion"] {
-      --background: #1f242b;
-      --foreground: #f7f7f7;
-  
-      --card: #242a32;
-      --card-foreground: #f7f7f7;
-  
-      --popover: #242a32;
-      --popover-foreground: #f7f7f7;
-  
-      --primary: #6ea0e0;
-      --primary-foreground: #ffffff;
-  
-      --secondary: #74d09d;
-      --secondary-foreground: #121212;
-  
-      --accent: #b2a3ff;
-      --accent-foreground: #121212;
-  
-      --destructive: #e09b8b;
-      --destructive-foreground: #121212;
-  
-      --success: #70d3a3;
-      --success-foreground: #121212;
-  
-      --warning: #ffdf85;
-      --warning-foreground: #121212;
-  
-      --info: #b9d1ff;
-      --info-foreground: #121212;
-  
-      --muted: #2b313a;
-      --muted-foreground: #e2e2e2;
-  
-      --border: #3a424d;
-      --input: #3a424d;
-      --ring: #6ea0e0;
-  
-      --chart-1: #6ea0e0;
-      --chart-2: #74d09d;
-      --chart-3: #b2a3ff;
-      --chart-4: #ffd27a;
-      --chart-5: #e09b8b;
-  
-      --sidebar: #1c2128;
-      --sidebar-foreground: #f7f7f7;
-      --sidebar-primary: #6ea0e0;
-      --sidebar-primary-foreground: #ffffff;
-      --sidebar-accent: #b2a3ff;
-      --sidebar-accent-foreground: #121212;
-      --sidebar-border: #3a424d;
-      --sidebar-ring: #6ea0e0;
-    }
+@supports not (color: oklch(1 0 0)) {
+  :root[data-theme-preset="brut-notion"] {
+    --background: #ffffff;
+    --foreground: #1a1a1a;
+
+    --card: #fcfcfc;
+    --card-foreground: #1a1a1a;
+
+    --popover: #ffffff;
+    --popover-foreground: #1a1a1a;
+
+    --primary: #3b7ed0; /* azul marca */
+    --primary-foreground: #ffffff;
+
+    --secondary: #57c285; /* verde suave */
+    --secondary-foreground: #222222;
+
+    --accent: #9f8fff; /* lavanda */
+    --accent-foreground: #222222;
+
+    --destructive: #d48b7a; /* coral suave */
+    --destructive-foreground: #222222;
+
+    --success: #55c27a;
+    --success-foreground: #222222;
+
+    --warning: #ffd46a;
+    --warning-foreground: #222222;
+
+    --info: #a8c9ff;
+    --info-foreground: #222222;
+
+    --muted: #f1f3f5;
+    --muted-foreground: #6b6f76;
+
+    --border: #e3e6ea;
+    --input: #e3e6ea;
+    --ring: #3b7ed0;
+
+    --chart-1: #3b7ed0;
+    --chart-2: #57c285;
+    --chart-3: #9f8fff;
+    --chart-4: #f0c05a;
+    --chart-5: #d48b7a;
+
+    --sidebar: #f6f7f9;
+    --sidebar-foreground: #222222;
+    --sidebar-primary: #3b7ed0;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #9f8fff;
+    --sidebar-accent-foreground: #222222;
+    --sidebar-border: #e3e6ea;
+    --sidebar-ring: #3b7ed0;
   }
-  
-  /* =========================
+
+  .dark:root[data-theme-preset="brut-notion"] {
+    --background: #1f242b;
+    --foreground: #f7f7f7;
+
+    --card: #242a32;
+    --card-foreground: #f7f7f7;
+
+    --popover: #242a32;
+    --popover-foreground: #f7f7f7;
+
+    --primary: #6ea0e0;
+    --primary-foreground: #ffffff;
+
+    --secondary: #74d09d;
+    --secondary-foreground: #121212;
+
+    --accent: #b2a3ff;
+    --accent-foreground: #121212;
+
+    --destructive: #e09b8b;
+    --destructive-foreground: #121212;
+
+    --success: #70d3a3;
+    --success-foreground: #121212;
+
+    --warning: #ffdf85;
+    --warning-foreground: #121212;
+
+    --info: #b9d1ff;
+    --info-foreground: #121212;
+
+    --muted: #2b313a;
+    --muted-foreground: #e2e2e2;
+
+    --border: #3a424d;
+    --input: #3a424d;
+    --ring: #6ea0e0;
+
+    --chart-1: #6ea0e0;
+    --chart-2: #74d09d;
+    --chart-3: #b2a3ff;
+    --chart-4: #ffd27a;
+    --chart-5: #e09b8b;
+
+    --sidebar: #1c2128;
+    --sidebar-foreground: #f7f7f7;
+    --sidebar-primary: #6ea0e0;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #b2a3ff;
+    --sidebar-accent-foreground: #121212;
+    --sidebar-border: #3a424d;
+    --sidebar-ring: #6ea0e0;
+  }
+}
+
+/* =========================
      S U G E R E N C I A S  U I
      - Estos tokens funcionan muy bien con shadcn/ui + Tailwind.
      - Para inputs “ERP-friendly”, usa borde = var(--border),
        bg = var(--background), ring en focus = var(--ring).
      ========================= */
-  
-  /* Ejemplo de foco agradable y consistente */
-  [data-theme-preset="brut-notion"] .focus-ring:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-    box-shadow: 0 0 0 4px color-mix(in oklch, var(--ring) 20%, transparent);
-  }
-  
-  /* Botón primario brutalista */
-  [data-theme-preset="brut-notion"] .btn-primary {
-    background: var(--primary);
-    color: var(--primary-foreground);
-    border: 2px solid var(--border);
-    box-shadow: var(--shadow-sm);
-  }
-  [data-theme-preset="brut-notion"] .btn-primary:hover { box-shadow: var(--shadow-md); }
-  
-  /* Card brutalista */
-  [data-theme-preset="brut-notion"] .card {
-    background: var(--card);
-    color: var(--card-foreground);
-    border: 2px solid var(--border);
-    box-shadow: var(--shadow-xs);
-  }
-  
-  /* Tabla “ERP” legible */
-  [data-theme-preset="brut-notion"] .table th {
-    background: var(--muted);
-    color: var(--foreground);
-    border-bottom: 2px solid var(--border);
-  }
-  [data-theme-preset="brut-notion"] .table td {
-    border-bottom: 1px solid var(--border);
-  }
-  
-  /* Inputs */
-  [data-theme-preset="brut-notion"] .input, 
-  [data-theme-preset="brut-notion"] .select, 
-  [data-theme-preset="brut-notion"] .textarea {
-    background: var(--background);
-    color: var(--foreground);
-    border: 2px solid var(--input);
-    box-shadow: none;
-  }
-  [data-theme-preset="brut-notion"] .input:focus-visible,
-  [data-theme-preset="brut-notion"] .select:focus-visible,
-  [data-theme-preset="brut-notion"] .textarea:focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 2px;
-  }
-  
-  /* Badges de estado */
-  [data-theme-preset="brut-notion"] .badge-success { background: var(--success);   color: var(--success-foreground); }
-  [data-theme-preset="brut-notion"] .badge-warning { background: var(--warning);   color: var(--warning-foreground); }
-  [data-theme-preset="brut-notion"] .badge-info    { background: var(--info);      color: var(--info-foreground); }
-  [data-theme-preset="brut-notion"] .badge-error   { background: var(--destructive); color: var(--destructive-foreground); }
-  
-  /* === Ajuste definitivo para rojo de acción (más vivo y visible) === */
+
+/* Ejemplo de foco agradable y consistente */
+[data-theme-preset="brut-notion"] .focus-ring:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--ring) 20%, transparent);
+}
+
+/* Botón primario brutalista */
+[data-theme-preset="brut-notion"] .btn-primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+[data-theme-preset="brut-notion"] .btn-primary:hover {
+  box-shadow: var(--shadow-md);
+}
+
+/* Card brutalista */
+[data-theme-preset="brut-notion"] .card {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Tabla “ERP” legible */
+[data-theme-preset="brut-notion"] .table th {
+  background: var(--muted);
+  color: var(--foreground);
+  border-bottom: 2px solid var(--border);
+}
+[data-theme-preset="brut-notion"] .table td {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Inputs */
+[data-theme-preset="brut-notion"] .input,
+[data-theme-preset="brut-notion"] .select,
+[data-theme-preset="brut-notion"] .textarea {
+  background: var(--background);
+  color: var(--foreground);
+  border: 2px solid var(--input);
+  box-shadow: none;
+}
+[data-theme-preset="brut-notion"] .input:focus-visible,
+[data-theme-preset="brut-notion"] .select:focus-visible,
+[data-theme-preset="brut-notion"] .textarea:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Badges de estado */
+[data-theme-preset="brut-notion"] .badge-success {
+  background: var(--success);
+  color: var(--success-foreground);
+}
+[data-theme-preset="brut-notion"] .badge-warning {
+  background: var(--warning);
+  color: var(--warning-foreground);
+}
+[data-theme-preset="brut-notion"] .badge-info {
+  background: var(--info);
+  color: var(--info-foreground);
+}
+[data-theme-preset="brut-notion"] .badge-error {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+/* === Ajuste definitivo para rojo de acción (más vivo y visible) === */
 
 :root[data-theme-preset="brut-notion"] {
   /* rojo coral intenso pero profesional */
-  --destructive: oklch(0.58 0.25 25);       /* Rojo con más saturación */
+  --destructive: oklch(0.58 0.25 25); /* Rojo con más saturación */
   --destructive-foreground: oklch(1 0 0);
 }
 
