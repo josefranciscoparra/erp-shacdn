@@ -5,6 +5,8 @@ import { useEffect } from "react";
 import { LogIn, LogOut, Coffee } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function QuickClockWidget() {
@@ -20,6 +22,8 @@ export function QuickClockWidget() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
+  const { hasEmployeeProfile } = usePermissions();
+  const canClock = hasEmployeeProfile();
 
   // Cargar estado inicial
   useEffect(() => {
@@ -65,46 +69,90 @@ export function QuickClockWidget() {
     return `${hours}h ${minutes.toString().padStart(2, "0")}min`;
   };
 
+  const tooltipMessage = "Solo los empleados pueden fichar";
+
   return (
-    <div className="hidden items-center gap-2 md:flex">
-      <span className="text-muted-foreground text-sm font-medium tabular-nums">{formatTime(liveWorkedMinutes)}</span>
+    <TooltipProvider>
+      <div className="hidden items-center gap-2 md:flex">
+        <span className="text-muted-foreground text-sm font-medium tabular-nums">{formatTime(liveWorkedMinutes)}</span>
 
-      {currentStatus === "CLOCKED_OUT" && (
-        <Button
-          size="sm"
-          onClick={clockIn}
-          disabled={isClocking}
-          className="rounded-full bg-green-600 hover:bg-green-700"
-        >
-          <LogIn className="mr-1.5 h-3.5 w-3.5" />
-          Entrar
-        </Button>
-      )}
+        {currentStatus === "CLOCKED_OUT" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  onClick={clockIn}
+                  disabled={isClocking || !canClock}
+                  className="rounded-full bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed"
+                >
+                  <LogIn className="mr-1.5 h-3.5 w-3.5" />
+                  Entrar
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+          </Tooltip>
+        )}
 
-      {currentStatus === "CLOCKED_IN" && (
-        <>
-          <Button size="sm" onClick={clockOut} disabled={isClocking} variant="destructive" className="rounded-full">
-            <LogOut className="mr-1.5 h-3.5 w-3.5" />
-            Salir
-          </Button>
-          <Button size="sm" onClick={handleBreak} disabled={isClocking} variant="outline" className="rounded-full">
-            <Coffee className="mr-1.5 h-3.5 w-3.5" />
-            Pausa
-          </Button>
-        </>
-      )}
+        {currentStatus === "CLOCKED_IN" && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    onClick={clockOut}
+                    disabled={isClocking || !canClock}
+                    variant="destructive"
+                    className="rounded-full disabled:cursor-not-allowed"
+                  >
+                    <LogOut className="mr-1.5 h-3.5 w-3.5" />
+                    Salir
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    onClick={handleBreak}
+                    disabled={isClocking || !canClock}
+                    variant="outline"
+                    className="rounded-full disabled:cursor-not-allowed"
+                  >
+                    <Coffee className="mr-1.5 h-3.5 w-3.5" />
+                    Pausa
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+            </Tooltip>
+          </>
+        )}
 
-      {currentStatus === "ON_BREAK" && (
-        <Button
-          size="sm"
-          onClick={handleBreak}
-          disabled={isClocking}
-          className="rounded-full bg-yellow-600 hover:bg-yellow-700"
-        >
-          <Coffee className="mr-1.5 h-3.5 w-3.5" />
-          Volver
-        </Button>
-      )}
-    </div>
+        {currentStatus === "ON_BREAK" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span>
+                <Button
+                  size="sm"
+                  onClick={handleBreak}
+                  disabled={isClocking || !canClock}
+                  className="rounded-full bg-yellow-600 hover:bg-yellow-700 disabled:cursor-not-allowed"
+                >
+                  <Coffee className="mr-1.5 h-3.5 w-3.5" />
+                  Volver
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+          </Tooltip>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }

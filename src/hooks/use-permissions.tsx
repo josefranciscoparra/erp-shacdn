@@ -7,7 +7,7 @@ import { hasPermission, hasAllPermissions, hasAnyPermission, canAccessPage, type
 
 export function usePermissions() {
   const { data: session } = useSession();
-  const userRole = session?.user?.role as Role | undefined;
+  const userRole = session?.user.role as Role | undefined;
 
   return {
     hasPermission: (permission: Permission) => {
@@ -25,6 +25,9 @@ export function usePermissions() {
     canAccessPage: (page: string) => {
       if (!userRole) return false;
       return canAccessPage(userRole, page);
+    },
+    hasEmployeeProfile: () => {
+      return !!session?.user.employeeId;
     },
     userRole,
     isAuthenticated: !!session,
