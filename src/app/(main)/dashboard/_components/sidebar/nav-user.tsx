@@ -14,7 +14,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -22,6 +21,7 @@ import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/c
 import { getInitials } from "@/lib/utils";
 import { logoutAction } from "@/server/actions/auth";
 import { useNotificationsStore } from "@/stores/notifications-store";
+import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function NavUser({
   user,
@@ -35,11 +35,18 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const t = useTranslations("user");
   const { unreadCount, loadUnreadCount } = useNotificationsStore();
+  const { resetStore } = useTimeTrackingStore();
 
   // Cargar contador de notificaciones al montar
   useEffect(() => {
     loadUnreadCount();
   }, [loadUnreadCount]);
+
+  const handleLogout = () => {
+    // Limpiar estado del store antes de hacer logout
+    resetStore();
+    logoutAction();
+  };
 
   return (
     <SidebarMenu>
@@ -92,7 +99,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => logoutAction()}>
+            <DropdownMenuItem onClick={handleLogout}>
               <LogOut />
               {t("logout")}
             </DropdownMenuItem>

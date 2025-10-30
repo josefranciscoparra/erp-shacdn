@@ -12,6 +12,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { APP_CONFIG } from "@/config/app-config";
 import { useSidebarItems } from "@/navigation/sidebar/sidebar-items-translated";
@@ -34,6 +35,13 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const sidebarItems = useSidebarItems();
+  const { isMobile, setOpenMobile } = useSidebar();
+
+  const handleLogoClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   return (
     <Sidebar {...props}>
@@ -41,7 +49,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild className="h-auto data-[slot=sidebar-menu-button]:!p-2">
-              <Link href="/dashboard/me" className="flex items-center py-1">
+              <Link href="/dashboard/me" className="flex items-center py-1" onClick={handleLogoClick}>
                 <Image
                   src="/logo/cutnobacklight.png"
                   alt={APP_CONFIG.name}

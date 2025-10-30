@@ -91,6 +91,7 @@ interface TimeTrackingState {
 
   // Reset
   reset: () => void;
+  resetStore: () => void;
 }
 
 const initialState = {
@@ -312,4 +313,5 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
   // Reset
   reset: () => set(initialState),
+  resetStore: () => set(initialState),
 }));

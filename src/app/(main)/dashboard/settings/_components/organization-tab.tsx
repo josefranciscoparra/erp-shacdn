@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Building2, Save } from "lucide-react";
+import { Building2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import * as z from "zod";
 
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 
 const organizationSchema = z.object({
@@ -24,42 +24,88 @@ const organizationSchema = z.object({
 type OrganizationFormData = z.infer<typeof organizationSchema>;
 
 export function OrganizationTab() {
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Valores por defecto (en producción vendrían del store o API)
-  const defaultValues: OrganizationFormData = {
-    name: "Mi Organización",
-    vat: "",
-    active: true,
-  };
+  const { data: session } = useSession();
+  const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<OrganizationFormData>({
     resolver: zodResolver(organizationSchema),
-    defaultValues,
+    defaultValues: {
+      name: "",
+      vat: "",
+      active: true,
+    },
   });
 
-  const onSubmit = async (data: OrganizationFormData) => {
-    setIsLoading(true);
-    try {
-      // TODO: Conectar con API cuando esté disponible
-      // await fetch("/api/organization", { method: "PUT", body: JSON.stringify(data) });
+  useEffect(() => {
+    const loadOrganization = async () => {
+      if (!session?.user?.orgId) {
+        return;
+      }
 
-      console.log("Datos de organización:", data);
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/organization/${session.user.orgId}`);
 
-      // Simular guardado
-      await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!response.ok) {
+          throw new Error("No se pudo cargar la organización");
+        }
 
-      toast.success("Configuración de organización actualizada");
-      form.reset(data);
-    } catch (error) {
-      toast.error("Error al actualizar la configuración");
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        const data = await response.json();
+        const orgData: OrganizationFormData = {
+          name: data.name ?? "",
+          vat: data.vat ?? "",
+          active: data.active ?? true,
+        };
 
-  const isDirty = form.formState.isDirty;
+        form.reset(orgData);
+      } catch (error) {
+        console.error("Error loading organization:", error);
+        toast.error("Error al cargar los datos de la organización");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    void loadOrganization();
+  }, [session?.user?.orgId, form]);
+
+  if (isLoading) {
+    return (
+      <Card className="rounded-lg border p-6">
+        <div className="flex flex-col gap-6">
+          <div className="flex items-center gap-2">
+            <Building2 className="h-5 w-5" />
+            <div>
+              <h3 className="font-semibold">Información de la organización</h3>
+              <p className="text-muted-foreground text-sm">Datos básicos de tu empresa</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-4 w-64" />
+            </div>
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-4 w-72" />
+            </div>
+            <div className="rounded-lg border p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Skeleton className="h-5 w-48" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+                <Skeleton className="h-6 w-11 rounded-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="rounded-lg border p-6">
@@ -68,12 +114,12 @@ export function OrganizationTab() {
           <Building2 className="h-5 w-5" />
           <div>
             <h3 className="font-semibold">Información de la organización</h3>
-            <p className="text-muted-foreground text-sm">Datos básicos de tu empresa</p>
+            <p className="text-muted-foreground text-sm">Datos básicos de tu empresa (solo lectura)</p>
           </div>
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form className="space-y-6">
             <FormField
               control={form.control}
               name="name"
@@ -81,7 +127,7 @@ export function OrganizationTab() {
                 <FormItem>
                   <FormLabel>Nombre de la organización</FormLabel>
                   <FormControl>
-                    <Input placeholder="Mi Empresa S.L." {...field} />
+                    <Input placeholder="Mi Empresa S.L." {...field} disabled />
                   </FormControl>
                   <FormDescription>Nombre legal de tu empresa u organización</FormDescription>
                   <FormMessage />
@@ -96,7 +142,7 @@ export function OrganizationTab() {
                 <FormItem>
                   <FormLabel>NIF/CIF</FormLabel>
                   <FormControl>
-                    <Input placeholder="B12345678" {...field} />
+                    <Input placeholder="B12345678" {...field} disabled />
                   </FormControl>
                   <FormDescription>Número de identificación fiscal de la empresa</FormDescription>
                   <FormMessage />
@@ -114,18 +160,11 @@ export function OrganizationTab() {
                     <FormDescription>{field.value ? "Organización activa" : "Organización inactiva"}</FormDescription>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} disabled />
                   </FormControl>
                 </FormItem>
               )}
             />
-
-            <div className="flex justify-end">
-              <Button type="submit" disabled={!isDirty || isLoading}>
-                <Save className="mr-2 h-4 w-4" />
-                {isLoading ? "Guardando..." : "Guardar cambios"}
-              </Button>
-            </div>
           </form>
         </Form>
       </div>

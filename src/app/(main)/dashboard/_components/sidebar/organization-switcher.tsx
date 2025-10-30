@@ -30,11 +30,8 @@ export function SidebarOrganizationSwitcher({ currentOrgId }: SidebarOrganizatio
   const [isLoading, setIsLoading] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
 
+  // Cargar organizaciones inmediatamente al montar
   useEffect(() => {
-    if (!open || organizations.length > 0) {
-      return;
-    }
-
     const fetchOrganizations = async () => {
       try {
         setIsLoading(true);
@@ -56,7 +53,7 @@ export function SidebarOrganizationSwitcher({ currentOrgId }: SidebarOrganizatio
     };
 
     void fetchOrganizations();
-  }, [open, organizations.length, currentOrgId]);
+  }, [currentOrgId]);
 
   const currentOrganization = useMemo(() => {
     return organizations.find((org) => org.id === selectedOrgId) ?? null;
@@ -114,7 +111,11 @@ export function SidebarOrganizationSwitcher({ currentOrgId }: SidebarOrganizatio
             <div className="bg-sidebar-primary text-sidebar-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-medium">
               <Factory className="h-3.5 w-3.5" />
             </div>
-            <span className="truncate text-xs font-medium">{currentOrganization?.name ?? "Organización"}</span>
+            {isLoading && !currentOrganization ? (
+              <div className="bg-muted h-4 w-32 animate-pulse rounded" />
+            ) : (
+              <span className="truncate text-xs font-medium">{currentOrganization?.name ?? "Organización"}</span>
+            )}
           </div>
           <ChevronsUpDown className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
         </Button>

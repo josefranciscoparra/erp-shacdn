@@ -118,7 +118,7 @@ export default function SignPage() {
   // Loading state
   if (isLoadingSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="@container/main flex flex-col items-center justify-center gap-4 py-12">
         <div className="space-y-4 text-center">
           <Loader2 className="text-primary mx-auto h-12 w-12 animate-spin" />
           <div>
@@ -133,7 +133,7 @@ export default function SignPage() {
   // Error state - No session found
   if (!currentSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="@container/main flex flex-col items-center justify-center gap-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="bg-destructive/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
@@ -164,7 +164,7 @@ export default function SignPage() {
   // Estado: Ya firmado
   if (isSigned) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="@container/main flex flex-col items-center justify-center gap-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="bg-success/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
@@ -190,7 +190,7 @@ export default function SignPage() {
   // Estado: Rechazado
   if (isRejected) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="@container/main flex flex-col items-center justify-center gap-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="bg-destructive/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
@@ -216,7 +216,7 @@ export default function SignPage() {
   // Estado: Expirado
   if (isExpired) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="@container/main flex flex-col items-center justify-center gap-4 py-12">
         <Card className="w-full max-w-md">
           <CardHeader>
             <div className="bg-warning/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
@@ -243,8 +243,8 @@ export default function SignPage() {
 
   // Estado: Pendiente - Mostrar visor de firma
   return (
-    <div className="bg-muted/30 min-h-screen p-4 md:p-6">
-      <div className="mx-auto max-w-7xl space-y-6">
+    <>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -485,6 +485,6 @@ export default function SignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

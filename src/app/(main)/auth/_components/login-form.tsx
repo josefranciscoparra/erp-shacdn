@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 const FormSchema = z.object({
   email: z.string().email({ message: "Por favor ingresa un email válido." }),
@@ -24,6 +25,7 @@ const FormSchema = z.object({
 export function LoginForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { resetStore } = useTimeTrackingStore();
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -36,6 +38,9 @@ export function LoginForm() {
 
   const onSubmit = async (data: z.infer<typeof FormSchema>) => {
     setIsLoading(true);
+
+    // Limpiar estado del store antes de hacer login
+    resetStore();
 
     try {
       const result = await signIn("credentials", {
@@ -130,22 +135,6 @@ export function LoginForm() {
         <Button className="w-full" type="submit" disabled={isLoading}>
           {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
         </Button>
-
-        {/* Credenciales de prueba para desarrollo */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="bg-muted mt-4 rounded-lg p-3 text-sm">
-            <p className="mb-1 font-semibold">🔐 Credenciales de prueba:</p>
-            <div className="space-y-1 text-xs">
-              <p>• admin@demo.com (Admin)</p>
-              <p>• hr@demo.com (RRHH)</p>
-              <p>• manager@demo.com (Manager)</p>
-              <p>• employee@demo.com (Empleado)</p>
-              <p className="mt-1">
-                Password: <code className="bg-background rounded px-1">password123</code>
-              </p>
-            </div>
-          </div>
-        )}
       </form>
     </Form>
   );
