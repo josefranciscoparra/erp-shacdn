@@ -4,12 +4,11 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { Clock, CalendarDays, FileText, UserCircle, Bell, Users, Settings, BarChart3, Building2 } from "lucide-react";
+import { Clock, CalendarDays, UserCircle, Bell, Users, Settings, BarChart3, Building2, Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
@@ -38,6 +37,32 @@ export default function MySpacePage() {
       setIsLoading(false);
     }
   };
+
+  // Estado de carga: Spinner centralizado
+  if (isLoading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="text-muted-foreground mx-auto h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground mt-2 text-sm">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Estado de error
+  if (error) {
+    return (
+      <div className="@container/main flex flex-col gap-3 md:gap-5">
+        <Card className="p-6">
+          <p className="text-destructive text-sm font-medium">{error}</p>
+          <Button onClick={loadDashboard} className="mt-4" variant="outline" size="sm">
+            Reintentar
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   // Vista para administradores sin empleado
   if (data?.isAdminWithoutEmployee) {
@@ -107,102 +132,73 @@ export default function MySpacePage() {
   return (
     <div className="@container/main flex flex-col gap-3 md:gap-5">
       {/* Header con nombre del empleado */}
-      <div className="animate-in fade-in duration-500">
-        {isLoading ? (
-          <div className="space-y-1">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-        ) : (
-          <SectionHeader
-            title={data?.profile.name ? `Buenas, ${data.profile.name} 👋` : "Mi Espacio"}
-            description={
-              data?.profile.position || data?.profile.department
-                ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
-                : "Dashboard personal del empleado"
-            }
-          />
-        )}
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <Card className="p-6">
-          <p className="text-destructive text-sm font-medium">{error}</p>
-          <Button onClick={loadDashboard} className="mt-4" variant="outline" size="sm">
-            Reintentar
-          </Button>
-        </Card>
-      )}
+      <SectionHeader
+        title={data?.profile.name ? `Buenas, ${data.profile.name} 👋` : "Mi Espacio"}
+        description={
+          data?.profile.position || data?.profile.department
+            ? `${data.profile.position ?? ""}${data.profile.position && data.profile.department ? " • " : ""}${data.profile.department ?? ""}`
+            : "Dashboard personal del empleado"
+        }
+      />
 
       {/* Métricas principales */}
-      <div className="animate-in fade-in duration-700" style={{ animationDelay: "100ms" }}>
-        <MySpaceMetrics data={data} isLoading={isLoading} />
-      </div>
+      <MySpaceMetrics data={data} isLoading={false} />
 
       {/* Acciones rápidas */}
-      <div className="animate-in fade-in duration-700" style={{ animationDelay: "200ms" }}>
-        <Card className="p-6">
-          <h3 className="mb-2 text-lg font-semibold">Acciones rápidas</h3>
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-              <Link href="/dashboard/me/clock">
-                <Clock className="h-5 w-5" />
-                <span className="text-sm font-medium">Fichar</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-              <Link href="/dashboard/me/pto">
-                <CalendarDays className="h-5 w-5" />
-                <span className="text-sm font-medium">Mis Vacaciones</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-              <Link href="/dashboard/me/calendar">
-                <Clock className="h-5 w-5" />
-                <span className="text-sm font-medium">Mi Calendario</span>
-              </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-              <Link href="/dashboard/me/profile">
-                <UserCircle className="h-5 w-5" />
-                <span className="text-sm font-medium">Mi Perfil</span>
-              </Link>
-            </Button>
-          </div>
-        </Card>
-      </div>
+      <Card className="p-6">
+        <h3 className="mb-2 text-lg font-semibold">Acciones rápidas</h3>
+        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+            <Link href="/dashboard/me/clock">
+              <Clock className="h-5 w-5" />
+              <span className="text-sm font-medium">Fichar</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+            <Link href="/dashboard/me/pto">
+              <CalendarDays className="h-5 w-5" />
+              <span className="text-sm font-medium">Mis Vacaciones</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+            <Link href="/dashboard/me/calendar">
+              <Clock className="h-5 w-5" />
+              <span className="text-sm font-medium">Mi Calendario</span>
+            </Link>
+          </Button>
+          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
+            <Link href="/dashboard/me/profile">
+              <UserCircle className="h-5 w-5" />
+              <span className="text-sm font-medium">Mi Perfil</span>
+            </Link>
+          </Button>
+        </div>
+      </Card>
 
       <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
         {/* Próximos eventos */}
-        {data && (
-          <div className="animate-in fade-in duration-700" style={{ animationDelay: "300ms" }}>
-            <UpcomingEvents events={data.upcomingEvents} />
-          </div>
-        )}
+        {data && <UpcomingEvents events={data.upcomingEvents} />}
 
         {/* Notificaciones recientes */}
         {data && (
-          <div className="animate-in fade-in duration-700" style={{ animationDelay: "400ms" }}>
-            <Card className="p-6">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bell className="text-muted-foreground h-5 w-5" />
-                  <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
-                </div>
+          <Card className="p-6">
+            <div className="mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Bell className="text-muted-foreground h-5 w-5" />
+                <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
               </div>
+            </div>
 
-              {data.recentNotifications.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
-              ) : (
-                <div className="space-y-2">
-                  {data.recentNotifications.map((notification) => (
-                    <NotificationItem key={notification.id} notification={notification} />
-                  ))}
-                </div>
-              )}
-            </Card>
-          </div>
+            {data.recentNotifications.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
+            ) : (
+              <div className="space-y-2">
+                {data.recentNotifications.map((notification) => (
+                  <NotificationItem key={notification.id} notification={notification} />
+                ))}
+              </div>
+            )}
+          </Card>
         )}
       </div>
     </div>
