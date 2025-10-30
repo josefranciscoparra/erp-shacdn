@@ -73,13 +73,27 @@ export const {
           employee: {
             select: {
               id: true,
+              firstName: true,
+              lastName: true,
+              secondLastName: true,
+              updatedAt: true,
             },
           },
         },
       });
 
       if (dbUser) {
-        token.name = dbUser.name;
+        // Si el usuario tiene empleado asociado, construir el nombre desde los datos del empleado
+        // Esto asegura sincronización entre Employee y User.name
+        if (dbUser.employee) {
+          const employeeFullName = `${dbUser.employee.firstName} ${dbUser.employee.lastName}${
+            dbUser.employee.secondLastName ? ` ${dbUser.employee.secondLastName}` : ""
+          }`;
+          token.name = employeeFullName;
+        } else {
+          token.name = dbUser.name;
+        }
+
         token.email = dbUser.email;
         token.image = resolveAvatarForClient(dbUser.image, token.id, dbUser.updatedAt.getTime());
         token.role = dbUser.role;

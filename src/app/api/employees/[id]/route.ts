@@ -1,3 +1,4 @@
+import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 import { z } from "zod";
@@ -182,6 +183,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         id: employeeId,
         orgId: session.user.orgId,
       },
+      include: {
+        user: {
+          select: {
+            id: true,
+          },
+        },
+      },
     });
 
     if (!existingEmployee) {
@@ -247,38 +255,58 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       updateData.iban = encrypt(data.iban);
     }
 
-    // Actualizar empleado
-    const updatedEmployee = await prisma.employee.update({
-      where: { id: employeeId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            active: true,
-            mustChangePassword: true,
-          },
-        },
-        employmentContracts: {
-          where: { active: true },
-          include: {
-            position: true,
-            department: true,
-            costCenter: true,
-            manager: {
-              select: {
-                firstName: true,
-                lastName: true,
-              },
+    // Construir el nombre completo para User.name
+    const fullName = `${data.firstName} ${data.lastName}${data.secondLastName ? ` ${data.secondLastName}` : ""}`;
+
+    // Actualizar empleado y usuario asociado en una transacción
+    const updatedEmployee = await prisma.$transaction(async (tx) => {
+      // Actualizar datos del empleado
+      const employee = await tx.employee.update({
+        where: { id: employeeId },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              active: true,
+              mustChangePassword: true,
             },
           },
-          orderBy: { startDate: "desc" },
-          take: 1,
+          employmentContracts: {
+            where: { active: true },
+            include: {
+              position: true,
+              department: true,
+              costCenter: true,
+              manager: {
+                select: {
+                  firstName: true,
+                  lastName: true,
+                },
+              },
+            },
+            orderBy: { startDate: "desc" },
+            take: 1,
+          },
         },
-      },
+      });
+
+      // Si el empleado tiene usuario asociado, actualizar User.name
+      if (existingEmployee.user?.id) {
+        await tx.user.update({
+          where: { id: existingEmployee.user.id },
+          data: { name: fullName },
+        });
+      }
+
+      return employee;
     });
+
+    // Revalidar rutas para refrescar los datos en el frontend
+    revalidatePath("/dashboard");
+    revalidatePath(`/dashboard/employees/${employeeId}`);
 
     return NextResponse.json({
       success: true,
