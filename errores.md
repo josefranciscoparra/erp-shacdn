@@ -18,5 +18,4 @@ Entonces lo que me gustaría es para el registro de usuarios que sea obligatorio
 cada organización como un @timenow.cloud y solo podemos dar de alta personas con el @timenow.cloud
 de su organización. No sé cómo se te ocurra hacerlo.
 
-
-http://localhost:3000/dashboard/me/profile Cuando entro ahi y cambio el nombre, se cambia en http://localhost:3000/dashboard/me/profile pero luego en el icono de abajo del sidebar se ve el antiguo, y cuando me busca un administrador sigue saliendo el antiguo. 
+La numeracion del empleado debe de ser automática. Y que nunca se repita. no sé como plantear esot, dame opciones, quizas si la empresa es timenow tmnw001? no se.

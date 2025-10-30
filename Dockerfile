@@ -22,6 +22,10 @@ ENV NODE_ENV=production
 # Las variables de entorno se inyectan desde Render automáticamente
 # No se necesita copiar .env.production
 
+# Variables NEXT_PUBLIC_ necesarias en build time
+ARG NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS=false
+ENV NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS=$NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS
+
 # Generar Prisma Client (necesita DATABASE_URL del entorno)
 RUN npx prisma generate
 

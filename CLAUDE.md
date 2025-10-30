@@ -161,6 +161,74 @@ When working with components:
 - **Puerto**: 5432
 - **URL**: postgresql://erp_user:erp_pass@localhost:5432/erp_dev
 
+### Sistema de Identidad Organizacional (Multi-tenant)
+
+#### 1. Numeración Automática de Empleados
+
+**Formato:** `{PREFIX}{SEQUENCE}` → `TMNW00001`, `ACME00042`
+
+**Características:**
+
+- ✅ **Automático**: El número se genera automáticamente al crear un empleado
+- ✅ **Único**: Contador atómico previene duplicados
+- ✅ **Profesional**: Números como `TMNW00001` en nóminas y documentos
+- ✅ **Escalable**: Hasta 99,999 empleados por organización (5 dígitos)
+
+**Implementación:**
+
+```typescript
+// Al crear organización
+const prefix = generateOrganizationPrefix("TimeNow"); // → "TMNW"
+
+// Al crear empleado
+const updatedOrg = await prisma.organization.update({
+  where: { id: orgId },
+  data: { employeeNumberCounter: { increment: 1 } },
+});
+
+const employeeNumber = formatEmployeeNumber(updatedOrg.employeeNumberPrefix, updatedOrg.employeeNumberCounter); // → "TMNW00001"
+```
+
+**Prefijos:**
+
+- Generación automática desde el nombre de la organización
+- Editable ANTES de crear el primer empleado
+- Inmutable DESPUÉS del primer empleado (integridad de numeración)
+
+#### 2. Validación de Dominios de Email Corporativos
+
+**Variable de entorno:**
+
+```bash
+ENFORCE_ORGANIZATION_EMAIL_DOMAINS="true|false"
+```
+
+**Funcionamiento:**
+
+- `true`: Solo permitir emails con dominios configurados en la organización
+- `false`: Permitir cualquier email (para empresas pequeñas sin dominio propio)
+
+**Configuración por organización:**
+
+```typescript
+// Organization model
+allowedEmailDomains: ["acme.com", "acme.es"]; // Array de dominios permitidos
+```
+
+**Validación:**
+
+```typescript
+// Si ENFORCE_ORGANIZATION_EMAIL_DOMAINS=true Y tiene dominios configurados
+validateEmailDomain("juan@acme.com", ["acme.com"]); // ✅ Válido
+validateEmailDomain("juan@gmail.com", ["acme.com"]); // ❌ Inválido
+```
+
+**Casos de uso:**
+
+1. **Empresa con dominio propio**: `allowedEmailDomains: ["timenow.cloud"]` + `ENFORCE=true`
+2. **Empresa pequeña**: `allowedEmailDomains: []` + `ENFORCE=false` (permite cualquier email)
+3. **Multi-dominio**: `allowedEmailDomains: ["acme.com", "acme.es", "acme.fr"]`
+
 ### Workflow de Migraciones (CRÍTICO antes de merge a main) ⚠️
 
 **SIEMPRE que cambies el schema de Prisma, crear migración ANTES de merge a main**
@@ -169,6 +237,7 @@ When working with components:
 
 1. **Cambias schema.prisma** → `prisma db push` (desarrollo local, sincroniza sin perder datos)
 2. **Antes de commit/merge** → **CREAR MIGRACIÓN OBLIGATORIAMENTE**:
+
    ```bash
    npx prisma migrate dev --name nombre_descriptivo_de_la_funcionalidad
    ```
@@ -191,6 +260,7 @@ When working with components:
 **NUNCA usar `prisma migrate reset` sin consentimiento explícito (destruye datos)**
 
 Opciones:
+
 1. `npx prisma db push` - Sincroniza schema SIN perder datos
 2. Luego crear migración limpia manualmente
 3. Si es complejo: pedir ayuda o revisar el drift con `prisma migrate diff`

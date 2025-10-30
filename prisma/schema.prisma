@@ -24,6 +24,13 @@ model Organization {
   // Configuración de estructura organizacional
   hierarchyType HierarchyType @default(DEPARTMENTAL) // Tipo de jerarquía de la organización
 
+  // Configuración de identidad de empleados (numeración automática)
+  employeeNumberPrefix  String? // Prefijo para números de empleado (ej: "TMNW", "ACME")
+  employeeNumberCounter Int     @default(0) // Contador atómico para generar números únicos
+
+  // Configuración de validación de emails corporativos
+  allowedEmailDomains   String[] @default([]) // Dominios de email permitidos (ej: ["acme.com", "acme.es"])
+
   // Configuración de PTO (Vacaciones)
   annualPtoDays        Int     @default(23) // Días de vacaciones anuales por defecto
   ptoCalculationMethod String  @default("PROPORTIONAL") // PROPORTIONAL, FIXED

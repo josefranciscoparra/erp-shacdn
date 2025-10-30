@@ -23,19 +23,19 @@ export function OrgChartDepartmental({ departments, searchQuery = "" }: OrgChart
     .map((dept) => {
       const query = searchQuery.toLowerCase();
 
-      const matchesManager = dept.manager
-        ? `${dept.manager.firstName} ${dept.manager.lastName}`.toLowerCase().includes(query) ||
-          (dept.manager.position?.toLowerCase() ?? "").includes(query) ||
-          (dept.manager.email?.toLowerCase() ?? "").includes(query)
-        : false;
+      const nameMatch = `${dept.manager?.firstName ?? ""} ${dept.manager?.lastName ?? ""}`
+        .toLowerCase()
+        .includes(query);
+      const positionMatch = (dept.manager?.position?.toLowerCase() ?? "").includes(query);
+      const emailMatch = (dept.manager?.email?.toLowerCase() ?? "").includes(query);
+      const matchesManager = dept.manager ? nameMatch || positionMatch || emailMatch : false;
 
       const matchingEmployees = dept.employees.filter((emp) => {
         const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-        return (
-          fullName.includes(query) ||
-          (emp.position?.toLowerCase() ?? "").includes(query) ||
-          (emp.email?.toLowerCase() ?? "").includes(query)
-        );
+        const nameMatch = fullName.includes(query);
+        const posMatch = (emp.position?.toLowerCase() ?? "").includes(query);
+        const emailMatchEmp = (emp.email?.toLowerCase() ?? "").includes(query);
+        return nameMatch || posMatch || emailMatchEmp;
       });
 
       const matchesDept = dept.name.toLowerCase().includes(query);

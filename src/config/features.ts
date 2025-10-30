@@ -25,9 +25,12 @@ const rawSignaturesFlag =
     ? process.env.NEXT_PUBLIC_FEATURE_SIGNATURES_ENABLED
     : process.env.FEATURE_SIGNATURES_ENABLED;
 
+const rawEmailDomainEnforcementFlag = process.env.NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS;
+
 export const features = {
   documents: parseFlag(rawDocumentsFlag ?? undefined),
   signatures: parseFlag(rawSignaturesFlag ?? undefined),
+  emailDomainEnforcement: parseFlag(rawEmailDomainEnforcementFlag ?? undefined),
 } as const;
 
 export type FeatureFlags = typeof features;

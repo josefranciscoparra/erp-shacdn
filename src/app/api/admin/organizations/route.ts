@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
+import { generateOrganizationPrefix } from "@/lib/employee-numbering";
 import { prisma } from "@/lib/prisma";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/validators/organization";
 
@@ -34,7 +35,7 @@ export async function GET() {
 
     try {
       ensureSuperAdmin(session.user.role);
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
 
     try {
       ensureSuperAdmin(session.user.role);
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
@@ -92,12 +93,18 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case "create": {
         const payload = createOrganizationSchema.parse(data);
+
+        // Generar prefijo automáticamente si no se proporcionó
+        const employeeNumberPrefix = payload.employeeNumberPrefix ?? generateOrganizationPrefix(payload.name);
+
         const organization = await prisma.organization.create({
           data: {
             name: payload.name,
             vat: payload.vat ?? null,
             active: payload.active,
             hierarchyType: payload.hierarchyType,
+            employeeNumberPrefix,
+            allowedEmailDomains: payload.allowedEmailDomains ?? [],
           },
         });
 
@@ -107,7 +114,7 @@ export async function POST(request: NextRequest) {
 
       case "update": {
         const payload = updateOrganizationSchema.parse(data);
-        const { id, name, vat, active, hierarchyType } = payload;
+        const { id, name, vat, active, hierarchyType, employeeNumberPrefix, allowedEmailDomains } = payload;
 
         const organization = await prisma.organization.update({
           where: { id },
@@ -116,6 +123,8 @@ export async function POST(request: NextRequest) {
             ...(vat !== undefined ? { vat } : {}),
             ...(active !== undefined ? { active } : {}),
             ...(hierarchyType !== undefined ? { hierarchyType } : {}),
+            ...(employeeNumberPrefix !== undefined ? { employeeNumberPrefix } : {}),
+            ...(allowedEmailDomains !== undefined ? { allowedEmailDomains } : {}),
           },
         });
 
