@@ -167,13 +167,33 @@ When working with components:
 
 #### Proceso obligatorio:
 
-1. **Cambias schema.prisma** → `prisma db push` (desarrollo local)
-2. **Antes de commit/merge** → Crear migración:
+1. **Cambias schema.prisma** → `prisma db push` (desarrollo local, sincroniza sin perder datos)
+2. **Antes de commit/merge** → **CREAR MIGRACIÓN OBLIGATORIAMENTE**:
    ```bash
-   npx prisma migrate dev --name descripcion_cambio
+   npx prisma migrate dev --name nombre_descriptivo_de_la_funcionalidad
    ```
-3. **Verificar migración creada** → Comitear con el schema
+
+   **🎯 Nombres de migración DESCRIPTIVOS y ESPECÍFICOS:**
+   - ✅ CORRECTO: `add_hierarchy_type_to_organization`
+   - ✅ CORRECTO: `add_manual_time_entry_system`
+   - ✅ CORRECTO: `add_signature_request_tables`
+   - ❌ INCORRECTO: `update_schema`
+   - ❌ INCORRECTO: `changes`
+   - ❌ INCORRECTO: `fix`
+
+   **Las migraciones ya incluyen timestamp automático** (ejemplo: `20251030152234_add_hierarchy_type`)
+
+3. **Verificar migración creada** → Comitear SIEMPRE con el schema
 4. **En producción** → `prisma migrate deploy` se ejecuta automáticamente (docker-entrypoint.sh)
+
+#### Si hay DRIFT (schema desincronizado con migraciones):
+
+**NUNCA usar `prisma migrate reset` sin consentimiento explícito (destruye datos)**
+
+Opciones:
+1. `npx prisma db push` - Sincroniza schema SIN perder datos
+2. Luego crear migración limpia manualmente
+3. Si es complejo: pedir ayuda o revisar el drift con `prisma migrate diff`
 
 #### Validación automática (opcional - CI):
 
@@ -185,7 +205,9 @@ npx prisma migrate diff \
   --exit-code
 ```
 
-**NUNCA hacer merge a main sin migración si cambias schema → Producción fallará**
+**⚠️ NUNCA hacer merge a main sin migración si cambias schema → Producción fallará**
+
+**⚠️ SIEMPRE crear migraciones con nombres descriptivos de la funcionalidad**
 
 ## Reglas de Código (ESLint) - CRÍTICO ⚠️
 
