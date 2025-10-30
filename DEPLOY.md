@@ -18,7 +18,7 @@ npx prisma migrate resolve --applied 20250918104055_add_employment_status_to_emp
 npx prisma migrate resolve --applied 20250918140523_add_temporary_passwords
 npx prisma migrate resolve --applied 20250919110151_add_department_manager
 npx prisma migrate resolve --applied 20251014172522_add_variable_schedules
-npx prisma migrate resolve --applied 20251030_add_hierarchy_manual_time_signatures
+npx prisma migrate resolve --applied 20251030163300_add_hierarchy_manual_time_signatures
 ```
 
 **Luego verifica que todo esté OK:**
