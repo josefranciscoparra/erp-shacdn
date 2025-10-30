@@ -17,3 +17,6 @@ se nos puede dar el caso que se registre el email de un usuario en dos organizac
 Entonces lo que me gustaría es para el registro de usuarios que sea obligatorio poner para
 cada organización como un @timenow.cloud y solo podemos dar de alta personas con el @timenow.cloud
 de su organización. No sé cómo se te ocurra hacerlo.
+
+
+http://localhost:3000/dashboard/me/profile Cuando entro ahi y cambio el nombre, se cambia en http://localhost:3000/dashboard/me/profile pero luego en el icono de abajo del sidebar se ve el antiguo, y cuando me busca un administrador sigue saliendo el antiguo. 

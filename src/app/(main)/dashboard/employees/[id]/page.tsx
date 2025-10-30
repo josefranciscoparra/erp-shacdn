@@ -19,8 +19,14 @@ import {
   User,
   Shield,
   FolderOpen,
+  Upload,
+  Search,
+  Filter,
+  Loader2,
 } from "lucide-react";
 
+import { DocumentListTable } from "@/components/employees/document-list-table";
+import { DocumentUploadDialog } from "@/components/employees/document-upload-dialog";
 import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -29,13 +35,29 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
+import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
+import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/stores/documents-store";
 
 import { EmployeePtoRequestsTable } from "./_components/employee-pto-requests-table";
 import { EmployeePtoSummary } from "./_components/employee-pto-summary";
+
+// Tipos de documentos para tabs
+const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "CONTRACT", label: "Contratos" },
+  { key: "PAYSLIP", label: "Nóminas" },
+  { key: "ID_DOCUMENT", label: "DNI/NIE" },
+  { key: "SS_DOCUMENT", label: "Seg. Social" },
+  { key: "CERTIFICATE", label: "Certificados" },
+  { key: "MEDICAL", label: "Médicos" },
+  { key: "OTHER", label: "Otros" },
+];
 
 interface Employee {
   id: string;
@@ -113,6 +135,22 @@ export default function EmployeeProfilePage() {
   const [isPtoLoading, setIsPtoLoading] = useState(false);
   const [canManagePto, setCanManagePto] = useState(false);
 
+  // Estado para documentos
+  const {
+    documents,
+    isLoading: isLoadingDocuments,
+    fetchDocuments,
+    setFilters,
+    clearFilters,
+    filters,
+  } = useDocumentsStore();
+  const documentsByKind = useDocumentsByKind();
+  const stats = useDocumentStats();
+
+  const [activeDocTab, setActiveDocTab] = useState<string>("all");
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
   const fetchEmployee = async (silent = false) => {
     try {
       if (!silent) {
@@ -155,6 +193,36 @@ export default function EmployeeProfilePage() {
       setIsPtoLoading(false);
     }
   };
+
+  const loadDocuments = async () => {
+    if (!params.id || !documentsEnabled) return;
+    await fetchDocuments(params.id as string);
+  };
+
+  // Manejar cambio de tab de documentos
+  const handleDocTabChange = (value: string) => {
+    setActiveDocTab(value);
+    if (value === "all") {
+      clearFilters();
+    } else {
+      setFilters({ documentKind: value as DocumentKind });
+    }
+  };
+
+  // Manejar búsqueda de documentos
+  const handleDocSearch = (value: string) => {
+    setSearchTerm(value);
+    setFilters({ search: value || undefined });
+  };
+
+  // Obtener conteo para cada tab de documentos
+  const getDocTabCount = (tabKey: string) => {
+    if (tabKey === "all") return stats.total;
+    return stats.byKind[tabKey as DocumentKind] ?? 0;
+  };
+
+  // Filtrar documentos según tab activo
+  const filteredDocuments = activeDocTab === "all" ? documents : (documentsByKind[activeDocTab as DocumentKind] ?? []);
 
   useEffect(() => {
     if (params.id) {
@@ -286,16 +354,6 @@ export default function EmployeeProfilePage() {
             <FileText className="mr-2 h-4 w-4" />
             Contratos
           </Button>
-          {documentsEnabled && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
-            >
-              <FolderOpen className="mr-2 h-4 w-4" />
-              Documentos
-            </Button>
-          )}
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/employees/${employee.id}/edit`)}>
             <Pencil className="mr-2 h-4 w-4" />
             Editar
@@ -310,6 +368,9 @@ export default function EmployeeProfilePage() {
         onValueChange={(value) => {
           if (value === "pto" && ptoRequests.length === 0) {
             loadPtoData();
+          }
+          if (value === "documents" && documents.length === 0) {
+            loadDocuments();
           }
         }}
       >
@@ -567,27 +628,108 @@ export default function EmployeeProfilePage() {
 
         {/* Documentos */}
         {documentsEnabled && (
-          <TabsContent value="documents">
-            <Card className="rounded-lg border shadow-xs">
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  <FolderOpen className="mr-2 inline h-5 w-5" />
-                  Gestión de Documentos
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="py-8 text-center">
-                  <p className="text-muted-foreground mb-4">Accede a la gestión completa de documentos del empleado</p>
-                  <Button
-                    onClick={() => router.push(`/dashboard/employees/${employee.id}/documents`)}
-                    className="w-full @md/main:w-auto"
-                  >
-                    <FolderOpen className="mr-2 h-4 w-4" />
-                    Ver Documentos
+          <TabsContent value="documents" className="space-y-4">
+            {/* Filtros y búsqueda */}
+            <Card className="bg-card rounded-lg border">
+              <CardContent className="p-4">
+                <div className="flex flex-col gap-4 @md/main:flex-row @md/main:items-center @md/main:justify-between">
+                  <div className="flex flex-1 items-center gap-2">
+                    <div className="relative max-w-sm flex-1">
+                      <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                      <Input
+                        placeholder="Buscar documentos..."
+                        value={searchTerm}
+                        onChange={(e) => handleDocSearch(e.target.value)}
+                        className="placeholder:text-muted-foreground/50 bg-white pl-9"
+                      />
+                    </div>
+                    {(filters.search ?? filters.documentKind) && (
+                      <Button variant="outline" size="sm" onClick={clearFilters} className="whitespace-nowrap">
+                        <Filter className="mr-2 h-4 w-4" />
+                        Limpiar filtros
+                      </Button>
+                    )}
+                  </div>
+
+                  <Button onClick={() => setUploadDialogOpen(true)} className="whitespace-nowrap">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Subir documento
                   </Button>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Tabs de documentos */}
+            <Tabs value={activeDocTab} onValueChange={handleDocTabChange}>
+              <div className="flex items-center justify-between">
+                {/* Selector móvil */}
+                <Select value={activeDocTab} onValueChange={handleDocTabChange}>
+                  <SelectTrigger className="w-48 @4xl/main:hidden">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentTabs.map((tab) => (
+                      <SelectItem key={tab.key} value={tab.key}>
+                        <div className="flex items-center gap-2">
+                          {tab.label}
+                          <Badge variant="secondary">{getDocTabCount(tab.key)}</Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Tabs desktop */}
+                <TabsList className="hidden @4xl/main:flex">
+                  {documentTabs.map((tab) => (
+                    <TabsTrigger key={tab.key} value={tab.key} className="gap-2">
+                      {tab.label}
+                      <Badge variant="secondary">{getDocTabCount(tab.key)}</Badge>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              {/* Contenido de tabs */}
+              {documentTabs.map((tab) => (
+                <TabsContent key={tab.key} value={tab.key}>
+                  <Card className="bg-card rounded-lg border">
+                    <CardContent className="p-0">
+                      {isLoadingDocuments ? (
+                        <div className="flex items-center justify-center py-12">
+                          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                          <span className="text-muted-foreground ml-2">Cargando documentos...</span>
+                        </div>
+                      ) : filteredDocuments.length > 0 ? (
+                        <DocumentListTable documents={filteredDocuments} employeeId={employee.id} />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center py-12 text-center">
+                          <FileText className="text-muted-foreground mb-4 h-12 w-12" />
+                          <h3 className="mb-2 text-lg font-medium">No hay documentos</h3>
+                          <p className="text-muted-foreground mb-4 max-w-sm">
+                            {tab.key === "all"
+                              ? "No se han subido documentos para este empleado"
+                              : `No hay documentos de tipo "${tab.label}" para este empleado`}
+                          </p>
+                          <Button onClick={() => setUploadDialogOpen(true)} variant="outline">
+                            <Upload className="mr-2 h-4 w-4" />
+                            Subir primer documento
+                          </Button>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              ))}
+            </Tabs>
+
+            {/* Dialog de subida */}
+            <DocumentUploadDialog
+              open={uploadDialogOpen}
+              onOpenChange={setUploadDialogOpen}
+              employeeId={employee.id}
+              employeeName={fullName}
+            />
           </TabsContent>
         )}
 
