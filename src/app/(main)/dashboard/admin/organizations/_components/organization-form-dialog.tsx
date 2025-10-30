@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { HierarchyType } from "@prisma/client";
+import { X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +21,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { features } from "@/config/features";
+import { generateOrganizationPrefix } from "@/lib/employee-numbering";
 import { createOrganizationSchema, type CreateOrganizationInput } from "@/validators/organization";
 
 export type OrganizationFormValues = CreateOrganizationInput;
@@ -33,6 +37,8 @@ interface OrganizationFormDialogProps {
     vat: string | null;
     active: boolean;
     hierarchyType?: HierarchyType;
+    employeeNumberPrefix?: string | null;
+    allowedEmailDomains?: string[];
   } | null;
   mode: "create" | "edit";
 }
@@ -45,6 +51,9 @@ export function OrganizationFormDialog({
   initialValues,
   mode,
 }: OrganizationFormDialogProps) {
+  const [emailDomains, setEmailDomains] = useState<string[]>([]);
+  const [emailInput, setEmailInput] = useState("");
+
   const form = useForm<OrganizationFormValues>({
     resolver: zodResolver(createOrganizationSchema),
     defaultValues: {
@@ -52,8 +61,20 @@ export function OrganizationFormDialog({
       vat: "",
       active: true,
       hierarchyType: HierarchyType.DEPARTMENTAL,
+      employeeNumberPrefix: "",
+      allowedEmailDomains: [],
     },
   });
+
+  // Generar prefijo automático cuando cambia el nombre
+  const organizationName = form.watch("name");
+
+  useEffect(() => {
+    if (mode === "create" && organizationName && !form.getValues("employeeNumberPrefix")) {
+      const generatedPrefix = generateOrganizationPrefix(organizationName);
+      form.setValue("employeeNumberPrefix", generatedPrefix);
+    }
+  }, [organizationName, mode, form]);
 
   useEffect(() => {
     if (open) {
@@ -62,17 +83,49 @@ export function OrganizationFormDialog({
         vat: initialValues?.vat ?? "",
         active: initialValues?.active ?? true,
         hierarchyType: initialValues?.hierarchyType ?? HierarchyType.DEPARTMENTAL,
+        employeeNumberPrefix: initialValues?.employeeNumberPrefix ?? "",
+        allowedEmailDomains: initialValues?.allowedEmailDomains ?? [],
       });
+      setEmailDomains(initialValues?.allowedEmailDomains ?? []);
+      setEmailInput("");
     }
   }, [open, initialValues, form]);
 
   const handleSubmit = async (values: OrganizationFormValues) => {
-    await onSubmit(values);
+    // Asegurar que los dominios de email estén sincronizados
+    const finalValues = {
+      ...values,
+      allowedEmailDomains: emailDomains,
+    };
+    await onSubmit(finalValues);
+  };
+
+  const addEmailDomain = () => {
+    const domain = emailInput.trim().toLowerCase().replace(/^@/, "");
+    if (domain && !emailDomains.includes(domain)) {
+      const newDomains = [...emailDomains, domain];
+      setEmailDomains(newDomains);
+      form.setValue("allowedEmailDomains", newDomains);
+      setEmailInput("");
+    }
+  };
+
+  const removeEmailDomain = (domain: string) => {
+    const newDomains = emailDomains.filter((d) => d !== domain);
+    setEmailDomains(newDomains);
+    form.setValue("allowedEmailDomains", newDomains);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addEmailDomain();
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{mode === "create" ? "Nueva organización" : "Editar organización"}</DialogTitle>
           <DialogDescription>
@@ -110,6 +163,70 @@ export function OrganizationFormDialog({
                 </FormItem>
               )}
             />
+
+            {features.emailDomainEnforcement && (
+              <>
+                <FormField
+                  control={form.control}
+                  name="employeeNumberPrefix"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Prefijo de empleados</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Ej. TMNW, ACME"
+                          maxLength={4}
+                          {...field}
+                          value={field.value ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase().replace(/[^A-Z]/g, "");
+                            field.onChange(value);
+                          }}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Prefijo para números de empleado (ej: TMNW00001). Se genera automáticamente desde el nombre.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="space-y-2">
+                  <FormLabel>Dominios de email permitidos</FormLabel>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Ej. empresa.com"
+                      value={emailInput}
+                      onChange={(e) => setEmailInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                    />
+                    <Button type="button" variant="outline" onClick={addEmailDomain}>
+                      Añadir
+                    </Button>
+                  </div>
+                  {emailDomains.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {emailDomains.map((domain) => (
+                        <Badge key={domain} variant="secondary" className="gap-1">
+                          {domain}
+                          <button
+                            type="button"
+                            onClick={() => removeEmailDomain(domain)}
+                            className="hover:text-destructive ml-1"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-muted-foreground text-sm">
+                    Los empleados solo podrán registrarse con emails de estos dominios.
+                  </p>
+                </div>
+              </>
+            )}
 
             {mode === "create" && (
               <FormField

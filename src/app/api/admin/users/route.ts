@@ -4,7 +4,8 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
-import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
+import { formatEmployeeNumber } from "@/lib/employee-numbering";
+import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { canManageUsers } from "@/lib/role-hierarchy";
 import {
@@ -14,6 +15,7 @@ import {
   validateEmail,
   validateName,
 } from "@/lib/user-validation";
+import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createUserSchema, createUserAdminSchema } from "@/validators/user";
 
 export const runtime = "nodejs";
@@ -206,6 +208,27 @@ async function createUser(session: any, data: any) {
       return NextResponse.json({ error: validation.error, code: validation.code }, { status: 403 });
     }
 
+    // Obtener organización para validar dominio de email
+    const organization = await prisma.organization.findUnique({
+      where: { id: session.orgId },
+      select: {
+        allowedEmailDomains: true,
+        employeeNumberPrefix: true,
+        employeeNumberCounter: true,
+      },
+    });
+
+    if (!organization) {
+      return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+    }
+
+    // Validar dominio de email
+    const emailValidation = validateEmailDomain(validatedData.email, organization.allowedEmailDomains);
+
+    if (!emailValidation.valid) {
+      return NextResponse.json({ error: emailValidation.error, code: "INVALID_EMAIL_DOMAIN" }, { status: 400 });
+    }
+
     // Verificar que el email no exista
     const existingUser = await prisma.user.findFirst({
       where: {
@@ -289,24 +312,6 @@ async function createUser(session: any, data: any) {
       );
     }
 
-    // Generar número de empleado si no se proporciona
-    const employeeNumber = validatedData.employeeNumber ?? generateEmployeeNumber();
-
-    // Verificar número de empleado único
-    const existingNumber = await prisma.employee.findFirst({
-      where: {
-        orgId: session.orgId,
-        employeeNumber,
-      },
-    });
-
-    if (existingNumber) {
-      return NextResponse.json(
-        { error: "El número de empleado ya existe", code: "EMPLOYEE_NUMBER_EXISTS" },
-        { status: 409 },
-      );
-    }
-
     // Encriptar IBAN si se proporciona
     const encryptedIban = validatedData.iban ? encrypt(validatedData.iban) : null;
 
@@ -315,7 +320,25 @@ async function createUser(session: any, data: any) {
 
     // Crear empleado + usuario en transacción (como lo hace /api/employees)
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Crear empleado
+      // 1. Incrementar contador de empleados atómicamente y generar número
+      const updatedOrg = await tx.organization.update({
+        where: { id: session.orgId },
+        data: {
+          employeeNumberCounter: { increment: 1 },
+        },
+        select: {
+          employeeNumberPrefix: true,
+          employeeNumberCounter: true,
+        },
+      });
+
+      // Generar número de empleado con prefijo + contador (5 dígitos)
+      const employeeNumber = formatEmployeeNumber(
+        updatedOrg.employeeNumberPrefix ?? "EMP",
+        updatedOrg.employeeNumberCounter,
+      );
+
+      // 2. Crear empleado
       const employee = await tx.employee.create({
         data: {
           orgId: session.orgId,

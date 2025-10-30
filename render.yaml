@@ -19,3 +19,5 @@ services:
         sync: false # Configura esto manualmente en Render Dashboard
       - key: NEXTAUTH_URL
         sync: false # Configura esto manualmente en Render Dashboard
+      - key: NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS
+        value: false # Cambiar a "true" para activar validación de dominios de email

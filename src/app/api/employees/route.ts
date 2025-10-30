@@ -5,8 +5,10 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { resolveAvatarForClient } from "@/lib/avatar";
 import { encrypt } from "@/lib/crypto";
-import { generateTemporaryPassword, generateEmployeeNumber } from "@/lib/password";
+import { formatEmployeeNumber } from "@/lib/employee-numbering";
+import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 
 export const runtime = "nodejs";
@@ -126,19 +128,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Ya existe un empleado con este NIF/NIE" }, { status: 409 });
     }
 
-    // Generar número de empleado si no se proporciona
-    const employeeNumber = data.employeeNumber ?? generateEmployeeNumber();
-
-    // Verificar número de empleado único
-    const existingNumber = await prisma.employee.findFirst({
-      where: {
-        orgId,
-        employeeNumber,
+    // Obtener organización para validar email y generar número de empleado
+    const organization = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        employeeNumberPrefix: true,
+        employeeNumberCounter: true,
+        allowedEmailDomains: true,
       },
     });
 
-    if (existingNumber) {
-      return NextResponse.json({ error: "El número de empleado ya existe" }, { status: 409 });
+    if (!organization) {
+      return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+    }
+
+    // Validar dominio de email si está configurado
+    if (data.email) {
+      const emailValidation = validateEmailDomain(data.email, organization.allowedEmailDomains);
+
+      if (!emailValidation.valid) {
+        return NextResponse.json({ error: emailValidation.error }, { status: 400 });
+      }
     }
 
     // Encriptar IBAN si se proporciona
@@ -153,7 +163,25 @@ export async function POST(request: NextRequest) {
 
     // Crear empleado en transacción
     const result = await prisma.$transaction(async (tx) => {
-      // Crear empleado
+      // 1. Incrementar contador de empleados atómicamente y generar número
+      const updatedOrg = await tx.organization.update({
+        where: { id: orgId },
+        data: {
+          employeeNumberCounter: { increment: 1 },
+        },
+        select: {
+          employeeNumberPrefix: true,
+          employeeNumberCounter: true,
+        },
+      });
+
+      // Generar número de empleado con prefijo + contador (5 dígitos)
+      const employeeNumber = formatEmployeeNumber(
+        updatedOrg.employeeNumberPrefix ?? "EMP",
+        updatedOrg.employeeNumberCounter,
+      );
+
+      // 2. Crear empleado
       const employee = await tx.employee.create({
         data: {
           orgId,

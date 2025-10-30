@@ -22,11 +22,13 @@ npx prisma migrate resolve --applied 20251030163300_add_hierarchy_manual_time_si
 ```
 
 **Luego verifica que todo esté OK:**
+
 ```bash
 npx prisma migrate status
 ```
 
 Deberías ver:
+
 ```
 Database schema is up to date!
 ```
@@ -34,6 +36,7 @@ Database schema is up to date!
 ### Después de resolver
 
 Una vez hecho esto **UNA SOLA VEZ**, los futuros deploys funcionarán normalmente con:
+
 ```bash
 npx prisma migrate deploy
 ```
@@ -43,11 +46,13 @@ npx prisma migrate deploy
 ## Configuración de Render
 
 ### Build Command
+
 ```bash
 npm install && npm run build
 ```
 
 ### Start Command
+
 ```bash
 npx prisma migrate deploy && npm run start
 ```
@@ -65,11 +70,13 @@ NEXTAUTH_URL=https://tu-app.onrender.com
 ## Comandos Útiles
 
 ### Ver estado de migraciones
+
 ```bash
 npx prisma migrate status
 ```
 
 ### Ver qué hay en la tabla de migraciones
+
 ```bash
 npx prisma db execute --stdin <<SQL
 SELECT migration_name, started_at, finished_at, logs FROM _prisma_migrations ORDER BY started_at;
@@ -77,6 +84,7 @@ SQL
 ```
 
 ### Si necesitas "desmarcar" una migración fallida
+
 ```bash
 npx prisma migrate resolve --rolled-back NOMBRE_MIGRACION
 ```

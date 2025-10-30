@@ -13,12 +13,11 @@ export function OrgChartFlat({ employees, searchQuery = "" }: OrgChartFlatProps)
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
-    return (
-      fullName.includes(query) ||
-      (emp.position?.toLowerCase() ?? "").includes(query) ||
-      (emp.department?.toLowerCase() ?? "").includes(query) ||
-      (emp.email?.toLowerCase() ?? "").includes(query)
-    );
+    const nameMatch = fullName.includes(query);
+    const posMatch = (emp.position?.toLowerCase() ?? "").includes(query);
+    const deptMatch = (emp.department?.toLowerCase() ?? "").includes(query);
+    const emailMatch = (emp.email?.toLowerCase() ?? "").includes(query);
+    return nameMatch || posMatch || deptMatch || emailMatch;
   });
 
   if (filteredEmployees.length === 0) {
