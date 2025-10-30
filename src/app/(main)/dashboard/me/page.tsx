@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { Clock, CalendarDays, UserCircle, Bell, Users, Settings, BarChart3, Building2, Loader2 } from "lucide-react";
+import { Clock, CalendarDays, UserCircle, Bell, Users, Timer, UserCog, Building2, Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
@@ -71,7 +71,7 @@ export default function MySpacePage() {
         {/* Header con mensaje para administrador */}
         <SectionHeader
           title={`Buenas, ${data.profile.name} 👋`}
-          description="Vista de administrador - Esta página está diseñada para empleados"
+          description="Panel de acceso rápido para administradores"
         />
 
         {/* Acciones rápidas de administración */}
@@ -91,15 +91,15 @@ export default function MySpacePage() {
               </Link>
             </Button>
             <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/reports">
-                <BarChart3 className="h-5 w-5" />
-                <span className="text-sm font-medium">Informes</span>
+              <Link href="/dashboard/time-tracking/live">
+                <Timer className="h-5 w-5" />
+                <span className="text-sm font-medium">Monitor en Vivo</span>
               </Link>
             </Button>
             <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/settings">
-                <Settings className="h-5 w-5" />
-                <span className="text-sm font-medium">Configuración</span>
+              <Link href="/dashboard/admin/users">
+                <UserCog className="h-5 w-5" />
+                <span className="text-sm font-medium">Usuarios y Roles</span>
               </Link>
             </Button>
           </div>
