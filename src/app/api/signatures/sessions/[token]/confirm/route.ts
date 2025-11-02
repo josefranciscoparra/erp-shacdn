@@ -60,6 +60,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             document: true,
             signers: {
               orderBy: { order: "asc" },
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
             },
           },
         },

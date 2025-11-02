@@ -55,7 +55,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                 originalHash: true,
               },
             },
-            signers: true,
+            signers: {
+              orderBy: { order: "asc" },
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
