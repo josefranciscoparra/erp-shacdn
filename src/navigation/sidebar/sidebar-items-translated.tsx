@@ -164,6 +164,12 @@ export function useSidebarItems(): NavGroup[] {
             },
           ],
         },
+        {
+          title: "Gastos",
+          url: "/dashboard/expenses",
+          icon: Receipt,
+          permission: "approve_requests",
+        },
         ...(signaturesEnabled
           ? [
               {
