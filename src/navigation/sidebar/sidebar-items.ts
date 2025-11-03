@@ -8,6 +8,7 @@ import {
   Bell,
   FileSignature,
   Network,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,6 +79,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Mis Firmas",
         url: "/dashboard/me/signatures",
         icon: FileSignature,
+        isNew: true,
+      },
+      {
+        title: "Mis Gastos",
+        url: "/dashboard/me/expenses",
+        icon: Receipt,
         isNew: true,
       },
       {
