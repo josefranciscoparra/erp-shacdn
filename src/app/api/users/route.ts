@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getServerSession } from "next-auth";
-
-import { authOptions } from "@/lib/auth";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -10,10 +8,11 @@ import { prisma } from "@/lib/prisma";
  * Obtiene lista de usuarios con filtros
  * Query params:
  * - roles: comma-separated list of roles (MANAGER,HR_ADMIN,ORG_ADMIN)
+ * - withEmployee: true/false - filtrar solo usuarios con empleado asociado
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
 
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -21,9 +20,11 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const rolesParam = searchParams.get("roles");
+    const withEmployeeParam = searchParams.get("withEmployee");
 
     // Construir filtro de roles
     const roleFilter = rolesParam ? rolesParam.split(",") : undefined;
+    const requireEmployee = withEmployeeParam === "true";
 
     // Obtener usuarios de la organización
     const users = await prisma.user.findMany({
@@ -33,6 +34,11 @@ export async function GET(request: NextRequest) {
         ...(roleFilter && {
           role: {
             in: roleFilter,
+          },
+        }),
+        ...(requireEmployee && {
+          employee: {
+            isNot: null,
           },
         }),
       },

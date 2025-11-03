@@ -58,8 +58,8 @@ export function AddApproverDialog({ open, onOpenChange, onApproverAdded }: AddAp
   const loadEligibleUsers = async () => {
     try {
       setIsLoadingUsers(true);
-      // Cargar usuarios que pueden ser aprobadores (MANAGER+)
-      const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,ORG_ADMIN,SUPER_ADMIN");
+      // Cargar usuarios que pueden ser aprobadores (MANAGER+) y que tengan empleado asociado
+      const response = await fetch("/api/users?roles=MANAGER,HR_ADMIN,ORG_ADMIN,SUPER_ADMIN&withEmployee=true");
 
       if (!response.ok) {
         throw new Error("Error al cargar usuarios");

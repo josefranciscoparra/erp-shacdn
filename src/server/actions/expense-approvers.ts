@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
@@ -26,10 +27,17 @@ const SetEmployeeApproverSchema = z.object({
  * Ordenados por isPrimary desc, order asc
  */
 export async function getOrganizationApprovers() {
-  const { user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   const approvers = await prisma.expenseApprover.findMany({
-    where: { orgId: user.orgId },
+    where: { orgId: session.user.orgId },
     include: {
       user: {
         select: {
@@ -55,10 +63,17 @@ export async function getOrganizationApprovers() {
  * Solo accesible para ORG_ADMIN y HR_ADMIN
  */
 export async function addOrganizationApprover(data: z.infer<typeof AddApproverSchema>) {
-  const { user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
     return {
       success: false,
       error: "No tienes permisos para gestionar aprobadores de gastos",
@@ -76,7 +91,7 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
     return { success: false, error: "Usuario no encontrado" };
   }
 
-  if (targetUser.orgId !== user.orgId) {
+  if (targetUser.orgId !== session.user.orgId) {
     return { success: false, error: "El usuario no pertenece a tu organización" };
   }
 
@@ -88,12 +103,24 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
     };
   }
 
+  // Verificar que el usuario tenga un empleado asociado
+  const hasEmployee = await prisma.employee.findFirst({
+    where: { userId: targetUser.id },
+  });
+
+  if (!hasEmployee) {
+    return {
+      success: false,
+      error: "Solo se pueden agregar como aprobadores usuarios con perfil de empleado asociado",
+    };
+  }
+
   // Verificar que no esté ya como aprobador (unique constraint)
   const existing = await prisma.expenseApprover.findUnique({
     where: {
       userId_orgId: {
         userId: validatedData.userId,
-        orgId: user.orgId,
+        orgId: session.user.orgId,
       },
     },
   });
@@ -108,14 +135,14 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
   // Si se marca como primario, desmarcar otros
   if (validatedData.isPrimary) {
     await prisma.expenseApprover.updateMany({
-      where: { orgId: user.orgId, isPrimary: true },
+      where: { orgId: session.user.orgId, isPrimary: true },
       data: { isPrimary: false },
     });
   }
 
   // Obtener el siguiente order (máximo + 1)
   const maxOrder = await prisma.expenseApprover.aggregate({
-    where: { orgId: user.orgId },
+    where: { orgId: session.user.orgId },
     _max: { order: true },
   });
 
@@ -128,7 +155,7 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
   const approver = await prisma.expenseApprover.create({
     data: {
       userId: validatedData.userId,
-      orgId: user.orgId,
+      orgId: session.user.orgId,
       isPrimary: validatedData.isPrimary,
       order: nextOrder,
     },
@@ -156,10 +183,17 @@ export async function addOrganizationApprover(data: z.infer<typeof AddApproverSc
  * Solo accesible para ORG_ADMIN y HR_ADMIN
  */
 export async function removeOrganizationApprover(expenseApproverId: string) {
-  const { user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
     return {
       success: false,
       error: "No tienes permisos para gestionar aprobadores de gastos",
@@ -175,13 +209,13 @@ export async function removeOrganizationApprover(expenseApproverId: string) {
     return { success: false, error: "Aprobador no encontrado" };
   }
 
-  if (approver.orgId !== user.orgId) {
+  if (approver.orgId !== session.user.orgId) {
     return { success: false, error: "El aprobador no pertenece a tu organización" };
   }
 
   // Verificar que no sea el último aprobador
   const count = await prisma.expenseApprover.count({
-    where: { orgId: user.orgId },
+    where: { orgId: session.user.orgId },
   });
 
   if (count <= 1) {
@@ -197,7 +231,7 @@ export async function removeOrganizationApprover(expenseApproverId: string) {
       approverId: approver.userId,
       decision: "PENDING",
       expense: {
-        orgId: user.orgId,
+        orgId: session.user.orgId,
       },
     },
   });
@@ -225,10 +259,17 @@ export async function removeOrganizationApprover(expenseApproverId: string) {
  * Desmarca automáticamente otros aprobadores primarios
  */
 export async function setPrimaryApprover(expenseApproverId: string) {
-  const { user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
     return {
       success: false,
       error: "No tienes permisos para gestionar aprobadores de gastos",
@@ -244,13 +285,13 @@ export async function setPrimaryApprover(expenseApproverId: string) {
     return { success: false, error: "Aprobador no encontrado" };
   }
 
-  if (approver.orgId !== user.orgId) {
+  if (approver.orgId !== session.user.orgId) {
     return { success: false, error: "El aprobador no pertenece a tu organización" };
   }
 
   // Desmarcar todos los primarios
   await prisma.expenseApprover.updateMany({
-    where: { orgId: user.orgId, isPrimary: true },
+    where: { orgId: session.user.orgId, isPrimary: true },
     data: { isPrimary: false },
   });
 
@@ -282,10 +323,17 @@ export async function setPrimaryApprover(expenseApproverId: string) {
  * Recibe array de IDs en el nuevo orden deseado
  */
 export async function reorderApprovers(approverIds: z.infer<typeof ReorderApproversSchema>) {
-  const { user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(session.user.role)) {
     return {
       success: false,
       error: "No tienes permisos para gestionar aprobadores de gastos",
@@ -298,7 +346,7 @@ export async function reorderApprovers(approverIds: z.infer<typeof ReorderApprov
   const approvers = await prisma.expenseApprover.findMany({
     where: {
       id: { in: validatedIds },
-      orgId: user.orgId,
+      orgId: session.user.orgId,
     },
   });
 
@@ -321,7 +369,7 @@ export async function reorderApprovers(approverIds: z.infer<typeof ReorderApprov
 
   // Retornar lista actualizada
   const updatedApprovers = await prisma.expenseApprover.findMany({
-    where: { orgId: user.orgId },
+    where: { orgId: session.user.orgId },
     include: {
       user: {
         select: {
@@ -347,22 +395,45 @@ export async function reorderApprovers(approverIds: z.infer<typeof ReorderApprov
  * Si userId es null, elimina el aprobador específico (usará aprobadores org)
  */
 export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApproverSchema>) {
-  const { user, employee: currentEmployee } = await getAuthenticatedEmployee();
+  const session = await auth();
 
-  // Verificar permisos (ADMIN o puede gestionar al empleado)
-  const canManage =
-    ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role) ||
-    // Si es manager, verificar que el empleado está bajo su supervisión
-    (user.role === "MANAGER" && (await isManagerOfEmployee(user.id, data.employeeId)));
-
-  if (!canManage) {
+  if (!session?.user?.orgId) {
     return {
       success: false,
-      error: "No tienes permisos para asignar aprobadores a este empleado",
+      error: "No autorizado",
     };
   }
 
   const validatedData = SetEmployeeApproverSchema.parse(data);
+
+  // Verificar permisos
+  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(session.user.role);
+
+  if (isAdmin) {
+    // Los admins pueden gestionar cualquier empleado, no necesitan ser empleados
+  } else if (session.user.role === "MANAGER") {
+    // Los managers solo pueden gestionar empleados bajo su supervisión
+    // Y necesitan tener un empleado asociado
+    if (!session.user.employeeId) {
+      return {
+        success: false,
+        error: "Los managers deben tener un empleado asociado para gestionar otros empleados",
+      };
+    }
+
+    const canManage = await isManagerOfEmployee(session.user.id, validatedData.employeeId);
+    if (!canManage) {
+      return {
+        success: false,
+        error: "No tienes permisos para asignar aprobadores a este empleado",
+      };
+    }
+  } else {
+    return {
+      success: false,
+      error: "No tienes permisos para asignar aprobadores",
+    };
+  }
 
   // Verificar que el empleado existe y pertenece a la organización
   const employee = await prisma.employee.findUnique({
@@ -373,7 +444,7 @@ export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApprov
     return { success: false, error: "Empleado no encontrado" };
   }
 
-  if (employee.orgId !== user.orgId) {
+  if (employee.orgId !== session.user.orgId) {
     return { success: false, error: "El empleado no pertenece a tu organización" };
   }
 
@@ -411,7 +482,7 @@ export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApprov
     return { success: false, error: "Usuario no encontrado" };
   }
 
-  if (targetUser.orgId !== user.orgId) {
+  if (targetUser.orgId !== session.user.orgId) {
     return { success: false, error: "El usuario no pertenece a tu organización" };
   }
 
@@ -451,7 +522,14 @@ export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApprov
  * Retorna aprobador específico si existe, si no, retorna aprobadores organizacionales
  */
 export async function getEmployeeApprover(employeeId: string) {
-  const { employee: currentEmployee, user } = await getAuthenticatedEmployee();
+  const session = await auth();
+
+  if (!session?.user?.orgId) {
+    return {
+      success: false,
+      error: "No autorizado",
+    };
+  }
 
   // Verificar que el empleado existe y pertenece a la organización
   const employee = await prisma.employee.findUnique({
@@ -473,7 +551,7 @@ export async function getEmployeeApprover(employeeId: string) {
     return { success: false, error: "Empleado no encontrado" };
   }
 
-  if (employee.orgId !== currentEmployee.orgId) {
+  if (employee.orgId !== session.user.orgId) {
     return { success: false, error: "El empleado no pertenece a tu organización" };
   }
 
@@ -488,7 +566,7 @@ export async function getEmployeeApprover(employeeId: string) {
 
   // Caso B: Usar aprobadores organizacionales
   const orgApprovers = await prisma.expenseApprover.findMany({
-    where: { orgId: user.orgId },
+    where: { orgId: session.user.orgId },
     include: {
       user: {
         select: {
