@@ -17,6 +17,7 @@ import {
   UserCog,
   FileSignature,
   ClipboardList,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -87,6 +88,11 @@ export function useSidebarItems(): NavGroup[] {
           title: "Mi Calendario",
           url: "/dashboard/me/calendar",
           icon: Calendar,
+        },
+        {
+          title: "Mis Gastos",
+          url: "/dashboard/me/expenses",
+          icon: Receipt,
         },
         ...(documentsEnabled
           ? [
