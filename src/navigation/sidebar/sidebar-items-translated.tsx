@@ -162,10 +162,15 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/approvals/time-entries",
               permission: "approve_requests",
             },
+            {
+              title: "Gastos",
+              url: "/dashboard/approvals/expenses",
+              permission: "approve_requests",
+            },
           ],
         },
         {
-          title: "Gastos",
+          title: "Analytics de Gastos",
           url: "/dashboard/expenses",
           icon: Receipt,
           permission: "approve_requests",

@@ -63,6 +63,7 @@ model Organization {
   expenses            Expense[]
   expenseReports      ExpenseReport[]
   expensePolicy       ExpensePolicy?
+  expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
 
   @@map("organizations")
 }
@@ -98,6 +99,8 @@ model User {
   approvedManualTimeEntries ManualTimeEntryRequest[] @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
   createdExpenses Expense[] @relation("ExpenseCreator") // Gastos creados
   expenseApprovals ExpenseApproval[] // Aprobaciones de gastos
+  expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
+  employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
 
   @@index([email])
   @@index([orgId])
@@ -303,10 +306,15 @@ model Employee {
   expenses           Expense[]
   expenseReports     ExpenseReport[]
 
+  // Aprobador específico de gastos para este empleado (opcional, sobrescribe org)
+  expenseApproverId  String?
+  expenseApprover    User?   @relation("EmployeeExpenseApprover", fields: [expenseApproverId], references: [id], onDelete: SetNull)
+
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
   @@index([orgId])
   @@index([email])
+  @@index([expenseApproverId])
   @@map("employees")
 }
 
@@ -1208,6 +1216,27 @@ enum ManualTimeEntryStatus {
 }
 
 // ==================== MÓDULO DE GESTIÓN DE GASTOS ====================
+
+// Aprobadores organizacionales de gastos (sistema multi-aprobador flexible)
+model ExpenseApprover {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation("ExpenseApproverRoles", fields: [userId], references: [id], onDelete: Cascade)
+
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  isPrimary Boolean  @default(false) // Marcar como aprobador principal (opcional)
+  order     Int      @default(0)     // Orden de prioridad para UI (drag & drop)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, orgId]) // Un usuario solo puede ser aprobador 1 vez por org
+  @@index([orgId])
+  @@index([userId])
+  @@map("expense_approvers")
+}
 
 enum ExpenseStatus {
   DRAFT          // Borrador (no enviado)

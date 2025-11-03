@@ -2,10 +2,10 @@
 
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
-import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 // Schemas de validación
 const ApprovalFiltersSchema = z.object({
@@ -16,10 +16,32 @@ const ApprovalFiltersSchema = z.object({
 });
 
 /**
+ * Helper para obtener el usuario autenticado (aprobadores no necesitan empleado)
+ */
+async function getApproverBaseData() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, orgId: true },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  return { session, user };
+}
+
+/**
  * Obtiene los gastos pendientes de aprobación para el usuario actual
  */
 export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFiltersSchema>) {
-  const { user } = await getAuthenticatedEmployee();
+  const { user } = await getApproverBaseData();
 
   const validatedFilters = filters ? ApprovalFiltersSchema.parse(filters) : {};
 
@@ -88,7 +110,7 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
  * Aprueba un gasto
  */
 export async function approveExpense(id: string, comment?: string) {
-  const { user, employee } = await getAuthenticatedEmployee();
+  const { user } = await getApproverBaseData();
 
   // Verificar que el gasto existe
   const expense = await prisma.expense.findUnique({
@@ -172,7 +194,7 @@ export async function approveExpense(id: string, comment?: string) {
  * Rechaza un gasto
  */
 export async function rejectExpense(id: string, reason: string) {
-  const { user } = await getAuthenticatedEmployee();
+  const { user } = await getApproverBaseData();
 
   if (!reason || reason.trim().length === 0) {
     return { success: false, error: "Debes proporcionar un motivo de rechazo" };
@@ -260,7 +282,7 @@ export async function rejectExpense(id: string, reason: string) {
  * Obtiene estadísticas de aprobaciones para el usuario actual
  */
 export async function getApprovalStats() {
-  const { user } = await getAuthenticatedEmployee();
+  const { user } = await getApproverBaseData();
 
   const now = new Date();
   const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -327,7 +349,7 @@ export async function getApprovalStats() {
  * Obtiene el historial de aprobaciones del usuario actual
  */
 export async function getApprovalHistory(limit: number = 50) {
-  const { user } = await getAuthenticatedEmployee();
+  const { user } = await getApproverBaseData();
 
   const expenses = await prisma.expense.findMany({
     where: {
