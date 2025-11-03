@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -36,22 +36,27 @@ export default function ExpensesPage() {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
+  const hasLoadedRef = useRef(false);
 
   const { expenses, isLoading, fetchMyExpenses, deleteExpense, submitExpense } = useExpensesStore();
 
-  // Cargar gastos al montar
+  // Cargar gastos al montar (solo una vez)
   useEffect(() => {
-    fetchMyExpenses();
-  }, []);
+    if (!hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      fetchMyExpenses();
+    }
+  }, [fetchMyExpenses]);
 
-  // Filtrar gastos por estado
-  const draftExpenses = expenses.filter((e) => e.status === "DRAFT");
-  const submittedExpenses = expenses.filter((e) => e.status === "SUBMITTED");
-  const approvedExpenses = expenses.filter((e) => e.status === "APPROVED");
-  const rejectedExpenses = expenses.filter((e) => e.status === "REJECTED");
-  const reimbursedExpenses = expenses.filter((e) => e.status === "REIMBURSED");
+  // Filtrar gastos por estado (memoizado para evitar recálculos)
+  const draftExpenses = useMemo(() => expenses.filter((e) => e.status === "DRAFT"), [expenses]);
+  const submittedExpenses = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED"), [expenses]);
+  const approvedExpenses = useMemo(() => expenses.filter((e) => e.status === "APPROVED"), [expenses]);
+  const rejectedExpenses = useMemo(() => expenses.filter((e) => e.status === "REJECTED"), [expenses]);
+  const reimbursedExpenses = useMemo(() => expenses.filter((e) => e.status === "REIMBURSED"), [expenses]);
 
-  const getFilteredExpenses = (): Expense[] => {
+  // Obtener gastos filtrados según el tab actual (memoizado)
+  const filteredExpenses = useMemo((): Expense[] => {
     switch (currentTab) {
       case "draft":
         return draftExpenses;
@@ -67,53 +72,74 @@ export default function ExpensesPage() {
       default:
         return expenses;
     }
-  };
+  }, [currentTab, draftExpenses, submittedExpenses, approvedExpenses, rejectedExpenses, reimbursedExpenses, expenses]);
 
-  const handleView = (expense: Expense) => {
-    router.push(`/dashboard/me/expenses/${expense.id}`);
-  };
+  // Memoizar callbacks para evitar recrear en cada render
+  const handleView = useMemo(
+    () => (expense: Expense) => {
+      router.push(`/dashboard/me/expenses/${expense.id}`);
+    },
+    [router],
+  );
 
-  const handleEdit = (expense: Expense) => {
-    router.push(`/dashboard/me/expenses/${expense.id}/edit`);
-  };
+  const handleEdit = useMemo(
+    () => (expense: Expense) => {
+      router.push(`/dashboard/me/expenses/${expense.id}/edit`);
+    },
+    [router],
+  );
 
-  const handleDelete = async (expense: Expense) => {
-    if (!confirm("¿Estás seguro de eliminar este gasto?")) return;
+  const handleDelete = useMemo(
+    () => async (expense: Expense) => {
+      if (!confirm("¿Estás seguro de eliminar este gasto?")) return;
 
-    try {
-      await deleteExpense(expense.id);
-      await fetchMyExpenses();
-    } catch (error) {
-      console.error("Error al eliminar gasto:", error);
-      alert(error instanceof Error ? error.message : "No se pudo eliminar el gasto");
-    }
-  };
+      try {
+        await deleteExpense(expense.id);
+        await fetchMyExpenses();
+      } catch (error) {
+        console.error("Error al eliminar gasto:", error);
+        alert(error instanceof Error ? error.message : "No se pudo eliminar el gasto");
+      }
+    },
+    [deleteExpense, fetchMyExpenses],
+  );
 
-  const handleSubmit = async (expense: Expense) => {
-    if (!confirm("¿Enviar este gasto a aprobación?")) return;
+  const handleSubmit = useMemo(
+    () => async (expense: Expense) => {
+      if (!confirm("¿Enviar este gasto a aprobación?")) return;
 
-    try {
-      await submitExpense(expense.id);
-      await fetchMyExpenses();
-    } catch (error) {
-      console.error("Error al enviar gasto:", error);
-      alert(error instanceof Error ? error.message : "No se pudo enviar el gasto");
-    }
-  };
+      try {
+        await submitExpense(expense.id);
+        await fetchMyExpenses();
+      } catch (error) {
+        console.error("Error al enviar gasto:", error);
+        alert(error instanceof Error ? error.message : "No se pudo enviar el gasto");
+      }
+    },
+    [submitExpense, fetchMyExpenses],
+  );
 
-  const handleNewExpense = () => {
-    router.push("/dashboard/me/expenses/new");
-  };
+  const handleNewExpense = useMemo(
+    () => () => {
+      router.push("/dashboard/me/expenses/new");
+    },
+    [router],
+  );
 
-  const columns = getExpensesColumns({
-    onView: handleView,
-    onEdit: handleEdit,
-    onDelete: handleDelete,
-    onSubmit: handleSubmit,
-  });
+  // Memoizar columnas para evitar recrear en cada render
+  const columns = useMemo(
+    () =>
+      getExpensesColumns({
+        onView: handleView,
+        onEdit: handleEdit,
+        onDelete: handleDelete,
+        onSubmit: handleSubmit,
+      }),
+    [handleView, handleEdit, handleDelete, handleSubmit],
+  );
 
   const table = useReactTable({
-    data: getFilteredExpenses(),
+    data: filteredExpenses,
     columns,
     state: {
       sorting,
@@ -146,7 +172,7 @@ export default function ExpensesPage() {
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
         <div className="flex items-center justify-between gap-2">
           {/* Mobile Select */}
-          <div className="@4xl/main:hidden flex-1">
+          <div className="flex-1 @4xl/main:hidden">
             <Select value={currentTab} onValueChange={setCurrentTab}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -266,7 +292,7 @@ export default function ExpensesPage() {
         <TabsContent value="draft" className="mt-4">
           {draftExpenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay borradores"
               description="Crea un nuevo gasto para empezar"
               action={
@@ -290,7 +316,7 @@ export default function ExpensesPage() {
         <TabsContent value="submitted" className="mt-4">
           {submittedExpenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay gastos enviados"
               description="Los gastos enviados a aprobación aparecerán aquí"
             />
@@ -308,7 +334,7 @@ export default function ExpensesPage() {
         <TabsContent value="approved" className="mt-4">
           {approvedExpenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay gastos aprobados"
               description="Los gastos aprobados aparecerán aquí"
             />
@@ -326,7 +352,7 @@ export default function ExpensesPage() {
         <TabsContent value="rejected" className="mt-4">
           {rejectedExpenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay gastos rechazados"
               description="Los gastos rechazados aparecerán aquí"
             />
@@ -344,7 +370,7 @@ export default function ExpensesPage() {
         <TabsContent value="reimbursed" className="mt-4">
           {reimbursedExpenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay gastos reembolsados"
               description="Los gastos reembolsados aparecerán aquí"
             />
@@ -362,7 +388,7 @@ export default function ExpensesPage() {
         <TabsContent value="all" className="mt-4">
           {expenses.length === 0 ? (
             <EmptyState
-              icon={<Receipt className="mx-auto size-12 text-muted-foreground" />}
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
               title="No hay gastos"
               description="Crea tu primer gasto para empezar"
               action={
