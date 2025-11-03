@@ -166,11 +166,7 @@ export default function ExpenseApprovalsPage() {
 
   useEffect(() => {
     // Cargar todas las tabs al inicio para tener los contadores correctos
-    void Promise.all([
-      loadExpenses("pending"),
-      loadExpenses("approved"),
-      loadExpenses("rejected"),
-    ]);
+    void Promise.all([loadExpenses("pending"), loadExpenses("approved"), loadExpenses("rejected")]);
   }, [loadExpenses]);
 
   const handleTabChange = (value: string) => {
@@ -356,6 +352,25 @@ export default function ExpenseApprovalsPage() {
 
   const historyColumns: ColumnDef<ExpenseApproval>[] = useMemo(
     () => [
+      {
+        id: "detail",
+        cell: ({ row }) => {
+          const expense = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setDetailExpense(expense);
+                setDetailSheetOpen(true);
+              }}
+            >
+              <Eye className="mr-1 h-4 w-4" />
+              Ver detalle
+            </Button>
+          );
+        },
+      },
       {
         accessorKey: "employee",
         header: "Empleado",
