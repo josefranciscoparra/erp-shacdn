@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar, Clock, FileText, MapPin, Receipt, User, Building2, CreditCard, X, Check } from "lucide-react";
@@ -62,6 +64,47 @@ interface ExpenseDetailSheetProps {
 }
 
 export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onReject }: ExpenseDetailSheetProps) {
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [loadingUrls, setLoadingUrls] = useState(false);
+
+  // Cargar URLs firmadas cuando se abra el detalle
+  useEffect(() => {
+    if (!expense?.attachments || expense.attachments.length === 0 || !open) {
+      return;
+    }
+
+    const loadSignedUrls = async () => {
+      setLoadingUrls(true);
+      try {
+        const urls: Record<string, string> = {};
+
+        // Cargar todas las URLs firmadas en paralelo
+        await Promise.all(
+          expense.attachments!.map(async (attachment) => {
+            try {
+              const response = await fetch(
+                `/api/expenses/${expense.id}/attachments/${attachment.id}/download`
+              );
+
+              if (response.ok) {
+                const data = await response.json();
+                urls[attachment.id] = data.downloadUrl;
+              }
+            } catch (error) {
+              console.error(`Error loading signed URL for ${attachment.id}:`, error);
+            }
+          })
+        );
+
+        setSignedUrls(urls);
+      } finally {
+        setLoadingUrls(false);
+      }
+    };
+
+    void loadSignedUrls();
+  }, [expense?.id, expense?.attachments, open]);
+
   if (!expense) return null;
 
   const isPending = expense.status === "SUBMITTED";
@@ -115,24 +158,36 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                   Tickets adjuntos
                 </h4>
                 <div className="grid grid-cols-2 gap-2">
-                  {expense.attachments.map((attachment) => (
-                    <a
-                      key={attachment.id}
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-colors hover:bg-muted/80"
-                    >
-                      <img
-                        src={attachment.url}
-                        alt={attachment.fileName}
-                        className="size-full object-cover"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                        <span className="text-xs font-medium text-white">Ver original</span>
-                      </div>
-                    </a>
-                  ))}
+                  {expense.attachments.map((attachment) => {
+                    const signedUrl = signedUrls[attachment.id] ?? attachment.url;
+
+                    return (
+                      <a
+                        key={attachment.id}
+                        href={signedUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-colors hover:bg-muted/80"
+                      >
+                        {loadingUrls && !signedUrls[attachment.id] ? (
+                          <div className="flex size-full items-center justify-center">
+                            <div className="text-muted-foreground text-xs">Cargando...</div>
+                          </div>
+                        ) : (
+                          <>
+                            <img
+                              src={signedUrl}
+                              alt={attachment.fileName}
+                              className="size-full object-cover"
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                              <span className="text-xs font-medium text-white">Ver original</span>
+                            </div>
+                          </>
+                        )}
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             )}

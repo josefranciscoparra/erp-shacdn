@@ -20,6 +20,7 @@ export default function ExpenseDetailPage() {
   const router = useRouter();
   const { expenses, fetchMyExpenses, deleteExpense, submitExpense } = useExpensesStore();
   const [expense, setExpense] = useState<Expense | null>(null);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
 
   const id = params.id as string;
 
@@ -33,6 +34,42 @@ export default function ExpenseDetailPage() {
       setExpense(found);
     }
   }, [expenses, id]);
+
+  // Cargar URLs firmadas para los adjuntos
+  useEffect(() => {
+    if (!expense?.attachments || expense.attachments.length === 0) {
+      return;
+    }
+
+    const loadSignedUrls = async () => {
+      try {
+        const urls: Record<string, string> = {};
+
+        await Promise.all(
+          expense.attachments!.map(async (attachment: any) => {
+            try {
+              const response = await fetch(
+                `/api/expenses/${expense.id}/attachments/${attachment.id}/download`
+              );
+
+              if (response.ok) {
+                const data = await response.json();
+                urls[attachment.id] = data.downloadUrl;
+              }
+            } catch (error) {
+              console.error(`Error loading signed URL for ${attachment.id}:`, error);
+            }
+          })
+        );
+
+        setSignedUrls(urls);
+      } catch (error) {
+        console.error("Error loading signed URLs:", error);
+      }
+    };
+
+    void loadSignedUrls();
+  }, [expense?.id, expense?.attachments]);
 
   if (!expense) {
     return (
@@ -181,16 +218,20 @@ export default function ExpenseDetailPage() {
             <div className="rounded-lg border bg-card p-6">
               <h2 className="mb-4 text-lg font-semibold">Adjuntos ({expense.attachments.length})</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-                {expense.attachments.map((att: any) => (
-                  <div key={att.id} className="overflow-hidden rounded-lg border">
-                    <img
-                      src={att.url}
-                      alt={att.fileName}
-                      className="aspect-square w-full cursor-pointer object-cover transition-transform hover:scale-105"
-                      onClick={() => window.open(att.url, "_blank")}
-                    />
-                  </div>
-                ))}
+                {expense.attachments.map((att: any) => {
+                  const signedUrl = signedUrls[att.id] ?? att.url;
+
+                  return (
+                    <div key={att.id} className="overflow-hidden rounded-lg border">
+                      <img
+                        src={signedUrl}
+                        alt={att.fileName}
+                        className="aspect-square w-full cursor-pointer object-cover transition-transform hover:scale-105"
+                        onClick={() => window.open(signedUrl, "_blank")}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
