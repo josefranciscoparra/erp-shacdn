@@ -14,19 +14,26 @@ interface OcrSuggestionsProps {
   onSkip: () => void;
 }
 
+// Componente para renderizar el indicador de confianza
+function ConfidenceIndicator({ value }: { value: number }) {
+  if (value < 0.5) return <XCircle className="text-destructive size-4" />;
+  if (value < 0.8) return <AlertCircle className="size-4 text-yellow-500" />;
+  return <CheckCircle2 className="size-4 text-green-500" />;
+}
+
+// Función para obtener la variante del badge según confianza
+function getBadgeVariant(value: number): "default" | "secondary" | "destructive" {
+  if (value < 0.5) return "destructive";
+  if (value < 0.8) return "secondary";
+  return "default";
+}
+
 export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
   // Determinar si hay al menos algún dato extraído
-  const hasAnyData = data.totalAmount || data.date || data.merchantName || data.merchantVat || data.vatPercent;
-
-  // Función para renderizar el indicador de confianza
-  const ConfidenceIndicator = ({ value }: { value: number }) => {
-    if (value === 0) return <XCircle className="size-4 text-destructive" />;
-    if (value < 0.7) return <AlertCircle className="size-4 text-yellow-500" />;
-    return <CheckCircle2 className="size-4 text-green-500" />;
-  };
+  const hasAnyData = data.totalAmount ?? data.date ?? data.merchantName ?? data.merchantVat ?? data.vatPercent;
 
   return (
-    <div className="rounded-lg border bg-card p-6">
+    <div className="bg-card rounded-lg border p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Datos extraídos del ticket</h2>
         {!hasAnyData && (
@@ -42,7 +49,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
           <div className="mb-4 space-y-3">
             {/* Total */}
             {data.totalAmount && (
-              <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+              <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
                   <ConfidenceIndicator value={data.confidence.totalAmount} />
                   <div>
@@ -55,7 +62,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
                     </p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={getBadgeVariant(data.confidence.totalAmount)} className="text-xs">
                   {Math.round(data.confidence.totalAmount * 100)}%
                 </Badge>
               </div>
@@ -63,7 +70,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
 
             {/* Fecha */}
             {data.date && (
-              <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+              <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
                   <ConfidenceIndicator value={data.confidence.date} />
                   <div>
@@ -71,7 +78,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
                     <p className="font-semibold">{format(data.date, "dd 'de' MMMM 'de' yyyy", { locale: es })}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={getBadgeVariant(data.confidence.date)} className="text-xs">
                   {Math.round(data.confidence.date * 100)}%
                 </Badge>
               </div>
@@ -79,7 +86,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
 
             {/* Comercio */}
             {data.merchantName && (
-              <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+              <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
                   <ConfidenceIndicator value={data.confidence.merchantName} />
                   <div>
@@ -87,7 +94,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
                     <p className="font-semibold">{data.merchantName}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={getBadgeVariant(data.confidence.merchantName)} className="text-xs">
                   {Math.round(data.confidence.merchantName * 100)}%
                 </Badge>
               </div>
@@ -95,7 +102,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
 
             {/* CIF/NIF */}
             {data.merchantVat && (
-              <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+              <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
                   <ConfidenceIndicator value={data.confidence.merchantVat} />
                   <div>
@@ -103,7 +110,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
                     <p className="font-semibold">{data.merchantVat}</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={getBadgeVariant(data.confidence.merchantVat)} className="text-xs">
                   {Math.round(data.confidence.merchantVat * 100)}%
                 </Badge>
               </div>
@@ -111,7 +118,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
 
             {/* IVA */}
             {data.vatPercent !== null && (
-              <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+              <div className="bg-muted/50 flex items-center justify-between rounded-lg border p-3">
                 <div className="flex items-center gap-2">
                   <ConfidenceIndicator value={data.confidence.vatPercent} />
                   <div>
@@ -119,7 +126,7 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
                     <p className="font-semibold">{data.vatPercent}%</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="text-xs">
+                <Badge variant={getBadgeVariant(data.confidence.vatPercent)} className="text-xs">
                   {Math.round(data.confidence.vatPercent * 100)}%
                 </Badge>
               </div>

@@ -1,3 +1,5 @@
+import { normalizeBrand } from "./brand-dictionary";
+
 export interface ParsedReceiptData {
   totalAmount: number | null;
   date: Date | null;
@@ -15,7 +17,11 @@ export interface ParsedReceiptData {
 
 /**
  * Parsea el texto extraído por OCR de un ticket/factura
- * y extrae datos estructurados
+ * VERSIÓN MEJORADA con:
+ * - Normalización de marcas con diccionario
+ * - Regex mejoradas para IVA incluido
+ * - Priorización por palabra clave
+ * - Scoring inteligente
  */
 export function parseReceiptText(text: string): ParsedReceiptData {
   const result: ParsedReceiptData = {
@@ -33,77 +39,112 @@ export function parseReceiptText(text: string): ParsedReceiptData {
     },
   };
 
-  // Normalizar texto: mayúsculas, quitar caracteres extraños
-  const normalizedText = text.toUpperCase().replace(/[^\w\s\d.,/:%-]/g, " ");
+  // Limpiar texto
+  const cleanedText = cleanText(text);
 
-  // 1. Extraer total (buscar "TOTAL", "IMPORTE", "A PAGAR", etc.)
-  result.totalAmount = extractTotalAmount(normalizedText);
-  result.confidence.totalAmount = result.totalAmount ? 0.8 : 0;
+  // Separar en líneas para análisis por proximidad
+  const lines = cleanedText.split("\n").filter((l) => l.trim().length > 0);
 
-  // 2. Extraer fecha (formatos DD/MM/YYYY, DD-MM-YYYY, etc.)
-  result.date = extractDate(normalizedText);
-  result.confidence.date = result.date ? 0.9 : 0;
+  // Normalizar para búsqueda (mayúsculas, sin símbolos raros)
+  const normalizedText = cleanedText.toUpperCase().replace(/[^\w\s\d.,/:%-€]/g, " ");
 
-  // 3. Extraer nombre del comercio (primeras líneas del ticket)
-  result.merchantName = extractMerchantName(text);
-  result.confidence.merchantName = result.merchantName ? 0.6 : 0;
+  // 1. Extraer total (CON PRIORIDAD por palabra clave)
+  const totalResult = extractTotalAmountImproved(normalizedText, lines);
+  result.totalAmount = totalResult.value;
+  result.confidence.totalAmount = totalResult.confidence;
+
+  // 2. Extraer fecha
+  const dateResult = extractDate(normalizedText);
+  result.date = dateResult.value;
+  result.confidence.date = dateResult.confidence;
+
+  // 3. Extraer comercio (CON NORMALIZACIÓN de marcas)
+  const merchantResult = extractMerchantNameImproved(text);
+  result.merchantName = merchantResult.value;
+  result.confidence.merchantName = merchantResult.confidence;
 
   // 4. Extraer CIF/NIF
-  result.merchantVat = extractVatNumber(normalizedText);
-  result.confidence.merchantVat = result.merchantVat ? 0.9 : 0;
+  const vatNumberResult = extractVatNumber(normalizedText);
+  result.merchantVat = vatNumberResult.value;
+  result.confidence.merchantVat = vatNumberResult.confidence;
 
-  // 5. Extraer % de IVA
-  result.vatPercent = extractVatPercent(normalizedText);
-  result.confidence.vatPercent = result.vatPercent ? 0.7 : 0;
+  // 5. Extraer % de IVA (CON REGEX MEJORADAS)
+  const vatPercentResult = extractVatPercentImproved(normalizedText);
+  result.vatPercent = vatPercentResult.value;
+  result.confidence.vatPercent = vatPercentResult.confidence;
 
   return result;
 }
 
 /**
- * Extrae el importe total del ticket
+ * Limpia el texto eliminando caracteres problemáticos
  */
-function extractTotalAmount(text: string): number | null {
-  // Patrones comunes para el total
-  const patterns = [
-    /TOTAL[:\s]*([0-9]+[.,][0-9]{2})/,
-    /IMPORTE[:\s]*([0-9]+[.,][0-9]{2})/,
-    /A\s*PAGAR[:\s]*([0-9]+[.,][0-9]{2})/,
-    /SUMA[:\s]*([0-9]+[.,][0-9]{2})/,
-    /EUR[:\s]*([0-9]+[.,][0-9]{2})/,
-    /€[:\s]*([0-9]+[.,][0-9]{2})/,
+function cleanText(text: string): string {
+  return text
+    .replace(/[^\S\r\n]+/g, " ") // Normalizar espacios
+    .replace(/\*{3,}/g, "") // Quitar líneas de asteriscos
+    .trim();
+}
+
+/**
+ * Extrae el total con scoring mejorado
+ */
+function extractTotalAmountImproved(text: string, lines: string[]): { value: number | null; confidence: number } {
+  // PASO 1: Buscar con palabra clave (alta confidence)
+  const keywordPatterns = [
+    /\b(TOTAL|IMPORTE\s*TOTAL|A\s*PAGAR)[:\s]*([0-9]+[.,][0-9]{2})/i,
+    /\b(SUMA|TOTAL\s*A\s*PAGAR)[:\s]*([0-9]+[.,][0-9]{2})/i,
+    /(TOTAL)[^\d]*([0-9]+[.,][0-9]{2})/i,
   ];
 
-  for (const pattern of patterns) {
+  for (const pattern of keywordPatterns) {
     const match = text.match(pattern);
-    if (match?.[1]) {
-      const amount = parseFloat(match[1].replace(",", "."));
+    if (match?.[2]) {
+      const amount = parseFloat(match[2].replace(",", "."));
       if (!isNaN(amount) && amount > 0 && amount < 10000) {
-        return amount;
+        return { value: amount, confidence: 0.9 }; // Alta confidence
       }
     }
   }
 
-  // Fallback: buscar cualquier cantidad que parezca un total
-  const allAmounts = text.match(/([0-9]+[.,][0-9]{2})/g);
+  // PASO 2: Buscar en zona de totales (últimas líneas)
+  const totalsZone = lines.slice(-Math.min(10, Math.floor(lines.length * 0.4)));
+  const totalsText = totalsZone.join("\n");
+
+  const allAmounts = totalsText.match(/\b([0-9]+[.,][0-9]{2})\b/g);
   if (allAmounts && allAmounts.length > 0) {
-    // Asumir que el total es la cantidad más grande encontrada
-    const amounts = allAmounts.map((a) => parseFloat(a.replace(",", "."))).filter((a) => !isNaN(a) && a > 0 && a < 10000);
+    const amounts = allAmounts
+      .map((a) => parseFloat(a.replace(",", ".")))
+      .filter((a) => !isNaN(a) && a > 0 && a < 10000);
 
     if (amounts.length > 0) {
-      return Math.max(...amounts);
+      // El total suele ser el mayor número
+      const maxAmount = Math.max(...amounts);
+      return { value: maxAmount, confidence: 0.6 }; // Media confidence
     }
   }
 
-  return null;
+  // PASO 3: Fallback global
+  const globalAmounts = text.match(/\b([0-9]+[.,][0-9]{2})\b/g);
+  if (globalAmounts && globalAmounts.length > 0) {
+    const amounts = globalAmounts
+      .map((a) => parseFloat(a.replace(",", ".")))
+      .filter((a) => !isNaN(a) && a > 0 && a < 10000);
+
+    if (amounts.length > 0) {
+      return { value: Math.max(...amounts), confidence: 0.4 }; // Baja confidence
+    }
+  }
+
+  return { value: null, confidence: 0 };
 }
 
 /**
- * Extrae la fecha del ticket
+ * Extrae fecha con mejor validación
  */
-function extractDate(text: string): Date | null {
-  // Patrones de fecha comunes en España
+function extractDate(text: string): { value: Date | null; confidence: number } {
   const patterns = [
-    /(\d{2})[/-](\d{2})[/-](\d{4})/, // DD/MM/YYYY o DD-MM-YYYY
+    /(\d{2})[/-](\d{2})[/-](\d{4})/, // DD/MM/YYYY
     /(\d{2})[/-](\d{2})[/-](\d{2})/, // DD/MM/YY
     /(\d{4})[/-](\d{2})[/-](\d{2})/, // YYYY-MM-DD
   ];
@@ -124,7 +165,6 @@ function extractDate(text: string): Date | null {
         month = parseInt(match[2]);
         year = parseInt(match[3]);
 
-        // Convertir año de 2 dígitos a 4
         if (year < 100) {
           year += year > 50 ? 1900 : 2000;
         }
@@ -134,95 +174,174 @@ function extractDate(text: string): Date | null {
       if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
         const date = new Date(year, month - 1, day);
         if (!isNaN(date.getTime()) && date <= new Date()) {
-          return date;
+          return { value: date, confidence: 0.9 };
         }
       }
     }
   }
 
-  return null;
+  return { value: null, confidence: 0 };
 }
 
 /**
- * Extrae el nombre del comercio (primeras líneas del texto)
+ * Extrae nombre del comercio CON NORMALIZACIÓN
  */
-function extractMerchantName(text: string): string | null {
-  // Tomar las primeras líneas no vacías (máximo 3)
+function extractMerchantNameImproved(text: string): { value: string | null; confidence: number } {
+  // Tomar primeras líneas
   const lines = text
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 2 && line.length < 100);
 
-  if (lines.length > 0) {
-    // Tomar la primera línea que parezca un nombre de comercio
-    const firstLine = lines[0];
+  if (lines.length === 0) {
+    return { value: null, confidence: 0 };
+  }
 
-    // Filtrar líneas que no parezcan fechas, números o códigos
-    if (!/^[\d\s.,/-]+$/.test(firstLine)) {
-      return firstLine.substring(0, 50);
+  // Buscar en las primeras 3 líneas
+  for (let i = 0; i < Math.min(3, lines.length); i++) {
+    const line = lines[i];
+
+    // Filtrar líneas que parezcan fechas o números
+    if (/^[\d\s.,/-]+$/.test(line)) continue;
+
+    // Normalizar con diccionario de marcas
+    const normalized = normalizeBrand(line);
+
+    // Si hay match en el diccionario, devolver con buena confidence
+    if (normalized.confidence >= 0.7) {
+      return { value: normalized.name, confidence: normalized.confidence };
     }
 
-    // Intentar con la segunda línea
-    if (lines.length > 1 && !/^[\d\s.,/-]+$/.test(lines[1])) {
-      return lines[1].substring(0, 50);
+    // Si no hay match pero la línea parece válida, devolver con baja confidence
+    if (i === 0 && line.length > 3) {
+      return { value: line.substring(0, 50), confidence: 0.5 };
     }
   }
 
-  return null;
+  return { value: null, confidence: 0 };
 }
 
 /**
- * Extrae el CIF/NIF del comercio
+ * Extrae CIF/NIF
  */
-function extractVatNumber(text: string): string | null {
-  // Patrones para CIF/NIF español
+function extractVatNumber(text: string): { value: string | null; confidence: number } {
   const patterns = [
     /\b([A-Z]\d{8})\b/, // CIF: letra + 8 dígitos
     /\b(\d{8}[A-Z])\b/, // NIF: 8 dígitos + letra
-    /CIF[:\s]*([A-Z0-9]{9})/, // CIF: con etiqueta
-    /NIF[:\s]*([A-Z0-9]{9})/, // NIF: con etiqueta
+    /CIF[:\s]*([A-Z0-9]{9})/i, // CIF: con etiqueta
+    /NIF[:\s]*([A-Z0-9]{9})/i, // NIF: con etiqueta
   ];
 
   for (const pattern of patterns) {
     const match = text.match(pattern);
     if (match?.[1]) {
-      return match[1];
+      return { value: match[1], confidence: 0.9 };
     }
   }
 
-  return null;
+  return { value: null, confidence: 0 };
 }
 
 /**
- * Extrae el porcentaje de IVA
+ * Extrae % de IVA CON REGEX MEJORADAS
  */
-function extractVatPercent(text: string): number | null {
-  // Patrones para IVA
-  const patterns = [
-    /IVA[:\s]*(\d+)%/, // IVA 21%
-    /IVA[:\s]*(\d+)[:\s]*%/, // IVA: 21 %
-    /(\d+)%\s*IVA/, // 21% IVA
+function extractVatPercentImproved(text: string): { value: number | null; confidence: number } {
+  // PASO 1: Patrones específicos con alta confidence
+  const specificPatterns = [
+    /I\.?\s*V\.?\s*A\.?\s*INCLUIDO[^0-9%]*(\d{1,2})[.,]?(\d{0,2})\s*%/i, // I.V.A. INCLUIDO 21,00%
+    /IVA\s+INCLUIDO[^0-9%]*(\d{1,2})[.,]?(\d{0,2})\s*%/i, // IVA INCLUIDO 21%
+    /TASA\s*IVA[^\d]*(\d{1,2})[.,]?(\d{0,2})\s*%/i, // TASA IVA 21%
+    /(?:^|\s)IVA[:\s]*(\d{1,2})[.,]?(\d{0,2})\s*%/im, // IVA: 21%
   ];
 
-  for (const pattern of patterns) {
+  for (const pattern of specificPatterns) {
     const match = text.match(pattern);
     if (match?.[1]) {
-      const percent = parseInt(match[1]);
-      // Validar que sea un % de IVA español común (0, 10, 21)
-      if ([0, 4, 10, 21].includes(percent)) {
-        return percent;
+      let percent = parseInt(match[1]);
+
+      // Si hay decimales, considerarlos
+      if (match[2]) {
+        const decimal = parseInt(match[2]) / Math.pow(10, match[2].length);
+        percent += decimal;
+      }
+
+      // Validar IVA español común
+      const validRates = [0, 4, 10, 21];
+      if (validRates.includes(Math.round(percent))) {
+        return { value: Math.round(percent), confidence: 0.85 };
       }
     }
   }
 
-  // Fallback: si encuentra algún número seguido de % que sea común en IVA
-  const percentMatch = text.match(/(\d+)%/);
-  if (percentMatch) {
-    const percent = parseInt(percentMatch[1]);
-    if ([0, 4, 10, 21].includes(percent)) {
-      return percent;
+  // PASO 2: Patrones genéricos
+  const genericPatterns = [/(\d{1,2})[.,]?(\d{0,2})\s*%\s*IVA/i, /IVA[:\s]*(\d{1,2})[.,]?(\d{0,2})\s*%/i];
+
+  for (const pattern of genericPatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const percent = parseInt(match[1]);
+
+      if ([0, 4, 10, 21].includes(percent)) {
+        return { value: percent, confidence: 0.7 };
+      }
     }
   }
 
-  return null;
+  // PASO 3: Fallback - buscar cualquier % válido
+  const fallbackMatch = text.match(/(\d{1,2})%/);
+  if (fallbackMatch) {
+    const percent = parseInt(fallbackMatch[1]);
+    if ([0, 4, 10, 21].includes(percent)) {
+      return { value: percent, confidence: 0.5 };
+    }
+  }
+
+  // Si no se encuentra IVA, asumir 21% por defecto con baja confidence
+  return { value: 21, confidence: 0.3 };
+}
+
+/**
+ * Extrae datos por proximidad de líneas (avanzado)
+ * Busca patrones como SUBTOTAL → IVA → TOTAL
+ */
+export function extractByProximity(lines: string[]): {
+  subtotal: number | null;
+  vat: number | null;
+  total: number | null;
+} {
+  const result = {
+    subtotal: null as number | null,
+    vat: null as number | null,
+    total: null as number | null,
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].toUpperCase();
+
+    // Buscar línea con SUBTOTAL
+    if (/SUBTOTAL|SUB\s*TOTAL/i.test(line)) {
+      const amount = line.match(/(\d+[.,]\d{2})/);
+      if (amount) {
+        result.subtotal = parseFloat(amount[1].replace(",", "."));
+      }
+    }
+
+    // Buscar línea con IVA (valor, no %)
+    if (/IVA[:\s]*\d+[.,]\d{2}/.test(line) && !/\d+%/.test(line)) {
+      const amount = line.match(/(\d+[.,]\d{2})/);
+      if (amount) {
+        result.vat = parseFloat(amount[1].replace(",", "."));
+      }
+    }
+
+    // Buscar línea con TOTAL
+    if (/\bTOTAL\b/i.test(line)) {
+      const amount = line.match(/(\d+[.,]\d{2})/);
+      if (amount) {
+        result.total = parseFloat(amount[1].replace(",", "."));
+      }
+    }
+  }
+
+  return result;
 }
