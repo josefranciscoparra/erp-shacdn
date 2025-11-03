@@ -48,8 +48,8 @@ export function CameraCapture({ onCapture, capturedFile, onRemove }: CameraCaptu
   };
 
   // Si ya hay una foto capturada, mostrar preview
-  if (capturedFile || previewUrl) {
-    const displayUrl = previewUrl || (capturedFile ? URL.createObjectURL(capturedFile) : null);
+  if (capturedFile ?? previewUrl) {
+    const displayUrl = previewUrl ?? (capturedFile ? URL.createObjectURL(capturedFile) : null);
 
     return (
       <div className="relative overflow-hidden rounded-lg border">

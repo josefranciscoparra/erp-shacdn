@@ -31,8 +31,7 @@ export async function getOrganizationPolicy() {
   });
 
   // Si no existe, crearla con valores por defecto (España 2024)
-  if (!policy) {
-    policy = await prisma.expensePolicy.create({
+  policy ??= await prisma.expensePolicy.create({
       data: {
         orgId: user.orgId,
         mileageRateEurPerKm: new Decimal(0.26), // Tarifa estándar España 2024
@@ -83,7 +82,6 @@ export async function getOrganizationPolicy() {
         approvalLevels: 1,
       },
     });
-  }
 
   return {
     success: true,
