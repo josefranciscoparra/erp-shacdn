@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
+    console.log("📥 POST /api/expenses - Body recibido:", JSON.stringify(body, null, 2));
+
     // Convertir fecha string a Date
     if (body.date) {
       body.date = new Date(body.date);
@@ -67,12 +69,15 @@ export async function POST(request: NextRequest) {
     const result = await createExpense(body);
 
     if (!result.success) {
+      console.error("❌ createExpense falló:", result.error);
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
+    console.log("✅ Gasto creado exitosamente:", result.expense.id);
     return NextResponse.json(result.expense, { status: 201 });
   } catch (error) {
-    console.error("Error en POST /api/expenses:", error);
-    return NextResponse.json({ error: "Error al crear gasto" }, { status: 500 });
+    console.error("❌ Error en POST /api/expenses:", error);
+    const errorMessage = error instanceof Error ? error.message : "Error al crear gasto";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

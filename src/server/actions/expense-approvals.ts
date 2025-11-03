@@ -68,11 +68,18 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
               id: true,
               name: true,
               email: true,
+              image: true,
             },
           },
         },
       },
-      attachments: true,
+      attachments: {
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+        },
+      },
       approvals: {
         where: {
           approverId: user.id,
@@ -100,9 +107,19 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
     },
   });
 
+  // Convertir Decimals a números para el cliente
+  const serializedExpenses = expenses.map((expense) => ({
+    ...expense,
+    amount: Number(expense.amount),
+    vatPercent: expense.vatPercent ? Number(expense.vatPercent) : null,
+    totalAmount: Number(expense.totalAmount),
+    mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
+    mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+  }));
+
   return {
     success: true,
-    expenses,
+    expenses: serializedExpenses,
   };
 }
 
@@ -150,7 +167,7 @@ export async function approveExpense(id: string, comment?: string) {
   }
 
   // Actualizar la aprobación y el gasto en una transacción
-  const result = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     // Actualizar la aprobación
     await tx.expenseApproval.update({
       where: { id: approval.id },
@@ -162,7 +179,7 @@ export async function approveExpense(id: string, comment?: string) {
     });
 
     // Actualizar el estado del gasto
-    const updatedExpense = await tx.expense.update({
+    await tx.expense.update({
       where: { id },
       data: {
         status: "APPROVED",
@@ -173,20 +190,19 @@ export async function approveExpense(id: string, comment?: string) {
     if (expense.employee.user) {
       await createNotification(
         expense.employee.user.id,
+        user.orgId,
         "EXPENSE_APPROVED",
+        "Gasto aprobado",
         `Tu gasto de ${expense.totalAmount.toString()}€ ha sido aprobado`,
-        {
-          expenseId: id,
-        },
+        undefined, // ptoRequestId
+        undefined, // manualTimeEntryRequestId
+        id, // expenseId
       );
     }
-
-    return updatedExpense;
   });
 
   return {
     success: true,
-    expense: result,
   };
 }
 
@@ -238,7 +254,7 @@ export async function rejectExpense(id: string, reason: string) {
   }
 
   // Actualizar la aprobación y el gasto en una transacción
-  const result = await prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     // Actualizar la aprobación
     await tx.expenseApproval.update({
       where: { id: approval.id },
@@ -250,7 +266,7 @@ export async function rejectExpense(id: string, reason: string) {
     });
 
     // Actualizar el estado del gasto
-    const updatedExpense = await tx.expense.update({
+    await tx.expense.update({
       where: { id },
       data: {
         status: "REJECTED",
@@ -261,20 +277,19 @@ export async function rejectExpense(id: string, reason: string) {
     if (expense.employee.user) {
       await createNotification(
         expense.employee.user.id,
+        user.orgId,
         "EXPENSE_REJECTED",
+        "Gasto rechazado",
         `Tu gasto de ${expense.totalAmount.toString()}€ ha sido rechazado: ${reason}`,
-        {
-          expenseId: id,
-        },
+        undefined, // ptoRequestId
+        undefined, // manualTimeEntryRequestId
+        id, // expenseId
       );
     }
-
-    return updatedExpense;
   });
 
   return {
     success: true,
-    expense: result,
   };
 }
 
@@ -371,11 +386,18 @@ export async function getApprovalHistory(limit: number = 50) {
               id: true,
               name: true,
               email: true,
+              image: true,
             },
           },
         },
       },
-      attachments: true,
+      attachments: {
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+        },
+      },
       approvals: {
         where: {
           approverId: user.id,
@@ -404,8 +426,18 @@ export async function getApprovalHistory(limit: number = 50) {
     take: limit,
   });
 
+  // Convertir Decimals a números para el cliente
+  const serializedExpenses = expenses.map((expense) => ({
+    ...expense,
+    amount: Number(expense.amount),
+    vatPercent: expense.vatPercent ? Number(expense.vatPercent) : null,
+    totalAmount: Number(expense.totalAmount),
+    mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
+    mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+  }));
+
   return {
     success: true,
-    expenses,
+    expenses: serializedExpenses,
   };
 }

@@ -79,7 +79,7 @@ export default function NewExpensePage() {
   };
 
   // Paso 3: Enviar formulario
-  const handleSubmit = async (data: any) => {
+  const handleSubmit = async (data: any, submitType: "draft" | "submit") => {
     setIsSubmitting(true);
     try {
       // 1. Crear el gasto
@@ -105,8 +105,20 @@ export default function NewExpensePage() {
         }
       }
 
-      // 3. Redirigir al listado
-      alert("Gasto creado correctamente");
+      // 3. Si se eligió "Enviar", enviar a aprobación
+      if (submitType === "submit") {
+        try {
+          await useExpensesStore.getState().submitExpense(expense.id);
+          alert("Gasto enviado a aprobación correctamente");
+        } catch (submitError) {
+          console.error("Error al enviar a aprobación:", submitError);
+          alert("Gasto creado como borrador. Hubo un error al enviarlo a aprobación.");
+        }
+      } else {
+        alert("Gasto guardado como borrador");
+      }
+
+      // 4. Redirigir al listado
       router.push("/dashboard/me/expenses");
     } catch (error) {
       console.error("Error completo al crear gasto:", error);

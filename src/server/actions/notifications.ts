@@ -16,6 +16,7 @@ export async function createNotification(
   message: string,
   ptoRequestId?: string,
   manualTimeEntryRequestId?: string,
+  expenseId?: string,
 ) {
   try {
     const notification = await prisma.ptoNotification.create({
@@ -27,6 +28,7 @@ export async function createNotification(
         message,
         ptoRequestId,
         manualTimeEntryRequestId,
+        expenseId,
         isRead: false,
       },
     });

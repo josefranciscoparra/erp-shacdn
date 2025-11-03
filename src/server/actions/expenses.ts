@@ -87,7 +87,7 @@ const ExpenseFiltersSchema = z.object({
 const CreateExpenseSchema = z.object({
   date: z.date(),
   currency: z.string().default("EUR"),
-  amount: z.number().positive(),
+  amount: z.number().nonnegative(), // Permite 0 para MILEAGE
   vatPercent: z.number().min(0).max(100).nullable().optional(),
   category: z.enum(["FUEL", "MILEAGE", "MEAL", "TOLL", "PARKING", "LODGING", "OTHER"]),
   mileageKm: z.number().positive().nullable().optional(),
@@ -218,18 +218,31 @@ export async function getExpenseById(id: string) {
  * Crea un nuevo gasto en estado DRAFT
  */
 export async function createExpense(data: z.infer<typeof CreateExpenseSchema>) {
-  const { employee } = await getAuthenticatedEmployee();
+  try {
+    const { employee } = await getAuthenticatedEmployee();
 
-  const validatedData = CreateExpenseSchema.parse(data);
+    console.log("🔍 createExpense - Data recibida:", JSON.stringify(data, null, 2));
 
-  // Obtener la política actual de la organización
-  const policy = await prisma.expensePolicy.findUnique({
+    const validatedData = CreateExpenseSchema.parse(data);
+    console.log("✅ Validación de Zod exitosa");
+
+  // Obtener o crear la política actual de la organización
+  let policy = await prisma.expensePolicy.findUnique({
     where: { orgId: employee.orgId },
   });
 
-  if (!policy) {
-    return { success: false, error: "No se encontró la política de gastos de la organización" };
-  }
+  // Crear una política por defecto si no existe
+  policy ??= await prisma.expensePolicy.create({
+    data: {
+      orgId: employee.orgId,
+      mileageRateEurPerKm: new Decimal(0.26), // Tarifa por defecto
+      attachmentRequired: true,
+      costCenterRequired: false,
+      vatAllowed: true,
+      approvalLevels: 1,
+      categoryRequirements: {},
+    },
+  });
 
   // Obtener mileageRate de la política si es MILEAGE
   let mileageRate: Decimal | null = null;
@@ -265,6 +278,7 @@ export async function createExpense(data: z.infer<typeof CreateExpenseSchema>) {
       status: "DRAFT",
       orgId: employee.orgId,
       employeeId: employee.id,
+      createdBy: employee.userId, // Campo de auditoría requerido
     },
     include: {
       attachments: true,
@@ -272,26 +286,35 @@ export async function createExpense(data: z.infer<typeof CreateExpenseSchema>) {
     },
   });
 
-  // Crear snapshot de la política
-  await prisma.policySnapshot.create({
-    data: {
-      mileageRateEurPerKm: policy.mileageRateEurPerKm,
-      mealDailyLimit: policy.mealDailyLimit,
-      lodgingDailyLimit: policy.lodgingDailyLimit,
-      categoryRequirements: policy.categoryRequirements,
-      attachmentRequired: policy.attachmentRequired,
-      costCenterRequired: policy.costCenterRequired,
-      vatAllowed: policy.vatAllowed,
-      approvalLevels: policy.approvalLevels,
-      expenseId: expense.id,
-      orgId: employee.orgId,
-    },
-  });
+    // Crear snapshot de la política (solo campos que existen en PolicySnapshot)
+    await prisma.policySnapshot.create({
+      data: {
+        mileageRateEurPerKm: policy.mileageRateEurPerKm,
+        mealDailyLimit: policy.mealDailyLimit,
+        fuelRequiresReceipt: true, // Default
+        vatAllowed: policy.vatAllowed,
+        costCenterRequired: policy.costCenterRequired,
+        expenseId: expense.id,
+      },
+    });
 
-  return {
-    success: true,
-    expense,
-  };
+    return {
+      success: true,
+      expense,
+    };
+  } catch (error) {
+    console.error("❌ Error en createExpense:", error);
+    if (error instanceof Error) {
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+    return {
+      success: false,
+      error: "Error desconocido al crear el gasto",
+    };
+  }
 }
 
 /**
@@ -425,7 +448,9 @@ export async function deleteExpense(id: string) {
  * Envía un gasto a aprobación
  */
 export async function submitExpense(id: string) {
+  console.log("🔍 submitExpense - Iniciando para ID:", id);
   const { employee } = await getAuthenticatedEmployee();
+  console.log("👤 Employee autenticado:", employee.id);
 
   // Verificar que el gasto existe y pertenece al empleado
   const expense = await prisma.expense.findUnique({
@@ -436,20 +461,31 @@ export async function submitExpense(id: string) {
     },
   });
 
+  console.log("💰 Expense encontrado:", {
+    id: expense?.id,
+    status: expense?.status,
+    attachmentsCount: expense?.attachments.length,
+    hasPolicy: !!expense?.policySnapshot,
+  });
+
   if (!expense) {
+    console.error("❌ Gasto no encontrado");
     return { success: false, error: "Gasto no encontrado" };
   }
 
   if (expense.employeeId !== employee.id) {
+    console.error("❌ Sin permisos - expense.employeeId:", expense.employeeId, "employee.id:", employee.id);
     return { success: false, error: "No tienes permisos para enviar este gasto" };
   }
 
   if (expense.status !== "DRAFT") {
+    console.error("❌ Estado inválido:", expense.status);
     return { success: false, error: "Solo se pueden enviar gastos en estado borrador" };
   }
 
   // Validar que tenga attachments si la política lo requiere
   if (expense.policySnapshot?.attachmentRequired && expense.attachments.length === 0) {
+    console.error("❌ Faltan attachments");
     return {
       success: false,
       error: "Este gasto requiere al menos un archivo adjunto (ticket/factura)",
@@ -459,8 +495,11 @@ export async function submitExpense(id: string) {
   // Obtener el aprobador
   let approverId: string;
   try {
+    console.log("🔍 Buscando aprobador...");
     approverId = await getDefaultApprover(employee.id, employee.orgId);
+    console.log("✅ Aprobador encontrado:", approverId);
   } catch (error) {
+    console.error("❌ Error al buscar aprobador:", error);
     return { success: false, error: "No se encontró un aprobador disponible" };
   }
 
@@ -487,11 +526,10 @@ export async function submitExpense(id: string) {
     // Crear notificación para el aprobador
     await createNotification(
       approverId,
+      employee.orgId,
       "EXPENSE_SUBMITTED",
+      "Nuevo gasto para aprobar",
       `${employee.firstName} ${employee.lastName} ha enviado un gasto de ${expense.totalAmount.toString()}€ para aprobación`,
-      {
-        expenseId: id,
-      },
     );
 
     return updatedExpense;

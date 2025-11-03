@@ -29,6 +29,7 @@ import {
   FileClock,
   FileX,
   Clock,
+  Receipt,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -62,6 +63,7 @@ interface Notification {
   createdAt: Date;
   ptoRequestId?: string | null;
   manualTimeEntryRequestId?: string | null;
+  expenseId?: string | null;
   ptoRequest?: {
     id: string;
     startDate: Date;
@@ -99,6 +101,9 @@ const notificationIcons = {
   MANUAL_TIME_ENTRY_SUBMITTED: Clock,
   MANUAL_TIME_ENTRY_APPROVED: Check,
   MANUAL_TIME_ENTRY_REJECTED: X,
+  EXPENSE_SUBMITTED: Receipt,
+  EXPENSE_APPROVED: Check,
+  EXPENSE_REJECTED: X,
 };
 
 const notificationTypeLabels = {
@@ -116,6 +121,9 @@ const notificationTypeLabels = {
   MANUAL_TIME_ENTRY_SUBMITTED: "Fichaje manual solicitado",
   MANUAL_TIME_ENTRY_APPROVED: "Fichaje manual aprobado",
   MANUAL_TIME_ENTRY_REJECTED: "Fichaje manual rechazado",
+  EXPENSE_SUBMITTED: "Gasto enviado",
+  EXPENSE_APPROVED: "Gasto aprobado",
+  EXPENSE_REJECTED: "Gasto rechazado",
 };
 
 export default function NotificationsPage() {
@@ -293,6 +301,17 @@ export default function NotificationsPage() {
 
   const handleNavigate = useCallback(
     (notification: Notification) => {
+      // Manejar notificaciones de gastos
+      if (notification.expenseId ?? notification.type.startsWith("EXPENSE_")) {
+        if (notification.type === "EXPENSE_SUBMITTED") {
+          router.push(`/dashboard/approvals/expenses`);
+        } else {
+          router.push(`/dashboard/me/expenses`);
+        }
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de fichaje manual
       if (notification.manualTimeEntryRequestId) {
         if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
@@ -385,6 +404,10 @@ export default function NotificationsPage() {
                     "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "MANUAL_TIME_ENTRY_REJECTED" &&
                     "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "EXPENSE_SUBMITTED" &&
+                    "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                  type === "EXPENSE_APPROVED" && "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "EXPENSE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -446,6 +469,19 @@ export default function NotificationsPage() {
                 >
                   <ExternalLink className="mr-1 h-4 w-4" />
                   {notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ? "Revisar solicitud" : "Ver solicitud"}
+                </Button>
+              )}
+              {(notification.expenseId ?? notification.type.startsWith("EXPENSE_")) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleNavigate(notification);
+                  }}
+                >
+                  <ExternalLink className="mr-1 h-4 w-4" />
+                  {notification.type === "EXPENSE_SUBMITTED" ? "Revisar gasto" : "Ver gasto"}
                 </Button>
               )}
               {(notification.type === "SIGNATURE_PENDING" ||
@@ -697,24 +733,30 @@ export default function NotificationsPage() {
             {selectedNotification &&
               (!!selectedNotification.ptoRequestId ||
                 !!selectedNotification.manualTimeEntryRequestId ||
+                !!selectedNotification.expenseId ||
+                selectedNotification.type.startsWith("EXPENSE_") ||
                 selectedNotification.type === "SIGNATURE_PENDING" ||
                 selectedNotification.type === "SIGNATURE_COMPLETED" ||
                 selectedNotification.type === "SIGNATURE_REJECTED" ||
                 selectedNotification.type === "SIGNATURE_EXPIRED") && (
                 <Button onClick={() => handleNavigate(selectedNotification)}>
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  {selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                    ? "Ir a revisar solicitud"
-                    : selectedNotification.type === "SIGNATURE_PENDING"
-                      ? "Ir a firmar"
-                      : selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                          selectedNotification.type === "SIGNATURE_REJECTED" ||
-                          selectedNotification.type === "SIGNATURE_EXPIRED"
-                        ? selectedNotification.title === "Documento completamente firmado" ||
-                          selectedNotification.title === "Documento rechazado por firmante"
-                          ? "Ver gestión de firmas"
-                          : "Ver mis firmas"
-                        : "Ir a la solicitud"}
+                  {selectedNotification.type === "EXPENSE_SUBMITTED"
+                    ? "Ir a revisar gastos"
+                    : selectedNotification.type === "EXPENSE_APPROVED" || selectedNotification.type === "EXPENSE_REJECTED"
+                      ? "Ver mis gastos"
+                      : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                        ? "Ir a revisar solicitud"
+                        : selectedNotification.type === "SIGNATURE_PENDING"
+                          ? "Ir a firmar"
+                          : selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                              selectedNotification.type === "SIGNATURE_REJECTED" ||
+                              selectedNotification.type === "SIGNATURE_EXPIRED"
+                            ? selectedNotification.title === "Documento completamente firmado" ||
+                              selectedNotification.title === "Documento rechazado por firmante"
+                              ? "Ver gestión de firmas"
+                              : "Ver mis firmas"
+                            : "Ir a la solicitud"}
                 </Button>
               )}
           </DialogFooter>

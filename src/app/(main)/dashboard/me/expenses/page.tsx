@@ -31,8 +31,8 @@ import { getExpensesColumns } from "./_components/expenses-columns";
 
 export default function ExpensesPage() {
   const router = useRouter();
-  const [currentTab, setCurrentTab] = useState<string>("draft");
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [currentTab, setCurrentTab] = useState<string>("all");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "date", desc: true }]); // Ordenar por fecha descendente por defecto
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
@@ -50,29 +50,29 @@ export default function ExpensesPage() {
 
   // Filtrar gastos por estado (memoizado para evitar recálculos)
   const draftExpenses = useMemo(() => expenses.filter((e) => e.status === "DRAFT"), [expenses]);
-  const submittedExpenses = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED"), [expenses]);
-  const approvedExpenses = useMemo(() => expenses.filter((e) => e.status === "APPROVED"), [expenses]);
-  const rejectedExpenses = useMemo(() => expenses.filter((e) => e.status === "REJECTED"), [expenses]);
-  const reimbursedExpenses = useMemo(() => expenses.filter((e) => e.status === "REIMBURSED"), [expenses]);
+  const inReviewExpenses = useMemo(
+    () => expenses.filter((e) => e.status === "SUBMITTED" || e.status === "APPROVED"),
+    [expenses],
+  );
+  const completedExpenses = useMemo(
+    () => expenses.filter((e) => e.status === "REJECTED" || e.status === "REIMBURSED"),
+    [expenses],
+  );
 
   // Obtener gastos filtrados según el tab actual (memoizado)
   const filteredExpenses = useMemo((): Expense[] => {
     switch (currentTab) {
       case "draft":
         return draftExpenses;
-      case "submitted":
-        return submittedExpenses;
-      case "approved":
-        return approvedExpenses;
-      case "rejected":
-        return rejectedExpenses;
-      case "reimbursed":
-        return reimbursedExpenses;
+      case "in-review":
+        return inReviewExpenses;
+      case "completed":
+        return completedExpenses;
       case "all":
       default:
         return expenses;
     }
-  }, [currentTab, draftExpenses, submittedExpenses, approvedExpenses, rejectedExpenses, reimbursedExpenses, expenses]);
+  }, [currentTab, draftExpenses, inReviewExpenses, completedExpenses, expenses]);
 
   // Memoizar callbacks para evitar recrear en cada render
   const handleView = useMemo(
@@ -178,6 +178,12 @@ export default function ExpensesPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">
+                  Todos
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {expenses.length}
+                  </Badge>
+                </SelectItem>
                 <SelectItem value="draft">
                   Borradores
                   {draftExpenses.length > 0 && (
@@ -186,43 +192,21 @@ export default function ExpensesPage() {
                     </Badge>
                   )}
                 </SelectItem>
-                <SelectItem value="submitted">
-                  Enviados
-                  {submittedExpenses.length > 0 && (
+                <SelectItem value="in-review">
+                  En revisión
+                  {inReviewExpenses.length > 0 && (
                     <Badge variant="default" className="ml-2 text-xs">
-                      {submittedExpenses.length}
+                      {inReviewExpenses.length}
                     </Badge>
                   )}
                 </SelectItem>
-                <SelectItem value="approved">
-                  Aprobados
-                  {approvedExpenses.length > 0 && (
-                    <Badge variant="success" className="ml-2 text-xs">
-                      {approvedExpenses.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="rejected">
-                  Rechazados
-                  {rejectedExpenses.length > 0 && (
-                    <Badge variant="destructive" className="ml-2 text-xs">
-                      {rejectedExpenses.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="reimbursed">
-                  Reembolsados
-                  {reimbursedExpenses.length > 0 && (
+                <SelectItem value="completed">
+                  Finalizados
+                  {completedExpenses.length > 0 && (
                     <Badge variant="outline" className="ml-2 text-xs">
-                      {reimbursedExpenses.length}
+                      {completedExpenses.length}
                     </Badge>
                   )}
-                </SelectItem>
-                <SelectItem value="all">
-                  Todos
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {expenses.length}
-                  </Badge>
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -230,6 +214,12 @@ export default function ExpensesPage() {
 
           {/* Desktop Tabs */}
           <TabsList className="hidden @4xl/main:flex">
+            <TabsTrigger value="all" className="relative">
+              Todos
+              <Badge variant="secondary" className="ml-2 text-xs">
+                {expenses.length}
+              </Badge>
+            </TabsTrigger>
             <TabsTrigger value="draft" className="relative">
               Borradores
               {draftExpenses.length > 0 && (
@@ -238,151 +228,29 @@ export default function ExpensesPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="submitted" className="relative">
-              Enviados
-              {submittedExpenses.length > 0 && (
+            <TabsTrigger value="in-review" className="relative">
+              En revisión
+              {inReviewExpenses.length > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs">
-                  {submittedExpenses.length}
+                  {inReviewExpenses.length}
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger value="approved" className="relative">
-              Aprobados
-              {approvedExpenses.length > 0 && (
+            <TabsTrigger value="completed" className="relative">
+              Finalizados
+              {completedExpenses.length > 0 && (
                 <Badge variant="secondary" className="ml-2 text-xs">
-                  {approvedExpenses.length}
+                  {completedExpenses.length}
                 </Badge>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="rejected" className="relative">
-              Rechazados
-              {rejectedExpenses.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {rejectedExpenses.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="reimbursed" className="relative">
-              Reembolsados
-              {reimbursedExpenses.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {reimbursedExpenses.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all" className="relative">
-              Todos
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {expenses.length}
-              </Badge>
             </TabsTrigger>
           </TabsList>
 
           {/* Actions */}
           <div className="flex items-center gap-2">
             <DataTableViewOptions table={table} />
-            <Button onClick={handleNewExpense} size="sm" className="hidden @4xl/main:flex">
-              <Plus className="mr-2 size-4" />
-              Nuevo
-            </Button>
           </div>
         </div>
-
-        {/* Tab Content - Borradores */}
-        <TabsContent value="draft" className="mt-4">
-          {draftExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay borradores"
-              description="Crea un nuevo gasto para empezar"
-              action={
-                <Button onClick={handleNewExpense}>
-                  <Plus className="mr-2 size-4" />
-                  Nuevo Gasto
-                </Button>
-              }
-            />
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Content - Enviados */}
-        <TabsContent value="submitted" className="mt-4">
-          {submittedExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos enviados"
-              description="Los gastos enviados a aprobación aparecerán aquí"
-            />
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Content - Aprobados */}
-        <TabsContent value="approved" className="mt-4">
-          {approvedExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos aprobados"
-              description="Los gastos aprobados aparecerán aquí"
-            />
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Content - Rechazados */}
-        <TabsContent value="rejected" className="mt-4">
-          {rejectedExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos rechazados"
-              description="Los gastos rechazados aparecerán aquí"
-            />
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Content - Reembolsados */}
-        <TabsContent value="reimbursed" className="mt-4">
-          {reimbursedExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos reembolsados"
-              description="Los gastos reembolsados aparecerán aquí"
-            />
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
-            </>
-          )}
-        </TabsContent>
 
         {/* Tab Content - Todos */}
         <TabsContent value="all" className="mt-4">
@@ -399,12 +267,66 @@ export default function ExpensesPage() {
               }
             />
           ) : (
-            <>
+            <div className="space-y-4">
               <div className="overflow-hidden rounded-lg border">
                 <DataTable table={table} columns={columns} />
               </div>
               <DataTablePagination table={table} />
-            </>
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Content - Borradores */}
+        <TabsContent value="draft" className="mt-4">
+          {draftExpenses.length === 0 ? (
+            <EmptyState
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
+              title="No hay borradores"
+              description="Los gastos guardados como borrador aparecerán aquí"
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-lg border">
+                <DataTable table={table} columns={columns} />
+              </div>
+              <DataTablePagination table={table} />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Content - En revisión */}
+        <TabsContent value="in-review" className="mt-4">
+          {inReviewExpenses.length === 0 ? (
+            <EmptyState
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
+              title="No hay gastos en revisión"
+              description="Los gastos enviados y en proceso de aprobación aparecerán aquí"
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-lg border">
+                <DataTable table={table} columns={columns} />
+              </div>
+              <DataTablePagination table={table} />
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab Content - Finalizados */}
+        <TabsContent value="completed" className="mt-4">
+          {completedExpenses.length === 0 ? (
+            <EmptyState
+              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
+              title="No hay gastos finalizados"
+              description="Los gastos rechazados o reembolsados aparecerán aquí"
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-lg border">
+                <DataTable table={table} columns={columns} />
+              </div>
+              <DataTablePagination table={table} />
+            </div>
           )}
         </TabsContent>
       </Tabs>

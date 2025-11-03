@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, Clock, Loader2, Receipt, X } from "lucide-react";
+import { Check, Clock, Eye, Loader2, Receipt, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -40,6 +40,8 @@ import {
   rejectExpense,
 } from "@/server/actions/expense-approvals";
 
+import { ExpenseDetailSheet } from "./_components/expense-detail-sheet";
+
 type TabKey = "pending" | "approved" | "rejected";
 
 interface ExpenseApproval {
@@ -51,19 +53,34 @@ interface ExpenseApproval {
   totalAmount: number;
   notes: string | null;
   merchantName: string | null;
+  merchantVat: string | null;
   status: string;
   createdAt: Date;
+  mileageKm: number | null;
+  mileageRate: number | null;
   employee: {
     id: string;
     firstName: string;
     lastName: string;
     email: string | null;
+    photoUrl: string | null; // Lo mantenemos como photoUrl en la interfaz para el Sheet
+    user?: {
+      image: string | null; // Pero viene como image del servidor
+    };
   };
   approvals: Array<{
     id: string;
     decision: string;
     comment: string | null;
     decidedAt: Date | null;
+    approver: {
+      name: string;
+    };
+  }>;
+  attachments?: Array<{
+    id: string;
+    url: string;
+    fileName: string;
   }>;
   costCenter?: {
     id: string;
@@ -120,6 +137,8 @@ export default function ExpenseApprovalsPage() {
   const [selectedExpense, setSelectedExpense] = useState<ExpenseApproval | null>(null);
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [detailExpense, setDetailExpense] = useState<ExpenseApproval | null>(null);
 
   const loadExpenses = useCallback(async (tab: TabKey) => {
     setTabLoading((prev) => ({ ...prev, [tab]: true }));
@@ -146,7 +165,12 @@ export default function ExpenseApprovalsPage() {
   }, []);
 
   useEffect(() => {
-    void loadExpenses("pending");
+    // Cargar todas las tabs al inicio para tener los contadores correctos
+    void Promise.all([
+      loadExpenses("pending"),
+      loadExpenses("approved"),
+      loadExpenses("rejected"),
+    ]);
   }, [loadExpenses]);
 
   const handleTabChange = (value: string) => {
@@ -163,6 +187,18 @@ export default function ExpenseApprovalsPage() {
     setComments("");
     setActionDialogOpen(true);
   }, []);
+
+  const handleDetailSheetApprove = useCallback(() => {
+    if (!detailExpense) return;
+    setDetailSheetOpen(false);
+    handleAction(detailExpense, "approve");
+  }, [detailExpense, handleAction]);
+
+  const handleDetailSheetReject = useCallback(() => {
+    if (!detailExpense) return;
+    setDetailSheetOpen(false);
+    handleAction(detailExpense, "reject");
+  }, [detailExpense, handleAction]);
 
   const handleSubmitAction = async () => {
     if (!selectedExpense) return;
@@ -186,11 +222,12 @@ export default function ExpenseApprovalsPage() {
       setSelectedExpense(null);
       setComments("");
 
+      // Recargar todas las tabs para actualizar los contadores
       const refreshTabs: TabKey[] = ["pending"];
-      if (actionType === "approve" && loadedTabs.approved) {
+      if (actionType === "approve") {
         refreshTabs.push("approved");
       }
-      if (actionType === "reject" && loadedTabs.rejected) {
+      if (actionType === "reject") {
         refreshTabs.push("rejected");
       }
       await Promise.all(refreshTabs.map((tab) => loadExpenses(tab)));
@@ -265,6 +302,25 @@ export default function ExpenseApprovalsPage() {
           ) : (
             <span className="text-muted-foreground">-</span>
           ),
+      },
+      {
+        id: "detail",
+        cell: ({ row }) => {
+          const expense = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setDetailExpense(expense);
+                setDetailSheetOpen(true);
+              }}
+            >
+              <Eye className="mr-1 h-4 w-4" />
+              Ver detalle
+            </Button>
+          );
+        },
       },
       {
         id: "actions",
@@ -680,6 +736,31 @@ export default function ExpenseApprovalsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Sheet de Detalle de Gasto */}
+      {detailExpense && (
+        <ExpenseDetailSheet
+          expense={{
+            ...detailExpense,
+            employee: {
+              firstName: detailExpense.employee.firstName,
+              lastName: detailExpense.employee.lastName,
+              email: detailExpense.employee.email ?? "",
+              photoUrl: detailExpense.employee.user?.image ?? null,
+            },
+            approvals: detailExpense.approvals.map((approval) => ({
+              ...approval,
+              approver: {
+                name: approval.approver.name ?? "",
+              },
+            })),
+          }}
+          open={detailSheetOpen}
+          onOpenChange={setDetailSheetOpen}
+          onApprove={handleDetailSheetApprove}
+          onReject={handleDetailSheetReject}
+        />
+      )}
     </div>
   );
 }

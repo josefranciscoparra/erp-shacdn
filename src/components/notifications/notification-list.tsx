@@ -17,6 +17,7 @@ import {
   FileClock,
   FileX,
   Clock,
+  Receipt,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -38,13 +39,20 @@ const notificationIcons = {
   MANUAL_TIME_ENTRY_SUBMITTED: Clock,
   MANUAL_TIME_ENTRY_APPROVED: Check,
   MANUAL_TIME_ENTRY_REJECTED: X,
+  EXPENSE_SUBMITTED: Receipt,
+  EXPENSE_APPROVED: Check,
+  EXPENSE_REJECTED: X,
 };
 
 export function NotificationList() {
   const router = useRouter();
   const { notifications, isLoading, markAsRead, markAllAsRead } = useNotificationsStore();
 
-  const handleNotificationClick = async (notificationId: string) => {
+  const handleNotificationClick = async (notification: any) => {
+    // Marcar como leída
+    await markAsRead(notification.id);
+
+    // Redirigir a la página de notificaciones
     router.push("/dashboard/notifications");
   };
 
@@ -84,7 +92,7 @@ export function NotificationList() {
               return (
                 <button
                   key={notification.id}
-                  onClick={() => handleNotificationClick(notification.id)}
+                  onClick={() => handleNotificationClick(notification)}
                   className={cn(
                     "hover:bg-accent flex w-full items-start gap-3 p-4 text-left transition-colors",
                     !notification.isRead && "bg-muted/50",
@@ -114,6 +122,12 @@ export function NotificationList() {
                       notification.type === "MANUAL_TIME_ENTRY_APPROVED" &&
                         "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                       notification.type === "MANUAL_TIME_ENTRY_REJECTED" &&
+                        "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                      notification.type === "EXPENSE_SUBMITTED" &&
+                        "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
+                      notification.type === "EXPENSE_APPROVED" &&
+                        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                      notification.type === "EXPENSE_REJECTED" &&
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                     )}
                   >

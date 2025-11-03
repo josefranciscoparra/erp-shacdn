@@ -29,15 +29,17 @@ const expenseFormSchema = z.object({
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
 interface ExpenseFormProps {
-  initialData?: Expense;
-  onSubmit: (data: any) => Promise<void>;
+  initialData?: Expense | Partial<Expense>;
+  onSubmit: (data: any, submitType: "draft" | "submit") => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  isEditMode?: boolean; // true = editando gasto existente, false/undefined = nuevo gasto
 }
 
-export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = false }: ExpenseFormProps) {
+export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = false, isEditMode = false }: ExpenseFormProps) {
   const [isMileage, setIsMileage] = useState(initialData?.category === "MILEAGE");
   const [totalAmount, setTotalAmount] = useState(0);
+  const [submitType, setSubmitType] = useState<"draft" | "submit">("submit");
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -80,21 +82,21 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
     }
   }, [isMileage, watchAmount, watchVat, watchKm]);
 
-  const handleSubmit = async (data: ExpenseFormValues) => {
+  const handleSubmit = async (data: ExpenseFormValues, type: "draft" | "submit") => {
     const formattedData = {
       date: new Date(data.date),
       category: data.category,
+      // Para MILEAGE, el amount es 0 (se calcula en el servidor basado en mileageKm)
       amount: isMileage ? 0 : parseFloat(data.amount),
       vatPercent: isMileage || !data.vatPercent ? null : parseFloat(data.vatPercent),
-      totalAmount,
       merchantName: data.merchantName ?? null,
       merchantVat: data.merchantVat ?? null,
       notes: data.notes ?? null,
       mileageKm: isMileage && data.mileageKm ? parseFloat(data.mileageKm) : null,
-      mileageRate: isMileage ? 0.26 : null,
+      // totalAmount y mileageRate se calculan en el servidor
     };
 
-    await onSubmit(formattedData);
+    await onSubmit(formattedData, type);
   };
 
   const categories = [
@@ -109,7 +111,13 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          form.handleSubmit((data) => handleSubmit(data, submitType))();
+        }}
+        className="space-y-6"
+      >
         {/* Fecha y Categoría */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField
@@ -278,8 +286,23 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
           <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Guardando..." : initialData ? "Guardar cambios" : "Crear gasto"}
+          {/* Solo mostrar "Guardar borrador" si es un gasto nuevo (no en modo edición) */}
+          {!isEditMode && (
+            <Button
+              type="submit"
+              variant="secondary"
+              disabled={isSubmitting}
+              onClick={() => setSubmitType("draft")}
+            >
+              {isSubmitting && submitType === "draft" ? "Guardando..." : "Guardar borrador"}
+            </Button>
+          )}
+          <Button type="submit" disabled={isSubmitting} onClick={() => setSubmitType("submit")}>
+            {isSubmitting && submitType === "submit"
+              ? "Enviando..."
+              : isEditMode
+                ? "Guardar cambios"
+                : "Enviar gasto"}
           </Button>
         </div>
       </form>
