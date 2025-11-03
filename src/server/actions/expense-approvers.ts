@@ -451,7 +451,7 @@ export async function setEmployeeApprover(data: z.infer<typeof SetEmployeeApprov
  * Retorna aprobador específico si existe, si no, retorna aprobadores organizacionales
  */
 export async function getEmployeeApprover(employeeId: string) {
-  const { user } = await getAuthenticatedEmployee();
+  const { employee: currentEmployee, user } = await getAuthenticatedEmployee();
 
   // Verificar que el empleado existe y pertenece a la organización
   const employee = await prisma.employee.findUnique({
@@ -473,7 +473,7 @@ export async function getEmployeeApprover(employeeId: string) {
     return { success: false, error: "Empleado no encontrado" };
   }
 
-  if (employee.orgId !== user.orgId) {
+  if (employee.orgId !== currentEmployee.orgId) {
     return { success: false, error: "El empleado no pertenece a tu organización" };
   }
 
