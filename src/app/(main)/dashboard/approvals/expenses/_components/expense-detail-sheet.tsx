@@ -4,7 +4,19 @@ import { useEffect, useState } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Clock, FileText, MapPin, Receipt, User, Building2, CreditCard, X, Check } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  FileText,
+  MapPin,
+  Receipt,
+  User,
+  Building2,
+  CreditCard,
+  X,
+  Check,
+  Loader2,
+} from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { ExpenseCategoryIcon, getCategoryLabel } from "./expense-category-icon";
 
@@ -66,6 +79,7 @@ interface ExpenseDetailSheetProps {
 export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onReject }: ExpenseDetailSheetProps) {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loadingUrls, setLoadingUrls] = useState(false);
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
   // Cargar URLs firmadas cuando se abra el detalle
   useEffect(() => {
@@ -82,9 +96,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
         await Promise.all(
           expense.attachments!.map(async (attachment) => {
             try {
-              const response = await fetch(
-                `/api/expenses/${expense.id}/attachments/${attachment.id}/download`
-              );
+              const response = await fetch(`/api/expenses/${expense.id}/attachments/${attachment.id}/download`);
 
               if (response.ok) {
                 const data = await response.json();
@@ -93,7 +105,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
             } catch (error) {
               console.error(`Error loading signed URL for ${attachment.id}:`, error);
             }
-          })
+          }),
         );
 
         setSignedUrls(urls);
@@ -143,7 +155,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                   </Badge>
                 </div>
                 <p className="text-muted-foreground text-sm">{expense.employee.email}</p>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <div className="text-muted-foreground flex items-center gap-1 text-xs">
                   <Calendar className="size-3" />
                   <span>{format(expense.date, "d 'de' MMMM 'de' yyyy", { locale: es })}</span>
                 </div>
@@ -160,6 +172,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                 <div className="grid grid-cols-2 gap-2">
                   {expense.attachments.map((attachment) => {
                     const signedUrl = signedUrls[attachment.id] ?? attachment.url;
+                    const isLoaded = loadedImages[attachment.id];
 
                     return (
                       <a
@@ -167,23 +180,23 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                         href={signedUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="group relative aspect-square overflow-hidden rounded-lg border bg-muted transition-colors hover:bg-muted/80"
+                        className="group bg-muted hover:bg-muted/80 relative aspect-square overflow-hidden rounded-lg border transition-colors"
                       >
-                        {loadingUrls && !signedUrls[attachment.id] ? (
+                        {!isLoaded && (
                           <div className="flex size-full items-center justify-center">
-                            <div className="text-muted-foreground text-xs">Cargando...</div>
+                            <Loader2 className="text-muted-foreground size-8 animate-spin" />
                           </div>
-                        ) : (
-                          <>
-                            <img
-                              src={signedUrl}
-                              alt={attachment.fileName}
-                              className="size-full object-cover"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                              <span className="text-xs font-medium text-white">Ver original</span>
-                            </div>
-                          </>
+                        )}
+                        <img
+                          src={signedUrl}
+                          alt={attachment.fileName}
+                          className={`size-full object-cover ${!isLoaded ? "hidden" : "block"}`}
+                          onLoad={() => setLoadedImages((prev) => ({ ...prev, [attachment.id]: true }))}
+                        />
+                        {isLoaded && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                            <span className="text-xs font-medium text-white">Ver original</span>
+                          </div>
                         )}
                       </a>
                     );
@@ -228,9 +241,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">Importe base</span>
                       <span className="text-sm font-medium">
-                        {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(
-                          expense.amount,
-                        )}
+                        {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(expense.amount)}
                       </span>
                     </div>
                     {expense.vatPercent && (
@@ -251,9 +262,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">Total</span>
                   <span className="text-xl font-bold">
-                    {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(
-                      expense.totalAmount,
-                    )}
+                    {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(expense.totalAmount)}
                   </span>
                 </div>
               </div>
@@ -264,7 +273,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
               {/* Comercio */}
               {expense.merchantName && (
                 <div className="flex items-start gap-3">
-                  <Building2 className="mt-0.5 size-4 text-muted-foreground" />
+                  <Building2 className="text-muted-foreground mt-0.5 size-4" />
                   <div className="flex-1 space-y-1">
                     <p className="text-sm font-medium">{expense.merchantName}</p>
                     {expense.merchantVat && (
@@ -277,7 +286,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
               {/* Centro de coste */}
               {expense.costCenter && (
                 <div className="flex items-center gap-3">
-                  <MapPin className="size-4 text-muted-foreground" />
+                  <MapPin className="text-muted-foreground size-4" />
                   <div className="flex-1">
                     <p className="text-sm">
                       <span className="font-medium">{expense.costCenter.name}</span>
@@ -290,9 +299,9 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
               {/* Notas */}
               {expense.notes && (
                 <div className="flex items-start gap-3">
-                  <FileText className="mt-0.5 size-4 text-muted-foreground" />
+                  <FileText className="text-muted-foreground mt-0.5 size-4" />
                   <div className="flex-1">
-                    <p className="text-sm text-muted-foreground">{expense.notes}</p>
+                    <p className="text-muted-foreground text-sm">{expense.notes}</p>
                   </div>
                 </div>
               )}
@@ -307,10 +316,10 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                 </h4>
                 <div className="space-y-3">
                   <div className="flex items-start gap-3">
-                    <div className="flex size-2 translate-y-1.5 rounded-full bg-primary" />
+                    <div className="bg-primary flex size-2 translate-y-1.5 rounded-full" />
                     <div className="flex-1 space-y-1">
                       <p className="text-sm">Creado</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-muted-foreground text-xs">
                         {format(expense.createdAt, "d MMM yyyy 'a las' HH:mm", { locale: es })}
                       </p>
                     </div>
@@ -325,12 +334,11 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                       />
                       <div className="flex-1 space-y-1">
                         <p className="text-sm">
-                          {approval.decision === "APPROVED" ? "Aprobado" : "Rechazado"} por{" "}
-                          {approval.approver.name}
+                          {approval.decision === "APPROVED" ? "Aprobado" : "Rechazado"} por {approval.approver.name}
                         </p>
-                        {approval.comment && <p className="text-xs text-muted-foreground">{approval.comment}</p>}
+                        {approval.comment && <p className="text-muted-foreground text-xs">{approval.comment}</p>}
                         {approval.decidedAt && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-muted-foreground text-xs">
                             {format(approval.decidedAt, "d MMM yyyy 'a las' HH:mm", { locale: es })}
                           </p>
                         )}

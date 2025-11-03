@@ -6,9 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ArrowLeft, Edit, Trash2, Send } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Send, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
 
 import { ExpenseAmountDisplay } from "../_components/expense-amount-display";
@@ -21,6 +22,7 @@ export default function ExpenseDetailPage() {
   const { expenses, fetchMyExpenses, deleteExpense, submitExpense } = useExpensesStore();
   const [expense, setExpense] = useState<Expense | null>(null);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
   const id = params.id as string;
 
@@ -48,9 +50,7 @@ export default function ExpenseDetailPage() {
         await Promise.all(
           expense.attachments!.map(async (attachment: any) => {
             try {
-              const response = await fetch(
-                `/api/expenses/${expense.id}/attachments/${attachment.id}/download`
-              );
+              const response = await fetch(`/api/expenses/${expense.id}/attachments/${attachment.id}/download`);
 
               if (response.ok) {
                 const data = await response.json();
@@ -59,7 +59,7 @@ export default function ExpenseDetailPage() {
             } catch (error) {
               console.error(`Error loading signed URL for ${attachment.id}:`, error);
             }
-          })
+          }),
         );
 
         setSignedUrls(urls);
@@ -152,9 +152,9 @@ export default function ExpenseDetailPage() {
       {/* Contenido */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Información principal */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           {/* Card de datos */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="bg-card rounded-lg border p-6">
             <h2 className="mb-4 text-lg font-semibold">Información del Gasto</h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
@@ -215,19 +215,26 @@ export default function ExpenseDetailPage() {
 
           {/* Adjuntos */}
           {expense.attachments && expense.attachments.length > 0 && (
-            <div className="rounded-lg border bg-card p-6">
+            <div className="bg-card rounded-lg border p-6">
               <h2 className="mb-4 text-lg font-semibold">Adjuntos ({expense.attachments.length})</h2>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
                 {expense.attachments.map((att: any) => {
                   const signedUrl = signedUrls[att.id] ?? att.url;
+                  const isLoaded = loadedImages[att.id];
 
                   return (
-                    <div key={att.id} className="overflow-hidden rounded-lg border">
+                    <div key={att.id} className="relative overflow-hidden rounded-lg border">
+                      {!isLoaded && (
+                        <div className="bg-muted flex aspect-square w-full items-center justify-center">
+                          <Loader2 className="text-muted-foreground size-8 animate-spin" />
+                        </div>
+                      )}
                       <img
                         src={signedUrl}
                         alt={att.fileName}
-                        className="aspect-square w-full cursor-pointer object-cover transition-transform hover:scale-105"
+                        className={`aspect-square w-full cursor-pointer object-cover transition-transform hover:scale-105 ${!isLoaded ? "hidden" : "block"}`}
                         onClick={() => window.open(signedUrl, "_blank")}
+                        onLoad={() => setLoadedImages((prev) => ({ ...prev, [att.id]: true }))}
                       />
                     </div>
                   );
@@ -240,7 +247,7 @@ export default function ExpenseDetailPage() {
         {/* Sidebar derecho */}
         <div className="space-y-6">
           {/* Resumen económico */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="bg-card rounded-lg border p-6">
             <h2 className="mb-4 text-lg font-semibold">Resumen</h2>
             <ExpenseAmountDisplay
               amount={expense.amount}
@@ -252,7 +259,7 @@ export default function ExpenseDetailPage() {
           </div>
 
           {/* Estado */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="bg-card rounded-lg border p-6">
             <h2 className="mb-4 text-lg font-semibold">Estado</h2>
             <div className="space-y-2">
               <div className="flex items-center justify-between">

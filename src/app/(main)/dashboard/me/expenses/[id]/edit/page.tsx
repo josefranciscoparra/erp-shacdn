@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
 
 import { AttachmentUploader } from "../../_components/attachment-uploader";
@@ -20,6 +21,7 @@ export default function EditExpensePage() {
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
 
   const id = params.id as string;
 
@@ -47,9 +49,7 @@ export default function EditExpensePage() {
         await Promise.all(
           expense.attachments!.map(async (attachment: any) => {
             try {
-              const response = await fetch(
-                `/api/expenses/${expense.id}/attachments/${attachment.id}/download`
-              );
+              const response = await fetch(`/api/expenses/${expense.id}/attachments/${attachment.id}/download`);
 
               if (response.ok) {
                 const data = await response.json();
@@ -58,7 +58,7 @@ export default function EditExpensePage() {
             } catch (error) {
               console.error(`Error loading signed URL for ${attachment.id}:`, error);
             }
-          })
+          }),
         );
 
         setSignedUrls(urls);
@@ -135,18 +135,25 @@ export default function EditExpensePage() {
       <div className="mx-auto w-full max-w-3xl space-y-6">
         {/* Adjuntos existentes */}
         {expense.attachments && expense.attachments.length > 0 && (
-          <div className="rounded-lg border bg-card p-6">
+          <div className="bg-card rounded-lg border p-6">
             <h2 className="mb-4 text-lg font-semibold">Adjuntos Actuales ({expense.attachments.length})</h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
               {expense.attachments.map((att: any) => {
                 const signedUrl = signedUrls[att.id] ?? att.url;
+                const isLoaded = loadedImages[att.id];
 
                 return (
-                  <div key={att.id} className="overflow-hidden rounded-lg border">
+                  <div key={att.id} className="relative overflow-hidden rounded-lg border">
+                    {!isLoaded && (
+                      <div className="bg-muted flex aspect-square w-full items-center justify-center">
+                        <Loader2 className="text-muted-foreground size-8 animate-spin" />
+                      </div>
+                    )}
                     <img
                       src={signedUrl}
                       alt={att.fileName}
-                      className="aspect-square w-full object-cover"
+                      className={`aspect-square w-full object-cover ${!isLoaded ? "hidden" : "block"}`}
+                      onLoad={() => setLoadedImages((prev) => ({ ...prev, [att.id]: true }))}
                     />
                   </div>
                 );
@@ -156,13 +163,13 @@ export default function EditExpensePage() {
         )}
 
         {/* Adjuntos nuevos */}
-        <div className="rounded-lg border bg-card p-6">
+        <div className="bg-card rounded-lg border p-6">
           <h2 className="mb-4 text-lg font-semibold">Añadir Más Adjuntos</h2>
           <AttachmentUploader files={files} onFilesChange={setFiles} />
         </div>
 
         {/* Formulario */}
-        <div className="rounded-lg border bg-card p-6">
+        <div className="bg-card rounded-lg border p-6">
           <h2 className="mb-4 text-lg font-semibold">Detalles del Gasto</h2>
           <ExpenseForm
             initialData={expense}
