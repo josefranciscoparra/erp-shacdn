@@ -353,25 +353,6 @@ export default function ExpenseApprovalsPage() {
   const historyColumns: ColumnDef<ExpenseApproval>[] = useMemo(
     () => [
       {
-        id: "detail",
-        cell: ({ row }) => {
-          const expense = row.original;
-          return (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setDetailExpense(expense);
-                setDetailSheetOpen(true);
-              }}
-            >
-              <Eye className="mr-1 h-4 w-4" />
-              Ver detalle
-            </Button>
-          );
-        },
-      },
-      {
         accessorKey: "employee",
         header: "Empleado",
         cell: ({ row }) => renderEmployeeCell(row.original),
@@ -427,6 +408,25 @@ export default function ExpenseApprovalsPage() {
             <span className="line-clamp-2 text-sm">{approval.comment}</span>
           ) : (
             <span className="text-muted-foreground text-sm">Sin comentarios</span>
+          );
+        },
+      },
+      {
+        id: "detail",
+        cell: ({ row }) => {
+          const expense = row.original;
+          return (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setDetailExpense(expense);
+                setDetailSheetOpen(true);
+              }}
+            >
+              <Eye className="mr-1 h-4 w-4" />
+              Ver detalle
+            </Button>
           );
         },
       },
