@@ -61,11 +61,6 @@ export const getExpensesColumns = ({
       const date = row.getValue("date");
       return <div className="text-sm">{format(date, "dd MMM yyyy", { locale: es })}</div>;
     },
-    sortingFn: (rowA, rowB) => {
-      const dateA = rowA.getValue("date");
-      const dateB = rowB.getValue("date");
-      return dateA.getTime() - dateB.getTime();
-    },
   },
   {
     accessorKey: "category",
