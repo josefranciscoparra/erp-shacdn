@@ -17,12 +17,25 @@ import {
 // Tipos para el store
 export type ClockStatus = "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
 
+export interface GeolocationData {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+}
+
 export interface TimeEntry {
   id: string;
   entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
   timestamp: Date;
   location?: string;
   notes?: string;
+  // Datos de geolocalización
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  isWithinAllowedArea?: boolean;
+  distanceFromCenter?: number;
+  requiresReview?: boolean;
 }
 
 export interface WorkdaySummary {
@@ -76,10 +89,10 @@ interface TimeTrackingState {
   setLiveWorkedMinutes: (minutes: number) => void;
 
   // Acciones de fichaje (se conectarán a server actions)
-  clockIn: () => Promise<void>;
-  clockOut: () => Promise<void>;
-  startBreak: () => Promise<void>;
-  endBreak: () => Promise<void>;
+  clockIn: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  clockOut: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  startBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  endBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
 
   // Acciones de datos
   loadCurrentStatus: () => Promise<void>;
@@ -121,10 +134,10 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   setLiveWorkedMinutes: (minutes) => set({ liveWorkedMinutes: minutes }),
 
   // Acciones de fichaje
-  clockIn: async () => {
+  clockIn: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await clockInAction();
+      await clockInAction(latitude, longitude, accuracy);
 
       set({
         currentStatus: "CLOCKED_IN",
@@ -141,10 +154,10 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     }
   },
 
-  clockOut: async () => {
+  clockOut: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await clockOutAction();
+      await clockOutAction(latitude, longitude, accuracy);
 
       set({
         currentStatus: "CLOCKED_OUT",
@@ -161,10 +174,10 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     }
   },
 
-  startBreak: async () => {
+  startBreak: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await startBreakAction();
+      await startBreakAction(latitude, longitude, accuracy);
 
       set({
         currentStatus: "ON_BREAK",
@@ -181,10 +194,10 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
     }
   },
 
-  endBreak: async () => {
+  endBreak: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await endBreakAction();
+      await endBreakAction(latitude, longitude, accuracy);
 
       set({
         currentStatus: "CLOCKED_IN",

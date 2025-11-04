@@ -6,9 +6,10 @@ import { useParams, useRouter } from "next/navigation";
 
 import { startOfDay, endOfDay, format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Download, ArrowLeft, ShieldAlert } from "lucide-react";
+import { Download, ArrowLeft, ShieldAlert, List, Map } from "lucide-react";
 import { DateRange } from "react-day-picker";
 
+import { TimeEntriesMap } from "@/app/(main)/dashboard/me/clock/_components/time-entries-map-wrapper";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -36,6 +37,8 @@ import { QuickPeriodFilter } from "../_components/quick-period-filter";
 import { weeklyColumns, type WeeklySummary } from "../_components/weekly-columns";
 import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns";
 
+// Import del wrapper del mapa (ya maneja SSR internamente)
+
 type TabValue = "detail" | "week" | "month" | "year";
 type PeriodOption = "today" | "7days" | "30days" | "thisMonth" | "lastMonth" | "custom";
 
@@ -57,6 +60,12 @@ interface DayDetailData {
     location?: string | null;
     notes?: string | null;
     isManual: boolean;
+    // Campos GPS
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracy?: number | null;
+    isWithinAllowedArea?: boolean | null;
+    requiresReview?: boolean;
   }[];
 }
 
@@ -75,6 +84,7 @@ export default function EmployeeTimeTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [employeeName, setEmployeeName] = useState("");
   const [employeeImage, setEmployeeImage] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // Tablas separadas para cada tipo de datos
   const weeklyTable = useDataTableInstance({
@@ -272,6 +282,10 @@ export default function EmployeeTimeTrackingPage() {
     }
   };
 
+  // Calcular fichajes con GPS (solo para tab de detalle)
+  const allTimeEntries = activeTab === "detail" ? dailyDetailRecords.flatMap((day) => day.timeEntries) : [];
+  const entriesWithGPS = allTimeEntries.filter((e) => e.latitude && e.longitude).length;
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -292,6 +306,12 @@ export default function EmployeeTimeTrackingPage() {
         );
       }
 
+      // Vista de mapa
+      if (viewMode === "map") {
+        return <TimeEntriesMap entries={allTimeEntries} />;
+      }
+
+      // Vista de lista
       return (
         <div className="space-y-4">
           {dailyDetailRecords.map((day) => (
@@ -409,6 +429,28 @@ export default function EmployeeTimeTrackingPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
+              {/* Toggle Lista/Mapa solo para tab detalle con GPS */}
+              {activeTab === "detail" && entriesWithGPS > 0 && !isLoading && (
+                <div className="flex items-center gap-1 rounded-lg border p-1">
+                  <Button
+                    size="sm"
+                    variant={viewMode === "list" ? "default" : "ghost"}
+                    onClick={() => setViewMode("list")}
+                  >
+                    <List className="mr-1.5 h-4 w-4" />
+                    Lista
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={viewMode === "map" ? "default" : "ghost"}
+                    onClick={() => setViewMode("map")}
+                  >
+                    <Map className="mr-1.5 h-4 w-4" />
+                    Mapa ({entriesWithGPS})
+                  </Button>
+                </div>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"

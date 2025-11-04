@@ -2,9 +2,75 @@
 
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
 
+import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+
+/**
+ * Helper para serializar TimeEntry convirtiendo Decimals a números
+ * Necesario para evitar error "Decimal objects are not supported" en Next.js 15
+ */
+function serializeTimeEntry(entry: any) {
+  return {
+    ...entry,
+    latitude: entry.latitude ? Number(entry.latitude) : null,
+    longitude: entry.longitude ? Number(entry.longitude) : null,
+    accuracy: entry.accuracy ? Number(entry.accuracy) : null,
+    distanceFromCenter: entry.distanceFromCenter ? Number(entry.distanceFromCenter) : null,
+  };
+}
+
+// Helper para procesar datos de geolocalización
+// IMPORTANTE: Recibe parámetros individuales en lugar de objeto para evitar problema de Next.js 15
+async function processGeolocationData(orgId: string, latitude?: number, longitude?: number, accuracy?: number) {
+  if (latitude === undefined || longitude === undefined || accuracy === undefined) {
+    return {};
+  }
+
+  // Obtener centros con ubicación
+  const costCenters = await prisma.costCenter.findMany({
+    where: {
+      orgId,
+      active: true,
+      latitude: { not: null },
+      longitude: { not: null },
+    },
+  });
+
+  // Calcular ubicación relativa al centro más cercano
+  if (costCenters.length > 0) {
+    const nearest = findNearestCenter(
+      { latitude, longitude },
+      costCenters.map((c) => ({
+        id: c.id,
+        latitude: Number(c.latitude),
+        longitude: Number(c.longitude),
+        allowedRadiusMeters: c.allowedRadiusMeters,
+      })),
+    );
+
+    if (nearest) {
+      const allowedRadius = nearest.center.allowedRadiusMeters ?? 200;
+      return {
+        latitude,
+        longitude,
+        accuracy,
+        nearestCostCenterId: nearest.center.id,
+        distanceFromCenter: nearest.distance,
+        isWithinAllowedArea: nearest.distance <= allowedRadius,
+        requiresReview: nearest.distance > allowedRadius,
+      };
+    }
+  }
+
+  // Sin centros configurados, guardar solo coordenadas
+  return {
+    latitude,
+    longitude,
+    accuracy,
+  };
+}
 
 // Helper para calcular minutos trabajados
 // IMPORTANTE: Solo calcula sesiones CERRADAS, no incluye tiempo en progreso
@@ -207,7 +273,7 @@ export async function getCurrentStatus() {
 }
 
 // Fichar entrada
-export async function clockIn() {
+export async function clockIn(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
@@ -217,6 +283,9 @@ export async function clockIn() {
       throw new Error("Ya has fichado entrada");
     }
 
+    // Procesar datos de geolocalización
+    const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
     // Crear el fichaje
     const entry = await prisma.timeEntry.create({
       data: {
@@ -224,13 +293,14 @@ export async function clockIn() {
         employeeId,
         entryType: "CLOCK_IN",
         timestamp: new Date(),
+        ...geoData,
       },
     });
 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
-    return { success: true, entry };
+    return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
     console.error("Error al fichar entrada:", error);
     throw error;
@@ -238,7 +308,7 @@ export async function clockIn() {
 }
 
 // Fichar salida
-export async function clockOut() {
+export async function clockOut(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
@@ -260,6 +330,9 @@ export async function clockOut() {
       });
     }
 
+    // Procesar datos de geolocalización
+    const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
     // Crear el fichaje de salida
     const entry = await prisma.timeEntry.create({
       data: {
@@ -267,13 +340,14 @@ export async function clockOut() {
         employeeId,
         entryType: "CLOCK_OUT",
         timestamp: new Date(),
+        ...geoData,
       },
     });
 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
-    return { success: true, entry };
+    return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
     console.error("Error al fichar salida:", error);
     throw error;
@@ -281,7 +355,7 @@ export async function clockOut() {
 }
 
 // Iniciar descanso
-export async function startBreak() {
+export async function startBreak(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
@@ -291,6 +365,9 @@ export async function startBreak() {
       throw new Error("Debes estar trabajando para iniciar un descanso");
     }
 
+    // Procesar datos de geolocalización
+    const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
     // Crear el fichaje
     const entry = await prisma.timeEntry.create({
       data: {
@@ -298,13 +375,14 @@ export async function startBreak() {
         employeeId,
         entryType: "BREAK_START",
         timestamp: new Date(),
+        ...geoData,
       },
     });
 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
-    return { success: true, entry };
+    return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
     console.error("Error al iniciar descanso:", error);
     throw error;
@@ -312,7 +390,7 @@ export async function startBreak() {
 }
 
 // Finalizar descanso
-export async function endBreak() {
+export async function endBreak(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
@@ -322,6 +400,9 @@ export async function endBreak() {
       throw new Error("No estás en descanso");
     }
 
+    // Procesar datos de geolocalización
+    const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
     // Crear el fichaje
     const entry = await prisma.timeEntry.create({
       data: {
@@ -329,13 +410,14 @@ export async function endBreak() {
         employeeId,
         entryType: "BREAK_END",
         timestamp: new Date(),
+        ...geoData,
       },
     });
 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
 
-    return { success: true, entry };
+    return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
     console.error("Error al finalizar descanso:", error);
     throw error;
@@ -403,7 +485,7 @@ export async function getTodaySummary() {
         updatedAt: summary.updatedAt,
         orgId: summary.orgId,
         employeeId: summary.employeeId,
-        timeEntries,
+        timeEntries: timeEntries.map(serializeTimeEntry),
       };
     }
 
@@ -415,7 +497,7 @@ export async function getTodaySummary() {
         totalWorkedMinutes: 0,
         totalBreakMinutes: 0,
         status: "IN_PROGRESS" as const,
-        timeEntries,
+        timeEntries: timeEntries.map(serializeTimeEntry),
       };
     }
 

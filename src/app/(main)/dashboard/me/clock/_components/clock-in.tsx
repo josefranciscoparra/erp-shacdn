@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { LogIn, LogOut, Coffee, FilePlus } from "lucide-react";
+import { LogIn, LogOut, Coffee, FilePlus, MapPin, AlertTriangle, CheckCircle2, List, Map } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,12 @@ import { Progress } from "@/components/ui/progress";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
+import { TimeEntriesMap } from "./time-entries-map-wrapper";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   const {
     currentStatus,
@@ -130,15 +132,20 @@ export function ClockIn() {
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
 
+  // Contar fichajes con GPS
+  const entriesWithGPS = todaySummary?.timeEntries?.filter((e) => e.latitude && e.longitude).length ?? 0;
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
         title="Fichar"
         action={
-          <Button variant="outline" size="sm" onClick={() => setManualDialogOpen(true)}>
-            <FilePlus className="mr-2 h-4 w-4" />
-            Solicitar fichaje manual
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setManualDialogOpen(true)}>
+              <FilePlus className="mr-2 h-4 w-4" />
+              Solicitar fichaje manual
+            </Button>
+          </div>
         }
       />
 
@@ -390,7 +397,33 @@ export function ClockIn() {
 
       {/* Historial de fichajes del día */}
       <Card className="@container/card flex flex-col gap-4 p-6">
-        <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
+
+          {/* Toggle Vista Lista/Mapa - solo si hay fichajes con GPS */}
+          {entriesWithGPS > 0 && !isLoading && (
+            <div className="flex items-center gap-1 rounded-lg border p-1">
+              <Button
+                size="sm"
+                variant={viewMode === "list" ? "default" : "ghost"}
+                onClick={() => setViewMode("list")}
+                className="h-8 px-3"
+              >
+                <List className="mr-1.5 h-4 w-4" />
+                Lista
+              </Button>
+              <Button
+                size="sm"
+                variant={viewMode === "map" ? "default" : "ghost"}
+                onClick={() => setViewMode("map")}
+                className="h-8 px-3"
+              >
+                <Map className="mr-1.5 h-4 w-4" />
+                Mapa ({entriesWithGPS})
+              </Button>
+            </div>
+          )}
+        </div>
 
         {isLoading ? (
           <div className="flex flex-col gap-2">
@@ -420,36 +453,75 @@ export function ClockIn() {
             ))}
           </div>
         ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
-          <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
-            {todaySummary.timeEntries
-              .slice()
-              .reverse()
-              .map((entry) => (
-                <div key={entry.id} className="flex items-center justify-between rounded-lg border p-3">
-                  <div className="flex items-center gap-3">
-                    {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
-                    {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
-                    {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
-                    {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium">
-                        {entry.entryType === "CLOCK_IN" && "Entrada"}
-                        {entry.entryType === "CLOCK_OUT" && "Salida"}
-                        {entry.entryType === "BREAK_START" && "Inicio de pausa"}
-                        {entry.entryType === "BREAK_END" && "Fin de pausa"}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {new Date(entry.timestamp).toLocaleString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                      </span>
+          viewMode === "map" ? (
+            <TimeEntriesMap entries={todaySummary.timeEntries} />
+          ) : (
+            <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
+              {todaySummary.timeEntries
+                .slice()
+                .reverse()
+                .map((entry) => (
+                  <div key={entry.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
+                        {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
+                        {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
+                        {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">
+                            {entry.entryType === "CLOCK_IN" && "Entrada"}
+                            {entry.entryType === "CLOCK_OUT" && "Salida"}
+                            {entry.entryType === "BREAK_START" && "Inicio de pausa"}
+                            {entry.entryType === "BREAK_END" && "Fin de pausa"}
+                          </span>
+                          <span className="text-muted-foreground text-xs">
+                            {new Date(entry.timestamp).toLocaleString("es-ES", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              second: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Información de geolocalización */}
+                    {entry.latitude && entry.longitude && (
+                      <div className="flex flex-wrap items-center gap-2 pl-7">
+                        <Badge variant="outline" className="text-xs">
+                          <MapPin className="mr-1 h-3 w-3" />
+                          GPS: {Math.round(entry.accuracy ?? 0)}m
+                        </Badge>
+
+                        {entry.isWithinAllowedArea === true && (
+                          <Badge
+                            variant="outline"
+                            className="border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
+                          >
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Dentro del área
+                          </Badge>
+                        )}
+
+                        {entry.requiresReview && (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            Requiere revisión
+                          </Badge>
+                        )}
+
+                        {entry.distanceFromCenter && (
+                          <span className="text-muted-foreground text-xs">
+                            {Math.round(entry.distanceFromCenter)}m del centro
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
-          </div>
+                ))}
+            </div>
+          )
         ) : (
           <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
             Aún no has registrado fichajes hoy.

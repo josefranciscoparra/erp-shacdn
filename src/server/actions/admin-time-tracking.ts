@@ -1177,6 +1177,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
                 location: entry.location,
                 notes: entry.notes,
                 isManual: entry.isManual,
+                // Campos GPS - Serializar Decimals a numbers para Next.js 15
+                latitude: entry.latitude ? Number(entry.latitude) : null,
+                longitude: entry.longitude ? Number(entry.longitude) : null,
+                accuracy: entry.accuracy ? Number(entry.accuracy) : null,
+                isWithinAllowedArea: entry.isWithinAllowedArea,
+                requiresReview: entry.requiresReview,
               })),
             };
           }
@@ -1200,6 +1206,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               location: entry.location,
               notes: entry.notes,
               isManual: entry.isManual,
+              // Campos GPS - Serializar Decimals a numbers para Next.js 15
+              latitude: entry.latitude ? Number(entry.latitude) : null,
+              longitude: entry.longitude ? Number(entry.longitude) : null,
+              accuracy: entry.accuracy ? Number(entry.accuracy) : null,
+              isWithinAllowedArea: entry.isWithinAllowedArea,
+              requiresReview: entry.requiresReview,
             })),
           };
         }),

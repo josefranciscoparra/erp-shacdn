@@ -4,7 +4,20 @@ import { useState } from "react";
 
 import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
-import { Clock, Coffee, LogIn, LogOut, CheckCircle, AlertCircle, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Clock,
+  Coffee,
+  LogIn,
+  LogOut,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,6 +31,12 @@ interface TimeEntry {
   location?: string | null;
   notes?: string | null;
   isManual: boolean;
+  // Campos GPS
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
+  isWithinAllowedArea?: boolean | null;
+  requiresReview?: boolean;
 }
 
 interface DayData {
@@ -216,6 +235,28 @@ export function DayCard({ day }: DayCardProps) {
                         )}
                       </div>
                       {entry.notes && <span className="text-muted-foreground text-xs">{entry.notes}</span>}
+
+                      {/* Badges de GPS */}
+                      {entry.latitude && entry.longitude && (
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <Badge variant="outline" className="text-xs">
+                            <MapPin className="mr-1 h-3 w-3" />
+                            GPS: {Math.round(entry.accuracy ?? 0)}m
+                          </Badge>
+                          {entry.isWithinAllowedArea === true && (
+                            <Badge variant="outline" className="border-green-500/20 bg-green-500/10 text-xs">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Dentro del área
+                            </Badge>
+                          )}
+                          {entry.requiresReview && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              Requiere revisión
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

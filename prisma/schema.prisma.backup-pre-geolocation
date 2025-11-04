@@ -36,12 +36,6 @@ model Organization {
   ptoCalculationMethod String  @default("PROPORTIONAL") // PROPORTIONAL, FIXED
   ptoAccrualStartDate  String  @default("CONTRACT_START") // CONTRACT_START, YEAR_START
 
-  // Configuración de Geolocalización
-  geolocationEnabled      Boolean @default(false) // Activar/desactivar captura de geolocalización
-  geolocationRequired     Boolean @default(false) // Si es obligatorio tener ubicación para fichar
-  geolocationMinAccuracy  Int     @default(100)   // Precisión mínima requerida en metros
-  geolocationMaxRadius    Int     @default(200)   // Radio máximo permitido por defecto en metros
-
   // Relaciones
   users               User[]
   employees           Employee[]
@@ -70,7 +64,6 @@ model Organization {
   expenseReports      ExpenseReport[]
   expensePolicy       ExpensePolicy?
   expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
-  geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización
 
   @@map("organizations")
 }
@@ -108,7 +101,6 @@ model User {
   expenseApprovals ExpenseApproval[] // Aprobaciones de gastos
   expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
   employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
-  geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización dados
 
   @@index([email])
   @@index([orgId])
@@ -155,11 +147,6 @@ model CostCenter {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  // Geolocalización (opcional - para validar fichajes)
-  latitude             Decimal? @db.Decimal(10, 8) // Latitud del centro de trabajo
-  longitude            Decimal? @db.Decimal(11, 8) // Longitud del centro de trabajo
-  allowedRadiusMeters  Int?     @default(100)      // Radio permitido en metros para fichar
 
   // Multi-tenancy
   orgId        String
@@ -589,20 +576,11 @@ model TimeEntry {
   id          String        @id @default(cuid())
   entryType   TimeEntryType // CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END
   timestamp   DateTime      @default(now()) // Momento exacto del fichaje
-  location    String?       // Geolocalización o ubicación (texto legible, deprecated)
+  location    String?       // Geolocalización o ubicación
   notes       String?       // Notas opcionales
   ipAddress   String?       // IP desde donde se fichó
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-
-  // Geolocalización estructurada (campos nuevos)
-  latitude              Decimal? @db.Decimal(10, 8) // Latitud del fichaje
-  longitude             Decimal? @db.Decimal(11, 8) // Longitud del fichaje
-  accuracy              Decimal? @db.Decimal(10, 2) // Precisión GPS en metros
-  isWithinAllowedArea   Boolean? // Si está dentro del área permitida del centro
-  distanceFromCenter    Decimal? @db.Decimal(10, 2) // Distancia al centro más cercano en metros
-  nearestCostCenterId   String?  // ID del centro de trabajo más cercano
-  requiresReview        Boolean  @default(false)    // Si requiere revisión por estar fuera de área
 
   // Multi-tenancy
   orgId        String
@@ -1457,37 +1435,6 @@ model ExpensePolicy {
   organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("expense_policies")
-}
-
-// ==================== SISTEMA DE GEOLOCALIZACIÓN ====================
-
-// Consentimiento de geolocalización del usuario (RGPD)
-model GeolocationConsent {
-  id               String   @id @default(cuid())
-
-  // Consentimiento
-  consentGivenAt   DateTime @default(now()) // Fecha y hora del consentimiento
-  consentVersion   String   @default("1.0") // Versión del texto de consentimiento
-  ipAddress        String?  // IP desde donde se dio consentimiento
-  active           Boolean  @default(true)  // Si el consentimiento está activo (puede revocarse)
-
-  // Timestamps
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  // Multi-tenancy
-  orgId            String
-  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-
-  // Usuario que dio consentimiento
-  userId           String
-  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, orgId]) // Un consentimiento activo por usuario por organización
-  @@index([orgId])
-  @@index([userId])
-  @@index([active])
-  @@map("geolocation_consents")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

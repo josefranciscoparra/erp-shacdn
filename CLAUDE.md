@@ -363,6 +363,139 @@ npm run lint
 
 Si hay errores, corregirlos ANTES de intentar el commit.
 
+## Sistema de Geolocalización GPS ⚠️
+
+### Descripción General
+
+Sistema completo de captura y visualización de ubicación GPS en fichajes, con cumplimiento RGPD/LOPDGDD.
+
+### Componentes Principales
+
+1. **Captura GPS** (`/src/hooks/use-geolocation.ts`)
+   - Hook de React para capturar ubicación del navegador
+   - Manejo de errores y permisos
+   - Cálculo de precisión GPS
+
+2. **Server Actions** (`/src/server/actions/geolocation.ts`)
+   - `checkGeolocationConsent()` - Verifica consentimiento del usuario
+   - `saveGeolocationConsent()` - Guarda consentimiento RGPD
+   - `validateClockLocation()` - Valida si está dentro del área permitida
+   - `getCostCentersWithLocation()` - Obtiene centros con GPS configurado
+   - `getGeolocationStats()` - Estadísticas de uso
+
+3. **Visualización en Mapa** (`/src/app/(main)/dashboard/me/clock/_components/time-entries-map.tsx`)
+   - Librería: Leaflet + React-Leaflet
+   - Marcadores de colores por tipo de fichaje
+   - Círculos de precisión GPS
+   - Popups con detalles de cada fichaje
+
+4. **Panel de Control** (`/src/app/(main)/dashboard/settings/_components/geolocation-tab.tsx`)
+   - Toggle ON/OFF para activar/desactivar geolocalización
+   - Estadísticas: fichajes totales, con GPS, que requieren revisión
+   - Enlace al mapa de fichajes
+
+### Funcionalidades
+
+**✅ Captura Automática:**
+- Al fichar (entrada/salida/pausas), captura GPS automáticamente si está activado
+- Solo pide permisos la primera vez (dialog de consentimiento RGPD)
+- Funciona en Chrome/Firefox (Safari en localhost NO permite GPS por seguridad)
+
+**✅ Validación de Ubicación:**
+- Calcula distancia al centro de trabajo más cercano usando fórmula Haversine
+- Marca fichajes fuera de área como "Requiere revisión"
+- Permite fichaje incluso si GPS falla (graceful degradation)
+
+**✅ Visualización:**
+- Vista Lista: Badges GPS mostrando precisión, estado dentro/fuera de área
+- Vista Mapa: Mapa interactivo con Leaflet mostrando todos los fichajes con GPS
+- Toggle entre lista/mapa disponible cuando hay fichajes con GPS
+
+### Configuración
+
+**Base de Datos (Prisma):**
+```typescript
+// TimeEntry - Almacena coordenadas GPS
+latitude: Decimal?
+longitude: Decimal?
+accuracy: Decimal?
+isWithinAllowedArea: Boolean?
+requiresReview: Boolean
+distanceFromCenter: Decimal?
+nearestCostCenterId: String?
+
+// GeolocationConsent - Cumplimiento RGPD
+userId, orgId, consentVersion, ipAddress, active
+
+// CostCenter - Centros con ubicación configurada
+latitude, longitude, allowedRadiusMeters
+
+// Organization - Configuración global
+geolocationEnabled: Boolean
+geolocationRequired: Boolean
+geolocationMinAccuracy: Int (metros)
+geolocationMaxRadius: Int (metros)
+```
+
+**IMPORTANTE - Serialización de Decimals:**
+Los campos `Decimal` de Prisma NO se pueden pasar directamente del servidor al cliente en Next.js 15. SIEMPRE usar `serializeTimeEntry()` que convierte a números:
+
+```typescript
+function serializeTimeEntry(entry: any) {
+  return {
+    ...entry,
+    latitude: entry.latitude ? Number(entry.latitude) : null,
+    longitude: entry.longitude ? Number(entry.longitude) : null,
+    accuracy: entry.accuracy ? Number(entry.accuracy) : null,
+    distanceFromCenter: entry.distanceFromCenter ? Number(entry.distanceFromCenter) : null,
+  };
+}
+```
+
+**Server Actions - Parámetros Individuales:**
+Next.js 15 NO permite acceder a propiedades de objetos pasados desde cliente a servidor. SIEMPRE pasar parámetros como valores primitivos individuales:
+
+```typescript
+// ❌ INCORRECTO
+export async function clockIn(geoData: { latitude: number, longitude: number, accuracy: number })
+
+// ✅ CORRECTO
+export async function clockIn(latitude?: number, longitude?: number, accuracy?: number)
+```
+
+### Uso
+
+**Activación:**
+1. Ir a `/dashboard/settings` → Pestaña "Geolocalización"
+2. Activar toggle de geolocalización
+3. Los fichajes ahora capturarán GPS automáticamente
+
+**Visualización de Fichajes con GPS:**
+1. Ir a `/dashboard/me/clock`
+2. En "Fichajes de hoy", verás badges GPS en cada entrada
+3. Si hay fichajes con GPS, aparece botón toggle "Lista/Mapa"
+4. Click en "Mapa" para ver todos los fichajes en mapa interactivo con Leaflet
+
+**Configurar Centros de Trabajo:**
+1. Ir a `/dashboard/cost-centers`
+2. Editar centro → Configurar `latitude`, `longitude`, `allowedRadiusMeters`
+3. Los fichajes se validarán contra estos centros
+
+### Dependencias
+
+```bash
+npm install leaflet react-leaflet @types/leaflet
+```
+
+**CSS de Leaflet:**
+Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
+
+### Limitaciones Conocidas
+
+- **Safari en localhost**: No permite geolocalización por seguridad. Usar Chrome para desarrollo o HTTPS en producción
+- **Precisión GPS**: Depende del dispositivo (móviles ~5-50m, ordenadores ~50-500m)
+- **Requiere HTTPS en producción**: Navegadores modernos solo permiten GPS en contextos seguros
+
 ## Guía de Estilo UI para ERP - IMPORTANTE ⚠️
 
 ### SIEMPRE Seguir Estos Patrones de Diseño
