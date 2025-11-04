@@ -58,19 +58,20 @@ export const getExpensesColumns = ({
     accessorKey: "date",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
-      const date = row.getValue("date") as Date;
-      return (
-        <div className="text-sm">
-          {format(date, "dd MMM yyyy", { locale: es })}
-        </div>
-      );
+      const date = row.getValue("date");
+      return <div className="text-sm">{format(date, "dd MMM yyyy", { locale: es })}</div>;
+    },
+    sortingFn: (rowA, rowB) => {
+      const dateA = rowA.getValue("date");
+      const dateB = rowB.getValue("date");
+      return dateA.getTime() - dateB.getTime();
     },
   },
   {
     accessorKey: "category",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Categoría" />,
     cell: ({ row }) => {
-      const category = row.getValue("category") as Expense["category"];
+      const category = row.getValue("category");
       return (
         <div className="flex items-center gap-2">
           <ExpenseCategoryIcon category={category} className="size-4" />
@@ -86,7 +87,7 @@ export const getExpensesColumns = ({
     accessorKey: "merchantName",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Comercio" />,
     cell: ({ row }) => {
-      const merchantName = row.getValue("merchantName") as string | null;
+      const merchantName = row.getValue("merchantName");
       const notes = row.original.notes;
       return (
         <div className="flex flex-col gap-1">
@@ -95,9 +96,7 @@ export const getExpensesColumns = ({
           ) : (
             <span className="text-muted-foreground text-sm">Sin comercio</span>
           )}
-          {notes && (
-            <span className="text-muted-foreground line-clamp-1 text-xs">{notes}</span>
-          )}
+          {notes && <span className="text-muted-foreground line-clamp-1 text-xs">{notes}</span>}
         </div>
       );
     },
@@ -106,7 +105,7 @@ export const getExpensesColumns = ({
     accessorKey: "amount",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Importe" />,
     cell: ({ row }) => {
-      const amount = row.getValue("amount") as number;
+      const amount = row.getValue("amount");
       return (
         <div className="text-sm">
           {new Intl.NumberFormat("es-ES", {
@@ -121,12 +120,8 @@ export const getExpensesColumns = ({
     accessorKey: "vatPercent",
     header: ({ column }) => <DataTableColumnHeader column={column} title="IVA" />,
     cell: ({ row }) => {
-      const vatPercent = row.getValue("vatPercent") as number | null;
-      return (
-        <div className="text-sm">
-          {vatPercent ? `${vatPercent}%` : "-"}
-        </div>
-      );
+      const vatPercent = row.getValue("vatPercent");
+      return <div className="text-sm">{vatPercent ? `${vatPercent}%` : "-"}</div>;
     },
   },
   {
@@ -148,7 +143,7 @@ export const getExpensesColumns = ({
     accessorKey: "status",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
-      const status = row.getValue("status") as Expense["status"];
+      const status = row.getValue("status");
       return <ExpenseStatusBadge status={status} />;
     },
     filterFn: (row, id, value) => {
