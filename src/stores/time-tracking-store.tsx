@@ -279,6 +279,13 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   },
 
   loadInitialData: async () => {
+    const state = get();
+
+    // Si ya hay datos cargados, no volver a cargar (evita flash al cambiar de página)
+    if (state.todaySummary !== null) {
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const startTime = Date.now();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { LogIn, LogOut, Coffee } from "lucide-react";
 
@@ -26,10 +26,15 @@ export function QuickClockWidget() {
   } = useTimeTrackingStore();
   const { hasEmployeeProfile } = usePermissions();
   const canClock = hasEmployeeProfile();
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Cargar estado inicial
   useEffect(() => {
-    loadInitialData();
+    const load = async () => {
+      await loadInitialData();
+      setIsInitialMount(false);
+    };
+    load();
   }, [loadInitialData]);
 
   // Actualizar contador en vivo cada segundo

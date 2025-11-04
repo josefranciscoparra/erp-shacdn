@@ -91,6 +91,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
   const [searchResults, setSearchResults] = useState<Employee[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
+  const [openComboboxAdvanced, setOpenComboboxAdvanced] = useState(false);
 
   const form = useForm<CreateSignatureFormValues>({
     resolver: zodResolver(createSignatureSchema),
@@ -111,10 +112,12 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       fetch("/api/departments")
         .then((res) => res.json())
         .then((data) => {
-          setDepartments(data.departments ?? []);
+          // El API devuelve el array directamente, no { departments: [...] }
+          setDepartments(Array.isArray(data) ? data : []);
         })
         .catch((error) => {
           console.error("Error loading departments:", error);
+          setDepartments([]);
         });
     }
   }, [open]);
@@ -144,6 +147,12 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
     return () => clearTimeout(debounceTimer);
   }, [employeeSearch]);
 
+  // Cerrar popovers cuando cambia el tipo de destinatario
+  useEffect(() => {
+    setOpenCombobox(false);
+    setOpenComboboxAdvanced(false);
+  }, [recipientType]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -170,6 +179,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       );
       setEmployeeSearch("");
       setOpenCombobox(false);
+      setOpenComboboxAdvanced(false);
     }
   };
 
@@ -193,6 +203,12 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
   const handleRecipientTypeChange = (value: "ALL" | "DEPARTMENTS" | "SPECIFIC") => {
     setRecipientType(value);
     form.setValue("recipientType", value);
+
+    // Limpiar estado de búsqueda al cambiar de tipo
+    setEmployeeSearch("");
+    setSearchResults([]);
+    setOpenCombobox(false);
+    setOpenComboboxAdvanced(false);
 
     // Si selecciona opciones masivas, mostrar el panel avanzado
     if (value === "ALL" || value === "DEPARTMENTS") {
@@ -564,7 +580,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                       <FormLabel className="text-sm">Agregar empleados</FormLabel>
                       <FormDescription className="text-xs">Busca y agrega múltiples empleados</FormDescription>
 
-                      <Popover>
+                      <Popover open={openComboboxAdvanced} onOpenChange={setOpenComboboxAdvanced}>
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="w-full justify-between">
                             <span className="text-muted-foreground">Buscar empleado...</span>
