@@ -296,9 +296,13 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
         await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
       }
 
+      // Inicializar liveWorkedMinutes con los minutos trabajados actuales
+      const initialMinutes = summary?.totalWorkedMinutes ?? 0;
+
       set({
         currentStatus: status.status,
         todaySummary: summary as any,
+        liveWorkedMinutes: initialMinutes,
         expectedDailyHours: hoursInfo.dailyHours,
         hasActiveContract: hoursInfo.hasActiveContract,
         isLoading: false,

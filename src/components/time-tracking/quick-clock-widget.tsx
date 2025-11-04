@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { LogIn, LogOut, Coffee } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
@@ -15,6 +16,7 @@ export function QuickClockWidget() {
     todaySummary,
     liveWorkedMinutes,
     isClocking,
+    isLoading,
     clockIn,
     clockOut,
     startBreak,
@@ -70,6 +72,16 @@ export function QuickClockWidget() {
   };
 
   const tooltipMessage = "Solo los empleados pueden fichar";
+
+  // Mostrar skeleton mientras se cargan los datos iniciales
+  if (isLoading) {
+    return (
+      <div className="hidden items-center gap-2 md:flex">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-8 w-20 rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>
