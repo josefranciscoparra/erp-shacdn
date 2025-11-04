@@ -3,12 +3,16 @@
 import { useState, useEffect } from "react";
 
 import { LogIn, LogOut, Coffee, FilePlus, MapPin, AlertTriangle, CheckCircle2, List, Map } from "lucide-react";
+import { toast } from "sonner";
 
+import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { useGeolocation } from "@/hooks/use-geolocation";
+import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
@@ -18,6 +22,12 @@ export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+
+  // Estados de geolocalización
+  const [geolocationEnabled, setGeolocationEnabled] = useState(false);
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const geolocation = useGeolocation();
 
   const {
     currentStatus,
@@ -80,16 +90,102 @@ export function ClockIn() {
     return () => clearInterval(interval);
   }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
-  // Cargar estado y resumen al montar
+  // Cargar estado inicial y configuración de geolocalización
   useEffect(() => {
-    loadInitialData();
+    const load = async () => {
+      await loadInitialData();
+
+      // Verificar si la organización tiene geolocalización habilitada
+      try {
+        const config = await getOrganizationGeolocationConfig();
+        setGeolocationEnabled(config.geolocationEnabled);
+      } catch (error) {
+        console.error("Error al cargar config de geolocalización:", error);
+      }
+    };
+    load();
   }, [loadInitialData]);
+
+  // Helper para ejecutar fichaje con geolocalización
+  const executeWithGeolocation = async (
+    action: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>,
+  ) => {
+    // Si la org no tiene geolocalización habilitada, fichar sin GPS
+    if (!geolocationEnabled) {
+      await action();
+      return;
+    }
+
+    // Verificar consentimiento
+    try {
+      const { hasConsent } = await checkGeolocationConsent();
+
+      if (!hasConsent) {
+        // Guardar la acción pendiente y mostrar dialog de consentimiento
+        setPendingAction(() => async () => await action());
+        setShowConsentDialog(true);
+        return;
+      }
+
+      // Capturar ubicación
+      const locationData = await geolocation.getCurrentPosition();
+
+      if (!locationData) {
+        // Error al capturar GPS, pero permitir fichar sin ubicación
+        console.warn("Ubicación no disponible:", geolocation.error);
+
+        // Mostrar mensaje específico para Safari en localhost
+        if (geolocation.error?.includes("denegado") || geolocation.error?.includes("PERMISSION_DENIED")) {
+          toast.warning("GPS no disponible", {
+            description:
+              "Safari en localhost no permite geolocalización. Fichaje registrado sin GPS. Para usar GPS, prueba en Chrome o en HTTPS.",
+            duration: 6000,
+          });
+        } else {
+          toast.warning("GPS no disponible", {
+            description: `${geolocation.error ?? "Error desconocido"}. Fichaje registrado sin GPS.`,
+            duration: 5000,
+          });
+        }
+
+        await action();
+        return;
+      }
+
+      // Verificar precisión GPS
+      if (locationData.accuracy > 100) {
+        console.warn(`Precisión GPS baja: ${Math.round(locationData.accuracy)}m`);
+        toast.info("Precisión GPS baja", {
+          description: `La precisión es de ${Math.round(locationData.accuracy)}m. Se recomienda estar al aire libre.`,
+          duration: 4000,
+        });
+      }
+
+      // Fichar con geolocalización - pasar parámetros individuales
+      await action(locationData.latitude, locationData.longitude, locationData.accuracy);
+    } catch (error) {
+      console.error("Error en proceso de geolocalización:", error);
+      toast.error("Error al capturar GPS", {
+        description: "Se guardará el fichaje sin ubicación GPS.",
+        duration: 5000,
+      });
+      await action();
+    }
+  };
+
+  const handleClockIn = async () => {
+    await executeWithGeolocation(clockInAction);
+  };
+
+  const handleClockOut = async () => {
+    await executeWithGeolocation(clockOutAction);
+  };
 
   const handleBreak = async () => {
     if (currentStatus === "ON_BREAK") {
-      await endBreakAction();
+      await executeWithGeolocation(endBreakAction);
     } else {
-      await startBreakAction();
+      await executeWithGeolocation(startBreakAction);
     }
   };
 
@@ -151,6 +247,23 @@ export function ClockIn() {
 
       {/* Dialog de solicitud de fichaje manual */}
       <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
+
+      {/* Diálogo de consentimiento de geolocalización */}
+      <GeolocationConsentDialog
+        open={showConsentDialog}
+        onOpenChange={setShowConsentDialog}
+        onConsent={async () => {
+          setShowConsentDialog(false);
+          if (pendingAction) {
+            await executeWithGeolocation(pendingAction);
+            setPendingAction(null);
+          }
+        }}
+        onDeny={() => {
+          setShowConsentDialog(false);
+          setPendingAction(null);
+        }}
+      />
 
       {error && (
         <Card className="border-destructive bg-destructive/10 p-4">
@@ -251,7 +364,7 @@ export function ClockIn() {
 
           <div className="flex w-full flex-col gap-3">
             {currentStatus === "CLOCKED_OUT" ? (
-              <Button size="lg" onClick={clockInAction} className="w-full" disabled={isLoading || isClocking}>
+              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isLoading || isClocking}>
                 <LogIn className="mr-2 h-5 w-5" />
                 {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Entrada"}
               </Button>
@@ -259,7 +372,7 @@ export function ClockIn() {
               <>
                 <Button
                   size="lg"
-                  onClick={clockOutAction}
+                  onClick={handleClockOut}
                   variant="destructive"
                   className="w-full"
                   disabled={isLoading || isClocking}
