@@ -215,6 +215,12 @@ export function useSidebarItems(): NavGroup[] {
           ],
         },
         {
+          title: "Calendarios",
+          url: "/dashboard/calendars",
+          icon: Calendar,
+          permission: "manage_organization",
+        },
+        {
           title: "Administración",
           url: "/dashboard/admin/users",
           icon: UserCog,
@@ -224,11 +230,6 @@ export function useSidebarItems(): NavGroup[] {
               title: "Usuarios y Roles",
               url: "/dashboard/admin/users",
               permission: "manage_users",
-            },
-            {
-              title: "Calendarios",
-              url: "/dashboard/calendars",
-              permission: "manage_organization",
             },
           ],
         },
