@@ -279,6 +279,13 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   },
 
   loadInitialData: async () => {
+    const state = get();
+
+    // Si ya hay datos cargados, no volver a cargar (evita flash al cambiar de página)
+    if (state.todaySummary !== null) {
+      return;
+    }
+
     set({ isLoading: true, error: null });
     try {
       const startTime = Date.now();
@@ -296,9 +303,13 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
         await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
       }
 
+      // Inicializar liveWorkedMinutes con los minutos trabajados actuales
+      const initialMinutes = summary?.totalWorkedMinutes ?? 0;
+
       set({
         currentStatus: status.status,
         todaySummary: summary as any,
+        liveWorkedMinutes: initialMinutes,
         expectedDailyHours: hoursInfo.dailyHours,
         hasActiveContract: hoursInfo.hasActiveContract,
         isLoading: false,

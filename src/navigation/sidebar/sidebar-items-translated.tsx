@@ -17,6 +17,7 @@ import {
   UserCog,
   FileSignature,
   ClipboardList,
+  Receipt,
   type LucideIcon,
 } from "lucide-react";
 
@@ -88,6 +89,11 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/calendar",
           icon: Calendar,
         },
+        {
+          title: "Mis Gastos",
+          url: "/dashboard/me/expenses",
+          icon: Receipt,
+        },
         ...(documentsEnabled
           ? [
               {
@@ -156,7 +162,18 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/approvals/time-entries",
               permission: "approve_requests",
             },
+            {
+              title: "Gastos",
+              url: "/dashboard/approvals/expenses",
+              permission: "approve_requests",
+            },
           ],
+        },
+        {
+          title: "Analytics de Gastos",
+          url: "/dashboard/expenses",
+          icon: Receipt,
+          permission: "approve_requests",
         },
         ...(signaturesEnabled
           ? [
@@ -198,6 +215,12 @@ export function useSidebarItems(): NavGroup[] {
           ],
         },
         {
+          title: "Calendarios",
+          url: "/dashboard/calendars",
+          icon: Calendar,
+          permission: "manage_organization",
+        },
+        {
           title: "Administración",
           url: "/dashboard/admin/users",
           icon: UserCog,
@@ -207,11 +230,6 @@ export function useSidebarItems(): NavGroup[] {
               title: "Usuarios y Roles",
               url: "/dashboard/admin/users",
               permission: "manage_users",
-            },
-            {
-              title: "Calendarios",
-              url: "/dashboard/calendars",
-              permission: "manage_organization",
             },
           ],
         },

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { LogIn, LogOut, Coffee } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { usePermissions } from "@/hooks/use-permissions";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
@@ -15,6 +16,7 @@ export function QuickClockWidget() {
     todaySummary,
     liveWorkedMinutes,
     isClocking,
+    isLoading,
     clockIn,
     clockOut,
     startBreak,
@@ -24,15 +26,20 @@ export function QuickClockWidget() {
   } = useTimeTrackingStore();
   const { hasEmployeeProfile } = usePermissions();
   const canClock = hasEmployeeProfile();
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Cargar estado inicial
   useEffect(() => {
-    loadInitialData();
+    const load = async () => {
+      await loadInitialData();
+      setIsInitialMount(false);
+    };
+    load();
   }, [loadInitialData]);
 
   // Actualizar contador en vivo cada segundo
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateLiveMinutes = () => {
       if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
         const now = new Date();
         const entries = todaySummary.timeEntries;
@@ -46,11 +53,15 @@ export function QuickClockWidget() {
           const minutesFromStart = secondsFromStart / 60;
           const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
+          return;
         }
-      } else {
-        setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
       }
-    }, 1000);
+
+      setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
+    };
+
+    updateLiveMinutes();
+    const interval = setInterval(updateLiveMinutes, 1000);
     return () => clearInterval(interval);
   }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
@@ -70,6 +81,16 @@ export function QuickClockWidget() {
   };
 
   const tooltipMessage = "Solo los empleados pueden fichar";
+
+  // Mostrar skeleton mientras se cargan los datos iniciales o si es el primer montaje
+  if (isLoading || isInitialMount || todaySummary === null) {
+    return (
+      <div className="hidden items-center gap-2 md:flex">
+        <Skeleton className="h-4 w-20" />
+        <Skeleton className="h-8 w-20 rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider>

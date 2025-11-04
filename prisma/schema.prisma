@@ -60,6 +60,10 @@ model Organization {
   signableDocuments   SignableDocument[]
   signatureRequests   SignatureRequest[]
   manualTimeEntryRequests ManualTimeEntryRequest[]
+  expenses            Expense[]
+  expenseReports      ExpenseReport[]
+  expensePolicy       ExpensePolicy?
+  expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
 
   @@map("organizations")
 }
@@ -93,6 +97,10 @@ model User {
   recurringPtoAdjustments RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
   createdSignableDocuments SignableDocument[] // Documentos firmables que ha creado
   approvedManualTimeEntries ManualTimeEntryRequest[] @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
+  createdExpenses Expense[] @relation("ExpenseCreator") // Gastos creados
+  expenseApprovals ExpenseApproval[] // Aprobaciones de gastos
+  expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
+  employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
 
   @@index([email])
   @@index([orgId])
@@ -149,6 +157,7 @@ model CostCenter {
   employmentContracts EmploymentContract[]
   calendars          Calendar[]
   timeClockTerminals TimeClockTerminal[]
+  expenses           Expense[]
 
   @@index([orgId])
   @@map("cost_centers")
@@ -294,11 +303,18 @@ model Employee {
   recurringPtoAdjustments RecurringPtoAdjustment[]
   signers            Signer[]
   manualTimeEntryRequests ManualTimeEntryRequest[]
+  expenses           Expense[]
+  expenseReports     ExpenseReport[]
+
+  // Aprobador específico de gastos para este empleado (opcional, sobrescribe org)
+  expenseApproverId  String?
+  expenseApprover    User?   @relation("EmployeeExpenseApprover", fields: [expenseApproverId], references: [id], onDelete: SetNull)
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
   @@index([orgId])
   @@index([email])
+  @@index([expenseApproverId])
   @@map("employees")
 }
 
@@ -792,6 +808,10 @@ model PtoNotification {
   manualTimeEntryRequestId String?
   manualTimeEntryRequest   ManualTimeEntryRequest? @relation(fields: [manualTimeEntryRequestId], references: [id], onDelete: Cascade)
 
+  // Gasto relacionado (opcional)
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   // Multi-tenancy
@@ -808,6 +828,7 @@ model PtoNotification {
   @@index([createdAt])
   @@index([ptoRequestId])
   @@index([manualTimeEntryRequestId])
+  @@index([expenseId])
   @@map("pto_notifications")
 }
 
@@ -827,6 +848,10 @@ enum PtoNotificationType {
   MANUAL_TIME_ENTRY_SUBMITTED  // Nueva solicitud de fichaje manual enviada
   MANUAL_TIME_ENTRY_APPROVED   // Solicitud de fichaje manual aprobada
   MANUAL_TIME_ENTRY_REJECTED   // Solicitud de fichaje manual rechazada
+  EXPENSE_SUBMITTED            // Nueva solicitud de gasto
+  EXPENSE_APPROVED             // Gasto aprobado
+  EXPENSE_REJECTED             // Gasto rechazado
+  EXPENSE_REIMBURSED           // Gasto reembolsado
 }
 
 // Ajustes manuales de balance de PTO (auditoría)
@@ -1190,5 +1215,227 @@ enum ManualTimeEntryStatus {
   REJECTED  // Rechazado
 }
 
+// ==================== MÓDULO DE GESTIÓN DE GASTOS ====================
+
+// Aprobadores organizacionales de gastos (sistema multi-aprobador flexible)
+model ExpenseApprover {
+  id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation("ExpenseApproverRoles", fields: [userId], references: [id], onDelete: Cascade)
+
+  orgId     String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  isPrimary Boolean  @default(false) // Marcar como aprobador principal (opcional)
+  order     Int      @default(0)     // Orden de prioridad para UI (drag & drop)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, orgId]) // Un usuario solo puede ser aprobador 1 vez por org
+  @@index([orgId])
+  @@index([userId])
+  @@map("expense_approvers")
+}
+
+enum ExpenseStatus {
+  DRAFT          // Borrador (no enviado)
+  SUBMITTED      // Enviado a aprobación
+  APPROVED       // Aprobado por manager
+  REJECTED       // Rechazado
+  REIMBURSED     // Reembolsado
+}
+
+enum ExpenseCategory {
+  FUEL           // Combustible
+  MILEAGE        // Kilometraje
+  MEAL           // Comidas
+  TOLL           // Peajes
+  PARKING        // Parking
+  LODGING        // Alojamiento
+  OTHER          // Otros
+}
+
+enum ApprovalDecision {
+  PENDING        // Pendiente
+  APPROVED       // Aprobado
+  REJECTED       // Rechazado
+}
+
+// Gasto individual
+model Expense {
+  id              String          @id @default(cuid())
+
+  // Datos del gasto
+  date            DateTime        // Fecha del gasto
+  currency        String          @default("EUR")
+  amount          Decimal         @db.Decimal(10, 2) // Importe base sin IVA
+  vatPercent      Decimal?        @db.Decimal(5, 2)  // % IVA (ej: 21.00)
+  totalAmount     Decimal         @db.Decimal(10, 2) // Total = amount + IVA
+  category        ExpenseCategory
+
+  // Kilometraje (solo si category = MILEAGE)
+  mileageKm       Decimal?        @db.Decimal(10, 2)
+  mileageRate     Decimal?        @db.Decimal(5, 3)  // €/km aplicado
+
+  // Clasificación
+  costCenterId    String?
+  costCenter      CostCenter?     @relation(fields: [costCenterId], references: [id])
+
+  // Notas y metadata
+  notes           String?
+  merchantName    String?         // Nombre del comercio (OCR)
+  merchantVat     String?         // CIF/NIF del comercio (OCR)
+  ocrRawData      Json?           // Datos brutos del OCR para auditoría
+
+  // Estado
+  status          ExpenseStatus   @default(DRAFT)
+
+  // Auditoría
+  createdBy       String
+  creator         User            @relation("ExpenseCreator", fields: [createdBy], references: [id])
+  updatedBy       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado que crea el gasto
+  employeeId      String
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Informe de gastos (opcional)
+  reportId        String?
+  report          ExpenseReport?  @relation(fields: [reportId], references: [id])
+
+  // Relaciones
+  attachments     ExpenseAttachment[]
+  approvals       ExpenseApproval[]
+  policySnapshot  PolicySnapshot?
+  notifications   PtoNotification[]
+
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([category])
+  @@index([date])
+  @@index([reportId])
+  @@map("expenses")
+}
+
+// Adjuntos del gasto (tickets, facturas)
+model ExpenseAttachment {
+  id          String   @id @default(cuid())
+  url         String   // URL en storage
+  fileName    String
+  mimeType    String?
+  fileSize    Int
+  createdAt   DateTime @default(now())
+
+  expenseId   String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@map("expense_attachments")
+}
+
+// Aprobación de gasto (preparado para multi-nivel)
+model ExpenseApproval {
+  id              String            @id @default(cuid())
+  decision        ApprovalDecision  @default(PENDING)
+  comment         String?
+  decidedAt       DateTime?
+  level           Int               @default(1) // Nivel de aprobación (1, 2, 3...)
+
+  approverId      String
+  approver        User              @relation(fields: [approverId], references: [id])
+
+  expenseId       String
+  expense         Expense           @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@index([approverId])
+  @@index([decision])
+  @@map("expense_approvals")
+}
+
+// Informe de gastos (agrupar varios gastos)
+model ExpenseReport {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  periodFrom  DateTime
+  periodTo    DateTime
+  status      String   @default("OPEN") // OPEN, SUBMITTED, APPROVED, REJECTED
+  total       Decimal  @default(0) @db.Decimal(10, 2)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId       String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Propietario del informe
+  ownerId     String
+  owner       Employee @relation(fields: [ownerId], references: [id])
+
+  // Gastos incluidos
+  expenses    Expense[]
+
+  @@index([orgId])
+  @@index([ownerId])
+  @@index([status])
+  @@map("expense_reports")
+}
+
+// Snapshot de política aplicada al gasto (auditoría)
+model PolicySnapshot {
+  id                      String   @id @default(cuid())
+  mileageRateEurPerKm     Decimal? @db.Decimal(5, 3)
+  mealDailyLimit          Decimal? @db.Decimal(10, 2)
+  fuelRequiresReceipt     Boolean  @default(true)
+  vatAllowed              Boolean  @default(true)
+  costCenterRequired      Boolean  @default(false)
+
+  expenseId               String   @unique
+  expense                 Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@map("policy_snapshots")
+}
+
+// Política de gastos por organización
+model ExpensePolicy {
+  id                      String   @id @default(cuid())
+
+  // Tarifas y límites
+  mileageRateEurPerKm     Decimal  @default(0.26) @db.Decimal(5, 3)
+  mealDailyLimit          Decimal? @db.Decimal(10, 2)
+  lodgingDailyLimit       Decimal? @db.Decimal(10, 2)
+
+  // Requisitos por categoría (JSON)
+  // Formato: { FUEL: { requiresReceipt: true, vatAllowed: true }, ... }
+  categoryRequirements    Json     @default("{}")
+
+  // Configuración general
+  attachmentRequired      Boolean  @default(true)
+  costCenterRequired      Boolean  @default(false)
+  vatAllowed              Boolean  @default(true)
+
+  // Aprobación
+  approvalLevels          Int      @default(1) // Niveles de aprobación (1, 2, 3)
+
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Multi-tenancy (1:1 con Organization)
+  orgId                   String   @unique
+  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("expense_policies")
+}
+
 // ==================== PRÓXIMOS SPRINTS ====================
-// Sprint 4: Añadir PayrollExport y configuraciones
+// Sprint 5: Añadir PayrollExport y configuraciones

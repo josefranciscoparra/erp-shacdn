@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { ExpensesTab } from "./_components/expenses-tab";
 import { OrganizationTab } from "./_components/organization-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 
@@ -18,6 +19,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { value: "organization", label: "Organización" },
+    { value: "expenses", label: "Gastos" },
     { value: "system", label: "Sistema" },
   ];
 
@@ -66,6 +68,10 @@ export default function SettingsPage() {
 
           <TabsContent value="organization" className="mt-4 md:mt-6">
             <OrganizationTab />
+          </TabsContent>
+
+          <TabsContent value="expenses" className="mt-4 md:mt-6">
+            <ExpensesTab />
           </TabsContent>
 
           <TabsContent value="system" className="mt-4 md:mt-6">

@@ -1,0 +1,443 @@
+"use server";
+
+import { z } from "zod";
+
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+import { createNotification } from "./notifications";
+
+// Schemas de validación
+const ApprovalFiltersSchema = z.object({
+  employeeId: z.string().optional(),
+  category: z.enum(["FUEL", "MILEAGE", "MEAL", "TOLL", "PARKING", "LODGING", "OTHER"]).optional(),
+  dateFrom: z.date().optional(),
+  dateTo: z.date().optional(),
+});
+
+/**
+ * Helper para obtener el usuario autenticado (aprobadores no necesitan empleado)
+ */
+async function getApproverBaseData() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { id: true, orgId: true },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  return { session, user };
+}
+
+/**
+ * Obtiene los gastos pendientes de aprobación para el usuario actual
+ */
+export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFiltersSchema>) {
+  const { user } = await getApproverBaseData();
+
+  const validatedFilters = filters ? ApprovalFiltersSchema.parse(filters) : {};
+
+  const expenses = await prisma.expense.findMany({
+    where: {
+      orgId: user.orgId,
+      status: "SUBMITTED",
+      approvals: {
+        some: {
+          approverId: user.id,
+          decision: "PENDING",
+        },
+      },
+      ...(validatedFilters.employeeId && { employeeId: validatedFilters.employeeId }),
+      ...(validatedFilters.category && { category: validatedFilters.category }),
+      ...(validatedFilters.dateFrom && { date: { gte: validatedFilters.dateFrom } }),
+      ...(validatedFilters.dateTo && { date: { lte: validatedFilters.dateTo } }),
+    },
+    include: {
+      employee: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      },
+      attachments: {
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+        },
+      },
+      approvals: {
+        where: {
+          approverId: user.id,
+        },
+        include: {
+          approver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      costCenter: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+    },
+    orderBy: {
+      date: "desc",
+    },
+  });
+
+  // Convertir Decimals a números para el cliente
+  const serializedExpenses = expenses.map((expense) => ({
+    ...expense,
+    amount: Number(expense.amount),
+    vatPercent: expense.vatPercent ? Number(expense.vatPercent) : null,
+    totalAmount: Number(expense.totalAmount),
+    mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
+    mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+  }));
+
+  return {
+    success: true,
+    expenses: serializedExpenses,
+  };
+}
+
+/**
+ * Aprueba un gasto
+ */
+export async function approveExpense(id: string, comment?: string) {
+  const { user } = await getApproverBaseData();
+
+  // Verificar que el gasto existe
+  const expense = await prisma.expense.findUnique({
+    where: { id },
+    include: {
+      approvals: {
+        where: {
+          approverId: user.id,
+          decision: "PENDING",
+        },
+      },
+      employee: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!expense) {
+    return { success: false, error: "Gasto no encontrado" };
+  }
+
+  if (expense.status !== "SUBMITTED") {
+    return { success: false, error: "Este gasto no está pendiente de aprobación" };
+  }
+
+  // Verificar que el usuario tiene una aprobación pendiente para este gasto
+  const approval = expense.approvals[0];
+  if (!approval) {
+    return { success: false, error: "No tienes permisos para aprobar este gasto" };
+  }
+
+  // Actualizar la aprobación y el gasto en una transacción
+  await prisma.$transaction(async (tx) => {
+    // Actualizar la aprobación
+    await tx.expenseApproval.update({
+      where: { id: approval.id },
+      data: {
+        decision: "APPROVED",
+        comment: comment ?? null,
+        decidedAt: new Date(),
+      },
+    });
+
+    // Actualizar el estado del gasto
+    await tx.expense.update({
+      where: { id },
+      data: {
+        status: "APPROVED",
+      },
+    });
+
+    // Crear notificación para el empleado
+    if (expense.employee.user) {
+      await createNotification(
+        expense.employee.user.id,
+        user.orgId,
+        "EXPENSE_APPROVED",
+        "Gasto aprobado",
+        `Tu gasto de ${expense.totalAmount.toString()}€ ha sido aprobado`,
+        undefined, // ptoRequestId
+        undefined, // manualTimeEntryRequestId
+        id, // expenseId
+      );
+    }
+  });
+
+  return {
+    success: true,
+  };
+}
+
+/**
+ * Rechaza un gasto
+ */
+export async function rejectExpense(id: string, reason: string) {
+  const { user } = await getApproverBaseData();
+
+  if (!reason || reason.trim().length === 0) {
+    return { success: false, error: "Debes proporcionar un motivo de rechazo" };
+  }
+
+  // Verificar que el gasto existe
+  const expense = await prisma.expense.findUnique({
+    where: { id },
+    include: {
+      approvals: {
+        where: {
+          approverId: user.id,
+          decision: "PENDING",
+        },
+      },
+      employee: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!expense) {
+    return { success: false, error: "Gasto no encontrado" };
+  }
+
+  if (expense.status !== "SUBMITTED") {
+    return { success: false, error: "Este gasto no está pendiente de aprobación" };
+  }
+
+  // Verificar que el usuario tiene una aprobación pendiente para este gasto
+  const approval = expense.approvals[0];
+  if (!approval) {
+    return { success: false, error: "No tienes permisos para rechazar este gasto" };
+  }
+
+  // Actualizar la aprobación y el gasto en una transacción
+  await prisma.$transaction(async (tx) => {
+    // Actualizar la aprobación
+    await tx.expenseApproval.update({
+      where: { id: approval.id },
+      data: {
+        decision: "REJECTED",
+        comment: reason,
+        decidedAt: new Date(),
+      },
+    });
+
+    // Actualizar el estado del gasto
+    await tx.expense.update({
+      where: { id },
+      data: {
+        status: "REJECTED",
+      },
+    });
+
+    // Crear notificación para el empleado
+    if (expense.employee.user) {
+      await createNotification(
+        expense.employee.user.id,
+        user.orgId,
+        "EXPENSE_REJECTED",
+        "Gasto rechazado",
+        `Tu gasto de ${expense.totalAmount.toString()}€ ha sido rechazado: ${reason}`,
+        undefined, // ptoRequestId
+        undefined, // manualTimeEntryRequestId
+        id, // expenseId
+      );
+    }
+  });
+
+  return {
+    success: true,
+  };
+}
+
+/**
+ * Obtiene estadísticas de aprobaciones para el usuario actual
+ */
+export async function getApprovalStats() {
+  const { user } = await getApproverBaseData();
+
+  const now = new Date();
+  const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  // Total pendientes
+  const totalPending = await prisma.expense.count({
+    where: {
+      orgId: user.orgId,
+      status: "SUBMITTED",
+      approvals: {
+        some: {
+          approverId: user.id,
+          decision: "PENDING",
+        },
+      },
+    },
+  });
+
+  // Total aprobados este mes
+  const totalApprovedThisMonth = await prisma.expense.count({
+    where: {
+      orgId: user.orgId,
+      status: "APPROVED",
+      approvals: {
+        some: {
+          approverId: user.id,
+          decision: "APPROVED",
+          decidedAt: {
+            gte: firstDayOfMonth,
+          },
+        },
+      },
+    },
+  });
+
+  // Total rechazados este mes
+  const totalRejectedThisMonth = await prisma.expense.count({
+    where: {
+      orgId: user.orgId,
+      status: "REJECTED",
+      approvals: {
+        some: {
+          approverId: user.id,
+          decision: "REJECTED",
+          decidedAt: {
+            gte: firstDayOfMonth,
+          },
+        },
+      },
+    },
+  });
+
+  return {
+    success: true,
+    stats: {
+      totalPending,
+      totalApprovedThisMonth,
+      totalRejectedThisMonth,
+    },
+  };
+}
+
+/**
+ * Obtiene el historial de aprobaciones del usuario actual
+ */
+export async function getApprovalHistory(limit: number = 50) {
+  const { user } = await getApproverBaseData();
+
+  const expenses = await prisma.expense.findMany({
+    where: {
+      orgId: user.orgId,
+      approvals: {
+        some: {
+          approverId: user.id,
+          decision: {
+            in: ["APPROVED", "REJECTED"],
+          },
+        },
+      },
+    },
+    include: {
+      employee: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+            },
+          },
+        },
+      },
+      attachments: {
+        select: {
+          id: true,
+          url: true,
+          fileName: true,
+        },
+      },
+      approvals: {
+        where: {
+          approverId: user.id,
+        },
+        include: {
+          approver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      },
+      costCenter: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+        },
+      },
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    take: limit,
+  });
+
+  // Convertir Decimals a números para el cliente
+  const serializedExpenses = expenses.map((expense) => ({
+    ...expense,
+    amount: Number(expense.amount),
+    vatPercent: expense.vatPercent ? Number(expense.vatPercent) : null,
+    totalAmount: Number(expense.totalAmount),
+    mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
+    mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+  }));
+
+  return {
+    success: true,
+    expenses: serializedExpenses,
+  };
+}

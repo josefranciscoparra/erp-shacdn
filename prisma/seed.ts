@@ -6,13 +6,51 @@ const prisma = new PrismaClient();
 async function main() {
   console.log("🌱 Iniciando seed de base de datos...");
 
-  // Limpiar datos existentes
+  // Limpiar datos existentes (en orden de dependencias)
+  // Gastos
+  await prisma.expenseApproval.deleteMany();
+  await prisma.expenseAttachment.deleteMany();
+  await prisma.policySnapshot.deleteMany();
+  await prisma.expense.deleteMany();
+  await prisma.expenseReport.deleteMany();
+  await prisma.expensePolicy.deleteMany();
+
+  // Firmas
+  await prisma.signatureEvidence.deleteMany();
+  await prisma.signer.deleteMany();
+  await prisma.signatureRequest.deleteMany();
+  await prisma.signableDocument.deleteMany();
+
+  // Fichajes manuales
+  await prisma.manualTimeEntryRequest.deleteMany();
+
+  // PTO
+  await prisma.ptoNotification.deleteMany();
+  await prisma.recurringPtoAdjustment.deleteMany();
+  await prisma.ptoBalanceAdjustment.deleteMany();
+  await prisma.ptoRequest.deleteMany();
+  await prisma.ptoBalance.deleteMany();
+  await prisma.organizationPtoConfig.deleteMany();
+  await prisma.absenceType.deleteMany();
+
+  // Tiempo
+  await prisma.workdaySummary.deleteMany();
+  await prisma.timeEntry.deleteMany();
+  await prisma.timeClockTerminal.deleteMany();
+  await prisma.calendarEvent.deleteMany();
+  await prisma.calendar.deleteMany();
+
+  // RRHH
   await prisma.employmentContract.deleteMany();
   await prisma.employeeDocument.deleteMany();
+  await prisma.temporaryPassword.deleteMany();
   await prisma.employee.deleteMany();
+  await prisma.positionLevel.deleteMany();
   await prisma.position.deleteMany();
   await prisma.department.deleteMany();
   await prisma.costCenter.deleteMany();
+
+  // Auth
   await prisma.session.deleteMany();
   await prisma.user.deleteMany();
   await prisma.organization.deleteMany();
@@ -179,7 +217,6 @@ async function main() {
       data: {
         title: "Generalista RRHH",
         description: "Gestión integral de recursos humanos",
-        level: "Senior",
         orgId: org.id,
       },
     }),
@@ -187,7 +224,6 @@ async function main() {
       data: {
         title: "Contable Senior",
         description: "Contabilidad y finanzas corporativas",
-        level: "Senior",
         orgId: org.id,
       },
     }),
@@ -195,7 +231,6 @@ async function main() {
       data: {
         title: "Coordinador de Operaciones",
         description: "Coordinación de procesos operativos",
-        level: "Middle",
         orgId: org.id,
       },
     }),
@@ -203,7 +238,6 @@ async function main() {
       data: {
         title: "Desarrollador Full Stack",
         description: "Desarrollo web y aplicaciones",
-        level: "Senior",
         orgId: org.id,
       },
     }),
@@ -211,7 +245,6 @@ async function main() {
       data: {
         title: "Analista Junior",
         description: "Análisis de datos y reportes",
-        level: "Junior",
         orgId: org.id,
       },
     }),
@@ -410,6 +443,64 @@ async function main() {
   employees.forEach((emp) => {
     console.log(`   - ${emp.firstName} ${emp.lastName} (${emp.employeeNumber})`);
   });
+
+  // Crear política de gastos por defecto
+  const expensePolicy = await prisma.expensePolicy.create({
+    data: {
+      orgId: org.id,
+      mileageRateEurPerKm: 0.26, // Tarifa estándar España 2024
+      mealDailyLimit: 30.0,
+      lodgingDailyLimit: 100.0,
+      categoryRequirements: {
+        FUEL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Combustible para vehículos de empresa o desplazamientos",
+        },
+        MILEAGE: {
+          requiresReceipt: false,
+          vatAllowed: false,
+          description: "Kilometraje con vehículo propio",
+        },
+        MEAL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          maxDailyAmount: 30.0,
+          description: "Comidas en desplazamientos o con clientes",
+        },
+        TOLL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Peajes de autopistas",
+        },
+        PARKING: {
+          requiresReceipt: false,
+          vatAllowed: true,
+          description: "Parking en desplazamientos",
+        },
+        LODGING: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          maxDailyAmount: 100.0,
+          description: "Alojamiento en desplazamientos",
+        },
+        OTHER: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Otros gastos justificados",
+        },
+      },
+      attachmentRequired: true,
+      costCenterRequired: false,
+      vatAllowed: true,
+      approvalLevels: 1,
+    },
+  });
+
+  console.log("✅ Política de gastos creada:");
+  console.log(`   - Kilometraje: ${expensePolicy.mileageRateEurPerKm} €/km`);
+  console.log(`   - Límite comidas: ${expensePolicy.mealDailyLimit} €/día`);
+  console.log(`   - Límite alojamiento: ${expensePolicy.lodgingDailyLimit} €/día`);
 
   console.log("\n📝 Credenciales de acceso:");
   console.log("   Email: cualquiera de los anteriores");

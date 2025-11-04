@@ -44,6 +44,7 @@ import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/stores/documents-store";
 
+import { EmployeeExpenseApprover } from "./_components/employee-expense-approver";
 import { EmployeePtoRequestsTable } from "./_components/employee-pto-requests-table";
 import { EmployeePtoSummary } from "./_components/employee-pto-summary";
 
@@ -374,11 +375,12 @@ export default function EmployeeProfilePage() {
           }
         }}
       >
-        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-6" : "grid-cols-5"}`}>
+        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-7" : "grid-cols-6"}`}>
           <TabsTrigger value="information">Información</TabsTrigger>
           <TabsTrigger value="contract">Contrato Actual</TabsTrigger>
           <TabsTrigger value="access">Acceso</TabsTrigger>
           {documentsEnabled && <TabsTrigger value="documents">Documentos</TabsTrigger>}
+          <TabsTrigger value="expenses">Gastos</TabsTrigger>
           <TabsTrigger value="pto">Vacaciones</TabsTrigger>
           <TabsTrigger value="history">Historial</TabsTrigger>
         </TabsList>
@@ -624,6 +626,11 @@ export default function EmployeeProfilePage() {
               description="Este empleado no tiene un usuario asociado en el sistema"
             />
           )}
+        </TabsContent>
+
+        {/* Gastos */}
+        <TabsContent value="expenses" className="space-y-6">
+          <EmployeeExpenseApprover employeeId={employee.id} employeeName={fullName} />
         </TabsContent>
 
         {/* Documentos */}
