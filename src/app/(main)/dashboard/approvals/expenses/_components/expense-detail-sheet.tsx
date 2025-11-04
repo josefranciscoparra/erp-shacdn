@@ -308,7 +308,7 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
             </div>
 
             {/* Timeline de aprobación */}
-            {expense.approvals && expense.approvals.length > 0 && (
+            {expense.approvals && expense.approvals.some((a) => a.decision !== "PENDING") && (
               <Card className="p-4">
                 <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                   <Clock className="size-4" />
@@ -325,26 +325,28 @@ export function ExpenseDetailSheet({ expense, open, onOpenChange, onApprove, onR
                     </div>
                   </div>
 
-                  {expense.approvals.map((approval) => (
-                    <div key={approval.approver.name} className="flex items-start gap-3">
-                      <div
-                        className={`flex size-2 translate-y-1.5 rounded-full ${
-                          approval.decision === "APPROVED" ? "bg-green-500" : "bg-red-500"
-                        }`}
-                      />
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm">
-                          {approval.decision === "APPROVED" ? "Aprobado" : "Rechazado"} por {approval.approver.name}
-                        </p>
-                        {approval.comment && <p className="text-muted-foreground text-xs">{approval.comment}</p>}
-                        {approval.decidedAt && (
-                          <p className="text-muted-foreground text-xs">
-                            {format(approval.decidedAt, "d MMM yyyy 'a las' HH:mm", { locale: es })}
+                  {expense.approvals
+                    .filter((approval) => approval.decision !== "PENDING")
+                    .map((approval) => (
+                      <div key={approval.approver.name} className="flex items-start gap-3">
+                        <div
+                          className={`flex size-2 translate-y-1.5 rounded-full ${
+                            approval.decision === "APPROVED" ? "bg-green-500" : "bg-red-500"
+                          }`}
+                        />
+                        <div className="flex-1 space-y-1">
+                          <p className="text-sm">
+                            {approval.decision === "APPROVED" ? "Aprobado" : "Rechazado"} por {approval.approver.name}
                           </p>
-                        )}
+                          {approval.comment && <p className="text-muted-foreground text-xs">{approval.comment}</p>}
+                          {approval.decidedAt && (
+                            <p className="text-muted-foreground text-xs">
+                              {format(approval.decidedAt, "d MMM yyyy 'a las' HH:mm", { locale: es })}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </Card>
             )}

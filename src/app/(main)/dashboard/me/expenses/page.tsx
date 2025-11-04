@@ -50,12 +50,9 @@ export default function ExpensesPage() {
 
   // Filtrar gastos por estado (memoizado para evitar recálculos)
   const draftExpenses = useMemo(() => expenses.filter((e) => e.status === "DRAFT"), [expenses]);
-  const inReviewExpenses = useMemo(
-    () => expenses.filter((e) => e.status === "SUBMITTED" || e.status === "APPROVED"),
-    [expenses],
-  );
+  const inReviewExpenses = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED"), [expenses]);
   const completedExpenses = useMemo(
-    () => expenses.filter((e) => e.status === "REJECTED" || e.status === "REIMBURSED"),
+    () => expenses.filter((e) => e.status === "APPROVED" || e.status === "REJECTED" || e.status === "REIMBURSED"),
     [expenses],
   );
 
