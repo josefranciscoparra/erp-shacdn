@@ -39,7 +39,7 @@ export function QuickClockWidget() {
 
   // Actualizar contador en vivo cada segundo
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateLiveMinutes = () => {
       if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
         const now = new Date();
         const entries = todaySummary.timeEntries;
@@ -53,11 +53,15 @@ export function QuickClockWidget() {
           const minutesFromStart = secondsFromStart / 60;
           const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
+          return;
         }
-      } else {
-        setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
       }
-    }, 1000);
+
+      setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
+    };
+
+    updateLiveMinutes();
+    const interval = setInterval(updateLiveMinutes, 1000);
     return () => clearInterval(interval);
   }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
@@ -78,8 +82,8 @@ export function QuickClockWidget() {
 
   const tooltipMessage = "Solo los empleados pueden fichar";
 
-  // Mostrar skeleton mientras se cargan los datos iniciales
-  if (isLoading) {
+  // Mostrar skeleton mientras se cargan los datos iniciales o si es el primer montaje
+  if (isLoading || isInitialMount || todaySummary === null) {
     return (
       <div className="hidden items-center gap-2 md:flex">
         <Skeleton className="h-4 w-20" />
