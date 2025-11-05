@@ -18,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useContractsStore, type Contract } from "@/stores/contracts-store";
 
-import { BulkEditPreview } from "./bulk-edit-preview";
+import { BulkEditSchedulesPreview } from "./bulk-edit-schedules-preview";
 
 // Regex para validar formato MM-DD (mes: 01-12, día: 01-31)
 const MM_DD_REGEX = /^(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])$/;
@@ -109,19 +109,19 @@ const getDaysInMonth = (month: string): number => {
   return monthNum >= 1 && monthNum <= 12 ? daysInMonth[monthNum - 1] : 31;
 };
 
-interface BulkEditContractDialogProps {
+interface BulkEditSchedulesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   selectedContracts: Contract[];
   onSuccess?: () => void;
 }
 
-export function BulkEditContractDialog({
+export function BulkEditSchedulesDialog({
   open,
   onOpenChange,
   selectedContracts,
   onSuccess,
-}: BulkEditContractDialogProps) {
+}: BulkEditSchedulesDialogProps) {
   const { bulkUpdateContracts, isBulkUpdating } = useContractsStore();
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -269,15 +269,18 @@ export function BulkEditContractDialog({
       // Actualizar todos los contratos en una sola llamada
       await bulkUpdateContracts(contractIds, updateData);
 
-      toast.success(`${selectedContracts.length} contrato(s) actualizados`, {
-        description: "Todos los cambios se aplicaron correctamente",
-      });
+      toast.success(
+        `${selectedContracts.length} ${selectedContracts.length === 1 ? "horario actualizado" : "horarios actualizados"}`,
+        {
+          description: "Todos los cambios se aplicaron correctamente",
+        },
+      );
 
       form.reset();
       onOpenChange(false);
       onSuccess?.();
     } catch (error: any) {
-      toast.error("Error al actualizar contratos", {
+      toast.error("Error al actualizar horarios", {
         description: error.message ?? "Ocurrió un error inesperado",
       });
     } finally {
@@ -301,8 +304,10 @@ export function BulkEditContractDialog({
             <div>
               <DialogTitle className="text-2xl font-semibold">Edición Masiva de Horarios</DialogTitle>
               <DialogDescription className="text-muted-foreground text-base">
-                Aplicar cambios de horario a{" "}
-                <span className="text-foreground font-medium">{selectedContracts.length} contrato(s)</span>
+                Aplicar cambios a{" "}
+                <span className="text-foreground font-medium">
+                  {selectedContracts.length} {selectedContracts.length === 1 ? "horario" : "horarios"}
+                </span>
               </DialogDescription>
             </div>
           </div>
@@ -624,7 +629,7 @@ export function BulkEditContractDialog({
               </div>
 
               {/* Preview de cambios */}
-              <BulkEditPreview
+              <BulkEditSchedulesPreview
                 selectedContracts={selectedContracts}
                 changes={{
                   weeklyHours: weeklyHours ?? undefined,
@@ -646,12 +651,14 @@ export function BulkEditContractDialog({
                   {isProcessing ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Actualizando {selectedContracts.length} contrato(s)...
+                      Actualizando {selectedContracts.length} {selectedContracts.length === 1 ? "horario" : "horarios"}
+                      ...
                     </>
                   ) : (
                     <>
                       <Save className="mr-2 h-4 w-4" />
-                      Aplicar cambios a {selectedContracts.length} contrato(s)
+                      Aplicar cambios a {selectedContracts.length}{" "}
+                      {selectedContracts.length === 1 ? "horario" : "horarios"}
                     </>
                   )}
                 </Button>

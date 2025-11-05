@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { type Contract } from "@/stores/contracts-store";
 
-interface BulkEditPreviewProps {
+interface BulkEditSchedulesPreviewProps {
   selectedContracts: Contract[];
   changes: {
     weeklyHours?: number;
@@ -22,7 +22,7 @@ interface BulkEditPreviewProps {
   };
 }
 
-export function BulkEditPreview({ selectedContracts, changes }: BulkEditPreviewProps) {
+export function BulkEditSchedulesPreview({ selectedContracts, changes }: BulkEditSchedulesPreviewProps) {
   const [showEmployeeList, setShowEmployeeList] = useState(false);
 
   // Verificar si hay cambios para mostrar

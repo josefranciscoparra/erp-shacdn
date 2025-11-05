@@ -46,13 +46,11 @@ const notificationIcons = {
 
 export function NotificationList() {
   const router = useRouter();
-  const { notifications, isLoading, markAsRead, markAllAsRead } = useNotificationsStore();
+  const { notifications, isLoading, markAllAsRead } = useNotificationsStore();
 
-  const handleNotificationClick = async (notification: any) => {
-    // Marcar como leída
-    await markAsRead(notification.id);
-
-    // Redirigir a la página de notificaciones
+  const handleNotificationClick = (notification: any) => {
+    // Solo redirigir, no marcar como leída
+    // La notificación se marcará como leída cuando el usuario la abra en la página de notificaciones
     router.push("/dashboard/notifications");
   };
 

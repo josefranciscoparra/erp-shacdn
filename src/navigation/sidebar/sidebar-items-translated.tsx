@@ -134,6 +134,12 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/contracts",
               permission: "view_contracts",
             },
+            {
+              title: "Horarios",
+              url: "/dashboard/schedules",
+              icon: Clock,
+              permission: "view_contracts",
+            },
           ],
         },
         ...(documentsEnabled

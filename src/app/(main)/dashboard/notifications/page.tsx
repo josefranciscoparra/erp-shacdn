@@ -23,13 +23,15 @@ import {
   X,
   Ban,
   CheckCheck,
-  ExternalLink,
   FileCheck,
   FileSignature,
   FileClock,
   FileX,
   Clock,
   Receipt,
+  Mail,
+  MailOpen,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -51,6 +53,7 @@ import { cn } from "@/lib/utils";
 import {
   getAllMyNotifications,
   markNotificationAsRead,
+  markNotificationAsUnread,
   markAllNotificationsAsRead,
 } from "@/server/actions/notifications";
 
@@ -197,6 +200,30 @@ export default function NotificationsPage() {
       await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
     } catch (error) {
       toast.error("Error al marcar notificaciones como leídas");
+    }
+  };
+
+  const handleToggleRead = async (notification: Notification, event: React.MouseEvent) => {
+    event.stopPropagation();
+    try {
+      if (notification.isRead) {
+        await markNotificationAsUnread(notification.id);
+        toast.success("Notificación marcada como no leída");
+      } else {
+        await markNotificationAsRead(notification.id);
+        toast.success("Notificación marcada como leída");
+      }
+
+      // Actualizar la lista localmente
+      setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: !n.isRead } : n)));
+
+      // Actualizar totales
+      setTotals((prev) => ({
+        ...prev,
+        unread: notification.isRead ? prev.unread + 1 : Math.max(prev.unread - 1, 0),
+      }));
+    } catch (error) {
+      toast.error("Error al actualizar notificación");
     }
   };
 
@@ -369,21 +396,33 @@ export default function NotificationsPage() {
         header: "",
         cell: ({ row }) => (
           <div className="flex items-center justify-center">
-            {!row.original.isRead && <div className="bg-primary h-2 w-2 rounded-full" title="No leída" />}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => handleToggleRead(row.original, e)}
+              title={row.original.isRead ? "Marcar como no leída" : "Marcar como leída"}
+            >
+              {row.original.isRead ? (
+                <MailOpen className="text-muted-foreground h-4 w-4" />
+              ) : (
+                <Mail className="text-primary h-4 w-4" />
+              )}
+            </Button>
           </div>
         ),
-        size: 40,
+        size: 60,
       },
       {
         accessorKey: "type",
-        header: "Tipo",
+        header: "",
         cell: ({ row }) => {
           const type = row.original.type;
           const Icon = notificationIcons[type as keyof typeof notificationIcons] || Calendar;
           const label = notificationTypeLabels[type as keyof typeof notificationTypeLabels] || type;
 
           return (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center">
               <div
                 className={cn(
                   "rounded-full p-2",
@@ -409,13 +448,14 @@ export default function NotificationsPage() {
                   type === "EXPENSE_APPROVED" && "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "EXPENSE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
+                title={label}
               >
                 <Icon className="h-4 w-4" />
               </div>
-              <span className="text-sm font-medium">{label}</span>
             </div>
           );
         },
+        size: 60,
       },
       {
         accessorKey: "title",
@@ -427,90 +467,22 @@ export default function NotificationsPage() {
       {
         accessorKey: "message",
         header: "Mensaje",
-        cell: ({ row }) => <span className="text-muted-foreground line-clamp-2 text-sm">{row.original.message}</span>,
+        cell: ({ row }) => <span className="text-muted-foreground line-clamp-1 text-sm">{row.original.message}</span>,
       },
       {
         accessorKey: "createdAt",
         header: "Fecha",
         cell: ({ row }) => (
-          <span className="text-muted-foreground text-sm">
-            {format(new Date(row.original.createdAt), "PPp", { locale: es })}
+          <span
+            className="text-muted-foreground text-sm"
+            title={format(new Date(row.original.createdAt), "PPp", { locale: es })}
+          >
+            {format(new Date(row.original.createdAt), "dd/MM/yy HH:mm", { locale: es })}
           </span>
         ),
       },
-      {
-        id: "actions",
-        cell: ({ row }) => {
-          const notification = row.original;
-
-          return (
-            <div className="flex gap-2">
-              {notification.ptoRequestId && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleNavigate(notification);
-                  }}
-                >
-                  <ExternalLink className="mr-1 h-4 w-4" />
-                  Ver solicitud
-                </Button>
-              )}
-              {notification.manualTimeEntryRequestId && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleNavigate(notification);
-                  }}
-                >
-                  <ExternalLink className="mr-1 h-4 w-4" />
-                  {notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" ? "Revisar solicitud" : "Ver solicitud"}
-                </Button>
-              )}
-              {(notification.expenseId ?? notification.type.startsWith("EXPENSE_")) && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleNavigate(notification);
-                  }}
-                >
-                  <ExternalLink className="mr-1 h-4 w-4" />
-                  {notification.type === "EXPENSE_SUBMITTED" ? "Revisar gasto" : "Ver gasto"}
-                </Button>
-              )}
-              {(notification.type === "SIGNATURE_PENDING" ||
-                notification.type === "SIGNATURE_COMPLETED" ||
-                notification.type === "SIGNATURE_REJECTED" ||
-                notification.type === "SIGNATURE_EXPIRED") && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleNavigate(notification);
-                  }}
-                >
-                  <ExternalLink className="mr-1 h-4 w-4" />
-                  {notification.type === "SIGNATURE_PENDING"
-                    ? "Ir a firmar"
-                    : notification.title === "Documento completamente firmado" ||
-                        notification.title === "Documento rechazado por firmante"
-                      ? "Ver gestión de firmas"
-                      : "Ver mis firmas"}
-                </Button>
-              )}
-            </div>
-          );
-        },
-      },
     ],
-    [handleNavigate],
+    [handleToggleRead],
   );
 
   const table = useReactTable({
@@ -743,7 +715,8 @@ export default function NotificationsPage() {
                   <ExternalLink className="mr-2 h-4 w-4" />
                   {selectedNotification.type === "EXPENSE_SUBMITTED"
                     ? "Ir a revisar gastos"
-                    : selectedNotification.type === "EXPENSE_APPROVED" || selectedNotification.type === "EXPENSE_REJECTED"
+                    : selectedNotification.type === "EXPENSE_APPROVED" ||
+                        selectedNotification.type === "EXPENSE_REJECTED"
                       ? "Ver mis gastos"
                       : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
                         ? "Ir a revisar solicitud"

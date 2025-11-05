@@ -14,9 +14,8 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Search, X, Edit } from "lucide-react";
+import { Search, X } from "lucide-react";
 
-import { BulkEditContractDialog } from "@/components/contracts/bulk-edit-contract-dialog";
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
@@ -55,9 +54,7 @@ export function ContractsDataTable<TData, TValue>({
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
-  const [rowSelection, setRowSelection] = useState({});
   const [globalFilter, setGlobalFilter] = useState("");
-  const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
 
   // Función de filtro inteligente para búsqueda de empleados
   const intelligentEmployeeFilter = (row: any, columnId: string, filterValue: string) => {
@@ -101,14 +98,12 @@ export function ContractsDataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     onColumnVisibilityChange: setColumnVisibility,
-    onRowSelectionChange: setRowSelection,
     onGlobalFilterChange: setGlobalFilter,
     globalFilterFn: intelligentEmployeeFilter,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
-      rowSelection,
       globalFilter,
     },
     initialState: {
@@ -120,77 +115,12 @@ export function ContractsDataTable<TData, TValue>({
 
   const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
 
-  // Obtener contratos seleccionados
-  const selectedRows = table.getFilteredSelectedRowModel().rows;
-  const selectedContracts = selectedRows.map((row) => row.original as Contract);
-
   // Obtener todos los contratos filtrados (sin paginación)
   const allFilteredRows = table.getFilteredRowModel().rows;
   const allFilteredContracts = allFilteredRows.map((row) => row.original as Contract);
 
-  // Verificar si todos los filtrados están seleccionados
-  const allFilteredSelected = allFilteredRows.length > 0 && allFilteredRows.every((row) => row.getIsSelected());
-
-  // Función para seleccionar todos los filtrados
-  const handleSelectAllFiltered = () => {
-    allFilteredRows.forEach((row) => {
-      row.toggleSelected(true);
-    });
-  };
-
-  // Función para deseleccionar todos
-  const handleDeselectAll = () => {
-    table.resetRowSelection();
-  };
-
-  // Función para refrescar datos después de bulk edit
-  const handleBulkEditSuccess = () => {
-    // Limpiar selección
-    table.resetRowSelection();
-  };
-
   return (
     <div className="space-y-4">
-      {/* Toolbar de selección masiva */}
-      {selectedContracts.length > 0 && (
-        <div className="from-primary/5 to-primary/10 border-primary flex items-center justify-between rounded-lg border-l-4 bg-gradient-to-r p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-full">
-              <span className="text-primary text-sm font-semibold">{selectedContracts.length}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <p className="text-foreground font-medium">
-                  {selectedContracts.length} de {allFilteredContracts.length} contrato
-                  {selectedContracts.length > 1 ? "s" : ""} seleccionado
-                  {selectedContracts.length > 1 ? "s" : ""}
-                </p>
-                {allFilteredSelected ? (
-                  <Badge variant="default" className="bg-green-500/10 font-medium text-green-700 dark:text-green-400">
-                    Todos
-                  </Badge>
-                ) : (
-                  <Badge variant="secondary" className="font-medium">
-                    Parcial
-                  </Badge>
-                )}
-              </div>
-              <p className="text-muted-foreground text-sm">Puedes editar los horarios de forma masiva</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => table.resetRowSelection()}>
-              <X className="mr-2 h-4 w-4" />
-              Cancelar
-            </Button>
-            <Button size="sm" onClick={() => setBulkEditDialogOpen(true)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar horarios
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Toolbar */}
       <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
         <div className="flex flex-1 flex-col gap-4 @2xl/main:flex-row @2xl/main:items-center">
@@ -240,35 +170,9 @@ export function ContractsDataTable<TData, TValue>({
 
         {/* Acciones */}
         <div className="flex items-center gap-2">
-          {/* Botón seleccionar todos los filtrados */}
-          {allFilteredContracts.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={allFilteredSelected ? handleDeselectAll : handleSelectAllFiltered}
-              className="h-8"
-            >
-              {allFilteredSelected ? (
-                <>
-                  <X className="mr-2 h-4 w-4" />
-                  Deseleccionar todos
-                </>
-              ) : (
-                <>Seleccionar todos ({allFilteredContracts.length})</>
-              )}
-            </Button>
-          )}
           <DataTableViewOptions table={table} />
         </div>
       </div>
-
-      {/* Dialog de edición masiva */}
-      <BulkEditContractDialog
-        open={bulkEditDialogOpen}
-        onOpenChange={setBulkEditDialogOpen}
-        selectedContracts={selectedContracts}
-        onSuccess={handleBulkEditSuccess}
-      />
 
       {/* Tabla */}
       <div className="overflow-hidden rounded-lg border">

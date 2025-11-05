@@ -281,6 +281,34 @@ export async function markNotificationAsRead(notificationId: string) {
 }
 
 /**
+ * Marca una notificación como no leída
+ */
+export async function markNotificationAsUnread(notificationId: string) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    await prisma.ptoNotification.update({
+      where: {
+        id: notificationId,
+        userId: session.user.id, // Seguridad: solo puede marcar sus propias notificaciones
+      },
+      data: {
+        isRead: false,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error al marcar notificación como no leída:", error);
+    throw error;
+  }
+}
+
+/**
  * Marca todas las notificaciones del usuario como leídas
  */
 export async function markAllNotificationsAsRead() {

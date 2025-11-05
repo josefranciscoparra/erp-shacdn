@@ -6,6 +6,7 @@ import {
   getMyNotifications,
   getUnreadNotificationsCount,
   markNotificationAsRead,
+  markNotificationAsUnread,
   markAllNotificationsAsRead,
 } from "@/server/actions/notifications";
 
@@ -45,6 +46,7 @@ interface NotificationsState {
   loadNotifications: () => Promise<void>;
   loadUnreadCount: () => Promise<void>;
   markAsRead: (notificationId: string) => Promise<void>;
+  markAsUnread: (notificationId: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -100,6 +102,22 @@ export const useNotificationsStore = create<NotificationsState>((set, get) => ({
       set({ notifications, unreadCount });
     } catch (error) {
       console.error("Error al marcar notificación como leída:", error);
+    }
+  },
+
+  // Marcar como no leída
+  markAsUnread: async (notificationId: string) => {
+    try {
+      await markNotificationAsUnread(notificationId);
+
+      // Actualizar estado local
+      const notifications = get().notifications.map((n) => (n.id === notificationId ? { ...n, isRead: false } : n));
+
+      const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+      set({ notifications, unreadCount });
+    } catch (error) {
+      console.error("Error al marcar notificación como no leída:", error);
     }
   },
 
