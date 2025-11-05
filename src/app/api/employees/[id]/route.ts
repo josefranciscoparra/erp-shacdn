@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { resolveAvatarForClient } from "@/lib/avatar";
-import { encrypt } from "@/lib/crypto";
+import { encrypt, decrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -130,9 +130,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: "Empleado no encontrado" }, { status: 404 });
     }
 
-    // Transformar las fechas para el cliente
+    // Transformar las fechas para el cliente y descifrar el IBAN
     const employeeData = {
       ...employee,
+      iban: employee.iban ? decrypt(employee.iban) : null,
       birthDate: employee.birthDate?.toISOString(),
       createdAt: employee.createdAt.toISOString(),
       updatedAt: employee.updatedAt.toISOString(),
@@ -250,9 +251,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       notes: data.notes ?? null,
     };
 
-    // Cifrar IBAN si se proporciona
+    // Cifrar IBAN si se proporciona, o null si está vacío
     if (data.iban) {
       updateData.iban = encrypt(data.iban);
+    } else {
+      updateData.iban = null;
     }
 
     // Construir el nombre completo para User.name

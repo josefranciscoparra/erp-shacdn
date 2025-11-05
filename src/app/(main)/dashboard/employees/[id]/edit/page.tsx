@@ -171,7 +171,7 @@ export default function EditEmployeePage() {
         emergencyContactName: data.emergencyContactName ?? "",
         emergencyContactPhone: data.emergencyContactPhone ?? "",
         emergencyRelationship: data.emergencyRelationship ?? "",
-        iban: "",
+        iban: data.iban ?? "",
         createUser: false,
         userRole: data.user?.role ?? "EMPLOYEE",
         notes: data.notes ?? "",

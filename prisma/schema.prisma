@@ -71,6 +71,7 @@ model Organization {
   expensePolicy       ExpensePolicy?
   expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
   geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización
+  sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
 
   @@map("organizations")
 }
@@ -109,6 +110,7 @@ model User {
   expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
   employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
   geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización dados
+  sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
 
   @@index([email])
   @@index([orgId])
@@ -1488,6 +1490,51 @@ model GeolocationConsent {
   @@index([userId])
   @@index([active])
   @@map("geolocation_consents")
+}
+
+// ==================== SISTEMA DE AUDITORÍA DE ACCESO A DATOS SENSIBLES ====================
+
+// Log de auditoría para acceso a datos sensibles (IBAN, salario, etc.)
+model SensitiveDataAccess {
+  id           String   @id @default(cuid())
+
+  // Tipo de dato sensible accedido
+  dataType     SensitiveDataType
+
+  // Referencia al recurso (ID del empleado, etc.)
+  resourceId   String
+  resourceType String   // "EMPLOYEE", "CONTRACT", etc.
+
+  // Usuario que accedió
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Metadatos del acceso
+  ipAddress    String?
+  userAgent    String?
+
+  // Timestamp
+  accessedAt   DateTime @default(now())
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([resourceId])
+  @@index([dataType])
+  @@index([accessedAt])
+  @@map("sensitive_data_access")
+}
+
+// Tipos de datos sensibles
+enum SensitiveDataType {
+  IBAN           // Datos bancarios
+  SALARY         // Salario
+  SSN            // Número seguridad social
+  MEDICAL_DATA   // Datos médicos
+  OTHER          // Otros datos sensibles
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

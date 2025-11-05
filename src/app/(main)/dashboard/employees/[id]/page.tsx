@@ -23,10 +23,12 @@ import {
   Search,
   Filter,
   Loader2,
+  CreditCard,
 } from "lucide-react";
 
 import { DocumentListTable } from "@/components/employees/document-list-table";
 import { DocumentUploadDialog } from "@/components/employees/document-upload-dialog";
+import { EmployeeIbanDisplay } from "@/components/employees/employee-iban-display";
 import { TemporaryPasswordManager } from "@/components/employees/temporary-password-manager";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -77,6 +79,7 @@ interface Employee {
   country: string;
   birthDate: string | null;
   nationality: string | null;
+  iban: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   emergencyRelationship: string | null;
@@ -500,6 +503,26 @@ export default function EmployeeProfilePage() {
                 </CardContent>
               </Card>
             )}
+
+            {/* Datos Bancarios */}
+            <Card className="rounded-lg border shadow-xs">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">
+                  <CreditCard className="mr-2 inline h-5 w-5" />
+                  Datos Bancarios
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground w-16">IBAN:</span>
+                  <EmployeeIbanDisplay
+                    iban={employee.iban}
+                    employeeId={employee.id}
+                    requirePassword={process.env.NEXT_PUBLIC_REQUIRE_PASSWORD_FOR_IBAN === "true"}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
