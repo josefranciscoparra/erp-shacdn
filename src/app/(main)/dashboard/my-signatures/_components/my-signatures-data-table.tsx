@@ -13,13 +13,13 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Eye, FileSignature } from "lucide-react";
+import { ArrowUpDown, Download, Eye, FileSignature } from "lucide-react";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { type MySignature } from "@/stores/signatures-store";
+import { useSignaturesStore, type MySignature } from "@/stores/signatures-store";
 
 interface MySignaturesDataTableProps {
   data: MySignature[];
@@ -27,6 +27,7 @@ interface MySignaturesDataTableProps {
 
 export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const { downloadEvidence } = useSignaturesStore();
 
   const columns: ColumnDef<MySignature>[] = [
     {
@@ -101,9 +102,10 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
       cell: ({ row }) => {
         const signature = row.original;
         const isPending = signature.status === "PENDING";
+        const isSigned = signature.status === "SIGNED";
 
         return (
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
             <Button variant={isPending ? "default" : "ghost"} size="sm" asChild>
               <Link href={`/sign/${signature.signToken}`}>
                 {isPending ? (
@@ -119,6 +121,12 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
                 )}
               </Link>
             </Button>
+            {isSigned && (
+              <Button variant="ghost" size="sm" onClick={() => downloadEvidence(signature.id)}>
+                <Download className="mr-2 h-4 w-4" />
+                Evidencia
+              </Button>
+            )}
           </div>
         );
       },

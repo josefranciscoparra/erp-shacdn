@@ -154,7 +154,7 @@ interface SignaturesActions {
 
   // Descargas
   downloadSignedDocument: (id: string) => Promise<void>;
-  downloadEvidence: (id: string) => Promise<void>;
+  downloadEvidence: (signerId: string) => Promise<void>;
 
   // Limpieza
   clearSession: () => void;
@@ -624,16 +624,16 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
     }
   },
 
-  downloadEvidence: async (id: string) => {
+  downloadEvidence: async (signerId: string) => {
     if (!ensureSignaturesEnabled()) {
       return;
     }
 
     try {
-      const response = await fetch(`/api/signatures/evidence/${id}/download`);
+      const response = await fetch(`/api/signatures/evidence/by-signer/${signerId}/download`);
 
       if (!response.ok) {
-        throw new Error("Error al descargar evidencias");
+        throw new Error("Error al descargar evidencia");
       }
 
       const blob = await response.blob();
@@ -642,16 +642,16 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
       // Crear link temporal y descargar
       const a = document.createElement("a");
       a.href = url;
-      a.download = `evidencia-${id}.json`;
+      a.download = `evidencia-${signerId}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success("Evidencias descargadas");
+      toast.success("Evidencia descargada");
     } catch (error) {
       console.error("Error downloading evidence:", error);
-      toast.error("Error al descargar evidencias");
+      toast.error("Error al descargar evidencia");
     }
   },
 

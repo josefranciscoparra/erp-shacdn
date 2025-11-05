@@ -5443,3 +5443,1555 @@ public CompletableFuture<Notification> createNotification(
 - **`Promise`** = `CompletableFuture` (valor que llegará en el futuro)
 
 **Ventaja de `async/await`**: El código se lee de forma **secuencial**, como si fuera síncrono, pero es asíncrono.
+
+---
+
+## 17. Sistema de Gestión de Gastos (Expenses)
+
+### Visión General Técnica
+
+El sistema de gastos permite a los empleados crear gastos, adjuntar tickets/facturas, y enviarlos a aprobación. Incluye:
+
+- **Estados del gasto**: DRAFT → SUBMITTED → APPROVED → REIMBURSED (o REJECTED)
+- **Categorías**: FUEL, MILEAGE, MEAL, TOLL, PARKING, LODGING, OTHER
+- **Adjuntos**: Subida de archivos (fotos de tickets/facturas)
+- **OCR**: Reconocimiento óptico de caracteres para extraer datos del ticket automáticamente
+- **Aprobación**: Sistema automático que asigna aprobador (manager o HR_ADMIN)
+
+---
+
+### 1. Store de Zustand - Gestión de Estado Global
+
+**Archivo**: `src/stores/expenses-store.ts`
+
+#### Arquitectura del Estado
+
+El store usa **Zustand** (alternativa ligera a Redux) con un patrón de **acciones síncronas + asíncronas**.
+
+```typescript
+interface ExpensesState {
+  // Estado
+  expenses: Expense[];              // Array completo de gastos
+  selectedExpense: Expense | null;  // Gasto seleccionado (detalle)
+  filters: ExpenseFilters;          // Filtros aplicados
+  isLoading: boolean;               // Estado de carga
+  error: string | null;             // Error actual
+
+  // Acciones síncronas (mutación directa del estado)
+  setExpenses: (expenses: Expense[]) => void;
+  addExpense: (expense: Expense) => void;
+  updateExpenseInList: (id: string, expense: Partial<Expense>) => void;
+  removeExpense: (id: string) => void;
+
+  // Acciones asíncronas (side effects + llamadas API)
+  fetchMyExpenses: (filters?: ExpenseFilters) => Promise<void>;
+  createExpense: (data: ExpenseFormData) => Promise<Expense | null>;
+  updateExpense: (id: string, data: Partial<ExpenseFormData>) => Promise<void>;
+  uploadAttachment: (expenseId: string, file: File) => Promise<void>;
+}
+```
+
+#### Acciones Síncronas (Inmutables con spread operator)
+
+**Líneas 128-146**:
+
+```typescript
+// Añadir gasto al principio del array (prepend)
+addExpense: (expense) =>
+  set((state) => ({
+    expenses: [expense, ...state.expenses], // ← Spread operator
+  })),
+
+// Actualizar gasto (mapear array, reemplazar el que coincida)
+updateExpenseInList: (id, expenseData) =>
+  set((state) => ({
+    expenses: state.expenses.map((exp) =>
+      exp.id === id ? { ...exp, ...expenseData } : exp // ← Merge con spread
+    ),
+    selectedExpense:
+      state.selectedExpense?.id === id
+        ? { ...state.selectedExpense, ...expenseData }
+        : state.selectedExpense,
+  })),
+
+// Eliminar gasto (filter)
+removeExpense: (id) =>
+  set((state) => ({
+    expenses: state.expenses.filter((exp) => exp.id !== id),
+    selectedExpense: state.selectedExpense?.id === id ? null : state.selectedExpense,
+  })),
+```
+
+**Comparación con Redux:**
+
+| Redux                             | Zustand                |
+| --------------------------------- | ---------------------- |
+| `dispatch(addExpense(expense))`   | `addExpense(expense)`  |
+| Reducers separados                | Actions en el store    |
+| Boilerplate: actions, reducers    | Un solo archivo        |
+| DevTools por defecto              | DevTools opcional      |
+
+#### Acciones Asíncronas (Fetch + State Management)
+
+**Ejemplo completo - Crear gasto** (líneas 244-288):
+
+```typescript
+createExpense: async (data) => {
+  // 1. Setear loading state
+  set({ isLoading: true, error: null });
+
+  try {
+    // 2. Llamada HTTP a API Route
+    const response = await fetch("/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",  // ← Enviar cookies (sesión)
+      body: JSON.stringify({
+        ...data,
+        date: data.date.toISOString(),  // ← Serializar Date a ISO string
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error ?? "Error al crear gasto");
+    }
+
+    // 3. Parsear respuesta JSON
+    const newExpense = await response.json();
+
+    // 4. Normalizar datos (conversiones de tipos)
+    const parsedExpense = {
+      ...newExpense,
+      date: new Date(newExpense.date),       // String → Date
+      createdAt: new Date(newExpense.createdAt),
+      amount: Number(newExpense.amount),     // Decimal → Number
+      vatPercent: newExpense.vatPercent ? Number(newExpense.vatPercent) : null,
+      totalAmount: Number(newExpense.totalAmount),
+    };
+
+    // 5. Actualizar estado local
+    get().addExpense(parsedExpense);
+    set({ isLoading: false });
+
+    return parsedExpense;
+
+  } catch (error) {
+    // 6. Manejo de errores
+    set({
+      error: error instanceof Error ? error.message : "Error desconocido",
+      isLoading: false,
+    });
+    return null;
+  }
+}
+```
+
+**Flujo técnico:**
+
+```
+Cliente (React)
+    ↓
+Store.createExpense(data)
+    ↓
+fetch("/api/expenses") → POST
+    ↓
+Next.js API Route Handler
+    ↓
+Prisma → PostgreSQL
+    ↓
+Response JSON
+    ↓
+Parse + Normalización (tipos)
+    ↓
+Actualizar estado local (addExpense)
+    ↓
+React re-render automático (Zustand subscription)
+```
+
+#### Normalización de Datos (Critical)
+
+**¿Por qué normalizar?**
+
+PostgreSQL devuelve tipos `Decimal` de Prisma como **strings** para evitar pérdida de precisión. JavaScript no tiene `Decimal`, así que convertimos a `Number`.
+
+```typescript
+// Backend (Prisma)
+amount: Decimal   // → PostgreSQL NUMERIC(10,2)
+
+// API Response (JSON)
+"amount": "50.00"  // ← String (no Number!)
+
+// Store (JavaScript)
+amount: Number("50.00")  // → 50.00 (Number)
+```
+
+**Líneas 174-192** - Conversión masiva:
+
+```typescript
+const parsedExpenses = expenses.map((exp: any) => ({
+  ...exp,
+  // Fechas: ISO string → Date object
+  date: new Date(exp.date),
+  createdAt: new Date(exp.createdAt),
+  updatedAt: new Date(exp.updatedAt),
+
+  // Decimales: string → number
+  amount: Number(exp.amount),
+  vatPercent: exp.vatPercent ? Number(exp.vatPercent) : null,
+  totalAmount: Number(exp.totalAmount),
+  mileageKm: exp.mileageKm ? Number(exp.mileageKm) : null,
+  mileageRate: exp.mileageRate ? Number(exp.mileageRate) : null,
+
+  // Nested relations
+  attachments: exp.attachments?.map((att: any) => ({
+    ...att,
+    createdAt: new Date(att.createdAt),
+  })),
+}));
+```
+
+---
+
+### 2. Sistema de Adjuntos - Upload de Archivos
+
+**Archivo**: `src/app/api/expenses/[id]/attachments/route.ts`
+
+#### Flujo técnico completo
+
+```
+Cliente                    API Route                     Storage Provider              PostgreSQL
+   │                          │                                 │                            │
+   │ FormData(file)           │                                 │                            │
+   ├─────────────────────────→│                                 │                            │
+   │                          │ 1. Validar sesión              │                            │
+   │                          │ 2. Verificar permisos          │                            │
+   │                          │ 3. Validar archivo             │                            │
+   │                          │   (tipo, tamaño, extensión)    │                            │
+   │                          │                                 │                            │
+   │                          │ 4. Generar path único          │                            │
+   │                          │   timestamp-sanitizedName.ext  │                            │
+   │                          │                                 │                            │
+   │                          │ upload(file, path, metadata)   │                            │
+   │                          ├────────────────────────────────→│                            │
+   │                          │                                 │ 5. Subir a Storage        │
+   │                          │                                 │   (Local/Azure/R2/S3)    │
+   │                          │                                 │                            │
+   │                          │ { url, etag }                  │                            │
+   │                          │←────────────────────────────────│                            │
+   │                          │                                 │                            │
+   │                          │ prisma.expenseAttachment.create()                           │
+   │                          ├─────────────────────────────────────────────────────────────→│
+   │                          │                                 │                  INSERT    │
+   │                          │                                 │                  RETURNING │
+   │                          │ attachment record              │                            │
+   │                          │←────────────────────────────────────────────────────────────│
+   │                          │                                 │                            │
+   │ JSON(attachment)         │                                 │                            │
+   │←─────────────────────────│                                 │                            │
+```
+
+#### Código técnico - Subida de archivo
+
+**Líneas 11-114**:
+
+```typescript
+export async function POST(request: NextRequest, { params }) {
+  try {
+    // 1. Autenticación
+    const { employee } = await getAuthenticatedEmployee();
+
+    // 2. Validar permisos
+    const expense = await prisma.expense.findUnique({ where: { id: expenseId } });
+    if (expense.employeeId !== employee.id) {
+      return NextResponse.json({ error: "No tienes permisos" }, { status: 403 });
+    }
+
+    // 3. Solo permitir en DRAFT
+    if (expense.status !== "DRAFT") {
+      return NextResponse.json({ error: "Solo en borrador" }, { status: 400 });
+    }
+
+    // 4. Extraer archivo del FormData
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+
+    // 5. Validaciones
+    if (file.size > 10 * 1024 * 1024) {  // Max 10MB
+      return NextResponse.json({ error: "Archivo muy grande" }, { status: 400 });
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (!allowedTypes.includes(file.type)) {
+      return NextResponse.json({ error: "Tipo no permitido" }, { status: 400 });
+    }
+
+    // 6. Generar path único y seguro
+    const timestamp = Date.now();
+    const extension = file.name.split(".").pop();
+    const sanitizedName = file.name
+      .replace(`.${extension}`, "")
+      .replace(/[^a-zA-Z0-9.-]/g, "_")  // ← Sanitización (prevenir path traversal)
+      .toLowerCase();
+
+    const finalFileName = `${timestamp}-${sanitizedName}.${extension}`;
+    const filePath = `org-${employee.orgId}/expenses/${expenseId}/attachments/${finalFileName}`;
+
+    // 7. Subir a Storage Provider
+    const storageProvider = getStorageProvider();
+    const uploadResult = await storageProvider.upload(file, filePath, {
+      mimeType: file.type,
+      metadata: { orgId: employee.orgId, expenseId, employeeId: employee.id },
+    });
+
+    // 8. Guardar en PostgreSQL
+    const attachment = await prisma.expenseAttachment.create({
+      data: {
+        url: uploadResult.url,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+        expenseId,
+      },
+    });
+
+    return NextResponse.json(attachment, { status: 201 });
+  } catch (error) {
+    return NextResponse.json({ error: "Error al subir" }, { status: 500 });
+  }
+}
+```
+
+#### Storage Provider Pattern (Abstracción multi-cloud)
+
+**Archivo**: `src/lib/storage/index.ts`
+
+**Patrón Strategy** para soportar múltiples proveedores:
+
+```typescript
+export abstract class StorageProvider {
+  abstract upload(file: File, path: string, options?: UploadOptions): Promise<UploadResult>;
+  abstract download(url: string): Promise<Buffer>;
+  abstract delete(url: string): Promise<void>;
+  abstract getSignedUrl(url: string, expiresIn?: number): Promise<string>;
+}
+
+// Implementaciones concretas:
+class LocalStorageProvider extends StorageProvider { }    // Filesystem local
+class AzureStorageProvider extends StorageProvider { }    // Azure Blob Storage
+class R2StorageProvider extends StorageProvider { }       // Cloudflare R2
+class S3StorageProvider extends StorageProvider { }       // AWS S3 (futuro)
+```
+
+**Factory pattern:**
+
+```typescript
+export function getStorageProvider(): StorageProvider {
+  const provider = process.env.STORAGE_PROVIDER;  // "local" | "azure" | "r2" | "s3"
+
+  switch (provider) {
+    case "azure":
+      return new AzureStorageProvider(...);
+    case "r2":
+      return new R2StorageProvider(...);
+    case "local":
+    default:
+      return new LocalStorageProvider(...);
+  }
+}
+```
+
+**Ventaja**: Cambiar de proveedor es solo cambiar una variable de entorno.
+
+#### Cliente - Subida desde Zustand
+
+**Líneas 396-431**:
+
+```typescript
+uploadAttachment: async (expenseId, file) => {
+  set({ isLoading: true, error: null });
+
+  try {
+    // 1. Crear FormData
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // 2. Fetch con FormData (NO JSON)
+    const response = await fetch(`/api/expenses/${expenseId}/attachments`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,  // ← FormData automáticamente setea Content-Type: multipart/form-data
+    });
+
+    if (!response.ok) throw new Error("Error al subir archivo");
+
+    const attachment = await response.json();
+
+    // 3. Actualizar estado local
+    const expense = get().expenses.find((exp) => exp.id === expenseId);
+    if (expense) {
+      get().updateExpenseInList(expenseId, {
+        attachments: [...(expense.attachments ?? []), attachment],
+      });
+    }
+
+    set({ isLoading: false });
+  } catch (error) {
+    set({ error: error.message, isLoading: false });
+    throw error;
+  }
+}
+```
+
+---
+
+### 3. OCR - Reconocimiento Óptico de Caracteres
+
+**Librería**: **Tesseract.js** (port de Tesseract OCR a JavaScript/WebAssembly)
+
+**Hook principal**: `src/hooks/use-receipt-ocr.ts`
+
+#### Pipeline completo (12 pasos)
+
+```
+1. Preprocesamiento de imagen (5%)
+   ├─ Resize (max 2400px)
+   ├─ Sharpening
+   ├─ Contrast enhancement
+   ├─ Binarización (B&W)
+   └─ Noise reduction
+
+2. Extracción de ROIs (Regions of Interest) (10-15%)
+   ├─ ROI Header (nombre comercio + CIF)
+   ├─ ROI Totals (total + IVA)
+   └─ ROI Full (imagen completa)
+
+3. Inicialización Tesseract Worker (20%)
+   └─ Cargar modelo "spa" (español)
+
+4. OCR Header ROI (25-55%)
+   ├─ Whitelist: "A-Za-z0-9 .-"
+   ├─ PSM: 6 (single uniform block)
+   └─ Extract: merchant name + VAT
+
+5. OCR Totals ROI (55-70%)
+   ├─ Whitelist: "0-9,.-€%TOTALIVAIMPORTESUMA "
+   ├─ PSM: 6
+   └─ Extract: total amount + VAT %
+
+6. OCR Full Image (70-85%)
+   ├─ No whitelist
+   ├─ PSM: 3 (fully automatic)
+   └─ Extract: todo el texto
+
+7. Parsing inteligente (85-90%)
+   ├─ Regex patterns prioritarias
+   ├─ Normalización de marcas (diccionario)
+   ├─ Scoring por keywords
+   └─ Confidence calculation
+
+8. Retry con inversión de colores (90-95%)
+   └─ Si confidence < 40% → invertir imagen y re-procesar
+
+9. Terminar Worker (95%)
+
+10. Retornar resultado con confidence scores (100%)
+```
+
+#### Código técnico - Hook de OCR
+
+**Archivo**: `src/hooks/use-receipt-ocr.ts` (líneas 27-190):
+
+```typescript
+const processReceipt = async (file: File) => {
+  setState({ isProcessing: true, progress: 0, error: null, result: null });
+  let worker: Worker | null = null;
+
+  try {
+    // PASO 1: Preprocesar imagen
+    setState((prev) => ({ ...prev, progress: 5 }));
+    const preprocessedFile = await preprocessImageForOcr(file);
+
+    // PASO 2: Convertir a canvas
+    const canvas = await fileToCanvas(preprocessedFile);
+
+    // PASO 3: Extraer ROIs
+    const rois = extractAllROIsToCanvases(canvas);
+    // rois = { header: HTMLCanvasElement, totals: HTMLCanvasElement }
+
+    // PASO 4: Inicializar Tesseract Worker
+    worker = await createWorker("spa", 1, {  // ← "spa" = español
+      logger: (m) => {
+        if (m.status === "recognizing text") {
+          const ocrProgress = Math.round(20 + m.progress * 60);
+          setState((prev) => ({ ...prev, progress: ocrProgress }));
+        }
+      },
+    });
+
+    // PASO 5: Procesar ROI Header (comercio + CIF)
+    const headerFile = await roiCanvasToFile(rois.header, "header.png");
+
+    await worker.setParameters({
+      tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .-",
+      tessedit_pageseg_mode: "6",  // PSM 6 = single uniform block
+    });
+
+    const headerResult = await worker.recognize(headerFile);
+    const headerText = headerResult.data.text;
+
+    // PASO 6: Procesar ROI Totals (total + IVA)
+    const totalsFile = await roiCanvasToFile(rois.totals, "totals.png");
+
+    await worker.setParameters({
+      tessedit_char_whitelist: "0123456789,.-€%TOTALIVAIMPORTESUMA ",
+      tessedit_pageseg_mode: "6",
+    });
+
+    const totalsResult = await worker.recognize(totalsFile);
+    const totalsText = totalsResult.data.text;
+
+    // PASO 7: Procesar imagen completa
+    await worker.setParameters({
+      tessedit_char_whitelist: "",
+      tessedit_pageseg_mode: "3",
+    });
+
+    const fullResult = await worker.recognize(preprocessedFile);
+    const fullText = fullResult.data.text;
+
+    // PASO 8: Terminar worker
+    await worker.terminate();
+    worker = null;
+
+    // PASO 9: Combinar textos
+    const combinedText = `${headerText}\n\n${fullText}\n\n${totalsText}`;
+
+    // PASO 10: Parsear con regex
+    let parsedData = parseReceiptText(combinedText);
+
+    // PASO 11: Retry con imagen invertida si confidence baja
+    if (parsedData.confidence.totalAmount < 0.4) {
+      worker = await createWorker("spa", 1);
+
+      const ctx = canvas.getContext("2d");
+      let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      imageData = invertColors(imageData);
+      ctx.putImageData(imageData, 0, 0);
+
+      const invertedBlob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), "image/png");
+      });
+      const invertedFile = new File([invertedBlob], "inverted.png");
+
+      const retryResult = await worker.recognize(invertedFile);
+      const retryParsed = parseReceiptText(retryResult.data.text);
+
+      // Usar el mejor resultado
+      if (retryParsed.confidence.totalAmount > parsedData.confidence.totalAmount) {
+        parsedData = retryParsed;
+      }
+
+      await worker.terminate();
+    }
+
+    // PASO 12: Completado
+    setState({ isProcessing: false, progress: 100, error: null, result: parsedData });
+    return parsedData;
+
+  } catch (error) {
+    if (worker) await worker.terminate();
+    setState({ isProcessing: false, progress: 0, error: error.message, result: null });
+    throw error;
+  }
+};
+```
+
+#### Parsing Inteligente - Extracción de Datos
+
+**Archivo**: `src/lib/ocr/receipt-parser.ts` (líneas 26-76):
+
+```typescript
+export function parseReceiptText(text: string): ParsedReceiptData {
+  const result = {
+    totalAmount: null,
+    date: null,
+    merchantName: null,
+    merchantVat: null,
+    vatPercent: null,
+    confidence: { totalAmount: 0, date: 0, merchantName: 0, merchantVat: 0, vatPercent: 0 },
+  };
+
+  const normalizedText = text.toUpperCase().replace(/[^\w\s\d.,/:%-€]/g, " ");
+
+  // 1. Extraer total (CON PRIORIDAD por palabra clave)
+  const keywordPatterns = [
+    /\b(TOTAL|IMPORTE\s*TOTAL|A\s*PAGAR)[:\s]*([0-9]+[.,][0-9]{2})/i,
+    /\b(SUMA|TOTAL\s*A\s*PAGAR)[:\s]*([0-9]+[.,][0-9]{2})/i,
+  ];
+
+  for (const pattern of keywordPatterns) {
+    const match = normalizedText.match(pattern);
+    if (match) {
+      result.totalAmount = parseFloat(match[2].replace(",", "."));
+      result.confidence.totalAmount = 0.9;  // ← Alta confidence
+      break;
+    }
+  }
+
+  // 2. Extraer fecha
+  const datePatterns = [
+    /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/,  // DD/MM/YYYY
+  ];
+
+  // 3. Extraer comercio con normalización
+  const merchantResult = extractMerchantNameImproved(text);
+  result.merchantName = normalizeBrand(merchantResult.value);  // ← Diccionario
+  result.confidence.merchantName = merchantResult.confidence;
+
+  // 4. Extraer CIF/NIF (España)
+  const vatPattern = /\b([A-Z]\d{8}|\d{8}[A-Z])\b/;
+  const vatMatch = normalizedText.match(vatPattern);
+  if (vatMatch) {
+    result.merchantVat = vatMatch[1];
+    result.confidence.merchantVat = 0.8;
+  }
+
+  // 5. Extraer % IVA
+  const vatPercentPatterns = [
+    /IVA\s*(\d{1,2})[%\s]/i,
+    /(\d{1,2})%\s*IVA/i,
+  ];
+
+  return result;
+}
+```
+
+#### ROI Extraction (Regions of Interest)
+
+**Archivo**: `src/lib/ocr/roi-extractor.ts`
+
+**¿Por qué ROIs?** En lugar de procesar toda la imagen, extraemos regiones específicas donde están los datos importantes (mejor accuracy).
+
+```typescript
+export function extractAllROIsToCanvases(canvas: HTMLCanvasElement) {
+  const width = canvas.width;
+  const height = canvas.height;
+
+  // ROI Header: 30% superior
+  const headerCanvas = document.createElement("canvas");
+  headerCanvas.width = width;
+  headerCanvas.height = height * 0.3;
+  const headerCtx = headerCanvas.getContext("2d");
+  headerCtx.drawImage(canvas, 0, 0, width, height * 0.3, 0, 0, width, height * 0.3);
+
+  // ROI Totals: 30% inferior
+  const totalsCanvas = document.createElement("canvas");
+  totalsCanvas.width = width;
+  totalsCanvas.height = height * 0.3;
+  const totalsCtx = totalsCanvas.getContext("2d");
+  totalsCtx.drawImage(canvas, 0, height * 0.7, width, height * 0.3, 0, 0, width, height * 0.3);
+
+  return { header: headerCanvas, totals: totalsCanvas };
+}
+```
+
+#### Preprocesamiento de Imagen
+
+**Archivo**: `src/lib/ocr/image-preprocessor.ts`
+
+**Filtros aplicados:**
+
+1. **Resize** → Max 2400px
+2. **Sharpen** → Mejorar bordes
+3. **Contrast** → Aumentar diferencia
+4. **Binarización** → Blanco/negro puro
+5. **Noise reduction** → Eliminar ruido
+
+```typescript
+export function applyOcrFilters(canvas: HTMLCanvasElement): HTMLCanvasElement {
+  const ctx = canvas.getContext("2d");
+  let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+  // 1. Sharpen (convolución 3x3)
+  imageData = applySharpen(imageData);
+
+  // 2. Contrast enhancement
+  imageData = applyContrast(imageData, 1.5);
+
+  // 3. Binarización (Otsu's method)
+  imageData = applyBinarization(imageData);
+
+  // 4. Noise reduction
+  imageData = applyNoiseReduction(imageData);
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+```
+
+#### Resultado final del OCR
+
+```typescript
+interface ParsedReceiptData {
+  totalAmount: number | null;      // 60.50
+  date: Date | null;               // 2025-01-05
+  merchantName: string | null;     // "Repsol" (normalizado)
+  merchantVat: string | null;      // "B12345678"
+  vatPercent: number | null;       // 21
+  confidence: {
+    totalAmount: number;           // 0.9 (90% confianza)
+    date: number;                  // 0.8
+    merchantName: number;          // 0.75
+    merchantVat: number;           // 0.6
+    vatPercent: number;            // 0.85
+  };
+}
+```
+
+---
+
+### Rutas clave para explorar el código
+
+Si quieres entender el sistema de gastos explorando el código, estas son las rutas principales:
+
+#### Backend / Server Actions
+- `src/server/actions/expenses.ts` - CRUD de gastos
+- `src/server/actions/expense-approvals.ts` - Lógica de aprobación
+- `src/app/api/expenses/[id]/attachments/route.ts` - Upload de adjuntos
+
+#### Frontend / UI
+- `src/app/(main)/dashboard/me/expenses/page.tsx` - Listado de mis gastos
+- `src/app/(main)/dashboard/me/expenses/new/page.tsx` - Crear gasto con OCR
+- `src/app/(main)/dashboard/approvals/expenses/page.tsx` - Aprobar gastos
+
+#### Store
+- `src/stores/expenses-store.ts` - Estado global (Zustand)
+
+#### OCR
+- `src/hooks/use-receipt-ocr.ts` - Hook principal OCR
+- `src/lib/ocr/receipt-parser.ts` - Parsing de texto
+- `src/lib/ocr/image-preprocessor.ts` - Filtros de imagen
+- `src/lib/ocr/roi-extractor.ts` - Extracción de regiones
+
+#### Storage
+- `src/lib/storage/index.ts` - Factory de providers
+- `src/lib/storage/providers/local.ts` - Provider filesystem
+- `src/lib/storage/providers/azure.ts` - Provider Azure
+- `src/lib/storage/providers/r2.ts` - Provider Cloudflare R2
+
+#### Base de Datos
+- `prisma/schema.prisma` - Modelos Expense, ExpenseAttachment, ExpenseApproval
+
+---
+
+### Resumen Técnico
+
+| Componente       | Tecnología              | Patrón              | Analogía Java                        |
+| ---------------- | ----------------------- | ------------------- | ------------------------------------ |
+| **Store**        | Zustand                 | State machine       | Redux (simplificado)                 |
+| **Adjuntos**     | FormData + Storage      | Strategy pattern    | Spring MultipartFile + Cloud SDK     |
+| **OCR**          | Tesseract.js (WASM)     | Pipeline pattern    | Apache Tika + OpenCV                 |
+| **Parsing**      | Regex + Scoring         | NLP básico          | Stanford NLP                         |
+| **Normalización**| Type conversion         | Data transformation | DTO Mappers (ModelMapper, MapStruct) |
+
+---
+
+## 18. Preguntas de Entrevista - Respuestas Rápidas
+
+> Sección preparada para responder preguntas técnicas en entrevistas o presentaciones. Cada respuesta incluye un párrafo técnico y las rutas de archivos clave.
+
+---
+
+### 🔐 Pregunta: ¿Cómo está implementado el login?
+
+**Respuesta para el entrevistador:**
+
+El login está implementado con **NextAuth v5** usando el provider de **Credentials** para autenticación con email y contraseña. Las contraseñas se hashean con **bcrypt** antes de comparar, la sesión se maneja con **JWT** (válido 30 días), y la validación de formularios se hace con **Zod**. Al hacer login, se verifica que el usuario esté activo, que su organización esté activa (multi-tenancy), se compara la contraseña hasheada con bcrypt, y si todo es válido, se crea un JWT con datos del usuario (id, role, orgId, employeeId) que se almacena en una cookie HttpOnly.
+
+**Archivos clave para entenderlo:**
+- **`/src/lib/auth.ts`** (líneas 122-199): Provider de Credentials con authorize(), verificación de contraseña con bcrypt, creación del JWT
+- **`/src/app/(main)/auth/_components/login-form.tsx`** (líneas 39-70): Formulario React con React Hook Form, llama a `signIn("credentials")` de NextAuth
+- **Callbacks JWT** en auth.ts (líneas 46-119): Callback `jwt()` para añadir datos custom al token (role, orgId, employeeId), callback `session()` para exponer estos datos al cliente
+
+---
+
+### 🎫 Pregunta: ¿Cómo está implementado el escaneo de tickets (OCR)?
+
+**Respuesta para el entrevistador:**
+
+El escaneo de tickets usa **Tesseract.js** (OCR en WebAssembly) con un pipeline de 12 pasos que incluye **preprocesamiento de imagen** (ROI extraction, sharpening, binarización), **ejecución de OCR** con modo PSM 6 y whitelist de caracteres, **parsing con regex** para extraer fecha/importe/comercio/IVA, y **scoring de confianza**. Si la confianza es baja (<70%), reintenta con inversión de color. El resultado parseado se normaliza (fecha a ISO, importe a número) y se pre-rellena automáticamente en el formulario de gastos.
+
+**Archivos clave para entenderlo:**
+- **`/src/hooks/use-receipt-ocr.ts`**: Hook principal con el pipeline completo de 12 pasos (líneas 59-207), manejo de errores, retry con inversión de color
+- **`/src/lib/ocr/receipt-parser.ts`**: Regex patterns para extraer datos (líneas 1-100), confidence scoring, normalización de comercios
+- **`/src/lib/ocr/image-preprocessor.ts`**: ROI extraction, sharpening, binarization filters para mejorar calidad antes del OCR
+- **Integración**: El hook se llama desde el formulario de gastos al subir una imagen, los datos parseados se setean automáticamente en el form
+
+---
+
+### 📝 Pregunta: ¿Qué es React Hook Form?
+
+**Respuesta para el entrevistador:**
+
+**React Hook Form** es una librería de gestión de formularios en React que usa **hooks** (`useForm`) para manejar el estado del formulario, validación con **Zod**, y optimiza el rendimiento evitando re-renders innecesarios. En lugar de manejar cada input manualmente con `useState`, React Hook Form centraliza todo el estado del formulario (valores, errores, validación) en un solo hook, y se integra con componentes de UI usando el patrón `render prop` con `FormField` y `FormControl`.
+
+**Archivos clave para entenderlo:**
+- **`/src/app/(main)/dashboard/me/expenses/_components/expense-form.tsx`** (líneas 44-56): Ejemplo de uso de `useForm` con `zodResolver` para validación, define defaultValues y schema con Zod
+- **`/src/app/(main)/auth/_components/login-form.tsx`** (líneas 30-37): Otro ejemplo, formulario de login con React Hook Form
+- **Líneas 123-150 de expense-form.tsx**: Uso de `FormField` con `control={form.control}` para conectar inputs al estado del formulario
+
+---
+
+### 🔗 Pregunta: ¿Cómo se invocan los hooks? ¿Desde qué archivos?
+
+**Respuesta para el entrevistador:**
+
+Los **hooks** son funciones que empiezan por `use` y se invocan **dentro de componentes React** (archivos `.tsx` que exportan componentes). Los hooks **custom** (como `useReceiptOcr`) se invocan desde **páginas** o **componentes**, nunca desde archivos de servidor o utilidades normales. Por ejemplo, `useReceiptOcr` se invoca en la página `/dashboard/me/expenses/new/page.tsx` (línea 24), que es un **Client Component** marcado con `"use client"`, y ese hook internamente usa otros hooks de React como `useState` y `useCallback`.
+
+**Ejemplo concreto con OCR:**
+- **Hook custom OCR**: `/src/hooks/use-receipt-ocr.ts` - Define la lógica de OCR, exporta `useReceiptOcr`
+- **Invocación desde página**: `/src/app/(main)/dashboard/me/expenses/new/page.tsx` (línea 24) - Llama a `const { isProcessing, progress, result, processReceipt } = useReceiptOcr()`
+- **Uso en componente**: Línea 53 - `await processReceipt(file)` ejecuta el pipeline OCR
+- **Reglas**: El hook SOLO puede invocarse en componentes `"use client"`, en el nivel top (no dentro de loops/if)
+
+---
+
+### 📂 Pregunta: Estructura de ficheros del sistema OCR (pantallas, hooks, componentes, etc.)
+
+**Respuesta para el entrevistador:**
+
+La estructura del OCR sigue el patrón de **Next.js App Router** con separación clara entre **páginas** (rutas), **componentes reutilizables**, **hooks custom**, y **utilidades de librería**:
+
+```
+📁 Sistema OCR - Estructura Completa
+├── 📄 PÁGINAS (Routes)
+│   └── src/app/(main)/dashboard/me/expenses/
+│       ├── new/page.tsx ← Wizard captura → OCR → form (usa hook useReceiptOcr)
+│       └── page.tsx ← Listado de gastos
+│
+├── 📄 COMPONENTES (UI reutilizable en _components/)
+│   └── src/app/(main)/dashboard/me/expenses/_components/
+│       ├── expense-form.tsx ← Formulario con React Hook Form (useForm)
+│       ├── camera-capture.tsx ← Captura foto/sube archivo
+│       ├── ocr-suggestions.tsx ← Muestra datos parseados del OCR
+│       └── attachment-uploader.tsx ← Upload de archivos adjuntos
+│
+├── 📄 HOOKS CUSTOM (Lógica reutilizable)
+│   └── src/hooks/
+│       └── use-receipt-ocr.ts ← Hook principal: pipeline 12 pasos OCR
+│
+├── 📄 LIBRERÍA OCR (Utilidades puras TypeScript)
+│   └── src/lib/ocr/
+│       ├── receipt-parser.ts ← Regex para extraer datos (fecha/importe/IVA)
+│       ├── image-preprocessor.ts ← Filtros: sharpening, binarization
+│       ├── roi-extractor.ts ← Region of Interest detection
+│       ├── advanced-filters.ts ← Filtros avanzados de imagen
+│       ├── otsu-threshold.ts ← Algoritmo Otsu binarización
+│       ├── brand-dictionary.ts ← Normalización de marcas
+│       └── levenshtein.ts ← Distancia edit para fuzzy matching
+│
+├── 📄 STORE (Estado global Zustand)
+│   └── src/stores/
+│       └── expenses-store.ts ← createExpense, uploadAttachment, fetchExpenses
+│
+└── 📄 API ROUTES (Backend Next.js)
+    └── src/app/api/expenses/
+        └── [id]/attachments/route.ts ← POST para subir archivos
+```
+
+**Flujo completo (New Expense):**
+1. **Usuario entra**: `/dashboard/me/expenses/new/page.tsx` (página)
+2. **Captura foto**: Componente `<CameraCapture />` (línea 175)
+3. **Procesa OCR**: `processReceipt(file)` del hook `useReceiptOcr` (línea 53)
+4. **Hook ejecuta**:
+   - Preprocesa imagen: `image-preprocessor.ts` (ROI, sharpening)
+   - Ejecuta Tesseract.js en el hook
+   - Parsea resultado: `receipt-parser.ts` (regex)
+5. **Muestra sugerencias**: `<OcrSuggestions />` (línea 220)
+6. **Usuario edita**: `<ExpenseForm />` con React Hook Form (línea 242)
+7. **Submit**: Llama a `createExpense()` del store Zustand (línea 86)
+8. **Upload**: `uploadAttachment()` sube foto a API `/api/expenses/[id]/attachments` (línea 100)
+
+---
+
+### 📦 Pregunta: ¿Cómo funciona el sistema de Storage Provider? (Multi-cloud)
+
+**Respuesta para el entrevistador:**
+
+El sistema usa el **patrón Strategy** con una **Factory** para abstraer el almacenamiento de archivos y soportar múltiples proveedores cloud (Local, Azure, Cloudflare R2) sin cambiar código. El proveedor se selecciona por variable de entorno `STORAGE_PROVIDER`, todos implementan la interfaz `StorageProvider` con métodos `upload()`, `download()`, `delete()`, `getSignedUrl()`, y `list()`. Se usa un **singleton** para evitar crear múltiples instancias, y cada provider maneja su propia lógica de autenticación y paths.
+
+**Estructura de ficheros del Storage Provider:**
+
+```
+📁 Sistema Storage Provider - Estructura Completa
+├── 📄 CONFIGURACIÓN Y FACTORY
+│   └── src/lib/storage/
+│       ├── index.ts ← Factory: createStorageProvider(), getStorageProvider()
+│       ├── types.ts ← Interfaces: StorageProvider, StorageConfig, UploadOptions
+│       └── avatar-service.ts ← Servicio específico para avatares
+│
+├── 📄 PROVIDERS (Implementaciones concretas)
+│   └── src/lib/storage/providers/
+│       ├── local.ts ← Local filesystem (desarrollo)
+│       ├── azure.ts ← Azure Blob Storage (producción)
+│       └── r2.ts ← Cloudflare R2 (producción alternativa)
+│
+├── 📄 API ROUTES (Uso del storage)
+│   └── src/app/api/
+│       ├── expenses/[id]/attachments/route.ts ← Upload de gastos
+│       ├── signature-requests/[id]/sign/route.ts ← Upload de firmas
+│       └── upload/avatar/route.ts ← Upload de avatares
+│
+└── 📄 CONFIGURACIÓN (.env)
+    ├── STORAGE_PROVIDER="local" | "azure" | "r2"
+    ├── AZURE_STORAGE_CONNECTION_STRING (si azure)
+    ├── R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, etc. (si r2)
+    └── LOCAL_STORAGE_PATH, LOCAL_STORAGE_URL (si local)
+```
+
+**Flujo completo (Upload de Expense Attachment):**
+
+1. **Usuario sube archivo**: Componente `<CameraCapture />` en frontend captura foto
+2. **Frontend → API**: `uploadAttachment(expenseId, file)` del store Zustand llama a `/api/expenses/${id}/attachments`
+3. **API Route recibe FormData**:
+   ```typescript
+   const formData = await request.formData();
+   const file = formData.get("file") as File;
+   ```
+4. **Validación de archivo**: Tamaño, extensión, tipo MIME
+5. **Sanitización**: Limpia nombre de archivo, añade timestamp
+6. **Factory selecciona provider**:
+   ```typescript
+   const storage = getStorageProvider(); // Singleton
+   // Retorna LocalStorageProvider | AzureStorageProvider | R2StorageProvider
+   ```
+7. **Provider ejecuta upload**:
+   - **Local**: `fs.writeFile()` guarda en disco, retorna path relativo
+   - **Azure**: `BlobClient.upload()` sube a Azure Blob Storage, retorna URL
+   - **R2**: `S3Client.putObject()` sube a Cloudflare R2, retorna URL pública
+8. **Guardar en BD**: Prisma guarda registro `ExpenseAttachment` con URL
+9. **Retornar al cliente**: API retorna objeto con `{ id, url, fileName }`
+10. **Store actualiza**: Zustand añade attachment al expense en memoria
+
+**Ventajas del patrón:**
+- ✅ **Cambiar provider sin tocar código**: Solo cambiar env var
+- ✅ **Testing fácil**: Mock del provider en tests
+- ✅ **Multi-cloud**: Migrar de Azure a R2 sin downtime
+- ✅ **Costos optimizados**: Local en dev, R2 en prod (más barato que Azure)
+
+---
+
+### 🔔 Pregunta: ¿Cómo funciona el sistema de Notificaciones?
+
+**Respuesta para el entrevistador:**
+
+El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4 mecanismos de auto-refresh**: al montar el componente, al cambiar de ruta, al hacer focus en la ventana, y cada 30 minutos. Las notificaciones se crean en **Server Actions** cuando ocurren eventos (PTO aprobado, gasto rechazado, entrada manual pendiente), se almacenan en BD con `isRead: false`, y se cargan en el **Zustand store** del cliente. El componente `<NotificationBell />` muestra un badge con el contador y dropdown con últimas notificaciones.
+
+**Estructura de ficheros del Sistema de Notificaciones:**
+
+```
+📁 Sistema Notificaciones - Estructura Completa
+├── 📄 COMPONENTE UI (Bell + Dropdown)
+│   └── src/components/notifications/
+│       └── notification-bell.tsx ← Bell icon, badge contador, dropdown
+│
+├── 📄 STORE (Estado global Zustand)
+│   └── src/stores/
+│       └── notifications-store.tsx ← Estado: notifications[], unreadCount
+│
+├── 📄 SERVER ACTIONS (CRUD Notificaciones)
+│   └── src/server/actions/
+│       └── notifications.ts ← createNotification(), getMyNotifications(),
+│                               markAsRead(), markAllAsRead(), delete()
+│
+├── 📄 CREADORES DE NOTIFICACIONES (Eventos de negocio)
+│   └── src/server/actions/
+│       ├── approver-pto.ts ← Crea notificación al aprobar/rechazar PTO
+│       ├── expense-approvals.ts ← Crea notificación al aprobar/rechazar gasto
+│       ├── approver-manual-time-entry.ts ← Notifica entrada manual
+│       └── expenses.ts ← Notifica al enviar gasto a aprobación
+│
+└── 📄 BASE DE DATOS (Prisma Schema)
+    └── prisma/schema.prisma
+        └── model PtoNotification {
+              id, userId, orgId, type, title, message,
+              isRead, createdAt, ptoRequestId, expenseId, etc.
+            }
+```
+
+**Flujo completo (Notificación de Gasto Aprobado):**
+
+1. **Manager aprueba gasto**: Frontend llama a `approveExpense(expenseId)`
+2. **Server Action ejecuta**:
+   ```typescript
+   // src/server/actions/expense-approvals.ts (líneas 170-202)
+   await prisma.$transaction(async (tx) => {
+     // 1. Actualizar ExpenseApproval → decision: "APPROVED"
+     await tx.expenseApproval.update({ ... });
+
+     // 2. Actualizar Expense → status: "APPROVED"
+     await tx.expense.update({ ... });
+
+     // 3. Crear notificación para el empleado
+     await createNotification(
+       employeeUserId,
+       orgId,
+       "EXPENSE_APPROVED",
+       "Gasto aprobado",
+       `Tu gasto de 60.50€ ha sido aprobado`,
+       undefined, // ptoRequestId
+       undefined, // manualTimeEntryRequestId
+       expenseId  // expenseId
+     );
+   });
+   ```
+3. **createNotification() guarda en BD**:
+   ```typescript
+   // src/server/actions/notifications.ts (líneas 22-34)
+   await prisma.ptoNotification.create({
+     data: {
+       userId: employeeUserId,
+       orgId,
+       type: "EXPENSE_APPROVED",
+       title: "Gasto aprobado",
+       message: "Tu gasto de 60.50€ ha sido aprobado",
+       expenseId,
+       isRead: false,
+     }
+   });
+   ```
+4. **Auto-refresh en el cliente** (4 mecanismos):
+   - **Focus event**: Usuario cambia de pestaña y vuelve → auto-refresh
+   - **Pathname change**: Usuario navega a otra ruta → auto-refresh
+   - **Interval**: Cada 30 minutos → auto-refresh
+   - **Manual**: Usuario hace click en campana → dropdown muestra notificaciones
+5. **Store carga notificaciones**:
+   ```typescript
+   // src/stores/notifications-store.tsx
+   loadNotifications: async () => {
+     const notifications = await getMyNotifications(10);
+     set({ notifications });
+   }
+   ```
+6. **UI actualiza**:
+   - Badge muestra contador: `<Badge>3</Badge>`
+   - Dropdown muestra últimas notificaciones con tipo, título, mensaje
+   - Click en notificación → marca como leída + navega a detalle
+7. **Marcar como leída**:
+   ```typescript
+   await markAsRead(notificationId);
+   // Actualiza isRead: true en BD
+   // Store actualiza en memoria
+   ```
+
+**Tipos de notificaciones soportadas:**
+- `PTO_SUBMITTED` - Empleado envió solicitud PTO
+- `PTO_APPROVED` - PTO aprobado
+- `PTO_REJECTED` - PTO rechazado
+- `EXPENSE_SUBMITTED` - Gasto enviado a aprobación
+- `EXPENSE_APPROVED` - Gasto aprobado
+- `EXPENSE_REJECTED` - Gasto rechazado
+- `MANUAL_TIME_ENTRY_SUBMITTED` - Entrada manual solicitada
+- `MANUAL_TIME_ENTRY_APPROVED` - Entrada manual aprobada
+- `MANUAL_TIME_ENTRY_REJECTED` - Entrada manual rechazada
+
+**¿Por qué polling y no WebSockets?**
+- ✅ **Simplicidad**: No requiere servidor WebSocket separado
+- ✅ **Escalabilidad**: Funciona en serverless (Vercel, Cloudflare Workers)
+- ✅ **Menor carga**: Polling inteligente solo cuando se necesita
+- ✅ **Confiable**: No hay problemas de reconexión WebSocket
+
+---
+
+### ✍️ Pregunta: ¿Cómo funciona el sistema de Firma Electrónica?
+
+**Respuesta para el entrevistador:**
+
+El sistema de firma electrónica implementa **SES (Simple Electronic Signature)** cumpliendo normativa europea (eIDAS). El flujo es: HR crea solicitud de firma → se generan tokens únicos por firmante → empleado accede con token → da consentimiento RGPD → firma documento → se calcula **hash SHA-256** del PDF original y firmado → se genera **evidencia JSON** con timeline, metadatos (IP, userAgent, timestamps) → se almacena todo en storage → se notifica a HR cuando todos firman. Soporta **firma secuencial** (orden) y **firma paralela** (todos a la vez), con expiración automática y rechazo con motivo.
+
+**Estructura de ficheros del Sistema de Firma Electrónica:**
+
+```
+📁 Sistema Firma Electrónica - Estructura Completa
+├── 📄 PANTALLAS HR/ADMIN (Crear solicitudes)
+│   └── src/app/(main)/dashboard/signatures/
+│       ├── page.tsx ← Listado de solicitudes (todas)
+│       └── _components/
+│           ├── create-signature-dialog.tsx ← Formulario crear solicitud
+│           └── signatures-data-table.tsx ← Tabla con filtros/paginación
+│
+├── 📄 PANTALLAS EMPLEADO (Firmar documentos)
+│   └── src/app/(main)/dashboard/me/signatures/
+│       ├── page.tsx ← Mis documentos pendientes de firma
+│       ├── [token]/page.tsx ← Visor PDF + consentimiento + firma
+│       └── _components/
+│           └── my-signatures-table.tsx ← Tabla mis firmas
+│
+├── 📄 COMPONENTES REUTILIZABLES
+│   └── src/components/signatures/
+│       ├── signature-pdf-viewer.tsx ← Visor PDF con react-pdf
+│       ├── signature-consent-modal.tsx ← Modal consentimiento RGPD
+│       ├── signature-confirm-modal.tsx ← Modal confirmar firma
+│       ├── signature-status-badge.tsx ← Badge estado (PENDING/SIGNED/REJECTED)
+│       ├── signature-urgency-badge.tsx ← Badge urgencia (expira en X días)
+│       └── signature-timeline.tsx ← Timeline visual de eventos
+│
+├── 📄 API ROUTES (Backend)
+│   └── src/app/api/signatures/
+│       ├── requests/create/route.ts ← POST crear solicitud
+│       ├── sessions/[token]/route.ts ← GET datos de sesión
+│       ├── sessions/[token]/consent/route.ts ← POST dar consentimiento
+│       ├── sessions/[token]/confirm/route.ts ← POST firmar documento
+│       ├── sessions/[token]/reject/route.ts ← POST rechazar firma
+│       ├── documents/upload/route.ts ← POST subir PDF original
+│       └── evidence/[id]/download/route.ts ← GET descargar evidencia
+│
+├── 📄 LIBRERÍA DE FIRMAS (Utilidades)
+│   └── src/lib/signatures/
+│       ├── hash.ts ← Cálculo SHA-256 de documentos
+│       ├── pdf-signer.ts ← "Firma" PDF (mantiene original por ahora)
+│       ├── evidence-builder.ts ← Construye JSON de evidencia
+│       ├── storage.ts ← Servicio storage para docs firmados
+│       ├── storage-utils.ts ← Helpers paths de storage
+│       └── notifications.ts ← Notificaciones de firma completada
+│
+├── 📄 STORE (Estado global Zustand)
+│   └── src/stores/
+│       └── signatures-store.tsx ← Estado: requests[], mySignatures[], currentSession
+│
+└── 📄 BASE DE DATOS (Prisma Schema)
+    └── prisma/schema.prisma
+        ├── model SignableDocument ← PDF original con hash
+        ├── model SignatureRequest ← Solicitud (status, policy, expiresAt)
+        ├── model Signer ← Firmante (status, order, signToken, evidenceUrl)
+        └── model SignatureEvidence ← JSON con timeline y metadatos
+```
+
+**Flujo completo (Firma de Contrato de Trabajo):**
+
+1. **HR crea solicitud**:
+   ```typescript
+   // Frontend: <CreateSignatureDialog />
+   const formData = new FormData();
+   formData.append("documentFile", pdfFile);
+   formData.append("title", "Contrato Juan Pérez");
+   formData.append("policy", "SES");
+   formData.append("employeeIds", JSON.stringify(["emp-123"]));
+
+   // API: POST /api/signatures/requests/create
+   ```
+
+2. **Backend procesa solicitud** (líneas 1-150 en `create/route.ts`):
+   ```typescript
+   // 1. Validar archivo (PDF, max 10MB)
+   // 2. Calcular hash SHA-256 del PDF original
+   const originalHash = calculateHash(pdfBuffer);
+
+   // 3. Subir PDF a storage
+   const uploadResult = await storage.uploadDocument(pdfBuffer);
+
+   // 4. Crear registro en BD
+   const document = await prisma.signableDocument.create({
+     data: { title, originalHash, originalFileUrl, fileSize }
+   });
+
+   // 5. Crear SignatureRequest
+   const request = await prisma.signatureRequest.create({
+     data: {
+       documentId: document.id,
+       status: "PENDING",
+       policy: "SES",
+       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
+     }
+   });
+
+   // 6. Crear Signers con tokens únicos
+   for (const employeeId of employeeIds) {
+     const signToken = crypto.randomUUID();
+     await prisma.signer.create({
+       data: {
+         requestId: request.id,
+         employeeId,
+         signToken, // Token único para acceso
+         status: "PENDING",
+         order: 1 // Firma secuencial o paralela
+       }
+     });
+   }
+
+   // 7. Enviar notificación/email con link de firma
+   await sendSignatureEmail(employeeEmail, signToken);
+   ```
+
+3. **Empleado recibe email**:
+   - Email contiene link: `https://erp.com/dashboard/me/signatures/abc-123-token`
+   - Click en link → Autenticación NextAuth → Redirige a `/dashboard/me/signatures/[token]/page.tsx`
+
+4. **Página de firma carga sesión**:
+   ```typescript
+   // Frontend: page.tsx (líneas 49-55)
+   useEffect(() => {
+     fetchSessionByToken(token);
+   }, [token]);
+
+   // Store llama: GET /api/signatures/sessions/[token]
+   // API retorna: { signerId, status, document, allSigners, consentGiven }
+   ```
+
+5. **Empleado ve PDF y da consentimiento**:
+   ```typescript
+   // Frontend: Modal de consentimiento (líneas 64-74)
+   const handleGiveConsent = async () => {
+     await giveConsent(token, {
+       ipAddress: undefined,
+       userAgent: navigator.userAgent
+     });
+     setConsentChecked(true);
+   };
+
+   // API: POST /api/signatures/sessions/[token]/consent
+   await prisma.signer.update({
+     where: { signToken: token },
+     data: {
+       consentGivenAt: new Date(),
+       consentIp: ipAddress,
+       consentUserAgent: userAgent
+     }
+   });
+   ```
+
+6. **Empleado confirma firma** (líneas 83-96):
+   ```typescript
+   // Frontend: Modal de confirmación
+   const handleConfirmSignature = async () => {
+     await confirmSignature(token, { ipAddress, userAgent });
+     setSuccess(true);
+   };
+
+   // API: POST /api/signatures/sessions/[token]/confirm (archivo CLAVE)
+   ```
+
+7. **Backend ejecuta firma** (líneas 102-230 en `confirm/route.ts`):
+   ```typescript
+   // 1. Descargar PDF original del storage
+   const originalDocBuffer = await fetch(originalDocUrl);
+
+   // 2. Calcular hash y verificar integridad
+   const preSignHash = calculateHash(originalDocBuffer);
+   if (preSignHash !== document.originalHash) {
+     throw new Error("Documento modificado");
+   }
+
+   // 3. Generar metadatos de firma
+   const metadata = {
+     signerName: "Juan Pérez",
+     signerEmail: "juan@empresa.com",
+     signedAt: new Date().toISOString(),
+     ipAddress: "192.168.1.1",
+     userAgent: "Mozilla/5.0...",
+     signaturePolicy: "SES",
+     documentHash: preSignHash
+   };
+
+   // 4. "Firmar" documento (por ahora mantiene original)
+   const { signedFileBuffer, signedFileHash } = await signPdfDocument(
+     originalDocBuffer,
+     metadata
+   );
+
+   // 5. Subir PDF firmado a storage
+   const signedDocUrl = await storage.uploadSignedDocument(
+     orgId,
+     documentId,
+     signerId,
+     signedFileBuffer
+   );
+
+   // 6. Crear timeline de evidencia
+   const timeline = [
+     { event: "DOCUMENT_CREATED", timestamp: "2025-01-05T10:00:00Z" },
+     { event: "SIGNATURE_REQUESTED", actor: "HR", timestamp: "..." },
+     { event: "CONSENT_GIVEN", actor: "Juan Pérez", timestamp: "..." },
+     { event: "DOCUMENT_SIGNED", actor: "Juan Pérez", timestamp: "..." }
+   ];
+
+   // 7. Construir evidencia completa
+   const evidence = buildSignatureEvidence({
+     timeline,
+     preSignHash,
+     postSignHash: signedFileHash,
+     signerInfo: { name: "Juan Pérez", email: "juan@empresa.com" },
+     ipAddress: "192.168.1.1",
+     userAgent: "Mozilla/5.0...",
+     policy: "SES",
+     result: "SIGNED"
+   });
+
+   // 8. Subir evidencia JSON a storage
+   const evidenceUrl = await storage.uploadEvidence(
+     orgId,
+     signerId,
+     JSON.stringify(evidence, null, 2)
+   );
+
+   // 9. Actualizar BD
+   await prisma.$transaction([
+     // Actualizar Signer → SIGNED
+     prisma.signer.update({
+       where: { id: signerId },
+       data: {
+         status: "SIGNED",
+         signedAt: new Date(),
+         signedFileUrl: signedDocUrl,
+         evidenceUrl
+       }
+     }),
+
+     // Si todos firmaron → Request COMPLETED
+     prisma.signatureRequest.update({
+       where: { id: requestId },
+       data: { status: "COMPLETED", completedAt: new Date() }
+     })
+   ]);
+
+   // 10. Notificar a HR que se completó
+   await createNotification(
+     hrUserId,
+     orgId,
+     "SIGNATURE_COMPLETED",
+     "Documento firmado",
+     `Juan Pérez ha firmado el contrato`
+   );
+   ```
+
+8. **Resultado final en BD**:
+   ```sql
+   -- SignableDocument
+   id: "doc-123"
+   title: "Contrato Juan Pérez"
+   originalFileUrl: "org-123/documents/original/1736066400-contrato.pdf"
+   originalHash: "a1b2c3d4e5f6..." (SHA-256)
+
+   -- SignatureRequest
+   id: "req-456"
+   documentId: "doc-123"
+   status: "COMPLETED"
+   policy: "SES"
+   expiresAt: 2025-02-05
+   completedAt: 2025-01-10
+
+   -- Signer
+   id: "signer-789"
+   requestId: "req-456"
+   employeeId: "emp-123"
+   status: "SIGNED"
+   signToken: "abc-123-uuid"
+   consentGivenAt: 2025-01-10 10:00:00
+   signedAt: 2025-01-10 10:05:00
+   signedFileUrl: "org-123/signatures/signed/doc-123/signer-789/signed.pdf"
+   evidenceUrl: "org-123/signatures/evidence/doc-123/signer-789/evidence.json"
+   ```
+
+9. **HR descarga documentos firmados**:
+   - Accede a `/dashboard/signatures` → Ver solicitud completada
+   - Click "Descargar firmado" → `GET /api/signatures/documents/[id]/download`
+   - Click "Descargar evidencia" → `GET /api/signatures/evidence/[id]/download`
+
+**Características clave:**
+- ✅ **Tokens únicos**: Cada firmante tiene token UUID, no se puede acceder sin token
+- ✅ **Integridad**: Hash SHA-256 verifica que PDF no fue modificado
+- ✅ **Evidencia auditable**: Timeline JSON con todos los eventos
+- ✅ **Cumplimiento RGPD**: Consentimiento explícito con IP + userAgent + timestamp
+- ✅ **Expiración**: Solicitudes expiran automáticamente (configurable)
+- ✅ **Firma secuencial**: Order field permite firmar en orden específico
+- ✅ **Rechazo con motivo**: Empleado puede rechazar con razón (mín 10 caracteres)
+- ✅ **Notificaciones**: HR recibe notificación cuando todos firman
+
+**Normativa cumplida:**
+- 📜 **eIDAS (UE)**: Simple Electronic Signature (SES) - Nivel básico
+- 📜 **RGPD**: Consentimiento explícito, IP, metadatos, derecho a rechazar
+- 📜 **Evidencia**: Timeline auditable con timestamps RFC3339
+
+**Futuras mejoras (roadmap):**
+- 🔮 **PAdES**: Firma digital incrustada en PDF (requiere certificado digital)
+- 🔮 **QES**: Qualified Electronic Signature con certificado cualificado
+- 🔮 **SMS OTP**: Verificación 2FA para firma crítica
+- 🔮 **Biometría**: Firma manuscrita en tablet/móvil
+
+---
+
+### 🔍 FAQ: Preguntas Frecuentes sobre Firma Electrónica
+
+#### ❓ ¿Dónde se descarga la evidencia JSON?
+
+**Respuesta**: **ACTUALMENTE NO HAY botón para descargar la evidencia** en la UI. Es una funcionalidad pendiente.
+
+**Lo que existe** (líneas 171-176 de `signatures-data-table.tsx`):
+
+```typescript
+{(request.status === "COMPLETED" || request.status === "IN_PROGRESS") && (
+  <DropdownMenuItem onClick={() => downloadSignedDocument(request.id)}>
+    <Download className="mr-2 h-4 w-4" />
+    Descargar PDF  // ← Solo descarga el PDF, NO la evidencia
+  </DropdownMenuItem>
+)}
+```
+
+**Lo que FALTA implementar**:
+
+```typescript
+// Esto NO existe todavía en el código
+<DropdownMenuItem onClick={() => downloadEvidence(request.id)}>
+  <Download className="mr-2 h-4 w-4" />
+  Descargar Evidencia JSON  // ← FALTA añadir esto
+</DropdownMenuItem>
+```
+
+**Estado**:
+- ✅ **API endpoint existe**: `GET /api/signatures/evidence/[id]/download`
+- ❌ **Botón en UI NO existe**: Falta añadir en el dropdown menu
+- 📋 **Prioridad**: Baja (no crítico para MVP)
+
+---
+
+#### ❓ ¿Cómo funciona la firma? ¿Modifica el PDF?
+
+**Respuesta**: **NO, el PDF NO se modifica**. Usamos **SES (Simple Electronic Signature)**, no PAdES.
+
+**Código actual** (líneas 38-41 de `src/lib/signatures/pdf-signer.ts`):
+
+```typescript
+export async function signPdfDocument(pdfBuffer: Buffer, metadata: SignatureMetadata) {
+  // ⚠️ IMPORTANTE: El PDF firmado es el mismo que el original
+  // NO se modifica el PDF en absoluto
+  const signedFileBuffer = pdfBuffer;  // ← Es el MISMO buffer original
+
+  // Solo calculamos el hash
+  const signedFileHash = calculateHash(signedFileBuffer);
+
+  return {
+    signedFileBuffer,  // ← PDF idéntico al original
+    signedFileHash,
+    metadata  // ← Metadatos NO van en el PDF, van a BD separado
+  };
+}
+```
+
+**¿Qué significa esto?**
+
+1. **NO modifica el PDF**: El archivo PDF es EXACTAMENTE igual al original, bit a bit
+2. **Los metadatos NO van en el PDF**: Se guardan en BD y en evidencia JSON separada
+3. **¿Cómo se demuestra que se firmó?**:
+   - Hash SHA-256 del PDF original (stored en BD)
+   - Evidencia JSON con timeline + IP + userAgent + timestamps
+   - Registro en BD: `Signer.signedAt`, `Signer.consentGivenAt`
+
+---
+
+#### ❓ ¿Cuál es la diferencia entre SES y PAdES?
+
+**Comparación técnica completa:**
+
+| Característica | SES (Actual) | PAdES (Futuro) |
+|---|---|---|
+| **Modifica PDF** | ❌ NO | ✅ SÍ |
+| **PDF original == firmado** | ✅ Idéntico | ❌ Diferente |
+| **Firma incrustada en PDF** | ❌ NO | ✅ SÍ |
+| **Requiere certificado digital** | ❌ NO | ✅ SÍ (X.509) |
+| **Verificable en Adobe Reader** | ❌ NO | ✅ SÍ |
+| **Validez legal (eIDAS)** | ✅ Válido (nivel bajo) | ✅ Válido (nivel alto) |
+| **Evidencia externa** | ✅ JSON separado | ⚠️ Opcional |
+| **Complejidad** | 🟢 Baja | 🔴 Alta |
+| **Coste** | 💰 Gratis | 💰💰 Certificados caros |
+| **Uso recomendado** | Contratos internos | Contratos con clientes |
+
+**Diagrama SES (implementación actual):**
+
+```
+PDF Original (100KB)
+    ↓
+  [FIRMA SES]
+    ↓
+PDF "Firmado" (100KB) ← IDÉNTICO al original
+    +
+Base de Datos:
+  - signedAt: 2025-01-10 10:05:00
+  - signedFileHash: a1b2c3d4...
+  - consentGivenAt: 2025-01-10 10:00:00
+  - consentIp: 192.168.1.1
+    +
+Evidencia JSON (en storage):
+  {
+    "timeline": [...],
+    "signerMetadata": { "ip": "192.168.1.1", ... },
+    "preSignHash": "a1b2c3d4...",
+    "postSignHash": "a1b2c3d4..."  // ← Igual que preSignHash
+  }
+```
+
+**Diagrama PAdES (futuro):**
+
+```
+PDF Original (100KB)
+    ↓
+  [FIRMA PAdES + Certificado Digital X.509]
+    ↓
+PDF Firmado (105KB) ← DIFERENTE al original
+  ┌─────────────────────────────┐
+  │ PDF Content                 │
+  │ ...                         │
+  │                             │
+  │ [SIGNATURE OBJECT]          │ ← Incrustado en el PDF
+  │   - Certificate: X.509      │
+  │   - Signer: Juan Pérez      │
+  │   - Date: 2025-01-10        │
+  │   - Crypto: RSA-2048        │
+  │   - Hash: SHA-256           │
+  └─────────────────────────────┘
+```
+
+**Código conceptual PAdES (NO implementado):**
+
+```typescript
+// Código FUTURO con node-signpdf (ejemplo)
+export async function signPdfDocument(pdfBuffer: Buffer, metadata: SignatureMetadata) {
+  // 1. Cargar certificado digital (.p12 o .pfx)
+  const certificate = fs.readFileSync('cert.p12');
+  const password = 'password123';
+
+  // 2. Modificar el PDF insertando firma digital
+  const signer = new PDFSigner(certificate, password);
+  const signedFileBuffer = await signer.sign(pdfBuffer, {
+    name: metadata.signerName,
+    location: 'Madrid, Spain',
+    reason: 'Firma de contrato',
+    contactInfo: metadata.signerEmail,
+    signatureTime: new Date()
+  });
+
+  // 3. El PDF ahora es DIFERENTE (tiene firma incrustada)
+  const signedFileHash = calculateHash(signedFileBuffer);
+
+  return {
+    signedFileBuffer,  // ← PDF MODIFICADO (mayor tamaño)
+    signedFileHash,
+    metadata
+  };
+}
+```
+
+**Analogía para entenderlo:**
+
+- **SES (Actual)**: Como firmar un documento físico con bolígrafo. El documento NO cambia, solo añades tu firma al lado. Necesitas un testigo (evidencia JSON) que certifique que lo firmaste.
+
+- **PAdES (Futuro)**: Como estampar tu firma con un sello oficial con holograma. El documento SÍ cambia (tiene el sello incrustado). No necesitas testigo, el sello se auto-certifica.
+
+**¿Por qué usamos SES y no PAdES?**
+
+1. **Simplicidad**: SES no requiere certificados digitales (caros y complejos)
+2. **Suficiente para contratos internos**: Para empleados de una empresa, SES es legalmente válido
+3. **Timeline auditable**: La evidencia JSON + hash es suficiente para auditorías
+4. **Roadmap**: PAdES se implementará en el futuro para contratos con clientes externos
+
+---

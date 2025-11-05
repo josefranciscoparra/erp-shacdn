@@ -54,11 +54,14 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
       cell: ({ row }) => {
         const title = row.original.document.title;
         const category = row.original.document.category;
+        const requestId = row.original.id;
         return (
-          <div>
-            <p className="font-medium">{title}</p>
-            <p className="text-muted-foreground text-xs">{category}</p>
-          </div>
+          <Link href={`/dashboard/signatures/${requestId}`}>
+            <div className="cursor-pointer hover:underline">
+              <p className="font-medium">{title}</p>
+              <p className="text-muted-foreground text-xs">{category}</p>
+            </div>
+          </Link>
         );
       },
     },
