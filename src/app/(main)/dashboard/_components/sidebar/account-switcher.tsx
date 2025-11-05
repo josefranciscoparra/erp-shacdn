@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Bell, LogOut, User } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -20,8 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { getInitials } from "@/lib/utils";
-import { logoutAction } from "@/server/actions/auth";
 import { useNotificationsStore } from "@/stores/notifications-store";
+import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function AccountSwitcher({
   users,
@@ -37,11 +38,27 @@ export function AccountSwitcher({
   const [activeUser] = useState(users[0]);
   const t = useTranslations("user");
   const { unreadCount, loadUnreadCount } = useNotificationsStore();
+  const { resetStore } = useTimeTrackingStore();
 
   // Cargar contador de notificaciones al montar
   useEffect(() => {
     loadUnreadCount();
   }, [loadUnreadCount]);
+
+  const handleLogout = async () => {
+    // Obtener URL actual del navegador para redirect
+    const currentOrigin = window.location.origin;
+
+    try {
+      // Cerrar sesión de NextAuth
+      await signOut({ redirect: false });
+    } finally {
+      // Siempre limpia stores y navega, incluso si signOut falla
+      resetStore();
+      // Usa assign en lugar de href para no dejar /dashboard en el historial
+      window.location.assign(`${currentOrigin}/auth/login`);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -108,7 +125,7 @@ export function AccountSwitcher({
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => logoutAction()}>
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut />
           {t("logout")}
         </DropdownMenuItem>
