@@ -194,38 +194,54 @@ export default function NotificationsPage() {
   }, [highlightedNotificationId, filterMode]);
 
   const handleMarkAllAsRead = async () => {
+    // Actualización optimista: actualizar estado local primero (sin esperar al servidor)
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setTotals((prev) => ({ ...prev, unread: 0 }));
+
     try {
+      // Llamar al servidor en background
       await markAllNotificationsAsRead();
       toast.success("Todas las notificaciones marcadas como leídas");
-      await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
-    } catch (error) {
+
+      // Si estamos en modo "solo no leídas", recargar para mostrar mensaje vacío
+      if (filterMode === "unread") {
+        await loadNotifications(true, pagination.page, pagination.pageSize);
+      }
+    } catch {
+      // En caso de error, recargar para obtener el estado correcto del servidor
       toast.error("Error al marcar notificaciones como leídas");
+      await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
     }
   };
 
-  const handleToggleRead = async (notification: Notification, event: React.MouseEvent) => {
-    event.stopPropagation();
-    try {
-      if (notification.isRead) {
-        await markNotificationAsUnread(notification.id);
-        toast.success("Notificación marcada como no leída");
-      } else {
-        await markNotificationAsRead(notification.id);
-        toast.success("Notificación marcada como leída");
-      }
+  const handleToggleRead = useCallback(
+    async (notification: Notification, event: React.MouseEvent) => {
+      event.stopPropagation();
 
-      // Actualizar la lista localmente
+      // Actualización optimista: actualizar estado local primero
       setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: !n.isRead } : n)));
-
-      // Actualizar totales
       setTotals((prev) => ({
         ...prev,
         unread: notification.isRead ? prev.unread + 1 : Math.max(prev.unread - 1, 0),
       }));
-    } catch (error) {
-      toast.error("Error al actualizar notificación");
-    }
-  };
+
+      try {
+        // Llamar al servidor en background
+        if (notification.isRead) {
+          await markNotificationAsUnread(notification.id);
+          toast.success("Notificación marcada como no leída");
+        } else {
+          await markNotificationAsRead(notification.id);
+          toast.success("Notificación marcada como leída");
+        }
+      } catch {
+        // En caso de error, recargar para obtener el estado correcto
+        toast.error("Error al actualizar notificación");
+        await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
+      }
+    },
+    [filterMode, loadNotifications, pagination.page, pagination.pageSize],
+  );
 
   const handleNotificationClick = useCallback(
     async (notification: Notification, options?: { skipNavigation?: boolean }) => {
