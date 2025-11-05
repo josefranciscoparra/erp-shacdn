@@ -109,14 +109,25 @@ export function EmployeeCombobox({
       if (found) {
         setSelectedEmployee(found);
       } else {
-        // Si no está en la lista, hacer una búsqueda específica
-        fetch(`/api/employees/search?limit=1`, { credentials: "include" })
-          .then((res) => res.json())
-          .then((data) => {
-            const emp = data.find((e: Employee) => e.id === value);
-            if (emp) {
-              setSelectedEmployee(emp);
-            }
+        // Si no está en la lista, hacer una búsqueda específica por ID
+        fetch(`/api/employees/${value}`, { credentials: "include" })
+          .then((res) => {
+            if (!res.ok) throw new Error("Empleado no encontrado");
+            return res.json();
+          })
+          .then((employee) => {
+            // Transformar el empleado al formato esperado
+            const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
+            const currentContract = employee.employmentContracts?.[0];
+
+            setSelectedEmployee({
+              id: employee.id,
+              fullName,
+              employeeNumber: employee.employeeNumber ?? null,
+              email: employee.email ?? null,
+              position: currentContract?.position?.title ?? null,
+              department: currentContract?.department?.name ?? null,
+            });
           })
           .catch(console.error);
       }
