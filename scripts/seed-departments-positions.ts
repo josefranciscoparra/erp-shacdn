@@ -220,7 +220,6 @@ async function main() {
         await prisma.position.create({
           data: {
             orgId: ORG_ID,
-            departmentId: department.id,
             title: posData.title,
             description: posData.description,
             active: true,
