@@ -31,6 +31,9 @@ export function QuickClockWidget() {
   const { hasEmployeeProfile } = usePermissions();
   const canClock = hasEmployeeProfile();
   const [isInitialMount, setIsInitialMount] = useState(true);
+  const [shouldRenderSkeleton, setShouldRenderSkeleton] = useState(
+    () => isLoading || isInitialMount || (todaySummary === null && canClock),
+  );
 
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
@@ -60,6 +63,12 @@ export function QuickClockWidget() {
     };
     load();
   }, [loadInitialData]);
+
+  useEffect(() => {
+    if (!isInitialMount) {
+      setShouldRenderSkeleton(false);
+    }
+  }, [isInitialMount]);
 
   // Actualizar contador en vivo cada segundo
   useEffect(() => {
@@ -205,7 +214,7 @@ export function QuickClockWidget() {
 
   // Mostrar skeleton mientras se cargan los datos iniciales o si es el primer montaje
   // Para usuarios sin empleado (super admins), no mostrar skeleton aunque todaySummary sea null
-  if (isLoading || isInitialMount || (todaySummary === null && canClock)) {
+  if (shouldRenderSkeleton && (isLoading || isInitialMount || (todaySummary === null && canClock))) {
     return (
       <div className="hidden items-center gap-2 md:flex">
         <Skeleton className="h-4 w-20" />
