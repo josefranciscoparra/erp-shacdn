@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
-import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+import { getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 // Schema de validación para política de gastos
 const UpdatePolicySchema = z.object({
@@ -24,64 +24,64 @@ const UpdatePolicySchema = z.object({
  * Si no existe, la crea con valores por defecto
  */
 export async function getOrganizationPolicy() {
-  const { user } = await getAuthenticatedEmployee();
+  const { orgId } = await getAuthenticatedUser();
 
   let policy = await prisma.expensePolicy.findUnique({
-    where: { orgId: user.orgId },
+    where: { orgId },
   });
 
   // Si no existe, crearla con valores por defecto (España 2024)
   policy ??= await prisma.expensePolicy.create({
-      data: {
-        orgId: user.orgId,
-        mileageRateEurPerKm: new Decimal(0.26), // Tarifa estándar España 2024
-        mealDailyLimit: new Decimal(30.0),
-        lodgingDailyLimit: new Decimal(100.0),
-        categoryRequirements: {
-          FUEL: {
-            requiresReceipt: true,
-            vatAllowed: true,
-            description: "Combustible para vehículos de empresa o desplazamientos",
-          },
-          MILEAGE: {
-            requiresReceipt: false,
-            vatAllowed: false,
-            description: "Kilometraje con vehículo propio",
-          },
-          MEAL: {
-            requiresReceipt: true,
-            vatAllowed: true,
-            maxDailyAmount: 30.0,
-            description: "Comidas en desplazamientos o con clientes",
-          },
-          TOLL: {
-            requiresReceipt: true,
-            vatAllowed: true,
-            description: "Peajes de autopistas",
-          },
-          PARKING: {
-            requiresReceipt: false,
-            vatAllowed: true,
-            description: "Parking en desplazamientos",
-          },
-          LODGING: {
-            requiresReceipt: true,
-            vatAllowed: true,
-            maxDailyAmount: 100.0,
-            description: "Alojamiento en desplazamientos",
-          },
-          OTHER: {
-            requiresReceipt: true,
-            vatAllowed: true,
-            description: "Otros gastos justificados",
-          },
+    data: {
+      orgId,
+      mileageRateEurPerKm: new Decimal(0.26), // Tarifa estándar España 2024
+      mealDailyLimit: new Decimal(30.0),
+      lodgingDailyLimit: new Decimal(100.0),
+      categoryRequirements: {
+        FUEL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Combustible para vehículos de empresa o desplazamientos",
         },
-        attachmentRequired: true,
-        costCenterRequired: false,
-        vatAllowed: true,
-        approvalLevels: 1,
+        MILEAGE: {
+          requiresReceipt: false,
+          vatAllowed: false,
+          description: "Kilometraje con vehículo propio",
+        },
+        MEAL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          maxDailyAmount: 30.0,
+          description: "Comidas en desplazamientos o con clientes",
+        },
+        TOLL: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Peajes de autopistas",
+        },
+        PARKING: {
+          requiresReceipt: false,
+          vatAllowed: true,
+          description: "Parking en desplazamientos",
+        },
+        LODGING: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          maxDailyAmount: 100.0,
+          description: "Alojamiento en desplazamientos",
+        },
+        OTHER: {
+          requiresReceipt: true,
+          vatAllowed: true,
+          description: "Otros gastos justificados",
+        },
       },
-    });
+      attachmentRequired: true,
+      costCenterRequired: false,
+      vatAllowed: true,
+      approvalLevels: 1,
+    },
+  });
 
   return {
     success: true,
@@ -94,10 +94,10 @@ export async function getOrganizationPolicy() {
  * Solo accesible para roles ORG_ADMIN, SUPER_ADMIN y HR_ADMIN
  */
 export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
-  const { user } = await getAuthenticatedEmployee();
+  const { orgId, role } = await getAuthenticatedUser();
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role)) {
     return {
       success: false,
       error: "No tienes permisos para actualizar la política de gastos",
@@ -108,7 +108,7 @@ export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
 
   // Verificar que la política existe
   const existingPolicy = await prisma.expensePolicy.findUnique({
-    where: { orgId: user.orgId },
+    where: { orgId },
   });
 
   if (!existingPolicy) {
@@ -117,7 +117,7 @@ export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
 
   // Actualizar la política
   const policy = await prisma.expensePolicy.update({
-    where: { orgId: user.orgId },
+    where: { orgId },
     data: {
       ...(validatedData.mileageRateEurPerKm !== undefined && {
         mileageRateEurPerKm: new Decimal(validatedData.mileageRateEurPerKm),
@@ -156,10 +156,10 @@ export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
  * Obtiene los límites aplicables para una categoría específica
  */
 export async function getCategoryLimits(category: string) {
-  const { user } = await getAuthenticatedEmployee();
+  const { orgId } = await getAuthenticatedUser();
 
   const policy = await prisma.expensePolicy.findUnique({
-    where: { orgId: user.orgId },
+    where: { orgId },
   });
 
   if (!policy) {
@@ -167,8 +167,7 @@ export async function getCategoryLimits(category: string) {
   }
 
   // Obtener requisitos de la categoría
-  const categoryRequirements =
-    (policy.categoryRequirements as Record<string, any>)?.[category] ?? {};
+  const categoryRequirements = (policy.categoryRequirements as Record<string, any>)?.[category] ?? {};
 
   // Construir respuesta
   const limits = {
@@ -195,10 +194,10 @@ export async function validateExpenseAgainstPolicy(expenseData: {
   hasCostCenter: boolean;
   date: Date;
 }) {
-  const { user } = await getAuthenticatedEmployee();
+  const { orgId } = await getAuthenticatedUser();
 
   const policy = await prisma.expensePolicy.findUnique({
-    where: { orgId: user.orgId },
+    where: { orgId },
   });
 
   if (!policy) {
@@ -219,8 +218,7 @@ export async function validateExpenseAgainstPolicy(expenseData: {
   }
 
   // Obtener requisitos de categoría
-  const categoryRequirements =
-    (policy.categoryRequirements as Record<string, any>)?.[expenseData.category] ?? {};
+  const categoryRequirements = (policy.categoryRequirements as Record<string, any>)?.[expenseData.category] ?? {};
 
   // Validar requisitos específicos de categoría
   if (categoryRequirements.requiresReceipt && !expenseData.hasAttachment) {
@@ -229,9 +227,7 @@ export async function validateExpenseAgainstPolicy(expenseData: {
 
   // Validar límites diarios
   if (categoryRequirements.maxDailyAmount && expenseData.amount > categoryRequirements.maxDailyAmount) {
-    warnings.push(
-      `El monto excede el límite diario de ${categoryRequirements.maxDailyAmount}€ para esta categoría`,
-    );
+    warnings.push(`El monto excede el límite diario de ${categoryRequirements.maxDailyAmount}€ para esta categoría`);
   }
 
   // Validar límites generales

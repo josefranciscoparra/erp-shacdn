@@ -5,7 +5,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
 
-import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 /**
  * Helper para serializar TimeEntry convirtiendo Decimals a números
@@ -228,7 +228,14 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
 // Obtener el estado actual del empleado
 export async function getCurrentStatus() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employee, orgId } = await getAuthenticatedUser();
+
+    // Si no hay empleado asociado, retornar null
+    if (!employee) {
+      return null;
+    }
+
+    const employeeId = employee.id;
 
     const today = new Date();
     const dayStart = startOfDay(today);
@@ -427,7 +434,28 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
 // Obtener horas esperadas del día según contrato
 export async function getExpectedDailyHours() {
   try {
-    const { dailyHours, hasActiveContract } = await getAuthenticatedEmployee();
+    const { employee, userId } = await getAuthenticatedUser();
+
+    // Si no hay empleado asociado, retornar valores por defecto
+    if (!employee) {
+      return { dailyHours: 8, hasActiveContract: false };
+    }
+
+    // Obtener contrato activo
+    const contract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId: employee.id,
+        active: true,
+        weeklyHours: { gt: 0 },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    const hasActiveContract = Boolean(contract);
+    const weeklyHours = contract?.weeklyHours ? Number(contract.weeklyHours) : 40;
+    const workingDaysPerWeek = contract?.workingDaysPerWeek ? Number(contract.workingDaysPerWeek) : 5;
+    const dailyHours = weeklyHours / workingDaysPerWeek;
+
     return { dailyHours, hasActiveContract };
   } catch (error) {
     console.error("Error al obtener horas esperadas:", error);
@@ -438,7 +466,22 @@ export async function getExpectedDailyHours() {
 // Obtener resumen de hoy
 export async function getTodaySummary() {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employee, orgId } = await getAuthenticatedUser();
+
+    // Si no hay empleado asociado, retornar estructura vacía
+    if (!employee) {
+      const dayStart = startOfDay(new Date());
+      return {
+        id: "",
+        date: dayStart,
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+        status: "ABSENT" as const,
+        timeEntries: [],
+      };
+    }
+
+    const employeeId = employee.id;
 
     const today = new Date();
     const dayStart = startOfDay(today);

@@ -218,6 +218,11 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   loadCurrentStatus: async () => {
     try {
       const status = await getCurrentStatusAction();
+      // Si no hay empleado asociado, status será null
+      if (status === null) {
+        set({ currentStatus: "CLOCKED_OUT" });
+        return;
+      }
       set({ currentStatus: status.status });
     } catch (error) {
       set({
@@ -320,7 +325,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
       const initialMinutes = summary?.totalWorkedMinutes ?? 0;
 
       set({
-        currentStatus: status.status,
+        currentStatus: status?.status ?? "CLOCKED_OUT",
         todaySummary: summary as any,
         liveWorkedMinutes: initialMinutes,
         expectedDailyHours: hoursInfo.dailyHours,

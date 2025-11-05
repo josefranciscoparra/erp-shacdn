@@ -1,12 +1,14 @@
 "use server";
 
+/* eslint-disable no-underscore-dangle */ // Prisma usa _sum para agregaciones
+
 import { Decimal } from "@prisma/client/runtime/library";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
-import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
+import { getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 // Schemas de validación
 const DateRangeSchema = z.object({
@@ -18,7 +20,7 @@ const DateRangeSchema = z.object({
  * Obtiene estadísticas generales de gastos
  */
 export async function getExpenseStats(dateRange?: z.infer<typeof DateRangeSchema>) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { employee, role, orgId } = await getAuthenticatedUser();
 
   const validatedRange = dateRange ? DateRangeSchema.parse(dateRange) : {};
 
@@ -32,8 +34,8 @@ export async function getExpenseStats(dateRange?: z.infer<typeof DateRangeSchema
   const previousTo = endOfMonth(subMonths(from, 1));
 
   // Determinar si el usuario puede ver todos los gastos de la org o solo los suyos
-  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role);
-  const baseWhere = isAdmin ? { orgId: employee.orgId } : { employeeId: employee.id };
+  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role);
+  const baseWhere = isAdmin ? { orgId } : { employeeId: employee!.id };
 
   // Obtener totales del período actual
   const currentPeriodExpenses = await prisma.expense.groupBy({
@@ -105,10 +107,7 @@ export async function getExpenseStats(dateRange?: z.infer<typeof DateRangeSchema
   );
 
   // Calcular total del mes actual
-  const currentTotal = Object.values(stats).reduce(
-    (sum, stat) => sum.add(stat.total),
-    new Decimal(0),
-  );
+  const currentTotal = Object.values(stats).reduce((sum, stat) => sum.add(stat.total), new Decimal(0));
 
   // Calcular cambio porcentual
   let percentageChange = 0;
@@ -148,7 +147,7 @@ export async function getExpenseStats(dateRange?: z.infer<typeof DateRangeSchema
  * Obtiene gastos agrupados por categoría
  */
 export async function getExpensesByCategory(year?: number, month?: number) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { employee, role, orgId } = await getAuthenticatedUser();
 
   // Por defecto, usar el mes actual
   const now = new Date();
@@ -159,8 +158,8 @@ export async function getExpensesByCategory(year?: number, month?: number) {
   const to = endOfMonth(from);
 
   // Determinar si el usuario puede ver todos los gastos de la org o solo los suyos
-  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role);
-  const baseWhere = isAdmin ? { orgId: employee.orgId } : { employeeId: employee.id };
+  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role);
+  const baseWhere = isAdmin ? { orgId } : { employeeId: employee!.id };
 
   const expensesByCategory = await prisma.expense.groupBy({
     by: ["category"],
@@ -205,10 +204,10 @@ export async function getExpensesByCategory(year?: number, month?: number) {
  * Obtiene gastos agrupados por empleado (solo para admins)
  */
 export async function getExpensesByEmployee(year?: number, month?: number) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { role, orgId } = await getAuthenticatedUser();
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role)) {
     return {
       success: false,
       error: "No tienes permisos para ver este reporte",
@@ -226,7 +225,7 @@ export async function getExpensesByEmployee(year?: number, month?: number) {
   const expensesByEmployee = await prisma.expense.groupBy({
     by: ["employeeId"],
     where: {
-      orgId: employee.orgId,
+      orgId,
       date: {
         gte: from,
         lte: to,
@@ -292,11 +291,11 @@ export async function getExpensesByEmployee(year?: number, month?: number) {
  * Obtiene tendencia de gastos por mes (últimos 12 meses)
  */
 export async function getExpensesTrend(months: number = 12) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { employee, role, orgId } = await getAuthenticatedUser();
 
   // Determinar si el usuario puede ver todos los gastos de la org o solo los suyos
-  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role);
-  const baseWhere = isAdmin ? { orgId: employee.orgId } : { employeeId: employee.id };
+  const isAdmin = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role);
+  const baseWhere = isAdmin ? { orgId } : { employeeId: employee!.id };
 
   const now = new Date();
   const monthsData = [];
@@ -344,10 +343,10 @@ export async function getExpensesTrend(months: number = 12) {
  * Obtiene un resumen ejecutivo de gastos (solo para admins)
  */
 export async function getExecutiveSummary(year?: number, month?: number) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { role, orgId } = await getAuthenticatedUser();
 
   // Verificar permisos
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role)) {
     return {
       success: false,
       error: "No tienes permisos para ver este reporte",
@@ -366,7 +365,7 @@ export async function getExecutiveSummary(year?: number, month?: number) {
   const totals = await prisma.expense.groupBy({
     by: ["status"],
     where: {
-      orgId: employee.orgId,
+      orgId,
       date: {
         gte: from,
         lte: to,
@@ -384,7 +383,7 @@ export async function getExecutiveSummary(year?: number, month?: number) {
   const byCategory = await prisma.expense.groupBy({
     by: ["category"],
     where: {
-      orgId: employee.orgId,
+      orgId,
       date: {
         gte: from,
         lte: to,
@@ -401,7 +400,7 @@ export async function getExecutiveSummary(year?: number, month?: number) {
   // Empleados únicos con gastos
   const uniqueEmployees = await prisma.expense.findMany({
     where: {
-      orgId: employee.orgId,
+      orgId,
       date: {
         gte: from,
         lte: to,
@@ -416,7 +415,7 @@ export async function getExecutiveSummary(year?: number, month?: number) {
   // Tiempo promedio de aprobación
   const approvedExpenses = await prisma.expense.findMany({
     where: {
-      orgId: employee.orgId,
+      orgId,
       date: {
         gte: from,
         lte: to,
@@ -449,8 +448,7 @@ export async function getExecutiveSummary(year?: number, month?: number) {
     }
   }
 
-  const avgApprovalTimeHours =
-    approvalCount > 0 ? totalApprovalTime / approvalCount / (1000 * 60 * 60) : 0;
+  const avgApprovalTimeHours = approvalCount > 0 ? totalApprovalTime / approvalCount / (1000 * 60 * 60) : 0;
 
   return {
     success: true,
@@ -481,10 +479,10 @@ export async function exportExpensesCSV(filters?: {
   dateTo?: Date;
   employeeId?: string;
 }) {
-  const { employee, user } = await getAuthenticatedEmployee();
+  const { role, orgId } = await getAuthenticatedUser();
 
   // Verificar permisos - solo admins pueden exportar
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(user.role)) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"].includes(role)) {
     return {
       success: false,
       error: "No tienes permisos para exportar gastos",
@@ -493,7 +491,7 @@ export async function exportExpensesCSV(filters?: {
 
   const expenses = await prisma.expense.findMany({
     where: {
-      orgId: employee.orgId,
+      orgId,
       ...(filters?.status && { status: filters.status as any }),
       ...(filters?.category && { category: filters.category as any }),
       ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
@@ -556,9 +554,7 @@ export async function exportExpensesCSV(filters?: {
 
   const rows = expenses.map((expense) => {
     const approval = expense.approvals[0];
-    const vatAmount = expense.vatPercent
-      ? expense.amount.mul(expense.vatPercent).div(100)
-      : new Decimal(0);
+    const vatAmount = expense.vatPercent ? expense.amount.mul(expense.vatPercent).div(100) : new Decimal(0);
 
     return [
       expense.date.toISOString().split("T")[0],
@@ -584,9 +580,7 @@ export async function exportExpensesCSV(filters?: {
   // Convertir a CSV
   const csvContent = [
     headers.join(","),
-    ...rows.map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
-    ),
+    ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
   ].join("\n");
 
   return {

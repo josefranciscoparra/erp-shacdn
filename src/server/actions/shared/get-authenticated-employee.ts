@@ -38,6 +38,48 @@ export interface AuthenticatedEmployeeResult {
   dailyHours: number;
 }
 
+/**
+ * Obtiene el usuario autenticado actual sin requerir que tenga un empleado asociado.
+ * Útil para acciones administrativas donde el usuario puede ser SUPER_ADMIN u ORG_ADMIN sin empleado.
+ */
+export async function getAuthenticatedUser() {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    throw new Error("Usuario no autenticado");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      employee: {
+        include: {
+          employmentContracts: {
+            where: {
+              active: true,
+            },
+            orderBy: {
+              startDate: "desc",
+            },
+            take: 1,
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new Error("Usuario no encontrado");
+  }
+
+  return {
+    userId: user.id,
+    orgId: user.orgId,
+    role: user.role,
+    employee: user.employee ?? null, // Puede ser null para admins sin empleado
+  };
+}
+
 export async function getAuthenticatedEmployee(
   options: GetAuthenticatedEmployeeOptions = {},
 ): Promise<AuthenticatedEmployeeResult> {
