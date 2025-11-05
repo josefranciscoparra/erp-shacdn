@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import { useRouter } from "next/navigation";
+
 import { Briefcase, AlertCircle, FileText, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
-import { ContractSheet } from "@/components/contracts/contract-sheet";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -18,9 +19,8 @@ import { getContractsColumns } from "../employees/[id]/contracts/_components/con
 import { ContractsDataTable } from "./_components/contracts-data-table";
 
 export default function ContractsPage() {
+  const router = useRouter();
   const [currentTab, setCurrentTab] = useState("active");
-  const [editContractSheetOpen, setEditContractSheetOpen] = useState(false);
-  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
 
   const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
 
@@ -56,14 +56,9 @@ export default function ContractsPage() {
   };
 
   const handleEditContract = (contract: Contract) => {
-    setContractToEdit(contract);
-    setEditContractSheetOpen(true);
-  };
-
-  const handleContractUpdated = () => {
-    fetchAllContracts({ status: currentTab === "all" ? "all" : currentTab });
-    setEditContractSheetOpen(false);
-    setContractToEdit(null);
+    if (contract.employee?.id) {
+      router.push(`/dashboard/employees/${contract.employee.id}/contracts/${contract.id}/edit`);
+    }
   };
 
   const columns = getContractsColumns({
@@ -188,23 +183,6 @@ export default function ContractsPage() {
           </TabsContent>
         </Tabs>
       </div>
-
-      {/* Dialog de edición */}
-      {contractToEdit && (
-        <ContractSheet
-          mode="edit"
-          open={editContractSheetOpen}
-          onOpenChange={setEditContractSheetOpen}
-          employeeId={contractToEdit.employee?.id ?? ""}
-          employeeName={
-            contractToEdit.employee
-              ? `${contractToEdit.employee.firstName} ${contractToEdit.employee.lastName}`
-              : "Sin empleado"
-          }
-          contract={contractToEdit}
-          onSuccess={handleContractUpdated}
-        />
-      )}
     </PermissionGuard>
   );
 }

@@ -2,12 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
 import { Plus, Briefcase, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
 
-import { ContractSheet } from "@/components/contracts/contract-sheet";
 import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -32,13 +31,11 @@ interface Employee {
 
 export default function EmployeeContractsPage() {
   const params = useParams();
+  const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [contractSheetOpen, setContractSheetOpen] = useState(false);
-  const [editContractSheetOpen, setEditContractSheetOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("active");
-  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToFinalize, setContractToFinalize] = useState<Contract | null>(null);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
 
@@ -103,7 +100,7 @@ export default function EmployeeContractsPage() {
   const inactiveContracts = contracts.filter((contract) => !contract.active);
 
   const handleNewContract = () => {
-    setContractSheetOpen(true);
+    router.push(`/dashboard/employees/${employee?.id}/contracts/new`);
   };
 
   const handleContractsRefresh = useCallback(() => {
@@ -112,10 +109,12 @@ export default function EmployeeContractsPage() {
     }
   }, [employee, currentTab, fetchContracts]);
 
-  const handleEditContract = useCallback((contract: Contract) => {
-    setContractToEdit(contract);
-    setEditContractSheetOpen(true);
-  }, []);
+  const handleEditContract = useCallback(
+    (contract: Contract) => {
+      router.push(`/dashboard/employees/${employee?.id}/contracts/${contract.id}/edit`);
+    },
+    [employee, router],
+  );
 
   const handleFinalizeContract = useCallback((contract: Contract) => {
     setContractToFinalize(contract);
@@ -296,33 +295,7 @@ export default function EmployeeContractsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Contract Sheet Modal */}
-      <ContractSheet
-        open={contractSheetOpen}
-        onOpenChange={setContractSheetOpen}
-        employeeId={employee.id}
-        employeeName={fullName}
-        onSuccess={handleContractsRefresh}
-      />
-
-      <ContractSheet
-        open={editContractSheetOpen && Boolean(contractToEdit)}
-        onOpenChange={(open) => {
-          setEditContractSheetOpen(open);
-          if (!open) {
-            setContractToEdit(null);
-          }
-        }}
-        employeeId={employee.id}
-        employeeName={fullName}
-        mode="edit"
-        contract={contractToEdit}
-        onSuccess={() => {
-          handleContractsRefresh();
-          setContractToEdit(null);
-        }}
-      />
-
+      {/* Finalize Contract Dialog */}
       <FinalizeContractDialog
         open={finalizeDialogOpen && Boolean(contractToFinalize)}
         onOpenChange={(open) => {

@@ -358,6 +358,14 @@ export default function EmployeeProfilePage() {
             <FileText className="mr-2 h-4 w-4" />
             Contratos
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => router.push(`/dashboard/employees/${employee.id}/schedules`)}
+          >
+            <Clock className="mr-2 h-4 w-4" />
+            Horarios
+          </Button>
           <Button variant="outline" size="sm" onClick={() => router.push(`/dashboard/employees/${employee.id}/edit`)}>
             <Pencil className="mr-2 h-4 w-4" />
             Editar
