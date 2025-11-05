@@ -4875,3 +4875,571 @@ Middleware       ≈  Servlet Filters
 - Tailwind v4 (nueva sintaxis)
 - Type-safety end-to-end con TypeScript + Zod + Prisma
 - Patrones de Next.js App Router
+
+---
+
+## 16. Sistema de Notificaciones
+
+### ¿Cómo está hecho el sistema de notificaciones?
+
+El sistema de notificaciones tiene **3 partes principales**:
+
+#### 1. Base de Datos (dónde se guardan)
+
+Las notificaciones se guardan en PostgreSQL en la tabla `PtoNotification`:
+
+- **Quién la recibe**: `userId`
+- **Qué dice**: `title` y `message`
+- **Está leída o no**: `isRead` (true/false)
+- **Qué tipo es**: vacaciones, fichaje manual, gasto, etc.
+
+#### 2. Servidor (lógica del backend)
+
+**Archivo**: `src/server/actions/notifications.ts`
+
+Tiene 5 funciones principales:
+
+- **Crear notificación** (línea 11): Cuando alguien pide vacaciones, se crea una notificación para el jefe
+- **Ver mis notificaciones** (línea 46): Trae las últimas 10 notificaciones del usuario
+- **Contar no leídas** (línea 223): Cuenta cuántas notificaciones no has leído (el número rojo)
+- **Marcar como leída** (línea 258): Cuando haces clic, la marca como leída
+- **Marcar todas como leídas** (línea 286): Botón para marcar todo
+
+#### 3. Interfaz Visual (lo que ves en pantalla)
+
+**Campanita** (`src/components/notifications/notification-bell.tsx`):
+
+- **Línea 76-79**: Icono de campana 🔔
+- **Línea 80-84**: Badge rojo con el número de notificaciones sin leer
+- **Línea 46-59**: Auto-refresco cada 30 minutos (actualiza automáticamente)
+
+**Cómo funciona**:
+
+1. Cuando abres la app, carga tus notificaciones (línea 21-24)
+2. Si hay no leídas, muestra un número rojo en la campanita
+3. Al hacer clic en la campana, se abre un popup con la lista
+4. Al hacer clic en una notificación, la marca como leída
+
+#### ¿Cuándo se crean notificaciones?
+
+- Cuando alguien pide vacaciones → notificación al aprobador
+- Cuando aprueban/rechazan vacaciones → notificación al empleado
+- Cuando se pide un ajuste de fichaje → notificación al aprobador
+
+---
+
+### ¿Cómo funciona el auto-refresco de notificaciones?
+
+**Archivo**: `src/components/notifications/notification-bell.tsx`
+
+Hay **4 mecanismos** que disparan la carga de notificaciones:
+
+#### 1. Al cargar la página (líneas 21-24)
+
+```typescript
+useEffect(() => {
+  loadNotifications();
+  loadUnreadCount();
+}, []);
+```
+
+Cuando abres la app, carga las notificaciones una vez.
+
+#### 2. Al cambiar de página (líneas 27-30)
+
+```typescript
+useEffect(() => {
+  loadUnreadCount();
+  loadNotifications();
+}, [pathname]); // pathname = la URL actual
+```
+
+Si vas de `/dashboard` a `/dashboard/employees`, recarga automáticamente.
+
+#### 3. Al volver a la pestaña (líneas 33-44)
+
+```typescript
+useEffect(() => {
+  const handleFocus = () => {
+    loadUnreadCount();
+    loadNotifications();
+  };
+
+  window.addEventListener("focus", handleFocus);
+}, []);
+```
+
+Si minimizas el navegador y vuelves, se recarga automáticamente.
+
+**🔑 Este es el mecanismo clave**: Cuando cambias de pestaña en el navegador, se dispara el evento `focus` en la ventana.
+
+#### 4. Cada 30 minutos (auto-refresh) (líneas 47-59)
+
+```typescript
+useEffect(() => {
+  const interval = setInterval(
+    () => {
+      if (!document.hidden) {
+        // Solo si la pestaña está visible
+        loadUnreadCount();
+        loadNotifications();
+      }
+    },
+    30 * 60 * 1000,
+  ); // 30 minutos en milisegundos
+}, []);
+```
+
+**Cada 30 minutos**, si la pestaña está activa, pregunta al servidor: "¿hay algo nuevo?"
+
+---
+
+### Flujo Real - Ejemplo con 2 pestañas
+
+```
+PESTAÑA A (RRHH)           PESTAÑA B (Empleado)
+─────────────────          ────────────────────
+
+1. RRHH aprueba            (esperando...)
+   vacaciones
+
+2. Se guarda en DB         (esperando...)
+   la notificación
+
+3. (continúa trabajando)   Usuario hace CLICK
+                           en la pestaña B
+
+4. ...                     ⚡ Se dispara evento "focus"
+
+5. ...                     📡 Llama a loadNotifications()
+
+6. ...                     🔍 Servidor consulta DB
+
+7. ...                     ✅ Trae la nueva notificación
+
+8. ...                     🔔 Actualiza campanita
+```
+
+---
+
+### ¿Por qué parece instantáneo?
+
+Porque **cada vez que haces clic en la pestaña** del empleado, automáticamente pregunta al servidor "¿hay algo nuevo?"
+
+No es magia, es simplemente que el cambio de pestaña **dispara la recarga**.
+
+---
+
+### 🚨 IMPORTANTE: NO es "push" en tiempo real
+
+**Lo que NO es**:
+
+- ❌ NO usa WebSockets (conexión permanente)
+- ❌ NO es notificación push instantánea
+- ❌ NO te avisa al segundo de llegar
+
+**Lo que SÍ es**:
+
+- ✅ **Polling condicional**: Pregunta "¿hay algo nuevo?" cuando:
+  - Cambias de pestaña (evento `focus`)
+  - Navegas entre páginas
+  - Cada 30 minutos (auto-refresh)
+- ✅ Optimizado: Solo pregunta cuando la pestaña está activa
+
+**Analogía**: Es como si cada vez que entras a una habitación, preguntaras "¿me han llamado?". No estás escuchando constantemente, pero preguntas cada vez que vuelves.
+
+---
+
+### Ejemplo temporal:
+
+```
+TIEMPO          ACCIÓN
+00:00 ─────→ Abres la app → Carga notificaciones
+00:05 ─────→ (nada, espera)
+00:10 ─────→ (nada, espera)
+00:15 ─────→ Cambias de /dashboard a /employees → Recarga
+00:20 ─────→ (nada, espera)
+00:25 ─────→ Cambias a otra pestaña del navegador
+00:26 ─────→ Vuelves a la pestaña → ⚡ Evento focus → Recarga
+00:30 ─────→ ⏰ Auto-refresh (30 min) → Pregunta al servidor
+01:00 ─────→ ⏰ Auto-refresh → Pregunta al servidor
+```
+
+---
+
+### Resumen técnico:
+
+- **Estrategia**: Polling condicional basado en eventos del navegador
+- **Trigger principal**: Evento `focus` de la ventana (cambio de pestaña)
+- **Backup**: Auto-refresh cada 30 minutos
+- **Optimización**: No consulta si la pestaña está oculta (`document.hidden`)
+- **Backend**: Server Actions de Next.js que consultan PostgreSQL
+- **Estado**: Gestionado con Zustand (store de notificaciones)
+
+---
+
+### Cómo se crea una notificación (Código)
+
+#### 1. La función que crea notificaciones
+
+**Archivo**: `src/server/actions/notifications.ts` (líneas 11-41)
+
+```typescript
+export async function createNotification(
+  userId: string,              // ← A quién se le envía
+  orgId: string,               // ← De qué organización
+  type: PtoNotificationType,   // ← Tipo: "PTO_APPROVED", "PTO_REJECTED", etc.
+  title: string,               // ← Título: "Solicitud aprobada"
+  message: string,             // ← Mensaje: "Tu solicitud de vacaciones ha sido aprobada"
+  ptoRequestId?: string,       // ← (Opcional) ID de la solicitud de vacaciones
+  manualTimeEntryRequestId?: string,  // ← (Opcional) ID de ajuste de fichaje
+  expenseId?: string,          // ← (Opcional) ID de gasto
+) {
+  const notification = await prisma.ptoNotification.create({
+    data: {
+      userId,
+      orgId,
+      type,
+      title,
+      message,
+      ptoRequestId,
+      manualTimeEntryRequestId,
+      expenseId,
+      isRead: false,  // ← Por defecto, no leída
+    },
+  });
+
+  return notification;
+}
+```
+
+**¿Qué hace?**
+
+- Guarda la notificación en la base de datos (tabla `PtoNotification`)
+- La marca como `isRead: false` (no leída)
+- Devuelve la notificación creada
+
+#### 2. Ejemplo real: Cuando RRHH aprueba vacaciones
+
+**Archivo**: `src/server/actions/approver-pto.ts` (líneas 314-324)
+
+```typescript
+// 1. Actualiza la solicitud en la BD
+await prisma.ptoRequest.update({
+  where: { id: requestId },
+  data: {
+    status: "APPROVED",
+    approvedAt: new Date(),
+  },
+});
+
+// 2. Crea la notificación para el empleado
+if (request.employee.user) {
+  await createNotification(
+    request.employee.user.id,        // ← ID del empleado
+    request.orgId,                   // ← ID de la organización
+    "PTO_APPROVED",                  // ← Tipo de notificación
+    "Solicitud aprobada",            // ← Título
+    `Tu solicitud de ${request.absenceType.name} ha sido aprobada`,  // ← Mensaje
+    requestId,                       // ← ID de la solicitud
+  );
+}
+```
+
+#### 3. Flujo completo visual
+
+```
+1. RRHH hace clic en "Aprobar"
+   ↓
+2. Se ejecuta approvePtoRequest()
+   ↓
+3. Se actualiza la solicitud en BD (status: "APPROVED")
+   ↓
+4. Se llama a createNotification()
+   ↓
+5. Se guarda en la tabla PtoNotification:
+   {
+     userId: "emp-123",
+     type: "PTO_APPROVED",
+     title: "Solicitud aprobada",
+     message: "Tu solicitud de Vacaciones ha sido aprobada",
+     isRead: false
+   }
+   ↓
+6. Empleado cambia de pestaña
+   ↓
+7. Evento "focus" dispara loadNotifications()
+   ↓
+8. Consulta la BD y trae la nueva notificación
+   ↓
+9. Aparece el 🔔 (1) en rojo
+```
+
+#### Tipos de notificaciones que existen
+
+```typescript
+// Vacaciones (PTO)
+"PTO_SUBMITTED"   // → "Tu solicitud ha sido enviada"
+"PTO_APPROVED"    // → "Tu solicitud ha sido aprobada"
+"PTO_REJECTED"    // → "Tu solicitud ha sido rechazada"
+
+// Fichajes manuales
+"MANUAL_TIME_ENTRY_APPROVED"
+"MANUAL_TIME_ENTRY_REJECTED"
+
+// Gastos
+"EXPENSE_APPROVED"
+"EXPENSE_REJECTED"
+```
+
+---
+
+### `export async` y `await` explicados para Java developers
+
+#### 1. `export` = `public`
+
+**JavaScript/TypeScript:**
+
+```typescript
+export async function createNotification() {
+  // ...
+}
+```
+
+**Java equivalente:**
+
+```java
+public CompletableFuture<Notification> createNotification() {
+  // ...
+}
+```
+
+**¿Qué hace `export`?**
+
+- Hace la función **pública** (accesible desde otros archivos)
+- Sin `export`, la función sería privada del archivo
+
+#### 2. `async` = "Esta función devuelve una Promise"
+
+**Promise en JavaScript = Future/CompletableFuture en Java**
+
+Una `Promise` es una operación que **tomará tiempo** (base de datos, API, archivo).
+
+**JavaScript:**
+
+```typescript
+async function getUserFromDB() {
+  return await prisma.user.findUnique({ where: { id: "123" } });
+}
+```
+
+**Java equivalente:**
+
+```java
+public CompletableFuture<User> getUserFromDB() {
+  return CompletableFuture.supplyAsync(() -> {
+    return userRepository.findById("123");
+  });
+}
+```
+
+#### 3. `await` = "Espera a que termine"
+
+**`await`** pausa la ejecución hasta que la operación termine.
+
+**JavaScript:**
+
+```typescript
+async function approveRequest() {
+  // ESPERA a que se actualice en BD (puede tardar 100ms)
+  await prisma.ptoRequest.update({ ... });
+
+  // Solo ejecuta esto DESPUÉS de que termine lo anterior
+  await createNotification(...);
+
+  return { success: true };
+}
+```
+
+**Java equivalente (con .get() en Future):**
+
+```java
+public void approveRequest() {
+  try {
+    // ESPERA a que se actualice en BD
+    ptoRepository.update(...).get();  // ← .get() = await
+
+    // Solo ejecuta esto DESPUÉS
+    notificationService.create(...).get();
+
+  } catch (Exception e) {
+    // manejar error
+  }
+}
+```
+
+#### Comparación lado a lado
+
+**JavaScript con `async/await`:**
+
+```typescript
+async function processOrder() {
+  const user = await getUserFromDB(); // Espera 50ms
+  const order = await createOrder(user); // Espera 100ms
+  await sendEmail(order); // Espera 200ms
+  return { success: true };
+}
+```
+
+**Java con CompletableFuture:**
+
+```java
+public CompletableFuture<Result> processOrder() {
+  return getUserFromDB()                     // Espera 50ms
+    .thenCompose(user -> createOrder(user))  // Espera 100ms
+    .thenCompose(order -> sendEmail(order))  // Espera 200ms
+    .thenApply(email -> new Result(true));
+}
+```
+
+**Java tradicional con try/catch:**
+
+```java
+public Result processOrder() throws Exception {
+  User user = getUserFromDB().get();         // Espera 50ms
+  Order order = createOrder(user).get();     // Espera 100ms
+  sendEmail(order).get();                    // Espera 200ms
+  return new Result(true);
+}
+```
+
+#### ¿Por qué `async/await` y no callbacks?
+
+**Antes (callback hell):**
+
+```javascript
+// ❌ HORRIBLE - Callbacks anidados
+getUserFromDB((user) => {
+  createOrder(user, (order) => {
+    sendEmail(order, (result) => {
+      console.log("Done!");
+    });
+  });
+});
+```
+
+**Con `async/await`:**
+
+```javascript
+// ✅ LIMPIO - Parece código síncrono
+const user = await getUserFromDB();
+const order = await createOrder(user);
+await sendEmail(order);
+console.log("Done!");
+```
+
+#### Errores con `async/await`
+
+**JavaScript:**
+
+```typescript
+async function approveRequest() {
+  try {
+    await prisma.ptoRequest.update({ ... });
+    await createNotification(...);
+    return { success: true };
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+}
+```
+
+**Java equivalente:**
+
+```java
+public CompletableFuture<Result> approveRequest() {
+  return CompletableFuture.supplyAsync(() -> {
+    try {
+      ptoRepository.update(...).get();
+      notificationService.create(...).get();
+      return new Result(true);
+    } catch (Exception e) {
+      System.err.println("Error: " + e);
+      throw new RuntimeException(e);
+    }
+  });
+}
+```
+
+#### Tabla de equivalencias JavaScript ↔ Java
+
+| JavaScript/TypeScript      | Java                       | Explicación                   |
+| -------------------------- | -------------------------- | ----------------------------- |
+| `export function`          | `public static`            | Función pública               |
+| `async function`           | `CompletableFuture<T>`     | Operación asíncrona           |
+| `await promise`            | `future.get()`             | Esperar resultado             |
+| `Promise<T>`               | `CompletableFuture<T>`     | Valor futuro                  |
+| `try/catch`                | `try/catch`                | Manejo de errores (igual)     |
+| `async () => { ... }`      | `() -> { ... }`            | Lambda/Arrow function (igual) |
+| `const result = await ...` | `Result result = ....get()` | Asignar resultado            |
+
+#### Ejemplo completo comentado
+
+**JavaScript/TypeScript:**
+
+```typescript
+// "export" = public (accesible desde otros archivos)
+// "async" = devuelve una Promise (operación asíncrona)
+export async function createNotification(userId: string, title: string, message: string) {
+  try {
+    // "await" = espera a que Prisma guarde en BD
+    // (puede tardar 50-200ms)
+    const notification = await prisma.ptoNotification.create({
+      data: {
+        userId,
+        title,
+        message,
+        isRead: false,
+      },
+    });
+
+    // Solo llega aquí DESPUÉS de guardar
+    return notification;
+  } catch (error) {
+    console.error("Error:", error);
+    throw error;
+  }
+}
+```
+
+**Java equivalente:**
+
+```java
+public CompletableFuture<Notification> createNotification(
+  String userId,
+  String title,
+  String message
+) {
+  return CompletableFuture.supplyAsync(() -> {
+    try {
+      Notification notification = notificationRepository.save(
+        new Notification(userId, title, message, false)
+      );
+      return notification;
+    } catch (Exception e) {
+      System.err.println("Error: " + e);
+      throw new RuntimeException(e);
+    }
+  });
+}
+```
+
+#### Resumen para Java developers
+
+- **`export`** = `public` (accesible desde otros módulos)
+- **`async`** = "Esta función devuelve una Promise" (como `CompletableFuture`)
+- **`await`** = "Espera a que termine" (como `future.get()`)
+- **`Promise`** = `CompletableFuture` (valor que llegará en el futuro)
+
+**Ventaja de `async/await`**: El código se lee de forma **secuencial**, como si fuera síncrono, pero es asíncrono.

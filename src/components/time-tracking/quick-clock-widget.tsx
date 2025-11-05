@@ -41,17 +41,22 @@ export function QuickClockWidget() {
   // Cargar estado inicial y configuración de geolocalización
   useEffect(() => {
     const load = async () => {
-      await loadInitialData();
-
-      // Verificar si la organización tiene geolocalización habilitada
       try {
-        const config = await getOrganizationGeolocationConfig();
-        setGeolocationEnabled(config.geolocationEnabled);
-      } catch (error) {
-        console.error("Error al cargar config de geolocalización:", error);
-      }
+        await loadInitialData();
 
-      setIsInitialMount(false);
+        // Verificar si la organización tiene geolocalización habilitada
+        try {
+          const config = await getOrganizationGeolocationConfig();
+          setGeolocationEnabled(config.geolocationEnabled);
+        } catch (error) {
+          console.error("Error al cargar config de geolocalización:", error);
+        }
+      } catch (error) {
+        console.error("Error al cargar datos iniciales:", error);
+      } finally {
+        // Siempre marcar como montado, incluso si hay errores
+        setIsInitialMount(false);
+      }
     };
     load();
   }, [loadInitialData]);
@@ -199,7 +204,8 @@ export function QuickClockWidget() {
   const tooltipMessage = "Solo los empleados pueden fichar";
 
   // Mostrar skeleton mientras se cargan los datos iniciales o si es el primer montaje
-  if (isLoading || isInitialMount || todaySummary === null) {
+  // Para usuarios sin empleado (super admins), no mostrar skeleton aunque todaySummary sea null
+  if (isLoading || isInitialMount || (todaySummary === null && canClock)) {
     return (
       <div className="hidden items-center gap-2 md:flex">
         <Skeleton className="h-4 w-20" />

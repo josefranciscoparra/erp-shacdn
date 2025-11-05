@@ -328,9 +328,19 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
+      console.error("Error al cargar datos iniciales:", error);
       set({
         error: error instanceof Error ? error.message : "Error al cargar datos",
         isLoading: false,
+        // Establecer un summary vacío para evitar skeleton infinito
+        todaySummary: {
+          id: "error",
+          date: new Date(),
+          totalWorkedMinutes: 0,
+          totalBreakMinutes: 0,
+          status: "ABSENT" as const,
+          timeEntries: [],
+        } as any,
       });
     }
   },

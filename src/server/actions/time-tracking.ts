@@ -501,7 +501,15 @@ export async function getTodaySummary() {
       };
     }
 
-    return null;
+    // Si no hay ni resumen ni entries, retornar estructura vacía (empleado no ha fichado hoy)
+    return {
+      id: "",
+      date: dayStart,
+      totalWorkedMinutes: 0,
+      totalBreakMinutes: 0,
+      status: "ABSENT" as const,
+      timeEntries: [],
+    };
   } catch (error) {
     console.error("Error al obtener resumen de hoy:", error);
     throw error;
