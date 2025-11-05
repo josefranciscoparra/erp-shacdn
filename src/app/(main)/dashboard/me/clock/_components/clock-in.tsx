@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 
-import { LogIn, LogOut, Coffee, FilePlus, MapPin, AlertTriangle, CheckCircle2, List, Map } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { LogIn, LogOut, Coffee, FilePlus, MapPin, AlertTriangle, CheckCircle2, List, Map, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
@@ -363,41 +364,69 @@ export function ClockIn() {
           </div>
 
           <div className="flex w-full flex-col gap-3">
-            {currentStatus === "CLOCKED_OUT" ? (
-              <Button size="lg" onClick={handleClockIn} className="w-full" disabled={isLoading || isClocking}>
-                <LogIn className="mr-2 h-5 w-5" />
-                {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Entrada"}
-              </Button>
-            ) : (
-              <>
-                <Button
-                  size="lg"
-                  onClick={handleClockOut}
-                  variant="destructive"
-                  className="w-full"
-                  disabled={isLoading || isClocking}
+            <AnimatePresence mode="wait" initial={false}>
+              {currentStatus === "CLOCKED_OUT" ? (
+                <motion.div
+                  key="clocked-out"
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
-                  <LogOut className="mr-2 h-5 w-5" />
-                  {isLoading ? "Cargando..." : isClocking ? "Fichando..." : "Fichar Salida"}
-                </Button>
-                <Button
-                  size="lg"
-                  onClick={handleBreak}
-                  variant="outline"
-                  className="w-full"
-                  disabled={isLoading || isClocking}
+                  <Button
+                    size="lg"
+                    onClick={handleClockIn}
+                    className="w-full disabled:opacity-70"
+                    disabled={isLoading || isClocking}
+                  >
+                    {isLoading || isClocking ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <LogIn className="mr-2 h-5 w-5" />
+                    )}
+                    Fichar Entrada
+                  </Button>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="clocked-in"
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="flex w-full flex-col gap-3"
                 >
-                  <Coffee className="mr-2 h-5 w-5" />
-                  {isLoading
-                    ? "Cargando..."
-                    : isClocking
-                      ? "Procesando..."
-                      : currentStatus === "ON_BREAK"
-                        ? "Volver del descanso"
-                        : "Iniciar descanso"}
-                </Button>
-              </>
-            )}
+                  <Button
+                    size="lg"
+                    onClick={handleClockOut}
+                    variant="destructive"
+                    className="w-full disabled:opacity-70"
+                    disabled={isLoading || isClocking}
+                  >
+                    {isLoading || isClocking ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <LogOut className="mr-2 h-5 w-5" />
+                    )}
+                    Fichar Salida
+                  </Button>
+                  <Button
+                    size="lg"
+                    onClick={handleBreak}
+                    variant="outline"
+                    className="w-full disabled:opacity-70"
+                    disabled={isLoading || isClocking}
+                  >
+                    {isLoading || isClocking ? (
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    ) : (
+                      <Coffee className="mr-2 h-5 w-5" />
+                    )}
+                    {currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </Card>
 

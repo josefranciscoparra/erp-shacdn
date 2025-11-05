@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 
-import { LogIn, LogOut, Coffee, MapPin } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { LogIn, LogOut, Coffee, MapPin, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
@@ -228,98 +229,123 @@ export function QuickClockWidget() {
       <div className="hidden items-center gap-2 md:flex">
         <span className="text-muted-foreground text-sm font-medium tabular-nums">{formatTime(liveWorkedMinutes)}</span>
 
-        {currentStatus === "CLOCKED_OUT" && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="sm"
-                  onClick={handleClockIn}
-                  disabled={isClocking || !canClock || geolocation.loading}
-                  className="rounded-full bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed"
-                >
-                  {geolocation.loading ? (
-                    <MapPin className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-                  ) : (
-                    <LogIn className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {geolocation.loading ? "Ubicando..." : "Entrar"}
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
-          </Tooltip>
-        )}
+        <AnimatePresence mode="wait" initial={false}>
+          {currentStatus === "CLOCKED_OUT" && (
+            <motion.div
+              key="clocked-out"
+              initial={{ opacity: 0, x: -10, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 10, scale: 0.9 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={handleClockIn}
+                      disabled={isClocking || !canClock || geolocation.loading}
+                      className="rounded-full bg-green-600 hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {geolocation.loading || isClocking ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <LogIn className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Entrar
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+              </Tooltip>
+            </motion.div>
+          )}
 
-        {currentStatus === "CLOCKED_IN" && (
-          <>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    size="sm"
-                    onClick={handleClockOut}
-                    disabled={isClocking || !canClock || geolocation.loading}
-                    variant="destructive"
-                    className="rounded-full disabled:cursor-not-allowed"
-                  >
-                    {geolocation.loading ? (
-                      <MapPin className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-                    ) : (
-                      <LogOut className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {geolocation.loading ? "Ubicando..." : "Salir"}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button
-                    size="sm"
-                    onClick={handleBreak}
-                    disabled={isClocking || !canClock || geolocation.loading}
-                    variant="outline"
-                    className="rounded-full disabled:cursor-not-allowed"
-                  >
-                    {geolocation.loading ? (
-                      <MapPin className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-                    ) : (
-                      <Coffee className="mr-1.5 h-3.5 w-3.5" />
-                    )}
-                    {geolocation.loading ? "Ubicando..." : "Pausa"}
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
-            </Tooltip>
-          </>
-        )}
+          {currentStatus === "CLOCKED_IN" && (
+            <motion.div
+              key="clocked-in"
+              initial={{ opacity: 0, x: -10, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 10, scale: 0.9 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="flex items-center gap-2"
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={handleClockOut}
+                      disabled={isClocking || !canClock || geolocation.loading}
+                      variant="destructive"
+                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {geolocation.loading || isClocking ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <LogOut className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Salir
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={handleBreak}
+                      disabled={isClocking || !canClock || geolocation.loading}
+                      variant="outline"
+                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {geolocation.loading || isClocking ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Coffee className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Pausa
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+              </Tooltip>
+            </motion.div>
+          )}
 
-        {currentStatus === "ON_BREAK" && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  size="sm"
-                  onClick={handleBreak}
-                  disabled={isClocking || !canClock || geolocation.loading}
-                  className="rounded-full bg-yellow-600 hover:bg-yellow-700 disabled:cursor-not-allowed"
-                >
-                  {geolocation.loading ? (
-                    <MapPin className="mr-1.5 h-3.5 w-3.5 animate-pulse" />
-                  ) : (
-                    <Coffee className="mr-1.5 h-3.5 w-3.5" />
-                  )}
-                  {geolocation.loading ? "Ubicando..." : "Volver"}
-                </Button>
-              </span>
-            </TooltipTrigger>
-            {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
-          </Tooltip>
-        )}
+          {currentStatus === "ON_BREAK" && (
+            <motion.div
+              key="on-break"
+              initial={{ opacity: 0, x: -10, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 10, scale: 0.9 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <Button
+                      size="sm"
+                      onClick={handleBreak}
+                      disabled={isClocking || !canClock || geolocation.loading}
+                      className="rounded-full bg-yellow-600 hover:bg-yellow-700 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {geolocation.loading || isClocking ? (
+                        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Coffee className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      Volver
+                    </Button>
+                  </span>
+                </TooltipTrigger>
+                {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
+              </Tooltip>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Dialog de consentimiento de geolocalización */}
