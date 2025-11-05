@@ -80,13 +80,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Verificar permisos: HR/Admin puede ver todas, empleados solo las suyas
-
-    const isHROrAdmin =
-      hasPermission(session.user.role, "pto:read") || hasPermission(session.user.role, "settings:read");
+    const isHROrAdmin = hasPermission(session.user.role, "manage_documents");
 
     if (!isHROrAdmin) {
       // Verificar si el usuario es uno de los firmantes
-      const isSignerOrCreator = signatureRequest.signers.some((signer) => signer.employee.email === session.user.email);
+      const isSignerOrCreator =
+        session.user.employeeId &&
+        signatureRequest.signers.some((signer) => signer.employee.id === session.user.employeeId);
 
       if (!isSignerOrCreator) {
         return NextResponse.json({ error: "Sin permisos" }, { status: 403 });

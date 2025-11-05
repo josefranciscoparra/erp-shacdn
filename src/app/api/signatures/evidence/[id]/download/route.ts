@@ -42,6 +42,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
           include: {
             employee: {
               select: {
+                id: true,
                 firstName: true,
                 lastName: true,
                 email: true,
@@ -62,13 +63,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     // Verificar permisos (solo HR/Admin puede descargar evidencias)
-
-    const isHROrAdmin =
-      hasPermission(session.user.role, "pto:read") || hasPermission(session.user.role, "settings:read");
+    const isHROrAdmin = hasPermission(session.user.role, "manage_documents");
 
     if (!isHROrAdmin) {
       // Los empleados también pueden descargar sus propias evidencias
-      const isOwnEvidence = evidence.signer.employee.email === session.user.email;
+      const isOwnEvidence = session.user.employeeId && evidence.signer.employee.id === session.user.employeeId;
 
       if (!isOwnEvidence) {
         return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
