@@ -42,6 +42,9 @@ model Organization {
   geolocationMinAccuracy  Int     @default(100)   // Precisión mínima requerida en metros
   geolocationMaxRadius    Int     @default(200)   // Radio máximo permitido por defecto en metros
 
+  // Feature flags
+  features                Json    @default("{}") // Feature flags JSON: { chat: true, ... }
+
   // Relaciones
   users               User[]
   employees           Employee[]
@@ -72,6 +75,8 @@ model Organization {
   expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
   geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización
   sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
+  conversations       Conversation[] // Conversaciones de chat
+  messages            Message[] // Mensajes de chat
 
   @@map("organizations")
 }
@@ -111,6 +116,9 @@ model User {
   employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
   geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización dados
   sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
+  conversationsAsUserA Conversation[] @relation("ConversationUserA") // Conversaciones donde soy UserA
+  conversationsAsUserB Conversation[] @relation("ConversationUserB") // Conversaciones donde soy UserB
+  messagesSent Message[] // Mensajes enviados
 
   @@index([email])
   @@index([orgId])
@@ -1535,6 +1543,84 @@ enum SensitiveDataType {
   SSN            // Número seguridad social
   MEDICAL_DATA   // Datos médicos
   OTHER          // Otros datos sensibles
+}
+
+// ==================== MÓDULO DE CHAT 1:1 ====================
+
+// Conversación 1:1 entre dos usuarios
+model Conversation {
+  id              String   @id @default(cuid())
+
+  // Usuarios participantes (normalizados: userAId < userBId siempre para evitar duplicados)
+  userAId         String
+  userBId         String
+
+  // Metadata
+  lastMessageAt   DateTime @default(now())
+  isBlocked       Boolean  @default(false)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones con usuarios
+  userA           User @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB           User @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  // Mensajes de la conversación
+  messages        Message[]
+
+  @@unique([orgId, userAId, userBId]) // Conversación única por par de usuarios en la organización
+  @@index([orgId])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([lastMessageAt])
+  @@map("conversations")
+}
+
+// Mensaje individual dentro de una conversación
+model Message {
+  id              String   @id @default(cuid())
+
+  // Contenido (máximo 2KB según requisitos)
+  body            String   @db.Text
+
+  // Estado del mensaje
+  status          MessageStatus @default(SENT)
+
+  // Timestamps
+  createdAt       DateTime @default(now())
+  editedAt        DateTime? // Si fue editado
+  deletedAt       DateTime? // Soft delete
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Conversación a la que pertenece
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Remitente del mensaje
+  senderId        String
+  sender          User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([conversationId, createdAt]) // Índice compuesto para paginación eficiente
+  @@map("messages")
+}
+
+// Estados del mensaje
+enum MessageStatus {
+  SENT   // Enviado
+  READ   // Leído
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

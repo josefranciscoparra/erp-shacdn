@@ -18,6 +18,7 @@ import {
   FileSignature,
   ClipboardList,
   Receipt,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -93,6 +94,11 @@ export function useSidebarItems(): NavGroup[] {
           title: "Mis Gastos",
           url: "/dashboard/me/expenses",
           icon: Receipt,
+        },
+        {
+          title: "Mensajes",
+          url: "/dashboard/chat",
+          icon: MessageSquare,
         },
         ...(documentsEnabled
           ? [

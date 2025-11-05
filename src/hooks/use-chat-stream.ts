@@ -1,0 +1,186 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+
+import type { MessageWithSender, SSEEvent } from "@/lib/chat/types";
+
+interface UseChatStreamOptions {
+  enabled?: boolean;
+  onMessage?: (message: MessageWithSender) => void;
+  onRead?: (data: { conversationId: string; messageId: string; readBy: string }) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * Hook para conectarse al stream SSE de chat con fallback a polling
+ */
+export function useChatStream(options: UseChatStreamOptions = {}) {
+  const { enabled = true, onMessage, onRead, onError } = options;
+
+  const [isConnected, setIsConnected] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [transport, setTransport] = useState<"sse" | "polling">("sse");
+
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastEventIdRef = useRef<string | null>(null);
+  const maxReconnectAttempts = 5;
+
+  // Limpiar recursos
+  const cleanup = () => {
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsConnected(false);
+  };
+
+  // Conectar via SSE
+  const connectSSE = () => {
+    cleanup();
+
+    console.log("[SSE] Conectando al stream...");
+
+    try {
+      const eventSource = new EventSource("/api/chat/stream", {
+        withCredentials: true,
+      });
+
+      eventSourceRef.current = eventSource;
+
+      eventSource.onopen = () => {
+        console.log("[SSE] Conectado");
+        setIsConnected(true);
+        setReconnectAttempts(0);
+        setTransport("sse");
+      };
+
+      eventSource.addEventListener("message", (event) => {
+        try {
+          const data: SSEEvent = JSON.parse(event.data);
+
+          // Guardar last event ID para reconexión
+          if (event.lastEventId) {
+            lastEventIdRef.current = event.lastEventId;
+          }
+
+          // Procesar eventos
+          switch (data.type) {
+            case "message":
+              onMessage?.(data.data as MessageWithSender);
+              break;
+            case "read":
+              onRead?.(
+                data.data as { conversationId: string; messageId: string; readBy: string }
+              );
+              break;
+            case "system":
+              console.log("[SSE] Sistema:", data.data);
+              break;
+            default:
+              console.log("[SSE] Evento desconocido:", data.type);
+          }
+        } catch (error) {
+          console.error("[SSE] Error procesando mensaje:", error);
+        }
+      });
+
+      eventSource.onerror = (error) => {
+        console.error("[SSE] Error:", error);
+        setIsConnected(false);
+
+        eventSource.close();
+
+        // Intentar reconectar con backoff exponencial
+        const attempts = reconnectAttempts + 1;
+        setReconnectAttempts(attempts);
+
+        if (attempts >= maxReconnectAttempts) {
+          console.log("[SSE] Máximo de intentos alcanzado, cambiando a polling");
+          setTransport("polling");
+          startPolling();
+          return;
+        }
+
+        const delay = Math.min(1000 * Math.pow(2, attempts), 30000); // Max 30s
+        console.log(`[SSE] Reintentando en ${delay}ms (intento ${attempts}/${maxReconnectAttempts})`);
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connectSSE();
+        }, delay);
+      };
+    } catch (error) {
+      console.error("[SSE] Error al crear EventSource:", error);
+      onError?.(error as Error);
+
+      // Fallback a polling
+      setTransport("polling");
+      startPolling();
+    }
+  };
+
+  // Fallback: polling cada 10 segundos
+  const startPolling = () => {
+    cleanup();
+
+    console.log("[POLLING] Iniciando polling cada 10s");
+    setTransport("polling");
+    setIsConnected(true);
+
+    let lastCheck = new Date().toISOString();
+
+    const poll = async () => {
+      try {
+        // Aquí podrías hacer una petición GET para obtener mensajes nuevos desde lastCheck
+        // Por simplicidad, este es un placeholder
+        console.log("[POLLING] Verificando mensajes...");
+
+        // TODO: Implementar endpoint de polling si es necesario
+        // const response = await fetch(`/api/chat/messages/since?timestamp=${lastCheck}`);
+        // const { messages } = await response.json();
+        // messages.forEach(onMessage);
+
+        lastCheck = new Date().toISOString();
+      } catch (error) {
+        console.error("[POLLING] Error:", error);
+      }
+    };
+
+    // Poll inicial
+    poll();
+
+    // Configurar intervalo
+    pollingIntervalRef.current = setInterval(poll, 10000);
+  };
+
+  // Conectar cuando se monta el componente
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    // Intentar SSE primero
+    connectSSE();
+
+    // Cleanup al desmontar
+    return () => {
+      cleanup();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
+
+  return {
+    isConnected,
+    transport,
+    reconnectAttempts,
+  };
+}
