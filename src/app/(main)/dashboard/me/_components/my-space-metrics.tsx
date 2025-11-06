@@ -1,10 +1,11 @@
 "use client";
 
-import { Clock, Calendar, CalendarDays, Hourglass } from "lucide-react";
+import { Clock, CalendarDays, Hourglass } from "lucide-react";
+import { Bar, BarChart, Line, LineChart, LabelList } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { MySpaceDashboard } from "@/server/actions/my-space";
 
@@ -16,15 +17,16 @@ interface MySpaceMetricsProps {
 export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+      <div className="gap-4 space-y-4 lg:grid lg:grid-cols-3 lg:space-y-0">
         {[1, 2, 3, 4].map((i) => (
-          <Card
-            key={i}
-            className="flex flex-col gap-2 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-xs dark:from-blue-950/20 dark:to-blue-900/10"
-          >
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-8 w-16" />
-            <Skeleton className="h-3 w-24" />
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="mt-2 h-3 w-24" />
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -54,98 +56,142 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
   const statusBadge = () => {
     switch (timeTracking.today.status) {
       case "CLOCKED_IN":
-        return (
-          <Badge
-            variant="outline"
-            className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400"
-          >
-            Trabajando
-          </Badge>
-        );
+        return <Badge variant="success">Trabajando</Badge>;
       case "ON_BREAK":
-        return (
-          <Badge
-            variant="outline"
-            className="border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-400"
-          >
-            En pausa
-          </Badge>
-        );
+        return <Badge variant="info">En pausa</Badge>;
       case "CLOCKED_OUT":
-        return (
-          <Badge
-            variant="outline"
-            className="border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400"
-          >
-            Sin fichar
-          </Badge>
-        );
+        return <Badge variant="outline">Sin fichar</Badge>;
     }
   };
 
+  // Datos para gráficas
+  const todayChartData = [
+    { time: "0h", hours: 0 },
+    {
+      time: "2h",
+      hours: timeTracking.today.workedMinutes > 0 ? Math.min(2, timeTracking.today.workedMinutes / 60) : 0,
+    },
+    {
+      time: "4h",
+      hours:
+        timeTracking.today.workedMinutes > 120
+          ? Math.min(4, timeTracking.today.workedMinutes / 60)
+          : timeTracking.today.workedMinutes / 60,
+    },
+    {
+      time: "6h",
+      hours:
+        timeTracking.today.workedMinutes > 240
+          ? Math.min(6, timeTracking.today.workedMinutes / 60)
+          : timeTracking.today.workedMinutes / 60,
+    },
+    { time: "8h", hours: Math.min(8, timeTracking.today.workedMinutes / 60) },
+  ];
+
+  const weekChartData = [
+    { day: "L", hours: timeTracking.week.totalWorkedMinutes > 0 ? timeTracking.week.totalWorkedMinutes / 60 / 5 : 0 },
+    { day: "M", hours: timeTracking.week.totalWorkedMinutes > 0 ? timeTracking.week.totalWorkedMinutes / 60 / 5 : 0 },
+    { day: "X", hours: timeTracking.week.totalWorkedMinutes > 0 ? timeTracking.week.totalWorkedMinutes / 60 / 5 : 0 },
+    { day: "J", hours: timeTracking.week.totalWorkedMinutes > 0 ? timeTracking.week.totalWorkedMinutes / 60 / 5 : 0 },
+    { day: "V", hours: timeTracking.week.totalWorkedMinutes > 0 ? timeTracking.week.totalWorkedMinutes / 60 / 5 : 0 },
+  ];
+
+  const ptoChartData = pto
+    ? [
+        { category: "Usados", days: Math.round(pto.daysUsed) },
+        { category: "Disponibles", days: Math.round(pto.daysAvailable) },
+      ]
+    : [];
+
+  const chartConfig = {
+    hours: {
+      label: "Horas",
+      color: "var(--primary)",
+    },
+    days: {
+      label: "Días",
+      color: "var(--primary)",
+    },
+  } satisfies ChartConfig;
+
   return (
-    <div className="grid gap-3 md:gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}>
+    <div className="gap-4 space-y-4 lg:grid lg:grid-cols-3 lg:space-y-0">
       {/* Horas trabajadas hoy */}
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-blue-50 to-blue-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-blue-950/20 dark:to-blue-900/10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
             <Clock className="h-4 w-4" />
             Horas hoy
-          </div>
+          </CardTitle>
           {statusBadge()}
-        </div>
-        <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
-          {todayHours}h<span className="text-muted-foreground ml-2 text-lg font-normal">/ {todayExpectedHours}h</span>
-        </div>
-        <div className="space-y-1.5">
-          <Progress value={todayProgress} className="h-1.5 bg-blue-100 dark:bg-blue-950/50" />
-          <div className="text-xs text-blue-600/70 dark:text-blue-400/70">{Math.round(todayProgress)}% completado</div>
-        </div>
+        </CardHeader>
+        <CardContent>
+          <div className="font-display text-3xl leading-6">
+            {todayHours}h<span className="text-muted-foreground ml-2 text-lg font-normal">/ {todayExpectedHours}h</span>
+          </div>
+          <p className="text-muted-foreground mt-1.5 text-xs">{Math.round(todayProgress)}% completado</p>
+          <ChartContainer className="mt-4 h-[80px] w-full" config={chartConfig}>
+            <LineChart data={todayChartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Line type="monotone" dataKey="hours" stroke="var(--color-hours)" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ChartContainer>
+        </CardContent>
       </Card>
 
       {/* Horas esta semana */}
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-green-50 to-green-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-green-950/20 dark:to-green-900/10">
-        <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
-          <Hourglass className="h-4 w-4" />
-          Horas esta semana
-        </div>
-        <div className="text-3xl font-bold text-green-900 dark:text-green-100">{weekHours}h</div>
-        <div className="text-xs text-green-600/70 dark:text-green-400/70">Esperadas: {weekExpectedHours}h</div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+            <Hourglass className="h-4 w-4" />
+            Horas esta semana
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="font-display text-3xl leading-6">{weekHours}h</div>
+          <p className="text-muted-foreground mt-1.5 text-xs">Esperadas: {weekExpectedHours}h</p>
+          <ChartContainer className="mt-4 h-[80px] w-full" config={chartConfig}>
+            <BarChart data={weekChartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Bar dataKey="hours" fill="var(--color-hours)" radius={5}>
+                <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
       </Card>
 
       {/* Días de vacaciones disponibles */}
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-amber-50 to-amber-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-amber-950/20 dark:to-amber-900/10">
-        <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
-          <CalendarDays className="h-4 w-4" />
-          Vacaciones disponibles
-        </div>
-        {pto ? (
-          <>
-            <div className="text-3xl font-bold text-amber-900 dark:text-amber-100">{Math.round(pto.daysAvailable)}</div>
-            <div className="text-xs text-amber-600/70 dark:text-amber-400/70">
-              {Math.round(pto.daysUsed)} usados de {Math.round(pto.annualAllowance)}
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="text-muted-foreground text-3xl font-bold">-</div>
-            <div className="text-muted-foreground text-xs">Sin contrato activo</div>
-          </>
-        )}
-      </Card>
-
-      {/* Próximos eventos */}
-      <Card className="flex flex-col gap-2 bg-gradient-to-br from-purple-50 to-purple-100/50 p-6 shadow-xs transition-shadow duration-300 hover:shadow-md dark:from-purple-950/20 dark:to-purple-900/10">
-        <div className="flex items-center gap-2 text-sm text-purple-700 dark:text-purple-400">
-          <Calendar className="h-4 w-4" />
-          Próximos eventos
-        </div>
-        <div className="text-3xl font-bold text-purple-900 dark:text-purple-100">{data.upcomingEvents.length}</div>
-        <div className="text-xs text-purple-600/70 dark:text-purple-400/70">
-          {data.upcomingEvents.length > 0
-            ? `Próximo: ${new Date(data.upcomingEvents[0].date).toLocaleDateString("es-ES", { day: "numeric", month: "short" })}`
-            : "Sin eventos próximos"}
-        </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+            <CalendarDays className="h-4 w-4" />
+            Vacaciones disponibles
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pto ? (
+            <>
+              <div className="font-display text-3xl leading-6">{Math.round(pto.daysAvailable)}</div>
+              <p className="text-muted-foreground mt-1.5 text-xs">
+                {Math.round(pto.daysUsed)} usados de {Math.round(pto.annualAllowance)}
+              </p>
+              <ChartContainer className="mt-4 h-[80px] w-full" config={chartConfig}>
+                <BarChart data={ptoChartData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                  <Bar dataKey="days" fill="var(--color-days)" radius={5}>
+                    <LabelList position="top" offset={8} className="fill-foreground" fontSize={10} />
+                  </Bar>
+                </BarChart>
+              </ChartContainer>
+            </>
+          ) : (
+            <>
+              <div className="text-muted-foreground font-display text-3xl leading-6">-</div>
+              <p className="text-muted-foreground mt-1.5 text-xs">Sin contrato activo</p>
+            </>
+          )}
+        </CardContent>
       </Card>
     </div>
   );
