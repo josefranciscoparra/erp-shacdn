@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { Moon, Sun, Palette } from "lucide-react";
 import { toast } from "sonner";
 
@@ -7,9 +9,10 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import * as themeUtils from "@/lib/theme-utils";
 import { updateThemeMode, updateThemePreset } from "@/server/actions/preferences";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
-import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS } from "@/types/preferences/theme";
+import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS, type ThemeMode, type ThemePreset } from "@/types/preferences/theme";
 // import { useLocale } from "next-intl";
 // import { useRouter } from "next/navigation";
 
@@ -18,15 +21,24 @@ export function AppearanceTab() {
   // const locale = useLocale();
   // const router = useRouter();
 
+  // Sincronizar cambios del store con el DOM
+  useEffect(() => {
+    themeUtils.updateThemeMode(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    themeUtils.updateThemePreset(themePreset);
+  }, [themePreset]);
+
   const handleThemeModeChange = async (value: string) => {
-    const mode = value as "light" | "dark";
+    const mode = value as ThemeMode;
     setThemeMode(mode);
     await updateThemeMode(mode);
     toast.success("Tema actualizado");
   };
 
   const handleThemePresetChange = async (value: string) => {
-    const preset = value as "blue" | "brut-notion" | "brutalist" | "soft-pop";
+    const preset = value as ThemePreset;
     setThemePreset(preset);
     await updateThemePreset(preset);
     toast.success("Preset de color actualizado");

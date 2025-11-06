@@ -1,11 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Theme preset styles: these override CSS variables based on the selected data-theme-preset */
-@import "../styles/presets/blue.css";
-@import "../styles/presets/brut-notion.css";
-@import "../styles/presets/brutalist.css";
-@import "../styles/presets/soft-pop.css";
+/* Theme configurations: 4 temas (3 ERP + 1 UIKit), radius, scale, fonts */
+@import "./themes.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -84,9 +81,9 @@
   --shadow-2xl: var(--shadow-2xl);
 }
 
-/* Base theme styles (used when no data-theme-preset is set or when 'blue' is selected).
-These serve as the fallback; Blue theme uses these base values. */
-:root {
+/* Base theme styles moved to themes.css - each theme defines its own variables */
+/* COMENTADO: Este bloque sobrescribía las variables de los temas */
+/* :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.1884 0.0128 248.5103);
   --card: oklch(0.9784 0.0011 197.1387);
@@ -137,9 +134,9 @@ These serve as the fallback; Blue theme uses these base values. */
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
-}
+} */
 
-.dark {
+/* .dark {
   --background: oklch(0 0 0);
   --foreground: oklch(0.9328 0.0025 228.7857);
   --card: oklch(0.2097 0.008 274.5332);
@@ -188,7 +185,7 @@ These serve as the fallback; Blue theme uses these base values. */
   --shadow-xl:
     0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0), 0px 8px 10px -1px hsl(202.8169 89.1213% 53.1373% / 0);
   --shadow-2xl: 0px 2px 0px 0px hsl(202.8169 89.1213% 53.1373% / 0);
-}
+} */
 
 @layer utilities {
   [data-theme-preset]:not([data-theme-preset="blue"]) .shadow-2xs {

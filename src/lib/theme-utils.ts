@@ -10,3 +10,11 @@ export function updateThemeMode(value: "light" | "dark") {
 export function updateThemePreset(value: string) {
   document.documentElement.setAttribute("data-theme-preset", value);
 }
+
+export function updateThemeRadius(value: string) {
+  document.documentElement.setAttribute("data-theme-radius", value);
+}
+
+export function updateThemeContentLayout(value: string) {
+  document.documentElement.setAttribute("data-theme-content-layout", value);
+}

@@ -12,16 +12,20 @@ export const PreferencesStoreProvider = ({
   children,
   themeMode,
   themePreset,
+  themeRadius,
+  themeContentLayout,
   locale,
 }: {
   children: React.ReactNode;
   themeMode: PreferencesState["themeMode"];
   themePreset: PreferencesState["themePreset"];
+  themeRadius: PreferencesState["themeRadius"];
+  themeContentLayout: PreferencesState["themeContentLayout"];
   locale: PreferencesState["locale"];
 }) => {
   const storeRef = useRef<StoreApi<PreferencesState> | null>(null);
 
-  storeRef.current ??= createPreferencesStore({ themeMode, themePreset, locale });
+  storeRef.current ??= createPreferencesStore({ themeMode, themePreset, themeRadius, themeContentLayout, locale });
 
   return <PreferencesStoreContext.Provider value={storeRef.current}>{children}</PreferencesStoreContext.Provider>;
 };

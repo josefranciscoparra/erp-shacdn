@@ -13,9 +13,10 @@ export const THEME_MODE_VALUES = THEME_MODE_OPTIONS.map((m) => m.value);
 
 export type ThemeMode = (typeof THEME_MODE_VALUES)[number];
 
-// --- generated:themePresets:start ---
+// --- THEME PRESETS: 4 temas (3 ERP + 1 UIKit) ---
 
 export const THEME_PRESET_OPTIONS = [
+  // TEMAS DEL ERP (3 originales)
   {
     label: "Blue",
     value: "blue",
@@ -33,19 +34,20 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
-    label: "Brutalist",
-    value: "brutalist",
-    primary: {
-      light: "oklch(0.6489 0.237 26.9728)",
-      dark: "oklch(0.7044 0.1872 23.1858)",
-    },
-  },
-  {
     label: "Soft Pop",
     value: "soft-pop",
     primary: {
       light: "#4459c4",
       dark: "#8b97e8",
+    },
+  },
+  // TEMA LAVENDER DREAM (UIKit)
+  {
+    label: "Lavender Dream",
+    value: "lavender-dream",
+    primary: {
+      light: "oklch(0.5709 0.1808 306.89)",
+      dark: "oklch(0.5709 0.1808 306.89)",
     },
   },
 ] as const;
@@ -54,4 +56,27 @@ export const THEME_PRESET_VALUES = THEME_PRESET_OPTIONS.map((p) => p.value);
 
 export type ThemePreset = (typeof THEME_PRESET_OPTIONS)[number]["value"];
 
-// --- generated:themePresets:end ---
+// --- RADIUS OPTIONS ---
+
+export const THEME_RADIUS_OPTIONS = [
+  { label: "None", value: "none" },
+  { label: "Small", value: "sm" },
+  { label: "Medium", value: "md" },
+  { label: "Large", value: "lg" },
+  { label: "Extra Large", value: "xl" },
+] as const;
+
+export const THEME_RADIUS_VALUES = THEME_RADIUS_OPTIONS.map((r) => r.value);
+
+export type ThemeRadius = (typeof THEME_RADIUS_VALUES)[number];
+
+// --- CONTENT LAYOUT OPTIONS ---
+
+export const THEME_CONTENT_LAYOUT_OPTIONS = [
+  { label: "Full Width", value: "full" },
+  { label: "Centered", value: "centered" },
+] as const;
+
+export const THEME_CONTENT_LAYOUT_VALUES = THEME_CONTENT_LAYOUT_OPTIONS.map((l) => l.value);
+
+export type ThemeContentLayout = (typeof THEME_CONTENT_LAYOUT_VALUES)[number];

@@ -1,30 +1,42 @@
 "use client";
 
+import { useEffect } from "react";
+
 import { Moon, Sun, Palette } from "lucide-react";
 import { toast } from "sonner";
 
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import * as themeUtils from "@/lib/theme-utils";
 import { updateThemeMode, updateThemePreset } from "@/server/actions/preferences";
 import { usePreferencesStore } from "@/stores/preferences/preferences-provider";
-import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS } from "@/types/preferences/theme";
+import { THEME_MODE_OPTIONS, THEME_PRESET_OPTIONS, type ThemeMode, type ThemePreset } from "@/types/preferences/theme";
 
 export function AppearanceSettings() {
   const { themeMode, themePreset, setThemeMode, setThemePreset } = usePreferencesStore((state) => state);
+
+  // Sincronizar cambios del store con el DOM
+  useEffect(() => {
+    themeUtils.updateThemeMode(themeMode);
+  }, [themeMode]);
+
+  useEffect(() => {
+    themeUtils.updateThemePreset(themePreset);
+  }, [themePreset]);
 
   const optionClasses =
     "group relative flex h-full cursor-pointer items-center gap-3 rounded-lg border border-border bg-background/80 p-4 text-sm shadow-xs ring-offset-background transition hover:border-primary/40 hover:bg-accent/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:ring-offset-2 [&:has([data-state=checked])]:border-primary [&:has([data-state=checked])]:bg-primary/10 [&:has([data-state=checked])]:shadow-md";
 
   const handleThemeModeChange = async (value: string) => {
-    const mode = value as "light" | "dark";
+    const mode = value as ThemeMode;
     setThemeMode(mode);
     await updateThemeMode(mode);
     toast.success("Tema actualizado");
   };
 
   const handleThemePresetChange = async (value: string) => {
-    const preset = value as "blue" | "brut-notion" | "brutalist" | "soft-pop";
+    const preset = value as ThemePreset;
     setThemePreset(preset);
     await updateThemePreset(preset);
     toast.success("Preset de color actualizado");

@@ -1,7 +1,6 @@
 import { ReactNode } from "react";
 
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import { cookies } from "next/headers";
 
 import { NextIntlClientProvider } from "next-intl";
@@ -10,13 +9,21 @@ import { getMessages } from "next-intl/server";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
+import { fontVariables } from "@/lib/fonts";
 import { type Locale, defaultLocale } from "@/lib/i18n";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
-import { THEME_MODE_VALUES, THEME_PRESET_VALUES, type ThemePreset, type ThemeMode } from "@/types/preferences/theme";
+import {
+  THEME_MODE_VALUES,
+  THEME_PRESET_VALUES,
+  THEME_RADIUS_VALUES,
+  THEME_CONTENT_LAYOUT_VALUES,
+  type ThemePreset,
+  type ThemeMode,
+  type ThemeRadius,
+  type ThemeContentLayout,
+} from "@/types/preferences/theme";
 
 import "./globals.css";
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const runtime = "nodejs";
 
@@ -34,7 +41,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
 
   const themeMode = readPreference<ThemeMode>("theme_mode", THEME_MODE_VALUES, "light");
-  const themePreset = readPreference<ThemePreset>("theme_preset", THEME_PRESET_VALUES, "blue");
+  const themePreset = readPreference<ThemePreset>("theme_preset", THEME_PRESET_VALUES, "lavender-dream");
+  const themeRadius = readPreference<ThemeRadius>("theme_radius", THEME_RADIUS_VALUES, "xl");
+  const themeContentLayout = readPreference<ThemeContentLayout>(
+    "theme_content_layout",
+    THEME_CONTENT_LAYOUT_VALUES,
+    "centered",
+  );
   const locale = readPreference<Locale>("locale", ["es", "en"], defaultLocale);
   const messages = await getMessages();
 
@@ -43,12 +56,20 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       lang={locale}
       className={themeMode === "dark" ? "dark" : ""}
       data-theme-preset={themePreset}
+      data-theme-radius={themeRadius}
+      data-theme-content-layout={themeContentLayout}
       suppressHydrationWarning
     >
-      <body className={`${inter.className} min-h-screen antialiased`}>
+      <body className={`${fontVariables} min-h-screen antialiased`}>
         <AuthSessionProvider>
           <NextIntlClientProvider messages={messages} locale={locale}>
-            <PreferencesStoreProvider themeMode={themeMode} themePreset={themePreset} locale={locale}>
+            <PreferencesStoreProvider
+              themeMode={themeMode}
+              themePreset={themePreset}
+              themeRadius={themeRadius}
+              themeContentLayout={themeContentLayout}
+              locale={locale}
+            >
               {children}
               <Toaster />
             </PreferencesStoreProvider>
