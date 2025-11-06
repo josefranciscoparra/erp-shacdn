@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 
-import { ArrowLeft, Loader2, Send } from "lucide-react";
+import { ArrowDown, ArrowLeft, Loader2, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -28,6 +28,11 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState("");
+  const [hasMore, setHasMore] = useState(false);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
@@ -50,10 +55,44 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
     },
   });
 
+  // Función para hacer scroll al fondo
+  const scrollToBottom = () => {
+    if (scrollRef.current) {
+      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+        setIsAtBottom(true);
+        setShowScrollButton(false);
+      }
+    }
+  };
+
+  // Detectar posición de scroll
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
+      if (viewport) {
+        const { scrollTop, scrollHeight, clientHeight } = viewport;
+        const threshold = 100; // píxeles de margen
+        const atBottom = scrollHeight - scrollTop - clientHeight < threshold;
+
+        // Solo mostrar botón si hay overflow Y no estamos al fondo
+        const hasOverflow = scrollHeight > clientHeight;
+
+        setIsAtBottom(atBottom);
+        setShowScrollButton(hasOverflow && !atBottom);
+      }
+    }
+  };
+
   // Cargar mensajes de la conversación
   useEffect(() => {
     async function loadMessages() {
       setLoading(true);
+      setMessages([]);
+      setCursor(null);
+      setHasMore(false);
+
       try {
         const response = await fetch(`/api/chat/conversations/${conversation.id}/messages?limit=50`);
         const data = await response.json();
@@ -61,6 +100,8 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
         if (data.data) {
           // Invertir orden: más antiguos primero
           setMessages(data.data.reverse());
+          setHasMore(data.hasMore ?? false);
+          setCursor(data.nextCursor);
         }
       } catch (error) {
         console.error("Error cargando mensajes:", error);
@@ -73,12 +114,25 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
     loadMessages();
   }, [conversation.id]);
 
-  // Auto-scroll al último mensaje
+  // Auto-scroll al último mensaje solo si estamos en el fondo
+  useEffect(() => {
+    if (isAtBottom) {
+      scrollToBottom();
+    }
+  }, [messages, isAtBottom]);
+
+  // Agregar listener de scroll
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
+      if (viewport) {
+        viewport.addEventListener("scroll", handleScroll);
+        return () => {
+          viewport.removeEventListener("scroll", handleScroll);
+        };
+      }
     }
-  }, [messages]);
+  }, []);
 
   // Enviar mensaje
   const handleSend = async () => {
@@ -116,6 +170,48 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
       setNewMessage(body);
     } finally {
       setSending(false);
+    }
+  };
+
+  // Cargar más mensajes antiguos
+  const loadMoreMessages = async () => {
+    if (!hasMore || loadingMore || !cursor) {
+      return;
+    }
+
+    setLoadingMore(true);
+
+    try {
+      const response = await fetch(`/api/chat/conversations/${conversation.id}/messages?limit=50&cursor=${cursor}`);
+      const data = await response.json();
+
+      if (data.data) {
+        // Guardar posición de scroll actual
+        if (scrollRef.current) {
+          const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
+          if (viewport) {
+            const oldScrollHeight = viewport.scrollHeight;
+
+            // Invertir orden: más antiguos primero y prepend
+            setMessages((prev) => [...data.data.reverse(), ...prev]);
+            setHasMore(data.hasMore ?? false);
+            setCursor(data.nextCursor);
+
+            // Mantener posición de scroll después de añadir mensajes
+            setTimeout(() => {
+              if (viewport) {
+                const newScrollHeight = viewport.scrollHeight;
+                viewport.scrollTop = newScrollHeight - oldScrollHeight;
+              }
+            }, 0);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error cargando más mensajes:", error);
+      toast.error("Error al cargar mensajes anteriores");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -162,6 +258,22 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Botón cargar más mensajes */}
+              {hasMore && (
+                <div className="flex justify-center pb-4">
+                  <Button variant="outline" size="sm" onClick={loadMoreMessages} disabled={loadingMore}>
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Cargando...
+                      </>
+                    ) : (
+                      "Cargar mensajes anteriores"
+                    )}
+                  </Button>
+                </div>
+              )}
+
               {messages.map((message) => {
                 const isOwn = message.senderId === session?.user?.id;
 
@@ -200,6 +312,18 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
             </div>
           )}
         </ScrollArea>
+
+        {/* Botón flotante para ir abajo */}
+        {showScrollButton && (
+          <Button
+            variant="secondary"
+            size="icon"
+            className="absolute right-4 bottom-4 h-10 w-10 rounded-full shadow-lg"
+            onClick={scrollToBottom}
+          >
+            <ArrowDown className="h-5 w-5" />
+          </Button>
+        )}
 
         {/* Overlay de carga */}
         {loading && (
