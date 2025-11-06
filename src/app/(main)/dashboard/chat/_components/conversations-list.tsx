@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
+
 import { useSession } from "next-auth/react";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { formatLastMessageDate, getOtherParticipant } from "@/lib/chat/utils";
-
+import { getUserAvatarUrl, hasAvatar } from "@/lib/chat/avatar-utils";
 import type { ConversationWithParticipants } from "@/lib/chat/types";
+import { formatLastMessageDate, getOtherParticipant } from "@/lib/chat/utils";
+import { cn } from "@/lib/utils";
 
 interface ConversationsListProps {
   conversations: ConversationWithParticipants[];
@@ -57,7 +59,7 @@ export function ConversationsList({
 
   if (externalConversations.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
+      <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
         <p>No tienes conversaciones</p>
         <p className="text-xs">Inicia un nuevo chat para comenzar</p>
       </div>
@@ -76,12 +78,14 @@ export function ConversationsList({
               key={conversation.id}
               onClick={() => onSelectConversation(conversation)}
               className={cn(
-                "flex items-start gap-3 border-b p-4 text-left transition-colors hover:bg-muted/50",
-                isSelected && "bg-muted"
+                "hover:bg-muted/50 flex items-start gap-3 border-b p-4 text-left transition-colors",
+                isSelected && "bg-muted",
               )}
             >
               <Avatar className="h-10 w-10">
-                <AvatarImage src={otherUser.image ?? undefined} alt={otherUser.name} />
+                {hasAvatar(otherUser.image) && (
+                  <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />
+                )}
                 <AvatarFallback>
                   {otherUser.name
                     .split(" ")
@@ -95,19 +99,19 @@ export function ConversationsList({
                 <div className="flex items-baseline justify-between gap-2">
                   <p className="truncate font-medium">{otherUser.name}</p>
                   {conversation.lastMessage && (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground text-xs">
                       {formatLastMessageDate(new Date(conversation.lastMessage.createdAt))}
                     </span>
                   )}
                 </div>
 
                 {conversation.lastMessage ? (
-                  <p className="truncate text-sm text-muted-foreground">
+                  <p className="text-muted-foreground truncate text-sm">
                     {conversation.lastMessage.senderId === session?.user?.id && "Tú: "}
                     {conversation.lastMessage.body}
                   </p>
                 ) : (
-                  <p className="text-sm italic text-muted-foreground">Sin mensajes</p>
+                  <p className="text-muted-foreground text-sm italic">Sin mensajes</p>
                 )}
               </div>
             </button>

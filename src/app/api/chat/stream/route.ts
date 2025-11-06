@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 
+import { auth } from "@/lib/auth";
 import { sseManager } from "@/lib/chat/sse-manager";
 import { isChatEnabled } from "@/lib/chat/utils";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -11,13 +11,16 @@ import { prisma } from "@/lib/prisma";
  */
 export async function GET(request: NextRequest) {
   try {
+    console.log("[SSE] Petición recibida");
     const session = await auth();
 
     if (!session?.user?.id || !session?.user?.orgId) {
+      console.log("[SSE] Error: No autenticado");
       return new Response("No autenticado", { status: 401 });
     }
 
     const { id: userId, orgId } = session.user;
+    console.log(`[SSE] Usuario autenticado: ${userId} (org: ${orgId})`);
 
     // Verificar feature flag
     const org = await prisma.organization.findUnique({
@@ -26,11 +29,15 @@ export async function GET(request: NextRequest) {
     });
 
     if (!org) {
+      console.log("[SSE] Error: Organización no encontrada");
       return new Response("Organización no encontrada", { status: 404 });
     }
 
     const features = org.features as Record<string, unknown>;
+    console.log("[SSE] Features de la organización:", features);
+
     if (!isChatEnabled(features)) {
+      console.log("[SSE] Error: Chat no habilitado");
       return new Response("Chat no habilitado para esta organización", { status: 403 });
     }
 

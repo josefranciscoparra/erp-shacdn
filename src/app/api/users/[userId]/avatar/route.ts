@@ -46,10 +46,17 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
       return new NextResponse("Not Found", { status: 404 });
     }
 
-    const signedUrl = await avatarUploadService.getSignedAvatarUrl(storagePath, 60 * 60);
+    // Generar URL firmada válida por 24 horas
+    const signedUrl = await avatarUploadService.getSignedAvatarUrl(storagePath, 24 * 60 * 60);
     const redirectUrl = new URL(signedUrl, origin).toString();
 
-    return NextResponse.redirect(redirectUrl, 302);
+    // Caché de 24 horas en el navegador
+    return NextResponse.redirect(redirectUrl, {
+      status: 302,
+      headers: {
+        "Cache-Control": "public, max-age=86400, immutable", // 24 horas
+      },
+    });
   } catch (error) {
     console.error("❌ Error al obtener avatar:", error);
     return new NextResponse("Error al obtener avatar", { status: 500 });

@@ -1,19 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSession } from "next-auth/react";
+
 import { Send } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
-import { getOtherParticipant } from "@/lib/chat/utils";
-import { toast } from "sonner";
-
+import { useChatStream } from "@/hooks/use-chat-stream";
+import { getUserAvatarUrl, hasAvatar } from "@/lib/chat/avatar-utils";
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
+import { getOtherParticipant } from "@/lib/chat/utils";
+import { cn } from "@/lib/utils";
 
 interface ConversationViewProps {
   conversation: ConversationWithParticipants;
@@ -28,6 +30,24 @@ export function ConversationView({ conversation }: ConversationViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
+
+  // Escuchar mensajes en tiempo real por SSE
+  useChatStream({
+    enabled: true,
+    onMessage: (message: MessageWithSender) => {
+      // Solo añadir mensajes de esta conversación
+      if (message.conversationId === conversation.id) {
+        setMessages((prev) => {
+          // Evitar duplicados
+          const exists = prev.some((m) => m.id === message.id);
+          if (exists) {
+            return prev;
+          }
+          return [...prev, message];
+        });
+      }
+    },
+  });
 
   // Cargar mensajes de la conversación
   useEffect(() => {
@@ -110,7 +130,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
       {/* Header */}
       <div className="flex items-center gap-3 border-b p-4">
         <Avatar>
-          <AvatarImage src={otherUser.image ?? undefined} alt={otherUser.name} />
+          {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
           <AvatarFallback>
             {otherUser.name
               .split(" ")
@@ -121,7 +141,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
         </Avatar>
         <div>
           <p className="font-medium">{otherUser.name}</p>
-          <p className="text-xs text-muted-foreground">{otherUser.email}</p>
+          <p className="text-muted-foreground text-xs">{otherUser.email}</p>
         </div>
       </div>
 
@@ -134,7 +154,7 @@ export function ConversationView({ conversation }: ConversationViewProps) {
             ))}
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-center text-muted-foreground">
+          <div className="text-muted-foreground flex h-full items-center justify-center text-center">
             <p>No hay mensajes aún. ¡Envía el primero!</p>
           </div>
         ) : (
@@ -143,15 +163,11 @@ export function ConversationView({ conversation }: ConversationViewProps) {
               const isOwn = message.senderId === session?.user?.id;
 
               return (
-                <div
-                  key={message.id}
-                  className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}
-                >
+                <div key={message.id} className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
                   <Avatar className="h-8 w-8">
-                    <AvatarImage
-                      src={message.sender.image ?? undefined}
-                      alt={message.sender.name}
-                    />
+                    {hasAvatar(message.sender.image) && (
+                      <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
+                    )}
                     <AvatarFallback>
                       {message.sender.name
                         .split(" ")
@@ -164,18 +180,11 @@ export function ConversationView({ conversation }: ConversationViewProps) {
                   <div
                     className={cn(
                       "max-w-[70%] rounded-lg px-4 py-2",
-                      isOwn
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
+                      isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
                     )}
                   >
-                    <p className="break-words text-sm">{message.body}</p>
-                    <p
-                      className={cn(
-                        "mt-1 text-xs",
-                        isOwn ? "text-primary-foreground/70" : "text-muted-foreground"
-                      )}
-                    >
+                    <p className="text-sm break-words">{message.body}</p>
+                    <p className={cn("mt-1 text-xs", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
                       {new Date(message.createdAt).toLocaleTimeString("es-ES", {
                         hour: "2-digit",
                         minute: "2-digit",
