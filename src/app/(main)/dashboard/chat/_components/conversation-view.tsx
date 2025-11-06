@@ -2,7 +2,7 @@
 
 import { memo, useEffect, useRef, useState } from "react";
 
-import { ArrowDown, ArrowLeft, Loader2, Send } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowLeft, Check, CheckCheck, Loader2, RefreshCw, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -17,6 +17,13 @@ import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat
 import { getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
 
+// Tipo extendido con estado local para optimistic UI
+type LocalMessageStatus = "sending" | "sent" | "failed";
+type MessageWithLocalState = MessageWithSender & {
+  localStatus?: LocalMessageStatus;
+  localId?: string; // ID temporal para mensajes que aún no tienen ID del servidor
+};
+
 interface ConversationViewProps {
   conversation: ConversationWithParticipants;
   onBack?: () => void;
@@ -25,7 +32,7 @@ interface ConversationViewProps {
 
 function ConversationViewComponent({ conversation, onBack, onMessageSent }: ConversationViewProps) {
   const { data: session } = useSession();
-  const [messages, setMessages] = useState<MessageWithSender[]>([]);
+  const [messages, setMessages] = useState<MessageWithLocalState[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState("");
@@ -45,12 +52,13 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       // Solo añadir mensajes de esta conversación
       if (message.conversationId === conversation.id) {
         setMessages((prev) => {
-          // Evitar duplicados
+          // Evitar duplicados (por ID real del servidor)
           const exists = prev.some((m) => m.id === message.id);
           if (exists) {
             return prev;
           }
-          return [...prev, message];
+          // Añadir mensaje con estado "sent"
+          return [...prev, { ...message, localStatus: "sent" as LocalMessageStatus }];
         });
       }
     },
@@ -99,8 +107,12 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
         const data = await response.json();
 
         if (data.data) {
-          // Invertir orden: más antiguos primero
-          setMessages(data.data.reverse());
+          // Invertir orden: más antiguos primero y añadir estado "sent"
+          const messagesWithStatus = data.data.reverse().map((m: MessageWithSender) => ({
+            ...m,
+            localStatus: "sent" as LocalMessageStatus,
+          }));
+          setMessages(messagesWithStatus);
           setHasMore(data.hasMore ?? false);
           setCursor(data.nextCursor);
         }
@@ -135,15 +147,48 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
     }
   }, []);
 
-  // Enviar mensaje
-  const handleSend = async () => {
-    if (!newMessage.trim() || sending) {
+  // Enviar mensaje con optimistic UI
+  const handleSend = async (retryMessage?: { body: string; localId: string }) => {
+    const body = retryMessage ? retryMessage.body : newMessage.trim();
+    const localId = retryMessage ? retryMessage.localId : `temp-${Date.now()}`;
+
+    if (!body || sending) {
       return;
     }
 
-    const body = newMessage.trim();
-    setNewMessage("");
+    // Limpiar input solo si es mensaje nuevo (no retry)
+    if (!retryMessage) {
+      setNewMessage("");
+    }
     setSending(true);
+
+    // Crear mensaje optimista
+    const optimisticMessage: MessageWithLocalState = {
+      id: localId,
+      localId,
+      localStatus: "sending",
+      body,
+      status: "SENT",
+      createdAt: new Date(),
+      editedAt: null,
+      deletedAt: null,
+      conversationId: conversation.id,
+      senderId: session?.user?.id ?? "",
+      sender: {
+        id: session?.user?.id ?? "",
+        name: session?.user?.name ?? "",
+        email: session?.user?.email ?? "",
+        image: session?.user?.image ?? null,
+      },
+    };
+
+    // Si es retry, reemplazar mensaje fallido
+    if (retryMessage) {
+      setMessages((prev) => prev.map((m) => (m.localId === localId ? optimisticMessage : m)));
+    } else {
+      // Si es nuevo, añadir al final
+      setMessages((prev) => [...prev, optimisticMessage]);
+    }
 
     try {
       const response = await fetch("/api/chat/messages", {
@@ -162,18 +207,30 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
 
       const { message } = await response.json();
 
-      // Añadir mensaje a la lista
-      setMessages((prev) => [...prev, message]);
+      // Reemplazar mensaje optimista con el real del servidor
+      setMessages((prev) =>
+        prev.map((m) => (m.localId === localId ? { ...message, localStatus: "sent" as LocalMessageStatus } : m)),
+      );
 
       // Notificar al padre para actualizar lista de conversaciones
       onMessageSent?.(message);
     } catch (error) {
       console.error("Error enviando mensaje:", error);
       toast.error(error instanceof Error ? error.message : "Error al enviar mensaje");
-      // Restaurar mensaje en input si falla
-      setNewMessage(body);
+
+      // Marcar mensaje como fallido
+      setMessages((prev) =>
+        prev.map((m) => (m.localId === localId ? { ...m, localStatus: "failed" as LocalMessageStatus } : m)),
+      );
     } finally {
       setSending(false);
+    }
+  };
+
+  // Reintentar envío de mensaje fallido
+  const handleRetry = (message: MessageWithLocalState) => {
+    if (message.localId) {
+      handleSend({ body: message.body, localId: message.localId });
     }
   };
 
@@ -196,8 +253,12 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           if (viewport) {
             const oldScrollHeight = viewport.scrollHeight;
 
-            // Invertir orden: más antiguos primero y prepend
-            setMessages((prev) => [...data.data.reverse(), ...prev]);
+            // Invertir orden: más antiguos primero, añadir estado "sent" y prepend
+            const messagesWithStatus = data.data.reverse().map((m: MessageWithSender) => ({
+              ...m,
+              localStatus: "sent" as LocalMessageStatus,
+            }));
+            setMessages((prev) => [...messagesWithStatus, ...prev]);
             setHasMore(data.hasMore ?? false);
             setCursor(data.nextCursor);
 
@@ -280,9 +341,13 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
 
               {messages.map((message) => {
                 const isOwn = message.senderId === session?.user?.id;
+                const status = message.localStatus ?? "sent";
 
                 return (
-                  <div key={message.id} className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
+                  <div
+                    key={message.localId ?? message.id}
+                    className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}
+                  >
                     <Avatar className="h-8 w-8">
                       {hasAvatar(message.sender.image) && (
                         <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
@@ -300,15 +365,42 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                       className={cn(
                         "max-w-[70%] rounded-lg px-4 py-2",
                         isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                        status === "failed" && "opacity-60",
                       )}
                     >
                       <p className="text-sm break-words">{message.body}</p>
-                      <p className={cn("mt-1 text-xs", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                        {new Date(message.createdAt).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </p>
+                      <div
+                        className={cn(
+                          "mt-1 flex items-center justify-between gap-2 text-xs",
+                          isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {new Date(message.createdAt).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+
+                          {/* Iconos de estado (solo para mensajes propios) */}
+                          {isOwn && (
+                            <>
+                              {status === "sending" && <Loader2 className="h-3 w-3 animate-spin" />}
+                              {status === "sent" && <CheckCheck className="h-3 w-3" />}
+                            </>
+                          )}
+                        </span>
+
+                        {/* Botón reintentar inline (solo para mensajes fallidos propios) */}
+                        {isOwn && status === "failed" && (
+                          <button
+                            onClick={() => handleRetry(message)}
+                            className="hover:bg-primary-foreground/10 flex items-center gap-1 rounded px-2 py-0.5 transition-colors"
+                          >
+                            <AlertCircle className="h-3 w-3 text-red-500" />
+                            <span className="text-xs">Reintentar</span>
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
