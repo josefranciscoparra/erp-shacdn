@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
 import { useSession } from "next-auth/react";
 
@@ -19,7 +19,7 @@ interface ConversationsListProps {
   onConversationsLoaded: (conversations: ConversationWithParticipants[]) => void;
 }
 
-export function ConversationsList({
+function ConversationsListComponent({
   conversations: externalConversations,
   selectedConversationId,
   onSelectConversation,
@@ -27,7 +27,14 @@ export function ConversationsList({
 }: ConversationsListProps) {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
+  const onConversationsLoadedRef = useRef(onConversationsLoaded);
 
+  // Actualizar la ref cuando cambia el callback
+  useEffect(() => {
+    onConversationsLoadedRef.current = onConversationsLoaded;
+  }, [onConversationsLoaded]);
+
+  // Cargar conversaciones solo una vez
   useEffect(() => {
     async function loadConversations() {
       try {
@@ -35,7 +42,7 @@ export function ConversationsList({
         const data = await response.json();
 
         if (data.conversations) {
-          onConversationsLoaded(data.conversations);
+          onConversationsLoadedRef.current(data.conversations);
         }
       } catch (error) {
         console.error("Error cargando conversaciones:", error);
@@ -45,7 +52,7 @@ export function ConversationsList({
     }
 
     loadConversations();
-  }, [onConversationsLoaded]);
+  }, []); // Sin dependencias - solo carga una vez
 
   if (loading) {
     return (
@@ -133,3 +140,6 @@ function ConversationSkeleton() {
     </div>
   );
 }
+
+// Memoizar el componente para evitar re-renders innecesarios
+export const ConversationsList = memo(ConversationsListComponent);

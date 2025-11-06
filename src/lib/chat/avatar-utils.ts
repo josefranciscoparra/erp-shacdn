@@ -3,12 +3,12 @@
  * que genera URLs firmadas temporalmente
  */
 export function getUserAvatarUrl(userId: string): string {
-  return `/api/users/${userId}/avatar?v=${Date.now()}`;
+  return `/api/users/${userId}/avatar`;
 }
 
 /**
  * Verifica si un usuario tiene imagen de avatar
  */
 export function hasAvatar(imageUrl: string | null | undefined): boolean {
-  return Boolean(imageUrl);
+  return Boolean(imageUrl && imageUrl.trim());
 }

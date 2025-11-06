@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -62,16 +62,16 @@ export function ChatContainer() {
     },
   });
 
-  const handleSelectConversation = (conversation: ConversationWithParticipants) => {
+  const handleSelectConversation = useCallback((conversation: ConversationWithParticipants) => {
     setSelectedConversation(conversation);
     setShowMobileConversation(true);
-  };
+  }, []);
 
-  const handleBackToList = () => {
+  const handleBackToList = useCallback(() => {
     setShowMobileConversation(false);
-  };
+  }, []);
 
-  const handleNewConversation = (conversation: ConversationWithParticipants) => {
+  const handleNewConversation = useCallback((conversation: ConversationWithParticipants) => {
     // Añadir nueva conversación a la lista si no existe
     setConversations((prev) => {
       const exists = prev.some((c) => c.id === conversation.id);
@@ -84,7 +84,7 @@ export function ChatContainer() {
     // Seleccionar la nueva conversación
     setSelectedConversation(conversation);
     setNewChatOpen(false);
-  };
+  }, []);
 
   return (
     <div className="bg-card flex h-full gap-4 overflow-hidden rounded-lg border">

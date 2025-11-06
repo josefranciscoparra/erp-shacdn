@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -22,7 +22,7 @@ interface ConversationViewProps {
   onBack?: () => void;
 }
 
-export function ConversationView({ conversation, onBack }: ConversationViewProps) {
+function ConversationViewComponent({ conversation, onBack }: ConversationViewProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [loading, setLoading] = useState(true);
@@ -154,57 +154,63 @@ export function ConversationView({ conversation, onBack }: ConversationViewProps
       </div>
 
       {/* Mensajes */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
-        {loading ? (
-          <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <MessageSkeleton key={i} isOwn={i % 2 === 0} />
-            ))}
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="text-muted-foreground flex h-full items-center justify-center text-center">
-            <p>No hay mensajes aún. ¡Envía el primero!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {messages.map((message) => {
-              const isOwn = message.senderId === session?.user?.id;
+      <div className="relative flex-1">
+        <ScrollArea className="h-full p-4" ref={scrollRef}>
+          {messages.length === 0 && !loading ? (
+            <div className="text-muted-foreground flex h-full items-center justify-center text-center">
+              <p>No hay mensajes aún. ¡Envía el primero!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => {
+                const isOwn = message.senderId === session?.user?.id;
 
-              return (
-                <div key={message.id} className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
-                  <Avatar className="h-8 w-8">
-                    {hasAvatar(message.sender.image) && (
-                      <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
-                    )}
-                    <AvatarFallback>
-                      {message.sender.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
+                return (
+                  <div key={message.id} className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
+                    <Avatar className="h-8 w-8">
+                      {hasAvatar(message.sender.image) && (
+                        <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
+                      )}
+                      <AvatarFallback>
+                        {message.sender.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
 
-                  <div
-                    className={cn(
-                      "max-w-[70%] rounded-lg px-4 py-2",
-                      isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-                    )}
-                  >
-                    <p className="text-sm break-words">{message.body}</p>
-                    <p className={cn("mt-1 text-xs", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                      {new Date(message.createdAt).toLocaleTimeString("es-ES", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                    <div
+                      className={cn(
+                        "max-w-[70%] rounded-lg px-4 py-2",
+                        isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+                      )}
+                    >
+                      <p className="text-sm break-words">{message.body}</p>
+                      <p className={cn("mt-1 text-xs", isOwn ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        {new Date(message.createdAt).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+
+        {/* Overlay de carga */}
+        {loading && (
+          <div className="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
+              <p className="text-muted-foreground text-sm">Cargando conversación...</p>
+            </div>
           </div>
         )}
-      </ScrollArea>
+      </div>
 
       {/* Input de nuevo mensaje */}
       <div className="flex gap-2 border-t p-4">
@@ -223,13 +229,5 @@ export function ConversationView({ conversation, onBack }: ConversationViewProps
   );
 }
 
-function MessageSkeleton({ isOwn }: { isOwn: boolean }) {
-  return (
-    <div className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
-      <Skeleton className="h-8 w-8 rounded-full" />
-      <div className="space-y-2">
-        <Skeleton className="h-16 w-64" />
-      </div>
-    </div>
-  );
-}
+// Memoizar el componente para evitar re-renders innecesarios
+export const ConversationView = memo(ConversationViewComponent);
