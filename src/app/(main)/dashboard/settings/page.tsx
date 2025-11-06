@@ -10,6 +10,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
 import { OrganizationTab } from "./_components/organization-tab";
@@ -20,6 +21,7 @@ export default function SettingsPage() {
 
   const tabs = [
     { value: "organization", label: "Organización" },
+    { value: "chat", label: "Chat" },
     { value: "geolocation", label: "Geolocalización" },
     { value: "expenses", label: "Gastos" },
     { value: "system", label: "Sistema" },
@@ -70,6 +72,10 @@ export default function SettingsPage() {
 
           <TabsContent value="organization" className="mt-4 md:mt-6">
             <OrganizationTab />
+          </TabsContent>
+
+          <TabsContent value="chat" className="mt-4 md:mt-6">
+            <ChatTab />
           </TabsContent>
 
           <TabsContent value="geolocation" className="mt-4 md:mt-6">

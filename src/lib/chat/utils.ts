@@ -6,18 +6,22 @@
  * Normaliza dos IDs de usuario para asegurar consistencia
  * Siempre devuelve [menor, mayor] alfabéticamente
  */
-export function normalizeUserIds(
-  userId1: string,
-  userId2: string
-): [string, string] {
+export function normalizeUserIds(userId1: string, userId2: string): [string, string] {
   return userId1 < userId2 ? [userId1, userId2] : [userId2, userId1];
 }
 
 /**
- * Verifica si el feature flag de chat está habilitado para una organización
+ * Verifica si el chat está habilitado para una organización
+ * Soporta tanto el campo chatEnabled (nuevo) como el JSON features (legacy)
  */
-export function isChatEnabled(features: Record<string, unknown>): boolean {
-  return features.chat === true;
+export function isChatEnabled(chatEnabled?: boolean, features?: Record<string, unknown>): boolean {
+  // Priorizar el campo chatEnabled si existe
+  if (chatEnabled !== undefined) {
+    return chatEnabled;
+  }
+
+  // Fallback al JSON features para compatibilidad con datos legacy
+  return features?.chat === true;
 }
 
 /**
@@ -45,11 +49,9 @@ export function getOtherParticipant(
     userA: { id: string; name: string; email: string; image: string | null };
     userB: { id: string; name: string; email: string; image: string | null };
   },
-  currentUserId: string
+  currentUserId: string,
 ) {
-  return conversation.userAId === currentUserId
-    ? conversation.userB
-    : conversation.userA;
+  return conversation.userAId === currentUserId ? conversation.userB : conversation.userA;
 }
 
 /**

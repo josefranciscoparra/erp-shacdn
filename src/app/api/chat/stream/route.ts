@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
     const { id: userId, orgId } = session.user;
     console.log(`[SSE] Usuario autenticado: ${userId} (org: ${orgId})`);
 
-    // Verificar feature flag
+    // Verificar si el chat está habilitado
     const org = await prisma.organization.findUnique({
       where: { id: orgId },
-      select: { features: true },
+      select: { chatEnabled: true, features: true },
     });
 
     if (!org) {
@@ -34,9 +34,9 @@ export async function GET(request: NextRequest) {
     }
 
     const features = org.features as Record<string, unknown>;
-    console.log("[SSE] Features de la organización:", features);
+    console.log("[SSE] Chat enabled:", org.chatEnabled, "| Features:", features);
 
-    if (!isChatEnabled(features)) {
+    if (!isChatEnabled(org.chatEnabled, features)) {
       console.log("[SSE] Error: Chat no habilitado");
       return new Response("Chat no habilitado para esta organización", { status: 403 });
     }

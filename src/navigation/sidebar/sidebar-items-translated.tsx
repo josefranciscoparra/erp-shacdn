@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { features } from "@/config/features";
+import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type Permission } from "@/lib/permissions";
 
@@ -56,6 +57,7 @@ export interface NavGroup {
 
 export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated, userRole } = usePermissions();
+  const { chatEnabled } = useChatEnabled();
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
 
@@ -95,11 +97,15 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/expenses",
           icon: Receipt,
         },
-        {
-          title: "Mensajes",
-          url: "/dashboard/chat",
-          icon: MessageSquare,
-        },
+        ...(chatEnabled
+          ? [
+              {
+                title: "Mensajes",
+                url: "/dashboard/chat",
+                icon: MessageSquare,
+              },
+            ]
+          : []),
         ...(documentsEnabled
           ? [
               {

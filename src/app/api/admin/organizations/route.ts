@@ -20,6 +20,11 @@ const toggleOrganizationSchema = z.object({
   active: z.boolean(),
 });
 
+const toggleChatSchema = z.object({
+  id: z.string().min(1, "El identificador es obligatorio"),
+  chatEnabled: z.boolean(),
+});
+
 function ensureSuperAdmin(role: string | undefined) {
   if (role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN");
@@ -46,6 +51,7 @@ export async function GET() {
         name: true,
         vat: true,
         active: true,
+        chatEnabled: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -141,6 +147,28 @@ export async function POST(request: NextRequest) {
         });
 
         await revalidatePath("/dashboard/admin/organizations");
+        return NextResponse.json({ organization });
+      }
+
+      case "toggle-chat": {
+        const payload = toggleChatSchema.parse(data);
+
+        const organization = await prisma.organization.update({
+          where: { id: payload.id },
+          data: { chatEnabled: payload.chatEnabled },
+          select: {
+            id: true,
+            name: true,
+            vat: true,
+            active: true,
+            chatEnabled: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        });
+
+        await revalidatePath("/dashboard/admin/organizations");
+        await revalidatePath("/dashboard/chat");
         return NextResponse.json({ organization });
       }
 

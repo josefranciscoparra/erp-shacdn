@@ -42,7 +42,10 @@ model Organization {
   geolocationMinAccuracy  Int     @default(100)   // Precisión mínima requerida en metros
   geolocationMaxRadius    Int     @default(200)   // Radio máximo permitido por defecto en metros
 
-  // Feature flags
+  // Configuración de Chat
+  chatEnabled             Boolean @default(false) // Activar/desactivar módulo de chat 1:1
+
+  // Feature flags (DEPRECATED: migrar a campos booleanos específicos)
   features                Json    @default("{}") // Feature flags JSON: { chat: true, ... }
 
   // Relaciones

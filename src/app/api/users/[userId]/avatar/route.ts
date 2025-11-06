@@ -5,7 +5,7 @@ import { extractAvatarStoragePath } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 import { avatarUploadService } from "@/lib/storage/avatar-service";
 
-export async function GET(request: NextRequest, { params }: { params: { userId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
     const session = await auth();
 
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest, { params }: { params: { userId: 
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    const { userId } = params;
+    const { userId } = await params;
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },

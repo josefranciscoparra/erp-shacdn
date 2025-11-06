@@ -3,6 +3,7 @@ export interface OrganizationItem {
   name: string;
   vat: string | null;
   active: boolean;
+  chatEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {

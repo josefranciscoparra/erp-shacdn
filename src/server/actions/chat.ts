@@ -1,22 +1,17 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import type { ConversationWithParticipants, MessageWithSender, PaginatedResponse } from "@/lib/chat/types";
 import { isChatEnabled, normalizeUserIds, sanitizeMessageBody, validateMessageSize } from "@/lib/chat/utils";
 import { prisma } from "@/lib/prisma";
 
-import type {
-  ConversationWithParticipants,
-  MessageWithSender,
-  PaginatedResponse,
-} from "@/lib/chat/types";
-
 /**
- * Verifica que el feature flag de chat esté habilitado
+ * Verifica que el chat esté habilitado para la organización
  */
 async function checkChatEnabled(orgId: string): Promise<boolean> {
   const org = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { features: true },
+    select: { chatEnabled: true, features: true },
   });
 
   if (!org) {
@@ -24,15 +19,13 @@ async function checkChatEnabled(orgId: string): Promise<boolean> {
   }
 
   const features = org.features as Record<string, unknown>;
-  return isChatEnabled(features);
+  return isChatEnabled(org.chatEnabled, features);
 }
 
 /**
  * Obtiene o crea una conversación 1:1 con otro usuario
  */
-export async function getOrCreateConversation(
-  peerUserId: string
-): Promise<ConversationWithParticipants | null> {
+export async function getOrCreateConversation(peerUserId: string): Promise<ConversationWithParticipants | null> {
   try {
     const session = await auth();
 
@@ -103,36 +96,34 @@ export async function getOrCreateConversation(
     });
 
     // Si no existe, crearla
-    if (!conversation) {
-      conversation = await prisma.conversation.create({
-        data: {
-          orgId,
-          userAId,
-          userBId,
-        },
-        include: {
-          userA: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-          userB: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-          _count: {
-            select: { messages: true },
+    conversation ??= await prisma.conversation.create({
+      data: {
+        orgId,
+        userAId,
+        userBId,
+      },
+      include: {
+        userA: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
-      });
-    }
+        userB: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+    });
 
     return conversation as unknown as ConversationWithParticipants;
   } catch (error) {
@@ -144,9 +135,7 @@ export async function getOrCreateConversation(
 /**
  * Obtiene las conversaciones del usuario autenticado
  */
-export async function getMyConversations(
-  limit: number = 20
-): Promise<ConversationWithParticipants[]> {
+export async function getMyConversations(limit: number = 20): Promise<ConversationWithParticipants[]> {
   try {
     const session = await auth();
 
@@ -222,7 +211,7 @@ export async function getMyConversations(
 export async function getConversationMessages(
   conversationId: string,
   cursor?: string,
-  limit: number = 50
+  limit: number = 50,
 ): Promise<PaginatedResponse<MessageWithSender>> {
   try {
     const session = await auth();
@@ -276,9 +265,7 @@ export async function getConversationMessages(
 
     const hasMore = messages.length > limit;
     const data = hasMore ? messages.slice(0, limit) : messages;
-    const nextCursor = hasMore
-      ? data[data.length - 1]?.createdAt.toISOString() ?? null
-      : null;
+    const nextCursor = hasMore ? (data[data.length - 1]?.createdAt.toISOString() ?? null) : null;
 
     return {
       data: data as unknown as MessageWithSender[],
@@ -294,10 +281,7 @@ export async function getConversationMessages(
 /**
  * Envía un mensaje en una conversación
  */
-export async function sendMessage(
-  conversationId: string,
-  body: string
-): Promise<MessageWithSender | null> {
+export async function sendMessage(conversationId: string, body: string): Promise<MessageWithSender | null> {
   try {
     const session = await auth();
 
@@ -381,10 +365,7 @@ export async function sendMessage(
 /**
  * Marca los mensajes de una conversación como leídos hasta un mensaje específico
  */
-export async function markMessagesAsRead(
-  conversationId: string,
-  upToMessageId: string
-): Promise<number> {
+export async function markMessagesAsRead(conversationId: string, upToMessageId: string): Promise<number> {
   try {
     const session = await auth();
 
@@ -449,7 +430,7 @@ export async function markMessagesAsRead(
  */
 export async function searchUsersForChat(
   query: string,
-  limit: number = 10
+  limit: number = 10,
 ): Promise<Array<{ id: string; name: string; email: string; image: string | null }>> {
   try {
     const session = await auth();
@@ -471,10 +452,7 @@ export async function searchUsersForChat(
         orgId,
         active: true,
         id: { not: currentUserId }, // Excluir usuario actual
-        OR: [
-          { name: { contains: query, mode: "insensitive" } },
-          { email: { contains: query, mode: "insensitive" } },
-        ],
+        OR: [{ name: { contains: query, mode: "insensitive" } }, { email: { contains: query, mode: "insensitive" } }],
       },
       select: {
         id: true,
@@ -489,6 +467,122 @@ export async function searchUsersForChat(
     return users;
   } catch (error) {
     console.error("Error al buscar usuarios:", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene la configuración de chat de la organización
+ */
+export async function getOrganizationChatConfig(): Promise<{ chatEnabled: boolean }> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.orgId) {
+      throw new Error("No autenticado");
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: { chatEnabled: true },
+    });
+
+    if (!org) {
+      throw new Error("Organización no encontrada");
+    }
+
+    return { chatEnabled: org.chatEnabled };
+  } catch (error) {
+    console.error("Error al obtener configuración de chat:", error);
+    throw error;
+  }
+}
+
+/**
+ * Actualiza el estado del chat para la organización
+ */
+export async function updateOrganizationChatStatus(enabled: boolean): Promise<void> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.orgId) {
+      throw new Error("NO_AUTH");
+    }
+
+    // Verificar permisos de administrador (solo SUPER_ADMIN)
+    if (session.user.role !== "SUPER_ADMIN") {
+      throw new Error("NO_PERMISSION");
+    }
+
+    await prisma.organization.update({
+      where: { id: session.user.orgId },
+      data: { chatEnabled: enabled },
+    });
+  } catch (error) {
+    console.error("[updateOrganizationChatStatus] Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene estadísticas de uso del chat
+ */
+export async function getChatStats(): Promise<{
+  totalConversations: number;
+  totalMessages: number;
+  activeConversations: number;
+  messagesPercentage: string;
+}> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.orgId) {
+      throw new Error("No autenticado");
+    }
+
+    const { orgId } = session.user;
+
+    // Total de conversaciones
+    const totalConversations = await prisma.conversation.count({
+      where: { orgId },
+    });
+
+    // Total de mensajes
+    const totalMessages = await prisma.message.count({
+      where: { orgId, deletedAt: null },
+    });
+
+    // Conversaciones activas (con mensajes en los últimos 7 días)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const activeConversations = await prisma.conversation.count({
+      where: {
+        orgId,
+        lastMessageAt: { gte: sevenDaysAgo },
+      },
+    });
+
+    // Calcular porcentaje de usuarios activos
+    const totalUsers = await prisma.user.count({
+      where: { orgId, active: true },
+    });
+
+    const usersWithMessages = await prisma.message.groupBy({
+      by: ["senderId"],
+      where: { orgId, deletedAt: null },
+    });
+
+    const messagesPercentage = totalUsers > 0 ? ((usersWithMessages.length / totalUsers) * 100).toFixed(1) : "0";
+
+    return {
+      totalConversations,
+      totalMessages,
+      activeConversations,
+      messagesPercentage,
+    };
+  } catch (error) {
+    console.error("Error al obtener estadísticas de chat:", error);
     throw error;
   }
 }
