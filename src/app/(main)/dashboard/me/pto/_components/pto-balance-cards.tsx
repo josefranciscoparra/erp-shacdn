@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, TrendingUp, Calendar } from "lucide-react";
+import { CalendarDays, TrendingUp, Calendar, X, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardDescription, CardContent, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePtoStore } from "@/stores/pto-store";
@@ -14,7 +17,8 @@ interface PtoBalanceCardsProps {
 }
 
 export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
-  const { balance, isLoadingBalance, requests } = usePtoStore();
+  const { balance, isLoadingBalance, requests, cancelRequest } = usePtoStore();
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   if (isLoadingBalance) {
     return (
@@ -85,68 +89,134 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
     ? Math.floor((new Date(nextVacation.startDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
     : null;
 
+  // Filtrar solicitudes pendientes
+  const pendingRequests = requests
+    .filter((r) => r.status === "PENDING")
+    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+    .slice(0, 3);
+
+  // Manejar cancelación de solicitud
+  const handleCancelRequest = async (requestId: string) => {
+    if (!confirm("¿Estás seguro de que quieres cancelar esta solicitud?")) {
+      return;
+    }
+
+    setCancellingId(requestId);
+    try {
+      await cancelRequest(requestId, "Cancelada por el usuario");
+    } catch (error) {
+      console.error("Error al cancelar solicitud:", error);
+      alert("Error al cancelar la solicitud. Por favor, inténtalo de nuevo.");
+    } finally {
+      setCancellingId(null);
+    }
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {/* Card 1: Próximas vacaciones destacadas */}
+      {/* Card 1: Solicitudes Pendientes */}
       <Card className="h-full">
         <CardHeader>
-          <CardDescription>Próximas vacaciones</CardDescription>
+          <CardDescription>Solicitudes Pendientes</CardDescription>
           <CardAction>
-            <Calendar className="text-primary size-4" />
+            <Badge variant="secondary" className="bg-orange-500/10 text-orange-600">
+              {pendingRequests.length}
+            </Badge>
           </CardAction>
         </CardHeader>
         <CardContent>
-          {nextVacation ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-4">
-              {/* Icono central */}
-              <div
-                className="flex size-16 items-center justify-center rounded-full"
-                style={{ backgroundColor: "oklch(var(--chart-2) / 0.1)" }}
-              >
-                <CalendarDays className="size-8" style={{ color: "oklch(var(--chart-2))" }} />
-              </div>
+          {pendingRequests.length > 0 ? (
+            <div className="space-y-3">
+              {pendingRequests.map((request) => {
+                const startDate = new Date(request.startDate);
+                const endDate = new Date(request.endDate);
+                const days = Math.floor(request.workingDays);
+                const submittedAt = new Date(request.submittedAt);
 
-              {/* Fechas */}
-              <div className="text-center">
-                <p className="font-display text-xl font-semibold">
-                  {format(new Date(nextVacation.startDate), "d MMM", { locale: es })} -{" "}
-                  {format(new Date(nextVacation.endDate), "d MMM yyyy", { locale: es })}
-                </p>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  {daysUntilVacation === 0
-                    ? "¡Hoy comienzan!"
-                    : daysUntilVacation === 1
-                      ? "Faltan 1 día"
-                      : `Faltan ${daysUntilVacation} días`}
-                </p>
-              </div>
+                // Normalizar fechas a medianoche para evitar problemas de zona horaria
+                const todayNormalized = new Date(today);
+                todayNormalized.setHours(0, 0, 0, 0);
+                const submittedNormalized = new Date(submittedAt);
+                submittedNormalized.setHours(0, 0, 0, 0);
 
-              {/* Detalles */}
-              <div className="flex w-full flex-col gap-2 rounded-lg border p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Días laborables</span>
-                  <span className="font-display text-lg font-semibold">
-                    {Math.floor(nextVacation.days)} {Math.floor(nextVacation.days) === 1 ? "día" : "días"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground text-sm">Estado</span>
-                  <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                    Aprobada
-                  </Badge>
-                </div>
-              </div>
+                const daysAgo = Math.floor(
+                  (todayNormalized.getTime() - submittedNormalized.getTime()) / (1000 * 60 * 60 * 24),
+                );
+
+                // Generar mensaje seguro
+                let timeAgoMessage = "hoy";
+                if (daysAgo < 0) {
+                  timeAgoMessage = "hoy"; // Si es futuro (no debería pasar), mostrar "hoy"
+                } else if (daysAgo === 0) {
+                  timeAgoMessage = "hoy";
+                } else if (daysAgo === 1) {
+                  timeAgoMessage = "hace 1 día";
+                } else {
+                  timeAgoMessage = `hace ${daysAgo} días`;
+                }
+
+                const isCancelling = cancellingId === request.id;
+
+                return (
+                  <div key={request.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-1 flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {days} {days === 1 ? "día" : "días"}
+                        </span>
+                      </div>
+                      <Badge variant="secondary" className="bg-orange-500/10 text-orange-600">
+                        Pendiente
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-muted-foreground text-xs">Solicitado {timeAgoMessage}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleCancelRequest(request.id)}
+                        disabled={isCancelling}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 px-2 text-xs"
+                      >
+                        {isCancelling ? (
+                          <>
+                            <Loader2 className="mr-1 size-3 animate-spin" />
+                            Cancelando...
+                          </>
+                        ) : (
+                          <>
+                            <X className="mr-1 size-3" />
+                            Cancelar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="flex h-full min-h-[240px] flex-col items-center justify-center gap-3 py-4">
+            <div className="flex h-full flex-col items-center justify-center gap-4 py-8">
               <div className="bg-muted flex size-16 items-center justify-center rounded-full">
-                <Calendar className="text-muted-foreground size-8" />
+                <CalendarDays className="text-muted-foreground size-8" />
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium">Sin vacaciones programadas</p>
-                <p className="text-muted-foreground mt-1 text-xs">
-                  Tienes {daysAvailable} {daysAvailable === 1 ? "día disponible" : "días disponibles"}
-                </p>
+                <p className="text-sm font-medium">Todo al día</p>
+                <p className="text-muted-foreground mt-1 text-xs">No tienes solicitudes pendientes de aprobación</p>
+              </div>
+              <div className="mt-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="bg-background flex size-8 items-center justify-center rounded-full border">
+                    <span className="text-sm">✓</span>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-medium text-green-600">Estado: OK</p>
+                    <p className="text-muted-foreground text-xs">Todas tus solicitudes han sido procesadas</p>
+                  </div>
+                </div>
               </div>
             </div>
           )}

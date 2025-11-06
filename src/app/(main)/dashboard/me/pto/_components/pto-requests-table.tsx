@@ -270,7 +270,9 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
         </Table>
       </div>
 
-      <DataTablePagination table={table} />
+      <div className="mt-4">
+        <DataTablePagination table={table} />
+      </div>
 
       {/* Dialog de confirmación de cancelación */}
       <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
