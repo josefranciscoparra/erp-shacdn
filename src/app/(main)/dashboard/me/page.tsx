@@ -97,7 +97,7 @@ export default function MySpacePage() {
                 className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
               >
                 <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                  <Users className="size-4" />
+                  <Users className="text-primary size-4" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Empleados</p>
@@ -111,7 +111,7 @@ export default function MySpacePage() {
                 className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
               >
                 <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                  <Building2 className="size-4" />
+                  <Building2 className="text-primary size-4" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Departamentos</p>
@@ -125,7 +125,7 @@ export default function MySpacePage() {
                 className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
               >
                 <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                  <Timer className="size-4" />
+                  <Timer className="text-primary size-4" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Monitor en Vivo</p>
@@ -139,7 +139,7 @@ export default function MySpacePage() {
                 className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
               >
                 <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                  <UserCog className="size-4" />
+                  <UserCog className="text-primary size-4" />
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">Usuarios y Roles</p>
@@ -185,7 +185,7 @@ export default function MySpacePage() {
               className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
             >
               <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                <Clock className="size-4" />
+                <Clock className="text-primary size-4" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Fichar</p>
@@ -199,7 +199,7 @@ export default function MySpacePage() {
               className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
             >
               <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                <CalendarDays className="size-4" />
+                <CalendarDays className="text-primary size-4" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Mis Vacaciones</p>
@@ -213,7 +213,7 @@ export default function MySpacePage() {
               className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
             >
               <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                <Calendar className="size-4" />
+                <Calendar className="text-primary size-4" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Mi Calendario</p>
@@ -227,7 +227,7 @@ export default function MySpacePage() {
               className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
             >
               <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                <UserCircle className="size-4" />
+                <UserCircle className="text-primary size-4" />
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Mi Perfil</p>
