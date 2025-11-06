@@ -54,7 +54,7 @@ export function UserInfoPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="w-80" align="start">
+      <PopoverContent className="bg-background w-80" align="start">
         <div className="space-y-4">
           {/* Header con avatar y nombre */}
           <div className="flex items-center gap-3">
