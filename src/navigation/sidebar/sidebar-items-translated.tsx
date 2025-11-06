@@ -7,8 +7,6 @@ import {
   FileText,
   Calendar,
   Settings,
-  Building,
-  Briefcase,
   FolderOpen,
   Clock,
   CalendarDays,
@@ -23,9 +21,9 @@ import {
 } from "lucide-react";
 
 import { features } from "@/config/features";
-import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type Permission } from "@/lib/permissions";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 export interface NavSubItem {
   title: string;
@@ -56,8 +54,8 @@ export interface NavGroup {
 }
 
 export function useSidebarItems(): NavGroup[] {
-  const { hasPermission, isAuthenticated, userRole } = usePermissions();
-  const { chatEnabled } = useChatEnabled();
+  const { hasPermission, isAuthenticated } = usePermissions();
+  const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
 

@@ -10,9 +10,11 @@ import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget"
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 
+import { FeaturesInitializer } from "./_components/features-initializer";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
 
@@ -24,6 +26,20 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   if (!session?.user) {
     redirect("/auth/login");
   }
+
+  // Cargar features de la organización en el servidor (cero delay en cliente)
+  const org = await prisma.organization.findUnique({
+    where: { id: session.user.orgId },
+    select: {
+      chatEnabled: true,
+      // Futuros módulos aquí
+    },
+  });
+
+  const orgFeatures = {
+    chatEnabled: org?.chatEnabled ?? false,
+    // Futuros módulos aquí
+  };
 
   const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
@@ -45,6 +61,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
 
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
+      <FeaturesInitializer initialFeatures={orgFeatures} />
       <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} user={currentUser} />
       <SidebarInset
         data-content-layout={contentLayout}
