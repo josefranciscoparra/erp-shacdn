@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 
 import { Briefcase, Mail, MessageCircle, Phone, PhoneCall } from "lucide-react";
 
@@ -32,6 +32,10 @@ export function UserInfoPopover({
 }: UserInfoPopoverProps) {
   const [open, setOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
+  const openTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+  const isInCooldown = useRef(false);
 
   // Determinar qué número usar para llamar (prioridad móvil)
   const callNumber = mobilePhone ?? phone;
@@ -54,19 +58,46 @@ export function UserInfoPopover({
     }
   };
 
-  const handleMouseEnter = () => {
-    if (!isPinned) {
-      setOpen(true);
+  const clearTimeouts = () => {
+    if (openTimeoutRef.current) {
+      clearTimeout(openTimeoutRef.current);
+      openTimeoutRef.current = null;
     }
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (isPinned || isInCooldown.current) return;
+
+    clearTimeouts();
+
+    // Delay de 300ms antes de abrir
+    openTimeoutRef.current = setTimeout(() => {
+      setOpen(true);
+    }, 300);
   };
 
   const handleMouseLeave = () => {
-    if (!isPinned) {
+    if (isPinned) return;
+
+    clearTimeouts();
+
+    // Delay de 200ms antes de cerrar (tiempo para mover ratón al content)
+    closeTimeoutRef.current = setTimeout(() => {
       setOpen(false);
-    }
+      // Activar cooldown de 500ms después de cerrar
+      isInCooldown.current = true;
+      cooldownRef.current = setTimeout(() => {
+        isInCooldown.current = false;
+      }, 500);
+    }, 200);
   };
 
   const handleClick = () => {
+    clearTimeouts();
     setIsPinned(true);
     setOpen(true);
   };
@@ -75,8 +106,19 @@ export function UserInfoPopover({
     setOpen(newOpen);
     if (!newOpen) {
       setIsPinned(false);
+      clearTimeouts();
     }
   };
+
+  // Limpiar timeouts al desmontar
+  useEffect(() => {
+    return () => {
+      clearTimeouts();
+      if (cooldownRef.current) {
+        clearTimeout(cooldownRef.current);
+      }
+    };
+  }, []);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
