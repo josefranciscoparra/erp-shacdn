@@ -154,7 +154,7 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
       </div>
 
       {/* Mensajes */}
-      <div className="relative flex-1">
+      <div className="relative min-h-0 flex-1 overflow-hidden">
         <ScrollArea className="h-full p-4" ref={scrollRef}>
           {messages.length === 0 && !loading ? (
             <div className="text-muted-foreground flex h-full items-center justify-center text-center">
