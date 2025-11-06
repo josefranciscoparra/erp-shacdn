@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 import { Briefcase, Mail, MessageCircle, Phone, PhoneCall } from "lucide-react";
 
@@ -30,6 +30,9 @@ export function UserInfoPopover({
   department,
   children,
 }: UserInfoPopoverProps) {
+  const [open, setOpen] = useState(false);
+  const [isPinned, setIsPinned] = useState(false);
+
   // Determinar qué número usar para llamar (prioridad móvil)
   const callNumber = mobilePhone ?? phone;
 
@@ -51,10 +54,41 @@ export function UserInfoPopover({
     }
   };
 
+  const handleMouseEnter = () => {
+    if (!isPinned) {
+      setOpen(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (!isPinned) {
+      setOpen(false);
+    }
+  };
+
+  const handleClick = () => {
+    setIsPinned(true);
+    setOpen(true);
+  };
+
+  const handleOpenChange = (newOpen: boolean) => {
+    setOpen(newOpen);
+    if (!newOpen) {
+      setIsPinned(false);
+    }
+  };
+
   return (
-    <Popover>
-      <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent className="bg-background w-80" align="start">
+    <Popover open={open} onOpenChange={handleOpenChange}>
+      <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} onClick={handleClick}>
+        <PopoverTrigger asChild>{children}</PopoverTrigger>
+      </div>
+      <PopoverContent
+        className="bg-background w-80"
+        align="start"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         <div className="space-y-4">
           {/* Header con avatar y nombre */}
           <div className="flex items-center gap-3">
