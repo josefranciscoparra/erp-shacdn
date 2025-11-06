@@ -386,7 +386,7 @@ export function TimeCalendarView() {
           </div>
         </div>
 
-        {/* Lista de solicitudes pendientes debajo del calendario (estilo hospital-management) */}
+        {/* Lista de solicitudes pendientes debajo del calendario */}
         {pendingDays.length > 0 && (
           <div className="flex flex-col divide-y border-t">
             <div className="p-4">
