@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-import { Send } from "lucide-react";
+import { ArrowLeft, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
@@ -19,9 +19,10 @@ import { cn } from "@/lib/utils";
 
 interface ConversationViewProps {
   conversation: ConversationWithParticipants;
+  onBack?: () => void;
 }
 
-export function ConversationView({ conversation }: ConversationViewProps) {
+export function ConversationView({ conversation, onBack }: ConversationViewProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,6 +130,13 @@ export function ConversationView({ conversation }: ConversationViewProps) {
     <div className="flex flex-1 flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b p-4">
+        {/* Botón Volver (solo móvil) */}
+        {onBack && (
+          <Button variant="ghost" size="icon" onClick={onBack} className="@3xl/main:hidden">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+        )}
+
         <Avatar>
           {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
           <AvatarFallback>

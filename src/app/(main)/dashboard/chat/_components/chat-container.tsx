@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
+import { cn } from "@/lib/utils";
 
 import { ConversationView } from "./conversation-view";
 import { ConversationsList } from "./conversations-list";
@@ -21,6 +22,7 @@ export function ChatContainer() {
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithParticipants | null>(null);
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [newChatOpen, setNewChatOpen] = useState(false);
+  const [showMobileConversation, setShowMobileConversation] = useState(false);
 
   // Redirigir si el chat no está habilitado
   useEffect(() => {
@@ -62,6 +64,11 @@ export function ChatContainer() {
 
   const handleSelectConversation = (conversation: ConversationWithParticipants) => {
     setSelectedConversation(conversation);
+    setShowMobileConversation(true);
+  };
+
+  const handleBackToList = () => {
+    setShowMobileConversation(false);
   };
 
   const handleNewConversation = (conversation: ConversationWithParticipants) => {
@@ -82,7 +89,12 @@ export function ChatContainer() {
   return (
     <div className="bg-card flex h-full gap-4 overflow-hidden rounded-lg border">
       {/* Lista de conversaciones (sidebar izquierdo) */}
-      <div className="flex w-full flex-col border-r @3xl/main:w-80">
+      <div
+        className={cn(
+          "flex w-full flex-col border-r @3xl/main:w-80",
+          showMobileConversation && "hidden @3xl/main:flex",
+        )}
+      >
         <div className="flex items-center justify-between border-b p-4">
           <div>
             <h2 className="text-lg font-semibold">Mensajes</h2>
@@ -111,9 +123,9 @@ export function ChatContainer() {
       </div>
 
       {/* Vista de conversación (área principal) */}
-      <div className="hidden flex-1 @3xl/main:flex">
+      <div className={cn("flex-1", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}>
         {selectedConversation ? (
-          <ConversationView conversation={selectedConversation} />
+          <ConversationView conversation={selectedConversation} onBack={handleBackToList} />
         ) : (
           <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-4">
             <MessageSquarePlus className="h-16 w-16" />
