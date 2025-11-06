@@ -4,15 +4,26 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { Clock, CalendarDays, UserCircle, Bell, Users, Timer, UserCog, Building2, Loader2 } from "lucide-react";
+import {
+  Clock,
+  CalendarDays,
+  UserCircle,
+  Users,
+  Timer,
+  UserCog,
+  Building2,
+  Loader2,
+  ChevronRight,
+  Calendar,
+} from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
-import { NotificationItem } from "./_components/notification-item";
+import { RecentNotifications } from "./_components/recent-notifications";
 import { UpcomingEvents } from "./_components/upcoming-events";
 
 export default function MySpacePage() {
@@ -75,55 +86,73 @@ export default function MySpacePage() {
         />
 
         {/* Acciones rápidas de administración */}
-        <Card className="p-6">
-          <h3 className="mb-4 text-lg font-semibold">Acceso rápido</h3>
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/employees">
-                <Users className="h-5 w-5" />
-                <span className="text-sm font-medium">Empleados</span>
+        <Card>
+          <CardHeader>
+            <CardTitle>Acceso rápido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2 md:grid-cols-2">
+              <Link
+                href="/dashboard/employees"
+                className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+              >
+                <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                  <Users className="size-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Empleados</p>
+                  <p className="text-muted-foreground text-xs">Gestionar equipo</p>
+                </div>
+                <ChevronRight className="text-muted-foreground size-4" />
               </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/departments">
-                <Building2 className="h-5 w-5" />
-                <span className="text-sm font-medium">Departamentos</span>
+
+              <Link
+                href="/dashboard/departments"
+                className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+              >
+                <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                  <Building2 className="size-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Departamentos</p>
+                  <p className="text-muted-foreground text-xs">Organizar estructura</p>
+                </div>
+                <ChevronRight className="text-muted-foreground size-4" />
               </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/time-tracking/live">
-                <Timer className="h-5 w-5" />
-                <span className="text-sm font-medium">Monitor en Vivo</span>
+
+              <Link
+                href="/dashboard/time-tracking/live"
+                className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+              >
+                <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                  <Timer className="size-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Monitor en Vivo</p>
+                  <p className="text-muted-foreground text-xs">Ver fichajes activos</p>
+                </div>
+                <ChevronRight className="text-muted-foreground size-4" />
               </Link>
-            </Button>
-            <Button variant="outline" className="h-auto flex-col gap-2 py-4" asChild>
-              <Link href="/dashboard/admin/users">
-                <UserCog className="h-5 w-5" />
-                <span className="text-sm font-medium">Usuarios y Roles</span>
+
+              <Link
+                href="/dashboard/admin/users"
+                className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+              >
+                <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                  <UserCog className="size-4" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Usuarios y Roles</p>
+                  <p className="text-muted-foreground text-xs">Configurar permisos</p>
+                </div>
+                <ChevronRight className="text-muted-foreground size-4" />
               </Link>
-            </Button>
-          </div>
+            </div>
+          </CardContent>
         </Card>
 
         {/* Notificaciones recientes */}
-        <Card className="p-6">
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bell className="text-muted-foreground h-5 w-5" />
-              <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
-            </div>
-          </div>
-
-          {data.recentNotifications.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
-          ) : (
-            <div className="space-y-2">
-              {data.recentNotifications.map((notification) => (
-                <NotificationItem key={notification.id} notification={notification} />
-              ))}
-            </div>
-          )}
-        </Card>
+        <RecentNotifications notifications={data.recentNotifications} />
       </div>
     );
   }
@@ -145,34 +174,69 @@ export default function MySpacePage() {
       <MySpaceMetrics data={data} isLoading={false} />
 
       {/* Acciones rápidas */}
-      <Card className="p-6">
-        <h3 className="mb-2 text-lg font-semibold">Acciones rápidas</h3>
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-            <Link href="/dashboard/me/clock">
-              <Clock className="h-5 w-5" />
-              <span className="text-sm font-medium">Fichar</span>
+      <Card>
+        <CardHeader>
+          <CardTitle>Acciones rápidas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-2 md:grid-cols-2">
+            <Link
+              href="/dashboard/me/clock"
+              className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+            >
+              <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                <Clock className="size-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Fichar</p>
+                <p className="text-muted-foreground text-xs">Registrar entrada/salida</p>
+              </div>
+              <ChevronRight className="text-muted-foreground size-4" />
             </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-            <Link href="/dashboard/me/pto">
-              <CalendarDays className="h-5 w-5" />
-              <span className="text-sm font-medium">Mis Vacaciones</span>
+
+            <Link
+              href="/dashboard/me/pto"
+              className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+            >
+              <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                <CalendarDays className="size-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Mis Vacaciones</p>
+                <p className="text-muted-foreground text-xs">Solicitar días libres</p>
+              </div>
+              <ChevronRight className="text-muted-foreground size-4" />
             </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-            <Link href="/dashboard/me/calendar">
-              <Clock className="h-5 w-5" />
-              <span className="text-sm font-medium">Mi Calendario</span>
+
+            <Link
+              href="/dashboard/me/calendar"
+              className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+            >
+              <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                <Calendar className="size-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Mi Calendario</p>
+                <p className="text-muted-foreground text-xs">Ver eventos próximos</p>
+              </div>
+              <ChevronRight className="text-muted-foreground size-4" />
             </Link>
-          </Button>
-          <Button variant="outline" className="h-auto flex-col gap-2 py-4 transition-colors" asChild>
-            <Link href="/dashboard/me/profile">
-              <UserCircle className="h-5 w-5" />
-              <span className="text-sm font-medium">Mi Perfil</span>
+
+            <Link
+              href="/dashboard/me/profile"
+              className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
+            >
+              <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
+                <UserCircle className="size-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Mi Perfil</p>
+                <p className="text-muted-foreground text-xs">Actualizar información</p>
+              </div>
+              <ChevronRight className="text-muted-foreground size-4" />
             </Link>
-          </Button>
-        </div>
+          </div>
+        </CardContent>
       </Card>
 
       <div className="grid gap-3 md:gap-4 lg:grid-cols-2">
@@ -180,26 +244,7 @@ export default function MySpacePage() {
         {data && <UpcomingEvents events={data.upcomingEvents} />}
 
         {/* Notificaciones recientes */}
-        {data && (
-          <Card className="p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Bell className="text-muted-foreground h-5 w-5" />
-                <h3 className="text-lg font-semibold">Notificaciones recientes</h3>
-              </div>
-            </div>
-
-            {data.recentNotifications.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No tienes notificaciones recientes</p>
-            ) : (
-              <div className="space-y-2">
-                {data.recentNotifications.map((notification) => (
-                  <NotificationItem key={notification.id} notification={notification} />
-                ))}
-              </div>
-            )}
-          </Card>
-        )}
+        {data && <RecentNotifications notifications={data.recentNotifications} />}
       </div>
     </div>
   );
