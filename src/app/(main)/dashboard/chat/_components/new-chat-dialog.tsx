@@ -1,20 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Search } from "lucide-react";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Search } from "lucide-react";
 import { toast } from "sonner";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ConversationWithParticipants } from "@/lib/chat/types";
 
 interface NewChatDialogProps {
@@ -98,7 +92,7 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
 
         <div className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               placeholder="Buscar por nombre o email..."
               value={query}
@@ -110,7 +104,7 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
 
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <div className="border-primary h-6 w-6 animate-spin rounded-full border-2 border-t-transparent" />
             </div>
           ) : results.length > 0 ? (
             <ScrollArea className="h-64">
@@ -120,9 +114,9 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
                     key={user.id}
                     onClick={() => handleSelectUser(user.id)}
                     disabled={creating}
-                    className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-muted disabled:opacity-50"
+                    className="hover:bg-muted flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors disabled:opacity-50"
                   >
-                    <Avatar>
+                    <Avatar key={user.id}>
                       <AvatarImage src={user.image ?? undefined} alt={user.name} />
                       <AvatarFallback>
                         {user.name
@@ -134,19 +128,19 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
                     </Avatar>
                     <div className="flex-1 overflow-hidden">
                       <p className="truncate font-medium">{user.name}</p>
-                      <p className="truncate text-sm text-muted-foreground">{user.email}</p>
+                      <p className="text-muted-foreground truncate text-sm">{user.email}</p>
                     </div>
                   </button>
                 ))}
               </div>
             </ScrollArea>
           ) : query.trim() ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+            <div className="text-muted-foreground flex flex-col items-center justify-center py-8 text-center">
               <p>No se encontraron usuarios</p>
               <p className="text-xs">Intenta con otro término de búsqueda</p>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+            <div className="text-muted-foreground flex flex-col items-center justify-center py-8 text-center">
               <Search className="mb-2 h-8 w-8" />
               <p>Escribe para buscar usuarios</p>
             </div>

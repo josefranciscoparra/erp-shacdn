@@ -89,7 +89,7 @@ function ConversationsListComponent({
                 isSelected && "bg-muted",
               )}
             >
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-10 w-10" key={otherUser.id}>
                 {hasAvatar(otherUser.image) && (
                   <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />
                 )}

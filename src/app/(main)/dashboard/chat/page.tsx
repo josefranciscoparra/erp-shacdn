@@ -1,13 +1,6 @@
 import { Suspense } from "react";
 
-import { Metadata } from "next";
-
 import { ChatContainer } from "./_components/chat-container";
-
-export const metadata: Metadata = {
-  title: "Mensajes | ERP",
-  description: "Chat 1:1 para comunicación interna",
-};
 
 export default function ChatPage() {
   return (

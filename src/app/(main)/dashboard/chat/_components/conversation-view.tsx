@@ -303,7 +303,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           </Button>
         )}
 
-        <Avatar>
+        <Avatar key={otherUser.id}>
           {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
           <AvatarFallback>
             {otherUser.name
@@ -353,7 +353,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                     key={message.localId ?? message.id}
                     className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}
                   >
-                    <Avatar className="h-8 w-8">
+                    <Avatar className="h-8 w-8" key={message.sender.id}>
                       {hasAvatar(message.sender.image) && (
                         <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
                       )}
