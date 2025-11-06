@@ -20,9 +20,10 @@ import { cn } from "@/lib/utils";
 interface ConversationViewProps {
   conversation: ConversationWithParticipants;
   onBack?: () => void;
+  onMessageSent?: (message: MessageWithSender) => void;
 }
 
-function ConversationViewComponent({ conversation, onBack }: ConversationViewProps) {
+function ConversationViewComponent({ conversation, onBack, onMessageSent }: ConversationViewProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<MessageWithSender[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,6 +164,9 @@ function ConversationViewComponent({ conversation, onBack }: ConversationViewPro
 
       // Añadir mensaje a la lista
       setMessages((prev) => [...prev, message]);
+
+      // Notificar al padre para actualizar lista de conversaciones
+      onMessageSent?.(message);
     } catch (error) {
       console.error("Error enviando mensaje:", error);
       toast.error(error instanceof Error ? error.message : "Error al enviar mensaje");

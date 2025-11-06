@@ -86,6 +86,31 @@ export function ChatContainer() {
     setNewChatOpen(false);
   }, []);
 
+  // Actualización optimista cuando se envía un mensaje
+  const handleMessageSent = useCallback((message: MessageWithSender) => {
+    setConversations((prev) => {
+      // Encontrar la conversación
+      const conv = prev.find((c) => c.id === message.conversationId);
+      if (!conv) return prev;
+
+      // Actualizar con el nuevo mensaje
+      const updatedConv = {
+        ...conv,
+        lastMessageAt: message.createdAt,
+        lastMessage: {
+          id: message.id,
+          body: message.body,
+          createdAt: message.createdAt,
+          senderId: message.senderId,
+        },
+      };
+
+      // Mover al principio (más reciente arriba)
+      const filtered = prev.filter((c) => c.id !== message.conversationId);
+      return [updatedConv, ...filtered];
+    });
+  }, []);
+
   return (
     <div className="bg-card flex h-full gap-4 overflow-hidden rounded-lg border">
       {/* Lista de conversaciones (sidebar izquierdo) */}
@@ -125,7 +150,11 @@ export function ChatContainer() {
       {/* Vista de conversación (área principal) */}
       <div className={cn("flex-1", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}>
         {selectedConversation ? (
-          <ConversationView conversation={selectedConversation} onBack={handleBackToList} />
+          <ConversationView
+            conversation={selectedConversation}
+            onBack={handleBackToList}
+            onMessageSent={handleMessageSent}
+          />
         ) : (
           <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-4">
             <MessageSquarePlus className="h-16 w-16" />
