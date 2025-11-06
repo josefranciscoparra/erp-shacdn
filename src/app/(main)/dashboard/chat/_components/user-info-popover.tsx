@@ -54,16 +54,13 @@ export function UserInfoPopover({
   return (
     <Popover>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent
-        className="border-primary/20 from-background to-accent/30 w-80 bg-gradient-to-br shadow-lg"
-        align="start"
-      >
+      <PopoverContent className="w-80" align="start">
         <div className="space-y-4">
           {/* Header con avatar y nombre */}
           <div className="flex items-center gap-3">
-            <Avatar className="ring-primary/10 h-12 w-12 ring-2">
+            <Avatar className="h-12 w-12">
               {hasAvatar(image) && <AvatarImage src={getUserAvatarUrl(userId)} alt={name} />}
-              <AvatarFallback className="bg-primary/10 text-primary">
+              <AvatarFallback>
                 {name
                   .split(" ")
                   .map((n) => n[0])
@@ -72,7 +69,7 @@ export function UserInfoPopover({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
-              <p className="text-foreground truncate font-semibold">{name}</p>
+              <p className="truncate font-semibold">{name}</p>
               {department && <p className="text-muted-foreground truncate text-xs">{department}</p>}
             </div>
           </div>

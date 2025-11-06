@@ -314,8 +314,8 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           mobilePhone={otherUser.mobilePhone}
           department={otherUser.department}
         >
-          <button className="group hover:bg-accent/50 flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 transition-all hover:shadow-sm active:scale-[0.98]">
-            <Avatar key={otherUser.id} className="group-hover:ring-primary/20 ring-2 ring-transparent transition-all">
+          <button className="hover:bg-muted/50 flex items-center gap-3 rounded-lg transition-colors">
+            <Avatar key={otherUser.id}>
               {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
               <AvatarFallback>
                 {otherUser.name
@@ -326,7 +326,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
               </AvatarFallback>
             </Avatar>
             <div className="text-left">
-              <p className="group-hover:text-primary font-medium transition-colors">{otherUser.name}</p>
+              <p className="font-medium">{otherUser.name}</p>
               <p className="text-muted-foreground text-xs">{otherUser.email}</p>
             </div>
           </button>
