@@ -4,11 +4,9 @@ import { useEffect } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, XCircle, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 
-import { Card } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
 export function TimeBalanceSidebar() {
@@ -44,51 +42,78 @@ export function TimeBalanceSidebar() {
 
   return (
     <div className="space-y-4">
-      {/* Resumen general */}
-      <Card className="p-6">
-        <h3 className="mb-4 text-lg font-semibold">Resumen del mes</h3>
-
-        <div className="space-y-4">
+      {/* Cards de resumen estilo hospital-management */}
+      <div className="overflow-hidden rounded-md border">
+        <div className="grid divide-y">
           {/* Horas esperadas */}
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Horas esperadas</span>
-              <span className="text-lg font-semibold">{totalExpectedHours.toFixed(1)}h</span>
-            </div>
-          </div>
+          <Card className="hover:bg-muted rounded-none border-0 transition-colors">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Horas esperadas</CardTitle>
+              <div
+                className="absolute end-4 top-0 flex size-12 items-center justify-center rounded-full p-4"
+                style={{ backgroundColor: "oklch(var(--chart-1) / 0.2)" }}
+              >
+                <Calendar className="size-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <div className="font-display text-3xl">{totalExpectedHours.toFixed(1)}h</div>
+              <p className="text-muted-foreground text-xs">Para este mes</p>
+            </CardContent>
+          </Card>
 
           {/* Horas trabajadas */}
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Horas trabajadas</span>
-              <span className="text-lg font-semibold">{totalWorkedHours.toFixed(1)}h</span>
-            </div>
-          </div>
+          <Card className="hover:bg-muted rounded-none border-0 transition-colors">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Horas trabajadas</CardTitle>
+              <div
+                className="absolute end-4 top-0 flex size-12 items-center justify-center rounded-full p-4"
+                style={{ backgroundColor: "oklch(var(--chart-2) / 0.2)" }}
+              >
+                <Clock className="size-5" />
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <div className="font-display text-3xl">{totalWorkedHours.toFixed(1)}h</div>
+              <p className="text-muted-foreground text-xs">
+                <span style={{ color: compliance >= 100 ? "oklch(var(--chart-2))" : "oklch(var(--chart-5))" }}>
+                  {compliance.toFixed(1)}%
+                </span>{" "}
+                de cumplimiento
+              </p>
+            </CardContent>
+          </Card>
 
           {/* Balance */}
-          <div className="rounded-lg border p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Balance</span>
-              <span className={cn("text-xl font-bold", isPositive ? "text-green-600" : "text-red-600")}>
+          <Card className="hover:bg-muted rounded-none border-0 transition-colors">
+            <CardHeader className="relative flex flex-row items-center justify-between space-y-0">
+              <CardTitle>Balance</CardTitle>
+              <div
+                className="absolute end-4 top-0 flex size-12 items-center justify-center rounded-full p-4"
+                style={{
+                  backgroundColor: isPositive
+                    ? "oklch(var(--chart-2) / 0.2)"
+                    : "oklch(var(--chart-5) / 0.2)",
+                }}
+              >
+                {isPositive ? <TrendingUp className="size-5" /> : <TrendingDown className="size-5" />}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              <div
+                className="font-display text-3xl"
+                style={{ color: isPositive ? "oklch(var(--chart-2))" : "oklch(var(--chart-5))" }}
+              >
                 {isPositive ? "+" : ""}
                 {balance.toFixed(1)}h
-              </span>
-            </div>
-            <p className="text-muted-foreground mt-1 text-xs">
-              {isPositive ? "Horas trabajadas de más" : "Horas faltantes"}
-            </p>
-          </div>
-
-          {/* Progreso */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-muted-foreground text-sm">Cumplimiento</span>
-              <span className="text-sm font-medium">{compliance.toFixed(1)}%</span>
-            </div>
-            <Progress value={compliance} className="h-2" />
-          </div>
+              </div>
+              <p className="text-muted-foreground text-xs">
+                {isPositive ? "Horas trabajadas de más" : "Horas faltantes"}
+              </p>
+            </CardContent>
+          </Card>
         </div>
-      </Card>
+      </div>
 
       {/* Estadísticas de días */}
       <Card className="p-6">
@@ -97,7 +122,7 @@ export function TimeBalanceSidebar() {
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-2))" }} />
               <span className="text-sm">Completos</span>
             </div>
             <span className="font-medium">{stats.completedDays}</span>
@@ -105,7 +130,7 @@ export function TimeBalanceSidebar() {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-3))" }} />
               <span className="text-sm">Incompletos</span>
             </div>
             <span className="font-medium">{stats.incompleteDays}</span>
@@ -113,7 +138,7 @@ export function TimeBalanceSidebar() {
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <XCircle className="h-4 w-4 text-red-600" />
+              <XCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-5))" }} />
               <span className="text-sm">Ausentes</span>
             </div>
             <span className="font-medium">{stats.absentDays}</span>
@@ -122,7 +147,7 @@ export function TimeBalanceSidebar() {
           <div className="border-t pt-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
+                <Clock className="text-primary h-4 w-4" />
                 <span className="text-sm font-medium">Total días laborables</span>
               </div>
               <span className="font-semibold">{stats.workdays}</span>
@@ -144,9 +169,9 @@ export function TimeBalanceSidebar() {
               >
                 <div className="flex items-center gap-2">
                   {day.status === "ABSENT" ? (
-                    <XCircle className="h-3 w-3 text-red-600" />
+                    <XCircle className="h-3 w-3" style={{ color: "oklch(var(--chart-5))" }} />
                   ) : (
-                    <AlertCircle className="h-3 w-3 text-yellow-600" />
+                    <AlertCircle className="h-3 w-3" style={{ color: "oklch(var(--chart-3))" }} />
                   )}
                   <span className="text-sm">{format(day.date, "dd MMM", { locale: es })}</span>
                 </div>

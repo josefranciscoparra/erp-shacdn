@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useManualTimeEntryStore, type ManualTimeEntryRequest } from "@/stores/manual-time-entry-store";
+import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 
 import { ManualTimeEntryDialog } from "../_components/manual-time-entry-dialog";
 
@@ -38,7 +38,7 @@ export default function MyManualTimeEntryRequestsPage() {
     try {
       await cancelRequest(requestId);
       toast.success("Solicitud cancelada");
-    } catch (error) {
+    } catch {
       toast.error("Error al cancelar solicitud");
     }
   };
@@ -47,14 +47,14 @@ export default function MyManualTimeEntryRequestsPage() {
     switch (status) {
       case "PENDING":
         return (
-          <Badge variant="secondary" className="gap-1">
+          <Badge variant="secondary" className="gap-1 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300">
             <Clock className="h-3 w-3" />
             Pendiente
           </Badge>
         );
       case "APPROVED":
         return (
-          <Badge variant="default" className="gap-1 bg-green-600">
+          <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
             <CheckCircle className="h-3 w-3" />
             Aprobado
           </Badge>
@@ -200,19 +200,17 @@ export default function MyManualTimeEntryRequestsPage() {
                         {/* Información de aprobación/rechazo */}
                         {request.status === "APPROVED" && request.approverComments && (
                           <div className="rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950">
-                            <p className="text-xs font-medium text-green-900 dark:text-green-100">
+                            <p className="text-xs font-medium text-green-700 dark:text-green-300">
                               Comentario del aprobador
                             </p>
-                            <p className="mt-1 text-sm text-green-800 dark:text-green-200">
-                              {request.approverComments}
-                            </p>
+                            <p className="text-muted-foreground mt-1 text-sm">{request.approverComments}</p>
                           </div>
                         )}
 
                         {request.status === "REJECTED" && request.rejectionReason && (
                           <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
-                            <p className="text-xs font-medium text-red-900 dark:text-red-100">Motivo del rechazo</p>
-                            <p className="mt-1 text-sm text-red-800 dark:text-red-200">{request.rejectionReason}</p>
+                            <p className="text-xs font-medium text-red-700 dark:text-red-300">Motivo del rechazo</p>
+                            <p className="text-muted-foreground mt-1 text-sm">{request.rejectionReason}</p>
                           </div>
                         )}
 
