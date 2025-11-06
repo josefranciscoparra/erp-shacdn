@@ -3,14 +3,28 @@
 import { useState, useEffect } from "react";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, FilePlus, MapPin, AlertTriangle, CheckCircle2, List, Map, Loader2 } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Coffee,
+  FilePlus,
+  MapPin,
+  AlertTriangle,
+  CheckCircle2,
+  List,
+  Map,
+  Loader2,
+  Clock,
+} from "lucide-react";
+import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Progress } from "@/components/ui/progress";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
@@ -232,6 +246,34 @@ export function ClockIn() {
   // Contar fichajes con GPS
   const entriesWithGPS = todaySummary?.timeEntries?.filter((e) => e.latitude && e.longitude).length ?? 0;
 
+  // Configuración del gráfico de progreso
+  const workedMinutes = todaySummary?.totalWorkedMinutes ?? 0;
+  const breakMinutes = todaySummary?.totalBreakMinutes ?? 0;
+  const totalMinutes = expectedDailyHours * 60;
+  const chartRemainingMinutes = Math.max(0, totalMinutes - workedMinutes);
+  const progressPercentage = Math.min(Math.round((workedMinutes / totalMinutes) * 100), 100);
+
+  const chartConfig = {
+    worked: {
+      label: "Trabajado",
+      color: "var(--chart-1)",
+    },
+    breaks: {
+      label: "Pausas",
+      color: "var(--chart-2)",
+    },
+    remaining: {
+      label: "Restante",
+      color: "#e5e7eb",
+    },
+  } satisfies ChartConfig;
+
+  const chartData = [
+    { name: "worked", value: workedMinutes, fill: "var(--color-worked)" },
+    { name: "breaks", value: breakMinutes, fill: "var(--color-breaks)" },
+    { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
+  ];
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
@@ -327,11 +369,11 @@ export function ClockIn() {
                 </div>
               ) : (
                 <div className="animate-in fade-in-0 slide-in-from-bottom-2 flex items-center gap-1 tabular-nums duration-500">
-                  <span className="text-5xl font-bold">{workedTime.hours}</span>
+                  <span className="font-display text-5xl font-bold">{workedTime.hours}</span>
                   <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="text-5xl font-bold">{workedTime.minutes}</span>
+                  <span className="font-display text-5xl font-bold">{workedTime.minutes}</span>
                   <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="text-muted-foreground text-3xl font-bold">{workedTime.seconds}</span>
+                  <span className="text-muted-foreground font-display text-3xl font-bold">{workedTime.seconds}</span>
                 </div>
               )}
             </div>
@@ -352,11 +394,15 @@ export function ClockIn() {
                 <div className="animate-in fade-in-0 slide-in-from-bottom-1 delay-100 duration-500">
                   <span className="text-muted-foreground text-xs">Tiempo restante</span>
                   <div className="flex items-center gap-1 tabular-nums">
-                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.hours}</span>
+                    <span className="text-muted-foreground font-display text-2xl font-semibold">
+                      {remainingTime.hours}
+                    </span>
                     <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground text-2xl font-semibold">{remainingTime.minutes}</span>
+                    <span className="text-muted-foreground font-display text-2xl font-semibold">
+                      {remainingTime.minutes}
+                    </span>
                     <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground/70 text-xl">{remainingTime.seconds}</span>
+                    <span className="text-muted-foreground/70 font-display text-xl">{remainingTime.seconds}</span>
                   </div>
                 </div>
               )}
@@ -431,116 +477,138 @@ export function ClockIn() {
         </Card>
 
         {/* Card de resumen del día */}
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Resumen de hoy</h3>
-
-          {isLoading ? (
-            <>
-              {/* Skeleton para barra de progreso */}
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between text-sm">
-                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.1s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                </div>
-                <div className="bg-muted relative h-2 w-full overflow-hidden rounded-full">
-                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                </div>
+        <Card className="h-full">
+          <CardContent className="space-y-2 pb-0">
+            {isLoading ? (
+              <div className="bg-muted relative mx-auto aspect-square max-h-[270px] overflow-hidden rounded-lg">
+                <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               </div>
-
-              {/* Skeleton para items */}
-              <div className="flex flex-col gap-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <div key={i} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
+            ) : (
+              <>
+                <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[270px]">
+                  <PieChart>
+                    <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
+                      <Label
+                        content={({ viewBox }) => {
+                          if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                            return (
+                              <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                                <tspan
+                                  x={viewBox.cx}
+                                  y={(viewBox.cy ?? 0) - 8}
+                                  className="fill-foreground font-display text-3xl"
+                                >
+                                  {progressPercentage}%
+                                </tspan>
+                                <tspan
+                                  x={viewBox.cx}
+                                  y={(viewBox.cy ?? 0) + 20}
+                                  className="fill-muted-foreground text-sm"
+                                >
+                                  de tu jornada
+                                </tspan>
+                              </text>
+                            );
+                          }
+                        }}
+                      />
+                    </Pie>
+                  </PieChart>
+                </ChartContainer>
+                <p className="text-muted-foreground text-center text-xs">
+                  Actualizado a las {currentTime.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                </p>
+              </>
+            )}
+          </CardContent>
+          <CardFooter className="flex-col items-start justify-start gap-4 border-t pt-4 md:flex-row md:justify-around lg:items-center lg:gap-0">
+            {isLoading ? (
+              <>
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex w-full items-center gap-3">
+                    <div className="bg-muted relative size-10 overflow-hidden rounded-full">
                       <div
                         className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
                         style={{ animation: `shimmer 1.5s infinite ${i * 0.1}s` }}
                       />
                     </div>
-                    <div className="bg-muted relative h-4 w-16 overflow-hidden rounded">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.05}s` }}
-                      />
+                    <div className="flex flex-1 flex-col gap-2">
+                      <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
+                        <div
+                          className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                          style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.05}s` }}
+                        />
+                      </div>
+                      <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
+                        <div
+                          className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                          style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.1}s` }}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Barra de progreso de horas */}
-              <div className="animate-in fade-in-0 flex flex-col gap-2 duration-500">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Progreso diario</span>
-                  <span className={`font-semibold ${!hasActiveContract ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
-                    {formatMinutes(todaySummary?.totalWorkedMinutes ?? 0)} / {expectedDailyHours}h
-                    {!hasActiveContract && <span className="ml-1 text-xs">*</span>}
-                  </span>
-                </div>
-                <Progress
-                  value={Math.min(((todaySummary?.totalWorkedMinutes ?? 0) / 60 / expectedDailyHours) * 100, 100)}
-                  className="h-2"
-                />
-                {todaySummary && todaySummary.totalWorkedMinutes >= expectedDailyHours * 60 && (
-                  <p className="text-xs text-green-600 dark:text-green-400">¡Has completado tu jornada! 🎉</p>
-                )}
-              </div>
-
-              <div className="animate-in fade-in-0 flex flex-col gap-3 delay-100 duration-500">
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Entrada</span>
-                  <span className="font-semibold tabular-nums">
-                    {todaySummary?.clockIn
-                      ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "--:--:--"}
-                  </span>
+              </>
+            ) : (
+              <>
+                {/* Entrada */}
+                <div className="flex w-full items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-green-400 bg-green-200 dark:bg-green-900">
+                    <LogIn className="size-4" />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="text-sm">Entrada</div>
+                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
+                      {todaySummary?.clockIn
+                        ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Salida</span>
-                  <span className="font-semibold tabular-nums">
-                    {todaySummary?.clockOut
-                      ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "--:--:--"}
-                  </span>
+                {/* Salida */}
+                <div className="flex w-full items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-red-400 bg-red-200 dark:bg-red-900">
+                    <LogOut className="size-4" />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="text-sm">Salida</div>
+                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
+                      {todaySummary?.clockOut
+                        ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
+                    </div>
+                  </div>
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Tiempo trabajado</span>
-                  <span className="font-semibold tabular-nums">
-                    {todaySummary ? formatMinutes(todaySummary.totalWorkedMinutes) : "0h 0m"}
-                  </span>
+                {/* Pausas */}
+                <div className="flex w-full items-center gap-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-yellow-400 bg-yellow-200 dark:bg-yellow-900">
+                    <Coffee className="size-4" />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="text-sm">Pausas</div>
+                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
+                      {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
+                    </div>
+                  </div>
                 </div>
-
-                <div className="flex items-center justify-between rounded-lg border p-3">
-                  <span className="text-muted-foreground text-sm">Pausas totales</span>
-                  <span className="font-semibold tabular-nums">
-                    {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </CardFooter>
         </Card>
       </div>
 
       {/* Historial de fichajes del día */}
-      <Card className="@container/card flex flex-col gap-4 p-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Fichajes de hoy</h3>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle>Fichajes de hoy</CardTitle>
 
           {/* Toggle Vista Lista/Mapa - solo si hay fichajes con GPS */}
           {entriesWithGPS > 0 && !isLoading && (
@@ -561,55 +629,54 @@ export function ClockIn() {
                 className="h-8 px-3"
               >
                 <Map className="mr-1.5 h-4 w-4" />
-                Mapa ({entriesWithGPS})
+                Mapa
               </Button>
             </div>
           )}
-        </div>
-
-        {isLoading ? (
-          <div className="flex flex-col gap-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
-                <div className="bg-muted relative size-4 overflow-hidden rounded">
-                  <div
-                    className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                    style={{ animation: `shimmer 1.5s infinite ${i * 0.15}s` }}
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex flex-col gap-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
+                  <div className="bg-muted relative size-4 overflow-hidden rounded">
                     <div
                       className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.05}s` }}
+                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15}s` }}
                     />
                   </div>
-                  <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
-                    <div
-                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.1}s` }}
-                    />
+                  <div className="flex flex-col gap-2">
+                    <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
+                      <div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                        style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.05}s` }}
+                      />
+                    </div>
+                    <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
+                      <div
+                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
+                        style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.1}s` }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
-          viewMode === "map" ? (
-            <TimeEntriesMap entries={todaySummary.timeEntries} />
-          ) : (
-            <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
-              {todaySummary.timeEntries
-                .slice()
-                .reverse()
-                .map((entry) => (
-                  <div key={entry.id} className="flex flex-col gap-2 rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
+              ))}
+            </div>
+          ) : todaySummary?.timeEntries && todaySummary.timeEntries.length > 0 ? (
+            viewMode === "map" ? (
+              <TimeEntriesMap entries={todaySummary.timeEntries} />
+            ) : (
+              <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
+                {todaySummary.timeEntries
+                  .slice()
+                  .reverse()
+                  .map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-4 rounded-lg border p-3">
                       <div className="flex items-center gap-3">
-                        {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 text-green-500" />}
-                        {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 text-red-500" />}
-                        {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 text-yellow-500" />}
-                        {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 text-green-500" />}
+                        {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 shrink-0 text-green-500" />}
+                        {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 shrink-0 text-red-500" />}
+                        {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 shrink-0 text-yellow-500" />}
+                        {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 shrink-0 text-green-500" />}
                         <div className="flex flex-col">
                           <span className="text-sm font-medium">
                             {entry.entryType === "CLOCK_IN" && "Entrada"}
@@ -626,49 +693,43 @@ export function ClockIn() {
                           </span>
                         </div>
                       </div>
+
+                      {/* Información de geolocalización - al lado */}
+                      {entry.latitude && entry.longitude && (
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            <MapPin className="mr-1 h-3 w-3 text-red-500" />
+                            {Math.round(entry.accuracy ?? 0)}m
+                          </Badge>
+
+                          {entry.isWithinAllowedArea === true && (
+                            <Badge
+                              variant="outline"
+                              className="border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
+                            >
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              Área OK
+                            </Badge>
+                          )}
+
+                          {entry.requiresReview && (
+                            <Badge variant="destructive" className="text-xs">
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              Revisión
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
-
-                    {/* Información de geolocalización */}
-                    {entry.latitude && entry.longitude && (
-                      <div className="flex flex-wrap items-center gap-2 pl-7">
-                        <Badge variant="outline" className="text-xs">
-                          <MapPin className="mr-1 h-3 w-3" />
-                          GPS: {Math.round(entry.accuracy ?? 0)}m
-                        </Badge>
-
-                        {entry.isWithinAllowedArea === true && (
-                          <Badge
-                            variant="outline"
-                            className="border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
-                          >
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            Dentro del área
-                          </Badge>
-                        )}
-
-                        {entry.requiresReview && (
-                          <Badge variant="destructive" className="text-xs">
-                            <AlertTriangle className="mr-1 h-3 w-3" />
-                            Requiere revisión
-                          </Badge>
-                        )}
-
-                        {entry.distanceFromCenter && (
-                          <span className="text-muted-foreground text-xs">
-                            {Math.round(entry.distanceFromCenter)}m del centro
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-            </div>
-          )
-        ) : (
-          <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
-            Aún no has registrado fichajes hoy.
-          </p>
-        )}
+                  ))}
+              </div>
+            )
+          ) : (
+            <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
+              Aún no has registrado fichajes hoy.
+            </p>
+          )}
+        </CardContent>
       </Card>
     </div>
   );

@@ -97,8 +97,8 @@ function TimeEntriesMap({ entries }: TimeEntriesMapProps) {
   const { MapContainer, TileLayer, Marker, Popup, Circle } = mapComponents;
 
   return (
-    <div className="overflow-hidden rounded-lg border">
-      <MapContainer center={[centerLat, centerLng]} zoom={15} style={{ height: "600px", width: "100%" }}>
+    <div className="relative z-0 overflow-hidden rounded-lg border">
+      <MapContainer center={[centerLat, centerLng]} zoom={15} style={{ height: "600px", width: "100%", zIndex: 0 }}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
