@@ -5,10 +5,10 @@ import { useEffect } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, CheckCircle, Clock, XCircle, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { Label, Pie, PieChart } from "recharts";
 
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
 export function TimeBalanceSidebar() {
@@ -44,6 +44,113 @@ export function TimeBalanceSidebar() {
 
   return (
     <div className="space-y-4">
+      {/* Card de balance con gráfico circular */}
+      <Card className="hover:bg-muted/50 transition-colors">
+        <CardContent className="px-6 pt-3 pb-2">
+          <ChartContainer
+            config={{
+              worked: {
+                label: "Trabajadas",
+                color: "var(--chart-2)",
+              },
+              pending: {
+                label: "Pendientes",
+                color: "var(--chart-5)",
+              },
+            }}
+            className="mx-auto aspect-square max-h-[170px]"
+          >
+            <PieChart>
+              <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+              <Pie
+                data={[
+                  { name: "worked", value: totalWorkedHours, fill: "var(--color-worked)" },
+                  {
+                    name: "pending",
+                    value: Math.max(0, totalExpectedHours - totalWorkedHours),
+                    fill: "var(--color-pending)",
+                  },
+                ]}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={60}
+                strokeWidth={5}
+              >
+                <Label
+                  content={({ viewBox }) => {
+                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                      return (
+                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                          <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground font-display text-3xl">
+                            {compliance.toFixed(0)}%
+                          </tspan>
+                          <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 24} className="fill-muted-foreground text-xs">
+                            Cumplimiento
+                          </tspan>
+                        </text>
+                      );
+                    }
+                  }}
+                />
+              </Pie>
+            </PieChart>
+          </ChartContainer>
+        </CardContent>
+        <CardContent className="flex-col items-start justify-start gap-3 border-t p-3">
+          <div className="flex w-full items-center gap-3">
+            <div
+              className="flex size-10 items-center justify-center rounded-full border"
+              style={{
+                borderColor: "oklch(var(--chart-1) / 0.4)",
+                backgroundColor: "oklch(var(--chart-1) / 0.2)",
+              }}
+            >
+              <Calendar className="size-4" />
+            </div>
+            <div className="flex flex-1 flex-row justify-between">
+              <div className="text-sm">Esperadas</div>
+              <div className="text-muted-foreground text-sm">{totalExpectedHours.toFixed(1)}h</div>
+            </div>
+          </div>
+          <div className="flex w-full items-center gap-3">
+            <div
+              className="flex size-10 items-center justify-center rounded-full border"
+              style={{
+                borderColor: "oklch(var(--chart-2) / 0.4)",
+                backgroundColor: "oklch(var(--chart-2) / 0.2)",
+              }}
+            >
+              <Clock className="size-4" />
+            </div>
+            <div className="flex flex-1 flex-row justify-between">
+              <div className="text-sm">Trabajadas</div>
+              <div className="text-muted-foreground text-sm">{totalWorkedHours.toFixed(1)}h</div>
+            </div>
+          </div>
+          <div className="flex w-full items-center gap-3">
+            <div
+              className="flex size-10 items-center justify-center rounded-full border"
+              style={{
+                borderColor: isPositive ? "oklch(var(--chart-2) / 0.4)" : "oklch(var(--chart-5) / 0.4)",
+                backgroundColor: isPositive ? "oklch(var(--chart-2) / 0.2)" : "oklch(var(--chart-5) / 0.2)",
+              }}
+            >
+              {isPositive ? <TrendingUp className="size-4" /> : <TrendingDown className="size-4" />}
+            </div>
+            <div className="flex flex-1 flex-row justify-between">
+              <div className="text-sm">Balance</div>
+              <div
+                className="text-sm font-semibold"
+                style={{ color: isPositive ? "oklch(var(--chart-2))" : "oklch(var(--chart-5))" }}
+              >
+                {isPositive ? "+" : ""}
+                {balance.toFixed(1)}h
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Estadísticas de días - Card unificada */}
       <Card>
         <CardHeader className="pb-3">
@@ -120,83 +227,6 @@ export function TimeBalanceSidebar() {
           )}
         </CardContent>
       </Card>
-
-      {/* Cards de balance - Estilo website-analytics */}
-      <div className="grid gap-3">
-        {/* Horas esperadas */}
-        <Card className="hover:bg-muted/50 p-4 transition-colors">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground text-sm font-medium">Horas esperadas</dt>
-              <Calendar className="text-muted-foreground size-4" />
-            </div>
-            <dd className="text-foreground font-display mt-2 text-2xl font-semibold">
-              {totalExpectedHours.toFixed(1)}h
-            </dd>
-          </CardContent>
-        </Card>
-
-        {/* Horas trabajadas */}
-        <Card className="hover:bg-muted/50 p-4 transition-colors">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground text-sm font-medium">Horas trabajadas</dt>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "inline-flex items-center px-1.5 py-0.5 ps-2.5 text-xs font-medium",
-                  compliance >= 100
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-                )}
-              >
-                {compliance >= 100 ? (
-                  <TrendingUp className="mr-0.5 -ml-1 h-4 w-4 shrink-0 self-center text-green-500" />
-                ) : (
-                  <Clock className="mr-0.5 -ml-1 h-4 w-4 shrink-0 self-center text-orange-500" />
-                )}
-                <span className="sr-only">{compliance >= 100 ? "Cumplimiento completo" : "Cumplimiento parcial"}</span>
-                {compliance.toFixed(1)}%
-              </Badge>
-            </div>
-            <dd className="text-foreground font-display mt-2 text-2xl font-semibold">{totalWorkedHours.toFixed(1)}h</dd>
-          </CardContent>
-        </Card>
-
-        {/* Balance */}
-        <Card className="hover:bg-muted/50 p-4 transition-colors">
-          <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground text-sm font-medium">Balance</dt>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "inline-flex items-center px-1.5 py-0.5 ps-2.5 text-xs font-medium",
-                  isPositive
-                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-                )}
-              >
-                {isPositive ? (
-                  <TrendingUp className="mr-0.5 -ml-1 h-4 w-4 shrink-0 self-center text-green-500" />
-                ) : (
-                  <TrendingDown className="mr-0.5 -ml-1 h-4 w-4 shrink-0 self-center text-red-500" />
-                )}
-                <span className="sr-only">{isPositive ? "Superávit" : "Déficit"}</span>
-                {isPositive ? "+" : ""}
-                {Math.abs(balance).toFixed(1)}h
-              </Badge>
-            </div>
-            <dd
-              className="font-display mt-2 text-2xl font-semibold"
-              style={{ color: isPositive ? "oklch(var(--chart-2))" : "oklch(var(--chart-5))" }}
-            >
-              {isPositive ? "+" : ""}
-              {balance.toFixed(1)}h
-            </dd>
-          </CardContent>
-        </Card>
-      </div>
     </div>
   );
 }
