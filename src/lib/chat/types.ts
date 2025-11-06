@@ -17,12 +17,18 @@ export interface ConversationWithParticipants {
     name: string;
     email: string;
     image: string | null;
+    phone?: string | null;
+    mobilePhone?: string | null;
+    department?: string | null;
   };
   userB: {
     id: string;
     name: string;
     email: string;
     image: string | null;
+    phone?: string | null;
+    mobilePhone?: string | null;
+    department?: string | null;
   };
   _count?: {
     messages: number;

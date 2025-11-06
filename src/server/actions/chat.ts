@@ -79,6 +79,22 @@ export async function getOrCreateConversation(peerUserId: string): Promise<Conve
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         userB: {
@@ -87,6 +103,22 @@ export async function getOrCreateConversation(peerUserId: string): Promise<Conve
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         _count: {
@@ -109,6 +141,22 @@ export async function getOrCreateConversation(peerUserId: string): Promise<Conve
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         userB: {
@@ -117,6 +165,22 @@ export async function getOrCreateConversation(peerUserId: string): Promise<Conve
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         _count: {
@@ -125,7 +189,28 @@ export async function getOrCreateConversation(peerUserId: string): Promise<Conve
       },
     });
 
-    return conversation as unknown as ConversationWithParticipants;
+    // Transformar para incluir campos adicionales en el formato esperado
+    return {
+      ...conversation,
+      userA: {
+        id: conversation.userA.id,
+        name: conversation.userA.name,
+        email: conversation.userA.email,
+        image: conversation.userA.image,
+        phone: conversation.userA.employee?.phone ?? null,
+        mobilePhone: conversation.userA.employee?.mobilePhone ?? null,
+        department: conversation.userA.employee?.employmentContracts[0]?.department?.name ?? null,
+      },
+      userB: {
+        id: conversation.userB.id,
+        name: conversation.userB.name,
+        email: conversation.userB.email,
+        image: conversation.userB.image,
+        phone: conversation.userB.employee?.phone ?? null,
+        mobilePhone: conversation.userB.employee?.mobilePhone ?? null,
+        department: conversation.userB.employee?.employmentContracts[0]?.department?.name ?? null,
+      },
+    } as unknown as ConversationWithParticipants;
   } catch (error) {
     console.error("Error al obtener/crear conversación:", error);
     throw error;
@@ -165,6 +250,22 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         userB: {
@@ -173,6 +274,22 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
             name: true,
             email: true,
             image: true,
+            employee: {
+              select: {
+                phone: true,
+                mobilePhone: true,
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  orderBy: { startDate: "desc" },
+                  select: {
+                    department: {
+                      select: { name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
         messages: {
@@ -193,9 +310,27 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
       take: limit,
     });
 
-    // Transformar para incluir lastMessage
+    // Transformar para incluir lastMessage y campos adicionales
     return conversations.map((conv) => ({
       ...conv,
+      userA: {
+        id: conv.userA.id,
+        name: conv.userA.name,
+        email: conv.userA.email,
+        image: conv.userA.image,
+        phone: conv.userA.employee?.phone ?? null,
+        mobilePhone: conv.userA.employee?.mobilePhone ?? null,
+        department: conv.userA.employee?.employmentContracts[0]?.department?.name ?? null,
+      },
+      userB: {
+        id: conv.userB.id,
+        name: conv.userB.name,
+        email: conv.userB.email,
+        image: conv.userB.image,
+        phone: conv.userB.employee?.phone ?? null,
+        mobilePhone: conv.userB.employee?.mobilePhone ?? null,
+        department: conv.userB.employee?.employmentContracts[0]?.department?.name ?? null,
+      },
       lastMessage: conv.messages[0] ?? null,
       messages: undefined, // Eliminar messages del resultado
     })) as unknown as ConversationWithParticipants[];

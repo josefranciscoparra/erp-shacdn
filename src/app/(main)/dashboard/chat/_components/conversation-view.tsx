@@ -17,6 +17,8 @@ import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat
 import { getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
 
+import { UserInfoPopover } from "./user-info-popover";
+
 // Tipo extendido con estado local para optimistic UI
 type LocalMessageStatus = "sending" | "sent" | "failed";
 type MessageWithLocalState = MessageWithSender & {
@@ -303,20 +305,32 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           </Button>
         )}
 
-        <Avatar key={otherUser.id}>
-          {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
-          <AvatarFallback>
-            {otherUser.name
-              .split(" ")
-              .map((n) => n[0])
-              .join("")
-              .toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
-        <div>
-          <p className="font-medium">{otherUser.name}</p>
-          <p className="text-muted-foreground text-xs">{otherUser.email}</p>
-        </div>
+        <UserInfoPopover
+          userId={otherUser.id}
+          name={otherUser.name}
+          email={otherUser.email}
+          image={otherUser.image}
+          phone={otherUser.phone}
+          mobilePhone={otherUser.mobilePhone}
+          department={otherUser.department}
+        >
+          <button className="hover:bg-muted/50 flex items-center gap-3 rounded-lg transition-colors">
+            <Avatar key={otherUser.id}>
+              {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
+              <AvatarFallback>
+                {otherUser.name
+                  .split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <div className="text-left">
+              <p className="font-medium">{otherUser.name}</p>
+              <p className="text-muted-foreground text-xs">{otherUser.email}</p>
+            </div>
+          </button>
+        </UserInfoPopover>
       </div>
 
       {/* Mensajes */}
