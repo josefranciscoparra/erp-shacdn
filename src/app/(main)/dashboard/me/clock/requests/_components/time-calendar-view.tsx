@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { DayButton, type DayMouseEventHandler } from "react-day-picker";
@@ -61,6 +60,198 @@ export function TimeCalendarView() {
     }
   };
 
+  // Función para obtener datos del día (DEBE estar antes del early return)
+  const getDayData = useCallback(
+    (date: Date): DayCalendarData | undefined => {
+      return monthlyData?.days.find((d) => {
+        const dayDate = new Date(d.date);
+        dayDate.setHours(0, 0, 0, 0);
+        const compareDate = new Date(date);
+        compareDate.setHours(0, 0, 0, 0);
+        return dayDate.getTime() === compareDate.getTime();
+      });
+    },
+    [monthlyData],
+  );
+
+  // Componente personalizado para DayButton con tooltip (DEBE estar antes del early return)
+  const CustomDayButton = useCallback(
+    (props: React.ComponentProps<typeof DayButton>) => {
+      const dayData = getDayData(props.day.date);
+
+      // Si no es día laboral, renderizar botón normal sin tooltip
+      if (!dayData || !dayData.isWorkday) {
+        return <CalendarDayButton {...props} />;
+      }
+
+      const percentage =
+        dayData.expectedHours > 0 ? Math.round((dayData.workedHours / dayData.expectedHours) * 100) : 0;
+
+      const workedPercentage = Math.min(percentage, 100);
+      const missingPercentage = 100 - workedPercentage;
+
+      // Obtener fichajes del día para la línea de tiempo
+      const timeEntries = dayData.workdaySummary?.timeEntries ?? [];
+      const workdaySummary = dayData.workdaySummary;
+
+      // Crear entradas simplificadas desde clockIn/clockOut si no hay timeEntries
+      const simplifiedEntries = [];
+      if (workdaySummary?.clockIn) {
+        simplifiedEntries.push({
+          entryType: "CLOCK_IN",
+          timestamp: workdaySummary.clockIn,
+        });
+      }
+      if (workdaySummary?.clockOut) {
+        simplifiedEntries.push({
+          entryType: "CLOCK_OUT",
+          timestamp: workdaySummary.clockOut,
+        });
+      }
+
+      const entriesToShow = timeEntries.length > 0 ? timeEntries : simplifiedEntries;
+
+      // Crear bloques de tiempo trabajado
+      const workBlocks: { start: number; end: number; type: "work" | "break" }[] = [];
+
+      // Si tenemos clockIn y clockOut, crear un bloque simple
+      if (workdaySummary?.clockIn && workdaySummary?.clockOut) {
+        const clockInDate = new Date(workdaySummary.clockIn);
+        const clockOutDate = new Date(workdaySummary.clockOut);
+        const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
+        const endHour = clockOutDate.getHours() + clockOutDate.getMinutes() / 60;
+
+        workBlocks.push({ start: startHour, end: endHour, type: "work" });
+      } else if (workdaySummary?.clockIn) {
+        // Solo clockIn, sin clockOut (todavía trabajando)
+        const clockInDate = new Date(workdaySummary.clockIn);
+        const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
+
+        const now = new Date();
+        const isToday = format(props.day.date, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
+        const endHour = isToday ? now.getHours() + now.getMinutes() / 60 : 24;
+
+        workBlocks.push({ start: startHour, end: endHour, type: "work" });
+      }
+
+      return (
+        <TooltipProvider delayDuration={100}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CalendarDayButton {...props} />
+            </TooltipTrigger>
+            <TooltipContent side="top" className="bg-card text-card-foreground w-80 border-2 shadow-lg">
+              <div className="space-y-3">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <span className="text-card-foreground text-sm font-semibold">
+                    {format(props.day.date, "d 'de' MMMM", { locale: es })}
+                  </span>
+                  <span className="text-card-foreground text-xs font-semibold">{percentage}%</span>
+                </div>
+
+                {/* Barra de progreso */}
+                <div className="bg-muted flex h-2 w-full overflow-hidden rounded-full">
+                  <div className="bg-green-500" style={{ width: `${workedPercentage}%` }} />
+                  <div className="bg-red-500" style={{ width: `${missingPercentage}%` }} />
+                </div>
+
+                {/* Línea de tiempo visual (24 horas) */}
+                <div className="space-y-2">
+                  <div className="text-card-foreground text-xs font-medium">
+                    Línea de tiempo{" "}
+                    {entriesToShow.length === 0 && <span className="text-muted-foreground">(sin fichajes)</span>}
+                  </div>
+
+                  {/* Barra de 24 horas */}
+                  <div className="bg-muted/30 relative h-6 w-full rounded border">
+                    {workBlocks.map((block, idx) => {
+                      const startPercent = (block.start / 24) * 100;
+                      const widthPercent = ((block.end - block.start) / 24) * 100;
+
+                      return (
+                        <div
+                          key={idx}
+                          className={cn(
+                            "absolute top-0 h-full",
+                            block.type === "work" ? "bg-green-500/80" : "bg-orange-400/60",
+                          )}
+                          style={{
+                            left: `${startPercent}%`,
+                            width: `${widthPercent}%`,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Marcadores de hora */}
+                  <div className="text-muted-foreground flex justify-between text-[10px] font-medium">
+                    <span>0:00</span>
+                    <span>6:00</span>
+                    <span>12:00</span>
+                    <span>18:00</span>
+                    <span>24:00</span>
+                  </div>
+
+                  {/* Fichajes */}
+                  {entriesToShow.length > 0 && (
+                    <div className="space-y-1">
+                      {entriesToShow.map((entry, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-xs">
+                          <span
+                            className={cn(
+                              "font-semibold",
+                              entry.entryType === "CLOCK_IN" && "text-green-600 dark:text-green-400",
+                              entry.entryType === "CLOCK_OUT" && "text-blue-600 dark:text-blue-400",
+                              entry.entryType === "PAUSE_START" && "text-orange-600 dark:text-orange-400",
+                              entry.entryType === "PAUSE_END" && "text-green-600 dark:text-green-400",
+                            )}
+                          >
+                            {entry.entryType === "CLOCK_IN" && "Entrada"}
+                            {entry.entryType === "CLOCK_OUT" && "Salida"}
+                            {entry.entryType === "PAUSE_START" && "Pausa"}
+                            {entry.entryType === "PAUSE_END" && "Reanuda"}
+                          </span>
+                          <span className="text-card-foreground font-mono font-semibold">
+                            {format(new Date(entry.timestamp), "HH:mm")}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Información de horas */}
+                <div className="space-y-1 border-t pt-2 text-xs">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Trabajadas:</span>
+                    <span className="text-card-foreground font-medium">{dayData.workedHours.toFixed(1)}h</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Esperadas:</span>
+                    <span className="text-card-foreground font-medium">{dayData.expectedHours.toFixed(1)}h</span>
+                  </div>
+                  {dayData.workedHours < dayData.expectedHours && (
+                    <div className="flex justify-between">
+                      <span className="font-medium text-red-600 dark:text-red-400">Faltan:</span>
+                      <span className="font-semibold text-red-600 dark:text-red-400">
+                        {(dayData.expectedHours - dayData.workedHours).toFixed(1)}h
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    },
+    [monthlyData],
+  );
+
+  CustomDayButton.displayName = "CustomDayButton";
+
   if (isLoading || !monthlyData) {
     return (
       <Card className="flex h-[340px] w-full items-center justify-center">
@@ -73,9 +264,7 @@ export function TimeCalendarView() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  const completedDays = monthlyData.days
-    .filter((d) => d.status === "COMPLETED")
-    .map((d) => new Date(d.date));
+  const completedDays = monthlyData.days.filter((d) => d.status === "COMPLETED").map((d) => new Date(d.date));
 
   const incompleteDays = monthlyData.days
     .filter((d) => {
@@ -109,214 +298,17 @@ export function TimeCalendarView() {
     })
     .map((d) => new Date(d.date));
 
-  const nonWorkdays = monthlyData.days
-    .filter((d) => !d.isWorkday)
-    .map((d) => new Date(d.date));
+  const nonWorkdays = monthlyData.days.filter((d) => !d.isWorkday).map((d) => new Date(d.date));
 
   const clickableDays = monthlyData.days
     .filter((d) => {
       const dayDate = new Date(d.date);
       dayDate.setHours(0, 0, 0, 0);
       return (
-        d.isWorkday &&
-        (d.status === "ABSENT" || d.status === "INCOMPLETE") &&
-        dayDate < today &&
-        !d.hasPendingRequest
+        d.isWorkday && (d.status === "ABSENT" || d.status === "INCOMPLETE") && dayDate < today && !d.hasPendingRequest
       );
     })
     .map((d) => new Date(d.date));
-
-  // Función para obtener datos del día
-  const getDayData = (date: Date): DayCalendarData | undefined => {
-    return monthlyData?.days.find((d) => {
-      const dayDate = new Date(d.date);
-      dayDate.setHours(0, 0, 0, 0);
-      const compareDate = new Date(date);
-      compareDate.setHours(0, 0, 0, 0);
-      return dayDate.getTime() === compareDate.getTime();
-    });
-  };
-
-  // Componente personalizado para DayButton con tooltip (memoizado)
-  const CustomDayButton = useCallback((props: React.ComponentProps<typeof DayButton>) => {
-    const dayData = getDayData(props.day.date);
-
-    // Si no es día laboral, renderizar botón normal sin tooltip
-    if (!dayData || !dayData.isWorkday) {
-      return <CalendarDayButton {...props} />;
-    }
-
-    const percentage = dayData.expectedHours > 0
-      ? Math.round((dayData.workedHours / dayData.expectedHours) * 100)
-      : 0;
-
-    const workedPercentage = Math.min(percentage, 100);
-    const missingPercentage = 100 - workedPercentage;
-
-    // Obtener fichajes del día para la línea de tiempo
-    const timeEntries = dayData.workdaySummary?.timeEntries ?? [];
-    const workdaySummary = dayData.workdaySummary;
-
-    // Crear entradas simplificadas desde clockIn/clockOut si no hay timeEntries
-    const simplifiedEntries = [];
-    if (workdaySummary?.clockIn) {
-      simplifiedEntries.push({
-        entryType: "CLOCK_IN",
-        timestamp: workdaySummary.clockIn,
-      });
-    }
-    if (workdaySummary?.clockOut) {
-      simplifiedEntries.push({
-        entryType: "CLOCK_OUT",
-        timestamp: workdaySummary.clockOut,
-      });
-    }
-
-    const entriesToShow = timeEntries.length > 0 ? timeEntries : simplifiedEntries;
-
-    // Crear bloques de tiempo trabajado
-    const workBlocks: { start: number; end: number; type: "work" | "break" }[] = [];
-
-    // Si tenemos clockIn y clockOut, crear un bloque simple
-    if (workdaySummary?.clockIn && workdaySummary?.clockOut) {
-      const clockInDate = new Date(workdaySummary.clockIn);
-      const clockOutDate = new Date(workdaySummary.clockOut);
-      const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
-      const endHour = clockOutDate.getHours() + clockOutDate.getMinutes() / 60;
-
-      workBlocks.push({ start: startHour, end: endHour, type: "work" });
-    } else if (workdaySummary?.clockIn) {
-      // Solo clockIn, sin clockOut (todavía trabajando)
-      const clockInDate = new Date(workdaySummary.clockIn);
-      const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
-
-      const now = new Date();
-      const isToday = format(props.day.date, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
-      const endHour = isToday ? now.getHours() + now.getMinutes() / 60 : 24;
-
-      workBlocks.push({ start: startHour, end: endHour, type: "work" });
-    }
-
-    return (
-      <TooltipProvider delayDuration={100}>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <CalendarDayButton {...props} />
-          </TooltipTrigger>
-          <TooltipContent side="top" className="w-80 border-2 bg-card text-card-foreground shadow-lg">
-            <div className="space-y-3">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-card-foreground">
-                  {format(props.day.date, "d 'de' MMMM", { locale: es })}
-                </span>
-                <span className="text-xs font-semibold text-card-foreground">{percentage}%</span>
-              </div>
-
-              {/* Barra de progreso */}
-              <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted">
-                <div
-                  className="bg-green-500"
-                  style={{ width: `${workedPercentage}%` }}
-                />
-                <div
-                  className="bg-red-500"
-                  style={{ width: `${missingPercentage}%` }}
-                />
-              </div>
-
-              {/* Línea de tiempo visual (24 horas) */}
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-card-foreground">
-                  Línea de tiempo {entriesToShow.length === 0 && <span className="text-muted-foreground">(sin fichajes)</span>}
-                </div>
-
-                {/* Barra de 24 horas */}
-                <div className="relative h-6 w-full rounded border bg-muted/30">
-                  {workBlocks.map((block, idx) => {
-                    const startPercent = (block.start / 24) * 100;
-                    const widthPercent = ((block.end - block.start) / 24) * 100;
-
-                    return (
-                      <div
-                        key={idx}
-                        className={cn(
-                          "absolute top-0 h-full",
-                          block.type === "work"
-                            ? "bg-green-500/80"
-                            : "bg-orange-400/60"
-                        )}
-                        style={{
-                          left: `${startPercent}%`,
-                          width: `${widthPercent}%`,
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {/* Marcadores de hora */}
-                <div className="flex justify-between text-[10px] font-medium text-muted-foreground">
-                  <span>0:00</span>
-                  <span>6:00</span>
-                  <span>12:00</span>
-                  <span>18:00</span>
-                  <span>24:00</span>
-                </div>
-
-                {/* Fichajes */}
-                {entriesToShow.length > 0 && (
-                  <div className="space-y-1">
-                    {entriesToShow.map((entry, idx) => (
-                      <div key={idx} className="flex items-center justify-between text-xs">
-                        <span className={cn(
-                          "font-semibold",
-                          entry.entryType === "CLOCK_IN" && "text-green-600 dark:text-green-400",
-                          entry.entryType === "CLOCK_OUT" && "text-blue-600 dark:text-blue-400",
-                          entry.entryType === "PAUSE_START" && "text-orange-600 dark:text-orange-400",
-                          entry.entryType === "PAUSE_END" && "text-green-600 dark:text-green-400"
-                        )}>
-                          {entry.entryType === "CLOCK_IN" && "Entrada"}
-                          {entry.entryType === "CLOCK_OUT" && "Salida"}
-                          {entry.entryType === "PAUSE_START" && "Pausa"}
-                          {entry.entryType === "PAUSE_END" && "Reanuda"}
-                        </span>
-                        <span className="font-mono font-semibold text-card-foreground">
-                          {format(new Date(entry.timestamp), "HH:mm")}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Información de horas */}
-              <div className="space-y-1 border-t pt-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Trabajadas:</span>
-                  <span className="font-medium text-card-foreground">{dayData.workedHours.toFixed(1)}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Esperadas:</span>
-                  <span className="font-medium text-card-foreground">{dayData.expectedHours.toFixed(1)}h</span>
-                </div>
-                {dayData.workedHours < dayData.expectedHours && (
-                  <div className="flex justify-between">
-                    <span className="font-medium text-red-600 dark:text-red-400">Faltan:</span>
-                    <span className="font-semibold text-red-600 dark:text-red-400">
-                      {(dayData.expectedHours - dayData.workedHours).toFixed(1)}h
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
-    );
-  }, [monthlyData]);
-
-  CustomDayButton.displayName = "CustomDayButton";
 
   return (
     <>
@@ -353,12 +345,14 @@ export function TimeCalendarView() {
             }}
             modifiersClassNames={{
               completed: "bg-green-100 text-green-700 font-semibold dark:bg-green-950 dark:text-green-300 rounded-md",
-              incomplete: "bg-orange-100 text-orange-700 font-semibold dark:bg-orange-950 dark:text-orange-300 rounded-md",
+              incomplete:
+                "bg-orange-100 text-orange-700 font-semibold dark:bg-orange-950 dark:text-orange-300 rounded-md",
               absent: "bg-red-100 text-red-700 font-semibold dark:bg-red-950 dark:text-red-300 rounded-md",
               pending: "bg-orange-100 text-orange-700 font-semibold dark:bg-orange-950 dark:text-orange-300 rounded-md",
               future: "bg-blue-50 text-blue-600 font-medium dark:bg-blue-950 dark:text-blue-400 rounded-md",
               nonWorkday: "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 rounded-md",
-              today: "!bg-amber-100 !text-amber-700 !font-bold ring-2 ring-amber-400 dark:!bg-amber-950 dark:!text-amber-300 dark:ring-amber-600 rounded-md",
+              today:
+                "!bg-amber-100 !text-amber-700 !font-bold ring-2 ring-amber-400 dark:!bg-amber-950 dark:!text-amber-300 dark:ring-amber-600 rounded-md",
               clickable: "cursor-pointer hover:ring-2 hover:ring-primary/50 rounded-md",
             }}
           />
@@ -404,12 +398,14 @@ export function TimeCalendarView() {
               .map((day) => (
                 <div key={format(day.date, "yyyy-MM-dd")} className="flex items-center justify-between p-4">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">{format(new Date(day.date), "dd MMM", { locale: es })}</p>
+                    <p className="text-sm leading-none font-medium">
+                      {format(new Date(day.date), "dd MMM", { locale: es })}
+                    </p>
                     <p className="text-muted-foreground text-xs">
                       {day.status === "ABSENT" ? "Sin fichaje" : `${day.workedHours.toFixed(1)}h trabajadas`}
                     </p>
                   </div>
-                  <div className="rounded-full bg-orange-100 px-2 py-1 text-xs capitalize text-orange-700 dark:bg-orange-950 dark:text-orange-300">
+                  <div className="rounded-full bg-orange-100 px-2 py-1 text-xs text-orange-700 capitalize dark:bg-orange-950 dark:text-orange-300">
                     Pendiente
                   </div>
                 </div>
