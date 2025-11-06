@@ -42,6 +42,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
 
@@ -65,15 +66,14 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   });
 
   // Función para hacer scroll al fondo
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
-      if (viewport) {
-        viewport.scrollTop = viewport.scrollHeight;
-        setIsAtBottom(true);
-        setShowScrollButton(false);
-      }
-    }
+  const scrollToBottom = (smooth = false) => {
+    // Usar scrollIntoView en el marcador del final (mejor para Safari)
+    messagesEndRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+      block: "end",
+    });
+    setIsAtBottom(true);
+    setShowScrollButton(false);
   };
 
   // Detectar posición de scroll
@@ -115,6 +115,11 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           setMessages(messagesWithStatus);
           setHasMore(data.hasMore ?? false);
           setCursor(data.nextCursor);
+
+          // Safari necesita múltiples intentos para hacer scroll correctamente
+          requestAnimationFrame(() => scrollToBottom());
+          setTimeout(() => scrollToBottom(), 50);
+          setTimeout(() => scrollToBottom(), 150);
         }
       } catch (error) {
         console.error("Error cargando mensajes:", error);
@@ -288,7 +293,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   };
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 border-b p-4">
         {/* Botón Volver (solo móvil) */}
@@ -385,7 +390,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                           {isOwn && (
                             <>
                               {status === "sending" && <Loader2 className="h-3 w-3 animate-spin" />}
-                              {status === "sent" && <CheckCheck className="h-3 w-3" />}
+                              {status === "sent" && <Check className="h-3 w-3" />}
                             </>
                           )}
                         </span>
@@ -405,6 +410,8 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                   </div>
                 );
               })}
+              {/* Marcador para scroll al fondo */}
+              <div ref={messagesEndRef} />
             </div>
           )}
         </ScrollArea>

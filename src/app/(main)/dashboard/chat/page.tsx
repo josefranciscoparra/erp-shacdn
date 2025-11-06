@@ -11,7 +11,10 @@ export const metadata: Metadata = {
 
 export default function ChatPage() {
   return (
-    <div className="@container/main flex h-[calc(100vh-7rem)] flex-col">
+    <div
+      className="@container/main flex h-[calc(100dvh-7rem)] min-h-0 flex-col"
+      style={{ maxHeight: "calc(100vh - 7rem)" }}
+    >
       <Suspense fallback={<ChatSkeleton />}>
         <ChatContainer />
       </Suspense>

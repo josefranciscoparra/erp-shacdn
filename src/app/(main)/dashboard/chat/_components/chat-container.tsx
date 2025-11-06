@@ -112,11 +112,11 @@ export function ChatContainer() {
   }, []);
 
   return (
-    <div className="bg-card flex h-full gap-4 overflow-hidden rounded-lg border">
+    <div className="bg-card flex h-full min-h-0 gap-4 overflow-hidden rounded-lg border">
       {/* Lista de conversaciones (sidebar izquierdo) */}
       <div
         className={cn(
-          "flex w-full flex-col border-r @3xl/main:w-80",
+          "flex min-h-0 w-full flex-col border-r @3xl/main:w-80",
           showMobileConversation && "hidden @3xl/main:flex",
         )}
       >
@@ -148,7 +148,7 @@ export function ChatContainer() {
       </div>
 
       {/* Vista de conversación (área principal) */}
-      <div className={cn("flex-1", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}>
+      <div className={cn("min-h-0 flex-1", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}>
         {selectedConversation ? (
           <ConversationView
             conversation={selectedConversation}
