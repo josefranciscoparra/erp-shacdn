@@ -2,35 +2,19 @@
 
 import { useState, useEffect } from "react";
 
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isSameMonth, isSameDay } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
+import { Calendar, Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getMyCalendars, getMyMonthEvents, CalendarData, CalendarEventData } from "@/server/actions/employee-calendars";
 
-const monthNames = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+import { CalendarEventsView } from "./calendar-events-view";
 
 const eventTypeLabels: Record<string, string> = {
   HOLIDAY: "Festivo",
@@ -86,12 +70,8 @@ export function MyCalendar() {
     }
   };
 
-  const previousMonth = () => {
-    setCurrentDate(new Date(year, month - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentDate(new Date(year, month + 1, 1));
+  const handleMonthChange = (newMonth: Date) => {
+    setCurrentDate(newMonth);
   };
 
   // Filtrar eventos según el filtro seleccionado
@@ -100,31 +80,20 @@ export function MyCalendar() {
     return event.eventType === filterType;
   });
 
-  const getEventsForDate = (date: Date) => {
-    return filteredEvents.filter((event) => isSameDay(new Date(event.date), date));
-  };
-
   const handleDayClick = (day: Date, dayEvents: CalendarEventData[]) => {
-    if (dayEvents.length > 0) {
-      setSelectedDay(day);
-      setDayEventsDialogOpen(true);
-    }
+    setSelectedDay(day);
+    setDayEventsDialogOpen(true);
   };
 
-  const selectedDayEvents = selectedDay ? getEventsForDate(selectedDay) : [];
-
-  // Calcular días del calendario (con días del mes anterior/siguiente para completar semanas)
-  const firstDayOfMonth = startOfMonth(currentDate);
-  const lastDayOfMonth = endOfMonth(currentDate);
-  const startDate = startOfWeek(firstDayOfMonth, { weekStartsOn: 1 }); // Lunes
-  const endDate = endOfWeek(lastDayOfMonth, { weekStartsOn: 1 });
-
-  const calendarDays = [];
-  let day = startDate;
-  while (day <= endDate) {
-    calendarDays.push(day);
-    day = addDays(day, 1);
-  }
+  const selectedDayEvents = selectedDay
+    ? filteredEvents.filter((event) => {
+        const eventDate = new Date(event.date);
+        eventDate.setHours(0, 0, 0, 0);
+        const selectedDate = new Date(selectedDay);
+        selectedDate.setHours(0, 0, 0, 0);
+        return eventDate.getTime() === selectedDate.getTime();
+      })
+    : [];
 
   // Próximos eventos (ordenados por fecha)
   const today = new Date();
@@ -135,29 +104,13 @@ export function MyCalendar() {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 5);
 
-  // Agrupar próximos eventos por calendario
-  const upcomingByCalendar = upcomingEvents.reduce(
-    (acc, event) => {
-      const calendarName = event.calendar.name;
-      if (!acc[calendarName]) {
-        acc[calendarName] = {
-          calendar: event.calendar,
-          events: [],
-        };
-      }
-      acc[calendarName].events.push(event);
-      return acc;
-    },
-    {} as Record<string, { calendar: CalendarEventData["calendar"]; events: CalendarEventData[] }>,
-  );
-
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Mi Calendario" />
+        <SectionHeader title="Mi Calendario" description="Eventos, festivos y cierres de la organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-          <span className="text-muted-foreground ml-2">Cargando calendario...</span>
+          <span className="text-muted-foreground ml-2 text-sm">Cargando calendario...</span>
         </div>
       </div>
     );
@@ -165,10 +118,12 @@ export function MyCalendar() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Mi Calendario" />
+      <div className="animate-in fade-in duration-500">
+        <SectionHeader title="Mi Calendario" description="Eventos, festivos y cierres de la organización" />
+      </div>
 
       {/* Filtros */}
-      <div className="flex items-center gap-2">
+      <div className="animate-in fade-in flex items-center gap-2 duration-700" style={{ animationDelay: "100ms" }}>
         <Select value={filterType} onValueChange={(value) => setFilterType(value as FilterType)}>
           <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Filtrar eventos" />
@@ -182,144 +137,71 @@ export function MyCalendar() {
         </Select>
       </div>
 
-      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
+      <div
+        className="animate-in fade-in grid gap-4 duration-700 md:gap-6 @4xl/main:grid-cols-[minmax(0,1fr)_340px] @4xl/main:items-start"
+        style={{ animationDelay: "200ms" }}
+      >
         {/* Calendario principal */}
-        <Card className="@container/card flex flex-col gap-4 p-6 @xl/main:col-span-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-bold">
-              {monthNames[month]} {year}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={previousMonth}>
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" onClick={() => setCurrentDate(new Date())}>
-                Hoy
-              </Button>
-              <Button variant="outline" size="icon" onClick={nextMonth}>
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+        <CalendarEventsView
+          events={filteredEvents}
+          calendars={calendars}
+          currentMonth={currentDate}
+          onMonthChange={handleMonthChange}
+          onDayClick={handleDayClick}
+        />
 
-          {/* Días de la semana */}
-          <div className="grid grid-cols-7 gap-2">
-            {dayNames.map((day) => (
-              <div key={day} className="text-muted-foreground text-center text-sm font-semibold">
-                {day}
-              </div>
-            ))}
-          </div>
-
-          {/* Días del mes */}
-          <div className="grid grid-cols-7 gap-2">
-            {calendarDays.map((day, index) => {
-              const dayEvents = getEventsForDate(day);
-              const isToday = isSameDay(day, new Date());
-              const isCurrentMonth = isSameMonth(day, currentDate);
-
-              return (
-                <div
-                  key={index}
-                  onClick={() => handleDayClick(day, dayEvents)}
-                  className={`relative flex min-h-16 flex-col gap-1 rounded-lg border p-2 transition-colors ${
-                    isToday ? "border-primary bg-primary/5" : ""
-                  } ${!isCurrentMonth ? "bg-muted/30 text-muted-foreground" : ""} ${
-                    dayEvents.length > 0 ? "hover:bg-accent cursor-pointer" : ""
-                  }`}
-                >
-                  <div
-                    className={`text-sm font-semibold ${
-                      isToday ? "text-primary" : isCurrentMonth ? "text-foreground" : "text-muted-foreground"
-                    }`}
-                  >
-                    {format(day, "d")}
-                  </div>
-
-                  {/* Puntos de eventos */}
-                  {dayEvents.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {dayEvents.slice(0, 6).map((event) => (
-                        <div
-                          key={event.id}
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: event.calendar.color }}
-                          title={`${event.name} (${event.calendar.name})`}
-                        />
-                      ))}
-                      {dayEvents.length > 6 && (
-                        <span className="text-muted-foreground text-xs">+{dayEvents.length - 6}</span>
-                      )}
-                    </div>
-                  )}
+        {/* Sidebar: Próximos eventos con timeline vertical */}
+        <Card className="@container/card">
+          <CardHeader>
+            <CardTitle className="text-lg">Próximos eventos</CardTitle>
+          </CardHeader>
+          <CardContent className="ps-8">
+            {upcomingEvents.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+                <div className="bg-muted flex size-16 items-center justify-center rounded-full border">
+                  <Calendar className="text-muted-foreground h-8 w-8" />
                 </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Próximos eventos */}
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Próximos eventos</h3>
-
-          <div className="flex flex-col gap-4">
-            {Object.keys(upcomingByCalendar).length === 0 ? (
-              <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-                <Calendar className="text-muted-foreground h-12 w-12" />
-                <p className="text-muted-foreground text-sm">No tienes eventos próximos</p>
+                <div>
+                  <p className="text-sm font-medium">No hay eventos próximos</p>
+                  <p className="text-muted-foreground mt-1 text-xs">Los eventos futuros aparecerán aquí</p>
+                </div>
               </div>
             ) : (
-              Object.values(upcomingByCalendar).map(({ calendar, events: calendarEvents }) => (
-                <div key={calendar.id} className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <div className="h-3 w-3 rounded-full" style={{ backgroundColor: calendar.color }} />
-                    <span className="text-sm font-medium">{calendar.name}</span>
-                  </div>
-                  {calendarEvents.map((event) => (
-                    <div key={event.id} className="ml-5 flex items-start gap-3 rounded-lg border p-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">{event.name}</span>
-                        {event.description && (
-                          <span className="text-muted-foreground text-xs">{event.description}</span>
-                        )}
-                        <div className="mt-1 flex items-center gap-2">
-                          <span className="text-muted-foreground text-xs">
-                            {format(new Date(event.date), "PPP", { locale: es })}
-                          </span>
-                          <Badge variant="outline" className="text-xs">
-                            {eventTypeLabels[event.eventType] || event.eventType}
-                          </Badge>
-                        </div>
+              <ol className="relative border-s">
+                {upcomingEvents.map((event, idx) => (
+                  <li key={event.id} className={`ms-6 ${idx !== upcomingEvents.length - 1 ? "mb-8" : ""} space-y-2`}>
+                    {/* Círculo con color del calendario */}
+                    <span
+                      className="bg-background absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full border-2"
+                      style={{ borderColor: event.calendar?.color ?? "var(--primary)" }}
+                    >
+                      <div
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: event.calendar?.color ?? "var(--primary)" }}
+                      />
+                    </span>
+
+                    <div className="space-y-1">
+                      <h3 className="font-semibold">{event.name}</h3>
+                      {event.description && <p className="text-muted-foreground text-sm">{event.description}</p>}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <time className="text-muted-foreground flex items-center gap-1.5 text-sm leading-none">
+                          <Clock className="size-3" />
+                          {format(new Date(event.date), "PPP", { locale: es })}
+                        </time>
+                        <Badge variant="outline" className="text-xs">
+                          {eventTypeLabels[event.eventType] ?? event.eventType}
+                        </Badge>
                       </div>
+                      <p className="text-muted-foreground text-xs">{event.calendar?.name ?? "Calendario"}</p>
                     </div>
-                  ))}
-                </div>
-              ))
+                  </li>
+                ))}
+              </ol>
             )}
-          </div>
+          </CardContent>
         </Card>
       </div>
-
-      {/* Leyenda - Calendarios visibles */}
-      {calendars.length > 0 && (
-        <Card className="@container/card flex flex-col gap-4 p-6">
-          <h3 className="text-lg font-semibold">Calendarios visibles</h3>
-          <div className="flex flex-wrap gap-3">
-            {calendars.map((cal) => (
-              <Badge key={cal.id} variant="outline" className="flex items-center gap-2 py-1.5">
-                <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cal.color }} />
-                <span>{cal.name}</span>
-                {cal.costCenter && <span className="text-muted-foreground text-xs">({cal.costCenter.name})</span>}
-              </Badge>
-            ))}
-          </div>
-          {calendars.length === 0 && (
-            <p className="text-muted-foreground text-sm">
-              No tienes calendarios asignados. Contacta con RRHH si crees que esto es un error.
-            </p>
-          )}
-        </Card>
-      )}
 
       {/* Dialog de eventos del día */}
       <Dialog open={dayEventsDialogOpen} onOpenChange={setDayEventsDialogOpen}>
@@ -332,19 +214,22 @@ export function MyCalendar() {
           </DialogHeader>
           <div className="mt-4 space-y-3">
             {selectedDayEvents.map((event) => (
-              <div key={event.id} className="flex items-start gap-3 rounded-lg border p-3">
+              <div
+                key={event.id}
+                className="hover:bg-accent flex items-start gap-3 rounded-lg border p-3 transition-colors"
+              >
                 <div
                   className="mt-0.5 h-3 w-3 flex-shrink-0 rounded-full"
-                  style={{ backgroundColor: event.calendar.color }}
+                  style={{ backgroundColor: event.calendar?.color ?? "var(--primary)" }}
                 />
                 <div className="min-w-0 flex-1">
                   <div className="font-medium">{event.name}</div>
                   {event.description && <p className="text-muted-foreground mt-1 text-sm">{event.description}</p>}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <Badge variant="outline" className="text-xs">
-                      {eventTypeLabels[event.eventType] || event.eventType}
+                      {eventTypeLabels[event.eventType] ?? event.eventType}
                     </Badge>
-                    <span className="text-muted-foreground text-xs">{event.calendar.name}</span>
+                    <span className="text-muted-foreground text-xs">{event.calendar?.name ?? "Calendario"}</span>
                   </div>
                 </div>
               </div>
