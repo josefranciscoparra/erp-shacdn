@@ -102,12 +102,6 @@ export function useSidebarItems(): NavGroup[] {
                 url: "/dashboard/chat",
                 icon: MessageSquare,
               },
-              {
-                title: "Mensajes (ShadCN)",
-                url: "/dashboard/messages",
-                icon: MessageSquare,
-                isNew: true,
-              },
             ]
           : []),
         ...(documentsEnabled
