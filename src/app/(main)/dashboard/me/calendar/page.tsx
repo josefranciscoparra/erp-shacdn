@@ -1,5 +1,5 @@
-import { MyCalendar } from "./_components/my-calendar";
+import EventCalendarApp from "./components/event-calendar-app";
 
 export default function CalendarPage() {
-  return <MyCalendar />;
+  return <EventCalendarApp />;
 }

@@ -63,8 +63,8 @@ function EventWrapper({
         getBorderRadiusClasses(isFirstDay, isLastDay),
         className,
       )}
-      data-dragging={isDragging || undefined}
-      data-past-event={isEventInPast || undefined}
+      data-dragging={isDragging ?? undefined}
+      data-past-event={isEventInPast ?? undefined}
       onClick={onClick}
       onMouseDown={onMouseDown}
       onTouchStart={onTouchStart}

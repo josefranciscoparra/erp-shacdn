@@ -6,7 +6,6 @@ import {
   Building2,
   FileText,
   Calendar,
-  CalendarCheck,
   Settings,
   FolderOpen,
   Clock,
@@ -90,11 +89,6 @@ export function useSidebarItems(): NavGroup[] {
           title: "Mi Calendario",
           url: "/dashboard/me/calendar",
           icon: Calendar,
-        },
-        {
-          title: "Calendar v2",
-          url: "/dashboard/my-calendar",
-          icon: CalendarCheck,
         },
         {
           title: "Mis Gastos",
