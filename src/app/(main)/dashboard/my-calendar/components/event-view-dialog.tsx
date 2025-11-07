@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Clock, MapPin, Tag } from "lucide-react";
+import { Clock, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,26 +70,15 @@ export function EventViewDialog({ event, isOpen, onClose }: EventViewDialogProps
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <div className="flex items-start gap-3">
-            <div className={cn("mt-1 flex size-10 shrink-0 items-center justify-center rounded-lg", colorScheme.bg)}>
-              <Calendar className={cn("size-5", colorScheme.text)} />
-            </div>
-            <div className="flex-1 space-y-1">
-              <DialogTitle className="text-xl">{event.title}</DialogTitle>
-              <div className="flex flex-wrap items-center gap-2">
-                {event.color && (
-                  <Badge variant="outline" className={cn("text-xs", colorScheme.badge)}>
-                    <Tag className="mr-1 size-3" />
-                    {event.color}
-                  </Badge>
-                )}
-                {isAllDay && (
-                  <Badge variant="outline" className="text-xs">
-                    Todo el día
-                  </Badge>
-                )}
-              </div>
-            </div>
+          <div className="space-y-3">
+            <DialogTitle className={cn("rounded-lg px-4 py-3 text-xl", colorScheme.bg, colorScheme.text)}>
+              {event.title}
+            </DialogTitle>
+            {isAllDay && (
+              <Badge variant="outline" className="w-fit text-xs">
+                Todo el día
+              </Badge>
+            )}
           </div>
           <DialogDescription className="sr-only">Detalles del evento</DialogDescription>
         </DialogHeader>

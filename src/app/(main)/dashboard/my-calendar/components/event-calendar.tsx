@@ -69,6 +69,14 @@ export function EventCalendar({
   const [isEventDialogOpen, setIsEventDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
 
+  // Traducción de vistas al español
+  const viewLabels: Record<CalendarView, string> = {
+    month: "Mes",
+    week: "Semana",
+    day: "Día",
+    agenda: "Agenda",
+  };
+
   // Add keyboard shortcuts for view switching
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -307,9 +315,9 @@ export function EventCalendar({
                 <Button variant="outline" className="gap-1.5 max-[479px]:h-8">
                   <span>
                     <span className="min-[480px]:hidden" aria-hidden="true">
-                      {view.charAt(0).toUpperCase()}
+                      {viewLabels[view].charAt(0)}
                     </span>
-                    <span className="max-[479px]:sr-only">{view.charAt(0).toUpperCase() + view.slice(1)}</span>
+                    <span className="max-[479px]:sr-only">{viewLabels[view]}</span>
                   </span>
                   <ChevronDownIcon className="-me-1 opacity-60" size={16} aria-hidden="true" />
                 </Button>
