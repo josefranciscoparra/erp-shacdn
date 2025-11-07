@@ -122,27 +122,12 @@ export function MyCalendar() {
         <SectionHeader title="Mi Calendario" description="Eventos, festivos y cierres de la organización" />
       </div>
 
-      {/* Filtros */}
-      <div className="animate-in fade-in flex items-center gap-2 duration-700" style={{ animationDelay: "100ms" }}>
-        <Select value={filterType} onValueChange={(value) => setFilterType(value as FilterType)}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Filtrar eventos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los eventos</SelectItem>
-            <SelectItem value="HOLIDAY">Solo festivos</SelectItem>
-            <SelectItem value="EVENT">Solo eventos</SelectItem>
-            <SelectItem value="CLOSURE">Solo cierres</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div
-        className="animate-in fade-in grid gap-4 duration-700 md:gap-6 @4xl/main:grid-cols-[auto_minmax(0,1fr)] @4xl/main:items-start"
-        style={{ animationDelay: "200ms" }}
+        className="animate-in fade-in grid gap-4 duration-700 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)] lg:items-stretch 2xl:grid-cols-[minmax(0,1.6fr)_minmax(360px,0.8fr)]"
+        style={{ animationDelay: "150ms" }}
       >
-        {/* Calendario principal */}
-        <div className="w-fit">
+        {/* Columna izquierda: filtros + calendario */}
+        <div className="h-full">
           <CalendarEventsView
             events={filteredEvents}
             calendars={calendars}
@@ -152,12 +137,12 @@ export function MyCalendar() {
           />
         </div>
 
-        {/* Sidebar: Próximos eventos con timeline vertical */}
-        <Card className="@container/card">
+        {/* Columna derecha */}
+        <Card className="@container/card flex h-full flex-col">
           <CardHeader>
             <CardTitle className="text-lg">Próximos eventos</CardTitle>
           </CardHeader>
-          <CardContent className="ps-8">
+          <CardContent className="flex-1 ps-8">
             {upcomingEvents.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
                 <div className="bg-muted flex size-16 items-center justify-center rounded-full border">

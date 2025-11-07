@@ -363,7 +363,7 @@ export function TimeCalendarView() {
         </CardContent>
 
         {/* Leyenda */}
-        <div className="flex flex-wrap gap-3 border-t px-4 py-4 text-xs sm:px-6">
+        <div className="flex flex-wrap items-center justify-center gap-3 border-t px-4 py-4 text-center text-xs sm:px-6">
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-full bg-green-500" />
             <span>Completo</span>

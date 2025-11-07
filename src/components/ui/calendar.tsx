@@ -125,12 +125,12 @@ function Calendar({
   const _monthGridClassName = cn("mx-auto mt-4", props.monthGridClassName);
   const _weekClassName = cn("mt-2 flex w-max items-start", props.weekClassName);
   const _dayClassName = cn(
-    "flex flex-1 items-center justify-center p-0 text-sm",
+    "flex size-8 flex-1 items-center justify-center p-0 text-sm",
     props.dayClassName
   );
   const _dayButtonClassName = cn(
     buttonVariants({ variant: "ghost" }),
-    "rounded-md p-0 font-normal transition-none aria-selected:opacity-100",
+    "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100",
     props.dayButtonClassName
   );
   const buttonRangeClassName =

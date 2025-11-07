@@ -130,8 +130,8 @@ export function CalendarEventsView({
   today.setHours(0, 0, 0, 0);
 
   return (
-    <Card className="p-0">
-      <CardContent className="p-0">
+    <Card className="flex h-full flex-col p-0">
+      <CardContent className="flex-1 p-0">
         <Calendar
           mode="single"
           selected={undefined}
@@ -175,7 +175,7 @@ export function CalendarEventsView({
       <div className="flex flex-col divide-y border-t px-0">
         {calendars.length > 0 && (
           <div>
-            <div className="flex flex-wrap gap-3 p-4 text-xs">
+            <div className="flex flex-wrap items-center justify-center gap-3 p-4 text-center text-xs">
               {calendars.map((cal) => (
                 <div key={cal.id} className="flex items-center gap-1.5">
                   <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cal.color ?? "var(--primary)" }} />
