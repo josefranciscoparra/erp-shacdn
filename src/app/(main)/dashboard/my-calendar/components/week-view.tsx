@@ -18,6 +18,7 @@ import {
   startOfDay,
   startOfWeek,
 } from "date-fns";
+import { es } from "date-fns/locale";
 
 import { cn } from "@/lib/utils";
 
@@ -71,7 +72,7 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
     return events
       .filter((event) => {
         // Include explicitly marked all-day events or multi-day events
-        return event.allDay || isMultiDayEvent(event);
+        return (event.allDay ?? false) || isMultiDayEvent(event);
       })
       .filter((event) => {
         const eventStart = new Date(event.start);
@@ -210,9 +211,9 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
             data-today={isToday(day) || undefined}
           >
             <span className="sm:hidden" aria-hidden="true">
-              {format(day, "E")[0]} {format(day, "d")}
+              {format(day, "E", { locale: es })[0]} {format(day, "d")}
             </span>
-            <span className="max-sm:hidden">{format(day, "EEE dd")}</span>
+            <span className="max-sm:hidden">{format(day, "EEE dd", { locale: es })}</span>
           </div>
         ))}
       </div>
@@ -280,7 +281,7 @@ export function WeekView({ currentDate, events, onEventSelect, onEventCreate }: 
             >
               {index > 0 && (
                 <span className="bg-background text-muted-foreground/70 absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end pe-2 text-[10px] sm:pe-4 sm:text-xs">
-                  {format(hour, "h a")}
+                  {format(hour, "h a", { locale: es })}
                 </span>
               )}
             </div>

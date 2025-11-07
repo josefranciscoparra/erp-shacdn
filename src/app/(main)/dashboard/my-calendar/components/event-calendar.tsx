@@ -13,6 +13,7 @@ import {
   subMonths,
   subWeeks,
 } from "date-fns";
+import { es } from "date-fns/locale";
 import { CalendarCheck, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -53,6 +54,14 @@ export interface EventCalendarProps {
   initialView?: CalendarView;
   readOnly?: boolean;
 }
+
+// Helper para capitalizar la primera letra de cada palabra
+const capitalizeWords = (str: string): string => {
+  return str
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
 export function EventCalendar({
   events = [],
@@ -196,8 +205,8 @@ export function EventCalendar({
     if (event.id) {
       onEventUpdate?.(event);
       // Show toast notification when an event is updated
-      toast(`Event "${event.title}" updated`, {
-        description: format(new Date(event.start), "MMM d, yyyy"),
+      toast(`Evento "${event.title}" actualizado`, {
+        description: format(new Date(event.start), "d 'de' MMM 'de' yyyy", { locale: es }),
         position: "bottom-left",
       });
     } else {
@@ -206,8 +215,8 @@ export function EventCalendar({
         id: Math.random().toString(36).substring(2, 11),
       });
       // Show toast notification when an event is added
-      toast(`Event "${event.title}" added`, {
-        description: format(new Date(event.start), "MMM d, yyyy"),
+      toast(`Evento "${event.title}" agregado`, {
+        description: format(new Date(event.start), "d 'de' MMM 'de' yyyy", { locale: es }),
         position: "bottom-left",
       });
     }
@@ -223,8 +232,8 @@ export function EventCalendar({
 
     // Show toast notification when an event is deleted
     if (deletedEvent) {
-      toast(`Event "${deletedEvent.title}" deleted`, {
-        description: format(new Date(deletedEvent.start), "MMM d, yyyy"),
+      toast(`Evento "${deletedEvent.title}" eliminado`, {
+        description: format(new Date(deletedEvent.start), "d 'de' MMM 'de' yyyy", { locale: es }),
         position: "bottom-left",
       });
     }
@@ -237,33 +246,33 @@ export function EventCalendar({
     onEventUpdate?.(updatedEvent);
 
     // Show toast notification when an event is updated via drag and drop
-    toast(`Event "${updatedEvent.title}" moved`, {
-      description: format(new Date(updatedEvent.start), "MMM d, yyyy"),
+    toast(`Evento "${updatedEvent.title}" movido`, {
+      description: format(new Date(updatedEvent.start), "d 'de' MMM 'de' yyyy", { locale: es }),
       position: "bottom-left",
     });
   };
 
   const viewTitle = useMemo(() => {
     if (view === "month") {
-      return format(currentDate, "MMMM yyyy");
+      return capitalizeWords(format(currentDate, "MMMM yyyy", { locale: es }));
     } else if (view === "week") {
       const start = startOfWeek(currentDate, { weekStartsOn: 0 });
       const end = endOfWeek(currentDate, { weekStartsOn: 0 });
       if (isSameMonth(start, end)) {
-        return format(start, "MMMM yyyy");
+        return capitalizeWords(format(start, "MMMM yyyy", { locale: es }));
       } else {
-        return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
+        return capitalizeWords(`${format(start, "MMM", { locale: es })} - ${format(end, "MMM yyyy", { locale: es })}`);
       }
     } else if (view === "day") {
       return (
         <>
           <span className="min-[480px]:hidden" aria-hidden="true">
-            {format(currentDate, "MMM d, yyyy")}
+            {capitalizeWords(format(currentDate, "d 'de' MMM 'de' yyyy", { locale: es }))}
           </span>
           <span className="max-[479px]:hidden min-md:hidden" aria-hidden="true">
-            {format(currentDate, "MMMM d, yyyy")}
+            {capitalizeWords(format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: es }))}
           </span>
-          <span className="max-md:hidden">{format(currentDate, "EEE MMMM d, yyyy")}</span>
+          <span className="max-md:hidden">{capitalizeWords(format(currentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }))}</span>
         </>
       );
     } else if (view === "agenda") {
@@ -272,12 +281,12 @@ export function EventCalendar({
       const end = addDays(currentDate, AgendaDaysToShow - 1);
 
       if (isSameMonth(start, end)) {
-        return format(start, "MMMM yyyy");
+        return capitalizeWords(format(start, "MMMM yyyy", { locale: es }));
       } else {
-        return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
+        return capitalizeWords(`${format(start, "MMM", { locale: es })} - ${format(end, "MMM yyyy", { locale: es })}`);
       }
     } else {
-      return format(currentDate, "MMMM yyyy");
+      return capitalizeWords(format(currentDate, "MMMM yyyy", { locale: es }));
     }
   }, [currentDate, view]);
 
