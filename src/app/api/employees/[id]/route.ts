@@ -4,7 +4,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import { resolveAvatarForClient } from "@/lib/avatar";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
 
@@ -137,11 +136,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       birthDate: employee.birthDate?.toISOString(),
       createdAt: employee.createdAt.toISOString(),
       updatedAt: employee.updatedAt.toISOString(),
-      photoUrl: resolveAvatarForClient(
-        employee.photoUrl,
-        employee.user?.id ?? employee.id,
-        employee.updatedAt.getTime(),
-      ),
+      // photoUrl sin timestamp - se cachea por 24h
+      // Construir URL de la API sin parámetros de query
+      photoUrl: employee.photoUrl ? `/api/users/${employee.user?.id ?? employee.id}/avatar` : null,
       employmentContracts: employee.employmentContracts.map((contract) => ({
         ...contract,
         startDate: contract.startDate.toISOString(),

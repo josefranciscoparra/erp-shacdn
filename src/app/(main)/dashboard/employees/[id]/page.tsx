@@ -273,12 +273,17 @@ export default function EmployeeProfilePage() {
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
   const photoUrl = employee.photoUrl ?? null;
 
+  // Calcular iniciales para el fallback
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
   const profileAvatar = (
     <Avatar className="h-12 w-12">
       {photoUrl ? <AvatarImage src={photoUrl} alt={fullName} /> : null}
-      <AvatarFallback className="bg-muted text-muted-foreground">
-        <User className="h-5 w-5" />
-      </AvatarFallback>
+      <AvatarFallback className="bg-muted text-muted-foreground">{getInitials(fullName)}</AvatarFallback>
     </Avatar>
   );
   const activeContract = employee.employmentContracts.find((c) => c.active);

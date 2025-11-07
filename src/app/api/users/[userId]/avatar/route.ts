@@ -50,11 +50,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const signedUrl = await avatarUploadService.getSignedAvatarUrl(storagePath, 24 * 60 * 60);
     const redirectUrl = new URL(signedUrl, origin).toString();
 
-    // Caché de 24 horas en el navegador
+    // Caché de 24 horas con revalidación (compatible con Safari)
+    // Removido 'immutable' porque Safari lo interpreta demasiado estrictamente
+    // y no recarga la imagen incluso cuando cambia el parámetro ?v=timestamp
+    // Con must-revalidate, Safari verificará si la imagen cambió después de 24h
     return NextResponse.redirect(redirectUrl, {
       status: 302,
       headers: {
-        "Cache-Control": "public, max-age=86400, immutable", // 24 horas
+        "Cache-Control": "public, max-age=86400, must-revalidate", // 24 horas
       },
     });
   } catch (error) {

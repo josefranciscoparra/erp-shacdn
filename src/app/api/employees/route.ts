@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
-import { resolveAvatarForClient } from "@/lib/avatar";
 import { encrypt } from "@/lib/crypto";
 import { formatEmployeeNumber } from "@/lib/employee-numbering";
 import { generateTemporaryPassword } from "@/lib/password";

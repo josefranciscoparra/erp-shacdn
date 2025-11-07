@@ -3,7 +3,6 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { z } from "zod";
 
-import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 
 // Schema de validación para login
@@ -52,7 +51,8 @@ export const {
         token.email = user.email;
         token.mustChangePassword = user.mustChangePassword;
         token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
-        token.image = resolveAvatarForClient(user.image ?? null, user.id, Date.now()) ?? null;
+        // Avatar sin timestamp - se cachea por 24h
+        token.image = user.image ? `/api/users/${user.id}/avatar` : null;
         return token;
       }
 
@@ -95,7 +95,8 @@ export const {
         }
 
         token.email = dbUser.email;
-        token.image = resolveAvatarForClient(dbUser.image, token.id, dbUser.updatedAt.getTime());
+        // Avatar sin timestamp - se cachea por 24h
+        token.image = dbUser.image ? `/api/users/${token.id}/avatar` : null;
         token.role = dbUser.role;
         token.orgId = dbUser.orgId;
         token.mustChangePassword = dbUser.mustChangePassword;

@@ -3,7 +3,6 @@
 import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
 
 import { auth } from "@/lib/auth";
-import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 
 import { getMyMonthEvents } from "./employee-calendars";
@@ -173,7 +172,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       email: employee.email ?? session.user.email,
       position: activeContract?.position?.title ?? null,
       department: activeContract?.department?.name ?? null,
-      photoUrl: resolveAvatarForClient(employee.photoUrl, session.user.id, employee.updatedAt?.getTime()),
+      // Avatar sin timestamp - se cachea por 24h
+      photoUrl: employee.photoUrl ? `/api/users/${session.user.id}/avatar` : null,
     };
 
     // Determinar estado actual del fichaje

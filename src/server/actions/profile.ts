@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
-import { resolveAvatarForClient } from "@/lib/avatar";
 import { prisma } from "@/lib/prisma";
 import { avatarUploadService } from "@/lib/storage/avatar-service";
 
@@ -175,7 +174,8 @@ export async function getProfileData(): Promise<ProfileData | null> {
         id: user.id,
         email: user.email,
         name: user.name,
-        image: resolveAvatarForClient(user.image, user.id, user.updatedAt.getTime()),
+        // Avatar sin timestamp - se cachea por 24h
+        image: user.image ? `/api/users/${user.id}/avatar` : null,
         role: user.role,
       },
       employee: user.employee
@@ -195,11 +195,8 @@ export async function getProfileData(): Promise<ProfileData | null> {
             country: user.employee.country,
             birthDate: user.employee.birthDate,
             nationality: user.employee.nationality,
-            photoUrl: resolveAvatarForClient(
-              user.employee.photoUrl,
-              user.id,
-              user.employee.updatedAt?.getTime() ?? user.updatedAt.getTime(),
-            ),
+            // Avatar sin timestamp - se cachea por 24h
+            photoUrl: user.employee.photoUrl ? `/api/users/${user.id}/avatar` : null,
             employmentStatus: user.employee.employmentStatus,
             emergencyContactName: user.employee.emergencyContactName,
             emergencyContactPhone: user.employee.emergencyContactPhone,
@@ -367,8 +364,8 @@ export async function updateProfilePhoto(
     ]);
     console.log("✅ BD actualizada");
 
-    const cacheVersion = Date.now();
-    const displayPhotoUrl = resolveAvatarForClient(uploadedPhotoUrl, user.id, cacheVersion) ?? uploadedPhotoUrl;
+    // Avatar sin timestamp - se cachea por 24h
+    const displayPhotoUrl = `/api/users/${user.id}/avatar`;
     console.log("✅ URL pública generada:", displayPhotoUrl);
 
     // Actualizar la sesión JWT para que refleje la nueva imagen inmediatamente
@@ -384,6 +381,8 @@ export async function updateProfilePhoto(
     console.log("⏳ Revalidando páginas...");
     revalidatePath("/dashboard/me/profile");
     revalidatePath("/dashboard");
+    // Revalidar también la página del empleado para que otros usuarios vean la nueva foto
+    revalidatePath(`/dashboard/employees/${user.employee.id}`);
     console.log("✅ Páginas revalidadas");
 
     console.log("🎉 updateProfilePhoto - FIN EXITOSO");
