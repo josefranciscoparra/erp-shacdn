@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { MessageSquarePlus, MessageSquareOff } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { useChatEnabled } from "@/hooks/use-chat-enabled";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
@@ -32,7 +31,7 @@ export function ChatContainer() {
   }, [chatEnabled, isLoadingConfig, router]);
 
   // Conectar al stream SSE
-  const { isConnected, transport } = useChatStream({
+  useChatStream({
     enabled: true,
     onMessage: (message: MessageWithSender) => {
       // Actualizar conversación cuando llega un mensaje nuevo
@@ -112,43 +111,27 @@ export function ChatContainer() {
   }, []);
 
   return (
-    <div className="bg-card flex h-full min-h-0 gap-4 overflow-hidden rounded-lg border">
+    <div className="flex h-full w-full overflow-hidden">
       {/* Lista de conversaciones (sidebar izquierdo) */}
       <div
         className={cn(
-          "flex min-h-0 w-full flex-col border-r @3xl/main:w-80",
+          "flex h-full min-h-0 w-full flex-col @3xl/main:w-80",
           showMobileConversation && "hidden @3xl/main:flex",
         )}
       >
-        <div className="flex items-center justify-between border-b p-4">
-          <div>
-            <h2 className="text-lg font-semibold">Mensajes</h2>
-            <p className="text-muted-foreground text-xs">
-              {isConnected ? (
-                <span className="flex items-center gap-1">
-                  <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-                  Conectado ({transport === "sse" ? "Tiempo real" : "Polling"})
-                </span>
-              ) : (
-                "Desconectado"
-              )}
-            </p>
-          </div>
-          <Button size="icon" variant="ghost" onClick={() => setNewChatOpen(true)}>
-            <MessageSquarePlus className="h-5 w-5" />
-          </Button>
-        </div>
-
         <ConversationsList
           conversations={conversations}
           selectedConversationId={selectedConversation?.id ?? null}
           onSelectConversation={handleSelectConversation}
           onConversationsLoaded={setConversations}
+          onNewChat={() => setNewChatOpen(true)}
         />
       </div>
 
       {/* Vista de conversación (área principal) */}
-      <div className={cn("min-h-0 flex-1", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}>
+      <div
+        className={cn("flex h-full min-h-0 flex-1 flex-col", showMobileConversation ? "flex" : "hidden @3xl/main:flex")}
+      >
         {selectedConversation ? (
           <ConversationView
             conversation={selectedConversation}
@@ -156,11 +139,15 @@ export function ChatContainer() {
             onMessageSent={handleMessageSent}
           />
         ) : (
-          <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-4">
-            <MessageSquarePlus className="h-16 w-16" />
-            <div className="text-center">
-              <p className="text-lg font-medium">Selecciona una conversación</p>
-              <p className="text-sm">o inicia un nuevo chat</p>
+          <div className="bg-background fixed inset-0 z-50 flex h-full items-center justify-center p-4 text-center @3xl/main:relative @3xl/main:z-10 @3xl/main:bg-transparent @3xl/main:p-0">
+            <div className="text-muted-foreground flex flex-col items-center gap-4">
+              <div className="bg-muted flex size-20 items-center justify-center rounded-full border">
+                <MessageSquarePlus className="h-10 w-10" />
+              </div>
+              <div>
+                <p className="text-lg font-semibold">Selecciona una conversación</p>
+                <p className="text-muted-foreground mt-1 text-sm">o inicia un nuevo chat para comenzar</p>
+              </div>
             </div>
           </div>
         )}

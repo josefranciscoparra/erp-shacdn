@@ -2,7 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from "react";
 
-import { Briefcase, Mail, MessageCircle, Phone, PhoneCall } from "lucide-react";
+import { Mail, MessageCircle, Phone, PhoneCall } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

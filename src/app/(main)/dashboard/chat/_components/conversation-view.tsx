@@ -1,30 +1,28 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import { AlertCircle, ArrowDown, ArrowLeft, Check, CheckCheck, Loader2, RefreshCw, Send } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowLeft, Check, Loader2, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useChatStream } from "@/hooks/use-chat-stream";
 import { getUserAvatarUrl, hasAvatar } from "@/lib/chat/avatar-utils";
+import {
+  getCachedConversationMessages,
+  setCachedConversationMessages,
+  withLocalState,
+  type LocalMessageStatus,
+  type MessageWithLocalState,
+} from "@/lib/chat/conversation-cache";
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
 import { getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
 
 import { UserInfoPopover } from "./user-info-popover";
-
-// Tipo extendido con estado local para optimistic UI
-type LocalMessageStatus = "sending" | "sent" | "failed";
-type MessageWithLocalState = MessageWithSender & {
-  localStatus?: LocalMessageStatus;
-  localId?: string; // ID temporal para mensajes que aún no tienen ID del servidor
-};
 
 interface ConversationViewProps {
   conversation: ConversationWithParticipants;
@@ -36,6 +34,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   const { data: session } = useSession();
   const [messages, setMessages] = useState<MessageWithLocalState[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [sending, setSending] = useState(false);
   const [newMessage, setNewMessage] = useState("");
   const [hasMore, setHasMore] = useState(false);
@@ -45,8 +44,26 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const activeRequestRef = useRef<AbortController | null>(null);
 
   const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
+
+  type MessagesUpdater = MessageWithLocalState[] | ((prev: MessageWithLocalState[]) => MessageWithLocalState[]);
+
+  const syncMessages = useCallback(
+    (updater: MessagesUpdater) => {
+      setMessages((prev) => {
+        const next =
+          typeof updater === "function"
+            ? (updater as (value: MessageWithLocalState[]) => MessageWithLocalState[])(prev)
+            : updater;
+
+        setCachedConversationMessages(conversation.id, next);
+        return next;
+      });
+    },
+    [conversation.id],
+  );
 
   // Escuchar mensajes en tiempo real por SSE
   useChatStream({
@@ -54,7 +71,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
     onMessage: (message: MessageWithSender) => {
       // Solo añadir mensajes de esta conversación
       if (message.conversationId === conversation.id) {
-        setMessages((prev) => {
+        syncMessages((prev) => {
           // Evitar duplicados (por ID real del servidor)
           const exists = prev.some((m) => m.id === message.id);
           if (exists) {
@@ -81,42 +98,55 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   // Detectar posición de scroll
   const handleScroll = () => {
     if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
-      if (viewport) {
-        const { scrollTop, scrollHeight, clientHeight } = viewport;
-        const threshold = 100; // píxeles de margen
-        const atBottom = scrollHeight - scrollTop - clientHeight < threshold;
+      const container = scrollRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const threshold = 100; // píxeles de margen
+      const atBottom = scrollHeight - scrollTop - clientHeight < threshold;
 
-        // Solo mostrar botón si hay overflow Y no estamos al fondo
-        const hasOverflow = scrollHeight > clientHeight;
+      // Solo mostrar botón si hay overflow Y no estamos al fondo
+      const hasOverflow = scrollHeight > clientHeight;
 
-        setIsAtBottom(atBottom);
-        setShowScrollButton(hasOverflow && !atBottom);
-      }
+      setIsAtBottom(atBottom);
+      setShowScrollButton(hasOverflow && !atBottom);
     }
   };
 
+  useLayoutEffect(() => {
+    const cached = getCachedConversationMessages(conversation.id);
+    setCursor(null);
+    setHasMore(false);
+
+    if (cached) {
+      setMessages(cached);
+      setLoading(false);
+      setIsRefreshing(true);
+      return;
+    }
+
+    setMessages([]);
+    setLoading(true);
+    setIsRefreshing(false);
+  }, [conversation.id]);
+
   // Cargar mensajes de la conversación
   useEffect(() => {
-    async function loadMessages() {
-      setLoading(true);
-      setMessages([]);
-      setCursor(null);
-      setHasMore(false);
+    activeRequestRef.current?.abort();
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
 
+    async function loadMessages(signal: AbortSignal) {
       try {
-        const response = await fetch(`/api/chat/conversations/${conversation.id}/messages?limit=50`);
+        const response = await fetch(`/api/chat/conversations/${conversation.id}/messages?limit=50`, {
+          signal,
+        });
         const data = await response.json();
 
-        if (data.data) {
+        if (!signal.aborted && data.data) {
           // Invertir orden: más antiguos primero y añadir estado "sent"
-          const messagesWithStatus = data.data.reverse().map((m: MessageWithSender) => ({
-            ...m,
-            localStatus: "sent" as LocalMessageStatus,
-          }));
-          setMessages(messagesWithStatus);
+          const messagesWithStatus = withLocalState([...data.data].reverse());
+          syncMessages(messagesWithStatus);
           setHasMore(data.hasMore ?? false);
-          setCursor(data.nextCursor);
+          setCursor(data.nextCursor ?? null);
 
           // Safari necesita múltiples intentos para hacer scroll correctamente
           requestAnimationFrame(() => scrollToBottom());
@@ -124,15 +154,24 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
           setTimeout(() => scrollToBottom(), 150);
         }
       } catch (error) {
-        console.error("Error cargando mensajes:", error);
-        toast.error("Error al cargar mensajes");
+        if (!signal.aborted) {
+          console.error("Error cargando mensajes:", error);
+          toast.error("Error al cargar mensajes");
+        }
       } finally {
-        setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+          setIsRefreshing(false);
+        }
       }
     }
 
-    loadMessages();
-  }, [conversation.id]);
+    loadMessages(controller.signal);
+
+    return () => {
+      controller.abort();
+    };
+  }, [conversation.id, syncMessages]);
 
   // Auto-scroll al último mensaje solo si estamos en el fondo
   useEffect(() => {
@@ -144,13 +183,11 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   // Agregar listener de scroll
   useEffect(() => {
     if (scrollRef.current) {
-      const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
-      if (viewport) {
-        viewport.addEventListener("scroll", handleScroll);
-        return () => {
-          viewport.removeEventListener("scroll", handleScroll);
-        };
-      }
+      const container = scrollRef.current;
+      container.addEventListener("scroll", handleScroll);
+      return () => {
+        container.removeEventListener("scroll", handleScroll);
+      };
     }
   }, []);
 
@@ -191,10 +228,10 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
 
     // Si es retry, reemplazar mensaje fallido
     if (retryMessage) {
-      setMessages((prev) => prev.map((m) => (m.localId === localId ? optimisticMessage : m)));
+      syncMessages((prev) => prev.map((m) => (m.localId === localId ? optimisticMessage : m)));
     } else {
       // Si es nuevo, añadir al final
-      setMessages((prev) => [...prev, optimisticMessage]);
+      syncMessages((prev) => [...prev, optimisticMessage]);
     }
 
     try {
@@ -215,7 +252,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       const { message } = await response.json();
 
       // Reemplazar mensaje optimista con el real del servidor
-      setMessages((prev) =>
+      syncMessages((prev) =>
         prev.map((m) => (m.localId === localId ? { ...message, localStatus: "sent" as LocalMessageStatus } : m)),
       );
 
@@ -226,7 +263,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       toast.error(error instanceof Error ? error.message : "Error al enviar mensaje");
 
       // Marcar mensaje como fallido
-      setMessages((prev) =>
+      syncMessages((prev) =>
         prev.map((m) => (m.localId === localId ? { ...m, localStatus: "failed" as LocalMessageStatus } : m)),
       );
     } finally {
@@ -256,27 +293,20 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       if (data.data) {
         // Guardar posición de scroll actual
         if (scrollRef.current) {
-          const viewport = scrollRef.current.querySelector("[data-radix-scroll-area-viewport]");
-          if (viewport) {
-            const oldScrollHeight = viewport.scrollHeight;
+          const container = scrollRef.current;
+          const oldScrollHeight = container.scrollHeight;
 
-            // Invertir orden: más antiguos primero, añadir estado "sent" y prepend
-            const messagesWithStatus = data.data.reverse().map((m: MessageWithSender) => ({
-              ...m,
-              localStatus: "sent" as LocalMessageStatus,
-            }));
-            setMessages((prev) => [...messagesWithStatus, ...prev]);
-            setHasMore(data.hasMore ?? false);
-            setCursor(data.nextCursor);
+          // Invertir orden: más antiguos primero, añadir estado "sent" y prepend
+          const messagesWithStatus = withLocalState([...data.data].reverse());
+          syncMessages((prev) => [...messagesWithStatus, ...prev]);
+          setHasMore(data.hasMore ?? false);
+          setCursor(data.nextCursor ?? null);
 
-            // Mantener posición de scroll después de añadir mensajes
-            setTimeout(() => {
-              if (viewport) {
-                const newScrollHeight = viewport.scrollHeight;
-                viewport.scrollTop = newScrollHeight - oldScrollHeight;
-              }
-            }, 0);
-          }
+          // Mantener posición de scroll después de añadir mensajes
+          setTimeout(() => {
+            const newScrollHeight = container.scrollHeight;
+            container.scrollTop = newScrollHeight - oldScrollHeight;
+          }, 0);
         }
       }
     } catch (error) {
@@ -295,56 +325,68 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b p-4">
-        {/* Botón Volver (solo móvil) */}
-        {onBack && (
-          <Button variant="ghost" size="icon" onClick={onBack} className="@3xl/main:hidden">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        )}
+      <div className="flex items-center justify-between gap-4 border-b p-4 @3xl/main:px-4">
+        <div className="flex items-center gap-3">
+          {/* Botón Volver (solo móvil) */}
+          {onBack && (
+            <Button variant="outline" size="sm" onClick={onBack} className="flex size-10 p-0 @3xl/main:hidden">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+          )}
 
-        <UserInfoPopover
-          userId={otherUser.id}
-          name={otherUser.name}
-          email={otherUser.email}
-          image={otherUser.image}
-          phone={otherUser.phone}
-          mobilePhone={otherUser.mobilePhone}
-          department={otherUser.department}
-        >
-          <button className="hover:bg-muted/50 flex items-center gap-3 rounded-lg transition-colors">
-            <Avatar key={otherUser.id}>
-              {hasAvatar(otherUser.image) && <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />}
-              <AvatarFallback>
-                {otherUser.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="text-left">
-              <p className="font-medium">{otherUser.name}</p>
-              <p className="text-muted-foreground text-xs">{otherUser.email}</p>
-            </div>
-          </button>
-        </UserInfoPopover>
+          <UserInfoPopover
+            userId={otherUser.id}
+            name={otherUser.name}
+            email={otherUser.email}
+            image={otherUser.image}
+            phone={otherUser.phone}
+            mobilePhone={otherUser.mobilePhone}
+            department={otherUser.department}
+          >
+            <button className="hover:bg-muted/50 flex items-center gap-3 rounded-lg p-1 transition-colors">
+              <Avatar className="size-10" key={otherUser.id}>
+                {hasAvatar(otherUser.image) && (
+                  <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />
+                )}
+                <AvatarFallback>
+                  {otherUser.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col gap-1 text-left">
+                <span className="text-sm font-semibold">{otherUser.name}</span>
+                <span className="text-muted-foreground text-xs">{otherUser.email}</span>
+              </div>
+            </button>
+          </UserInfoPopover>
+        </div>
+        <div className="text-muted-foreground flex items-center gap-2 text-xs">
+          {isRefreshing && !loading && (
+            <span className="inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Actualizando
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Mensajes */}
-      <div className="relative min-h-0 flex-1 overflow-hidden">
-        <ScrollArea className="h-full p-4" ref={scrollRef}>
+      <div className="relative flex-1 overflow-hidden">
+        <div className="h-full overflow-y-auto @3xl/main:px-4" ref={scrollRef}>
           {messages.length === 0 && !loading ? (
             <div className="text-muted-foreground flex h-full items-center justify-center text-center">
               <p>No hay mensajes aún. ¡Envía el primero!</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col items-start space-y-10 py-8">
               {/* Botón cargar más mensajes */}
               {hasMore && (
-                <div className="flex justify-center pb-4">
+                <div className="flex w-full justify-center pb-4">
                   <Button variant="outline" size="sm" onClick={loadMoreMessages} disabled={loadingMore}>
                     {loadingMore ? (
                       <>
@@ -365,61 +407,59 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                 return (
                   <div
                     key={message.localId ?? message.id}
-                    className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}
+                    className={cn("max-w-(--breakpoint-sm) space-y-1", {
+                      "self-end": isOwn,
+                    })}
                   >
-                    <Avatar className="h-8 w-8" key={message.sender.id}>
-                      {hasAvatar(message.sender.image) && (
-                        <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
-                      )}
-                      <AvatarFallback>
-                        {message.sender.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-
-                    <div
-                      className={cn(
-                        "max-w-[70%] rounded-lg px-4 py-2",
-                        isOwn ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
-                        status === "failed" && "opacity-60",
-                      )}
-                    >
-                      <p className="text-sm break-words">{message.body}</p>
+                    <div className="flex items-center gap-2">
                       <div
-                        className={cn(
-                          "mt-1 flex items-center justify-between gap-2 text-xs",
-                          isOwn ? "text-primary-foreground/70" : "text-muted-foreground",
-                        )}
+                        className={cn("bg-muted inline-flex items-start gap-4 rounded-md border p-4", {
+                          "order-1": isOwn,
+                        })}
                       >
-                        <span className="flex items-center gap-1.5">
-                          {new Date(message.createdAt).toLocaleTimeString("es-ES", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-
-                          {/* Iconos de estado (solo para mensajes propios) */}
-                          {isOwn && (
-                            <>
-                              {status === "sending" && <Loader2 className="h-3 w-3 animate-spin" />}
-                              {status === "sent" && <Check className="h-3 w-3" />}
-                            </>
+                        <Avatar className="mt-0.5 h-8 w-8" key={message.sender.id}>
+                          {hasAvatar(message.sender.image) && (
+                            <AvatarImage src={getUserAvatarUrl(message.sender.id)} alt={message.sender.name} />
                           )}
-                        </span>
+                          <AvatarFallback>
+                            {message.sender.name
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
 
-                        {/* Botón reintentar inline (solo para mensajes fallidos propios) */}
-                        {isOwn && status === "failed" && (
-                          <button
-                            onClick={() => handleRetry(message)}
-                            className="hover:bg-primary-foreground/10 flex items-center gap-1 rounded px-2 py-0.5 transition-colors"
-                          >
-                            <AlertCircle className="h-3 w-3 text-red-500" />
-                            <span className="text-xs">Reintentar</span>
-                          </button>
-                        )}
+                        <div className={cn(status === "failed" && "opacity-60")}>
+                          <p className="text-sm break-words">{message.body}</p>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className={cn("flex items-center gap-2", { "justify-end": isOwn })}>
+                      <time className="text-muted-foreground mt-1 flex items-center gap-1.5 text-xs">
+                        {new Date(message.createdAt).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {/* Iconos de estado (solo para mensajes propios) */}
+                        {isOwn && (
+                          <>
+                            {status === "sending" && <Loader2 className="h-3 w-3 animate-spin" />}
+                            {status === "sent" && <Check className="h-3 w-3" />}
+                            {status === "failed" && (
+                              <button
+                                onClick={() => handleRetry(message)}
+                                className="hover:text-destructive flex items-center gap-1 transition-colors"
+                                title="Reintentar envío"
+                              >
+                                <AlertCircle className="h-3 w-3 text-red-500" />
+                                <span className="text-xs">Reintentar</span>
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </time>
                     </div>
                   </div>
                 );
@@ -428,23 +468,9 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
               <div ref={messagesEndRef} />
             </div>
           )}
-        </ScrollArea>
-
-        {/* Botón flotante para ir abajo */}
-        {showScrollButton && (
-          <Button
-            variant="secondary"
-            size="icon"
-            className="absolute right-4 bottom-4 h-10 w-10 rounded-full shadow-lg"
-            onClick={scrollToBottom}
-          >
-            <ArrowDown className="h-5 w-5" />
-          </Button>
-        )}
-
-        {/* Overlay de carga */}
+        </div>
         {loading && (
-          <div className="bg-background/80 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
+          <div className="bg-background/80 absolute inset-0 z-20 flex items-center justify-center backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="text-primary h-8 w-8 animate-spin" />
               <p className="text-muted-foreground text-sm">Cargando conversación...</p>
@@ -453,18 +479,43 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
         )}
       </div>
 
-      {/* Input de nuevo mensaje */}
-      <div className="flex gap-2 border-t p-4">
-        <Input
-          placeholder="Escribe un mensaje..."
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyDown={handleKeyDown}
-          disabled={sending}
-        />
-        <Button onClick={handleSend} disabled={!newMessage.trim() || sending} size="icon">
-          <Send className="h-4 w-4" />
+      {/* Botón flotante para ir abajo */}
+      {showScrollButton && (
+        <Button
+          variant="secondary"
+          size="icon"
+          className="absolute right-8 bottom-24 z-10 h-10 w-10 rounded-full shadow-lg"
+          onClick={scrollToBottom}
+        >
+          <ArrowDown className="h-5 w-5" />
         </Button>
+      )}
+
+      {/* Input de nuevo mensaje */}
+      <div className="border-t p-4 @3xl/main:px-4">
+        <div className="bg-muted relative flex items-center rounded-md border">
+          <Input
+            type="text"
+            className="dark:bg-background h-14 border-transparent bg-white pe-20 text-base shadow-transparent ring-transparent"
+            placeholder="Escribe un mensaje..."
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={sending}
+          />
+          <div className="absolute end-4 flex items-center">
+            <Button onClick={handleSend} disabled={!newMessage.trim() || sending} variant="outline">
+              {sending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <span className="hidden lg:inline">Enviar</span>
+                  <Send className="h-4 w-4 lg:ms-2" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   );

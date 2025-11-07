@@ -1,13 +1,17 @@
 "use client";
 
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
+import { MessageSquarePlus, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserAvatarUrl, hasAvatar } from "@/lib/chat/avatar-utils";
+import { prefetchConversationMessages } from "@/lib/chat/conversation-cache";
 import type { ConversationWithParticipants } from "@/lib/chat/types";
 import { formatLastMessageDate, getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
@@ -17,6 +21,7 @@ interface ConversationsListProps {
   selectedConversationId: string | null;
   onSelectConversation: (conversation: ConversationWithParticipants) => void;
   onConversationsLoaded: (conversations: ConversationWithParticipants[]) => void;
+  onNewChat?: () => void;
 }
 
 function ConversationsListComponent({
@@ -24,10 +29,15 @@ function ConversationsListComponent({
   selectedConversationId,
   onSelectConversation,
   onConversationsLoaded,
+  onNewChat,
 }: ConversationsListProps) {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const onConversationsLoadedRef = useRef(onConversationsLoaded);
+  const handlePrefetchConversation = useCallback((conversationId: string) => {
+    prefetchConversationMessages(conversationId).catch(() => undefined);
+  }, []);
 
   // Actualizar la ref cuando cambia el callback
   useEffect(() => {
@@ -54,78 +64,106 @@ function ConversationsListComponent({
     loadConversations();
   }, []); // Sin dependencias - solo carga una vez
 
-  if (loading) {
-    return (
-      <div className="flex flex-col gap-2 p-4">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <ConversationSkeleton key={i} />
-        ))}
-      </div>
-    );
-  }
-
-  if (externalConversations.length === 0) {
-    return (
-      <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 p-4 text-center">
-        <p>No tienes conversaciones</p>
-        <p className="text-xs">Inicia un nuevo chat para comenzar</p>
-      </div>
-    );
-  }
+  // Filtrar conversaciones por búsqueda
+  const filteredConversations = externalConversations.filter((conversation) => {
+    if (!searchTerm.trim()) return true;
+    const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
+    return otherUser.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="flex flex-col">
-        {externalConversations.map((conversation) => {
-          const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
-          const isSelected = conversation.id === selectedConversationId;
+    <Card className="flex h-full min-h-0 flex-col pb-0">
+      <CardHeader>
+        <CardTitle className="font-display text-xl lg:text-2xl">Chats</CardTitle>
+        <CardAction>
+          <Button size="icon" variant="ghost" onClick={onNewChat}>
+            <MessageSquarePlus className="h-5 w-5" />
+          </Button>
+        </CardAction>
+        <CardDescription className="relative col-span-2 mt-4 flex w-full items-center">
+          <Search className="text-muted-foreground absolute start-4 size-4" />
+          <Input
+            type="text"
+            className="ps-10"
+            placeholder="Buscar chats..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </CardDescription>
+      </CardHeader>
 
-          return (
-            <button
-              key={conversation.id}
-              onClick={() => onSelectConversation(conversation)}
-              className={cn(
-                "hover:bg-muted/50 flex items-start gap-3 border-b p-4 text-left transition-colors",
-                isSelected && "bg-muted",
-              )}
-            >
-              <Avatar className="h-10 w-10" key={otherUser.id}>
-                {hasAvatar(otherUser.image) && (
-                  <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />
-                )}
-                <AvatarFallback>
-                  {otherUser.name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+      {loading ? (
+        <CardContent className="flex flex-col gap-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <ConversationSkeleton key={i} />
+          ))}
+        </CardContent>
+      ) : filteredConversations.length === 0 ? (
+        <CardContent className="text-muted-foreground flex flex-1 flex-col items-center justify-center gap-2 text-center">
+          <p className="text-sm">{searchTerm ? "No se encontraron conversaciones" : "No tienes conversaciones"}</p>
+          <p className="text-xs">
+            {searchTerm ? "Intenta con otro término de búsqueda" : "Inicia un nuevo chat para comenzar"}
+          </p>
+        </CardContent>
+      ) : (
+        <CardContent className="flex-1 overflow-auto p-0">
+          <div className="flex w-full flex-col divide-y">
+            {filteredConversations.map((conversation) => {
+              const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
+              const isSelected = conversation.id === selectedConversationId;
 
-              <div className="flex-1 overflow-hidden">
-                <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate font-medium">{otherUser.name}</p>
-                  {conversation.lastMessage && (
-                    <span className="text-muted-foreground text-xs">
-                      {formatLastMessageDate(new Date(conversation.lastMessage.createdAt))}
-                    </span>
+              return (
+                <button
+                  key={conversation.id}
+                  onClick={() => onSelectConversation(conversation)}
+                  onPointerEnter={() => handlePrefetchConversation(conversation.id)}
+                  onTouchStart={() => handlePrefetchConversation(conversation.id)}
+                  onFocus={() => handlePrefetchConversation(conversation.id)}
+                  className={cn(
+                    "hover:bg-muted group/item relative flex w-full cursor-pointer items-center gap-4 px-6 py-4 text-left transition-colors",
+                    isSelected && "bg-muted dark:bg-muted",
                   )}
-                </div>
+                >
+                  <Avatar className="h-10 w-10 md:size-10" key={otherUser.id}>
+                    {hasAvatar(otherUser.image) && (
+                      <AvatarImage src={getUserAvatarUrl(otherUser.id)} alt={otherUser.name} />
+                    )}
+                    <AvatarFallback>
+                      {otherUser.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
 
-                {conversation.lastMessage ? (
-                  <p className="text-muted-foreground truncate text-sm">
-                    {conversation.lastMessage.senderId === session?.user?.id && "Tú: "}
-                    {conversation.lastMessage.body}
-                  </p>
-                ) : (
-                  <p className="text-muted-foreground text-sm italic">Sin mensajes</p>
-                )}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </ScrollArea>
+                  <div className="min-w-0 grow">
+                    <div className="flex items-center justify-between">
+                      <span className="truncate text-sm font-medium">{otherUser.name}</span>
+                      {conversation.lastMessage && (
+                        <span className="text-muted-foreground flex-none text-xs">
+                          {formatLastMessageDate(new Date(conversation.lastMessage.createdAt))}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {conversation.lastMessage ? (
+                        <span className="text-muted-foreground truncate text-start text-sm">
+                          {conversation.lastMessage.senderId === session?.user?.id && "Tú: "}
+                          {conversation.lastMessage.body}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm italic">Sin mensajes</span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      )}
+    </Card>
   );
 }
 
