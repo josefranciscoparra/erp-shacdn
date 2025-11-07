@@ -138,15 +138,16 @@ export function CalendarEventsView({
           month={month}
           onMonthChange={handleMonthChange}
           today={today}
+          defaultMonth={month}
           locale={es}
-          className="w-full"
+          className="w-full!"
           monthsClassName="w-full"
-          monthClassName="w-full flex flex-col"
-          weekdayClassName="w-full"
-          weekClassName="w-full"
+          monthClassName="space-y-4 w-full flex flex-col"
+          weekdayClassName="w-full!"
+          weekClassName="w-full!"
           monthGridClassName="m-0"
-          dayClassName="size-9"
-          dayButtonClassName="size-9 rounded-md"
+          dayClassName="md:size-10"
+          dayButtonClassName="md:size-12"
           onDayClick={handleDayClick}
           components={{
             DayButton: CustomDayButton,
@@ -171,18 +172,22 @@ export function CalendarEventsView({
           }}
         />
       </CardContent>
-
-      {/* Leyenda con calendarios */}
-      <div className="flex flex-wrap gap-3 border-t p-4 text-xs">
-        {calendars.map((cal) => (
-          <div key={cal.id} className="flex items-center gap-1.5">
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cal.color ?? "var(--primary)" }} />
-            <span>
-              {cal.name}
-              {cal.costCenter && <span className="text-muted-foreground ml-1">({cal.costCenter.name})</span>}
-            </span>
+      <div className="flex flex-col divide-y border-t px-0">
+        {calendars.length > 0 && (
+          <div>
+            <div className="flex flex-wrap gap-3 p-4 text-xs">
+              {calendars.map((cal) => (
+                <div key={cal.id} className="flex items-center gap-1.5">
+                  <div className="h-3 w-3 rounded-full" style={{ backgroundColor: cal.color ?? "var(--primary)" }} />
+                  <span>
+                    {cal.name}
+                    {cal.costCenter && <span className="text-muted-foreground ml-1">({cal.costCenter.name})</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        )}
       </div>
     </Card>
   );

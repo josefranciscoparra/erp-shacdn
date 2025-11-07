@@ -138,17 +138,19 @@ export function MyCalendar() {
       </div>
 
       <div
-        className="animate-in fade-in grid gap-4 duration-700 md:gap-6 @4xl/main:grid-cols-[minmax(0,1fr)_340px] @4xl/main:items-start"
+        className="animate-in fade-in grid gap-4 duration-700 md:gap-6 @4xl/main:grid-cols-[auto_minmax(0,1fr)] @4xl/main:items-start"
         style={{ animationDelay: "200ms" }}
       >
         {/* Calendario principal */}
-        <CalendarEventsView
-          events={filteredEvents}
-          calendars={calendars}
-          currentMonth={currentDate}
-          onMonthChange={handleMonthChange}
-          onDayClick={handleDayClick}
-        />
+        <div className="w-fit">
+          <CalendarEventsView
+            events={filteredEvents}
+            calendars={calendars}
+            currentMonth={currentDate}
+            onMonthChange={handleMonthChange}
+            onDayClick={handleDayClick}
+          />
+        </div>
 
         {/* Sidebar: Próximos eventos con timeline vertical */}
         <Card className="@container/card">
