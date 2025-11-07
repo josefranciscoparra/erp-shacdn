@@ -165,13 +165,13 @@ export function TimeCalendarView() {
 
                   {/* Barra de 24 horas */}
                   <div className="bg-muted/30 relative h-6 w-full rounded border">
-                    {workBlocks.map((block, idx) => {
+                    {workBlocks.map((block) => {
                       const startPercent = (block.start / 24) * 100;
                       const widthPercent = ((block.end - block.start) / 24) * 100;
 
                       return (
                         <div
-                          key={idx}
+                          key={`${block.type}-${block.start}-${block.end}`}
                           className={cn(
                             "absolute top-0 h-full",
                             block.type === "work" ? "bg-green-500/80" : "bg-orange-400/60",
@@ -197,8 +197,11 @@ export function TimeCalendarView() {
                   {/* Fichajes */}
                   {entriesToShow.length > 0 && (
                     <div className="space-y-1">
-                      {entriesToShow.map((entry, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-xs">
+                      {entriesToShow.map((entry) => (
+                        <div
+                          key={`${entry.entryType}-${entry.timestamp}`}
+                          className="flex items-center justify-between text-xs"
+                        >
                           <span
                             className={cn(
                               "font-semibold",
@@ -247,7 +250,7 @@ export function TimeCalendarView() {
         </TooltipProvider>
       );
     },
-    [monthlyData],
+    [getDayData],
   );
 
   CustomDayButton.displayName = "CustomDayButton";
@@ -313,7 +316,7 @@ export function TimeCalendarView() {
   return (
     <>
       <Card className="overflow-hidden p-0">
-        <CardContent className="p-0">
+        <CardContent className="px-4 pt-6 pb-6 sm:px-6">
           <Calendar
             mode="single"
             selected={undefined}
@@ -321,15 +324,15 @@ export function TimeCalendarView() {
             onMonthChange={handleMonthChange}
             today={today}
             locale={es}
-            className="w-full"
+            className="w-full [--rdp-cell-size:clamp(3.6rem,5vw,5.2rem)]"
             fullWidth
             monthsClassName="w-full"
             monthClassName="w-full flex flex-col"
             weekdayClassName="w-full"
             weekClassName="w-full"
             monthGridClassName="m-0"
-            dayClassName="size-9"
-            dayButtonClassName="size-9 rounded-md"
+            dayClassName="flex flex-1 items-center justify-center p-0 text-base"
+            dayButtonClassName="rounded-xl text-base font-medium"
             onDayClick={handleDayClick}
             disabled={[...nonWorkdays, ...futureDays, ...pendingDays]}
             components={{
@@ -360,7 +363,7 @@ export function TimeCalendarView() {
         </CardContent>
 
         {/* Leyenda */}
-        <div className="flex flex-wrap gap-3 border-t p-4 text-xs">
+        <div className="flex flex-wrap gap-3 border-t px-4 py-4 text-xs sm:px-6">
           <div className="flex items-center gap-1.5">
             <div className="h-3 w-3 rounded-full bg-green-500" />
             <span>Completo</span>
@@ -390,14 +393,17 @@ export function TimeCalendarView() {
         {/* Lista de solicitudes pendientes debajo del calendario */}
         {pendingDays.length > 0 && (
           <div className="flex flex-col divide-y border-t">
-            <div className="p-4">
+            <div className="px-4 py-4 sm:px-6">
               <h3 className="text-sm font-semibold">Solicitudes pendientes</h3>
             </div>
             {monthlyData.days
               .filter((d) => d.hasPendingRequest)
               .slice(0, 3)
               .map((day) => (
-                <div key={format(day.date, "yyyy-MM-dd")} className="flex items-center justify-between p-4">
+                <div
+                  key={format(day.date, "yyyy-MM-dd")}
+                  className="flex items-center justify-between px-4 py-4 sm:px-6"
+                >
                   <div className="space-y-1">
                     <p className="text-sm leading-none font-medium">
                       {format(new Date(day.date), "dd MMM", { locale: es })}
