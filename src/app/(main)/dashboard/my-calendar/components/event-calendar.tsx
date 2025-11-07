@@ -35,6 +35,7 @@ import {
   CalendarView,
   DayView,
   EventDialog,
+  EventViewDialog,
   EventGap,
   EventHeight,
   MonthView,
@@ -288,7 +289,7 @@ export function EventCalendar({
           <div className="flex items-center gap-1 sm:gap-4">
             <Button variant="outline" className="max-[479px]:aspect-square max-[479px]:p-0!" onClick={handleToday}>
               <CalendarCheck className="min-[480px]:hidden" size={16} aria-hidden="true" />
-              <span className="max-[479px]:sr-only">Today</span>
+              <span className="max-[479px]:sr-only">Hoy</span>
             </Button>
             <div className="flex items-center sm:gap-2">
               <Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
@@ -315,13 +316,13 @@ export function EventCalendar({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="min-w-32">
                 <DropdownMenuItem onClick={() => setView("month")}>
-                  Month <DropdownMenuShortcut>M</DropdownMenuShortcut>
+                  Mes <DropdownMenuShortcut>M</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setView("week")}>
-                  Week <DropdownMenuShortcut>W</DropdownMenuShortcut>
+                  Semana <DropdownMenuShortcut>W</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setView("day")}>
-                  Day <DropdownMenuShortcut>D</DropdownMenuShortcut>
+                  Día <DropdownMenuShortcut>D</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setView("agenda")}>
                   Agenda <DropdownMenuShortcut>A</DropdownMenuShortcut>
@@ -338,7 +339,7 @@ export function EventCalendar({
                 }}
               >
                 <PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
-                <span className="max-sm:sr-only">New event</span>
+                <span className="max-sm:sr-only">Nuevo evento</span>
               </Button>
             )}
           </div>
@@ -374,16 +375,27 @@ export function EventCalendar({
           )}
         </div>
 
-        <EventDialog
-          event={selectedEvent}
-          isOpen={isEventDialogOpen}
-          onClose={() => {
-            setIsEventDialogOpen(false);
-            setSelectedEvent(null);
-          }}
-          onSave={handleEventSave}
-          onDelete={handleEventDelete}
-        />
+        {readOnly ? (
+          <EventViewDialog
+            event={selectedEvent}
+            isOpen={isEventDialogOpen}
+            onClose={() => {
+              setIsEventDialogOpen(false);
+              setSelectedEvent(null);
+            }}
+          />
+        ) : (
+          <EventDialog
+            event={selectedEvent}
+            isOpen={isEventDialogOpen}
+            onClose={() => {
+              setIsEventDialogOpen(false);
+              setSelectedEvent(null);
+            }}
+            onSave={handleEventSave}
+            onDelete={handleEventDelete}
+          />
+        )}
       </CalendarDndProvider>
     </div>
   );
