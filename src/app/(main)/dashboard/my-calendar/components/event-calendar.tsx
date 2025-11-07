@@ -47,8 +47,10 @@ export interface EventCalendarProps {
   onEventAdd?: (event: CalendarEvent) => void;
   onEventUpdate?: (event: CalendarEvent) => void;
   onEventDelete?: (eventId: string) => void;
+  onMonthChange?: (date: Date) => void;
   className?: string;
   initialView?: CalendarView;
+  readOnly?: boolean;
 }
 
 export function EventCalendar({
@@ -56,8 +58,10 @@ export function EventCalendar({
   onEventAdd,
   onEventUpdate,
   onEventDelete,
+  onMonthChange,
   className,
   initialView = "month",
+  readOnly = false,
 }: EventCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<CalendarView>(initialView);
@@ -102,29 +106,39 @@ export function EventCalendar({
   }, [isEventDialogOpen]);
 
   const handlePrevious = () => {
+    let newDate: Date;
     if (view === "month") {
-      setCurrentDate(subMonths(currentDate, 1));
+      newDate = subMonths(currentDate, 1);
     } else if (view === "week") {
-      setCurrentDate(subWeeks(currentDate, 1));
+      newDate = subWeeks(currentDate, 1);
     } else if (view === "day") {
-      setCurrentDate(addDays(currentDate, -1));
+      newDate = addDays(currentDate, -1);
     } else if (view === "agenda") {
       // For agenda view, go back 30 days (a full month)
-      setCurrentDate(addDays(currentDate, -AgendaDaysToShow));
+      newDate = addDays(currentDate, -AgendaDaysToShow);
+    } else {
+      newDate = currentDate;
     }
+    setCurrentDate(newDate);
+    onMonthChange?.(newDate);
   };
 
   const handleNext = () => {
+    let newDate: Date;
     if (view === "month") {
-      setCurrentDate(addMonths(currentDate, 1));
+      newDate = addMonths(currentDate, 1);
     } else if (view === "week") {
-      setCurrentDate(addWeeks(currentDate, 1));
+      newDate = addWeeks(currentDate, 1);
     } else if (view === "day") {
-      setCurrentDate(addDays(currentDate, 1));
+      newDate = addDays(currentDate, 1);
     } else if (view === "agenda") {
       // For agenda view, go forward 30 days (a full month)
-      setCurrentDate(addDays(currentDate, AgendaDaysToShow));
+      newDate = addDays(currentDate, AgendaDaysToShow);
+    } else {
+      newDate = currentDate;
     }
+    setCurrentDate(newDate);
+    onMonthChange?.(newDate);
   };
 
   const handleToday = () => {
@@ -138,6 +152,9 @@ export function EventCalendar({
   };
 
   const handleEventCreate = (startTime: Date) => {
+    // No permitir creación de eventos en modo readOnly
+    if (readOnly) return;
+
     console.log("Creating new event at:", startTime); // Debug log
 
     // Snap to 15-minute intervals
@@ -205,6 +222,9 @@ export function EventCalendar({
   };
 
   const handleEventUpdate = (updatedEvent: CalendarEvent) => {
+    // No permitir actualización de eventos en modo readOnly
+    if (readOnly) return;
+
     onEventUpdate?.(updatedEvent);
 
     // Show toast notification when an event is updated via drag and drop
@@ -308,17 +328,19 @@ export function EventCalendar({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              className="max-[479px]:aspect-square max-[479px]:p-0!"
-              size="sm"
-              onClick={() => {
-                setSelectedEvent(null); // Ensure we're creating a new event
-                setIsEventDialogOpen(true);
-              }}
-            >
-              <PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
-              <span className="max-sm:sr-only">New event</span>
-            </Button>
+            {!readOnly && (
+              <Button
+                className="max-[479px]:aspect-square max-[479px]:p-0!"
+                size="sm"
+                onClick={() => {
+                  setSelectedEvent(null); // Ensure we're creating a new event
+                  setIsEventDialogOpen(true);
+                }}
+              >
+                <PlusIcon className="opacity-60 sm:-ms-1" size={16} aria-hidden="true" />
+                <span className="max-sm:sr-only">New event</span>
+              </Button>
+            )}
           </div>
         </div>
 

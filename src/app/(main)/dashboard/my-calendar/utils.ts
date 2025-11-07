@@ -1,5 +1,7 @@
 import { isSameDay } from "date-fns";
 
+import type { CalendarEventData } from "@/server/actions/employee-calendars";
+
 import type { CalendarEvent, EventColor } from "./components";
 
 /**
@@ -47,7 +49,7 @@ export function getBorderRadiusClasses(isFirstDay: boolean, isLastDay: boolean):
 export function isMultiDayEvent(event: CalendarEvent): boolean {
   const eventStart = new Date(event.start);
   const eventEnd = new Date(event.end);
-  return event.allDay || eventStart.getDate() !== eventEnd.getDate();
+  return (event.allDay ?? false) || eventStart.getDate() !== eventEnd.getDate();
 }
 
 /**
@@ -123,4 +125,52 @@ export function addHoursToDate(date: Date, hours: number): Date {
   const result = new Date(date);
   result.setHours(result.getHours() + hours);
   return result;
+}
+
+/**
+ * Map event type to color
+ */
+export function mapEventTypeToColor(eventType: string): EventColor {
+  switch (eventType) {
+    case "HOLIDAY":
+      return "rose";
+    case "CLOSURE":
+      return "amber";
+    case "EVENT":
+      return "sky";
+    case "MEETING":
+      return "violet";
+    case "DEADLINE":
+      return "orange";
+    default:
+      return "emerald";
+  }
+}
+
+/**
+ * Map CalendarEventData from server to CalendarEvent for the calendar component
+ */
+export function mapServerEventToCalendarEvent(serverEvent: CalendarEventData): CalendarEvent {
+  const start = new Date(serverEvent.date);
+  const end = serverEvent.endDate ? new Date(serverEvent.endDate) : new Date(serverEvent.date);
+
+  // Si no tiene endDate, considerarlo como evento de todo el día
+  const allDay = !serverEvent.endDate;
+
+  return {
+    id: serverEvent.id,
+    title: serverEvent.name,
+    description: serverEvent.description ?? undefined,
+    start,
+    end,
+    allDay,
+    color: mapEventTypeToColor(serverEvent.eventType),
+  };
+}
+
+/**
+ * Map array of server events to calendar events
+ */
+export function mapServerEventsToCalendarEvents(serverEvents: CalendarEventData[]): CalendarEvent[] {
+  return serverEvents.map(mapServerEventToCalendarEvent);
 }
