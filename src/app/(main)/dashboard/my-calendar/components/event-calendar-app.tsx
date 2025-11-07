@@ -1,37 +1,39 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
-import { startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
+import { startOfMonth, endOfMonth, addMonths, subMonths, isWithinInterval } from "date-fns";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { getMyCalendarEvents } from "@/server/actions/employee-calendars";
 
-import { EventCalendar, type CalendarEvent } from "./";
 import { mapServerEventsToCalendarEvents } from "../utils";
+
+import { EventCalendar, type CalendarEvent } from "./";
 
 export default function EventCalendarApp() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const loadedRangeRef = useRef<{ start: Date; end: Date } | null>(null);
 
-  // Función para cargar eventos del mes actual (cargar 3 meses: anterior, actual y siguiente)
-  const loadMonthEvents = useCallback(async (date: Date) => {
+  // Función para cargar eventos con un rango más amplio (6 meses)
+  const loadMonthEvents = useCallback(async (date: Date, showLoader = true) => {
     try {
-      setIsLoading(true);
+      if (showLoader) setIsLoading(true);
 
-      // Cargar eventos del mes anterior, actual y siguiente para mejor experiencia
-      const prevMonth = subMonths(date, 1);
-      const nextMonth = addMonths(date, 1);
+      // Cargar 6 meses: 3 anteriores, actual y 2 siguientes
+      const startMonth = subMonths(date, 3);
+      const endMonth = addMonths(date, 2);
 
-      const startDate = startOfMonth(prevMonth);
-      const endDate = endOfMonth(nextMonth);
+      const startDate = startOfMonth(startMonth);
+      const endDate = endOfMonth(endMonth);
 
       const serverEvents = await getMyCalendarEvents(startDate, endDate);
       const mappedEvents = mapServerEventsToCalendarEvents(serverEvents);
 
       setEvents(mappedEvents);
+      loadedRangeRef.current = { start: startDate, end: endDate };
     } catch (error) {
       console.error("Error loading calendar events:", error);
       toast.error("Error al cargar eventos del calendario");
@@ -42,24 +44,31 @@ export default function EventCalendarApp() {
 
   // Cargar eventos al montar el componente
   useEffect(() => {
-    loadMonthEvents(currentMonth);
-  }, [currentMonth, loadMonthEvents]);
+    loadMonthEvents(new Date());
+  }, [loadMonthEvents]);
 
-  // Recargar eventos cuando el usuario cambie de mes
+  // Verificar si necesitamos recargar cuando el usuario cambie de mes
   const handleMonthChange = (newDate: Date) => {
-    const newMonth = new Date(newDate.getFullYear(), newDate.getMonth());
+    const monthStart = startOfMonth(newDate);
+    const monthEnd = endOfMonth(newDate);
 
-    // Solo recargar si cambió el mes
-    if (newMonth.getMonth() !== currentMonth.getMonth() || newMonth.getFullYear() !== currentMonth.getFullYear()) {
-      setCurrentMonth(newMonth);
-      loadMonthEvents(newMonth);
+    // Verificar si el mes está fuera del rango cargado
+    const loadedRange = loadedRangeRef.current;
+    const needsReload =
+      !loadedRange ||
+      !isWithinInterval(monthStart, { start: loadedRange.start, end: loadedRange.end }) ||
+      !isWithinInterval(monthEnd, { start: loadedRange.start, end: loadedRange.end });
+
+    if (needsReload) {
+      // Solo recargar si el mes está fuera del rango, sin mostrar loader
+      loadMonthEvents(newDate, false);
     }
   };
 
   if (isLoading) {
     return (
       <div className="flex min-h-[calc(100vh-var(--header-height)-3rem)] items-center justify-center rounded-lg border">
-        <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-2">
           <Loader2 className="h-6 w-6 animate-spin" />
           <span>Cargando calendario...</span>
         </div>
@@ -67,11 +76,5 @@ export default function EventCalendarApp() {
     );
   }
 
-  return (
-    <EventCalendar
-      events={events}
-      readOnly={true}
-      onMonthChange={handleMonthChange}
-    />
-  );
+  return <EventCalendar events={events} readOnly={true} onMonthChange={handleMonthChange} />;
 }
