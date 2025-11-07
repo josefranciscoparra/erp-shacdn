@@ -237,21 +237,51 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
               {upcomingVacations.map((vacation) => {
                 const startDate = new Date(vacation.startDate);
                 const endDate = new Date(vacation.endDate);
-                const days = Math.floor(vacation.days);
+                const days = Math.floor(vacation.workingDays);
+
+                // Calcular días que faltan
+                const todayNormalized = new Date(today);
+                todayNormalized.setHours(0, 0, 0, 0);
+                const startNormalized = new Date(startDate);
+                startNormalized.setHours(0, 0, 0, 0);
+                const daysUntil = Math.floor(
+                  (startNormalized.getTime() - todayNormalized.getTime()) / (1000 * 60 * 60 * 24),
+                );
+
+                // Mensaje coloquial según días que faltan
+                let coloquialMessage = "";
+                if (daysUntil === 0) {
+                  coloquialMessage = "¡Hoy empiezan tus vacaciones!";
+                } else if (daysUntil === 1) {
+                  coloquialMessage = "¡Mañana empiezan! 🎉";
+                } else if (daysUntil <= 3) {
+                  coloquialMessage = `¡Ya queda nada! ${daysUntil} días 🔥`;
+                } else if (daysUntil <= 7) {
+                  coloquialMessage = `Falta una semanita (${daysUntil} días) 🌴`;
+                } else if (daysUntil <= 14) {
+                  coloquialMessage = `Faltan ${daysUntil} días 🏖️`;
+                } else if (daysUntil <= 30) {
+                  coloquialMessage = `En ${daysUntil} días te vas ⛱️`;
+                } else {
+                  coloquialMessage = `Falta un ratito (${daysUntil} días) 🗓️`;
+                }
 
                 return (
-                  <div key={vacation.id} className="flex items-center justify-between rounded-lg border p-3">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-sm font-medium">
-                        {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
-                      </span>
-                      <span className="text-muted-foreground text-xs">
-                        {days} {days === 1 ? "día" : "días"}
-                      </span>
+                  <div key={vacation.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-medium">
+                          {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
+                        </span>
+                        <span className="text-muted-foreground text-xs">
+                          {days} {days === 1 ? "día" : "días"}
+                        </span>
+                      </div>
+                      <Badge variant="secondary" className="bg-green-500/10 text-green-600">
+                        Aprobada
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                      Aprobada
-                    </Badge>
+                    <div className="text-primary text-xs font-medium">{coloquialMessage}</div>
                   </div>
                 );
               })}

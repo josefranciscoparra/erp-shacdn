@@ -147,7 +147,6 @@ export function useSidebarItems(): NavGroup[] {
             {
               title: "Horarios",
               url: "/dashboard/schedules",
-              icon: Clock,
               permission: "view_contracts",
             },
           ],
