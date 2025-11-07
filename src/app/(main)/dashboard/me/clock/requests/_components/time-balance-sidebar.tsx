@@ -45,7 +45,7 @@ export function TimeBalanceSidebar() {
   const hasProblematicDays = problematicDays.length > 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {/* Card de balance con gráfico circular */}
       <Card className="hover:bg-muted/50 transition-colors">
         <CardContent className="px-6 pt-3 pb-2">
@@ -199,11 +199,11 @@ export function TimeBalanceSidebar() {
         </CardContent>
       </Card>
 
-      {hasProblematicDays && (
-        <Card className="h-full">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Días pendientes</CardTitle>
-          </CardHeader>
+      <Card className="h-full">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Días pendientes</CardTitle>
+        </CardHeader>
+        {hasProblematicDays ? (
           <CardContent className="space-y-2">
             {problematicDays.slice(0, 4).map((day) => (
               <div
@@ -228,8 +228,12 @@ export function TimeBalanceSidebar() {
               <p className="text-muted-foreground pt-1 text-center text-xs">+{problematicDays.length - 4} más</p>
             )}
           </CardContent>
-        </Card>
-      )}
+        ) : (
+          <CardContent className="text-muted-foreground flex h-full items-center justify-center text-sm">
+            No hay días pendientes
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 }
