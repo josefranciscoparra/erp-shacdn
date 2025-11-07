@@ -98,9 +98,15 @@ export function useSidebarItems(): NavGroup[] {
         ...(chatEnabled
           ? [
               {
-                title: "Mensajes",
+                title: "Chat",
                 url: "/dashboard/chat",
                 icon: MessageSquare,
+              },
+              {
+                title: "Mensajes (ShadCN)",
+                url: "/dashboard/messages",
+                icon: MessageSquare,
+                isNew: true,
               },
             ]
           : []),

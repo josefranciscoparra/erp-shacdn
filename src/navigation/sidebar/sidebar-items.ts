@@ -1,6 +1,5 @@
 import {
   Fingerprint,
-  LayoutDashboard,
   ChartBar,
   Banknote,
   Settings,
@@ -9,6 +8,7 @@ import {
   FileSignature,
   Network,
   Receipt,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,6 +91,12 @@ export const sidebarItems: NavGroup[] = [
         title: "Notificaciones",
         url: "/dashboard/notifications",
         icon: Bell,
+      },
+      {
+        title: "Mensajes",
+        url: "/dashboard/messages",
+        icon: MessageSquare,
+        isNew: true,
       },
     ],
   },
