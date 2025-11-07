@@ -47,14 +47,20 @@ export default function MyManualTimeEntryRequestsPage() {
     switch (status) {
       case "PENDING":
         return (
-          <Badge variant="secondary" className="gap-1 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300">
+          <Badge
+            variant="secondary"
+            className="gap-1 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+          >
             <Clock className="h-3 w-3" />
             Pendiente
           </Badge>
         );
       case "APPROVED":
         return (
-          <Badge variant="secondary" className="gap-1 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300">
+          <Badge
+            variant="secondary"
+            className="gap-1 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+          >
             <CheckCircle className="h-3 w-3" />
             Aprobado
           </Badge>
@@ -103,7 +109,7 @@ export default function MyManualTimeEntryRequestsPage() {
       <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
 
       {viewMode === "calendar" ? (
-        <div className="grid gap-6 @4xl/main:grid-cols-[minmax(0,1fr)_320px] @4xl/main:items-start">
+        <div className="flex flex-col gap-6">
           <TimeCalendarView />
           <TimeBalanceSidebar />
         </div>

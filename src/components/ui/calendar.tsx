@@ -49,6 +49,10 @@ export type CalendarProps = DayPickerProps & {
   disabledClassName?: string;
   rangeMiddleClassName?: string;
   hiddenClassName?: string;
+  /**
+   * Expands the calendar to use the full width of its container.
+   */
+  fullWidth?: boolean;
 };
 
 type NavView = "days" | "years";
@@ -61,10 +65,12 @@ type NavView = "days" | "years";
  */
 function Calendar({
   className,
+  style,
   showOutsideDays = true,
   showYearSwitcher = true,
   yearRange = 12,
   numberOfMonths,
+  fullWidth = false,
   ...props
 }: CalendarProps) {
   const [navView, setNavView] = React.useState<NavView>("days");
@@ -84,6 +90,14 @@ function Calendar({
   const { onNextClick, onPrevClick, startMonth, endMonth } = props;
 
   const columnsDisplayed = navView === "years" ? 1 : numberOfMonths;
+  const calendarStyle: React.CSSProperties = {
+    width: `${248.8 * (columnsDisplayed ?? 1)}px`,
+    ...style
+  };
+
+  if (fullWidth) {
+    calendarStyle.width = "100%";
+  }
 
   const _monthsClassName = cn("relative flex", props.monthsClassName);
   const _monthCaptionClassName = cn(
@@ -154,9 +168,7 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
-      style={{
-        width: 248.8 * (columnsDisplayed ?? 1) + "px"
-      }}
+      style={calendarStyle}
       classNames={{
         months: _monthsClassName,
         month_caption: _monthCaptionClassName,

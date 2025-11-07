@@ -42,8 +42,10 @@ export function TimeBalanceSidebar() {
     return dayDate < today && (d.status === "ABSENT" || d.status === "INCOMPLETE");
   });
 
+  const hasProblematicDays = problematicDays.length > 0;
+
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       {/* Card de balance con gráfico circular */}
       <Card className="hover:bg-muted/50 transition-colors">
         <CardContent className="px-6 pt-3 pb-2">
@@ -151,8 +153,8 @@ export function TimeBalanceSidebar() {
         </CardContent>
       </Card>
 
-      {/* Estadísticas de días - Card unificada */}
-      <Card>
+      {/* Estadísticas de días */}
+      <Card className="h-full">
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Resumen mensual</CardTitle>
         </CardHeader>
@@ -194,39 +196,40 @@ export function TimeBalanceSidebar() {
               <span className="text-primary font-bold">{stats.workdays}</span>
             </div>
           </div>
-
-          {/* Días pendientes */}
-          {problematicDays.length > 0 && (
-            <div className="space-y-2 border-t pt-3">
-              <h4 className="text-sm font-semibold">Días pendientes</h4>
-              <div className="space-y-2">
-                {problematicDays.slice(0, 3).map((day) => (
-                  <div
-                    key={format(day.date, "yyyy-MM-dd")}
-                    className="bg-muted/20 flex items-center justify-between rounded-lg border px-3 py-2"
-                  >
-                    <div className="flex items-center gap-2">
-                      {day.status === "ABSENT" ? (
-                        <XCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-5))" }} />
-                      ) : (
-                        <AlertCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-3))" }} />
-                      )}
-                      <span className="text-sm font-medium">{format(day.date, "dd MMM", { locale: es })}</span>
-                    </div>
-                    <span className="text-muted-foreground text-xs">
-                      {day.status === "ABSENT" ? "Sin fichaje" : `${day.workedHours.toFixed(1)}h`}
-                    </span>
-                  </div>
-                ))}
-
-                {problematicDays.length > 3 && (
-                  <p className="text-muted-foreground pt-1 text-center text-xs">+{problematicDays.length - 3} más</p>
-                )}
-              </div>
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {hasProblematicDays && (
+        <Card className="h-full">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Días pendientes</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {problematicDays.slice(0, 4).map((day) => (
+              <div
+                key={format(day.date, "yyyy-MM-dd")}
+                className="bg-muted/20 flex items-center justify-between rounded-lg border px-3 py-2"
+              >
+                <div className="flex items-center gap-2">
+                  {day.status === "ABSENT" ? (
+                    <XCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-5))" }} />
+                  ) : (
+                    <AlertCircle className="h-4 w-4" style={{ color: "oklch(var(--chart-3))" }} />
+                  )}
+                  <span className="text-sm font-medium">{format(day.date, "dd MMM", { locale: es })}</span>
+                </div>
+                <span className="text-muted-foreground text-xs">
+                  {day.status === "ABSENT" ? "Sin fichaje" : `${day.workedHours.toFixed(1)}h`}
+                </span>
+              </div>
+            ))}
+
+            {problematicDays.length > 4 && (
+              <p className="text-muted-foreground pt-1 text-center text-xs">+{problematicDays.length - 4} más</p>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

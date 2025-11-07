@@ -312,7 +312,7 @@ export function TimeCalendarView() {
 
   return (
     <>
-      <Card className="p-0">
+      <Card className="overflow-hidden p-0">
         <CardContent className="p-0">
           <Calendar
             mode="single"
@@ -322,6 +322,7 @@ export function TimeCalendarView() {
             today={today}
             locale={es}
             className="w-full"
+            fullWidth
             monthsClassName="w-full"
             monthClassName="w-full flex flex-col"
             weekdayClassName="w-full"
