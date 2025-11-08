@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
@@ -61,6 +61,18 @@ const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
   { key: "MEDICAL", label: "Médicos" },
   { key: "OTHER", label: "Otros" },
 ];
+
+const MAIN_TABS = [
+  { value: "information", label: "Información" },
+  { value: "contract", label: "Contrato Actual" },
+  { value: "access", label: "Acceso" },
+  { value: "documents", label: "Documentos", requiresDocuments: true },
+  { value: "expenses", label: "Gastos" },
+  { value: "pto", label: "Vacaciones" },
+  { value: "history", label: "Historial" },
+] as const;
+
+type MainTabValue = (typeof MAIN_TABS)[number]["value"];
 
 interface Employee {
   id: string;
@@ -151,9 +163,26 @@ export default function EmployeeProfilePage() {
   const documentsByKind = useDocumentsByKind();
   const stats = useDocumentStats();
 
+  const [activeMainTab, setActiveMainTab] = useState<MainTabValue>("information");
   const [activeDocTab, setActiveDocTab] = useState<string>("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+
+  const availableMainTabs = useMemo(() => {
+    if (documentsEnabled) return MAIN_TABS;
+    return MAIN_TABS.filter((tab) => !tab.requiresDocuments);
+  }, [documentsEnabled]);
+
+  useEffect(() => {
+    if (!availableMainTabs.some((tab) => tab.value === activeMainTab) && availableMainTabs.length) {
+      setActiveMainTab(availableMainTabs[0].value);
+    }
+  }, [activeMainTab, availableMainTabs]);
+
+  const currentMainTabLabel =
+    availableMainTabs.find((tab) => tab.value === activeMainTab)?.label ??
+    availableMainTabs[0]?.label ??
+    "Selecciona una sección";
 
   const fetchEmployee = async (silent = false) => {
     try {
@@ -201,6 +230,25 @@ export default function EmployeeProfilePage() {
   const loadDocuments = async () => {
     if (!params.id || !documentsEnabled) return;
     await fetchDocuments(params.id as string);
+  };
+
+  const handleMainTabChange = (value: string) => {
+    const matchedTab = availableMainTabs.find((tab) => tab.value === value);
+    const fallbackValue: MainTabValue = availableMainTabs[0]?.value ?? "information";
+    const nextValue = matchedTab?.value ?? fallbackValue;
+
+    if (nextValue === activeMainTab) {
+      return;
+    }
+
+    setActiveMainTab(nextValue);
+
+    if (nextValue === "pto" && ptoRequests.length === 0) {
+      loadPtoData();
+    }
+    if (nextValue === "documents" && documents.length === 0) {
+      loadDocuments();
+    }
   };
 
   // Manejar cambio de tab de documentos
@@ -306,8 +354,8 @@ export default function EmployeeProfilePage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="flex flex-wrap items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => router.back()}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
@@ -354,7 +402,7 @@ export default function EmployeeProfilePage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-wrap items-center gap-2 md:w-auto md:flex-nowrap md:justify-end">
           <Button
             variant="outline"
             size="sm"
@@ -378,27 +426,31 @@ export default function EmployeeProfilePage() {
         </div>
       </div>
 
+      {/* Selector móvil */}
+      <div className="mb-6 md:hidden">
+        <Select value={activeMainTab} onValueChange={handleMainTabChange}>
+          <SelectTrigger aria-label="Selector de pestañas" className="w-full">
+            <span className="flex-1 text-left">{currentMainTabLabel}</span>
+          </SelectTrigger>
+          <SelectContent position="popper" className="min-w-[var(--radix-select-trigger-width)]">
+            {availableMainTabs.map((tab) => (
+              <SelectItem key={tab.value} value={tab.value}>
+                {tab.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {/* Tabs Content */}
-      <Tabs
-        defaultValue="information"
-        className="w-full"
-        onValueChange={(value) => {
-          if (value === "pto" && ptoRequests.length === 0) {
-            loadPtoData();
-          }
-          if (value === "documents" && documents.length === 0) {
-            loadDocuments();
-          }
-        }}
-      >
-        <TabsList className={`grid w-full ${documentsEnabled ? "grid-cols-7" : "grid-cols-6"}`}>
-          <TabsTrigger value="information">Información</TabsTrigger>
-          <TabsTrigger value="contract">Contrato Actual</TabsTrigger>
-          <TabsTrigger value="access">Acceso</TabsTrigger>
-          {documentsEnabled && <TabsTrigger value="documents">Documentos</TabsTrigger>}
-          <TabsTrigger value="expenses">Gastos</TabsTrigger>
-          <TabsTrigger value="pto">Vacaciones</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
+      <Tabs value={activeMainTab} onValueChange={handleMainTabChange} className="w-full">
+        {/* Tabs desktop */}
+        <TabsList className={`mb-6 hidden w-full md:grid ${documentsEnabled ? "grid-cols-7" : "grid-cols-6"}`}>
+          {availableMainTabs.map((tab) => (
+            <TabsTrigger key={tab.value} value={tab.value}>
+              {tab.label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
         {/* Información Personal */}
