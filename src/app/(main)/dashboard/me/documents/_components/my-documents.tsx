@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Home,
   MoreVertical,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -165,7 +166,7 @@ export function MyDocuments() {
     }
   };
 
-  // Filtrar documentos
+  // Filtrar documentos - siempre busca en la carpeta actual si estás en una
   const filteredDocuments = documents.filter((doc) => {
     const matchesSearch =
       searchQuery === "" ||
@@ -174,7 +175,10 @@ export function MyDocuments() {
 
     const matchesCategory = filterCategory === "all" || doc.kind === filterCategory;
 
-    return matchesSearch && matchesCategory;
+    // Si estamos en una carpeta, solo mostrar documentos de esa carpeta
+    const matchesFolder = !currentFolder || doc.kind === currentFolder;
+
+    return matchesSearch && matchesCategory && matchesFolder;
   });
 
   // Agrupar por categoría
@@ -214,28 +218,31 @@ export function MyDocuments() {
     >
       <SectionHeader title="Mis Documentos" actionLabel="Subir documento" onAction={() => setUploadDialogOpen(true)} />
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={() => setCurrentFolder(null)}
-          className="text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
-        >
-          <Home className="h-4 w-4" />
-          <span>Carpetas</span>
-        </button>
+      {/* Navegación: Botón Volver + Breadcrumb */}
+      <div className="flex items-center gap-3">
         {currentFolder && (
-          <>
-            <ChevronRight className="text-muted-foreground h-4 w-4" />
-            <span className="font-medium">{documentKindLabels[currentFolder]}</span>
-          </>
+          <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Volver
+          </Button>
         )}
+        <div className="flex items-center gap-2 text-sm">
+          <Home className="text-muted-foreground h-4 w-4" />
+          <span className="text-muted-foreground">Carpetas</span>
+          {currentFolder && (
+            <>
+              <ChevronRight className="text-muted-foreground h-4 w-4" />
+              <span className="text-foreground font-semibold">{documentKindLabels[currentFolder]}</span>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Barra de búsqueda */}
+      {/* Buscador */}
       <div className="relative max-w-md">
         <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <Input
-          placeholder="Buscar documentos..."
+          placeholder={currentFolder ? `Buscar en ${documentKindLabels[currentFolder]}...` : "Buscar documentos..."}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="h-9 pl-9"
