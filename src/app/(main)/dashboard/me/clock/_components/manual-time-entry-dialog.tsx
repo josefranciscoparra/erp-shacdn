@@ -125,7 +125,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[95vh] overflow-y-auto bg-gray-100 p-4 sm:max-w-[600px] sm:p-6 dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Solicitar fichaje manual</DialogTitle>
           <DialogDescription>
@@ -133,7 +133,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pt-2">
           {/* Error general */}
           {error && (
             <Alert variant="destructive">
@@ -227,11 +227,17 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
           </div>
 
           {/* Botones */}
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} className="flex-1">
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isLoading}
+              className="w-full sm:w-auto"
+            >
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isLoading} className="flex-1">
+            <Button onClick={handleSubmit} disabled={isLoading} className="w-full sm:w-auto">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Enviar solicitud
             </Button>

@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 
 import { ManualTimeEntryDialog } from "../_components/manual-time-entry-dialog";
@@ -27,6 +28,17 @@ export default function MyManualTimeEntryRequestsPage() {
   const [activeTab, setActiveTab] = useState<"PENDING" | "APPROVED" | "REJECTED">("PENDING");
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+
+  const getStatusText = (status: "PENDING" | "APPROVED" | "REJECTED") => {
+    switch (status) {
+      case "PENDING":
+        return "pendientes";
+      case "APPROVED":
+        return "aprobadas";
+      case "REJECTED":
+        return "rechazadas";
+    }
+  };
 
   useEffect(() => {
     loadRequests(activeTab);
@@ -87,39 +99,43 @@ export default function MyManualTimeEntryRequestsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
+      <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-start @xl/main:justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/me/clock">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Volver a Fichar
-            </Button>
-          </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" asChild>
+                  <Link href="/dashboard/me/clock">
+                    <ArrowLeft />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Volver a Fichar</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="flex flex-col">
+            <h1 className="text-xl font-bold tracking-tight lg:text-2xl">Mis fichajes</h1>
+            <p className="text-muted-foreground text-sm">
+              Calendario, balance de horas y solicitudes de fichaje manual
+            </p>
+          </div>
         </div>
-        <SectionHeader
-          title="Mis fichajes"
-          description="Calendario, balance de horas y solicitudes de fichaje manual"
-          action={
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === "calendar" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("calendar")}
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                Calendario
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="mr-2 h-4 w-4" />
-                Solicitudes
-              </Button>
-            </div>
-          }
-        />
+
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === "calendar" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setViewMode("calendar")}
+          >
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            Calendario
+          </Button>
+          <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+            <List className="mr-2 h-4 w-4" />
+            Solicitudes
+          </Button>
+        </div>
       </div>
 
       <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
@@ -132,7 +148,7 @@ export default function MyManualTimeEntryRequestsPage() {
       ) : (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
               {/* Select para móvil */}
               <div className="flex @4xl/main:hidden">
                 <Select value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
@@ -173,7 +189,9 @@ export default function MyManualTimeEntryRequestsPage() {
               </TabsList>
 
               {/* Botón nueva solicitud */}
-              <Button onClick={() => setManualDialogOpen(true)}>Nueva solicitud</Button>
+              <Button onClick={() => setManualDialogOpen(true)} className="w-full @4xl/main:w-auto">
+                Nueva solicitud
+              </Button>
             </div>
           </div>
 
@@ -186,7 +204,7 @@ export default function MyManualTimeEntryRequestsPage() {
             ) : requests.length === 0 ? (
               <Card className="flex flex-col items-center justify-center py-12">
                 <Clock className="text-muted-foreground mb-4 h-12 w-12" />
-                <p className="text-muted-foreground text-sm">No hay solicitudes {activeTab.toLowerCase()}</p>
+                <p className="text-muted-foreground text-sm">No hay solicitudes {getStatusText(activeTab)}</p>
               </Card>
             ) : (
               <div className="grid gap-4">
