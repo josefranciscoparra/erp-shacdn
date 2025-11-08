@@ -152,6 +152,13 @@ export function NavMain({ items }: NavMainProps) {
     if (subItems?.length) {
       return subItems.some((sub) => path.startsWith(sub.url));
     }
+
+    // Caso especial para "Fichar": activo en /dashboard/me/clock y /dashboard/me/clock/requests
+    if (url === "/dashboard/me/clock") {
+      return path === "/dashboard/me/clock" || path.startsWith("/dashboard/me/clock/");
+    }
+
+    // Para el resto: solo match exacto
     return path === url;
   };
 

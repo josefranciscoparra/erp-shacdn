@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 
+import Link from "next/link";
+
 import { motion, AnimatePresence } from "framer-motion";
 import {
   LogIn,
   LogOut,
   Coffee,
-  FilePlus,
   MapPin,
   AlertTriangle,
   CheckCircle2,
@@ -15,6 +16,7 @@ import {
   Map,
   Loader2,
   Clock,
+  ArrowRight,
 } from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
@@ -30,12 +32,10 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
-import { ManualTimeEntryDialog } from "./manual-time-entry-dialog";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // Estados de geolocalización
@@ -279,17 +279,19 @@ export function ClockIn() {
       <SectionHeader
         title="Fichar"
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setManualDialogOpen(true)}>
-              <FilePlus className="mr-2 h-4 w-4" />
-              Solicitar fichaje manual
+          <Link href="/dashboard/me/clock/requests">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-400 dark:hover:bg-orange-950/50"
+            >
+              <Clock className="h-3.5 w-3.5" />
+              <span>¿Olvidaste fichar?</span>
+              <ArrowRight className="h-3.5 w-3.5" />
             </Button>
-          </div>
+          </Link>
         }
       />
-
-      {/* Dialog de solicitud de fichaje manual */}
-      <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
 
       {/* Diálogo de consentimiento de geolocalización */}
       <GeolocationConsentDialog

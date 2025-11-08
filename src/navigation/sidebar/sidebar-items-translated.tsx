@@ -14,7 +14,6 @@ import {
   CheckSquare,
   UserCog,
   FileSignature,
-  ClipboardList,
   Receipt,
   MessageSquare,
   type LucideIcon,
@@ -74,11 +73,6 @@ export function useSidebarItems(): NavGroup[] {
           title: "Fichar",
           url: "/dashboard/me/clock",
           icon: Clock,
-        },
-        {
-          title: "Mis fichajes",
-          url: "/dashboard/me/clock/requests",
-          icon: ClipboardList,
         },
         {
           title: "Mis Vacaciones",

@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle, Clock, XCircle, Trash2, Calendar as CalendarIcon, List } from "lucide-react";
+import { CheckCircle, Clock, XCircle, Trash2, Calendar as CalendarIcon, List, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { SectionHeader } from "@/components/hr/section-header";
@@ -85,26 +87,40 @@ export default function MyManualTimeEntryRequestsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Mis fichajes"
-        description="Calendario, balance de horas y solicitudes de fichaje manual"
-        action={
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === "calendar" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setViewMode("calendar")}
-            >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              Calendario
+      <div className="flex flex-col gap-3 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/me/clock">
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver a Fichar
             </Button>
-            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-              <List className="mr-2 h-4 w-4" />
-              Solicitudes
-            </Button>
-          </div>
-        }
-      />
+          </Link>
+        </div>
+        <SectionHeader
+          title="Mis fichajes"
+          description="Calendario, balance de horas y solicitudes de fichaje manual"
+          action={
+            <div className="flex gap-2">
+              <Button
+                variant={viewMode === "calendar" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("calendar")}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                Calendario
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="mr-2 h-4 w-4" />
+                Solicitudes
+              </Button>
+            </div>
+          }
+        />
+      </div>
 
       <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
 
