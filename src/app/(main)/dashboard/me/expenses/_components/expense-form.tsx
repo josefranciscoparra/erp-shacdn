@@ -36,7 +36,13 @@ interface ExpenseFormProps {
   isEditMode?: boolean; // true = editando gasto existente, false/undefined = nuevo gasto
 }
 
-export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = false, isEditMode = false }: ExpenseFormProps) {
+export function ExpenseForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isSubmitting = false,
+  isEditMode = false,
+}: ExpenseFormProps) {
   const [isMileage, setIsMileage] = useState(initialData?.category === "MILEAGE");
   const [totalAmount, setTotalAmount] = useState(0);
   const [submitType, setSubmitType] = useState<"draft" | "submit">("submit");
@@ -44,7 +50,9 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
     defaultValues: {
-      date: initialData?.date ? new Date(initialData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
+      date: initialData?.date
+        ? new Date(initialData.date).toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0],
       category: initialData?.category ?? "OTHER",
       amount: initialData?.amount?.toString() ?? "",
       vatPercent: initialData?.vatPercent?.toString() ?? "21",
@@ -69,13 +77,13 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
   useEffect(() => {
     if (isMileage) {
       // Kilometraje: km × 0.26 €/km
-      const km = parseFloat(watchKm || "0");
+      const km = parseFloat(watchKm) || 0;
       const total = km * 0.26;
       setTotalAmount(total);
     } else {
       // Normal: amount + IVA
-      const amount = parseFloat(watchAmount || "0");
-      const vatPercent = parseFloat(watchVat || "0");
+      const amount = parseFloat(watchAmount) || 0;
+      const vatPercent = parseFloat(watchVat) || 0;
       const vatAmount = (amount * vatPercent) / 100;
       const total = amount + vatAmount;
       setTotalAmount(total);
@@ -180,50 +188,48 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
             )}
           />
         ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="amount"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Importe base (sin IVA)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              control={form.control}
+              name="amount"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Importe base (sin IVA)</FormLabel>
+                  <FormControl>
+                    <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <FormField
-                control={form.control}
-                name="vatPercent"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>IVA %</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona IVA" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="0">0%</SelectItem>
-                        <SelectItem value="10">10%</SelectItem>
-                        <SelectItem value="21">21%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </>
+            <FormField
+              control={form.control}
+              name="vatPercent"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>IVA %</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona IVA" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="0">0%</SelectItem>
+                      <SelectItem value="10">10%</SelectItem>
+                      <SelectItem value="21">21%</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
         )}
 
         {/* Total calculado */}
-        <div className="rounded-lg border bg-muted/50 p-4">
+        <div className="bg-muted/50 rounded-lg border p-4">
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground text-sm">Total</span>
             <span className="text-2xl font-bold">
@@ -282,8 +288,14 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
         />
 
         {/* Botones */}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isSubmitting}
+            className="w-full sm:w-auto"
+          >
             Cancelar
           </Button>
           {/* Solo mostrar "Guardar borrador" si es un gasto nuevo (no en modo edición) */}
@@ -293,16 +305,18 @@ export function ExpenseForm({ initialData, onSubmit, onCancel, isSubmitting = fa
               variant="secondary"
               disabled={isSubmitting}
               onClick={() => setSubmitType("draft")}
+              className="w-full sm:w-auto"
             >
               {isSubmitting && submitType === "draft" ? "Guardando..." : "Guardar borrador"}
             </Button>
           )}
-          <Button type="submit" disabled={isSubmitting} onClick={() => setSubmitType("submit")}>
-            {isSubmitting && submitType === "submit"
-              ? "Enviando..."
-              : isEditMode
-                ? "Guardar cambios"
-                : "Enviar gasto"}
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            onClick={() => setSubmitType("submit")}
+            className="w-full sm:w-auto"
+          >
+            {isSubmitting && submitType === "submit" ? "Enviando..." : isEditMode ? "Guardar cambios" : "Enviar gasto"}
           </Button>
         </div>
       </form>

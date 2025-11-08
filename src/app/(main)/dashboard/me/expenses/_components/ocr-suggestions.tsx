@@ -134,11 +134,11 @@ export function OcrSuggestions({ data, onApply, onSkip }: OcrSuggestionsProps) {
           </div>
 
           {/* Botones de acción */}
-          <div className="flex gap-2">
-            <Button onClick={() => onApply(data)} className="flex-1">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button onClick={() => onApply(data)} className="w-full sm:flex-1">
               Usar estos datos
             </Button>
-            <Button variant="outline" onClick={onSkip}>
+            <Button variant="outline" onClick={onSkip} className="w-full sm:w-auto">
               Rellenar manualmente
             </Button>
           </div>

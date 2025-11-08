@@ -161,7 +161,6 @@ export default function ExpensesPage() {
         title="Mis Gastos"
         subtitle="Gestiona tus gastos y solicitudes de reembolso"
         actionLabel="Nuevo Gasto"
-        actionIcon={<Plus className="mr-2 size-4" />}
         onAction={handleNewExpense}
       />
 

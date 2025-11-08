@@ -178,7 +178,7 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="bg-gray-100 sm:max-w-[600px] dark:bg-gray-900">
+      <DialogContent className="max-h-[95vh] overflow-y-auto bg-gray-100 p-4 sm:max-w-[600px] sm:p-6 dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Subir documento</DialogTitle>
           <DialogDescription>
@@ -191,7 +191,7 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
             {/* Zona de drag & drop */}
             <div className="space-y-4">
               <div
-                className={`relative cursor-pointer rounded-lg border-2 border-dashed p-8 text-center transition-colors ${
+                className={`relative cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors sm:p-8 ${
                   dragActive
                     ? "border-primary bg-primary/5"
                     : "border-muted-foreground/25 hover:border-primary/50 hover:bg-muted/50"
@@ -212,10 +212,10 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
 
                 {selectedFile ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-center gap-3">
-                      <FileText className="h-8 w-8 text-green-600" />
-                      <div className="text-left">
-                        <p className="font-medium text-green-700 dark:text-green-400">{selectedFile.name}</p>
+                    <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                      <FileText className="h-8 w-8 flex-shrink-0 text-green-600" />
+                      <div className="min-w-0 flex-1 text-center sm:text-left">
+                        <p className="truncate font-medium text-green-700 dark:text-green-400">{selectedFile.name}</p>
                         <p className="text-sm text-green-600 dark:text-green-500">
                           {formatFileSize(selectedFile.size)}
                         </p>
@@ -224,7 +224,7 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-green-600 hover:text-green-700"
+                        className="h-6 w-6 flex-shrink-0 text-green-600 hover:text-green-700"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleRemoveFile();
@@ -241,7 +241,10 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
                   <div className="space-y-3">
                     <Upload className="text-muted-foreground mx-auto h-12 w-12" />
                     <div>
-                      <p className="text-lg font-medium">Arrastra archivos aquí o haz clic para seleccionar</p>
+                      <p className="text-base font-medium sm:text-lg">
+                        <span className="sm:hidden">Haz clic para seleccionar</span>
+                        <span className="hidden sm:inline">Arrastra archivos aquí o haz clic para seleccionar</span>
+                      </p>
                       <p className="text-muted-foreground mt-1 text-sm">PDF, DOC, DOCX, JPG, PNG, WEBP (máx. 10MB)</p>
                     </div>
                   </div>
@@ -300,11 +303,17 @@ export function UploadDocumentDialog({ open, onOpenChange, onUploadSuccess }: Up
             />
 
             {/* Botones */}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={isUploading}>
+            <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+                disabled={isUploading}
+                className="w-full sm:w-auto"
+              >
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isUploading || !selectedFile}>
+              <Button type="submit" disabled={isUploading || !selectedFile} className="w-full sm:w-auto">
                 {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
