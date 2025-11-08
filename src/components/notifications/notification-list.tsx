@@ -44,7 +44,11 @@ const notificationIcons = {
   EXPENSE_REJECTED: X,
 };
 
-export function NotificationList() {
+interface NotificationListProps {
+  onClose?: () => void;
+}
+
+export function NotificationList({ onClose }: NotificationListProps = {}) {
   const router = useRouter();
   const { notifications, isLoading, markAllAsRead } = useNotificationsStore();
 
@@ -52,12 +56,13 @@ export function NotificationList() {
     // Solo redirigir, no marcar como leída
     // La notificación se marcará como leída cuando el usuario la abra en la página de notificaciones
     router.push("/dashboard/notifications");
+    onClose?.(); // Cerrar el popover después de navegar
   };
 
   return (
     <div className="flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b p-4">
+      <div className="flex items-center justify-between border-b p-3 sm:p-4">
         <h3 className="font-semibold">Notificaciones</h3>
         {(isLoading || notifications.some((n) => !n.isRead)) && (
           <div className="flex items-center gap-2">
@@ -92,13 +97,13 @@ export function NotificationList() {
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
                   className={cn(
-                    "hover:bg-accent flex w-full items-start gap-3 p-4 text-left transition-colors",
+                    "hover:bg-accent flex w-full items-start gap-2 p-3 text-left transition-colors sm:gap-3 sm:p-4",
                     !notification.isRead && "bg-muted/50",
                   )}
                 >
                   <div
                     className={cn(
-                      "mt-0.5 rounded-full p-2",
+                      "mt-0.5 rounded-full p-1.5 sm:p-2",
                       notification.type === "PTO_APPROVED" &&
                         "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                       notification.type === "PTO_REJECTED" &&
@@ -129,7 +134,7 @@ export function NotificationList() {
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                     )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   </div>
 
                   <div className="flex-1 space-y-1">
@@ -154,7 +159,15 @@ export function NotificationList() {
       {/* Footer */}
       {notifications.length > 0 && (
         <div className="border-t p-2">
-          <Button variant="ghost" size="sm" className="w-full" onClick={() => router.push("/dashboard/notifications")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              router.push("/dashboard/notifications");
+              onClose?.(); // Cerrar el popover después de navegar
+            }}
+          >
             Ver todas las notificaciones
           </Button>
         </div>

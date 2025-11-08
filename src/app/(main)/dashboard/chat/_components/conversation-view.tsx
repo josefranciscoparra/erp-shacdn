@@ -377,7 +377,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
 
       {/* Mensajes */}
       <div className="relative flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto @3xl/main:px-4" ref={scrollRef}>
+        <div className="h-full overflow-y-auto px-4" ref={scrollRef}>
           {messages.length === 0 && !loading ? (
             <div className="text-muted-foreground flex h-full items-center justify-center text-center">
               <p>No hay mensajes aún. ¡Envía el primero!</p>
@@ -413,8 +413,10 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
                   >
                     <div className="flex items-center gap-2">
                       <div
-                        className={cn("bg-muted inline-flex items-start gap-4 rounded-md border p-4", {
+                        className={cn("inline-flex items-start gap-4 rounded-md p-4", {
                           "order-1": isOwn,
+                          "bg-primary text-primary-foreground": isOwn,
+                          "bg-muted border": !isOwn,
                         })}
                       >
                         <Avatar className="mt-0.5 h-8 w-8" key={message.sender.id}>

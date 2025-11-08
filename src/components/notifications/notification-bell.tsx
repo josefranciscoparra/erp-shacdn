@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { usePathname } from "next/navigation";
 
@@ -15,6 +15,7 @@ import { NotificationList } from "./notification-list";
 
 export function NotificationBell() {
   const pathname = usePathname();
+  const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, loadNotifications, loadUnreadCount } = useNotificationsStore();
 
   // Cargar al montar el componente
@@ -60,8 +61,10 @@ export function NotificationBell() {
 
   return (
     <Popover
-      onOpenChange={(isOpen) => {
-        if (isOpen) {
+      open={isOpen}
+      onOpenChange={(open) => {
+        setIsOpen(open);
+        if (open) {
           loadUnreadCount();
           loadNotifications();
         }
@@ -84,8 +87,8 @@ export function NotificationBell() {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-96 p-0" align="end">
-        <NotificationList />
+      <PopoverContent className="w-[calc(100vw-2rem)] p-0 sm:w-96" align="end">
+        <NotificationList onClose={() => setIsOpen(false)} />
       </PopoverContent>
     </Popover>
   );
