@@ -4,11 +4,12 @@ import Link from "next/link";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Bell, ChevronRightIcon } from "lucide-react";
+import { Bell, ChevronRightIcon, ChevronRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MySpaceDashboard } from "@/server/actions/my-space";
 
 interface RecentNotificationsProps {
@@ -34,12 +35,18 @@ export function RecentNotifications({ notifications }: RecentNotificationsProps)
       <CardHeader>
         <CardTitle>Notificaciones recientes</CardTitle>
         <CardAction>
-          <Button variant="ghost" asChild>
-            <Link href="/dashboard/notifications">
-              Ver todas
-              <ChevronRightIcon />
-            </Link>
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" asChild>
+                  <Link href="/dashboard/notifications">
+                    <ChevronRight />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ver todas</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardAction>
       </CardHeader>
       <CardContent>

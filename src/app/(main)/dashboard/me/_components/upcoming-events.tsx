@@ -4,11 +4,12 @@ import Link from "next/link";
 
 import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, CalendarDays, Building2, BookOpen, Clock, MapPin, ArrowRight } from "lucide-react";
+import { Calendar, CalendarDays, Building2, BookOpen, Clock, MapPin, ArrowRight, ChevronRight } from "lucide-react";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { MySpaceDashboard } from "@/server/actions/my-space";
 
 interface UpcomingEventsProps {
@@ -54,12 +55,18 @@ export function UpcomingEvents({ events }: UpcomingEventsProps) {
       <CardHeader>
         <CardTitle>Próximos eventos</CardTitle>
         <CardAction>
-          <Link
-            href="/dashboard/me/calendar"
-            className="text-muted-foreground hover:text-primary text-sm hover:underline"
-          >
-            Ver calendario
-          </Link>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" asChild>
+                  <Link href="/dashboard/me/calendar">
+                    <ChevronRight />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ver calendario</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </CardAction>
       </CardHeader>
       <CardContent className="ps-8">
