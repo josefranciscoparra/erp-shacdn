@@ -126,7 +126,7 @@ export function UserInfoPopover({
         <PopoverTrigger asChild>{children}</PopoverTrigger>
       </div>
       <PopoverContent
-        className="bg-background w-80"
+        className="bg-background w-72"
         align="start"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -145,7 +145,7 @@ export function UserInfoPopover({
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 overflow-hidden">
-              <p className="truncate font-semibold">{name}</p>
+              <p className="truncate text-sm font-semibold">{name}</p>
               {department && <p className="text-muted-foreground truncate text-xs">{department}</p>}
             </div>
           </div>
@@ -153,14 +153,14 @@ export function UserInfoPopover({
           {/* Información de contacto */}
           <div className="space-y-2">
             {/* Email */}
-            <div className="flex items-center gap-2 text-sm">
+            <div className="flex items-center gap-2 text-xs">
               <Mail className="text-muted-foreground h-4 w-4 shrink-0" />
               <span className="truncate">{email}</span>
             </div>
 
             {/* Teléfono fijo */}
             {phone && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-xs">
                 <PhoneCall className="text-muted-foreground h-4 w-4 shrink-0" />
                 <span>{phone}</span>
               </div>
@@ -168,7 +168,7 @@ export function UserInfoPopover({
 
             {/* Teléfono móvil */}
             {mobilePhone && (
-              <div className="flex items-center gap-2 text-sm">
+              <div className="flex items-center gap-2 text-xs">
                 <Phone className="text-muted-foreground h-4 w-4 shrink-0" />
                 <span>{mobilePhone}</span>
               </div>
@@ -179,13 +179,21 @@ export function UserInfoPopover({
           {(callNumber ?? mobilePhone) && (
             <div className="flex gap-2 border-t pt-3">
               {callNumber && (
-                <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={handleCall}>
+                <Button
+                  size="sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 gap-2"
+                  onClick={handleCall}
+                >
                   <PhoneCall className="h-4 w-4" />
                   Llamar
                 </Button>
               )}
               {mobilePhone && (
-                <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={handleWhatsApp}>
+                <Button
+                  size="sm"
+                  className="flex-1 gap-2 bg-green-600 text-white hover:bg-green-700"
+                  onClick={handleWhatsApp}
+                >
                   <MessageCircle className="h-4 w-4" />
                   WhatsApp
                 </Button>
