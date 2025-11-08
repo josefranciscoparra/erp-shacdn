@@ -16,9 +16,18 @@ export type ThemeMode = (typeof THEME_MODE_VALUES)[number];
 // --- THEME PRESETS: 4 temas (3 ERP + 1 UIKit) ---
 
 export const THEME_PRESET_OPTIONS = [
-  // TEMAS DEL ERP (3 originales)
+  // TEMA PRINCIPAL (por defecto)
   {
-    label: "Blue",
+    label: "Lavender Dream",
+    value: "lavender-dream",
+    primary: {
+      light: "oklch(0.5709 0.1808 306.89)",
+      dark: "oklch(0.5709 0.1808 306.89)",
+    },
+  },
+  // TEMAS ALTERNATIVOS
+  {
+    label: "Ocean Blue",
     value: "blue",
     primary: {
       light: "oklch(0.6723 0.1606 244.9955)",
@@ -26,7 +35,7 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
-    label: "Brut Notion",
+    label: "Midnight Violet",
     value: "brut-notion",
     primary: {
       light: "oklch(0.72 0.12 240)",
@@ -34,20 +43,11 @@ export const THEME_PRESET_OPTIONS = [
     },
   },
   {
-    label: "Soft Pop",
+    label: "Twilight Blue",
     value: "soft-pop",
     primary: {
       light: "#4459c4",
       dark: "#8b97e8",
-    },
-  },
-  // TEMA LAVENDER DREAM (UIKit)
-  {
-    label: "Lavender Dream",
-    value: "lavender-dream",
-    primary: {
-      light: "oklch(0.5709 0.1808 306.89)",
-      dark: "oklch(0.5709 0.1808 306.89)",
     },
   },
 ] as const;
