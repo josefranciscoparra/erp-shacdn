@@ -27,8 +27,8 @@ export const THEME_PRESET_OPTIONS = [
   },
   // TEMAS ALTERNATIVOS
   {
-    label: "Ocean Blue",
-    value: "blue",
+    label: "Ocean Dream",
+    value: "ocean-dream",
     primary: {
       light: "oklch(0.6723 0.1606 244.9955)",
       dark: "oklch(0.7 0.16 245.011)",
