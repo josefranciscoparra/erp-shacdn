@@ -13,6 +13,21 @@ interface MySpaceMetricsProps {
   isLoading?: boolean;
 }
 
+/**
+ * Formatea minutos a un formato legible de horas y minutos
+ * Ejemplos: 65 min → "1h 5m", 480 min → "8h", 0 min → "0h"
+ */
+function formatMinutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+
+  if (mins === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${mins}m`;
+}
+
 export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
   if (isLoading) {
     return (
@@ -40,11 +55,11 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
 
   const { timeTracking, pto } = data;
 
-  // Convertir minutos a horas
-  const todayHours = (timeTracking.today.workedMinutes / 60).toFixed(1);
-  const todayExpectedHours = (timeTracking.today.expectedMinutes / 60).toFixed(1);
-  const weekHours = (timeTracking.week.totalWorkedMinutes / 60).toFixed(1);
-  const weekExpectedHours = (timeTracking.week.expectedMinutes / 60).toFixed(1);
+  // Formatear tiempo trabajado y esperado
+  const todayHours = formatMinutesToTime(timeTracking.today.workedMinutes);
+  const todayExpectedHours = formatMinutesToTime(timeTracking.today.expectedMinutes);
+  const weekHours = formatMinutesToTime(timeTracking.week.totalWorkedMinutes);
+  const weekExpectedHours = formatMinutesToTime(timeTracking.week.expectedMinutes);
 
   // Calcular porcentaje de progreso
   const todayProgress = Math.round((timeTracking.today.workedMinutes / timeTracking.today.expectedMinutes) * 100);
@@ -102,7 +117,7 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
             <p className="text-muted-foreground text-sm">
               Has completado{" "}
               <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>
-                {todayHours}h de {todayExpectedHours}h
+                {todayHours} de {todayExpectedHours}
               </span>{" "}
               de tu jornada de hoy
             </p>
@@ -145,7 +160,7 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
             <p className="text-muted-foreground text-sm">
               Has completado{" "}
               <span className={weekProgress >= 100 ? "text-green-600" : "text-orange-500"}>
-                {weekHours}h de {weekExpectedHours}h
+                {weekHours} de {weekExpectedHours}
               </span>{" "}
               de tu jornada semanal
             </p>
