@@ -10,6 +10,11 @@ import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
+// Helper para convertir Decimals a números (Next.js 15 no puede serializar Decimals)
+function serializeDecimal(value: Decimal | null | undefined): number {
+  return value ? Number(value) : 0;
+}
+
 // Schemas de validación
 const DateRangeSchema = z.object({
   from: z.date().optional(),
@@ -123,17 +128,32 @@ export async function getExpenseStats(dateRange?: z.infer<typeof DateRangeSchema
       currentPeriod: {
         from,
         to,
-        total: currentTotal,
-        draft: stats.draft,
-        submitted: stats.submitted,
-        approved: stats.approved,
-        rejected: stats.rejected,
-        reimbursed: stats.reimbursed,
+        total: serializeDecimal(currentTotal),
+        draft: {
+          count: stats.draft.count,
+          total: serializeDecimal(stats.draft.total),
+        },
+        submitted: {
+          count: stats.submitted.count,
+          total: serializeDecimal(stats.submitted.total),
+        },
+        approved: {
+          count: stats.approved.count,
+          total: serializeDecimal(stats.approved.total),
+        },
+        rejected: {
+          count: stats.rejected.count,
+          total: serializeDecimal(stats.rejected.total),
+        },
+        reimbursed: {
+          count: stats.reimbursed.count,
+          total: serializeDecimal(stats.reimbursed.total),
+        },
       },
       previousPeriod: {
         from: previousFrom,
         to: previousTo,
-        total: previousTotal,
+        total: serializeDecimal(previousTotal),
       },
       comparison: {
         percentageChange,
@@ -183,12 +203,12 @@ export async function getExpensesByCategory(year?: number, month?: number) {
 
   const categories = expensesByCategory.map((group) => ({
     category: group.category,
-    total: group._sum.totalAmount ?? new Decimal(0),
+    total: serializeDecimal(group._sum.totalAmount),
     count: group._count.id,
   }));
 
   // Calcular total
-  const total = categories.reduce((sum, cat) => sum.add(cat.total), new Decimal(0));
+  const total = categories.reduce((sum, cat) => sum + cat.total, 0);
 
   return {
     success: true,
@@ -266,16 +286,16 @@ export async function getExpensesByEmployee(year?: number, month?: number) {
       employeeId: group.employeeId,
       employeeName: emp ? `${emp.firstName} ${emp.lastName}` : "Desconocido",
       employeeNumber: emp?.employeeNumber ?? "",
-      total: group._sum.totalAmount ?? new Decimal(0),
+      total: serializeDecimal(group._sum.totalAmount),
       count: group._count.id,
     };
   });
 
   // Ordenar por total descendente
-  data.sort((a, b) => b.total.sub(a.total).toNumber());
+  data.sort((a, b) => b.total - a.total);
 
   // Calcular total
-  const total = data.reduce((sum, item) => sum.add(item.total), new Decimal(0));
+  const total = data.reduce((sum, item) => sum + item.total, 0);
 
   return {
     success: true,
@@ -328,7 +348,7 @@ export async function getExpensesTrend(months: number = 12) {
       year: from.getFullYear(),
       month: from.getMonth() + 1,
       monthName: from.toLocaleDateString("es-ES", { month: "short", year: "numeric" }),
-      total: expenses._sum.totalAmount ?? new Decimal(0),
+      total: serializeDecimal(expenses._sum.totalAmount),
       count: expenses._count.id,
     });
   }
@@ -457,11 +477,11 @@ export async function getExecutiveSummary(year?: number, month?: number) {
       totals: totals.map((t) => ({
         status: t.status,
         count: t._count.id,
-        total: t._sum.totalAmount ?? new Decimal(0),
+        total: serializeDecimal(t._sum.totalAmount),
       })),
       byCategory: byCategory.map((c) => ({
         category: c.category,
-        total: c._sum.totalAmount ?? new Decimal(0),
+        total: serializeDecimal(c._sum.totalAmount),
       })),
       uniqueEmployees: uniqueEmployees.length,
       avgApprovalTimeHours: Math.round(avgApprovalTimeHours * 10) / 10,
