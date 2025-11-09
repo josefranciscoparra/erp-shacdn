@@ -48,7 +48,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="h-auto data-[slot=sidebar-menu-button]:!p-2">
+            <SidebarMenuButton
+              asChild
+              className="hover:text-foreground! h-auto hover:bg-transparent! data-[slot=sidebar-menu-button]:!p-2"
+            >
               <Link href="/dashboard/me" className="flex items-center py-1" onClick={handleLogoClick}>
                 <Image
                   src="/logo/cutnobacklight.png"
