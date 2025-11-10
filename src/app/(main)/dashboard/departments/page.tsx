@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Plus, Building2, Loader2, ShieldAlert } from "lucide-react";
 
@@ -8,36 +8,42 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
-import { useDepartmentsStore } from "@/stores/departments-store";
+import { DepartmentData, useDepartmentsStore } from "@/stores/departments-store";
 
 import { DepartmentDialog } from "./_components/department-dialog";
 import { DepartmentsDataTable } from "./_components/departments-data-table";
 
 export default function DepartmentsPage() {
-  const { departments, isLoading, error, fetchDepartments, deleteDepartment } = useDepartmentsStore();
+  const departments = useDepartmentsStore((state) => state.departments);
+  const isLoading = useDepartmentsStore((state) => state.isLoading);
+  const error = useDepartmentsStore((state) => state.error);
+  const fetchDepartments = useDepartmentsStore((state) => state.fetchDepartments);
+  const deleteDepartment = useDepartmentsStore((state) => state.deleteDepartment);
+  const resetStore = useDepartmentsStore((state) => state.reset);
+
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingDepartment, setEditingDepartment] = useState(null);
-  const [costCenters, setCostCenters] = useState([]);
-  const [employees, setEmployees] = useState([]);
+  const [editingDepartment, setEditingDepartment] = useState<DepartmentData | null>(null);
+  const [costCenters, setCostCenters] = useState<Array<{ id: string; name: string; code: string | null }>>([]);
+  const [employees, setEmployees] = useState<
+    Array<{ id: string; firstName: string; lastName: string; secondLastName: string | null; email: string | null }>
+  >([]);
   const [loadingData, setLoadingData] = useState(false);
 
-  useEffect(() => {
-    fetchDepartments();
-    loadSupportData();
-  }, [fetchDepartments]);
+  const hasLoadedRef = useRef(false);
 
-  const loadSupportData = async () => {
+  const loadSupportData = useCallback(async () => {
     setLoadingData(true);
     try {
-      // Cargar centros de coste
-      const costCentersResponse = await fetch("/api/cost-centers");
+      const [costCentersResponse, employeesResponse] = await Promise.all([
+        fetch("/api/cost-centers"),
+        fetch("/api/employees"),
+      ]);
+
       if (costCentersResponse.ok) {
         const costCentersData = await costCentersResponse.json();
         setCostCenters(costCentersData);
       }
 
-      // Cargar empleados para responsables
-      const employeesResponse = await fetch("/api/employees");
       if (employeesResponse.ok) {
         const employeesData = await employeesResponse.json();
         setEmployees(employeesData);
@@ -47,7 +53,24 @@ export default function DepartmentsPage() {
     } finally {
       setLoadingData(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (hasLoadedRef.current) {
+      return;
+    }
+
+    hasLoadedRef.current = true;
+    void fetchDepartments();
+    void loadSupportData();
+  }, [fetchDepartments, loadSupportData]);
+
+  useEffect(() => {
+    return () => {
+      resetStore();
+      hasLoadedRef.current = false;
+    };
+  }, [resetStore]);
 
   const handleEdit = (department) => {
     setEditingDepartment(department);

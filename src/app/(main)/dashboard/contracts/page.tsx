@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Briefcase, AlertCircle, FileText, ShieldAlert } from "lucide-react";
+import { Briefcase, FileText, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -18,28 +18,50 @@ import { getContractsColumns } from "../employees/[id]/contracts/_components/con
 
 import { ContractsDataTable } from "./_components/contracts-data-table";
 
+type ContractStatusTab = "active" | "inactive" | "all";
+
 export default function ContractsPage() {
   const router = useRouter();
-  const [currentTab, setCurrentTab] = useState("active");
+  const [currentTab, setCurrentTab] = useState<ContractStatusTab>("active");
 
-  const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
+  const contracts = useContractsStore((state) => state.contracts);
+  const isLoading = useContractsStore((state) => state.isLoading);
+  const total = useContractsStore((state) => state.total);
+  const fetchAllContracts = useContractsStore((state) => state.fetchAllContracts);
+  const setStatus = useContractsStore((state) => state.setStatus);
+  const resetStore = useContractsStore((state) => state.reset);
 
+  const lastFetchedStatusRef = useRef<ContractStatusTab | null>(null);
+
+  // Load contracts whenever the tab changes and keep StrictMode double-invocation in check.
   useEffect(() => {
-    // Cargar todos los contratos al montar
-    fetchAllContracts({ status: currentTab === "all" ? "all" : currentTab });
+    const statusParam = currentTab;
 
-    // Cleanup store on unmount
-    return () => {
-      reset();
+    if (lastFetchedStatusRef.current === statusParam) {
+      return;
+    }
+
+    lastFetchedStatusRef.current = statusParam;
+
+    const loadContracts = async () => {
+      try {
+        await fetchAllContracts({ status: statusParam });
+        setStatus(statusParam);
+      } catch (error) {
+        lastFetchedStatusRef.current = null;
+      }
     };
-  }, []);
 
-  // Refetch contracts when tab changes
+    void loadContracts();
+  }, [currentTab, fetchAllContracts, setStatus]);
+
+  // Reset the store when leaving the page to avoid leaking stale data between navigations.
   useEffect(() => {
-    const statusParam = currentTab === "all" ? "all" : currentTab;
-    fetchAllContracts({ status: statusParam });
-    setStatus(statusParam as any);
-  }, [currentTab]);
+    return () => {
+      resetStore();
+      lastFetchedStatusRef.current = null;
+    };
+  }, [resetStore]);
 
   const activeContracts = contracts.filter((contract) => contract.active);
   const inactiveContracts = contracts.filter((contract) => !contract.active);

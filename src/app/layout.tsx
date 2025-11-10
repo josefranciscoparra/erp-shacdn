@@ -10,6 +10,7 @@ import { FetchLoggerClient } from "@/components/dev/fetch-logger-client";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
+import { auth } from "@/lib/auth";
 import { fontVariables } from "@/lib/fonts";
 import { type Locale, defaultLocale } from "@/lib/i18n";
 import { PreferencesStoreProvider } from "@/stores/preferences/preferences-provider";
@@ -47,6 +48,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   const cookieStore = await cookies();
+  const session = await auth();
 
   const readPreference = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
     const raw = cookieStore.get(key)?.value.trim();
@@ -74,7 +76,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       suppressHydrationWarning
     >
       <body className={`${fontVariables} min-h-screen antialiased`}>
-        <AuthSessionProvider>
+        <AuthSessionProvider session={session}>
           <NextIntlClientProvider messages={messages} locale={locale}>
             <PreferencesStoreProvider
               themeMode={themeMode}
