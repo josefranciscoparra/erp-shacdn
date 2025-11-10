@@ -16,7 +16,9 @@ import { NotificationList } from "./notification-list";
 export function NotificationBell() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const { unreadCount, loadNotifications, loadUnreadCount } = useNotificationsStore();
+  // Suscribirse directamente al unreadCount del store para reaccionar a cambios
+  const unreadCount = useNotificationsStore((state) => state.unreadCount);
+  const { loadNotifications, loadUnreadCount } = useNotificationsStore();
 
   // Cargar al montar el componente
   useEffect(() => {

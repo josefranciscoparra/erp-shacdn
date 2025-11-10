@@ -56,6 +56,7 @@ import {
   markNotificationAsUnread,
   markAllNotificationsAsRead,
 } from "@/server/actions/notifications";
+import { useNotificationsStore } from "@/stores/notifications-store";
 
 interface Notification {
   id: string;
@@ -150,6 +151,9 @@ export default function NotificationsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
+  // Obtener función para actualizar el store global
+  const { loadUnreadCount } = useNotificationsStore();
+
   const loadNotifications = async (unreadOnly: boolean = false, page: number = 1, pageSize: number = 20) => {
     setIsLoading(true);
     try {
@@ -203,6 +207,9 @@ export default function NotificationsPage() {
       await markAllNotificationsAsRead();
       toast.success("Todas las notificaciones marcadas como leídas");
 
+      // Actualizar el store global para que el badge se actualice inmediatamente
+      void loadUnreadCount();
+
       // Si estamos en modo "solo no leídas", recargar para mostrar mensaje vacío
       if (filterMode === "unread") {
         await loadNotifications(true, pagination.page, pagination.pageSize);
@@ -234,13 +241,16 @@ export default function NotificationsPage() {
           await markNotificationAsRead(notification.id);
           toast.success("Notificación marcada como leída");
         }
+
+        // Actualizar el store global para que el badge se actualice inmediatamente
+        void loadUnreadCount();
       } catch {
         // En caso de error, recargar para obtener el estado correcto
         toast.error("Error al actualizar notificación");
         await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
       }
     },
-    [filterMode, loadNotifications, pagination.page, pagination.pageSize],
+    [filterMode, loadNotifications, loadUnreadCount, pagination.page, pagination.pageSize],
   );
 
   const handleNotificationClick = useCallback(
@@ -254,6 +264,9 @@ export default function NotificationsPage() {
         try {
           await markNotificationAsRead(notification.id);
           updatedNotification = { ...notification, isRead: true };
+
+          // Actualizar el store global para que el badge se actualice inmediatamente
+          void loadUnreadCount();
         } catch (error) {
           console.error("Error al marcar notificación:", error);
         }
@@ -298,7 +311,7 @@ export default function NotificationsPage() {
         setIsDetailOpen(false);
       }
     },
-    [router, filterMode],
+    [router, filterMode, loadUnreadCount],
   );
 
   useEffect(() => {
@@ -549,11 +562,11 @@ export default function NotificationsPage() {
       <SectionHeader title="Notificaciones" />
 
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           {/* Contador de no leídas */}
           {unreadCount > 0 && (
-            <Badge variant="secondary" className="gap-1.5">
+            <Badge variant="secondary" className="shrink-0 gap-1.5">
               <div className="bg-primary h-2 w-2 rounded-full" />
               {unreadCount} sin leer
             </Badge>
@@ -573,7 +586,7 @@ export default function NotificationsPage() {
 
         {/* Botón marcar todas como leídas */}
         {unreadCount > 0 && (
-          <Button variant="outline" size="sm" onClick={handleMarkAllAsRead}>
+          <Button variant="outline" size="sm" onClick={handleMarkAllAsRead} className="w-full sm:w-auto">
             <CheckCheck className="mr-2 h-4 w-4" />
             Marcar todas como leídas
           </Button>

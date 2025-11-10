@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
 import { PasswordGuard } from "@/components/auth/password-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { SentryUserInitializer } from "@/components/sentry/sentry-user-initializer";
 import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -62,6 +63,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <FeaturesInitializer initialFeatures={orgFeatures} />
+      <SentryUserInitializer user={currentUser} />
       <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} user={currentUser} />
       <SidebarInset
         data-content-layout={contentLayout}
