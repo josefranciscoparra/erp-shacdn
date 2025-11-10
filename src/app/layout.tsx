@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 
+import { FetchLoggerClient } from "@/components/dev/fetch-logger-client";
 import { AuthSessionProvider } from "@/components/providers/session-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { APP_CONFIG } from "@/config/app-config";
@@ -48,7 +49,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const cookieStore = await cookies();
 
   const readPreference = <T extends string>(key: string, allowed: readonly T[], fallback: T): T => {
-    const raw = cookieStore.get(key)?.value?.trim();
+    const raw = cookieStore.get(key)?.value.trim();
     return allowed.includes(raw as T) ? (raw as T) : fallback;
   };
 
@@ -82,6 +83,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
               themeContentLayout={themeContentLayout}
               locale={locale}
             >
+              <FetchLoggerClient />
               {children}
               <Toaster />
             </PreferencesStoreProvider>

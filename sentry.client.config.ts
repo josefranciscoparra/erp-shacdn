@@ -31,6 +31,13 @@ Sentry.init({
     }),
   ],
 
+  // Solo trackear peticiones a tu dominio (opcional pero recomendado)
+  tracePropagationTargets: [
+    "localhost",
+    /^https:\/\/timenow\.cloud/,
+    /^https:\/\/.*\.timenow\.cloud/,
+  ],
+
   // Filtrar datos sensibles antes de enviar
   beforeSend(event, hint) {
     // Eliminar información sensible de URLs
