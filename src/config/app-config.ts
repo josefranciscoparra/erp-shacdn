@@ -7,8 +7,8 @@ export const APP_CONFIG = {
   version: packageJson.version,
   copyright: `© ${currentYear}, Timenow.`,
   meta: {
-    title: "timenow - ERP Software",
+    title: "Timenow | Software ERP para Empresas",
     description:
-      "Timenow es un sistema de gestión empresarial (ERP) moderno construido con Next.js 15, Tailwind CSS v4, y shadcn/ui. Gestión completa de recursos humanos, nóminas y control de tiempos.",
+      "Solución ERP completa para optimizar tu negocio. Gestión de recursos humanos, nóminas, control horario y más.",
   },
 };

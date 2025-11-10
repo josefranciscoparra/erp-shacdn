@@ -30,6 +30,18 @@ export const runtime = "nodejs";
 export const metadata: Metadata = {
   title: APP_CONFIG.meta.title,
   description: APP_CONFIG.meta.description,
+  openGraph: {
+    title: APP_CONFIG.meta.title,
+    description: APP_CONFIG.meta.description,
+    type: "website",
+    locale: "es_ES",
+    siteName: APP_CONFIG.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_CONFIG.meta.title,
+    description: APP_CONFIG.meta.description,
+  },
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
