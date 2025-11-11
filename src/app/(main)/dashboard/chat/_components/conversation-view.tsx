@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useChatStream } from "@/hooks/use-chat-stream";
 import { getUserAvatarUrl, hasAvatar } from "@/lib/chat/avatar-utils";
 import {
   getCachedConversationMessages,
@@ -22,6 +21,7 @@ import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat
 import { getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
 import { markConversationAsRead } from "@/server/actions/chat";
+import { useChatUnreadStore } from "@/stores/chat-unread-store";
 
 import { UserInfoPopover } from "./user-info-popover";
 
@@ -66,24 +66,22 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
     [conversation.id],
   );
 
-  // Escuchar mensajes en tiempo real por SSE
-  useChatStream({
-    enabled: true,
-    onMessage: (message: MessageWithSender) => {
-      // Solo añadir mensajes de esta conversación
-      if (message.conversationId === conversation.id) {
-        syncMessages((prev) => {
-          // Evitar duplicados (por ID real del servidor)
-          const exists = prev.some((m) => m.id === message.id);
-          if (exists) {
-            return prev;
-          }
-          // Añadir mensaje con estado "sent"
-          return [...prev, { ...message, localStatus: "sent" as LocalMessageStatus }];
-        });
+  const lastMessage = useChatUnreadStore((state) => state.lastMessage);
+
+  // Escuchar mensajes en tiempo real provenientes del store global
+  useEffect(() => {
+    if (!lastMessage || lastMessage.conversationId !== conversation.id) {
+      return;
+    }
+
+    syncMessages((prev) => {
+      const exists = prev.some((m) => m.id === lastMessage.id);
+      if (exists) {
+        return prev;
       }
-    },
-  });
+      return [...prev, { ...lastMessage, localStatus: "sent" as LocalMessageStatus }];
+    });
+  }, [conversation.id, lastMessage, syncMessages]);
 
   // Función para hacer scroll al fondo
   const scrollToBottom = (smooth = false) => {

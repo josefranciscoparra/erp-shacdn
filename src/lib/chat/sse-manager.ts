@@ -2,9 +2,12 @@
  * Gestor de conexiones SSE (Server-Sent Events) para chat en tiempo real
  */
 
+import { randomUUID } from "crypto";
+
 import type { MessageWithSender, SSEEvent } from "./types";
 
 interface SSEConnection {
+  id: string;
   userId: string;
   orgId: string;
   controller: ReadableStreamDefaultController;
@@ -12,12 +15,31 @@ interface SSEConnection {
 }
 
 class SSEManager {
-  private connections: Map<string, SSEConnection> = new Map();
+  private connections: Map<string, Map<string, SSEConnection>> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     // Iniciar heartbeat cada 30 segundos
     this.startHeartbeat();
+  }
+
+  /**
+   * Genera la llave única por usuario/organización
+   */
+  private getUserKey(orgId: string, userId: string): string {
+    return `${orgId}:${userId}`;
+  }
+
+  private getTotalConnections(): number {
+    let total = 0;
+    for (const connections of this.connections.values()) {
+      total += connections.size;
+    }
+    return total;
+  }
+
+  private getUserConnections(userId: string, orgId: string) {
+    return this.connections.get(this.getUserKey(orgId, userId));
   }
 
   /**
@@ -28,37 +50,62 @@ class SSEManager {
     orgId: string,
     controller: ReadableStreamDefaultController,
     lastEventId?: string,
-  ): void {
-    const connectionId = `${orgId}:${userId}`;
-    this.connections.set(connectionId, {
+  ): string {
+    const connectionId = randomUUID();
+    const userKey = this.getUserKey(orgId, userId);
+    const connection: SSEConnection = {
+      id: connectionId,
       userId,
       orgId,
       controller,
       lastEventId,
-    });
+    };
 
-    console.log(`[SSE] Nueva conexión: ${connectionId} (Total: ${this.connections.size})`);
+    if (!this.connections.has(userKey)) {
+      this.connections.set(userKey, new Map());
+    }
+
+    const userConnections = this.connections.get(userKey)!;
+    userConnections.set(connectionId, connection);
+
+    console.log(
+      `[SSE] Nueva conexión: ${userKey}#${connectionId} (usuario: ${userConnections.size}, total: ${this.getTotalConnections()})`,
+    );
+
+    return connectionId;
   }
 
   /**
    * Elimina una conexión SSE
    */
-  removeConnection(userId: string, orgId: string): void {
-    const connectionId = `${orgId}:${userId}`;
-    this.connections.delete(connectionId);
+  removeConnection(userId: string, orgId: string, connectionId: string): void {
+    const userKey = this.getUserKey(orgId, userId);
+    const userConnections = this.connections.get(userKey);
 
-    console.log(`[SSE] Conexión cerrada: ${connectionId} (Total: ${this.connections.size})`);
+    if (!userConnections) {
+      console.log(`[SSE] Conexión no encontrada para cerrar: ${userKey}#${connectionId}`);
+      return;
+    }
+
+    userConnections.delete(connectionId);
+
+    if (userConnections.size === 0) {
+      this.connections.delete(userKey);
+    }
+
+    console.log(
+      `[SSE] Conexión cerrada: ${userKey}#${connectionId} (usuario: ${userConnections.size}, total: ${this.getTotalConnections()})`,
+    );
   }
 
   /**
    * Envía un mensaje a un usuario específico
    */
   sendMessageToUser(userId: string, orgId: string, message: MessageWithSender): void {
-    const connectionId = `${orgId}:${userId}`;
-    const connection = this.connections.get(connectionId);
+    const connections = this.getUserConnections(userId, orgId);
 
-    if (!connection) {
-      console.log(`[SSE] Usuario no conectado: ${connectionId}`);
+    if (!connections?.size) {
+      console.log(`[SSE] Usuario no conectado: ${orgId}:${userId}`);
       return;
     }
 
@@ -68,17 +115,18 @@ class SSEManager {
       timestamp: new Date().toISOString(),
     };
 
-    this.sendEvent(connection, event, message.id);
+    for (const connection of connections.values()) {
+      this.sendEvent(connection, event, message.id);
+    }
   }
 
   /**
    * Envía un evento de lectura
    */
   sendReadEvent(userId: string, orgId: string, conversationId: string, messageId: string, readBy: string): void {
-    const connectionId = `${orgId}:${userId}`;
-    const connection = this.connections.get(connectionId);
+    const connections = this.getUserConnections(userId, orgId);
 
-    if (!connection) {
+    if (!connections?.size) {
       return;
     }
 
@@ -88,17 +136,18 @@ class SSEManager {
       timestamp: new Date().toISOString(),
     };
 
-    this.sendEvent(connection, event);
+    for (const connection of connections.values()) {
+      this.sendEvent(connection, event);
+    }
   }
 
   /**
    * Envía un evento del sistema a un usuario
    */
   sendSystemEvent(userId: string, orgId: string, message: string): void {
-    const connectionId = `${orgId}:${userId}`;
-    const connection = this.connections.get(connectionId);
+    const connections = this.getUserConnections(userId, orgId);
 
-    if (!connection) {
+    if (!connections?.size) {
       return;
     }
 
@@ -108,18 +157,19 @@ class SSEManager {
       timestamp: new Date().toISOString(),
     };
 
-    this.sendEvent(connection, event);
+    for (const connection of connections.values()) {
+      this.sendEvent(connection, event);
+    }
   }
 
   /**
    * Envía un evento de conversación leída a todas las conexiones del usuario
    */
   broadcastToUser(userId: string, orgId: string, conversationId: string): void {
-    const connectionId = `${orgId}:${userId}`;
-    const connection = this.connections.get(connectionId);
+    const connections = this.getUserConnections(userId, orgId);
 
-    if (!connection) {
-      console.log(`[SSE] Usuario no conectado para broadcast: ${connectionId}`);
+    if (!connections?.size) {
+      console.log(`[SSE] Usuario no conectado para broadcast: ${orgId}:${userId}`);
       return;
     }
 
@@ -129,7 +179,9 @@ class SSEManager {
       timestamp: new Date().toISOString(),
     };
 
-    this.sendEvent(connection, event);
+    for (const connection of connections.values()) {
+      this.sendEvent(connection, event);
+    }
   }
 
   /**
@@ -154,7 +206,7 @@ class SSEManager {
       connection.controller.enqueue(encoder.encode(payload));
     } catch (error) {
       console.error("[SSE] Error enviando evento:", error);
-      this.removeConnection(connection.userId, connection.orgId);
+      this.removeConnection(connection.userId, connection.orgId, connection.id);
     }
   }
 
@@ -167,12 +219,14 @@ class SSEManager {
       const encoder = new TextEncoder();
       const heartbeat = ": heartbeat\n\n";
 
-      for (const [connectionId, connection] of this.connections.entries()) {
-        try {
-          connection.controller.enqueue(encoder.encode(heartbeat));
-        } catch (error) {
-          console.error(`[SSE] Error en heartbeat para ${connectionId}:`, error);
-          this.removeConnection(connection.userId, connection.orgId);
+      for (const [userKey, userConnections] of this.connections.entries()) {
+        for (const connection of userConnections.values()) {
+          try {
+            connection.controller.enqueue(encoder.encode(heartbeat));
+          } catch (error) {
+            console.error(`[SSE] Error en heartbeat para ${userKey}#${connection.id}:`, error);
+            this.removeConnection(connection.userId, connection.orgId, connection.id);
+          }
         }
       }
     }, 30000);
@@ -193,13 +247,17 @@ class SSEManager {
    */
   getStats() {
     const byOrg: Record<string, number> = {};
+    let totalConnections = 0;
 
-    for (const connection of this.connections.values()) {
-      byOrg[connection.orgId] = (byOrg[connection.orgId] ?? 0) + 1;
+    for (const userConnections of this.connections.values()) {
+      for (const connection of userConnections.values()) {
+        totalConnections += 1;
+        byOrg[connection.orgId] = (byOrg[connection.orgId] ?? 0) + 1;
+      }
     }
 
     return {
-      totalConnections: this.connections.size,
+      totalConnections,
       connectionsByOrg: byOrg,
     };
   }
@@ -208,11 +266,13 @@ class SSEManager {
    * Cierra todas las conexiones (para shutdown)
    */
   closeAll(): void {
-    for (const connection of this.connections.values()) {
-      try {
-        connection.controller.close();
-      } catch {
-        // Ignorar errores de cierre
+    for (const userConnections of this.connections.values()) {
+      for (const connection of userConnections.values()) {
+        try {
+          connection.controller.close();
+        } catch {
+          // Ignorar errores de cierre
+        }
       }
     }
     this.connections.clear();

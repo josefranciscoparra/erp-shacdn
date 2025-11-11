@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -20,7 +20,7 @@ export function ChatContainer() {
   const router = useRouter();
   const { data: session } = useSession();
   const { chatEnabled, isLoading: isLoadingConfig } = useChatEnabled();
-  const { setTotalUnreadCount } = useChatUnreadStore();
+  const { applyServerTotalUnread, decrementUnreadCount } = useChatUnreadStore();
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithParticipants | null>(null);
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -38,39 +38,49 @@ export function ChatContainer() {
     // Calcular total de mensajes no leídos de todas las conversaciones
     const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount ?? 0), 0);
 
-    // Actualizar store global
-    setTotalUnreadCount(totalUnread);
-  }, [conversations, setTotalUnreadCount]);
+    // Actualizar store global (resync forzado desde el módulo de chat)
+    applyServerTotalUnread(totalUnread);
+  }, [conversations, applyServerTotalUnread]);
 
   // Escuchar eventos SSE del store global para actualizar conversaciones en tiempo real
   const lastMessage = useChatUnreadStore((state) => state.lastMessage);
   const lastConversationRead = useChatUnreadStore((state) => state.lastConversationRead);
+  const lastProcessedMessageIdRef = useRef<string | null>(null);
+  const selectedConversationIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedConversationIdRef.current = selectedConversation?.id ?? null;
+  }, [selectedConversation?.id]);
 
   // Cuando llega un mensaje nuevo via SSE
   useEffect(() => {
     if (!lastMessage || !session?.user?.id) return;
+    if (lastProcessedMessageIdRef.current === lastMessage.id) {
+      return;
+    }
+    lastProcessedMessageIdRef.current = lastMessage.id;
 
     const currentUserId = session.user.id;
     const isMyMessage = lastMessage.senderId === currentUserId;
+    const selectedId = selectedConversationIdRef.current;
 
     console.log("[ChatContainer] Mensaje SSE recibido:", {
       messageId: lastMessage.id,
       senderId: lastMessage.senderId,
       currentUserId,
       isMyMessage,
+      selectedId,
     });
 
-    // Si es mi propio mensaje, no hacer nada (ya se actualizó optimísticamente)
     if (isMyMessage) {
       console.log("[ChatContainer] Ignorando mi propio mensaje");
       return;
     }
 
-    // Es un mensaje de otro usuario
     setConversations((prev) =>
       prev.map((conv) => {
         if (conv.id === lastMessage.conversationId) {
-          const isCurrentConversation = selectedConversation?.id === lastMessage.conversationId;
+          const isCurrentConversation = selectedId === lastMessage.conversationId;
 
           console.log("[ChatContainer] Actualizando conversación:", {
             convId: conv.id,
@@ -87,14 +97,13 @@ export function ChatContainer() {
               createdAt: lastMessage.createdAt,
               senderId: lastMessage.senderId,
             },
-            // Solo incrementar si NO estamos viendo esta conversación
             unreadCount: isCurrentConversation ? conv.unreadCount : (conv.unreadCount ?? 0) + 1,
           };
         }
         return conv;
       }),
     );
-  }, [lastMessage, selectedConversation?.id, session?.user?.id]);
+  }, [lastMessage, session?.user?.id]);
 
   // Cuando se marca una conversación como leída via SSE (desde otro dispositivo)
   useEffect(() => {
@@ -107,17 +116,26 @@ export function ChatContainer() {
     );
   }, [lastConversationRead]);
 
-  const handleSelectConversation = useCallback((conversation: ConversationWithParticipants) => {
-    // Optimistic update: Resetear unreadCount inmediatamente al abrir
-    if ((conversation.unreadCount ?? 0) > 0) {
-      setConversations((prev) =>
-        prev.map((conv) => (conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv)),
-      );
-    }
+  const handleSelectConversation = useCallback(
+    (conversation: ConversationWithParticipants) => {
+      const prevUnread = conversation.unreadCount ?? 0;
 
-    setSelectedConversation(conversation);
-    setShowMobileConversation(true);
-  }, []);
+      // Optimistic update: Decrementar contador global antes de actualizar local
+      if (prevUnread > 0) {
+        console.log("[ChatContainer] Optimistic update: decrementando contador global en", prevUnread);
+        decrementUnreadCount(prevUnread);
+
+        // Actualizar conversación local
+        setConversations((prev) =>
+          prev.map((conv) => (conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv)),
+        );
+      }
+
+      setSelectedConversation(conversation);
+      setShowMobileConversation(true);
+    },
+    [decrementUnreadCount],
+  );
 
   const handleBackToList = useCallback(() => {
     setShowMobileConversation(false);

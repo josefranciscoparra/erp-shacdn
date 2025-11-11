@@ -47,10 +47,12 @@ export async function GET(request: NextRequest) {
     console.log(`[SSE] Iniciando stream para usuario ${userId} en org ${orgId}`);
 
     // Crear stream SSE
+    let connectionId: string | null = null;
+
     const stream = new ReadableStream({
       start(controller) {
         // Registrar conexión en el manager
-        sseManager.addConnection(userId, orgId, controller, lastEventId);
+        connectionId = sseManager.addConnection(userId, orgId, controller, lastEventId);
 
         // Enviar mensaje inicial de conexión
         const encoder = new TextEncoder();
@@ -64,8 +66,10 @@ export async function GET(request: NextRequest) {
 
         // Handler para cuando se cierra la conexión
         request.signal.addEventListener("abort", () => {
-          console.log(`[SSE] Cliente desconectado: ${userId}`);
-          sseManager.removeConnection(userId, orgId);
+          console.log(`[SSE] Cliente desconectado: ${userId} (${connectionId ?? "sin-id"})`);
+          if (connectionId) {
+            sseManager.removeConnection(userId, orgId, connectionId);
+          }
           try {
             controller.close();
           } catch {
@@ -75,7 +79,9 @@ export async function GET(request: NextRequest) {
       },
       cancel() {
         console.log(`[SSE] Stream cancelado para usuario ${userId}`);
-        sseManager.removeConnection(userId, orgId);
+        if (connectionId) {
+          sseManager.removeConnection(userId, orgId, connectionId);
+        }
       },
     });
 

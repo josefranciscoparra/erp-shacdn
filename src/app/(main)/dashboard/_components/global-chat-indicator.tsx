@@ -2,9 +2,6 @@
 
 import { useEffect } from "react";
 
-import { useSession } from "next-auth/react";
-
-import { useChatStream } from "@/hooks/use-chat-stream";
 import { useChatUnreadStore } from "@/stores/chat-unread-store";
 
 interface GlobalChatIndicatorProps {
@@ -12,34 +9,18 @@ interface GlobalChatIndicatorProps {
 }
 
 /**
- * Componente ligero que SOLO actualiza el contador global del sidebar
- * El chat-container mantiene su propio SSE para actualizar conversaciones
- *
- * Este componente:
- * - Escucha mensajes nuevos via SSE
- * - Incrementa/decrementa el contador global
- * - NO renderiza nada en pantalla
+ * Mantiene sincronizado el contador global cuando el módulo de chat está deshabilitado.
+ * La lógica SSE vive en ChatStreamProvider, por lo que este componente sólo se encarga
+ * de limpiar el estado cuando corresponde.
  */
 export function GlobalChatIndicator({ enabled }: GlobalChatIndicatorProps) {
-  const { data: session } = useSession();
-  const { incrementUnreadCount, setTotalUnreadCount } = useChatUnreadStore();
+  const resetUnreadCount = useChatUnreadStore((state) => state.resetUnreadCount);
 
-  useChatStream({
-    enabled,
-    onMessage: (message) => {
-      // Solo incrementar si NO es mi propio mensaje
-      const isMyMessage = message.senderId === session?.user?.id;
-      if (!isMyMessage) {
-        incrementUnreadCount();
-      }
-    },
-    onConversationRead: () => {
-      // Cuando se lee una conversación, recalcular el total
-      // El chat-container sincronizará el valor correcto
-      // Aquí solo decrementamos para dar feedback inmediato
-      setTotalUnreadCount(0); // Reset temporal, el chat-container lo actualizará
-    },
-  });
+  useEffect(() => {
+    if (!enabled) {
+      resetUnreadCount();
+    }
+  }, [enabled, resetUnreadCount]);
 
   return null;
 }

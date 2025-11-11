@@ -347,6 +347,54 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
 }
 
 /**
+ * Obtiene el total de mensajes no leídos para el usuario autenticado
+ * Suma los contadores unreadCountUserA o unreadCountUserB según corresponda
+ */
+export async function getTotalUnreadCount(): Promise<number> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id || !session?.user?.orgId) {
+      return 0;
+    }
+
+    const { id: userId, orgId } = session.user;
+
+    // Verificar feature flag
+    const chatEnabled = await checkChatEnabled(orgId);
+    if (!chatEnabled) {
+      return 0;
+    }
+
+    // Obtener conversaciones del usuario y sumar unreadCount
+    const conversations = await prisma.conversation.findMany({
+      where: {
+        orgId,
+        OR: [{ userAId: userId }, { userBId: userId }],
+        isBlocked: false,
+      },
+      select: {
+        userAId: true,
+        userBId: true,
+        unreadCountUserA: true,
+        unreadCountUserB: true,
+      },
+    });
+
+    // Sumar los contadores según si soy userA o userB
+    const totalUnread = conversations.reduce((acc, conv) => {
+      const unread = userId === conv.userAId ? conv.unreadCountUserA : conv.unreadCountUserB;
+      return acc + unread;
+    }, 0);
+
+    return totalUnread;
+  } catch (error) {
+    console.error("Error al obtener total de mensajes no leídos:", error);
+    return 0;
+  }
+}
+
+/**
  * Obtiene los mensajes de una conversación con paginación
  */
 export async function getConversationMessages(
