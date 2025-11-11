@@ -707,8 +707,6 @@ export async function getMonthlySummaries(year: number, month: number) {
 export async function detectIncompleteEntries() {
   try {
     const employee = await getAuthenticatedEmployee();
-    console.log("🔍 [detectIncompleteEntries] Employee:", employee.employeeId);
-
     const now = new Date();
     const today = startOfDay(now);
 
@@ -726,10 +724,7 @@ export async function detectIncompleteEntries() {
       },
     });
 
-    console.log("🔍 [detectIncompleteEntries] openClockIn found:", openClockIn ? openClockIn.id : "NONE");
-
     if (!openClockIn) {
-      console.log("ℹ️ [detectIncompleteEntries] No open CLOCK_IN found");
       return null;
     }
 
@@ -746,10 +741,7 @@ export async function detectIncompleteEntries() {
       },
     });
 
-    console.log("🔍 [detectIncompleteEntries] hasClockOut:", hasClockOut ? "YES" : "NO");
-
     if (hasClockOut) {
-      console.log("ℹ️ [detectIncompleteEntries] CLOCK_IN has CLOCK_OUT, not incomplete");
       return null; // Ya tiene salida, no está abierto
     }
 

@@ -76,15 +76,12 @@ export function QuickClockWidget() {
         // Detectar fichajes incompletos y verificar si ya fueron descartados
         try {
           const incompleteData = await detectIncompleteEntries();
-          console.log("🔍 DEBUG - incompleteData:", incompleteData);
 
           if (incompleteData?.hasIncompleteEntry) {
             // Verificar si la notificación ya fue descartada
             const isDismissed = await isNotificationDismissed("INCOMPLETE_ENTRY", incompleteData.clockInId);
-            console.log("🔍 DEBUG - isDismissed:", isDismissed);
 
             if (!isDismissed) {
-              console.log("✅ DEBUG - Mostrando badge de fichaje incompleto");
               setHasIncompleteEntry(true);
               setIsExcessive(incompleteData.isExcessive ?? false);
               setIncompleteEntryInfo({
@@ -94,11 +91,7 @@ export function QuickClockWidget() {
                 percentageOfJourney: incompleteData.percentageOfJourney,
                 clockInId: incompleteData.clockInId,
               });
-            } else {
-              console.log("ℹ️ DEBUG - Notificación ya descartada, no mostrar badge");
             }
-          } else {
-            console.log("ℹ️ DEBUG - No hay fichajes incompletos");
           }
         } catch (error) {
           console.error("Error al detectar fichajes incompletos:", error);
@@ -260,7 +253,6 @@ export function QuickClockWidget() {
       await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
       setHasIncompleteEntry(false);
       setIncompleteEntryInfo(null);
-      console.log("✅ Notificación descartada desde quick-clock-widget.tsx");
     } catch (error) {
       console.error("Error al descartar notificación:", error);
     }

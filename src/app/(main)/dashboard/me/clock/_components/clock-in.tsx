@@ -301,7 +301,6 @@ export function ClockIn() {
       await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
       setHasIncompleteEntry(false);
       setIncompleteEntryInfo(null);
-      console.log("✅ Notificación descartada desde clock-in.tsx");
     } catch (error) {
       console.error("Error al descartar notificación:", error);
     }
