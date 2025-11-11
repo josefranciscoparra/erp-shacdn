@@ -3,6 +3,7 @@
 import { TrendingDown, TrendingUp, Wallet, Clock, CheckCircle2 } from "lucide-react";
 
 import { Card, CardAction, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 interface ExpenseMetric {
   name: string;
@@ -26,6 +27,17 @@ export function ExpensesMetrics({ metrics }: ExpensesMetricsProps) {
         return <CheckCircle2 className="size-5" />;
       case "review":
         return <Clock className="size-5" />;
+    }
+  };
+
+  const getIconStyles = (iconType: ExpenseMetric["icon"]) => {
+    switch (iconType) {
+      case "total":
+        return "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/50 dark:border-blue-900 dark:text-blue-400";
+      case "pending":
+        return "bg-green-50 border-green-200 text-green-600 dark:bg-green-950/50 dark:border-green-900 dark:text-green-400";
+      case "review":
+        return "bg-orange-50 border-orange-200 text-orange-600 dark:bg-orange-950/50 dark:border-orange-900 dark:text-orange-400";
     }
   };
 
@@ -59,7 +71,12 @@ export function ExpensesMetrics({ metrics }: ExpensesMetricsProps) {
             </div>
             <CardAction>
               <div className="flex gap-4">
-                <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
+                <div
+                  className={cn(
+                    "flex size-12 items-center justify-center rounded-full border",
+                    getIconStyles(metric.icon),
+                  )}
+                >
                   {getIcon(metric.icon)}
                 </div>
               </div>
