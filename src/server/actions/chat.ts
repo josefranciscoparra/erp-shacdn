@@ -237,12 +237,15 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
       return [];
     }
 
-    // Obtener conversaciones donde el usuario es participante
+    // Obtener conversaciones donde el usuario es participante y NO están ocultas
     const conversations = await prisma.conversation.findMany({
       where: {
         orgId,
-        OR: [{ userAId: userId }, { userBId: userId }],
         isBlocked: false,
+        OR: [
+          { userAId: userId, hiddenByUserA: false },
+          { userBId: userId, hiddenByUserB: false },
+        ],
       },
       include: {
         userA: {
@@ -294,6 +297,7 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
           },
         },
         messages: {
+          where: { deletedAt: null }, // Solo mensajes no eliminados
           take: 1,
           orderBy: { createdAt: "desc" },
           select: {
@@ -304,7 +308,11 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
           },
         },
         _count: {
-          select: { messages: true },
+          select: {
+            messages: {
+              where: { deletedAt: null }, // Solo contar mensajes no eliminados
+            },
+          },
         },
       },
       orderBy: { lastMessageAt: "desc" },
@@ -518,6 +526,9 @@ export async function sendMessage(conversationId: string, body: string): Promise
         ? "unreadCountUserB" // userA envía → incrementar para userB
         : "unreadCountUserA"; // userB envía → incrementar para userA
 
+    // Determinar qué campo hidden resetear (el del receptor)
+    const hiddenFieldToReset = userId === conversation.userAId ? "hiddenByUserB" : "hiddenByUserA";
+
     // Crear mensaje y actualizar conversación en una transacción
     const message = await prisma.$transaction(async (tx) => {
       // Crear mensaje
@@ -541,12 +552,13 @@ export async function sendMessage(conversationId: string, body: string): Promise
         },
       });
 
-      // Actualizar lastMessageAt e incrementar contador de no leídos
+      // Actualizar lastMessageAt, incrementar contador de no leídos y reactivar conversación si estaba oculta
       await tx.conversation.update({
         where: { id: conversationId },
         data: {
           lastMessageAt: newMessage.createdAt,
           [incrementField]: { increment: 1 },
+          [hiddenFieldToReset]: false, // Reactivar conversación para el receptor si estaba oculta
         },
       });
 
@@ -834,6 +846,124 @@ export async function getChatStats(): Promise<{
     };
   } catch (error) {
     console.error("Error al obtener estadísticas de chat:", error);
+    throw error;
+  }
+}
+
+/**
+ * Vacía todos los mensajes de una conversación (soft delete)
+ */
+export async function clearConversationMessages(conversationId: string): Promise<{ success: boolean }> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id || !session?.user?.orgId) {
+      throw new Error("No autenticado");
+    }
+
+    const { id: userId, orgId } = session.user;
+
+    // Verificar feature flag
+    const chatEnabled = await checkChatEnabled(orgId);
+    if (!chatEnabled) {
+      throw new Error("El módulo de chat no está habilitado para esta organización");
+    }
+
+    // Verificar que el usuario es participante de la conversación
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        orgId,
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+      select: { id: true, userAId: true, userBId: true },
+    });
+
+    if (!conversation) {
+      throw new Error("Conversación no encontrada o no tienes acceso");
+    }
+
+    // Soft delete de todos los mensajes y resetear contadores en una transacción
+    await prisma.$transaction(async (tx) => {
+      // Soft delete de los mensajes
+      await tx.message.updateMany({
+        where: {
+          conversationId,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      // Resetear contadores de no leídos
+      await tx.conversation.update({
+        where: { id: conversationId },
+        data: {
+          unreadCountUserA: 0,
+          unreadCountUserB: 0,
+        },
+      });
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error al vaciar conversación:", error);
+    throw error;
+  }
+}
+
+/**
+ * Oculta una conversación para el usuario actual
+ */
+export async function hideConversation(conversationId: string): Promise<{ success: boolean; unreadCount: number }> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id || !session?.user?.orgId) {
+      throw new Error("No autenticado");
+    }
+
+    const { id: userId, orgId } = session.user;
+
+    // Verificar feature flag
+    const chatEnabled = await checkChatEnabled(orgId);
+    if (!chatEnabled) {
+      throw new Error("El módulo de chat no está habilitado para esta organización");
+    }
+
+    // Verificar que el usuario es participante de la conversación
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        orgId,
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+      select: { id: true, userAId: true, userBId: true, unreadCountUserA: true, unreadCountUserB: true },
+    });
+
+    if (!conversation) {
+      throw new Error("Conversación no encontrada o no tienes acceso");
+    }
+
+    // Determinar qué campo actualizar y cuántos no leídos había
+    const isUserA = userId === conversation.userAId;
+    const unreadCount = isUserA ? conversation.unreadCountUserA : conversation.unreadCountUserB;
+    const hiddenField = isUserA ? "hiddenByUserA" : "hiddenByUserB";
+    const unreadField = isUserA ? "unreadCountUserA" : "unreadCountUserB";
+
+    // Ocultar conversación y resetear contador en una transacción
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: {
+        [hiddenField]: true,
+        [unreadField]: 0, // Resetear contador al ocultar
+      },
+    });
+
+    return { success: true, unreadCount };
+  } catch (error) {
+    console.error("Error al ocultar conversación:", error);
     throw error;
   }
 }

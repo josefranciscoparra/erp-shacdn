@@ -181,6 +181,27 @@ export function ChatContainer() {
     });
   }, []);
 
+  const handleConversationUpdated = useCallback(
+    (updatedConversations: ConversationWithParticipants[]) => {
+      setConversations(updatedConversations);
+
+      // Si hay una conversación seleccionada, actualizarla con los nuevos datos
+      if (selectedConversation) {
+        const updatedSelected = updatedConversations.find((c) => c.id === selectedConversation.id);
+
+        if (updatedSelected) {
+          // Actualizar la conversación seleccionada con los nuevos datos
+          setSelectedConversation(updatedSelected);
+        } else {
+          // Si la conversación fue eliminada, deseleccionar
+          setSelectedConversation(null);
+          setShowMobileConversation(false);
+        }
+      }
+    },
+    [selectedConversation],
+  );
+
   return (
     <div className="flex h-full w-full overflow-hidden">
       {/* Lista de conversaciones (sidebar izquierdo) */}
@@ -195,6 +216,7 @@ export function ChatContainer() {
           selectedConversationId={selectedConversation?.id ?? null}
           onSelectConversation={handleSelectConversation}
           onConversationsLoaded={setConversations}
+          onConversationUpdated={handleConversationUpdated}
           onNewChat={() => setNewChatOpen(true)}
         />
       </div>

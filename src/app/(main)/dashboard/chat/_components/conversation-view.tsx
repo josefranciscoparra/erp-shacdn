@@ -29,9 +29,15 @@ interface ConversationViewProps {
   conversation: ConversationWithParticipants;
   onBack?: () => void;
   onMessageSent?: (message: MessageWithSender) => void;
+  onConversationCleared?: () => void;
 }
 
-function ConversationViewComponent({ conversation, onBack, onMessageSent }: ConversationViewProps) {
+function ConversationViewComponent({
+  conversation,
+  onBack,
+  onMessageSent,
+  onConversationCleared,
+}: ConversationViewProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<MessageWithLocalState[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,22 +116,39 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
     }
   };
 
-  useLayoutEffect(() => {
-    const cached = getCachedConversationMessages(conversation.id);
-    setCursor(null);
-    setHasMore(false);
+  // Detectar cuando la conversación cambia o se vacía
+  const conversationChangeKey = useRef(`${conversation.id}-${conversation.lastMessage?.id ?? "empty"}`);
 
-    if (cached) {
-      setMessages(cached);
-      setLoading(false);
-      setIsRefreshing(true);
+  useLayoutEffect(() => {
+    const newKey = `${conversation.id}-${conversation.lastMessage?.id ?? "empty"}`;
+    const conversationChanged = conversationChangeKey.current !== newKey;
+    conversationChangeKey.current = newKey;
+
+    // Si el lastMessage es null y había mensajes, significa que se vació el chat
+    if (!conversation.lastMessage && messages.length > 0) {
+      setMessages([]);
+      setCachedConversationMessages(conversation.id, []);
       return;
     }
 
-    setMessages([]);
-    setLoading(true);
-    setIsRefreshing(false);
-  }, [conversation.id]);
+    // Si cambió la conversación, cargar desde caché si existe
+    if (conversationChanged) {
+      const cached = getCachedConversationMessages(conversation.id);
+      setCursor(null);
+      setHasMore(false);
+
+      if (cached) {
+        setMessages(cached);
+        setLoading(false);
+        setIsRefreshing(true);
+        return;
+      }
+
+      setMessages([]);
+      setLoading(true);
+      setIsRefreshing(false);
+    }
+  }, [conversation.id, conversation.lastMessage, messages.length]);
 
   // Cargar mensajes de la conversación
   useEffect(() => {

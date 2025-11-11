@@ -17,11 +17,14 @@ import type { ConversationWithParticipants } from "@/lib/chat/types";
 import { formatLastMessageDate, getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
 
+import { ConversationOptionsMenu } from "./conversation-options-menu";
+
 interface ConversationsListProps {
   conversations: ConversationWithParticipants[];
   selectedConversationId: string | null;
   onSelectConversation: (conversation: ConversationWithParticipants) => void;
   onConversationsLoaded: (conversations: ConversationWithParticipants[]) => void;
+  onConversationUpdated: (conversations: ConversationWithParticipants[]) => void;
   onNewChat?: () => void;
 }
 
@@ -30,6 +33,7 @@ function ConversationsListComponent({
   selectedConversationId,
   onSelectConversation,
   onConversationsLoaded,
+  onConversationUpdated,
   onNewChat,
 }: ConversationsListProps) {
   const { data: session } = useSession();
@@ -115,12 +119,20 @@ function ConversationsListComponent({
               const hasUnread = (conversation.unreadCount ?? 0) > 0;
 
               return (
-                <button
+                <div
                   key={conversation.id}
                   onClick={() => onSelectConversation(conversation)}
                   onPointerEnter={() => handlePrefetchConversation(conversation.id)}
                   onTouchStart={() => handlePrefetchConversation(conversation.id)}
                   onFocus={() => handlePrefetchConversation(conversation.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelectConversation(conversation);
+                    }
+                  }}
                   className={cn(
                     "hover:bg-muted group/item relative flex w-full cursor-pointer items-center gap-4 px-6 py-4 text-left transition-colors",
                     isSelected && "bg-muted dark:bg-muted",
@@ -171,7 +183,23 @@ function ConversationsListComponent({
                       )}
                     </div>
                   </div>
-                </button>
+
+                  <ConversationOptionsMenu
+                    conversationId={conversation.id}
+                    onClearSuccess={() => {
+                      // Actualizar conversación local: resetear lastMessage y unreadCount
+                      const updated = externalConversations.map((c) =>
+                        c.id === conversation.id ? { ...c, lastMessage: null, unreadCount: 0 } : c,
+                      );
+                      onConversationUpdated(updated);
+                    }}
+                    onHideSuccess={() => {
+                      // Eliminar conversación de la lista
+                      const updated = externalConversations.filter((c) => c.id !== conversation.id);
+                      onConversationUpdated(updated);
+                    }}
+                  />
+                </div>
               );
             })}
           </div>
