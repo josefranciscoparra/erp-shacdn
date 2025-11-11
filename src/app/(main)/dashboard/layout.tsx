@@ -14,6 +14,7 @@ import { prisma } from "@/lib/prisma";
 import { cn } from "@/lib/utils";
 import type { SidebarVariant, SidebarCollapsible, ContentLayout } from "@/types/preferences/layout";
 
+import { ChatStreamProvider } from "./_components/chat-stream-provider";
 import { FeaturesInitializer } from "./_components/features-initializer";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
 import { SearchDialog } from "./_components/sidebar/search-dialog";
@@ -62,6 +63,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <FeaturesInitializer initialFeatures={orgFeatures} />
+      <ChatStreamProvider enabled={orgFeatures.chatEnabled} />
       <AppSidebar variant={sidebarVariant} collapsible={sidebarCollapsible} user={currentUser} />
       <SidebarInset
         data-content-layout={contentLayout}

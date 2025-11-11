@@ -5,11 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { MessageSquarePlus } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { useChatEnabled } from "@/hooks/use-chat-enabled";
-import { useChatStream } from "@/hooks/use-chat-stream";
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
 import { cn } from "@/lib/utils";
+import { useChatUnreadStore } from "@/stores/chat-unread-store";
 
 import { ConversationView } from "./conversation-view";
 import { ConversationsList } from "./conversations-list";
@@ -17,7 +18,9 @@ import { NewChatDialog } from "./new-chat-dialog";
 
 export function ChatContainer() {
   const router = useRouter();
+  const { data: session } = useSession();
   const { chatEnabled, isLoading: isLoadingConfig } = useChatEnabled();
+  const { setTotalUnreadCount } = useChatUnreadStore();
   const [selectedConversation, setSelectedConversation] = useState<ConversationWithParticipants | null>(null);
   const [conversations, setConversations] = useState<ConversationWithParticipants[]>([]);
   const [newChatOpen, setNewChatOpen] = useState(false);
@@ -30,44 +33,79 @@ export function ChatContainer() {
     }
   }, [chatEnabled, isLoadingConfig, router]);
 
-  // Conectar al stream SSE
-  useChatStream({
-    enabled: true,
-    onMessage: (message: MessageWithSender) => {
-      // Actualizar conversación cuando llega un mensaje nuevo
-      setConversations((prev) =>
-        prev.map((conv) => {
-          if (conv.id === message.conversationId) {
-            // Incrementar unreadCount si el mensaje no es del usuario actual
-            const isMyMessage =
-              message.senderId === selectedConversation?.userAId || message.senderId === selectedConversation?.userBId;
-            return {
-              ...conv,
-              lastMessageAt: message.createdAt,
-              lastMessage: {
-                id: message.id,
-                body: message.body,
-                createdAt: message.createdAt,
-                senderId: message.senderId,
-              },
-              unreadCount: isMyMessage ? conv.unreadCount : (conv.unreadCount ?? 0) + 1,
-            };
-          }
-          return conv;
-        }),
-      );
-    },
-    onRead: ({ conversationId, messageId }) => {
-      console.log(`Mensajes leídos en conversación ${conversationId} hasta ${messageId}`);
-    },
-    onConversationRead: ({ conversationId }) => {
-      // Resetear unreadCount cuando se marca como leída
-      setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv)));
-    },
-    onError: (error) => {
-      console.error("Error en el stream:", error);
-    },
-  });
+  // Sincronizar contador global con conversaciones locales
+  useEffect(() => {
+    // Calcular total de mensajes no leídos de todas las conversaciones
+    const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount ?? 0), 0);
+
+    // Actualizar store global
+    setTotalUnreadCount(totalUnread);
+  }, [conversations, setTotalUnreadCount]);
+
+  // Escuchar eventos SSE del store global para actualizar conversaciones en tiempo real
+  const lastMessage = useChatUnreadStore((state) => state.lastMessage);
+  const lastConversationRead = useChatUnreadStore((state) => state.lastConversationRead);
+
+  // Cuando llega un mensaje nuevo via SSE
+  useEffect(() => {
+    if (!lastMessage || !session?.user?.id) return;
+
+    const currentUserId = session.user.id;
+    const isMyMessage = lastMessage.senderId === currentUserId;
+
+    console.log("[ChatContainer] Mensaje SSE recibido:", {
+      messageId: lastMessage.id,
+      senderId: lastMessage.senderId,
+      currentUserId,
+      isMyMessage,
+    });
+
+    // Si es mi propio mensaje, no hacer nada (ya se actualizó optimísticamente)
+    if (isMyMessage) {
+      console.log("[ChatContainer] Ignorando mi propio mensaje");
+      return;
+    }
+
+    // Es un mensaje de otro usuario
+    setConversations((prev) =>
+      prev.map((conv) => {
+        if (conv.id === lastMessage.conversationId) {
+          const isCurrentConversation = selectedConversation?.id === lastMessage.conversationId;
+
+          console.log("[ChatContainer] Actualizando conversación:", {
+            convId: conv.id,
+            isCurrentConversation,
+            currentUnreadCount: conv.unreadCount,
+          });
+
+          return {
+            ...conv,
+            lastMessageAt: lastMessage.createdAt,
+            lastMessage: {
+              id: lastMessage.id,
+              body: lastMessage.body,
+              createdAt: lastMessage.createdAt,
+              senderId: lastMessage.senderId,
+            },
+            // Solo incrementar si NO estamos viendo esta conversación
+            unreadCount: isCurrentConversation ? conv.unreadCount : (conv.unreadCount ?? 0) + 1,
+          };
+        }
+        return conv;
+      }),
+    );
+  }, [lastMessage, selectedConversation?.id, session?.user?.id]);
+
+  // Cuando se marca una conversación como leída via SSE (desde otro dispositivo)
+  useEffect(() => {
+    if (!lastConversationRead) return;
+
+    console.log("[ChatContainer] Marcando conversación como leída:", lastConversationRead);
+
+    setConversations((prev) =>
+      prev.map((conv) => (conv.id === lastConversationRead ? { ...conv, unreadCount: 0 } : conv)),
+    );
+  }, [lastConversationRead]);
 
   const handleSelectConversation = useCallback((conversation: ConversationWithParticipants) => {
     // Optimistic update: Resetear unreadCount inmediatamente al abrir

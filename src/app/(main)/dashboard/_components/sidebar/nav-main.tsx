@@ -25,6 +25,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { type NavGroup, type NavMainItem } from "@/navigation/sidebar/sidebar-items";
+import { useChatUnreadStore } from "@/stores/chat-unread-store";
 
 interface NavMainProps {
   readonly items: readonly NavGroup[];
@@ -33,6 +34,27 @@ interface NavMainProps {
 const IsComingSoon = () => (
   <span className="ml-auto rounded-md bg-gray-200 px-2 py-1 text-xs dark:text-gray-800">Soon</span>
 );
+
+/**
+ * Indicador de mensajes no leídos para el item de Chat en sidebar
+ * - Punto rojo cuando hay mensajes no leídos
+ * - Se oculta cuando no hay mensajes
+ */
+const ChatUnreadIndicator = ({ url }: { url: string }) => {
+  const totalUnreadCount = useChatUnreadStore((state) => state.totalUnreadCount);
+
+  // Solo mostrar en el item de Chat
+  if (url !== "/dashboard/chat" || totalUnreadCount === 0) {
+    return null;
+  }
+
+  return (
+    <span
+      className="bg-destructive ml-auto flex size-2 shrink-0 rounded-full"
+      aria-label={`${totalUnreadCount} mensajes no leídos`}
+    />
+  );
+};
 
 const NavItemExpanded = ({
   item,
@@ -71,6 +93,7 @@ const NavItemExpanded = ({
                 {item.icon && <item.icon />}
                 <span>{item.title}</span>
                 {item.comingSoon && <IsComingSoon />}
+                <ChatUnreadIndicator url={item.url} />
               </Link>
             </SidebarMenuButton>
           )}
@@ -195,6 +218,7 @@ export function NavMain({ items }: NavMainProps) {
                           <Link href={item.url} target={item.newTab ? "_blank" : undefined} onClick={handleLinkClick}>
                             {item.icon && <item.icon />}
                             <span>{item.title}</span>
+                            <ChatUnreadIndicator url={item.url} />
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
