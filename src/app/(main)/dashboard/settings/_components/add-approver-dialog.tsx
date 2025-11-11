@@ -169,7 +169,7 @@ export function AddApproverDialog({ open, onOpenChange, onApproverAdded }: AddAp
                       {users.map((user) => (
                         <CommandItem
                           key={user.id}
-                          value={user.id}
+                          value={`${user.name} ${user.email}`}
                           onSelect={() => {
                             setSelectedUserId(user.id);
                             setComboboxOpen(false);

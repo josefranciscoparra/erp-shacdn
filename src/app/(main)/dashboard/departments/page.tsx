@@ -120,18 +120,16 @@ export default function DepartmentsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Departamentos</h1>
-            <p className="text-muted-foreground text-sm">Gestiona los departamentos de tu organización</p>
-          </div>
-          <div className="flex items-center gap-2">
+        <SectionHeader
+          title="Departamentos"
+          subtitle="Gestiona los departamentos de tu organización"
+          action={
             <Button size="sm" onClick={() => setDialogOpen(true)}>
               <Plus className="h-4 w-4" />
               <span className="hidden sm:inline">Nuevo departamento</span>
             </Button>
-          </div>
-        </div>
+          }
+        />
 
         {hasDepartments ? (
           <DepartmentsDataTable data={departments} onEdit={handleEdit} onDelete={handleDelete} />

@@ -176,7 +176,11 @@ export default function ManualTimeEntryApprovalsPage() {
           ) : requests.length === 0 ? (
             <Card className="flex flex-col items-center justify-center py-12">
               <Clock className="text-muted-foreground mb-4 h-12 w-12" />
-              <p className="text-muted-foreground text-sm">No hay solicitudes {activeTab.toLowerCase()}</p>
+              <p className="text-muted-foreground text-sm">
+                {activeTab === "PENDING" && "No hay solicitudes pendientes"}
+                {activeTab === "APPROVED" && "No hay solicitudes aprobadas"}
+                {activeTab === "REJECTED" && "No hay solicitudes rechazadas"}
+              </p>
             </Card>
           ) : (
             <div className="grid gap-4">

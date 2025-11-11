@@ -4,8 +4,8 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { FileText, Users, HardDrive, TrendingUp } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardAction, CardDescription, CardHeader } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/lib/validations/document";
 import { useGlobalDocumentStats } from "@/stores/documents-store";
 
@@ -18,24 +18,24 @@ export function DocumentStatsCards() {
       value: stats.total.toLocaleString(),
       description: `${stats.currentPage} en esta página`,
       icon: FileText,
-      gradient: "from-blue-500/5 to-card",
-      iconColor: "text-blue-600",
+      iconStyles:
+        "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/50 dark:border-blue-900 dark:text-blue-400",
     },
     {
       title: "Empleados",
       value: stats.uniqueEmployees.toLocaleString(),
       description: "Con documentos",
       icon: Users,
-      gradient: "from-green-500/5 to-card",
-      iconColor: "text-green-600",
+      iconStyles:
+        "bg-green-50 border-green-200 text-green-600 dark:bg-green-950/50 dark:border-green-900 dark:text-green-400",
     },
     {
       title: "Espacio Usado",
       value: formatFileSize(stats.totalSize),
       description: "En almacenamiento",
       icon: HardDrive,
-      gradient: "from-purple-500/5 to-card",
-      iconColor: "text-purple-600",
+      iconStyles:
+        "bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/50 dark:border-purple-900 dark:text-purple-400",
     },
     {
       title: "Último Subido",
@@ -44,31 +44,33 @@ export function DocumentStatsCards() {
         ? format(new Date(stats.lastUploaded.createdAt), "HH:mm", { locale: es })
         : "Sin documentos",
       icon: TrendingUp,
-      gradient: "from-orange-500/5 to-card",
-      iconColor: "text-orange-600",
+      iconStyles:
+        "bg-orange-50 border-orange-200 text-orange-600 dark:bg-orange-950/50 dark:border-orange-900 dark:text-orange-400",
     },
   ];
 
   return (
-    <div className="grid grid-cols-1 gap-4 md:gap-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       {cards.map((card) => {
         const Icon = card.icon;
         return (
-          <Card key={card.title} className={`bg-gradient-to-t ${card.gradient} rounded-lg border shadow-xs`}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="text-muted-foreground text-sm font-medium">{card.title}</p>
-                  <div className="mt-2 flex items-baseline gap-2">
-                    <h3 className="text-2xl font-semibold tracking-tight">{card.value}</h3>
-                  </div>
-                  <p className="text-muted-foreground mt-1 text-xs">{card.description}</p>
-                </div>
-                <div className={`bg-background rounded-lg p-3 ${card.iconColor}`}>
-                  <Icon className="h-5 w-5" />
+          <Card key={card.title}>
+            <CardHeader>
+              <CardDescription>{card.title}</CardDescription>
+              <div className="flex flex-col gap-2">
+                <h4 className="font-display text-2xl lg:text-3xl">{card.value}</h4>
+                <div className="text-muted-foreground text-sm">
+                  <span>{card.description}</span>
                 </div>
               </div>
-            </CardContent>
+              <CardAction>
+                <div className="flex gap-4">
+                  <div className={cn("flex size-12 items-center justify-center rounded-full border", card.iconStyles)}>
+                    <Icon className="size-5" />
+                  </div>
+                </div>
+              </CardAction>
+            </CardHeader>
           </Card>
         );
       })}
