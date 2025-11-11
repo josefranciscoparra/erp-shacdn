@@ -334,9 +334,9 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
   };
 
   return (
-    <div className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
+    <div className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border md:rounded-lg">
       {/* Header */}
-      <div className="flex items-center justify-between gap-4 border-b p-4 @3xl/main:px-4">
+      <div className="flex shrink-0 items-center justify-between gap-4 border-b p-4 @3xl/main:px-4">
         <div className="flex items-center gap-3">
           {/* Botón Volver (solo móvil) */}
           {onBack && (
@@ -385,8 +385,8 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       </div>
 
       {/* Mensajes */}
-      <div className="relative flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto px-4" ref={scrollRef}>
+      <div className="relative flex-1 overflow-hidden" style={{ flex: "1 1 0", minHeight: 0 }}>
+        <div className="h-full overflow-y-auto px-4" ref={scrollRef} style={{ WebkitOverflowScrolling: "touch" }}>
           {messages.length === 0 && !loading ? (
             <div className="text-muted-foreground flex h-full items-center justify-center text-center">
               <p>No hay mensajes aún. ¡Envía el primero!</p>
@@ -503,7 +503,7 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       )}
 
       {/* Input de nuevo mensaje */}
-      <div className="border-t p-4 @3xl/main:px-4">
+      <div className="shrink-0 border-t p-4 @3xl/main:px-4">
         <div className="bg-muted relative flex items-center rounded-md border">
           <Input
             type="text"

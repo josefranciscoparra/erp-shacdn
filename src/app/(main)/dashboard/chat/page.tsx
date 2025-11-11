@@ -5,8 +5,14 @@ import { ChatContainer } from "./_components/chat-container";
 export default function ChatPage() {
   return (
     <div
-      className="@container/main flex h-[calc(100dvh-7rem)] min-h-0 flex-col"
-      style={{ maxHeight: "calc(100vh - 7rem)" }}
+      className="@container/main flex min-h-0 flex-col md:h-[calc(100dvh-7rem)]"
+      style={{
+        // En móvil: altura completa menos header del dashboard (7rem)
+        // svh = small viewport height (no incluye barras del navegador en iOS)
+        height: "calc(100svh - 7rem)",
+        // En desktop: altura dinámica normal
+        maxHeight: "calc(100vh - 7rem)",
+      }}
     >
       <Suspense fallback={<ChatSkeleton />}>
         <ChatContainer />
