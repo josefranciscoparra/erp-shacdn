@@ -1562,6 +1562,10 @@ model Conversation {
   lastMessageAt   DateTime @default(now())
   isBlocked       Boolean  @default(false)
 
+  // Contadores de mensajes no leídos por usuario
+  unreadCountUserA Int @default(0) // Mensajes no leídos para userA
+  unreadCountUserB Int @default(0) // Mensajes no leídos para userB
+
   // Timestamps
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

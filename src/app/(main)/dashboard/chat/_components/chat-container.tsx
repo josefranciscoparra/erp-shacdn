@@ -38,6 +38,9 @@ export function ChatContainer() {
       setConversations((prev) =>
         prev.map((conv) => {
           if (conv.id === message.conversationId) {
+            // Incrementar unreadCount si el mensaje no es del usuario actual
+            const isMyMessage =
+              message.senderId === selectedConversation?.userAId || message.senderId === selectedConversation?.userBId;
             return {
               ...conv,
               lastMessageAt: message.createdAt,
@@ -47,6 +50,7 @@ export function ChatContainer() {
                 createdAt: message.createdAt,
                 senderId: message.senderId,
               },
+              unreadCount: isMyMessage ? conv.unreadCount : (conv.unreadCount ?? 0) + 1,
             };
           }
           return conv;
@@ -56,12 +60,23 @@ export function ChatContainer() {
     onRead: ({ conversationId, messageId }) => {
       console.log(`Mensajes leídos en conversación ${conversationId} hasta ${messageId}`);
     },
+    onConversationRead: ({ conversationId }) => {
+      // Resetear unreadCount cuando se marca como leída
+      setConversations((prev) => prev.map((conv) => (conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv)));
+    },
     onError: (error) => {
       console.error("Error en el stream:", error);
     },
   });
 
   const handleSelectConversation = useCallback((conversation: ConversationWithParticipants) => {
+    // Optimistic update: Resetear unreadCount inmediatamente al abrir
+    if ((conversation.unreadCount ?? 0) > 0) {
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === conversation.id ? { ...conv, unreadCount: 0 } : conv)),
+      );
+    }
+
     setSelectedConversation(conversation);
     setShowMobileConversation(true);
   }, []);

@@ -21,6 +21,7 @@ import {
 import type { ConversationWithParticipants, MessageWithSender } from "@/lib/chat/types";
 import { getOtherParticipant } from "@/lib/chat/utils";
 import { cn } from "@/lib/utils";
+import { markConversationAsRead } from "@/server/actions/chat";
 
 import { UserInfoPopover } from "./user-info-popover";
 
@@ -190,6 +191,16 @@ function ConversationViewComponent({ conversation, onBack, onMessageSent }: Conv
       };
     }
   }, []);
+
+  // Marcar conversación como leída al abrir
+  useEffect(() => {
+    if (conversation?.id && (conversation.unreadCount ?? 0) > 0) {
+      // Llamar a markConversationAsRead (envía SSE automáticamente)
+      markConversationAsRead(conversation.id).catch((error) => {
+        console.error("Error marcando conversación como leída:", error);
+      });
+    }
+  }, [conversation?.id, conversation?.unreadCount]);
 
   // Enviar mensaje con optimistic UI
   const handleSend = async (retryMessage?: { body: string; localId: string }) => {

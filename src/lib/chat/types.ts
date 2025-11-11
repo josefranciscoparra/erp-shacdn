@@ -39,6 +39,7 @@ export interface ConversationWithParticipants {
     createdAt: Date;
     senderId: string;
   } | null;
+  unreadCount?: number; // Contador de mensajes no leídos para el usuario actual
 }
 
 export interface MessageWithSender {
@@ -73,7 +74,7 @@ export interface MarkAsReadInput {
 }
 
 // SSE Event Types
-export type SSEEventType = "message" | "read" | "system" | "heartbeat";
+export type SSEEventType = "message" | "read" | "system" | "heartbeat" | "conversation_read";
 
 export interface SSEEvent {
   type: SSEEventType;
@@ -105,6 +106,13 @@ export interface SSESystemEvent extends SSEEvent {
 export interface SSEHeartbeatEvent extends SSEEvent {
   type: "heartbeat";
   data: null;
+}
+
+export interface SSEConversationReadEvent extends SSEEvent {
+  type: "conversation_read";
+  data: {
+    conversationId: string;
+  };
 }
 
 // Paginación

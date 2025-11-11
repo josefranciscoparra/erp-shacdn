@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { sseManager } from "@/lib/chat/sse-manager";
 import type { ConversationWithParticipants, MessageWithSender, PaginatedResponse } from "@/lib/chat/types";
 import { isChatEnabled, normalizeUserIds, sanitizeMessageBody, validateMessageSize } from "@/lib/chat/utils";
 import { prisma } from "@/lib/prisma";
@@ -310,7 +311,7 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
       take: limit,
     });
 
-    // Transformar para incluir lastMessage y campos adicionales
+    // Transformar para incluir lastMessage, unreadCount y campos adicionales
     return conversations.map((conv) => ({
       ...conv,
       userA: {
@@ -333,6 +334,11 @@ export async function getMyConversations(limit: number = 20): Promise<Conversati
       },
       lastMessage: conv.messages[0] ?? null,
       messages: undefined, // Eliminar messages del resultado
+      // Mapear unreadCount según el usuario actual
+      unreadCount:
+        userId === conv.userAId
+          ? conv.unreadCountUserA // Soy userA → mi contador
+          : conv.unreadCountUserB, // Soy userB → mi contador
     })) as unknown as ConversationWithParticipants[];
   } catch (error) {
     console.error("Error al obtener conversaciones:", error);
@@ -458,7 +464,13 @@ export async function sendMessage(conversationId: string, body: string): Promise
       throw new Error("Conversación no encontrada o no tienes acceso");
     }
 
-    // Crear mensaje y actualizar lastMessageAt en una transacción
+    // Determinar qué contador incrementar (el del receptor)
+    const incrementField =
+      userId === conversation.userAId
+        ? "unreadCountUserB" // userA envía → incrementar para userB
+        : "unreadCountUserA"; // userB envía → incrementar para userA
+
+    // Crear mensaje y actualizar conversación en una transacción
     const message = await prisma.$transaction(async (tx) => {
       // Crear mensaje
       const newMessage = await tx.message.create({
@@ -481,10 +493,13 @@ export async function sendMessage(conversationId: string, body: string): Promise
         },
       });
 
-      // Actualizar lastMessageAt de la conversación
+      // Actualizar lastMessageAt e incrementar contador de no leídos
       await tx.conversation.update({
         where: { id: conversationId },
-        data: { lastMessageAt: newMessage.createdAt },
+        data: {
+          lastMessageAt: newMessage.createdAt,
+          [incrementField]: { increment: 1 },
+        },
       });
 
       return newMessage;
@@ -493,6 +508,59 @@ export async function sendMessage(conversationId: string, body: string): Promise
     return message as unknown as MessageWithSender;
   } catch (error) {
     console.error("Error al enviar mensaje:", error);
+    throw error;
+  }
+}
+
+/**
+ * Marca una conversación como leída (resetea el contador de no leídos)
+ */
+export async function markConversationAsRead(conversationId: string): Promise<void> {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id || !session?.user?.orgId) {
+      throw new Error("No autenticado");
+    }
+
+    const { id: userId, orgId } = session.user;
+
+    // Verificar feature flag
+    const chatEnabled = await checkChatEnabled(orgId);
+    if (!chatEnabled) {
+      throw new Error("El módulo de chat no está habilitado para esta organización");
+    }
+
+    // Verificar que el usuario es participante de la conversación
+    const conversation = await prisma.conversation.findFirst({
+      where: {
+        id: conversationId,
+        orgId,
+        OR: [{ userAId: userId }, { userBId: userId }],
+      },
+      select: { id: true, userAId: true, userBId: true },
+    });
+
+    if (!conversation) {
+      throw new Error("Conversación no encontrada o no tienes acceso");
+    }
+
+    // Determinar qué contador resetear
+    const resetField =
+      userId === conversation.userAId
+        ? "unreadCountUserA" // userA lee → resetear su contador
+        : "unreadCountUserB"; // userB lee → resetear su contador
+
+    // Resetear contador
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { [resetField]: 0 },
+    });
+
+    // Notificar via SSE a otros dispositivos del mismo usuario
+    sseManager.broadcastToUser(userId, orgId, conversationId);
+  } catch (error) {
+    console.error("Error al marcar conversación como leída:", error);
     throw error;
   }
 }

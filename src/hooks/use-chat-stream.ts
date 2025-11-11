@@ -8,6 +8,7 @@ interface UseChatStreamOptions {
   enabled?: boolean;
   onMessage?: (message: MessageWithSender) => void;
   onRead?: (data: { conversationId: string; messageId: string; readBy: string }) => void;
+  onConversationRead?: (data: { conversationId: string }) => void;
   onError?: (error: Error) => void;
 }
 
@@ -15,7 +16,7 @@ interface UseChatStreamOptions {
  * Hook para conectarse al stream SSE de chat con fallback a polling
  */
 export function useChatStream(options: UseChatStreamOptions = {}) {
-  const { enabled = true, onMessage, onRead, onError } = options;
+  const { enabled = true, onMessage, onRead, onConversationRead, onError } = options;
 
   const [isConnected, setIsConnected] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
@@ -79,9 +80,10 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
               onMessage?.(data.data as MessageWithSender);
               break;
             case "read":
-              onRead?.(
-                data.data as { conversationId: string; messageId: string; readBy: string }
-              );
+              onRead?.(data.data as { conversationId: string; messageId: string; readBy: string });
+              break;
+            case "conversation_read":
+              onConversationRead?.(data.data as { conversationId: string });
               break;
             case "system":
               console.log("[SSE] Sistema:", data.data);

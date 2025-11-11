@@ -6,6 +6,7 @@ import { MessageSquarePlus, Search } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -111,6 +112,7 @@ function ConversationsListComponent({
             {filteredConversations.map((conversation) => {
               const otherUser = getOtherParticipant(conversation, session?.user?.id ?? "");
               const isSelected = conversation.id === selectedConversationId;
+              const hasUnread = (conversation.unreadCount ?? 0) > 0;
 
               return (
                 <button
@@ -138,17 +140,29 @@ function ConversationsListComponent({
                   </Avatar>
 
                   <div className="min-w-0 grow">
-                    <div className="flex items-center justify-between">
-                      <span className="truncate text-sm font-medium">{otherUser.name}</span>
-                      {conversation.lastMessage && (
-                        <span className="text-muted-foreground flex-none text-xs">
-                          {formatLastMessageDate(new Date(conversation.lastMessage.createdAt))}
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={cn("truncate text-sm", hasUnread && "font-bold")}>{otherUser.name}</span>
+                      <div className="flex items-center gap-2">
+                        {conversation.lastMessage && (
+                          <span className="text-muted-foreground flex-none text-xs">
+                            {formatLastMessageDate(new Date(conversation.lastMessage.createdAt))}
+                          </span>
+                        )}
+                        {hasUnread && (
+                          <Badge variant="destructive" className="h-5 min-w-5 rounded-full px-1.5 text-xs">
+                            {conversation.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {conversation.lastMessage ? (
-                        <span className="text-muted-foreground truncate text-start text-sm">
+                        <span
+                          className={cn(
+                            "truncate text-start text-sm",
+                            hasUnread ? "text-foreground font-semibold" : "text-muted-foreground",
+                          )}
+                        >
                           {conversation.lastMessage.senderId === session?.user?.id && "Tú: "}
                           {conversation.lastMessage.body}
                         </span>

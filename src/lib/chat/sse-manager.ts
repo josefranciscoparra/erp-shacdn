@@ -27,7 +27,7 @@ class SSEManager {
     userId: string,
     orgId: string,
     controller: ReadableStreamDefaultController,
-    lastEventId?: string
+    lastEventId?: string,
   ): void {
     const connectionId = `${orgId}:${userId}`;
     this.connections.set(connectionId, {
@@ -37,9 +37,7 @@ class SSEManager {
       lastEventId,
     });
 
-    console.log(
-      `[SSE] Nueva conexión: ${connectionId} (Total: ${this.connections.size})`
-    );
+    console.log(`[SSE] Nueva conexión: ${connectionId} (Total: ${this.connections.size})`);
   }
 
   /**
@@ -49,19 +47,13 @@ class SSEManager {
     const connectionId = `${orgId}:${userId}`;
     this.connections.delete(connectionId);
 
-    console.log(
-      `[SSE] Conexión cerrada: ${connectionId} (Total: ${this.connections.size})`
-    );
+    console.log(`[SSE] Conexión cerrada: ${connectionId} (Total: ${this.connections.size})`);
   }
 
   /**
    * Envía un mensaje a un usuario específico
    */
-  sendMessageToUser(
-    userId: string,
-    orgId: string,
-    message: MessageWithSender
-  ): void {
+  sendMessageToUser(userId: string, orgId: string, message: MessageWithSender): void {
     const connectionId = `${orgId}:${userId}`;
     const connection = this.connections.get(connectionId);
 
@@ -82,13 +74,7 @@ class SSEManager {
   /**
    * Envía un evento de lectura
    */
-  sendReadEvent(
-    userId: string,
-    orgId: string,
-    conversationId: string,
-    messageId: string,
-    readBy: string
-  ): void {
+  sendReadEvent(userId: string, orgId: string, conversationId: string, messageId: string, readBy: string): void {
     const connectionId = `${orgId}:${userId}`;
     const connection = this.connections.get(connectionId);
 
@@ -126,13 +112,30 @@ class SSEManager {
   }
 
   /**
+   * Envía un evento de conversación leída a todas las conexiones del usuario
+   */
+  broadcastToUser(userId: string, orgId: string, conversationId: string): void {
+    const connectionId = `${orgId}:${userId}`;
+    const connection = this.connections.get(connectionId);
+
+    if (!connection) {
+      console.log(`[SSE] Usuario no conectado para broadcast: ${connectionId}`);
+      return;
+    }
+
+    const event: SSEEvent = {
+      type: "conversation_read",
+      data: { conversationId },
+      timestamp: new Date().toISOString(),
+    };
+
+    this.sendEvent(connection, event);
+  }
+
+  /**
    * Envía un evento SSE a través del controller
    */
-  private sendEvent(
-    connection: SSEConnection,
-    event: SSEEvent,
-    eventId?: string
-  ): void {
+  private sendEvent(connection: SSEConnection, event: SSEEvent, eventId?: string): void {
     try {
       const encoder = new TextEncoder();
       let payload = "";
