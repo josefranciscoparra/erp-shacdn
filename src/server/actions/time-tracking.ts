@@ -755,9 +755,15 @@ export async function detectIncompleteEntries() {
     const percentageOfJourney = (durationHours / dailyHours) * 100;
     const isExcessive = durationHours > thresholdHours;
 
+    // Solo retornar si supera el 150% de la jornada
+    // Fichajes abiertos normales (del mismo día, dentro del rango) no deben generar aviso
+    if (!isExcessive) {
+      return null;
+    }
+
     return {
       hasIncompleteEntry: true,
-      isExcessive,
+      isExcessive: true, // Siempre true cuando llegamos aquí
       durationHours,
       durationMinutes,
       dailyHours,

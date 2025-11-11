@@ -47,6 +47,26 @@ async function main() {
     const yesterday = subDays(new Date(), 1);
     const clockInTime = setMinutes(setHours(yesterday, 9), 0);
 
+    // Crear WorkdaySummary
+    const yesterday = subDays(new Date(), 1);
+    const dayStart = setHours(setMinutes(yesterday, 0), 0);
+    dayStart.setSeconds(0, 0);
+
+    const workday = await prisma.workdaySummary.create({
+      data: {
+        employeeId: employee.id,
+        orgId: employee.orgId,
+        date: dayStart,
+        clockIn: clockInTime,
+        status: "IN_PROGRESS",
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+      },
+    });
+
+    console.log(`✅ WorkdaySummary creado (ID: ${workday.id})`);
+
+    // Crear TimeEntry
     const newEntry = await prisma.timeEntry.create({
       data: {
         orgId: employee.orgId,
