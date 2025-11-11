@@ -28,6 +28,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
 
 import { getExpensesColumns } from "./_components/expenses-columns";
+import { ExpensesMetrics } from "./_components/expenses-metrics";
 
 export default function ExpensesPage() {
   const router = useRouter();
@@ -152,7 +153,105 @@ export default function ExpensesPage() {
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
+    initialState: {
+      pagination: {
+        pageSize: 5,
+      },
+    },
   });
+
+  // Calcular métricas
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
+  // Total del mes: todos los gastos del mes actual (excepto borradores y rechazados)
+  const currentMonthExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      const expenseDate = new Date(e.date);
+      return (
+        expenseDate.getMonth() === currentMonth &&
+        expenseDate.getFullYear() === currentYear &&
+        e.status !== "DRAFT" &&
+        e.status !== "REJECTED"
+      );
+    });
+  }, [expenses, currentMonth, currentYear]);
+
+  const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+  const previousMonthExpenses = useMemo(() => {
+    return expenses.filter((e) => {
+      const expenseDate = new Date(e.date);
+      return (
+        expenseDate.getMonth() === previousMonth &&
+        expenseDate.getFullYear() === previousYear &&
+        e.status !== "DRAFT" &&
+        e.status !== "REJECTED"
+      );
+    });
+  }, [expenses, previousMonth, previousYear]);
+
+  const currentMonthTotal = useMemo(
+    () => currentMonthExpenses.reduce((sum, e) => sum + Number(e.totalAmount), 0),
+    [currentMonthExpenses],
+  );
+
+  const previousMonthTotal = useMemo(
+    () => previousMonthExpenses.reduce((sum, e) => sum + Number(e.totalAmount), 0),
+    [previousMonthExpenses],
+  );
+
+  const monthlyChange =
+    previousMonthTotal > 0 ? ((currentMonthTotal - previousMonthTotal) / previousMonthTotal) * 100 : 0;
+
+  // Aprobados: gastos que han sido aprobados (y posiblemente reembolsados)
+  const approvedTotal = useMemo(
+    () =>
+      expenses
+        .filter((e) => e.status === "APPROVED" || e.status === "REIMBURSED")
+        .reduce((sum, e) => sum + Number(e.totalAmount), 0),
+    [expenses],
+  );
+
+  const approvedCount = useMemo(
+    () => expenses.filter((e) => e.status === "APPROVED" || e.status === "REIMBURSED").length,
+    [expenses],
+  );
+
+  // En revisión: gastos enviados esperando aprobación
+  const submittedTotal = useMemo(
+    () => expenses.filter((e) => e.status === "SUBMITTED").reduce((sum, e) => sum + Number(e.totalAmount), 0),
+    [expenses],
+  );
+
+  const submittedCount = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED").length, [expenses]);
+
+  const metrics = useMemo(
+    () => [
+      {
+        name: "Total del Mes",
+        value: new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(currentMonthTotal),
+        change: `${monthlyChange >= 0 ? "+" : ""}${monthlyChange.toFixed(1)}%`,
+        changeType: monthlyChange < 0 ? "positive" : monthlyChange > 0 ? "negative" : "neutral",
+        subtitle: monthlyChange !== 0 ? "vs mes anterior" : "Todos los gastos del mes",
+        icon: "total" as const,
+      },
+      {
+        name: "Aprobado",
+        value: new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(approvedTotal),
+        subtitle: `${approvedCount} ${approvedCount === 1 ? "gasto" : "gastos"}`,
+        icon: "pending" as const,
+      },
+      {
+        name: "En Revisión",
+        value: new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(submittedTotal),
+        subtitle: `${submittedCount} ${submittedCount === 1 ? "gasto" : "gastos"}`,
+        icon: "review" as const,
+      },
+    ],
+    [currentMonthTotal, monthlyChange, approvedTotal, approvedCount, submittedTotal, submittedCount],
+  );
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -163,6 +262,9 @@ export default function ExpensesPage() {
         actionLabel="Nuevo Gasto"
         onAction={handleNewExpense}
       />
+
+      {/* Métricas */}
+      <ExpensesMetrics metrics={metrics} />
 
       {/* Tabs de gastos */}
       <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
