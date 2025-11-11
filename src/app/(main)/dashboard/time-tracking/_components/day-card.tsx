@@ -31,6 +31,10 @@ interface TimeEntry {
   location?: string | null;
   notes?: string | null;
   isManual: boolean;
+  // Campos de cancelación
+  isCancelled?: boolean;
+  cancellationReason?: string | null;
+  cancellationNotes?: string | null;
   // Campos GPS
   latitude?: number | null;
   longitude?: number | null;
@@ -208,59 +212,147 @@ export function DayCard({ day }: DayCardProps) {
           {day.timeEntries.length === 0 ? (
             <div className="text-muted-foreground py-8 text-center text-sm">No hay fichajes registrados</div>
           ) : (
-            <div className="space-y-2">
-              {day.timeEntries.map((entry, index) => {
-                const config = entryTypeConfig[entry.entryType];
-                const Icon = config.icon;
-                const breakInfo = breakDurations.find((b) => b.startIndex === index);
+            <div className="space-y-4">
+              {/* Fichajes activos */}
+              <div className="space-y-2">
+                {day.timeEntries
+                  .filter((entry) => !entry.isCancelled)
+                  .map((entry, index) => {
+                    const config = entryTypeConfig[entry.entryType];
+                    const Icon = config.icon;
+                    const breakInfo = breakDurations.find((b) => b.startIndex === index);
 
-                return (
-                  <div key={entry.id} className="flex items-start gap-3">
-                    <div className={cn("rounded-full p-2", config.bgColor)}>
-                      <Icon className={cn("size-4", config.color)} />
-                    </div>
-                    <div className="flex flex-1 flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-medium">
-                          {format(new Date(entry.timestamp), "HH:mm:ss", { locale: es })}
-                        </span>
-                        <span className="text-sm">{config.label}</span>
-                        {entry.isManual && (
-                          <Badge variant="outline" className="text-xs">
-                            Manual
-                          </Badge>
-                        )}
-                        {breakInfo && (
-                          <span className="text-muted-foreground text-xs">({formatMinutes(breakInfo.duration)})</span>
-                        )}
-                      </div>
-                      {entry.notes && <span className="text-muted-foreground text-xs">{entry.notes}</span>}
+                    return (
+                      <div key={entry.id} className="flex items-start gap-3">
+                        <div className={cn("rounded-full p-2", config.bgColor)}>
+                          <Icon className={cn("size-4", config.color)} />
+                        </div>
+                        <div className="flex flex-1 flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-medium">
+                              {format(new Date(entry.timestamp), "HH:mm:ss", { locale: es })}
+                            </span>
+                            <span className="text-sm">{config.label}</span>
+                            {entry.isManual && (
+                              <Badge variant="outline" className="text-xs">
+                                Manual
+                              </Badge>
+                            )}
+                            {breakInfo && (
+                              <span className="text-muted-foreground text-xs">
+                                ({formatMinutes(breakInfo.duration)})
+                              </span>
+                            )}
+                          </div>
+                          {entry.notes && <span className="text-muted-foreground text-xs">{entry.notes}</span>}
 
-                      {/* Badges de GPS */}
-                      {entry.latitude && entry.longitude && (
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                          <Badge variant="outline" className="text-xs">
-                            <MapPin className="mr-1 h-3 w-3" />
-                            GPS: {Math.round(entry.accuracy ?? 0)}m
-                          </Badge>
-                          {entry.isWithinAllowedArea === true && (
-                            <Badge variant="outline" className="border-green-500/20 bg-green-500/10 text-xs">
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                              Dentro del área
-                            </Badge>
-                          )}
-                          {entry.requiresReview && (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertTriangle className="mr-1 h-3 w-3" />
-                              Requiere revisión
-                            </Badge>
+                          {/* Badges de GPS */}
+                          {entry.latitude && entry.longitude && (
+                            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <Badge variant="outline" className="text-xs">
+                                <MapPin className="mr-1 h-3 w-3" />
+                                GPS: {Math.round(entry.accuracy ?? 0)}m
+                              </Badge>
+                              {entry.isWithinAllowedArea === true && (
+                                <Badge variant="outline" className="border-green-500/20 bg-green-500/10 text-xs">
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  Dentro del área
+                                </Badge>
+                              )}
+                              {entry.requiresReview && (
+                                <Badge variant="destructive" className="text-xs">
+                                  <AlertTriangle className="mr-1 h-3 w-3" />
+                                  Requiere revisión
+                                </Badge>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    );
+                  })}
+              </div>
+
+              {/* Separador y fichajes cancelados */}
+              {day.timeEntries.some((e) => e.isCancelled) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-muted h-px flex-1" />
+                    <span className="text-muted-foreground text-xs font-medium">Invalidados por rectificación</span>
+                    <div className="bg-muted h-px flex-1" />
                   </div>
-                );
-              })}
+                  <div className="space-y-2">
+                    {day.timeEntries
+                      .filter((entry) => entry.isCancelled)
+                      .map((entry, index) => {
+                        const config = entryTypeConfig[entry.entryType];
+                        const Icon = config.icon;
+                        const breakInfo = breakDurations.find((b) => b.startIndex === index);
+
+                        return (
+                          <div key={entry.id} className="flex items-start gap-3 opacity-50">
+                            <div className={cn("rounded-full p-2", config.bgColor)}>
+                              <Icon className={cn("size-4", config.color)} />
+                            </div>
+                            <div className="flex flex-1 flex-col gap-0.5">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-sm font-medium line-through">
+                                  {format(new Date(entry.timestamp), "HH:mm:ss", { locale: es })}
+                                </span>
+                                <span className="text-sm line-through">{config.label}</span>
+                                {entry.isManual && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Manual
+                                  </Badge>
+                                )}
+                                <Badge
+                                  variant="outline"
+                                  className="border-red-500/30 bg-red-500/10 text-xs text-red-700 dark:text-red-400"
+                                >
+                                  <XCircle className="mr-1 h-3 w-3" />
+                                  Cancelado
+                                </Badge>
+                                {breakInfo && (
+                                  <span className="text-muted-foreground text-xs">
+                                    ({formatMinutes(breakInfo.duration)})
+                                  </span>
+                                )}
+                              </div>
+                              {entry.notes && <span className="text-muted-foreground text-xs">{entry.notes}</span>}
+                              {entry.cancellationNotes && (
+                                <span className="text-xs text-red-600 dark:text-red-400">
+                                  Motivo: {entry.cancellationNotes}
+                                </span>
+                              )}
+
+                              {/* Badges de GPS */}
+                              {entry.latitude && entry.longitude && (
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                                  <Badge variant="outline" className="text-xs">
+                                    <MapPin className="mr-1 h-3 w-3" />
+                                    GPS: {Math.round(entry.accuracy ?? 0)}m
+                                  </Badge>
+                                  {entry.isWithinAllowedArea === true && (
+                                    <Badge variant="outline" className="border-green-500/20 bg-green-500/10 text-xs">
+                                      <CheckCircle2 className="mr-1 h-3 w-3" />
+                                      Dentro del área
+                                    </Badge>
+                                  )}
+                                  {entry.requiresReview && (
+                                    <Badge variant="destructive" className="text-xs">
+                                      <AlertTriangle className="mr-1 h-3 w-3" />
+                                      Requiere revisión
+                                    </Badge>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

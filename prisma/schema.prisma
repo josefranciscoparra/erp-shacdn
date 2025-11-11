@@ -80,6 +80,7 @@ model Organization {
   sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
   conversations       Conversation[] // Conversaciones de chat
   messages            Message[] // Mensajes de chat
+  dismissedNotifications DismissedNotification[] // Notificaciones descartadas
 
   @@map("organizations")
 }
@@ -122,6 +123,7 @@ model User {
   conversationsAsUserA Conversation[] @relation("ConversationUserA") // Conversaciones donde soy UserA
   conversationsAsUserB Conversation[] @relation("ConversationUserB") // Conversaciones donde soy UserB
   messagesSent Message[] // Mensajes enviados
+  dismissedNotifications DismissedNotification[] // Notificaciones descartadas por el usuario
 
   @@index([email])
   @@index([orgId])
@@ -637,11 +639,19 @@ model TimeEntry {
   isManual Boolean @default(false)
   manualRequestId String? // ID de la solicitud que lo creó
 
+  // Cancelación y auditoría de fichajes
+  isCancelled          Boolean @default(false) // Si este fichaje fue cancelado
+  cancellationReason   CancellationReason? // Motivo de la cancelación
+  cancelledAt          DateTime? // Fecha/hora de cancelación
+  originalDurationHours Decimal? @db.Decimal(6,2) // Duración original si fue cancelado por larga duración
+  cancellationNotes    String? // Notas adicionales sobre la cancelación
+
   @@index([orgId])
   @@index([employeeId])
   @@index([timestamp])
   @@index([entryType])
   @@index([workdayId])
+  @@index([isCancelled])
   @@map("time_entries")
 }
 
@@ -655,6 +665,7 @@ model WorkdaySummary {
   totalBreakMinutes  Decimal  @default(0) @db.Decimal(10,2) // Minutos de pausa totales (con decimales para segundos)
   status            WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
   notes             String?  // Notas administrativas
+  excessiveTimeNotified Boolean @default(false) // Si se notificó fichaje excesivo (> 150% jornada)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -691,6 +702,15 @@ enum WorkdayStatus {
   COMPLETED    // Día completado correctamente
   INCOMPLETE   // Día incompleto (falta salida o hay inconsistencias)
   ABSENT       // Ausente (no fichó)
+}
+
+// Motivos de cancelación de fichajes
+enum CancellationReason {
+  EXCESSIVE_DURATION          // Fichaje de larga duración (> 150% jornada laboral)
+  USER_ERROR                  // Error del usuario al fichar
+  SYSTEM_ERROR                // Error técnico del sistema
+  ADMIN_CORRECTION            // Corrección administrativa
+  REPLACED_BY_MANUAL_REQUEST  // Reemplazado por solicitud manual aprobada
 }
 
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
@@ -883,6 +903,7 @@ enum PtoNotificationType {
   MANUAL_TIME_ENTRY_SUBMITTED  // Nueva solicitud de fichaje manual enviada
   MANUAL_TIME_ENTRY_APPROVED   // Solicitud de fichaje manual aprobada
   MANUAL_TIME_ENTRY_REJECTED   // Solicitud de fichaje manual rechazada
+  TIME_ENTRY_EXCESSIVE         // Fichaje excede 150% de jornada laboral (requiere regularización)
   EXPENSE_SUBMITTED            // Nueva solicitud de gasto
   EXPENSE_APPROVED             // Gasto aprobado
   EXPENSE_REJECTED             // Gasto rechazado
@@ -1217,6 +1238,11 @@ model ManualTimeEntryRequest {
   // TimeEntries creados (si se aprueba)
   createdClockInId  String? // ID del TimeEntry de entrada creado
   createdClockOutId String? // ID del TimeEntry de salida creado
+
+  // Reemplazo de fichajes incompletos
+  replacesIncompleteEntry Boolean @default(false) // Indica si reemplaza un fichaje abierto
+  replacedEntryIds        String[] @default([]) // IDs de las entradas que se reemplazan
+  warningMessage          String? // Mensaje de advertencia mostrado al usuario
 
   // Timestamps
   submittedAt     DateTime @default(now()) // Cuando se envió la solicitud
@@ -1632,6 +1658,29 @@ model Message {
 enum MessageStatus {
   SENT   // Enviado
   READ   // Leído
+}
+
+// ==================== NOTIFICACIONES DESCARTADAS ====================
+
+// Sistema de descarte de notificaciones (fichajes incompletos, etc.)
+model DismissedNotification {
+  id          String   @id @default(cuid())
+  type        String   // "INCOMPLETE_ENTRY", "EXCESSIVE_TIME", etc.
+  referenceId String   // ID del WorkdaySummary o TimeEntry
+  dismissedAt DateTime @default(now())
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Usuario que descartó la notificación
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, referenceId])
+  @@index([userId, type])
+  @@index([orgId])
+  @@map("dismissed_notifications")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

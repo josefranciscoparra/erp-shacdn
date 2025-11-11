@@ -229,15 +229,46 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
         },
       },
       select: {
+        id: true,
+        entryType: true,
         manualRequestId: true,
       },
     });
 
     // Consideramos automáticos los fichajes sin solicitud manual asociada
-    const hasAutomaticEntries = existingEntries.some((entry) => entry.manualRequestId === null);
+    const automaticEntries = existingEntries.filter((entry) => entry.manualRequestId === null);
 
-    if (hasAutomaticEntries) {
+    // Si hay entradas automáticas pero la solicitud NO marca reemplazo, rechazar
+    if (automaticEntries.length > 0 && !request.replacesIncompleteEntry) {
       throw new Error("El empleado ya tiene fichajes automáticos para ese día. No se puede aprobar.");
+    }
+
+    // Si la solicitud marca reemplazo, verificar que las entradas a reemplazar aún existen
+    if (request.replacesIncompleteEntry && request.replacedEntryIds.length > 0) {
+      const entriesToReplace = await prisma.timeEntry.findMany({
+        where: {
+          id: { in: request.replacedEntryIds },
+          employeeId: request.employeeId,
+          orgId: user.orgId,
+        },
+      });
+
+      if (entriesToReplace.length !== request.replacedEntryIds.length) {
+        throw new Error("Algunas entradas a reemplazar ya no existen. Contacta con RRHH.");
+      }
+
+      // CANCELAR (no eliminar) las entradas automáticas para mantener auditoría
+      await prisma.timeEntry.updateMany({
+        where: {
+          id: { in: request.replacedEntryIds },
+        },
+        data: {
+          isCancelled: true,
+          cancellationReason: "REPLACED_BY_MANUAL_REQUEST",
+          cancelledAt: new Date(),
+          cancellationNotes: `Reemplazado por solicitud manual aprobada (ID: ${request.id})`,
+        },
+      });
     }
 
     // Crear los TimeEntry manuales
@@ -280,10 +311,13 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       },
     });
 
-    const { worked, break: breakTime } = calculateWorkedMinutes(allEntriesOfDay);
+    // IMPORTANTE: Solo calcular con fichajes NO cancelados
+    const activeEntries = allEntriesOfDay.filter((e) => !e.isCancelled);
 
-    const firstEntry = allEntriesOfDay.find((e) => e.entryType === "CLOCK_IN");
-    const lastExit = [...allEntriesOfDay].reverse().find((e) => e.entryType === "CLOCK_OUT");
+    const { worked, break: breakTime } = calculateWorkedMinutes(activeEntries);
+
+    const firstEntry = activeEntries.find((e) => e.entryType === "CLOCK_IN");
+    const lastExit = [...activeEntries].reverse().find((e) => e.entryType === "CLOCK_OUT");
 
     // Determinar el estado (COMPLETED si tiene salida)
     const status = lastExit ? "COMPLETED" : "IN_PROGRESS";

@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from "react";
 
-import { format, startOfDay, setHours, setMinutes, isPast, isFuture, isToday } from "date-fns";
+import { format, startOfDay, endOfDay, setHours, setMinutes, isPast, isFuture, isToday } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2 } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,12 +39,22 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   // Errores
   const [error, setError] = useState<string | null>(null);
 
+  // Estados para advertencias de fichajes existentes
+  const [confirmReplacement, setConfirmReplacement] = useState(false);
+
   // Actualizar fecha cuando cambie initialDate
   useEffect(() => {
     if (initialDate) {
       setSelectedDate(initialDate);
     }
   }, [initialDate]);
+
+  // Resetear estados de advertencia cuando cambia la fecha
+  useEffect(() => {
+    setConfirmReplacement(false);
+    // Nota: La detección de fichajes existentes se hace en el backend al enviar
+    // Por ahora, solo mostramos un mensaje genérico de advertencia
+  }, [selectedDate]);
 
   // Reset del formulario
   const resetForm = () => {
@@ -141,6 +152,23 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </Alert>
           )}
 
+          {/* Advertencia de fichajes existentes */}
+          {selectedDate && isPast(startOfDay(selectedDate)) && (
+            <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
+              <AlertTriangle className="h-4 w-4 text-orange-700 dark:text-orange-400" />
+              <AlertTitle className="text-orange-900 dark:text-orange-300">Atención</AlertTitle>
+              <AlertDescription className="space-y-2 text-orange-800 dark:text-orange-400">
+                <p>
+                  Si ya tienes fichajes automáticos para este día, serán cancelados y reemplazados por los datos de esta
+                  solicitud.
+                </p>
+                <p className="text-xs font-medium">
+                  Los fichajes cancelados quedarán visibles en auditorías pero no contarán para el cómputo de horas.
+                </p>
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Fecha */}
           <div className="space-y-2">
             <Label htmlFor="date">Fecha del fichaje olvidado</Label>
@@ -226,6 +254,25 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </p>
           </div>
 
+          {/* Checkbox de confirmación (solo para días pasados) */}
+          {selectedDate && isPast(startOfDay(selectedDate)) && (
+            <div className="flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50/50 p-3 dark:border-orange-700 dark:bg-orange-950/20">
+              <Checkbox
+                id="confirm-replacement"
+                checked={confirmReplacement}
+                onCheckedChange={(checked) => setConfirmReplacement(checked === true)}
+                disabled={isLoading}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="confirm-replacement"
+                className="cursor-pointer text-sm leading-none font-medium text-orange-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-orange-300"
+              >
+                Entiendo que si hay fichajes automáticos, se cancelarán y reemplazarán por los datos de esta solicitud
+              </label>
+            </div>
+          )}
+
           {/* Botones */}
           <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
             <Button
@@ -237,7 +284,11 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             >
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={isLoading} className="w-full sm:w-auto">
+            <Button
+              onClick={handleSubmit}
+              disabled={isLoading || (selectedDate && isPast(startOfDay(selectedDate)) && !confirmReplacement)}
+              className="w-full sm:w-auto"
+            >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Enviar solicitud
             </Button>

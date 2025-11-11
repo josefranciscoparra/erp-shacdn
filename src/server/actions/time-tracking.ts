@@ -156,11 +156,12 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
-  // Obtener todos los fichajes del día
+  // Obtener todos los fichajes del día (SOLO fichajes NO cancelados)
   const entries = await prisma.timeEntry.findMany({
     where: {
       employeeId,
       orgId,
+      isCancelled: false, // ⚠️ CRÍTICO: Excluir fichajes cancelados del cómputo
       timestamp: {
         gte: dayStart,
         lte: dayEnd,
@@ -315,7 +316,18 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
 }
 
 // Fichar salida
-export async function clockOut(latitude?: number, longitude?: number, accuracy?: number) {
+export async function clockOut(
+  latitude?: number,
+  longitude?: number,
+  accuracy?: number,
+  cancelAsClosed?: boolean,
+  cancellationInfo?: {
+    reason: "EXCESSIVE_DURATION";
+    originalDurationHours: number;
+    clockInId: string;
+    notes?: string;
+  },
+) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
@@ -340,19 +352,58 @@ export async function clockOut(latitude?: number, longitude?: number, accuracy?:
     // Procesar datos de geolocalización
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
-    // Crear el fichaje de salida
+    const now = new Date();
+
+    // Si se solicita cancelación, marcar CLOCK_IN correspondiente como cancelado
+    if (cancelAsClosed && cancellationInfo) {
+      console.log(`⚠️ Cancelando fichaje de larga duración (${cancellationInfo.originalDurationHours.toFixed(1)}h)`);
+
+      // Marcar CLOCK_IN como cancelado
+      await prisma.timeEntry.update({
+        where: { id: cancellationInfo.clockInId },
+        data: {
+          isCancelled: true,
+          cancellationReason: cancellationInfo.reason,
+          cancelledAt: now,
+          cancellationNotes: cancellationInfo.notes,
+        },
+      });
+
+      // Crear CLOCK_OUT cancelado
+      const entry = await prisma.timeEntry.create({
+        data: {
+          orgId,
+          employeeId,
+          entryType: "CLOCK_OUT",
+          timestamp: now,
+          isCancelled: true,
+          cancellationReason: cancellationInfo.reason,
+          cancelledAt: now,
+          originalDurationHours: cancellationInfo.originalDurationHours,
+          cancellationNotes: cancellationInfo.notes,
+          ...geoData,
+        },
+      });
+
+      // Actualizar resumen del día (sin contar horas canceladas)
+      await updateWorkdaySummary(employeeId, orgId, now, dailyHours);
+
+      return { success: true, entry: serializeTimeEntry(entry), cancelled: true };
+    }
+
+    // Fichaje normal (sin cancelación)
     const entry = await prisma.timeEntry.create({
       data: {
         orgId,
         employeeId,
         entryType: "CLOCK_OUT",
-        timestamp: new Date(),
+        timestamp: now,
         ...geoData,
       },
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
+    await updateWorkdaySummary(employeeId, orgId, now, dailyHours);
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -646,5 +697,201 @@ export async function getMonthlySummaries(year: number, month: number) {
   } catch (error) {
     console.error("Error al obtener resumen mensual:", error);
     throw error;
+  }
+}
+
+/**
+ * Detecta fichajes incompletos (entrada sin salida)
+ * Retorna información del fichaje abierto con cálculo de duración y % de jornada
+ */
+export async function detectIncompleteEntries() {
+  try {
+    const employee = await getAuthenticatedEmployee();
+    console.log("🔍 [detectIncompleteEntries] Employee:", employee.employeeId);
+
+    const now = new Date();
+    const today = startOfDay(now);
+
+    // Buscar último CLOCK_IN sin CLOCK_OUT correspondiente (NO cancelado)
+    const openClockIn = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId: employee.employeeId,
+        orgId: employee.orgId,
+        entryType: "CLOCK_IN",
+        isCancelled: false,
+        isManual: false,
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    console.log("🔍 [detectIncompleteEntries] openClockIn found:", openClockIn ? openClockIn.id : "NONE");
+
+    if (!openClockIn) {
+      console.log("ℹ️ [detectIncompleteEntries] No open CLOCK_IN found");
+      return null;
+    }
+
+    // Verificar si tiene CLOCK_OUT posterior
+    const hasClockOut = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId: employee.employeeId,
+        orgId: employee.orgId,
+        entryType: "CLOCK_OUT",
+        isCancelled: false,
+        timestamp: {
+          gt: openClockIn.timestamp,
+        },
+      },
+    });
+
+    console.log("🔍 [detectIncompleteEntries] hasClockOut:", hasClockOut ? "YES" : "NO");
+
+    if (hasClockOut) {
+      console.log("ℹ️ [detectIncompleteEntries] CLOCK_IN has CLOCK_OUT, not incomplete");
+      return null; // Ya tiene salida, no está abierto
+    }
+
+    // Calcular duración
+    const durationMinutes = Math.floor((now.getTime() - new Date(openClockIn.timestamp).getTime()) / (1000 * 60));
+    const durationHours = durationMinutes / 60;
+
+    // Calcular umbral y % de jornada
+    const dailyHours = employee.dailyHours;
+    const thresholdHours = dailyHours * 1.5; // 150%
+    const percentageOfJourney = (durationHours / dailyHours) * 100;
+    const isExcessive = durationHours > thresholdHours;
+
+    return {
+      hasIncompleteEntry: true,
+      isExcessive,
+      durationHours,
+      durationMinutes,
+      dailyHours,
+      thresholdHours,
+      percentageOfJourney,
+      clockInDate: startOfDay(new Date(openClockIn.timestamp)),
+      clockInTime: openClockIn.timestamp,
+      clockInId: openClockIn.id,
+      workdayId: openClockIn.workdayId,
+    };
+  } catch (error) {
+    console.error("Error al detectar fichajes incompletos:", error);
+    return null;
+  }
+}
+
+/**
+ * Crea una notificación cuando un fichaje excede el 150% de la jornada laboral
+ * Se usa para alertar al usuario de que necesita regularizar su fichaje
+ * NOTA: Esta función ya no se usa con el nuevo flujo de cancelación
+ */
+async function createExcessiveTimeNotification(
+  userId: string,
+  orgId: string,
+  workdayId: string,
+  durationHours: number,
+  dailyHours: number,
+  workdayDate: Date,
+) {
+  try {
+    const { createNotification } = await import("./notifications");
+
+    const percentageWorked = (durationHours / dailyHours) * 100;
+
+    await createNotification(
+      userId,
+      orgId,
+      "TIME_ENTRY_EXCESSIVE",
+      "Fichaje excede jornada laboral",
+      `Has estado fichado ${durationHours.toFixed(1)}h (${percentageWorked.toFixed(0)}% de tu jornada de ${dailyHours}h). Revisa si necesitas regularizar este fichaje del ${workdayDate.toLocaleDateString("es-ES")}.`,
+      undefined, // ptoRequestId
+      undefined, // manualTimeEntryRequestId
+      undefined, // expenseId
+    );
+
+    console.log(`✅ Notificación de fichaje excesivo creada para workday ${workdayId}`);
+  } catch (error) {
+    console.error("Error al crear notificación de fichaje excesivo:", error);
+    // No lanzar error para no bloquear el fichaje
+  }
+}
+
+/**
+ * Cancela un fichaje CLOCK_IN abierto cuando se aprueba una solicitud manual
+ * Se utiliza en el flujo de aprobación de solicitudes de fichaje manual
+ */
+export async function cancelOpenClockIn(
+  employeeId: string,
+  orgId: string,
+  date: Date,
+  reason: string = "Reemplazado por solicitud manual aprobada",
+) {
+  try {
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+
+    // Buscar CLOCK_IN sin CLOCK_OUT del día (no cancelado)
+    const openClockIn = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId,
+        orgId,
+        entryType: "CLOCK_IN",
+        isCancelled: false,
+        isManual: false,
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    if (!openClockIn) {
+      console.log(
+        `ℹ️ No se encontró CLOCK_IN abierto para cancelar (empleado: ${employeeId}, fecha: ${date.toLocaleDateString()})`,
+      );
+      return null;
+    }
+
+    // Verificar que no tenga CLOCK_OUT
+    const hasClockOut = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId,
+        orgId,
+        entryType: "CLOCK_OUT",
+        isCancelled: false,
+        timestamp: {
+          gte: openClockIn.timestamp,
+          lte: dayEnd,
+        },
+      },
+    });
+
+    if (hasClockOut) {
+      console.log(`ℹ️ El CLOCK_IN ya tiene CLOCK_OUT, no se cancela (empleado: ${employeeId})`);
+      return null;
+    }
+
+    // Cancelar el CLOCK_IN abierto
+    const cancelled = await prisma.timeEntry.update({
+      where: { id: openClockIn.id },
+      data: {
+        isCancelled: true,
+        cancellationReason: "ADMIN_CORRECTION",
+        cancelledAt: new Date(),
+        cancellationNotes: reason,
+      },
+    });
+
+    console.log(`✅ CLOCK_IN cancelado exitosamente (ID: ${cancelled.id})`);
+
+    return cancelled;
+  } catch (error) {
+    console.error("Error al cancelar CLOCK_IN abierto:", error);
+    return null; // No lanzar error para no bloquear la aprobación
   }
 }

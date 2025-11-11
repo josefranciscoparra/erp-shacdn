@@ -60,6 +60,10 @@ interface DayDetailData {
     location?: string | null;
     notes?: string | null;
     isManual: boolean;
+    // Campos de cancelación
+    isCancelled?: boolean;
+    cancellationReason?: string | null;
+    cancellationNotes?: string | null;
     // Campos GPS
     latitude?: number | null;
     longitude?: number | null;
@@ -205,16 +209,24 @@ export default function EmployeeTimeTrackingPage() {
                   : day.status === "INCOMPLETE"
                     ? "Incompleto"
                     : "Ausente",
+            Observaciones: "",
           });
 
-          // Filas de cada fichaje
-          day.timeEntries.forEach((entry) => {
-            const typeLabels = {
-              CLOCK_IN: "Entrada",
-              CLOCK_OUT: "Salida",
-              BREAK_START: "Inicio pausa",
-              BREAK_END: "Fin pausa",
-            };
+          const typeLabels = {
+            CLOCK_IN: "Entrada",
+            CLOCK_OUT: "Salida",
+            BREAK_START: "Inicio pausa",
+            BREAK_END: "Fin pausa",
+          };
+
+          // Separar fichajes activos y cancelados
+          const activeEntries = day.timeEntries.filter((e) => !e.isCancelled);
+          const cancelledEntries = day.timeEntries.filter((e) => e.isCancelled);
+
+          // Fichajes activos
+          activeEntries.forEach((entry) => {
+            const estado = entry.isManual ? "Manual" : "Automático";
+
             detailData.push({
               Fecha: "",
               Tipo: typeLabels[entry.entryType],
@@ -222,9 +234,40 @@ export default function EmployeeTimeTrackingPage() {
               "Horas Esperadas": "",
               "Horas Trabajadas": "",
               Cumplimiento: "",
-              Estado: entry.isManual ? "Manual" : "",
+              Estado: estado,
+              Observaciones: entry.notes ?? "",
             });
           });
+
+          // Separador si hay fichajes cancelados
+          if (cancelledEntries.length > 0) {
+            detailData.push({
+              Fecha: "",
+              Tipo: "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+              Hora: "",
+              "Horas Esperadas": "",
+              "Horas Trabajadas": "",
+              Cumplimiento: "",
+              Estado: "",
+              Observaciones: "INVALIDADOS POR RECTIFICACIÓN",
+            });
+
+            // Fichajes cancelados
+            cancelledEntries.forEach((entry) => {
+              const estado = entry.isManual ? "CANCELADO - Manual" : "CANCELADO - Automático";
+
+              detailData.push({
+                Fecha: "",
+                Tipo: typeLabels[entry.entryType],
+                Hora: format(new Date(entry.timestamp), "HH:mm", { locale: es }),
+                "Horas Esperadas": "",
+                "Horas Trabajadas": "",
+                Cumplimiento: "",
+                Estado: estado,
+                Observaciones: entry.cancellationNotes ?? "",
+              });
+            });
+          }
 
           // Fila en blanco para separar días
           detailData.push({
@@ -235,6 +278,7 @@ export default function EmployeeTimeTrackingPage() {
             "Horas Trabajadas": "",
             Cumplimiento: "",
             Estado: "",
+            Observaciones: "",
           });
         });
 

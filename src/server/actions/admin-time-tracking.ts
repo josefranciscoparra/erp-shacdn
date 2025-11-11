@@ -1177,6 +1177,10 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
                 location: entry.location,
                 notes: entry.notes,
                 isManual: entry.isManual,
+                // Campos de cancelación
+                isCancelled: entry.isCancelled,
+                cancellationReason: entry.cancellationReason,
+                cancellationNotes: entry.cancellationNotes,
                 // Campos GPS - Serializar Decimals a numbers para Next.js 15
                 latitude: entry.latitude ? Number(entry.latitude) : null,
                 longitude: entry.longitude ? Number(entry.longitude) : null,

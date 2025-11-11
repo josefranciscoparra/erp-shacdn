@@ -88,16 +88,21 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
         },
       },
       select: {
+        id: true,
+        entryType: true,
         manualRequestId: true,
+        timestamp: true,
+      },
+      orderBy: {
+        timestamp: "asc",
       },
     });
 
-    // Consideramos automáticos los fichajes sin solicitud manual asociada
-    const hasAutomaticEntries = existingEntries.some((entry) => entry.manualRequestId === null);
+    // Consideramos automáticos los fichajes NO cancelados y sin solicitud manual asociada
+    const automaticEntries = existingEntries.filter((entry) => entry.manualRequestId === null);
 
-    if (hasAutomaticEntries) {
-      throw new Error("Ya tienes fichajes registrados para ese día. No puedes solicitar un fichaje manual.");
-    }
+    // NUEVO: Permitir solicitudes sobre fichajes completos/incompletos
+    // Ya no bloqueamos si hay fichajes completos - solo informamos para que el usuario decida
 
     // Verificar que no exista ya una solicitud pendiente para ese día
     const existingRequest = await prisma.manualTimeEntryRequest.findFirst({
@@ -116,6 +121,20 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
     // Obtener el manager/aprobador
     const approverId = await getManagerForApproval(employee.id, orgId);
 
+    // Determinar si esta solicitud reemplaza fichajes automáticos (completos o incompletos)
+    const hasClockIn = automaticEntries.some((e) => e.entryType === "CLOCK_IN");
+    const hasClockOut = automaticEntries.some((e) => e.entryType === "CLOCK_OUT");
+    const replacesIncompleteEntry = automaticEntries.length > 0; // CAMBIADO: Ahora reemplaza cualquier fichaje automático
+    const replacedEntryIds = automaticEntries.map((e) => e.id); // Guardar TODOS los IDs para cancelarlos después
+
+    let warningMessage = null;
+    if (replacesIncompleteEntry) {
+      const clockInEntry = automaticEntries.find((e) => e.entryType === "CLOCK_IN");
+      if (clockInEntry) {
+        warningMessage = `Esta solicitud reemplazará un fichaje abierto desde ${new Date(clockInEntry.timestamp).toLocaleString("es-ES")}`;
+      }
+    }
+
     // Crear la solicitud
     const request = await prisma.manualTimeEntryRequest.create({
       data: {
@@ -127,6 +146,9 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
         reason: input.reason.trim(),
         approverId,
         status: "PENDING",
+        replacesIncompleteEntry,
+        replacedEntryIds,
+        warningMessage,
       },
       include: {
         employee: {

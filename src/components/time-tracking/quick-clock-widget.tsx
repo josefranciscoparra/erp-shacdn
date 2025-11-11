@@ -2,17 +2,23 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
+
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, MapPin, Loader2 } from "lucide-react";
+import { LogIn, LogOut, Coffee, MapPin, Loader2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { usePermissions } from "@/hooks/use-permissions";
+import { cn } from "@/lib/utils";
+import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
+import { detectIncompleteEntries } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function QuickClockWidget() {
@@ -42,6 +48,17 @@ export function QuickClockWidget() {
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const geolocation = useGeolocation();
 
+  // Estado para fichajes incompletos
+  const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
+  const [isExcessive, setIsExcessive] = useState(false);
+  const [incompleteEntryInfo, setIncompleteEntryInfo] = useState<{
+    date: Date;
+    lastEntryTime: Date;
+    durationHours: number;
+    percentageOfJourney: number;
+    clockInId: string;
+  } | null>(null);
+
   // Cargar estado inicial y configuración de geolocalización
   useEffect(() => {
     const load = async () => {
@@ -54,6 +71,37 @@ export function QuickClockWidget() {
           setGeolocationEnabled(config.geolocationEnabled);
         } catch (error) {
           console.error("Error al cargar config de geolocalización:", error);
+        }
+
+        // Detectar fichajes incompletos y verificar si ya fueron descartados
+        try {
+          const incompleteData = await detectIncompleteEntries();
+          console.log("🔍 DEBUG - incompleteData:", incompleteData);
+
+          if (incompleteData?.hasIncompleteEntry) {
+            // Verificar si la notificación ya fue descartada
+            const isDismissed = await isNotificationDismissed("INCOMPLETE_ENTRY", incompleteData.clockInId);
+            console.log("🔍 DEBUG - isDismissed:", isDismissed);
+
+            if (!isDismissed) {
+              console.log("✅ DEBUG - Mostrando badge de fichaje incompleto");
+              setHasIncompleteEntry(true);
+              setIsExcessive(incompleteData.isExcessive ?? false);
+              setIncompleteEntryInfo({
+                date: incompleteData.clockInDate,
+                lastEntryTime: incompleteData.clockInTime,
+                durationHours: incompleteData.durationHours,
+                percentageOfJourney: incompleteData.percentageOfJourney,
+                clockInId: incompleteData.clockInId,
+              });
+            } else {
+              console.log("ℹ️ DEBUG - Notificación ya descartada, no mostrar badge");
+            }
+          } else {
+            console.log("ℹ️ DEBUG - No hay fichajes incompletos");
+          }
+        } catch (error) {
+          console.error("Error al detectar fichajes incompletos:", error);
         }
       } catch (error) {
         console.error("Error al cargar datos iniciales:", error);
@@ -204,6 +252,20 @@ export function QuickClockWidget() {
     // TODO: Mostrar mensaje al usuario cuando se implemente el sistema de toast
   };
 
+  // Handler para descartar notificación de fichaje incompleto
+  const handleDismissIncompleteEntry = async (e: React.MouseEvent) => {
+    if (!incompleteEntryInfo?.clockInId) return;
+
+    try {
+      await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
+      setHasIncompleteEntry(false);
+      setIncompleteEntryInfo(null);
+      console.log("✅ Notificación descartada desde quick-clock-widget.tsx");
+    } catch (error) {
+      console.error("Error al descartar notificación:", error);
+    }
+  };
+
   const formatTime = (totalMinutes: number) => {
     const totalSeconds = Math.max(0, Math.round(totalMinutes * 60));
     const hours = Math.floor(totalSeconds / 3600);
@@ -237,6 +299,7 @@ export function QuickClockWidget() {
               animate={{ opacity: 1, x: 0, scale: 1 }}
               exit={{ opacity: 0, x: 10, scale: 0.9 }}
               transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="flex items-center gap-1.5"
             >
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -258,6 +321,51 @@ export function QuickClockWidget() {
                 </TooltipTrigger>
                 {!canClock && <TooltipContent>{tooltipMessage}</TooltipContent>}
               </Tooltip>
+
+              {/* Indicador de fichaje incompleto */}
+              {hasIncompleteEntry && incompleteEntryInfo && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/dashboard/me/clock/requests" onClick={handleDismissIncompleteEntry}>
+                      <div className="flex h-6 w-6 animate-pulse cursor-pointer items-center justify-center rounded-full bg-orange-500 text-white shadow-sm hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700">
+                        <span className="text-xs font-bold">!</span>
+                      </div>
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent
+                    className="bg-card max-w-xs border p-0 shadow-lg"
+                    sideOffset={8}
+                    hideArrow={true}
+                    align="end"
+                    alignOffset={-80}
+                  >
+                    <Link
+                      href="/dashboard/me/clock/requests"
+                      onClick={handleDismissIncompleteEntry}
+                      className="hover:bg-accent block cursor-pointer p-4 transition-colors"
+                    >
+                      <div className="space-y-2">
+                        <p className="text-foreground text-sm font-semibold">Fichaje pendiente de cerrar</p>
+                        <p className="text-muted-foreground text-xs">
+                          Olvidaste fichar salida el{" "}
+                          {new Date(incompleteEntryInfo.lastEntryTime).toLocaleDateString("es-ES", {
+                            day: "2-digit",
+                            month: "short",
+                          })}{" "}
+                          a las{" "}
+                          {new Date(incompleteEntryInfo.lastEntryTime).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                        <p className="text-muted-foreground text-xs">
+                          Haz click para crear una solicitud de regularización.
+                        </p>
+                      </div>
+                    </Link>
+                  </TooltipContent>
+                </Tooltip>
+              )}
             </motion.div>
           )}
 
@@ -278,7 +386,10 @@ export function QuickClockWidget() {
                       onClick={handleClockOut}
                       disabled={isClocking || !canClock || geolocation.loading}
                       variant="destructive"
-                      className="rounded-full disabled:cursor-not-allowed disabled:opacity-70"
+                      className={cn(
+                        "rounded-full disabled:cursor-not-allowed disabled:opacity-70",
+                        isExcessive && "border-2 border-orange-500 ring-2 ring-orange-200",
+                      )}
                     >
                       {geolocation.loading || isClocking ? (
                         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
