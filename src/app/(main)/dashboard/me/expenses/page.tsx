@@ -256,12 +256,7 @@ export default function ExpensesPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <SectionHeader
-        title="Mis Gastos"
-        subtitle="Gestiona tus gastos y solicitudes de reembolso"
-        actionLabel="Nuevo Gasto"
-        onAction={handleNewExpense}
-      />
+      <SectionHeader title="Mis Gastos" actionLabel="Nuevo Gasto" onAction={handleNewExpense} />
 
       {/* Métricas */}
       <ExpensesMetrics metrics={metrics} />

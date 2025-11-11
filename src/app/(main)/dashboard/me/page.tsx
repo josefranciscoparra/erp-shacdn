@@ -217,7 +217,7 @@ export default function MySpacePage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Mi Calendario</p>
-                <p className="text-muted-foreground text-xs">Ver eventos próximos</p>
+                <p className="text-muted-foreground text-xs">Ver próximos eventos</p>
               </div>
               <ChevronRight className="text-muted-foreground size-4" />
             </Link>
@@ -231,7 +231,7 @@ export default function MySpacePage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-medium">Mi Perfil</p>
-                <p className="text-muted-foreground text-xs">Actualizar información</p>
+                <p className="text-muted-foreground text-xs">Ver información personal</p>
               </div>
               <ChevronRight className="text-muted-foreground size-4" />
             </Link>

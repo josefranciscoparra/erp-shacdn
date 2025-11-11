@@ -230,7 +230,7 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
     },
     initialState: {
       pagination: {
-        pageSize: 10,
+        pageSize: 5,
       },
     },
   });

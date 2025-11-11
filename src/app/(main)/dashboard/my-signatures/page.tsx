@@ -91,8 +91,7 @@ export default function MySignaturesPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">Mis Firmas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Documentos que requieren tu firma electrónica</p>
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Mis Firmas</h1>
         </div>
         {urgentCount > 0 && (
           <Badge variant="destructive" className="gap-1.5">

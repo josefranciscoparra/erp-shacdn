@@ -142,7 +142,7 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
     onSortingChange: setSorting,
     initialState: {
       pagination: {
-        pageSize: 10,
+        pageSize: 5,
       },
     },
     state: {
