@@ -145,13 +145,6 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Error general */}
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
           {/* Advertencia de fichajes existentes */}
           {selectedDate && isPast(startOfDay(selectedDate)) && (
             <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
@@ -271,6 +264,13 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
                 Entiendo que si hay fichajes automáticos, se cancelarán y reemplazarán por los datos de esta solicitud
               </label>
             </div>
+          )}
+
+          {/* Error de validación - Mostrado cerca de los botones para mejor visibilidad */}
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {/* Botones */}
