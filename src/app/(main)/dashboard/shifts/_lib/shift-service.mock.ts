@@ -1019,18 +1019,33 @@ export class ShiftServiceMock implements IShiftService {
     return true;
   }
 
-  async moveShift(shiftId: string, newEmployeeId: string, newDate: string): Promise<DragResult> {
+  async moveShift(
+    shiftId: string,
+    newEmployeeId?: string,
+    newDate?: string,
+    newZoneId?: string,
+  ): Promise<DragResult> {
     const shift = MOCK_SHIFTS.find((s) => s.id === shiftId);
     if (!shift) {
       return { success: false };
     }
 
+    // Aplicar solo los cambios especificados
     const updatedShift: Shift = {
       ...shift,
-      employeeId: newEmployeeId,
-      date: newDate,
+      employeeId: newEmployeeId ?? shift.employeeId,
+      date: newDate ?? shift.date,
+      zoneId: newZoneId ?? shift.zoneId,
       updatedAt: new Date(),
     };
+
+    // Si cambia zona, actualizar también el costCenterId
+    if (newZoneId && newZoneId !== shift.zoneId) {
+      const newZone = MOCK_ZONES.find((z) => z.id === newZoneId);
+      if (newZone) {
+        updatedShift.costCenterId = newZone.costCenterId;
+      }
+    }
 
     // Validar nuevo destino
     const validation = await this.validateShift({
@@ -1054,6 +1069,63 @@ export class ShiftServiceMock implements IShiftService {
     return {
       success: true,
       updatedShift,
+      conflicts: validation.conflicts,
+    };
+  }
+
+  async copyShift(
+    shiftId: string,
+    newEmployeeId?: string,
+    newDate?: string,
+    newZoneId?: string,
+  ): Promise<DragResult> {
+    const shift = MOCK_SHIFTS.find((s) => s.id === shiftId);
+    if (!shift) {
+      return { success: false };
+    }
+
+    // Crear nuevo turno con los cambios especificados
+    const copiedShift: Shift = {
+      ...shift,
+      id: Math.random().toString(36).substring(2, 11), // Nuevo ID
+      employeeId: newEmployeeId ?? shift.employeeId,
+      date: newDate ?? shift.date,
+      zoneId: newZoneId ?? shift.zoneId,
+      status: "draft", // Los turnos copiados siempre son draft
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Si cambia zona, actualizar también el costCenterId
+    if (newZoneId && newZoneId !== shift.zoneId) {
+      const newZone = MOCK_ZONES.find((z) => z.id === newZoneId);
+      if (newZone) {
+        copiedShift.costCenterId = newZone.costCenterId;
+      }
+    }
+
+    // Validar nuevo turno
+    const validation = await this.validateShift({
+      employeeId: copiedShift.employeeId,
+      date: copiedShift.date,
+      startTime: copiedShift.startTime,
+      endTime: copiedShift.endTime,
+      costCenterId: copiedShift.costCenterId,
+      zoneId: copiedShift.zoneId,
+      role: copiedShift.role,
+      notes: copiedShift.notes,
+    });
+
+    copiedShift.status = validation.conflicts.length > 0 ? "conflict" : "draft";
+
+    // Añadir el turno copiado al array
+    MOCK_SHIFTS.push(copiedShift);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    return {
+      success: true,
+      updatedShift: copiedShift,
       conflicts: validation.conflicts,
     };
   }

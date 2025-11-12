@@ -63,7 +63,8 @@ interface ShiftsState {
   createShift: (data: ShiftInput) => Promise<void>;
   updateShift: (id: string, data: Partial<ShiftInput>) => Promise<void>;
   deleteShift: (id: string) => Promise<void>;
-  moveShift: (shiftId: string, newEmployeeId: string, newDate: string) => Promise<void>;
+  moveShift: (shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) => Promise<void>;
+  copyShift: (shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) => Promise<void>;
   resizeShift: (shiftId: string, newStartTime: string, newEndTime: string) => Promise<void>;
 
   // ========== ACCIONES - CRUD ZONAS ==========
@@ -233,16 +234,18 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
     }
   },
 
-  moveShift: async (shiftId: string, newEmployeeId: string, newDate: string) => {
+  moveShift: async (shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await shiftService.moveShift(shiftId, newEmployeeId, newDate);
+      const result = await shiftService.moveShift(shiftId, newEmployeeId, newDate, newZoneId);
 
       if (result.success && result.updatedShift) {
         set((state) => ({
           shifts: state.shifts.map((s) => (s.id === shiftId ? result.updatedShift! : s)),
           isLoading: false,
         }));
+
+        toast.success("Turno movido correctamente");
 
         // Mostrar warnings si hay conflictos
         if (result.conflicts && result.conflicts.length > 0) {
@@ -257,6 +260,37 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al mover turno";
+      set({ error: errorMessage, isLoading: false });
+      toast.error(errorMessage);
+    }
+  },
+
+  copyShift: async (shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await shiftService.copyShift(shiftId, newEmployeeId, newDate, newZoneId);
+
+      if (result.success && result.updatedShift) {
+        set((state) => ({
+          shifts: [...state.shifts, result.updatedShift!],
+          isLoading: false,
+        }));
+
+        toast.success("Turno copiado correctamente");
+
+        // Mostrar warnings si hay conflictos
+        if (result.conflicts && result.conflicts.length > 0) {
+          result.conflicts.forEach((c) => {
+            if (c.severity === "warning") {
+              toast.warning(c.message);
+            }
+          });
+        }
+      } else {
+        throw new Error("Error al copiar turno");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al copiar turno";
       set({ error: errorMessage, isLoading: false });
       toast.error(errorMessage);
     }

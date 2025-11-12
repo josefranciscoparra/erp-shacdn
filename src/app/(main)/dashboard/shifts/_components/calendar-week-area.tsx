@@ -1,27 +1,31 @@
 /**
- * Vista Calendario Semanal por Áreas/Zonas
+ * Vista Calendario Semanal por Áreas/Zonas - Estilo Factorial
  *
- * Muestra un heatmap de cobertura por zona y día.
- * Visualiza cuántos empleados están asignados vs requeridos en cada zona.
+ * Vista compacta con 1 fila por zona mostrando todos los empleados del día apilados verticalmente.
+ * Incluye badges de resumen (2M 3T 1N), colores de cobertura y Drag & Drop.
  */
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { Plus, AlertTriangle } from "lucide-react";
+import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from "@dnd-kit/core";
+import { AlertTriangle, GripVertical } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { getWeekDays, formatDateShort, formatDateISO, getTimeSlot } from "../_lib/shift-utils";
 import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
+import { QuickAddEmployeePopover } from "./quick-add-employee-popover";
 
 export function CalendarWeekArea() {
-  const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog } = useShiftsStore();
+  const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog, moveShift, copyShift } = useShiftsStore();
+
+  const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const [isControlPressed, setIsControlPressed] = useState(false);
 
   // Obtener días de la semana actual
   const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
@@ -37,11 +41,19 @@ export function CalendarWeekArea() {
     });
   }, [zones, filters.costCenterId]);
 
-  // Calcular estadísticas de cobertura por zona, día y franja horaria
+  // Calcular datos por zona y día (TODOS los turnos juntos, no divididos por franja)
   const coverageGrid = useMemo(() => {
     const grid: Record<
       string,
-      Record<string, Record<'morning' | 'afternoon' | 'night', { assigned: number; required: number; shifts: Shift[] }>>
+      Record<
+        string,
+        {
+          allShifts: Shift[];
+          stats: { morning: number; afternoon: number; night: number };
+          totalAssigned: number;
+          totalRequired: number;
+        }
+      >
     > = {};
 
     filteredZones.forEach((zone) => {
@@ -59,27 +71,30 @@ export function CalendarWeekArea() {
             (!filters.status || s.status === filters.status),
         );
 
-        // Calcular por franja horaria
-        const morningShifts = dayShifts.filter((s) => getTimeSlot(s.startTime) === 'morning');
-        const afternoonShifts = dayShifts.filter((s) => getTimeSlot(s.startTime) === 'afternoon');
-        const nightShifts = dayShifts.filter((s) => getTimeSlot(s.startTime) === 'night');
+        // Ordenar por hora de inicio
+        const sortedShifts = [...dayShifts].sort((a, b) => {
+          const [aHour, aMin] = a.startTime.split(":").map(Number);
+          const [bHour, bMin] = b.startTime.split(":").map(Number);
+          return aHour * 60 + aMin - (bHour * 60 + bMin);
+        });
+
+        // Calcular estadísticas por franja
+        const morningCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "morning").map((s) => s.employeeId)).size;
+        const afternoonCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "afternoon").map((s) => s.employeeId)).size;
+        const nightCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "night").map((s) => s.employeeId)).size;
+
+        const totalAssigned = new Set(dayShifts.map((s) => s.employeeId)).size;
+        const totalRequired = zone.requiredCoverage.morning + zone.requiredCoverage.afternoon + zone.requiredCoverage.night;
 
         grid[zone.id][dateISO] = {
-          morning: {
-            assigned: new Set(morningShifts.map((s) => s.employeeId)).size,
-            required: zone.requiredCoverage.morning,
-            shifts: morningShifts,
+          allShifts: sortedShifts,
+          stats: {
+            morning: morningCount,
+            afternoon: afternoonCount,
+            night: nightCount,
           },
-          afternoon: {
-            assigned: new Set(afternoonShifts.map((s) => s.employeeId)).size,
-            required: zone.requiredCoverage.afternoon,
-            shifts: afternoonShifts,
-          },
-          night: {
-            assigned: new Set(nightShifts.map((s) => s.employeeId)).size,
-            required: zone.requiredCoverage.night,
-            shifts: nightShifts,
-          },
+          totalAssigned,
+          totalRequired,
         };
       });
     });
@@ -99,25 +114,53 @@ export function CalendarWeekArea() {
     return cc?.name ?? "Sin lugar";
   };
 
-  // Handler para crear turno en zona/día específico
-  const handleCreateShift = (zoneId: string, date: string) => {
-    const zone = filteredZones.find((z) => z.id === zoneId);
-    if (!zone) return;
+  // Handler de Drag & Drop
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-    openShiftDialog(undefined, {
-      date,
-      costCenterId: zone.costCenterId,
-      zoneId: zone.id,
-    });
+    if (!over) {
+      setActiveShift(null);
+      return;
+    }
+
+    // active.id = shiftId
+    // over.id = "zone-date" (ej: "z1-2024-01-15")
+    const shiftId = active.id as string;
+    const [targetZoneId, targetDate] = (over.id as string).split("-");
+
+    const shift = shifts.find((s) => s.id === shiftId);
+    if (!shift) {
+      setActiveShift(null);
+      return;
+    }
+
+    // Detectar si cambió algo
+    const hasChanged = shift.zoneId !== targetZoneId || shift.date !== targetDate;
+
+    if (!hasChanged) {
+      setActiveShift(null);
+      return;
+    }
+
+    // Determinar si mover o copiar según tecla Control
+    if (isControlPressed) {
+      // COPIAR (con Control)
+      await copyShift(shiftId, undefined, targetDate, targetZoneId);
+    } else {
+      // MOVER (sin Control)
+      await moveShift(shiftId, undefined, targetDate, targetZoneId);
+    }
+
+    setActiveShift(null);
   };
 
   if (filteredZones.length === 0) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 text-center">
-        <AlertTriangle className="text-muted-foreground h-12 w-12" />
+        <AlertTriangle className="h-12 w-12 text-muted-foreground" />
         <div>
           <h3 className="text-lg font-semibold">No hay zonas configuradas</h3>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <p className="mt-1 text-sm text-muted-foreground">
             {filters.costCenterId
               ? "No hay zonas activas en el lugar seleccionado."
               : "Configura zonas de trabajo para visualizar la cobertura por áreas."}
@@ -128,10 +171,32 @@ export function CalendarWeekArea() {
   }
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[900px]">
+    <DndContext
+      onDragEnd={handleDragEnd}
+      onDragStart={(event) => {
+        const shiftId = event.active.id as string;
+        const shift = shifts.find((s) => s.id === shiftId);
+        setActiveShift(shift ?? null);
+      }}
+      onDragCancel={() => setActiveShift(null)}
+    >
+      <div
+        className="overflow-x-auto"
+        onKeyDown={(e) => {
+          if (e.key === "Control" || e.key === "Meta") {
+            setIsControlPressed(true);
+          }
+        }}
+        onKeyUp={(e) => {
+          if (e.key === "Control" || e.key === "Meta") {
+            setIsControlPressed(false);
+          }
+        }}
+        tabIndex={-1}
+      >
+        <div className="min-w-[900px]">
         {/* Header: Días de la semana */}
-        <div className="bg-background sticky top-0 z-10 grid grid-cols-8 gap-2 pb-2">
+        <div className="sticky top-0 z-10 grid grid-cols-8 gap-2 bg-background pb-2">
           {/* Columna de zonas */}
           <div className="flex items-center px-3 py-2">
             <span className="text-sm font-semibold">Zona / Día</span>
@@ -148,7 +213,7 @@ export function CalendarWeekArea() {
                   isToday && "border-primary bg-primary/5",
                 )}
               >
-                <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
                   {formatDateShort(day).split(" ")[0]}
                 </span>
                 <span className={cn("text-lg font-bold", isToday && "text-primary")}>
@@ -168,196 +233,167 @@ export function CalendarWeekArea() {
             <div key={costCenterId} className="mb-6">
               {/* Header del lugar */}
               {!filters.costCenterId && (
-                <div className="bg-muted/50 mb-2 rounded-lg px-4 py-2">
+                <div className="mb-2 rounded-lg bg-muted/50 px-4 py-2">
                   <h3 className="text-sm font-semibold">{centerName}</h3>
                 </div>
               )}
 
-              {/* Filas: Zonas del lugar (header + 3 filas por zona: mañana/tarde/noche) */}
-              <div className="space-y-4">
-                {zonesInCenter.map((zone) => {
-                  const timeSlots: Array<{ key: 'morning' | 'afternoon' | 'night'; label: string; color: string }> = [
-                    { key: 'morning', label: 'Mañana', color: 'bg-amber-50 dark:bg-amber-950/20' },
-                    { key: 'afternoon', label: 'Tarde', color: 'bg-orange-50 dark:bg-orange-950/20' },
-                    { key: 'night', label: 'Noche', color: 'bg-indigo-50 dark:bg-indigo-950/20' },
-                  ];
-
-                  return (
-                    <div key={zone.id} className="space-y-1">
-                      {/* Header de la zona */}
-                      <div className="bg-muted/30 rounded-md px-3 py-1.5">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-semibold">{zone.name}</h4>
-                          <span className="text-muted-foreground text-xs">
-                            Cobertura: {zone.requiredCoverage.morning}/{zone.requiredCoverage.afternoon}/{zone.requiredCoverage.night}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* 3 filas: mañana/tarde/noche */}
-                      {timeSlots.map((slot) => (
-                        <div key={`${zone.id}-${slot.key}`} className="grid grid-cols-8 gap-2">
-                          {/* Columna: Franja horaria */}
-                          <div className={cn('bg-card flex flex-col justify-center rounded-lg border p-2', slot.color)}>
-                            <p className="text-xs font-medium">{slot.label}</p>
-                            <p className="text-muted-foreground text-[10px]">
-                              Req: {zone.requiredCoverage[slot.key]}
-                            </p>
-                          </div>
-
-                          {/* Columnas: Días (celdas de cobertura por franja) */}
-                          {weekDays.map((day) => {
-                            const dateISO = formatDateISO(day);
-                            const coverage = coverageGrid[zone.id]?.[dateISO]?.[slot.key];
-
-                            return (
-                              <CoverageCell
-                                key={`${zone.id}-${slot.key}-${dateISO}`}
-                                zone={zone}
-                                date={dateISO}
-                                assigned={coverage?.assigned ?? 0}
-                                required={coverage?.required ?? 0}
-                                shifts={coverage?.shifts ?? []}
-                                getEmployeeName={getEmployeeName}
-                                onCreateShift={() => handleCreateShift(zone.id, dateISO)}
-                                onEditShift={(shift) => openShiftDialog(shift)}
-                              />
-                            );
-                          })}
-                        </div>
-                      ))}
+              {/* Filas: 1 fila por zona */}
+              <div className="space-y-3">
+                {zonesInCenter.map((zone) => (
+                  <div key={zone.id} className="grid grid-cols-8 gap-2">
+                    {/* Columna: Nombre de zona */}
+                    <div className="flex flex-col justify-center rounded-lg border bg-card p-3">
+                      <p className="text-sm font-semibold">{zone.name}</p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Req: {zone.requiredCoverage.morning}M / {zone.requiredCoverage.afternoon}T / {zone.requiredCoverage.night}N
+                      </p>
                     </div>
-                  );
-                })}
+
+                    {/* Columnas: Días (celdas con todos los empleados) */}
+                    {weekDays.map((day) => {
+                      const dateISO = formatDateISO(day);
+                      const dayData = coverageGrid[zone.id]?.[dateISO];
+
+                      return (
+                        <DayCell
+                          key={`${zone.id}-${dateISO}`}
+                          zone={zone}
+                          date={dateISO}
+                          allShifts={dayData?.allShifts ?? []}
+                          stats={dayData?.stats ?? { morning: 0, afternoon: 0, night: 0 }}
+                          totalAssigned={dayData?.totalAssigned ?? 0}
+                          totalRequired={dayData?.totalRequired ?? 0}
+                          getEmployeeName={getEmployeeName}
+                          onEditShift={(shift) => openShiftDialog(shift)}
+                        />
+                      );
+                    })}
+                  </div>
+                ))}
               </div>
             </div>
           );
         })}
 
-        {/* Leyenda de colores */}
-        <div className="bg-card mt-6 flex flex-wrap items-center gap-4 rounded-lg border p-4">
-          <span className="text-sm font-semibold">Leyenda:</span>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-emerald-500" />
-            <span className="text-xs">Cobertura completa</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-amber-500" />
-            <span className="text-xs">Cobertura insuficiente</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-red-500" />
-            <span className="text-xs">Sin cobertura</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-4 w-4 rounded bg-blue-500" />
-            <span className="text-xs">Sobrecobertura</span>
+          {/* Leyenda de colores */}
+          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
+            <span className="text-sm font-semibold">Leyenda:</span>
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded bg-emerald-500" />
+              <span className="text-xs">Cobertura completa</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded bg-amber-500" />
+              <span className="text-xs">Cobertura insuficiente</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded bg-red-500" />
+              <span className="text-xs">Sin cobertura</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 rounded bg-blue-500" />
+              <span className="text-xs">Sobrecobertura</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+
+      {/* DragOverlay para mostrar el elemento que se está arrastrando */}
+      <DragOverlay>
+        {activeShift && (
+          <div className="rounded bg-primary/10 px-3 py-2 text-sm font-medium shadow-lg">
+            {getEmployeeName(activeShift.employeeId)} - {activeShift.startTime}-{activeShift.endTime}
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }
 
 /**
- * Celda individual de cobertura (una zona en un día y franja horaria)
+ * Celda de un día (todos los empleados del día en una zona)
  */
-interface CoverageCellProps {
+interface DayCellProps {
   zone: Zone;
   date: string;
-  assigned: number;
-  required: number;
-  shifts: Shift[];
+  allShifts: Shift[];
+  stats: { morning: number; afternoon: number; night: number };
+  totalAssigned: number;
+  totalRequired: number;
   getEmployeeName: (id: string) => string;
-  onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
 
-function CoverageCell({
-  zone,
-  date,
-  assigned,
-  required,
-  shifts,
-  getEmployeeName,
-  onCreateShift,
-  onEditShift,
-}: CoverageCellProps) {
-  // Calcular color según cobertura
+function DayCell({ zone, date, allShifts, stats, totalAssigned, totalRequired, getEmployeeName, onEditShift }: DayCellProps) {
+  // Droppable: esta celda puede recibir turnos arrastrados
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${zone.id}-${date}`,
+  });
+
+  // Calcular color según cobertura TOTAL
   const getCoverageColor = () => {
-    if (assigned === 0) return "bg-red-50 border-red-300 dark:bg-red-950/20 dark:border-red-800";
-    if (assigned < required) return "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-800";
-    if (assigned > required) return "bg-blue-50 border-blue-300 dark:bg-blue-950/20 dark:border-blue-800";
-    return "bg-emerald-50 border-emerald-300 dark:bg-emerald-950/20 dark:border-emerald-800";
+    if (totalAssigned === 0) return "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20";
+    if (totalAssigned < totalRequired) return "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20";
+    if (totalAssigned > totalRequired) return "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20";
+    return "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20";
   };
-
-  const getBadgeVariant = () => {
-    if (assigned === 0) return "destructive";
-    if (assigned < required) return "secondary";
-    if (assigned > required) return "default";
-    return "default";
-  };
-
-  // Obtener empleados únicos
-  const uniqueEmployeeIds = Array.from(new Set(shifts.map((s) => s.employeeId)));
 
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
           <div
+            ref={setNodeRef}
             className={cn(
-              "group relative min-h-[100px] rounded-lg border-2 p-3 transition-all",
+              "group relative min-h-[120px] rounded-lg border-2 p-2 transition-all",
               getCoverageColor(),
               "hover:shadow-md",
+              isOver && "ring-2 ring-primary ring-offset-2",
             )}
           >
-            {/* Header: Ratio de cobertura */}
-            <div className="mb-2 flex items-center justify-between">
-              <Badge variant={getBadgeVariant()} className="text-xs font-bold">
-                {assigned}/{required}
-              </Badge>
-
-              {/* Botón para crear turno */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCreateShift}
-                className="h-6 w-6 p-0 opacity-0 transition-opacity group-hover:opacity-100"
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
-            </div>
-
-            {/* Lista de empleados asignados */}
-            {uniqueEmployeeIds.length > 0 ? (
-              <div className="space-y-1">
-                {uniqueEmployeeIds.slice(0, 3).map((empId) => {
-                  const empShift = shifts.find((s) => s.employeeId === empId);
-                  return (
-                    <div
-                      key={empId}
-                      onClick={() => empShift && onEditShift(empShift)}
-                      className="cursor-pointer rounded bg-white/50 px-2 py-1 text-xs font-medium transition-colors hover:bg-white/80 dark:bg-black/20 dark:hover:bg-black/40"
-                    >
-                      {getEmployeeName(empId)}
-                    </div>
-                  );
-                })}
-                {uniqueEmployeeIds.length > 3 && (
-                  <div className="text-muted-foreground px-2 text-xs">+{uniqueEmployeeIds.length - 3} más</div>
+            {/* Header: Badges de resumen + Botón añadir */}
+            <div className="mb-2 flex items-center justify-between gap-1">
+              {/* Badges: 2M 3T 1N */}
+              <div className="flex flex-wrap gap-1">
+                {stats.morning > 0 && (
+                  <Badge variant="outline" className="h-5 bg-amber-100 text-[10px] dark:bg-amber-950/40">
+                    {stats.morning}M
+                  </Badge>
+                )}
+                {stats.afternoon > 0 && (
+                  <Badge variant="outline" className="h-5 bg-orange-100 text-[10px] dark:bg-orange-950/40">
+                    {stats.afternoon}T
+                  </Badge>
+                )}
+                {stats.night > 0 && (
+                  <Badge variant="outline" className="h-5 bg-indigo-100 text-[10px] dark:bg-indigo-950/40">
+                    {stats.night}N
+                  </Badge>
                 )}
               </div>
-            ) : (
-              <div className="text-muted-foreground flex h-full min-h-[40px] items-center justify-center text-xs">
-                Sin asignar
+
+              {/* Botón para añadir empleado (QuickAddEmployeePopover) */}
+              <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
               </div>
+            </div>
+
+            {/* Lista de empleados con horarios */}
+            {allShifts.length > 0 ? (
+              <div className="space-y-1">
+                {allShifts.map((shift) => (
+                  <DraggableShiftBlock key={shift.id} shift={shift} getEmployeeName={getEmployeeName} onEdit={onEditShift} />
+                ))}
+              </div>
+            ) : (
+              <div className="flex h-full min-h-[60px] items-center justify-center text-xs text-muted-foreground">Sin asignar</div>
             )}
 
             {/* Indicador de conflictos */}
-            {shifts.some((s) => s.status === "conflict") && (
-              <div className="absolute top-1 right-1">
-                <AlertTriangle className="text-destructive h-3 w-3" />
+            {allShifts.some((s) => s.status === "conflict") && (
+              <div className="absolute right-1 top-1">
+                <AlertTriangle className="h-3 w-3 text-destructive" />
               </div>
             )}
           </div>
@@ -369,26 +405,68 @@ function CoverageCell({
               {zone.name} - {date}
             </p>
             <p>
-              <strong>Asignados:</strong> {assigned} / <strong>Requeridos:</strong> {required}
+              <strong>Asignados:</strong> {totalAssigned} / <strong>Requeridos:</strong> {totalRequired}
             </p>
-            {uniqueEmployeeIds.length > 0 && (
-              <div>
-                <strong>Empleados:</strong>
-                <ul className="mt-1 list-inside list-disc">
-                  {uniqueEmployeeIds.map((empId) => (
-                    <li key={empId}>{getEmployeeName(empId)}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {shifts.length > 0 && (
-              <p className="text-muted-foreground italic">
-                {shifts.length} {shifts.length === 1 ? "turno" : "turnos"} asignado{shifts.length === 1 ? "" : "s"}
+            <p className="text-muted-foreground">
+              Mañana: {stats.morning} | Tarde: {stats.afternoon} | Noche: {stats.night}
+            </p>
+            {allShifts.length > 0 && (
+              <p className="italic text-muted-foreground">
+                {allShifts.length} {allShifts.length === 1 ? "turno" : "turnos"}
               </p>
             )}
           </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+}
+
+/**
+ * Bloque de empleado draggable
+ */
+interface DraggableShiftBlockProps {
+  shift: Shift;
+  getEmployeeName: (id: string) => string;
+  onEdit: (shift: Shift) => void;
+}
+
+function DraggableShiftBlock({ shift, getEmployeeName, onEdit }: DraggableShiftBlockProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: shift.id,
+  });
+
+  const style = transform
+    ? {
+        transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      className={cn(
+        "cursor-pointer rounded bg-white/60 px-2 py-1 text-[11px] font-medium transition-colors hover:bg-white/90 dark:bg-black/30 dark:hover:bg-black/50",
+        isDragging && "opacity-50",
+      )}
+      onClick={() => !isDragging && onEdit(shift)}
+    >
+      <div className="flex items-center gap-1">
+        {/* Icono de drag handle */}
+        <div {...listeners} className="cursor-grab active:cursor-grabbing">
+          <GripVertical className="h-3 w-3 text-muted-foreground" />
+        </div>
+
+        {/* Nombre y horario */}
+        <div className="flex flex-1 items-center justify-between gap-1">
+          <span className="truncate">{getEmployeeName(shift.employeeId)}</span>
+          <span className="shrink-0 text-[10px] text-muted-foreground">
+            {shift.startTime}-{shift.endTime}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }

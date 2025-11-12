@@ -72,13 +72,34 @@ export interface IShiftService {
   deleteShift(id: string): Promise<boolean>;
 
   /**
-   * Mover turno a otro empleado/fecha (drag & drop)
+   * Mover turno a otro empleado/fecha/zona (drag & drop)
    * @param shiftId - ID del turno a mover
-   * @param newEmployeeId - ID del empleado destino
-   * @param newDate - Nueva fecha (YYYY-MM-DD)
+   * @param newEmployeeId - ID del empleado destino (opcional si solo cambia fecha/zona)
+   * @param newDate - Nueva fecha (YYYY-MM-DD, opcional)
+   * @param newZoneId - Nueva zona (opcional)
    * @returns Resultado con turno actualizado y conflictos
    */
-  moveShift(shiftId: string, newEmployeeId: string, newDate: string): Promise<DragResult>;
+  moveShift(
+    shiftId: string,
+    newEmployeeId?: string,
+    newDate?: string,
+    newZoneId?: string,
+  ): Promise<DragResult>;
+
+  /**
+   * Copiar turno a otro empleado/fecha/zona (drag & drop con Control)
+   * @param shiftId - ID del turno original a copiar
+   * @param newEmployeeId - ID del empleado destino (opcional)
+   * @param newDate - Nueva fecha (YYYY-MM-DD, opcional)
+   * @param newZoneId - Nueva zona (opcional)
+   * @returns Resultado con turno copiado y conflictos
+   */
+  copyShift(
+    shiftId: string,
+    newEmployeeId?: string,
+    newDate?: string,
+    newZoneId?: string,
+  ): Promise<DragResult>;
 
   /**
    * Redimensionar turno (cambiar duración)
@@ -300,6 +321,7 @@ export type ShiftServiceFactory = () => IShiftService;
  * Singleton del servicio
  * Esta variable se exporta para que el store y componentes la importen
  */
+// eslint-disable-next-line import/no-mutable-exports
 export let shiftService: IShiftService;
 
 /**
