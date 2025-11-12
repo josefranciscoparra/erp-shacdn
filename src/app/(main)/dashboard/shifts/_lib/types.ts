@@ -75,6 +75,7 @@ export interface Shift {
   date: string; // Formato: YYYY-MM-DD
   startTime: string; // Formato: HH:mm (ej: "08:00")
   endTime: string; // Formato: HH:mm (ej: "16:00")
+  breakMinutes?: number; // Minutos de descanso (ej: 60 para 1 hora, 30 para media hora)
   costCenterId: string; // Lugar de trabajo
   zoneId: string; // Zona dentro del lugar
   role?: string; // Rol opcional (ej: "Turno mañana", "Supervisor")
@@ -197,6 +198,7 @@ export interface ShiftInput {
   date: string; // Formato: YYYY-MM-DD
   startTime: string; // Formato: HH:mm
   endTime: string; // Formato: HH:mm
+  breakMinutes?: number; // Minutos de descanso
   costCenterId: string;
   zoneId: string;
   role?: string;

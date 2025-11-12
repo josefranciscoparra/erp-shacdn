@@ -24,7 +24,7 @@
 
 import { useEffect } from "react";
 
-import { Plus, FileText, Settings } from "lucide-react";
+import { Plus, FileText, Settings, LayoutDashboard } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -36,6 +36,7 @@ import { CalendarWeekEmployee } from "./_components/calendar-week-employee";
 import { EmptyState, EmptyFiltersState, EmptyStateLoading } from "./_components/empty-states";
 import { PublishBar } from "./_components/publish-bar";
 import { ShiftDialog } from "./_components/shift-dialog";
+import { ShiftsDashboard } from "./_components/shifts-dashboard";
 import { ShiftsFiltersBar } from "./_components/shifts-filters-bar";
 import { ShiftsViewSelector } from "./_components/shifts-view-selector";
 import { TemplateApplyDialog } from "./_components/template-apply-dialog";
@@ -84,8 +85,12 @@ export default function ShiftsPage() {
       </div>
 
       {/* Tabs principales */}
-      <Tabs defaultValue="calendar" className="space-y-6">
+      <Tabs defaultValue="dashboard" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="dashboard">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="calendar">Cuadrante</TabsTrigger>
           <TabsTrigger value="templates">
             <FileText className="mr-2 h-4 w-4" />
@@ -96,6 +101,11 @@ export default function ShiftsPage() {
             Configuración
           </TabsTrigger>
         </TabsList>
+
+        {/* Tab: Dashboard */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <ShiftsDashboard />
+        </TabsContent>
 
         {/* Tab: Cuadrante */}
         <TabsContent value="calendar" className="space-y-6">

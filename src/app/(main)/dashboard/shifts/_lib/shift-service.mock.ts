@@ -397,7 +397,8 @@ const MOCK_SHIFTS: Shift[] = [
     employeeId: "e1", // Francesc - 40h
     date: "2025-11-10",
     startTime: "10:00",
-    endTime: "18:00",
+    endTime: "19:00", // 9h con 1h descanso = 8h trabajadas
+    breakMinutes: 60,
     costCenterId: "cc1",
     zoneId: "z1",
     role: "Planta Baja",
@@ -410,7 +411,8 @@ const MOCK_SHIFTS: Shift[] = [
     employeeId: "e2", // Marta - 30h
     date: "2025-11-10",
     startTime: "14:00",
-    endTime: "20:00",
+    endTime: "20:30", // 6.5h con 30min descanso = 6h trabajadas
+    breakMinutes: 30,
     costCenterId: "cc1",
     zoneId: "z2",
     role: "Planta 1",
@@ -423,7 +425,8 @@ const MOCK_SHIFTS: Shift[] = [
     employeeId: "e3", // Patricia - 30h
     date: "2025-11-10",
     startTime: "10:00",
-    endTime: "16:00",
+    endTime: "16:30", // 6.5h con 30min descanso = 6h trabajadas
+    breakMinutes: 30,
     costCenterId: "cc1",
     zoneId: "z3",
     role: "Caja",
@@ -436,7 +439,8 @@ const MOCK_SHIFTS: Shift[] = [
     employeeId: "e4", // Tania - 20h
     date: "2025-11-10",
     startTime: "16:00",
-    endTime: "20:00",
+    endTime: "20:15", // 4.25h con 15min descanso = 4h trabajadas
+    breakMinutes: 15,
     costCenterId: "cc1",
     zoneId: "z4",
     role: "Probadores",

@@ -221,9 +221,9 @@ export function getTimeSlot(startTime: string): TimeSlot {
  */
 export function getShiftStatusColor(status: ShiftStatus): string {
   const colors = {
-    draft: "bg-muted border-muted-foreground/20",
-    published: "bg-primary/10 border-primary",
-    conflict: "bg-destructive/10 border-destructive",
+    draft: "bg-muted border-muted-foreground/20 hover:bg-muted/80",
+    published: "bg-primary/10 border-primary hover:bg-primary/20",
+    conflict: "bg-destructive/10 border-destructive hover:bg-destructive/20",
   };
   return colors[status];
 }

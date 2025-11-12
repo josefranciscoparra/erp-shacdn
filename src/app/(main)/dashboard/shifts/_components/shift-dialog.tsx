@@ -41,6 +41,7 @@ const shiftFormSchema = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido"),
     startTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:mm)"),
     endTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:mm)"),
+    breakMinutes: z.coerce.number().min(0, "Los minutos de descanso no pueden ser negativos").optional(),
     costCenterId: z.string().min(1, "Selecciona un lugar"),
     zoneId: z.string().min(1, "Selecciona una zona"),
     role: z.string().optional(),
@@ -87,6 +88,7 @@ export function ShiftDialog() {
       date: formatDateISO(new Date()),
       startTime: "08:00",
       endTime: "16:00",
+      breakMinutes: undefined,
       costCenterId: "",
       zoneId: "",
       role: "",
@@ -103,6 +105,7 @@ export function ShiftDialog() {
         date: selectedShift.date,
         startTime: selectedShift.startTime,
         endTime: selectedShift.endTime,
+        breakMinutes: selectedShift.breakMinutes,
         costCenterId: selectedShift.costCenterId,
         zoneId: selectedShift.zoneId,
         role: selectedShift.role ?? "",
@@ -115,6 +118,7 @@ export function ShiftDialog() {
         date: shiftDialogPrefill.date ?? formatDateISO(new Date()),
         startTime: shiftDialogPrefill.startTime ?? "08:00",
         endTime: shiftDialogPrefill.endTime ?? "16:00",
+        breakMinutes: shiftDialogPrefill.breakMinutes,
         costCenterId: shiftDialogPrefill.costCenterId ?? "",
         zoneId: shiftDialogPrefill.zoneId ?? "",
         role: shiftDialogPrefill.role ?? "",
@@ -127,6 +131,7 @@ export function ShiftDialog() {
         date: formatDateISO(new Date()),
         startTime: "08:00",
         endTime: "16:00",
+        breakMinutes: undefined,
         costCenterId: "",
         zoneId: "",
         role: "",
@@ -151,9 +156,10 @@ export function ShiftDialog() {
     : [];
 
   // Filtrar empleados por centro (si hay centro seleccionado y checkbox desactivado)
-  const filteredEmployees = searchOutsideCenter || !selectedCostCenterId
-    ? employees.filter((e) => e.usesShiftSystem)
-    : employees.filter((e) => e.usesShiftSystem && e.costCenterId === selectedCostCenterId);
+  const filteredEmployees =
+    searchOutsideCenter || !selectedCostCenterId
+      ? employees.filter((e) => e.usesShiftSystem)
+      : employees.filter((e) => e.usesShiftSystem && e.costCenterId === selectedCostCenterId);
 
   // Calcular duración del turno en tiempo real
   const startTime = form.watch("startTime");
@@ -177,10 +183,11 @@ export function ShiftDialog() {
       date: data.date,
       startTime: data.startTime,
       endTime: data.endTime,
+      breakMinutes: data.breakMinutes,
       costCenterId: data.costCenterId,
       zoneId: data.zoneId,
-      role: data.role || undefined,
-      notes: data.notes || undefined,
+      role: data.role ?? undefined,
+      notes: data.notes ?? undefined,
     };
 
     if (isEditing) {
@@ -252,7 +259,11 @@ export function ShiftDialog() {
                       >
                         Buscar empleados de otros centros
                         <span className="text-muted-foreground ml-1">
-                          ({searchOutsideCenter ? employees.filter((e) => e.usesShiftSystem).length : filteredEmployees.length} disponibles)
+                          (
+                          {searchOutsideCenter
+                            ? employees.filter((e) => e.usesShiftSystem).length
+                            : filteredEmployees.length}{" "}
+                          disponibles)
                         </span>
                       </label>
                     </div>
@@ -314,6 +325,30 @@ export function ShiftDialog() {
                 <span className="text-sm font-medium">Duración: {formatDuration(duration)}</span>
               </div>
             )}
+
+            {/* Descanso */}
+            <FormField
+              control={form.control}
+              name="breakMinutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descanso (minutos)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="15"
+                      placeholder="Ej: 30, 60..."
+                      {...field}
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value ? Number(e.target.value) : undefined)}
+                    />
+                  </FormControl>
+                  <FormDescription>Tiempo de descanso durante el turno (opcional)</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Lugar */}
             <FormField
