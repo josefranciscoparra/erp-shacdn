@@ -37,7 +37,6 @@ import { PublishBar } from "./_components/publish-bar";
 import { ShiftDialog } from "./_components/shift-dialog";
 import { ShiftsDashboard } from "./_components/shifts-dashboard";
 import { ShiftsFiltersBar } from "./_components/shifts-filters-bar";
-import { ShiftsViewSelector } from "./_components/shifts-view-selector";
 import { TemplateApplyDialog } from "./_components/template-apply-dialog";
 import { TemplatesTable } from "./_components/templates-table";
 import { WeekNavigator } from "./_components/week-navigator";
@@ -101,18 +100,8 @@ export default function ShiftsPage() {
 
         {/* Tab: Cuadrante */}
         <TabsContent value="calendar" className="space-y-6">
-          {/* Filtros y selector de vista */}
-          <div className="grid gap-6 @4xl/main:grid-cols-[1fr,auto]">
-            {/* Filtros */}
-            <div className="bg-card rounded-lg border p-4">
-              <ShiftsFiltersBar />
-            </div>
-
-            {/* Selector de vista */}
-            <div className="flex items-center">
-              <ShiftsViewSelector />
-            </div>
-          </div>
+          {/* Filtros con selector de vista integrado */}
+          <ShiftsFiltersBar />
 
           {/* Navegación de semana - justo arriba del calendario */}
           <WeekNavigator />

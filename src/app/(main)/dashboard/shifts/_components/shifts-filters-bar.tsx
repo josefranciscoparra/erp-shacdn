@@ -2,21 +2,24 @@
  * Barra de Filtros para Turnos (v2 - Estilo moderno)
  *
  * Permite filtrar turnos por lugar, zona, estado con diseño compacto.
+ * Incluye selector de vista integrado.
  */
 
 "use client";
 
-import { SlidersHorizontal } from "lucide-react";
+import { SlidersHorizontal, Calendar, CalendarDays, Users, Building2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
+import type { CalendarView, CalendarMode } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function ShiftsFiltersBar() {
-  const { filters, costCenters, zones, setFilters } = useShiftsStore();
+  const { filters, costCenters, zones, setFilters, calendarView, calendarMode, setCalendarView, setCalendarMode } =
+    useShiftsStore();
 
   // Filtrar zonas por lugar seleccionado
   const filteredZones = filters.costCenterId ? zones.filter((z) => z.costCenterId === filters.costCenterId) : zones;
@@ -97,23 +100,49 @@ export function ShiftsFiltersBar() {
           Más filtros
         </Button>
 
-        {/* Agrupar por (alineado a la derecha) */}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Agrupar por:</span>
-          <ToggleGroup type="single" value="employee" className="bg-muted rounded-lg p-1">
-            <ToggleGroupItem
-              value="employee"
-              aria-label="Agrupar por empleado"
-              className="data-[state=on]:bg-background h-7 rounded-md px-3 text-xs data-[state=on]:shadow-sm"
-            >
-              Empleado
+        {/* Separador vertical */}
+        <div className="bg-border ml-auto h-6 w-px" />
+
+        {/* Vista: Semana / Mes */}
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Vista:</span>
+          <ToggleGroup
+            type="single"
+            value={calendarView}
+            onValueChange={(value) => {
+              if (value) setCalendarView(value as CalendarView);
+            }}
+            className="h-9"
+          >
+            <ToggleGroupItem value="week" aria-label="Vista semanal" className="h-9 gap-1.5 px-3 text-xs">
+              <Calendar className="size-3" />
+              <span>Semana</span>
             </ToggleGroupItem>
-            <ToggleGroupItem
-              value="area"
-              aria-label="Agrupar por áreas"
-              className="data-[state=on]:bg-background h-7 rounded-md px-3 text-xs data-[state=on]:shadow-sm"
-            >
-              Áreas
+            <ToggleGroupItem value="month" aria-label="Vista mensual" className="h-9 gap-1.5 px-3 text-xs">
+              <CalendarDays className="size-3" />
+              <span>Mes</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+
+        {/* Agrupar por: Empleado / Áreas */}
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Agrupar por:</span>
+          <ToggleGroup
+            type="single"
+            value={calendarMode}
+            onValueChange={(value) => {
+              if (value) setCalendarMode(value as CalendarMode);
+            }}
+            className="h-9"
+          >
+            <ToggleGroupItem value="employee" aria-label="Vista por empleado" className="h-9 gap-1.5 px-3 text-xs">
+              <Users className="size-3" />
+              <span>Empleado</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="area" aria-label="Vista por áreas" className="h-9 gap-1.5 px-3 text-xs">
+              <Building2 className="size-3" />
+              <span>Áreas</span>
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
