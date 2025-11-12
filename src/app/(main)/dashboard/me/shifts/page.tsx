@@ -9,13 +9,25 @@
 
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday } from "date-fns";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameDay,
+  isSameMonth,
+  isToday,
+  addMonths,
+  subMonths,
+  startOfToday,
+} from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, FileDown, Clock, MapPin, Coffee } from "lucide-react";
+import { Calendar, FileDown, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
+import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +35,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
+import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
 import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
 
 export default function MyShiftsPage() {
@@ -38,6 +51,11 @@ export default function MyShiftsPage() {
     fetchCostCenters,
     fetchZones,
   } = useShiftsStore();
+
+  // Estado local para navegación de calendario y dialog
+  const [currentMonth, setCurrentMonth] = useState(startOfToday());
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -67,11 +85,21 @@ export default function MyShiftsPage() {
     return calculateMyShiftsMetrics(shifts, currentEmployee);
   }, [shifts, currentEmployee]);
 
-  // Obtener mes actual y días del mes
-  const currentDate = new Date();
-  const monthStart = startOfMonth(currentDate);
-  const monthEnd = endOfMonth(currentDate);
+  // Obtener días del mes actual seleccionado
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Funciones de navegación
+  const goToPreviousMonth = () => setCurrentMonth((prev) => subMonths(prev, 1));
+  const goToNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1));
+  const goToToday = () => setCurrentMonth(startOfToday());
+
+  // Función para abrir dialog con turno seleccionado
+  const handleShiftClick = (shift: Shift) => {
+    setSelectedShift(shift);
+    setIsDialogOpen(true);
+  };
 
   // Agrupar turnos por fecha
   const shiftsByDate = useMemo(() => {
@@ -125,10 +153,27 @@ export default function MyShiftsPage() {
       {/* Calendario de Turnos Mensual */}
       <Card>
         <CardHeader>
-          <CardTitle>Calendario de Turnos</CardTitle>
-          <CardDescription>
-            {format(currentDate, "MMMM yyyy", { locale: es })} - Tus turnos asignados del mes
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            {/* Navegación izquierda */}
+            <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+
+            {/* Mes en el centro */}
+            <div className="text-center">
+              <h2 className="text-xl font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: es })}</h2>
+            </div>
+
+            {/* Navegación derecha */}
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" onClick={goToNextMonth}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goToToday}>
+                Hoy
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {myShifts.length === 0 ? (
@@ -169,7 +214,7 @@ export default function MyShiftsPage() {
                           className={cn(
                             "text-sm font-medium",
                             today && "text-primary",
-                            !isSameMonth(day, currentDate) && "text-muted-foreground",
+                            !isSameMonth(day, currentMonth) && "text-muted-foreground",
                           )}
                         >
                           {format(day, "d")}
@@ -188,9 +233,10 @@ export default function MyShiftsPage() {
                           const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
 
                           return (
-                            <div
+                            <button
                               key={shift.id}
-                              className="hover:bg-primary/20 bg-card rounded border border-transparent p-1.5 shadow-sm transition-colors"
+                              onClick={() => handleShiftClick(shift)}
+                              className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1.5 text-left shadow-sm transition-colors"
                             >
                               <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
                                 <Clock className="h-3 w-3" />
@@ -213,7 +259,7 @@ export default function MyShiftsPage() {
                                   {zone.name}
                                 </Badge>
                               )}
-                            </div>
+                            </button>
                           );
                         })}
                       </div>
@@ -225,6 +271,17 @@ export default function MyShiftsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog de Solicitud de Cambio */}
+      {currentEmployee && (
+        <ShiftChangeRequestDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          shift={selectedShift}
+          employee={currentEmployee}
+          employees={employees}
+        />
+      )}
     </div>
   );
 }

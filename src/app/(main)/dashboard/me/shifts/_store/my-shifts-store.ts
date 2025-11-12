@@ -115,11 +115,12 @@ export const useMyShiftsStore = create<MyShiftsState>((set) => ({
     // Simular API delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
+    // En producción, el employeeId y name vendrían del contexto de autenticación
     const newRequest: ShiftChangeRequest = {
       id: `req_${Date.now()}`,
       shiftId: input.shiftId,
-      requesterId: CURRENT_EMPLOYEE_ID,
-      requesterName: "Francesc Costa",
+      requesterId: "emp_001", // MOCK - En producción vendría del contexto
+      requesterName: "Empleado Actual", // MOCK - En producción vendría del contexto
       reason: input.reason,
       status: "pending",
       suggestedEmployeeId: input.suggestedEmployeeId,
