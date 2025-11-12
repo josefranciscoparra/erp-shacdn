@@ -132,55 +132,49 @@ export const MOCK_CRITICAL_ALERTS: MockAlert[] = [
 ];
 
 /**
- * Resumen por centro de trabajo
+ * Resumen por centro de trabajo - Tiendas El Ganso Barcelona
  */
 export const MOCK_CENTERS: MockCenter[] = [
   {
-    id: "center-1",
-    name: "Centro Madrid",
-    totalShifts: 18,
+    id: "cc1",
+    name: "Rambla del ganso",
+    totalShifts: 34,
     coverage: 67,
     alerts: 3,
     zones: [
       {
-        name: "Recepción",
-        coverage: 45,
-        requiredEmployees: 4,
-        assignedEmployees: 2,
-      },
-      {
         name: "Planta Baja",
-        coverage: 80,
+        coverage: 75,
         requiredEmployees: 5,
         assignedEmployees: 4,
       },
       {
-        name: "Piso 1",
-        coverage: 75,
+        name: "Planta 1",
+        coverage: 67,
         requiredEmployees: 4,
         assignedEmployees: 3,
       },
       {
-        name: "Piso 2",
+        name: "Caja",
         coverage: 60,
         requiredEmployees: 3,
         assignedEmployees: 2,
       },
+      {
+        name: "Probadores",
+        coverage: 50,
+        requiredEmployees: 2,
+        assignedEmployees: 1,
+      },
     ],
   },
   {
-    id: "center-2",
-    name: "Centro Barcelona",
+    id: "cc2",
+    name: "El Ganso Ferrán",
     totalShifts: 16,
-    coverage: 100,
-    alerts: 0,
+    coverage: 85,
+    alerts: 1,
     zones: [
-      {
-        name: "Recepción",
-        coverage: 100,
-        requiredEmployees: 3,
-        assignedEmployees: 3,
-      },
       {
         name: "Planta Baja",
         coverage: 100,
@@ -188,62 +182,98 @@ export const MOCK_CENTERS: MockCenter[] = [
         assignedEmployees: 4,
       },
       {
-        name: "Sala Principal",
-        coverage: 100,
-        requiredEmployees: 3,
-        assignedEmployees: 3,
-      },
-    ],
-  },
-  {
-    id: "center-3",
-    name: "Centro Valencia",
-    totalShifts: 12,
-    coverage: 58,
-    alerts: 2,
-    zones: [
-      {
-        name: "Recepción",
-        coverage: 50,
-        requiredEmployees: 2,
-        assignedEmployees: 1,
-      },
-      {
-        name: "Área Común",
-        coverage: 67,
-        requiredEmployees: 3,
-        assignedEmployees: 2,
-      },
-      {
-        name: "Oficinas",
-        coverage: 50,
-        requiredEmployees: 2,
-        assignedEmployees: 1,
-      },
-    ],
-  },
-  {
-    id: "center-4",
-    name: "Centro Sevilla",
-    totalShifts: 10,
-    coverage: 83,
-    alerts: 1,
-    zones: [
-      {
-        name: "Recepción",
-        coverage: 100,
-        requiredEmployees: 2,
-        assignedEmployees: 2,
-      },
-      {
-        name: "Planta Principal",
+        name: "Caja",
         coverage: 75,
-        requiredEmployees: 4,
-        assignedEmployees: 3,
+        requiredEmployees: 2,
+        assignedEmployees: 2,
       },
       {
         name: "Almacén",
+        coverage: 67,
+        requiredEmployees: 2,
+        assignedEmployees: 1,
+      },
+    ],
+  },
+  {
+    id: "cc3",
+    name: "El Ganso Vidrieria",
+    totalShifts: 12,
+    coverage: 75,
+    alerts: 1,
+    zones: [
+      {
+        name: "Planta Baja",
+        coverage: 100,
+        requiredEmployees: 4,
+        assignedEmployees: 4,
+      },
+      {
+        name: "Caja",
+        coverage: 50,
+        requiredEmployees: 2,
+        assignedEmployees: 1,
+      },
+    ],
+  },
+  {
+    id: "cc4",
+    name: "El Ganso Diagonal 616",
+    totalShifts: 14,
+    coverage: 90,
+    alerts: 0,
+    zones: [
+      {
+        name: "Planta Baja",
+        coverage: 100,
+        requiredEmployees: 4,
+        assignedEmployees: 4,
+      },
+      {
+        name: "Caja",
         coverage: 75,
+        requiredEmployees: 2,
+        assignedEmployees: 2,
+      },
+    ],
+  },
+  {
+    id: "cc5",
+    name: "El Ganso Diagonal 545",
+    totalShifts: 12,
+    coverage: 80,
+    alerts: 1,
+    zones: [
+      {
+        name: "Planta Baja",
+        coverage: 100,
+        requiredEmployees: 4,
+        assignedEmployees: 4,
+      },
+      {
+        name: "Caja",
+        coverage: 50,
+        requiredEmployees: 2,
+        assignedEmployees: 1,
+      },
+    ],
+  },
+  {
+    id: "cc6",
+    name: "El Ganso Diagonal 557",
+    totalShifts: 14,
+    coverage: 85,
+    alerts: 0,
+    zones: [
+      {
+        name: "Planta Baja",
+        coverage: 100,
+        requiredEmployees: 4,
+        assignedEmployees: 4,
+      },
+      {
+        name: "Caja",
+        coverage: 67,
         requiredEmployees: 2,
         assignedEmployees: 1,
       },
