@@ -16,6 +16,7 @@ import {
   FileSignature,
   Receipt,
   MessageSquare,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -259,6 +260,12 @@ export function useSidebarItems(): NavGroup[] {
               permission: "view_time_tracking",
             },
           ],
+        },
+        {
+          title: "Gestión de Turnos",
+          url: "/dashboard/shifts",
+          icon: CalendarClock,
+          permission: "manage_organization",
         },
       ],
     },
