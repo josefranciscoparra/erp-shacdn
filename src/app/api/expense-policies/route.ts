@@ -17,10 +17,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(result.policy);
   } catch (error) {
     console.error("Error en GET /api/expense-policies:", error);
-    return NextResponse.json(
-      { error: "Error al obtener política de gastos" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al obtener política de gastos" }, { status: 500 });
   }
 }
 
@@ -41,9 +38,6 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(result.policy);
   } catch (error) {
     console.error("Error en PUT /api/expense-policies:", error);
-    return NextResponse.json(
-      { error: "Error al actualizar política de gastos" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al actualizar política de gastos" }, { status: 500 });
   }
 }

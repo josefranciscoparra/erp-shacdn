@@ -6,10 +6,7 @@ import { submitExpense } from "@/server/actions/expenses";
  * POST /api/expenses/[id]/submit
  * Envía un gasto a aprobación
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     console.log("🚀 POST /api/expenses/[id]/submit - ID:", id);

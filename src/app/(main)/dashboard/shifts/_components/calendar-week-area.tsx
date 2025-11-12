@@ -9,7 +9,7 @@
 
 import { useMemo } from "react";
 
-import { Plus, Users, AlertTriangle } from "lucide-react";
+import { Plus, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -173,8 +173,8 @@ export function CalendarWeekArea() {
                 </div>
               )}
 
-              {/* Filas: Zonas del lugar (3 filas por zona: mañana/tarde/noche) */}
-              <div className="space-y-2">
+              {/* Filas: Zonas del lugar (header + 3 filas por zona: mañana/tarde/noche) */}
+              <div className="space-y-4">
                 {zonesInCenter.map((zone) => {
                   const timeSlots: Array<{ key: 'morning' | 'afternoon' | 'night'; label: string; color: string }> = [
                     { key: 'morning', label: 'Mañana', color: 'bg-amber-50 dark:bg-amber-950/20' },
@@ -184,13 +184,21 @@ export function CalendarWeekArea() {
 
                   return (
                     <div key={zone.id} className="space-y-1">
-                      {timeSlots.map((slot, index) => (
+                      {/* Header de la zona */}
+                      <div className="bg-muted/30 rounded-md px-3 py-1.5">
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-sm font-semibold">{zone.name}</h4>
+                          <span className="text-muted-foreground text-xs">
+                            Cobertura: {zone.requiredCoverage.morning}/{zone.requiredCoverage.afternoon}/{zone.requiredCoverage.night}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* 3 filas: mañana/tarde/noche */}
+                      {timeSlots.map((slot) => (
                         <div key={`${zone.id}-${slot.key}`} className="grid grid-cols-8 gap-2">
-                          {/* Columna: Nombre de la zona + Franja horaria */}
+                          {/* Columna: Franja horaria */}
                           <div className={cn('bg-card flex flex-col justify-center rounded-lg border p-2', slot.color)}>
-                            {index === 0 && (
-                              <p className="text-sm font-semibold">{zone.name}</p>
-                            )}
                             <p className="text-xs font-medium">{slot.label}</p>
                             <p className="text-muted-foreground text-[10px]">
                               Req: {zone.requiredCoverage[slot.key]}
@@ -207,7 +215,6 @@ export function CalendarWeekArea() {
                                 key={`${zone.id}-${slot.key}-${dateISO}`}
                                 zone={zone}
                                 date={dateISO}
-                                timeSlot={slot.key}
                                 assigned={coverage?.assigned ?? 0}
                                 required={coverage?.required ?? 0}
                                 shifts={coverage?.shifts ?? []}
@@ -258,7 +265,6 @@ export function CalendarWeekArea() {
 interface CoverageCellProps {
   zone: Zone;
   date: string;
-  timeSlot: 'morning' | 'afternoon' | 'night';
   assigned: number;
   required: number;
   shifts: Shift[];
@@ -270,7 +276,6 @@ interface CoverageCellProps {
 function CoverageCell({
   zone,
   date,
-  timeSlot,
   assigned,
   required,
   shifts,

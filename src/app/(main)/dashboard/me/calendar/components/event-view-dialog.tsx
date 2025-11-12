@@ -5,13 +5,7 @@ import { es } from "date-fns/locale";
 import { Clock, MapPin, Tag } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 import type { CalendarEvent } from "./";
@@ -43,8 +37,7 @@ const eventColorMap: Record<string, { bg: string; text: string; badge: string }>
   rose: {
     bg: "bg-rose-100 dark:bg-rose-950/30",
     text: "text-rose-700 dark:text-rose-300",
-    badge:
-      "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300 border-rose-200 dark:border-rose-800",
+    badge: "bg-rose-500/15 text-rose-700 dark:bg-rose-400/20 dark:text-rose-300 border-rose-200 dark:border-rose-800",
   },
   emerald: {
     bg: "bg-emerald-100 dark:bg-emerald-950/30",
@@ -99,7 +92,8 @@ export function EventViewDialog({ event, isOpen, onClose }: EventViewDialogProps
                       {format(new Date(event.start), "PPP 'a las' p", { locale: es })}
                     </p>
                     <p>
-                      <span className="font-medium">Fin:</span> {format(new Date(event.end), "PPP 'a las' p", { locale: es })}
+                      <span className="font-medium">Fin:</span>{" "}
+                      {format(new Date(event.end), "PPP 'a las' p", { locale: es })}
                     </p>
                   </>
                 )}
@@ -113,7 +107,7 @@ export function EventViewDialog({ event, isOpen, onClose }: EventViewDialogProps
               <Tag className="text-muted-foreground mt-0.5 size-5 shrink-0" />
               <div className="flex-1 space-y-1">
                 <p className="text-sm font-medium">Descripción</p>
-                <p className="text-muted-foreground whitespace-pre-wrap text-sm">{event.description}</p>
+                <p className="text-muted-foreground text-sm whitespace-pre-wrap">{event.description}</p>
               </div>
             </div>
           )}

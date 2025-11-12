@@ -93,7 +93,7 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
           onChange={handleFileChange}
           className="hidden"
         />
-        <Upload className="mx-auto size-12 text-muted-foreground" />
+        <Upload className="text-muted-foreground mx-auto size-12" />
         <h3 className="mt-4 text-sm font-semibold">Arrastra archivos aquí</h3>
         <p className="text-muted-foreground mt-1 text-xs">o</p>
         <Button
@@ -105,9 +105,7 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
         >
           Seleccionar archivos
         </Button>
-        <p className="text-muted-foreground mt-4 text-xs">
-          Imágenes o PDF, máx {maxSizeMB}MB por archivo
-        </p>
+        <p className="text-muted-foreground mt-4 text-xs">Imágenes o PDF, máx {maxSizeMB}MB por archivo</p>
       </div>
 
       {/* Preview de archivos */}
@@ -118,14 +116,10 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
             {files.map((file, index) => (
               <div key={index} className="group relative overflow-hidden rounded-lg border">
                 {file.type.startsWith("image/") ? (
-                  <img
-                    src={URL.createObjectURL(file)}
-                    alt={file.name}
-                    className="aspect-square w-full object-cover"
-                  />
+                  <img src={URL.createObjectURL(file)} alt={file.name} className="aspect-square w-full object-cover" />
                 ) : (
-                  <div className="flex aspect-square items-center justify-center bg-muted">
-                    <FileImage className="size-12 text-muted-foreground" />
+                  <div className="bg-muted flex aspect-square items-center justify-center">
+                    <FileImage className="text-muted-foreground size-12" />
                   </div>
                 )}
                 <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
@@ -139,7 +133,7 @@ export function AttachmentUploader({ files, onFilesChange, maxFiles = 10, maxSiz
                     <X className="size-4" />
                   </Button>
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-1">
+                <div className="absolute right-0 bottom-0 left-0 bg-black/70 p-1">
                   <p className="truncate text-xs text-white">{file.name}</p>
                 </div>
               </div>

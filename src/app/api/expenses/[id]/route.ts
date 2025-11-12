@@ -6,10 +6,7 @@ import { deleteExpense, getExpenseById, updateExpense } from "@/server/actions/e
  * GET /api/expenses/[id]
  * Obtiene un gasto por ID
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 
@@ -30,10 +27,7 @@ export async function GET(
  * PUT /api/expenses/[id]
  * Actualiza un gasto
  */
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -60,10 +54,7 @@ export async function PUT(
  * DELETE /api/expenses/[id]
  * Elimina un gasto
  */
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
 

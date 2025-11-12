@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { auth } from "@/lib/auth";
 import { chatRateLimiter } from "@/lib/chat/rate-limiter";
 import { sseManager } from "@/lib/chat/sse-manager";
-import { auth } from "@/lib/auth";
 import { sendMessage } from "@/server/actions/chat";
 
 /**
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
           headers: {
             "Retry-After": String(rateLimitResult.retryAfter ?? 10),
           },
-        }
+        },
       );
     }
 
@@ -40,17 +40,11 @@ export async function POST(request: NextRequest) {
     const { conversationId, body: messageBody } = body;
 
     if (!conversationId || typeof conversationId !== "string") {
-      return NextResponse.json(
-        { error: "conversationId es requerido y debe ser una cadena" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "conversationId es requerido y debe ser una cadena" }, { status: 400 });
     }
 
     if (!messageBody || typeof messageBody !== "string") {
-      return NextResponse.json(
-        { error: "body es requerido y debe ser una cadena" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "body es requerido y debe ser una cadena" }, { status: 400 });
     }
 
     // Enviar mensaje
@@ -79,7 +73,7 @@ export async function POST(request: NextRequest) {
     console.error("[API] Error en POST /api/chat/messages:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error al enviar mensaje" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

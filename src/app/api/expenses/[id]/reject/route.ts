@@ -6,10 +6,7 @@ import { rejectExpense } from "@/server/actions/expense-approvals";
  * POST /api/expenses/[id]/reject
  * Rechaza un gasto
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     const body = await request.json();
@@ -17,10 +14,7 @@ export async function POST(
     const { reason } = body;
 
     if (!reason) {
-      return NextResponse.json(
-        { error: "El motivo de rechazo es obligatorio" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El motivo de rechazo es obligatorio" }, { status: 400 });
     }
 
     const result = await rejectExpense(id, reason);
