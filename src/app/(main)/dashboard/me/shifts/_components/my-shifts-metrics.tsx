@@ -226,7 +226,7 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
             >
               {metrics.weekBalanceStatus === "under" && "⚠️ Subcontratado"}
               {metrics.weekBalanceStatus === "ok" && "✅ Equilibrado"}
-              {metrics.weekBalanceStatus === "over" && "📈 Sobrecontratado"}
+              {metrics.weekBalanceStatus === "over" && "Sobrecontratado"}
             </Badge>
           </div>
         </CardContent>

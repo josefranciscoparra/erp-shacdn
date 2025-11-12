@@ -11,19 +11,19 @@
 
 import { useEffect, useMemo } from "react";
 
-import { Calendar, FileDown, List, LayoutGrid } from "lucide-react";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar, FileDown, Clock, MapPin, Coffee } from "lucide-react";
 
-import { CalendarMonthEmployee } from "@/app/(main)/dashboard/shifts/_components/calendar-month-employee";
-import { CalendarWeekEmployee } from "@/app/(main)/dashboard/shifts/_components/calendar-week-employee";
-import { WeekNavigator } from "@/app/(main)/dashboard/shifts/_components/week-navigator";
+import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
-import { useMyShiftsStore } from "./_store/my-shifts-store";
 
 export default function MyShiftsPage() {
   // Store de turnos (compartido con el módulo de gestión)
@@ -33,19 +33,11 @@ export default function MyShiftsPage() {
     costCenters,
     zones,
     isLoading,
-    weekStart,
-    setWeekStart,
-    nextWeek,
-    previousWeek,
-    goToToday,
     fetchShifts,
     fetchEmployees,
     fetchCostCenters,
     fetchZones,
   } = useShiftsStore();
-
-  // Store de mis turnos
-  const { calendarView, setCalendarView } = useMyShiftsStore();
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -74,6 +66,23 @@ export default function MyShiftsPage() {
     if (!currentEmployee) return null;
     return calculateMyShiftsMetrics(shifts, currentEmployee);
   }, [shifts, currentEmployee]);
+
+  // Obtener mes actual y días del mes
+  const currentDate = new Date();
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  // Agrupar turnos por fecha
+  const shiftsByDate = useMemo(() => {
+    const grouped = new Map<string, typeof myShifts>();
+    myShifts.forEach((shift) => {
+      const dateKey = shift.date;
+      const existing = grouped.get(dateKey) ?? [];
+      grouped.set(dateKey, [...existing, shift]);
+    });
+    return grouped;
+  }, [myShifts]);
 
   if (!currentEmployee) {
     return (
@@ -113,116 +122,106 @@ export default function MyShiftsPage() {
       {/* Métricas */}
       <MyShiftsMetricsCards metrics={metrics} isLoading={isLoading} />
 
-      {/* Vista rápida de próximos turnos */}
+      {/* Calendario de Turnos Mensual */}
       <Card>
         <CardHeader>
-          <CardTitle>Próximos 7 Días</CardTitle>
-          <CardDescription>Tus turnos programados para esta semana</CardDescription>
+          <CardTitle>Calendario de Turnos</CardTitle>
+          <CardDescription>
+            {format(currentDate, "MMMM yyyy", { locale: es })} - Tus turnos asignados del mes
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {myShifts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-              <Calendar className="text-muted-foreground size-8" />
-              <p className="text-muted-foreground text-sm">No tienes turnos asignados</p>
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
+              <Calendar className="text-muted-foreground size-12" />
+              <p className="text-muted-foreground text-sm">No tienes turnos asignados este mes</p>
             </div>
           ) : (
-            <div className="space-y-2">
-              {myShifts.slice(0, 7).map((shift) => {
-                const zone = zones.find((z) => z.id === shift.zoneId);
-                const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
+            <div className="space-y-4">
+              {/* Grid de calendario */}
+              <div className="grid grid-cols-7 gap-2">
+                {/* Headers de días de la semana */}
+                {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
+                  <div key={day} className="text-muted-foreground py-2 text-center text-xs font-medium">
+                    {day}
+                  </div>
+                ))}
 
-                return (
-                  <div
-                    key={shift.id}
-                    className="hover:bg-accent flex items-center justify-between rounded-lg border p-3 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium">
-                          {new Date(shift.date).toLocaleDateString("es-ES", {
-                            weekday: "short",
-                            day: "numeric",
-                            month: "short",
-                          })}
+                {/* Días del mes */}
+                {daysInMonth.map((day) => {
+                  const dateKey = format(day, "yyyy-MM-dd");
+                  const dayShifts = shiftsByDate.get(dateKey) ?? [];
+                  const hasShifts = dayShifts.length > 0;
+                  const today = isToday(day);
+
+                  return (
+                    <div
+                      key={dateKey}
+                      className={cn(
+                        "hover:border-primary/50 min-h-[120px] rounded-lg border p-2 transition-all",
+                        today && "border-primary bg-primary/5",
+                        hasShifts && "from-primary/10 bg-gradient-to-br to-transparent",
+                        !hasShifts && "bg-muted/30",
+                      )}
+                    >
+                      <div className="mb-2 flex items-center justify-between">
+                        <span
+                          className={cn(
+                            "text-sm font-medium",
+                            today && "text-primary",
+                            !isSameMonth(day, currentDate) && "text-muted-foreground",
+                          )}
+                        >
+                          {format(day, "d")}
                         </span>
-                        <span className="text-muted-foreground text-xs">
-                          {shift.startTime} - {shift.endTime}
-                        </span>
+                        {hasShifts && (
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                            {dayShifts.length}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Turnos del día */}
+                      <div className="space-y-1">
+                        {dayShifts.map((shift) => {
+                          const zone = zones.find((z) => z.id === shift.zoneId);
+                          const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
+
+                          return (
+                            <div
+                              key={shift.id}
+                              className="hover:bg-primary/20 bg-card rounded border border-transparent p-1.5 shadow-sm transition-colors"
+                            >
+                              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
+                                <Clock className="h-3 w-3" />
+                                <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
+                                {shift.breakMinutes && shift.breakMinutes > 0 && (
+                                  <Coffee
+                                    className="text-muted-foreground h-3 w-3"
+                                    title={`${shift.breakMinutes}min`}
+                                  />
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-[9px]">
+                                <MapPin className="text-muted-foreground h-2.5 w-2.5" />
+                                <span className="text-muted-foreground truncate">
+                                  {costCenter?.name ?? "Sin lugar"}
+                                </span>
+                              </div>
+                              {zone && (
+                                <Badge variant="outline" className="mt-1 h-4 text-[8px]">
+                                  {zone.name}
+                                </Badge>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs">
-                        {zone?.name ?? "Sin zona"}
-                      </Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {costCenter?.name ?? "Sin lugar"}
-                      </Badge>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Calendario */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Calendario de Turnos</CardTitle>
-              <CardDescription>Vista completa de tus turnos asignados</CardDescription>
-            </div>
-
-            <div className="flex gap-2">
-              <Button
-                variant={calendarView === "week" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCalendarView("week")}
-              >
-                <List className="mr-2 h-4 w-4" />
-                Semana
-              </Button>
-              <Button
-                variant={calendarView === "month" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setCalendarView("month")}
-              >
-                <LayoutGrid className="mr-2 h-4 w-4" />
-                Mes
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Navegador de semana */}
-          <WeekNavigator weekStart={weekStart} onPrevious={previousWeek} onNext={nextWeek} onToday={goToToday} />
-
-          {/* Calendario */}
-          {calendarView === "week" ? (
-            <CalendarWeekEmployee
-              shifts={myShifts}
-              employees={[currentEmployee]}
-              costCenters={costCenters}
-              zones={zones}
-              weekStart={weekStart}
-              onShiftClick={(shift) => {
-                // Abrir dialog de detalles del turno
-                console.log("Ver turno:", shift);
-              }}
-            />
-          ) : (
-            <CalendarMonthEmployee
-              shifts={myShifts}
-              employees={[currentEmployee]}
-              costCenters={costCenters}
-              zones={zones}
-              onShiftClick={(shift) => {
-                console.log("Ver turno:", shift);
-              }}
-            />
           )}
         </CardContent>
       </Card>
