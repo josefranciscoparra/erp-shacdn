@@ -20,26 +20,29 @@
  * - ⚠️ Instalar @dnd-kit (npm install @dnd-kit/core @dnd-kit/sortable)
  */
 
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Plus, FileText, Settings } from 'lucide-react'
-import { useShiftsStore } from './_store/shifts-store'
-import { ShiftsFiltersBar } from './_components/shifts-filters-bar'
-import { ShiftsViewSelector } from './_components/shifts-view-selector'
-import { EmptyState, EmptyFiltersState, EmptyStateLoading } from './_components/empty-states'
-import { CalendarWeekEmployee } from './_components/calendar-week-employee'
-import { CalendarMonthEmployee } from './_components/calendar-month-employee'
-import { CalendarWeekArea } from './_components/calendar-week-area'
-import { CalendarMonthArea } from './_components/calendar-month-area'
-import { ShiftDialog } from './_components/shift-dialog'
-import { PublishBar } from './_components/publish-bar'
-import { TemplatesTable } from './_components/templates-table'
-import { TemplateApplyDialog } from './_components/template-apply-dialog'
-import { ZoneDialog } from './_components/zone-dialog'
-import { ZonesTable } from './_components/zones-table'
+import { useEffect } from "react";
+
+import { Plus, FileText, Settings } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { CalendarMonthArea } from "./_components/calendar-month-area";
+import { CalendarMonthEmployee } from "./_components/calendar-month-employee";
+import { CalendarWeekArea } from "./_components/calendar-week-area";
+import { CalendarWeekEmployee } from "./_components/calendar-week-employee";
+import { EmptyState, EmptyFiltersState, EmptyStateLoading } from "./_components/empty-states";
+import { PublishBar } from "./_components/publish-bar";
+import { ShiftDialog } from "./_components/shift-dialog";
+import { ShiftsFiltersBar } from "./_components/shifts-filters-bar";
+import { ShiftsViewSelector } from "./_components/shifts-view-selector";
+import { TemplateApplyDialog } from "./_components/template-apply-dialog";
+import { TemplatesTable } from "./_components/templates-table";
+import { ZoneDialog } from "./_components/zone-dialog";
+import { ZonesTable } from "./_components/zones-table";
+import { useShiftsStore } from "./_store/shifts-store";
 
 export default function ShiftsPage() {
   const {
@@ -53,16 +56,16 @@ export default function ShiftsPage() {
     fetchCostCenters,
     fetchZones,
     fetchTemplates,
-  } = useShiftsStore()
+  } = useShiftsStore();
 
   // Cargar datos iniciales
   useEffect(() => {
-    void fetchShifts()
-    void fetchEmployees()
-    void fetchCostCenters()
-    void fetchZones()
-    void fetchTemplates()
-  }, [])
+    void fetchShifts();
+    void fetchEmployees();
+    void fetchCostCenters();
+    void fetchZones();
+    void fetchTemplates();
+  }, []);
 
   return (
     <div className="@container/main flex flex-col gap-6">
@@ -70,9 +73,7 @@ export default function ShiftsPage() {
       <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
         <div>
           <h1 className="text-foreground text-2xl font-bold">Gestión de Turnos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Organiza los turnos rotativos de tu equipo
-          </p>
+          <p className="text-muted-foreground mt-1 text-sm">Organiza los turnos rotativos de tu equipo</p>
         </div>
 
         <Button onClick={() => openShiftDialog()}>
@@ -116,21 +117,13 @@ export default function ShiftsPage() {
             ) : (
               <div className="p-6">
                 {/* Vistas de calendario */}
-                {calendarView === 'week' && calendarMode === 'employee' && (
-                  <CalendarWeekEmployee />
-                )}
+                {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
 
-                {calendarView === 'month' && calendarMode === 'employee' && (
-                  <CalendarMonthEmployee />
-                )}
+                {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
 
-                {calendarView === 'week' && calendarMode === 'area' && (
-                  <CalendarWeekArea />
-                )}
+                {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
 
-                {calendarView === 'month' && calendarMode === 'area' && (
-                  <CalendarMonthArea />
-                )}
+                {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
               </div>
             )}
           </div>
@@ -155,5 +148,5 @@ export default function ShiftsPage() {
       <TemplateApplyDialog />
       <ZoneDialog />
     </div>
-  )
+  );
 }

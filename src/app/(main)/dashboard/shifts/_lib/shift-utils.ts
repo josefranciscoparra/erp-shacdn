@@ -8,9 +8,23 @@
  * - Colores y estilos
  */
 
-import type { ShiftStatus, TimeSlot, DayOfWeek, EmployeeWeekStats, ZoneCoverageStats } from './types'
-import { format, startOfWeek, endOfWeek, addDays, addWeeks, subWeeks, eachDayOfInterval, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
-import { es } from 'date-fns/locale'
+import {
+  format,
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  addWeeks,
+  subWeeks,
+  eachDayOfInterval,
+  parseISO,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+} from "date-fns";
+import { es } from "date-fns/locale";
+
+import type { ShiftStatus, TimeSlot, DayOfWeek, EmployeeWeekStats, ZoneCoverageStats } from "./types";
 
 // ==================== FECHA Y SEMANA ====================
 
@@ -20,7 +34,7 @@ import { es } from 'date-fns/locale'
  * @returns Fecha del lunes de esa semana
  */
 export function getWeekStart(date: Date): Date {
-  return startOfWeek(date, { weekStartsOn: 1 }) // 1 = Lunes
+  return startOfWeek(date, { weekStartsOn: 1 }); // 1 = Lunes
 }
 
 /**
@@ -29,7 +43,7 @@ export function getWeekStart(date: Date): Date {
  * @returns Fecha del domingo de esa semana
  */
 export function getWeekEnd(date: Date): Date {
-  return endOfWeek(date, { weekStartsOn: 1 })
+  return endOfWeek(date, { weekStartsOn: 1 });
 }
 
 /**
@@ -38,8 +52,8 @@ export function getWeekEnd(date: Date): Date {
  * @returns Array de 7 fechas (Lun-Dom)
  */
 export function getWeekDays(weekStart: Date): Date[] {
-  const weekEnd = getWeekEnd(weekStart)
-  return eachDayOfInterval({ start: weekStart, end: weekEnd })
+  const weekEnd = getWeekEnd(weekStart);
+  return eachDayOfInterval({ start: weekStart, end: weekEnd });
 }
 
 /**
@@ -48,7 +62,7 @@ export function getWeekDays(weekStart: Date): Date[] {
  * @returns String formateado
  */
 export function formatDateShort(date: Date): string {
-  return format(date, 'EEE d MMM', { locale: es })
+  return format(date, "EEE d MMM", { locale: es });
 }
 
 /**
@@ -57,7 +71,7 @@ export function formatDateShort(date: Date): string {
  * @returns String formato ISO
  */
 export function formatDateISO(date: Date): string {
-  return format(date, 'yyyy-MM-dd')
+  return format(date, "yyyy-MM-dd");
 }
 
 /**
@@ -66,13 +80,13 @@ export function formatDateISO(date: Date): string {
  * @returns String formateado
  */
 export function formatWeekRange(weekStart: Date): string {
-  const weekEnd = getWeekEnd(weekStart)
-  const startDay = format(weekStart, 'd')
-  const endDay = format(weekEnd, 'd')
-  const month = format(weekEnd, 'MMM', { locale: es })
-  const year = format(weekEnd, 'yyyy')
+  const weekEnd = getWeekEnd(weekStart);
+  const startDay = format(weekStart, "d");
+  const endDay = format(weekEnd, "d");
+  const month = format(weekEnd, "MMM", { locale: es });
+  const year = format(weekEnd, "yyyy");
 
-  return `${startDay}-${endDay} ${month} ${year}`
+  return `${startDay}-${endDay} ${month} ${year}`;
 }
 
 /**
@@ -81,7 +95,7 @@ export function formatWeekRange(weekStart: Date): string {
  * @returns Nueva fecha de inicio de semana
  */
 export function getPreviousWeek(currentWeekStart: Date): Date {
-  return subWeeks(currentWeekStart, 1)
+  return subWeeks(currentWeekStart, 1);
 }
 
 /**
@@ -90,7 +104,7 @@ export function getPreviousWeek(currentWeekStart: Date): Date {
  * @returns Nueva fecha de inicio de semana
  */
 export function getNextWeek(currentWeekStart: Date): Date {
-  return addWeeks(currentWeekStart, 1)
+  return addWeeks(currentWeekStart, 1);
 }
 
 /**
@@ -99,7 +113,7 @@ export function getNextWeek(currentWeekStart: Date): Date {
  * @returns Objeto Date
  */
 export function parseDate(dateString: string): Date {
-  return parseISO(dateString)
+  return parseISO(dateString);
 }
 
 /**
@@ -108,7 +122,7 @@ export function parseDate(dateString: string): Date {
  * @returns Nombre del día (ej: "Lunes")
  */
 export function getDayName(date: Date): string {
-  return format(date, 'EEEE', { locale: es })
+  return format(date, "EEEE", { locale: es });
 }
 
 /**
@@ -117,9 +131,9 @@ export function getDayName(date: Date): string {
  * @returns DayOfWeek type-safe
  */
 export function getDayOfWeek(date: Date): DayOfWeek {
-  const dayIndex = date.getDay()
-  const days: DayOfWeek[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
-  return days[dayIndex]
+  const dayIndex = date.getDay();
+  const days: DayOfWeek[] = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  return days[dayIndex];
 }
 
 // ==================== TIEMPO Y DURACIÓN ====================
@@ -130,8 +144,8 @@ export function getDayOfWeek(date: Date): DayOfWeek {
  * @returns Minutos (0-1440)
  */
 export function timeToMinutes(time: string): number {
-  const [hours, minutes] = time.split(':').map(Number)
-  return hours * 60 + minutes
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
 }
 
 /**
@@ -140,9 +154,9 @@ export function timeToMinutes(time: string): number {
  * @returns Formato "HH:mm"
  */
 export function minutesToTime(minutes: number): string {
-  const hours = Math.floor(minutes / 60) % 24
-  const mins = minutes % 60
-  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+  const hours = Math.floor(minutes / 60) % 24;
+  const mins = minutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 /**
@@ -152,15 +166,15 @@ export function minutesToTime(minutes: number): string {
  * @returns Horas (decimal)
  */
 export function calculateDuration(startTime: string, endTime: string): number {
-  let start = timeToMinutes(startTime)
-  let end = timeToMinutes(endTime)
+  const start = timeToMinutes(startTime);
+  let end = timeToMinutes(endTime);
 
   // Si el turno cruza medianoche (ej: 22:00-06:00)
   if (end <= start) {
-    end += 24 * 60
+    end += 24 * 60;
   }
 
-  return (end - start) / 60
+  return (end - start) / 60;
 }
 
 /**
@@ -170,9 +184,9 @@ export function calculateDuration(startTime: string, endTime: string): number {
  */
 export function formatDuration(hours: number): string {
   if (hours % 1 === 0) {
-    return `${hours}h`
+    return `${hours}h`;
   }
-  return `${hours.toFixed(1)}h`
+  return `${hours.toFixed(1)}h`;
 }
 
 /**
@@ -181,8 +195,8 @@ export function formatDuration(hours: number): string {
  * @returns True si válido
  */
 export function isValidTimeFormat(time: string): boolean {
-  const regex = /^([01]\d|2[0-3]):([0-5]\d)$/
-  return regex.test(time)
+  const regex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+  return regex.test(time);
 }
 
 /**
@@ -191,11 +205,11 @@ export function isValidTimeFormat(time: string): boolean {
  * @returns TimeSlot
  */
 export function getTimeSlot(startTime: string): TimeSlot {
-  const minutes = timeToMinutes(startTime)
+  const minutes = timeToMinutes(startTime);
 
-  if (minutes >= 0 && minutes < 8 * 60) return 'night' // 00:00-08:00
-  if (minutes >= 8 * 60 && minutes < 16 * 60) return 'morning' // 08:00-16:00
-  return 'afternoon' // 16:00-00:00
+  if (minutes >= 0 && minutes < 8 * 60) return "night"; // 00:00-08:00
+  if (minutes >= 8 * 60 && minutes < 16 * 60) return "morning"; // 08:00-16:00
+  return "afternoon"; // 16:00-00:00
 }
 
 // ==================== COLORES Y ESTILOS ====================
@@ -207,11 +221,11 @@ export function getTimeSlot(startTime: string): TimeSlot {
  */
 export function getShiftStatusColor(status: ShiftStatus): string {
   const colors = {
-    draft: 'bg-muted border-muted-foreground/20',
-    published: 'bg-primary/10 border-primary',
-    conflict: 'bg-destructive/10 border-destructive',
-  }
-  return colors[status]
+    draft: "bg-muted border-muted-foreground/20",
+    published: "bg-primary/10 border-primary",
+    conflict: "bg-destructive/10 border-destructive",
+  };
+  return colors[status];
 }
 
 /**
@@ -219,13 +233,13 @@ export function getShiftStatusColor(status: ShiftStatus): string {
  * @param status - Estado del turno
  * @returns Variant de Badge
  */
-export function getShiftStatusBadgeVariant(status: ShiftStatus): 'default' | 'secondary' | 'destructive' {
+export function getShiftStatusBadgeVariant(status: ShiftStatus): "default" | "secondary" | "destructive" {
   const variants = {
-    draft: 'secondary' as const,
-    published: 'default' as const,
-    conflict: 'destructive' as const,
-  }
-  return variants[status]
+    draft: "secondary" as const,
+    published: "default" as const,
+    conflict: "destructive" as const,
+  };
+  return variants[status];
 }
 
 /**
@@ -235,11 +249,11 @@ export function getShiftStatusBadgeVariant(status: ShiftStatus): 'default' | 'se
  */
 export function getShiftStatusText(status: ShiftStatus): string {
   const texts = {
-    draft: 'Borrador',
-    published: 'Publicado',
-    conflict: 'Conflicto',
-  }
-  return texts[status]
+    draft: "Borrador",
+    published: "Publicado",
+    conflict: "Conflicto",
+  };
+  return texts[status];
 }
 
 /**
@@ -249,11 +263,11 @@ export function getShiftStatusText(status: ShiftStatus): string {
  */
 export function getEmployeeStatsColor(stats: EmployeeWeekStats): string {
   const colors = {
-    under: 'text-red-600 dark:text-red-400',
-    ok: 'text-emerald-600 dark:text-emerald-400',
-    over: 'text-amber-600 dark:text-amber-400',
-  }
-  return colors[stats.status]
+    under: "text-red-600 dark:text-red-400",
+    ok: "text-emerald-600 dark:text-emerald-400",
+    over: "text-amber-600 dark:text-amber-400",
+  };
+  return colors[stats.status];
 }
 
 /**
@@ -263,11 +277,11 @@ export function getEmployeeStatsColor(stats: EmployeeWeekStats): string {
  */
 export function getEmployeeStatsIcon(stats: EmployeeWeekStats): string {
   const icons = {
-    under: '🔴',
-    ok: '🟢',
-    over: '🟡',
-  }
-  return icons[stats.status]
+    under: "🔴",
+    ok: "🟢",
+    over: "🟡",
+  };
+  return icons[stats.status];
 }
 
 /**
@@ -277,11 +291,11 @@ export function getEmployeeStatsIcon(stats: EmployeeWeekStats): string {
  */
 export function getZoneCoverageColor(stats: ZoneCoverageStats): string {
   const colors = {
-    danger: 'bg-red-100 dark:bg-red-950/30 border-red-300 dark:border-red-700',
-    warning: 'bg-amber-100 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700',
-    ok: 'bg-emerald-100 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700',
-  }
-  return colors[stats.status]
+    danger: "bg-red-100 dark:bg-red-950/30 border-red-300 dark:border-red-700",
+    warning: "bg-amber-100 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700",
+    ok: "bg-emerald-100 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700",
+  };
+  return colors[stats.status];
 }
 
 /**
@@ -290,7 +304,7 @@ export function getZoneCoverageColor(stats: ZoneCoverageStats): string {
  * @returns Texto formateado "3/5"
  */
 export function getZoneCoverageText(stats: ZoneCoverageStats): string {
-  return `${stats.assigned}/${stats.required}`
+  return `${stats.assigned}/${stats.required}`;
 }
 
 // ==================== VALIDACIONES ====================
@@ -304,16 +318,16 @@ export function getZoneCoverageText(stats: ZoneCoverageStats): string {
  * @returns True si solapan
  */
 export function doTimesOverlap(start1: string, end1: string, start2: string, end2: string): boolean {
-  const s1 = timeToMinutes(start1)
-  let e1 = timeToMinutes(end1)
-  const s2 = timeToMinutes(start2)
-  let e2 = timeToMinutes(end2)
+  const s1 = timeToMinutes(start1);
+  let e1 = timeToMinutes(end1);
+  const s2 = timeToMinutes(start2);
+  let e2 = timeToMinutes(end2);
 
   // Manejar turnos que cruzan medianoche
-  if (e1 <= s1) e1 += 24 * 60
-  if (e2 <= s2) e2 += 24 * 60
+  if (e1 <= s1) e1 += 24 * 60;
+  if (e2 <= s2) e2 += 24 * 60;
 
-  return (s1 >= s2 && s1 < e2) || (e1 > s2 && e1 <= e2) || (s1 <= s2 && e1 >= e2)
+  return (s1 >= s2 && s1 < e2) || (e1 > s2 && e1 <= e2) || (s1 <= s2 && e1 >= e2);
 }
 
 /**
@@ -324,7 +338,7 @@ export function doTimesOverlap(start1: string, end1: string, start2: string, end
  * @returns True si está dentro
  */
 export function isDateInRange(date: string, start: string, end: string): boolean {
-  return date >= start && date <= end
+  return date >= start && date <= end;
 }
 
 // ==================== FORMATEO Y PRESENTACIÓN ====================
@@ -336,7 +350,7 @@ export function isDateInRange(date: string, start: string, end: string): boolean
  * @returns Nombre completo
  */
 export function formatEmployeeName(firstName: string, lastName: string): string {
-  return `${firstName} ${lastName}`
+  return `${firstName} ${lastName}`;
 }
 
 /**
@@ -346,7 +360,7 @@ export function formatEmployeeName(firstName: string, lastName: string): string 
  * @returns String formateado
  */
 export function formatShiftTime(startTime: string, endTime: string): string {
-  return `${startTime}-${endTime}`
+  return `${startTime}-${endTime}`;
 }
 
 /**
@@ -356,8 +370,8 @@ export function formatShiftTime(startTime: string, endTime: string): string {
  * @returns String formateado
  */
 export function formatShiftWithDuration(startTime: string, endTime: string): string {
-  const duration = calculateDuration(startTime, endTime)
-  return `${formatShiftTime(startTime, endTime)} (${formatDuration(duration)})`
+  const duration = calculateDuration(startTime, endTime);
+  return `${formatShiftTime(startTime, endTime)} (${formatDuration(duration)})`;
 }
 
 /**
@@ -366,7 +380,7 @@ export function formatShiftWithDuration(startTime: string, endTime: string): str
  * @returns ID único
  */
 export function generateTempId(prefix: string): string {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
@@ -378,15 +392,15 @@ export function generateTempId(prefix: string): string {
 export function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<string, T[]> {
   return array.reduce(
     (groups, item) => {
-      const key = keyFn(item)
+      const key = keyFn(item);
       if (!groups[key]) {
-        groups[key] = []
+        groups[key] = [];
       }
-      groups[key].push(item)
-      return groups
+      groups[key].push(item);
+      return groups;
     },
     {} as Record<string, T[]>,
-  )
+  );
 }
 
 /**
@@ -398,11 +412,11 @@ export function groupBy<T>(array: T[], keyFn: (item: T) => string): Record<strin
 export function sortBy<T>(array: T[], ...compareFns: Array<(a: T, b: T) => number>): T[] {
   return [...array].sort((a, b) => {
     for (const fn of compareFns) {
-      const result = fn(a, b)
-      if (result !== 0) return result
+      const result = fn(a, b);
+      if (result !== 0) return result;
     }
-    return 0
-  })
+    return 0;
+  });
 }
 
 /**
@@ -411,8 +425,8 @@ export function sortBy<T>(array: T[], ...compareFns: Array<(a: T, b: T) => numbe
  * @returns True si es sábado o domingo
  */
 export function isWeekend(date: Date): boolean {
-  const day = date.getDay()
-  return day === 0 || day === 6 // Domingo = 0, Sábado = 6
+  const day = date.getDay();
+  return day === 0 || day === 6; // Domingo = 0, Sábado = 6
 }
 
 /**
@@ -421,11 +435,11 @@ export function isWeekend(date: Date): boolean {
  * @returns Número de semana (1-53)
  */
 export function getWeekNumber(date: Date): number {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
-  const dayNum = d.getUTCDay() || 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum)
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
 // ==================== FECHA Y MES ====================
@@ -436,7 +450,7 @@ export function getWeekNumber(date: Date): number {
  * @returns Fecha del primer día del mes
  */
 export function getMonthStart(date: Date): Date {
-  return startOfMonth(date)
+  return startOfMonth(date);
 }
 
 /**
@@ -445,7 +459,7 @@ export function getMonthStart(date: Date): Date {
  * @returns Fecha del último día del mes
  */
 export function getMonthEnd(date: Date): Date {
-  return endOfMonth(date)
+  return endOfMonth(date);
 }
 
 /**
@@ -454,8 +468,8 @@ export function getMonthEnd(date: Date): Date {
  * @returns Array de fechas del mes (28-31 días)
  */
 export function getMonthDays(monthStart: Date): Date[] {
-  const monthEnd = getMonthEnd(monthStart)
-  return eachDayOfInterval({ start: monthStart, end: monthEnd })
+  const monthEnd = getMonthEnd(monthStart);
+  return eachDayOfInterval({ start: monthStart, end: monthEnd });
 }
 
 /**
@@ -464,7 +478,7 @@ export function getMonthDays(monthStart: Date): Date[] {
  * @returns String formateado
  */
 export function formatMonthRange(monthStart: Date): string {
-  return format(monthStart, 'MMMM yyyy', { locale: es })
+  return format(monthStart, "MMMM yyyy", { locale: es });
 }
 
 /**
@@ -473,7 +487,7 @@ export function formatMonthRange(monthStart: Date): string {
  * @returns Nueva fecha de inicio de mes
  */
 export function getPreviousMonth(currentMonthStart: Date): Date {
-  return subMonths(currentMonthStart, 1)
+  return subMonths(currentMonthStart, 1);
 }
 
 /**
@@ -482,5 +496,5 @@ export function getPreviousMonth(currentMonthStart: Date): Date {
  * @returns Nueva fecha de inicio de mes
  */
 export function getNextMonth(currentMonthStart: Date): Date {
-  return addMonths(currentMonthStart, 1)
+  return addMonths(currentMonthStart, 1);
 }

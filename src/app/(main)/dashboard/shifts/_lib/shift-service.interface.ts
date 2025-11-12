@@ -27,7 +27,7 @@ import type {
   ZoneCoverageStats,
   TimeSlot,
   DragResult,
-} from './types'
+} from "./types";
 
 /**
  * Interfaz principal del servicio de turnos
@@ -40,21 +40,21 @@ export interface IShiftService {
    * @param filters - Criterios de filtrado
    * @returns Lista de turnos que cumplen los filtros
    */
-  getShifts(filters: ShiftFilters): Promise<Shift[]>
+  getShifts(filters: ShiftFilters): Promise<Shift[]>;
 
   /**
    * Obtener turno por ID
    * @param id - ID del turno
    * @returns Turno encontrado o null si no existe
    */
-  getShiftById(id: string): Promise<Shift | null>
+  getShiftById(id: string): Promise<Shift | null>;
 
   /**
    * Crear nuevo turno
    * @param data - Datos del turno a crear
    * @returns Respuesta con el turno creado y validaciones
    */
-  createShift(data: ShiftInput): Promise<ShiftServiceResponse>
+  createShift(data: ShiftInput): Promise<ShiftServiceResponse>;
 
   /**
    * Actualizar turno existente
@@ -62,14 +62,14 @@ export interface IShiftService {
    * @param data - Datos parciales a actualizar
    * @returns Respuesta con el turno actualizado y validaciones
    */
-  updateShift(id: string, data: Partial<ShiftInput>): Promise<ShiftServiceResponse>
+  updateShift(id: string, data: Partial<ShiftInput>): Promise<ShiftServiceResponse>;
 
   /**
    * Eliminar turno
    * @param id - ID del turno a eliminar
    * @returns True si se eliminó correctamente
    */
-  deleteShift(id: string): Promise<boolean>
+  deleteShift(id: string): Promise<boolean>;
 
   /**
    * Mover turno a otro empleado/fecha (drag & drop)
@@ -78,7 +78,7 @@ export interface IShiftService {
    * @param newDate - Nueva fecha (YYYY-MM-DD)
    * @returns Resultado con turno actualizado y conflictos
    */
-  moveShift(shiftId: string, newEmployeeId: string, newDate: string): Promise<DragResult>
+  moveShift(shiftId: string, newEmployeeId: string, newDate: string): Promise<DragResult>;
 
   /**
    * Redimensionar turno (cambiar duración)
@@ -87,7 +87,7 @@ export interface IShiftService {
    * @param newEndTime - Nueva hora de fin (HH:mm)
    * @returns Respuesta con turno actualizado y validaciones
    */
-  resizeShift(shiftId: string, newStartTime: string, newEndTime: string): Promise<ShiftServiceResponse>
+  resizeShift(shiftId: string, newStartTime: string, newEndTime: string): Promise<ShiftServiceResponse>;
 
   // ==================== VALIDACIONES ====================
 
@@ -96,7 +96,7 @@ export interface IShiftService {
    * @param data - Datos del turno a validar
    * @returns Resultado de validación con conflictos y warnings
    */
-  validateShift(data: ShiftInput): Promise<ValidationResult>
+  validateShift(data: ShiftInput): Promise<ValidationResult>;
 
   /**
    * Validar si un turno solapa con otros del mismo empleado
@@ -113,7 +113,7 @@ export interface IShiftService {
     startTime: string,
     endTime: string,
     excludeShiftId?: string,
-  ): Promise<boolean>
+  ): Promise<boolean>;
 
   /**
    * Validar si se cumple el descanso mínimo
@@ -122,7 +122,7 @@ export interface IShiftService {
    * @param startTime - Hora de inicio (HH:mm)
    * @returns True si cumple descanso mínimo
    */
-  hasMinimumRest(employeeId: string, date: string, startTime: string): Promise<boolean>
+  hasMinimumRest(employeeId: string, date: string, startTime: string): Promise<boolean>;
 
   /**
    * Validar si el empleado está ausente en la fecha
@@ -130,7 +130,7 @@ export interface IShiftService {
    * @param date - Fecha a validar (YYYY-MM-DD)
    * @returns True si está ausente
    */
-  isEmployeeAbsent(employeeId: string, date: string): Promise<boolean>
+  isEmployeeAbsent(employeeId: string, date: string): Promise<boolean>;
 
   // ==================== OPERACIONES CRUD DE ZONAS ====================
 
@@ -139,21 +139,21 @@ export interface IShiftService {
    * @param costCenterId - Filtrar por lugar (opcional)
    * @returns Lista de zonas
    */
-  getZones(costCenterId?: string): Promise<Zone[]>
+  getZones(costCenterId?: string): Promise<Zone[]>;
 
   /**
    * Obtener zona por ID
    * @param id - ID de la zona
    * @returns Zona encontrada o null
    */
-  getZoneById(id: string): Promise<Zone | null>
+  getZoneById(id: string): Promise<Zone | null>;
 
   /**
    * Crear nueva zona
    * @param data - Datos de la zona
    * @returns Zona creada
    */
-  createZone(data: ZoneInput): Promise<Zone>
+  createZone(data: ZoneInput): Promise<Zone>;
 
   /**
    * Actualizar zona existente
@@ -161,14 +161,14 @@ export interface IShiftService {
    * @param data - Datos parciales a actualizar
    * @returns Zona actualizada
    */
-  updateZone(id: string, data: Partial<ZoneInput>): Promise<Zone>
+  updateZone(id: string, data: Partial<ZoneInput>): Promise<Zone>;
 
   /**
    * Eliminar zona
    * @param id - ID de la zona
    * @returns True si se eliminó
    */
-  deleteZone(id: string): Promise<boolean>
+  deleteZone(id: string): Promise<boolean>;
 
   // ==================== OPERACIONES CRUD DE PLANTILLAS ====================
 
@@ -176,21 +176,21 @@ export interface IShiftService {
    * Obtener todas las plantillas
    * @returns Lista de plantillas
    */
-  getTemplates(): Promise<ShiftTemplate[]>
+  getTemplates(): Promise<ShiftTemplate[]>;
 
   /**
    * Obtener plantilla por ID
    * @param id - ID de la plantilla
    * @returns Plantilla encontrada o null
    */
-  getTemplateById(id: string): Promise<ShiftTemplate | null>
+  getTemplateById(id: string): Promise<ShiftTemplate | null>;
 
   /**
    * Crear nueva plantilla
    * @param data - Datos de la plantilla
    * @returns Plantilla creada
    */
-  createTemplate(data: TemplateInput): Promise<ShiftTemplate>
+  createTemplate(data: TemplateInput): Promise<ShiftTemplate>;
 
   /**
    * Actualizar plantilla existente
@@ -198,21 +198,21 @@ export interface IShiftService {
    * @param data - Datos parciales a actualizar
    * @returns Plantilla actualizada
    */
-  updateTemplate(id: string, data: Partial<TemplateInput>): Promise<ShiftTemplate>
+  updateTemplate(id: string, data: Partial<TemplateInput>): Promise<ShiftTemplate>;
 
   /**
    * Eliminar plantilla
    * @param id - ID de la plantilla
    * @returns True si se eliminó
    */
-  deleteTemplate(id: string): Promise<boolean>
+  deleteTemplate(id: string): Promise<boolean>;
 
   /**
    * Aplicar plantilla a empleados
    * @param input - Datos para aplicar la plantilla
    * @returns Respuesta con turnos creados
    */
-  applyTemplate(input: ApplyTemplateInput): Promise<ApplyTemplateResponse>
+  applyTemplate(input: ApplyTemplateInput): Promise<ApplyTemplateResponse>;
 
   // ==================== OPERACIONES MASIVAS ====================
 
@@ -223,21 +223,21 @@ export interface IShiftService {
    * @param filters - Filtros para seleccionar qué turnos copiar
    * @returns Número de turnos copiados
    */
-  copyWeek(sourceWeekStart: string, targetWeekStart: string, filters: ShiftFilters): Promise<number>
+  copyWeek(sourceWeekStart: string, targetWeekStart: string, filters: ShiftFilters): Promise<number>;
 
   /**
    * Publicar turnos (cambiar de draft a published)
    * @param filters - Filtros para seleccionar qué turnos publicar
    * @returns Respuesta con turnos publicados
    */
-  publishShifts(filters: ShiftFilters): Promise<PublishShiftsResponse>
+  publishShifts(filters: ShiftFilters): Promise<PublishShiftsResponse>;
 
   /**
    * Eliminar múltiples turnos
    * @param shiftIds - IDs de turnos a eliminar
    * @returns Número de turnos eliminados
    */
-  deleteMultipleShifts(shiftIds: string[]): Promise<number>
+  deleteMultipleShifts(shiftIds: string[]): Promise<number>;
 
   // ==================== CONSULTAS Y ESTADÍSTICAS ====================
 
@@ -246,13 +246,13 @@ export interface IShiftService {
    * @param costCenterId - Filtrar por lugar (opcional)
    * @returns Lista de empleados
    */
-  getShiftEmployees(costCenterId?: string): Promise<EmployeeShift[]>
+  getShiftEmployees(costCenterId?: string): Promise<EmployeeShift[]>;
 
   /**
    * Obtener lugares de trabajo (CostCenters)
    * @returns Lista de lugares
    */
-  getCostCenters(): Promise<CostCenter[]>
+  getCostCenters(): Promise<CostCenter[]>;
 
   /**
    * Obtener estadísticas de horas de un empleado en una semana
@@ -260,7 +260,7 @@ export interface IShiftService {
    * @param weekStart - Inicio de semana (YYYY-MM-DD)
    * @returns Estadísticas de horas
    */
-  getEmployeeWeekStats(employeeId: string, weekStart: string): Promise<EmployeeWeekStats>
+  getEmployeeWeekStats(employeeId: string, weekStart: string): Promise<EmployeeWeekStats>;
 
   /**
    * Obtener estadísticas de cobertura de una zona en un día
@@ -269,7 +269,7 @@ export interface IShiftService {
    * @param timeSlot - Franja horaria
    * @returns Estadísticas de cobertura
    */
-  getZoneCoverageStats(zoneId: string, date: string, timeSlot: TimeSlot): Promise<ZoneCoverageStats>
+  getZoneCoverageStats(zoneId: string, date: string, timeSlot: TimeSlot): Promise<ZoneCoverageStats>;
 
   /**
    * Obtener turnos de un empleado en un rango de fechas
@@ -278,7 +278,7 @@ export interface IShiftService {
    * @param dateTo - Fecha fin (YYYY-MM-DD)
    * @returns Lista de turnos
    */
-  getEmployeeShifts(employeeId: string, dateFrom: string, dateTo: string): Promise<Shift[]>
+  getEmployeeShifts(employeeId: string, dateFrom: string, dateTo: string): Promise<Shift[]>;
 
   /**
    * Obtener turnos de una zona en un rango de fechas
@@ -287,20 +287,20 @@ export interface IShiftService {
    * @param dateTo - Fecha fin (YYYY-MM-DD)
    * @returns Lista de turnos
    */
-  getZoneShifts(zoneId: string, dateFrom: string, dateTo: string): Promise<Shift[]>
+  getZoneShifts(zoneId: string, dateFrom: string, dateTo: string): Promise<Shift[]>;
 }
 
 /**
  * Tipo auxiliar para inyección de dependencias
  * Permite crear instancias del servicio con configuración personalizada
  */
-export type ShiftServiceFactory = () => IShiftService
+export type ShiftServiceFactory = () => IShiftService;
 
 /**
  * Singleton del servicio
  * Esta variable se exporta para que el store y componentes la importen
  */
-export let shiftService: IShiftService
+export let shiftService: IShiftService;
 
 /**
  * Inicializar servicio de turnos
@@ -308,5 +308,5 @@ export let shiftService: IShiftService
  * @param implementation - Implementación del servicio (mock o API)
  */
 export function initializeShiftService(implementation: IShiftService): void {
-  shiftService = implementation
+  shiftService = implementation;
 }

@@ -4,59 +4,62 @@
  * Permite configurar zonas dentro de un lugar (cost center) y definir cobertura requerida.
  */
 
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Loader2, MapPin, Clock } from 'lucide-react'
-import { useShiftsStore } from '../_store/shifts-store'
-import type { ZoneInput } from '../_lib/types'
+import { useEffect } from "react";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Loader2, MapPin, Clock } from "lucide-react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+
+import type { ZoneInput } from "../_lib/types";
+import { useShiftsStore } from "../_store/shifts-store";
 
 // Schema de validación
 const zoneFormSchema = z.object({
-  name: z.string().min(1, 'El nombre es obligatorio').max(50, 'Máximo 50 caracteres'),
-  costCenterId: z.string().min(1, 'Selecciona un lugar de trabajo'),
-  coverageMorning: z.number().min(0, 'Mínimo 0').max(50, 'Máximo 50'),
-  coverageAfternoon: z.number().min(0, 'Mínimo 0').max(50, 'Máximo 50'),
-  coverageNight: z.number().min(0, 'Mínimo 0').max(50, 'Máximo 50'),
+  name: z.string().min(1, "El nombre es obligatorio").max(50, "Máximo 50 caracteres"),
+  costCenterId: z.string().min(1, "Selecciona un lugar de trabajo"),
+  coverageMorning: z.number().min(0, "Mínimo 0").max(50, "Máximo 50"),
+  coverageAfternoon: z.number().min(0, "Mínimo 0").max(50, "Máximo 50"),
+  coverageNight: z.number().min(0, "Mínimo 0").max(50, "Máximo 50"),
   active: z.boolean(),
-})
+});
 
-type ZoneFormValues = z.infer<typeof zoneFormSchema>
+type ZoneFormValues = z.infer<typeof zoneFormSchema>;
 
 export function ZoneDialog() {
-  const {
-    isZoneDialogOpen,
-    selectedZone,
-    costCenters,
-    closeZoneDialog,
-    createZone,
-    updateZone,
-  } = useShiftsStore()
+  const { isZoneDialogOpen, selectedZone, costCenters, closeZoneDialog, createZone, updateZone } = useShiftsStore();
 
-  const isEditing = !!selectedZone
+  const isEditing = !!selectedZone;
 
   const form = useForm<ZoneFormValues>({
     resolver: zodResolver(zoneFormSchema),
     defaultValues: {
-      name: '',
-      costCenterId: '',
+      name: "",
+      costCenterId: "",
       coverageMorning: 1,
       coverageAfternoon: 1,
       coverageNight: 0,
       active: true,
     },
-  })
+  });
 
   // Actualizar formulario cuando cambie selectedZone
   useEffect(() => {
@@ -69,19 +72,19 @@ export function ZoneDialog() {
         coverageAfternoon: selectedZone.requiredCoverage.afternoon,
         coverageNight: selectedZone.requiredCoverage.night,
         active: selectedZone.active,
-      })
+      });
     } else {
       // Modo creación limpio
       form.reset({
-        name: '',
-        costCenterId: '',
+        name: "",
+        costCenterId: "",
         coverageMorning: 1,
         coverageAfternoon: 1,
         coverageNight: 0,
         active: true,
-      })
+      });
     }
-  }, [selectedZone, form])
+  }, [selectedZone, form]);
 
   // Submit del formulario
   const onSubmit = async (data: ZoneFormValues) => {
@@ -94,34 +97,32 @@ export function ZoneDialog() {
         night: data.coverageNight,
       },
       active: data.active,
-    }
+    };
 
     if (isEditing) {
-      await updateZone(selectedZone.id, zoneInput)
+      await updateZone(selectedZone.id, zoneInput);
     } else {
-      await createZone(zoneInput)
+      await createZone(zoneInput);
     }
 
     // El store cierra el diálogo automáticamente después de crear/actualizar
-  }
+  };
 
   // Calcular cobertura total
-  const coverageMorning = form.watch('coverageMorning')
-  const coverageAfternoon = form.watch('coverageAfternoon')
-  const coverageNight = form.watch('coverageNight')
-  const totalCoverage = coverageMorning + coverageAfternoon + coverageNight
+  const coverageMorning = form.watch("coverageMorning");
+  const coverageAfternoon = form.watch("coverageAfternoon");
+  const coverageNight = form.watch("coverageNight");
+  const totalCoverage = coverageMorning + coverageAfternoon + coverageNight;
 
   return (
     <Dialog open={isZoneDialogOpen} onOpenChange={closeZoneDialog}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[550px]">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? 'Editar Zona' : 'Nueva Zona de Trabajo'}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Zona" : "Nueva Zona de Trabajo"}</DialogTitle>
           <DialogDescription>
             {isEditing
-              ? 'Modifica los datos de la zona de trabajo.'
-              : 'Crea una nueva zona de trabajo dentro de un lugar (restaurante, hotel, etc.).'}
+              ? "Modifica los datos de la zona de trabajo."
+              : "Crea una nueva zona de trabajo dentro de un lugar (restaurante, hotel, etc.)."}
           </DialogDescription>
         </DialogHeader>
 
@@ -137,9 +138,7 @@ export function ZoneDialog() {
                   <FormControl>
                     <Input placeholder="Ej: Cocina, Barra, Recepción..." {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Nombre descriptivo de la zona de trabajo
-                  </FormDescription>
+                  <FormDescription>Nombre descriptivo de la zona de trabajo</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -171,9 +170,7 @@ export function ZoneDialog() {
                         ))}
                     </SelectContent>
                   </Select>
-                  <FormDescription>
-                    Restaurante, hotel u otro centro de coste
-                  </FormDescription>
+                  <FormDescription>Restaurante, hotel u otro centro de coste</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -265,10 +262,10 @@ export function ZoneDialog() {
               </div>
 
               {/* Resumen de cobertura */}
-              <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2">
+              <div className="bg-muted/30 flex items-center justify-between rounded-lg border px-4 py-2">
                 <span className="text-sm font-medium">Cobertura total diaria:</span>
                 <Badge variant="secondary" className="text-base">
-                  {totalCoverage} {totalCoverage === 1 ? 'persona' : 'personas'}
+                  {totalCoverage} {totalCoverage === 1 ? "persona" : "personas"}
                 </Badge>
               </div>
             </div>
@@ -281,38 +278,27 @@ export function ZoneDialog() {
                 <FormItem className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Zona Activa</FormLabel>
-                    <FormDescription>
-                      Las zonas inactivas no aparecerán al crear turnos
-                    </FormDescription>
+                    <FormDescription>Las zonas inactivas no aparecerán al crear turnos</FormDescription>
                   </div>
                   <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
                 </FormItem>
               )}
             />
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeZoneDialog}
-              >
+              <Button type="button" variant="outline" onClick={closeZoneDialog}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEditing ? 'Actualizar Zona' : 'Crear Zona'}
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? "Actualizar Zona" : "Crear Zona"}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

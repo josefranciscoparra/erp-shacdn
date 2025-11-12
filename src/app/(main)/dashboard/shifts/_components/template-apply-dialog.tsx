@@ -4,52 +4,64 @@
  * Permite seleccionar una plantilla, empleados, rango de fechas y generar turnos automáticamente.
  */
 
-'use client'
+"use client";
 
-import { useEffect, useState, useMemo } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Checkbox } from '@/components/ui/checkbox'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Calendar as CalendarIcon, Users, AlertTriangle, CheckCircle2, Loader2, Play } from 'lucide-react'
-import { useShiftsStore } from '../_store/shifts-store'
-import type { ApplyTemplateInput, ShiftTemplate, EmployeeShift } from '../_lib/types'
-import { formatDateISO } from '../_lib/shift-utils'
-import { differenceInDays, parseISO, addDays } from 'date-fns'
-import { format } from 'date-fns'
-import { es } from 'date-fns/locale'
+import { useEffect, useState, useMemo } from "react";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { differenceInDays, parseISO, addDays } from "date-fns";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Calendar as CalendarIcon, Users, AlertTriangle, CheckCircle2, Loader2, Play } from "lucide-react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+
+import { formatDateISO } from "../_lib/shift-utils";
+import type { ApplyTemplateInput, ShiftTemplate, EmployeeShift } from "../_lib/types";
+import { useShiftsStore } from "../_store/shifts-store";
 
 // Schema de validación
-const applyTemplateSchema = z.object({
-  templateId: z.string().min(1, 'Selecciona una plantilla'),
-  employeeIds: z.array(z.string()).min(1, 'Selecciona al menos un empleado'),
-  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-  costCenterId: z.string().min(1, 'Selecciona un lugar'),
-  zoneId: z.string().min(1, 'Selecciona una zona'),
-  initialGroup: z.number().min(0, 'Grupo inicial debe ser mayor o igual a 0'),
-}).refine(
-  (data) => {
-    const from = parseISO(data.dateFrom)
-    const to = parseISO(data.dateTo)
-    return to >= from
-  },
-  {
-    message: 'La fecha de fin debe ser posterior a la fecha de inicio',
-    path: ['dateTo'],
-  }
-)
+const applyTemplateSchema = z
+  .object({
+    templateId: z.string().min(1, "Selecciona una plantilla"),
+    employeeIds: z.array(z.string()).min(1, "Selecciona al menos un empleado"),
+    dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido"),
+    dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido"),
+    costCenterId: z.string().min(1, "Selecciona un lugar"),
+    zoneId: z.string().min(1, "Selecciona una zona"),
+    initialGroup: z.number().min(0, "Grupo inicial debe ser mayor o igual a 0"),
+  })
+  .refine(
+    (data) => {
+      const from = parseISO(data.dateFrom);
+      const to = parseISO(data.dateTo);
+      return to >= from;
+    },
+    {
+      message: "La fecha de fin debe ser posterior a la fecha de inicio",
+      path: ["dateTo"],
+    },
+  );
 
-type ApplyTemplateFormValues = z.infer<typeof applyTemplateSchema>
+type ApplyTemplateFormValues = z.infer<typeof applyTemplateSchema>;
 
 export function TemplateApplyDialog() {
   const {
@@ -61,108 +73,106 @@ export function TemplateApplyDialog() {
     zones,
     closeTemplateApplyDialog,
     applyTemplate,
-  } = useShiftsStore()
+  } = useShiftsStore();
 
-  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([])
-  const [previewShiftsCount, setPreviewShiftsCount] = useState(0)
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [previewShiftsCount, setPreviewShiftsCount] = useState(0);
 
   const form = useForm<ApplyTemplateFormValues>({
     resolver: zodResolver(applyTemplateSchema),
     defaultValues: {
-      templateId: '',
+      templateId: "",
       employeeIds: [],
       dateFrom: formatDateISO(new Date()),
       dateTo: formatDateISO(addDays(new Date(), 30)),
-      costCenterId: '',
-      zoneId: '',
+      costCenterId: "",
+      zoneId: "",
       initialGroup: 0,
     },
-  })
+  });
 
   // Resetear formulario cuando se abre el dialog
   useEffect(() => {
     if (isTemplateApplyDialogOpen) {
       form.reset({
-        templateId: selectedTemplate?.id ?? '',
+        templateId: selectedTemplate?.id ?? "",
         employeeIds: [],
         dateFrom: formatDateISO(new Date()),
         dateTo: formatDateISO(addDays(new Date(), 30)),
-        costCenterId: '',
-        zoneId: '',
+        costCenterId: "",
+        zoneId: "",
         initialGroup: 0,
-      })
-      setSelectedEmployees([])
+      });
+      setSelectedEmployees([]);
     }
-  }, [isTemplateApplyDialogOpen, selectedTemplate, form])
+  }, [isTemplateApplyDialogOpen, selectedTemplate, form]);
 
   // Plantilla seleccionada
-  const watchedTemplateId = form.watch('templateId')
-  const currentTemplate = templates.find((t) => t.id === watchedTemplateId)
+  const watchedTemplateId = form.watch("templateId");
+  const currentTemplate = templates.find((t) => t.id === watchedTemplateId);
 
   // Filtrar empleados que usan sistema de turnos
   const availableEmployees = useMemo(() => {
-    return employees.filter((e) => e.usesShiftSystem)
-  }, [employees])
+    return employees.filter((e) => e.usesShiftSystem);
+  }, [employees]);
 
   // Filtrar zonas por lugar seleccionado
-  const selectedCostCenterId = form.watch('costCenterId')
+  const selectedCostCenterId = form.watch("costCenterId");
   const filteredZones = selectedCostCenterId
     ? zones.filter((z) => z.costCenterId === selectedCostCenterId && z.active)
-    : []
+    : [];
 
   // Calcular preview de turnos a crear
-  const dateFrom = form.watch('dateFrom')
-  const dateTo = form.watch('dateTo')
-  const employeeIdsCount = form.watch('employeeIds').length
+  const dateFrom = form.watch("dateFrom");
+  const dateTo = form.watch("dateTo");
+  const employeeIdsCount = form.watch("employeeIds").length;
 
   useEffect(() => {
     if (dateFrom && dateTo && employeeIdsCount > 0 && currentTemplate) {
-      const from = parseISO(dateFrom)
-      const to = parseISO(dateTo)
-      const days = differenceInDays(to, from) + 1
+      const from = parseISO(dateFrom);
+      const to = parseISO(dateTo);
+      const days = differenceInDays(to, from) + 1;
 
       // Calcular turnos aproximados (días × empleados / días del patrón)
-      const patternLength = currentTemplate.pattern.length
-      const shiftsPerEmployee = days
-      const totalShifts = shiftsPerEmployee * employeeIdsCount
+      const patternLength = currentTemplate.pattern.length;
+      const shiftsPerEmployee = days;
+      const totalShifts = shiftsPerEmployee * employeeIdsCount;
 
-      setPreviewShiftsCount(totalShifts)
+      setPreviewShiftsCount(totalShifts);
     } else {
-      setPreviewShiftsCount(0)
+      setPreviewShiftsCount(0);
     }
-  }, [dateFrom, dateTo, employeeIdsCount, currentTemplate])
+  }, [dateFrom, dateTo, employeeIdsCount, currentTemplate]);
 
   // Handler para cambiar selección de empleados
   const handleToggleEmployee = (employeeId: string) => {
-    const current = form.getValues('employeeIds')
-    const updated = current.includes(employeeId)
-      ? current.filter((id) => id !== employeeId)
-      : [...current, employeeId]
+    const current = form.getValues("employeeIds");
+    const updated = current.includes(employeeId) ? current.filter((id) => id !== employeeId) : [...current, employeeId];
 
-    form.setValue('employeeIds', updated)
-    setSelectedEmployees(updated)
-  }
+    form.setValue("employeeIds", updated);
+    setSelectedEmployees(updated);
+  };
 
   const handleSelectAllEmployees = () => {
-    const allIds = availableEmployees.map((e) => e.id)
-    form.setValue('employeeIds', allIds)
-    setSelectedEmployees(allIds)
-  }
+    const allIds = availableEmployees.map((e) => e.id);
+    form.setValue("employeeIds", allIds);
+    setSelectedEmployees(allIds);
+  };
 
   const handleDeselectAllEmployees = () => {
-    form.setValue('employeeIds', [])
-    setSelectedEmployees([])
-  }
+    form.setValue("employeeIds", []);
+    setSelectedEmployees([]);
+  };
 
   // Handler para cambio de lugar (resetear zona si no es válida)
   const handleCostCenterChange = (value: string) => {
-    form.setValue('costCenterId', value)
-    const currentZoneId = form.getValues('zoneId')
-    const isZoneValid = filteredZones.some((z) => z.id === currentZoneId)
+    form.setValue("costCenterId", value);
+    const currentZoneId = form.getValues("zoneId");
+    const isZoneValid = filteredZones.some((z) => z.id === currentZoneId);
     if (!isZoneValid) {
-      form.setValue('zoneId', '')
+      form.setValue("zoneId", "");
     }
-  }
+  };
 
   // Submit del formulario
   const onSubmit = async (data: ApplyTemplateFormValues) => {
@@ -174,11 +184,11 @@ export function TemplateApplyDialog() {
       costCenterId: data.costCenterId,
       zoneId: data.zoneId,
       initialGroup: data.initialGroup,
-    }
+    };
 
-    await applyTemplate(input)
+    await applyTemplate(input);
     // El store cierra el diálogo automáticamente después de aplicar
-  }
+  };
 
   return (
     <Dialog open={isTemplateApplyDialogOpen} onOpenChange={closeTemplateApplyDialog}>
@@ -215,11 +225,7 @@ export function TemplateApplyDialog() {
                         ))}
                     </SelectContent>
                   </Select>
-                  {currentTemplate && (
-                    <FormDescription>
-                      Patrón: {currentTemplate.pattern.join(' → ')}
-                    </FormDescription>
-                  )}
+                  {currentTemplate && <FormDescription>Patrón: {currentTemplate.pattern.join(" → ")}</FormDescription>}
                   <FormMessage />
                 </FormItem>
               )}
@@ -237,20 +243,10 @@ export function TemplateApplyDialog() {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAllEmployees}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={handleSelectAllEmployees}>
                     Todos
                   </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleDeselectAllEmployees}
-                  >
+                  <Button type="button" variant="outline" size="sm" onClick={handleDeselectAllEmployees}>
                     Ninguno
                   </Button>
                 </div>
@@ -259,10 +255,7 @@ export function TemplateApplyDialog() {
               <ScrollArea className="h-[200px] rounded-lg border p-3">
                 <div className="space-y-2">
                   {availableEmployees.map((employee) => (
-                    <div
-                      key={employee.id}
-                      className="flex items-center space-x-3 rounded-lg p-2 hover:bg-muted/50"
-                    >
+                    <div key={employee.id} className="hover:bg-muted/50 flex items-center space-x-3 rounded-lg p-2">
                       <Checkbox
                         checked={selectedEmployees.includes(employee.id)}
                         onCheckedChange={() => handleToggleEmployee(employee.id)}
@@ -271,9 +264,7 @@ export function TemplateApplyDialog() {
                         <p className="text-sm font-medium">
                           {employee.firstName} {employee.lastName}
                         </p>
-                        <p className="text-muted-foreground text-xs">
-                          {employee.contractHours}h/semana
-                        </p>
+                        <p className="text-muted-foreground text-xs">{employee.contractHours}h/semana</p>
                       </div>
                     </div>
                   ))}
@@ -284,7 +275,8 @@ export function TemplateApplyDialog() {
                 <div className="flex items-center gap-2">
                   <Users className="text-muted-foreground h-4 w-4" />
                   <span className="text-sm font-medium">
-                    {selectedEmployees.length} {selectedEmployees.length === 1 ? 'empleado seleccionado' : 'empleados seleccionados'}
+                    {selectedEmployees.length}{" "}
+                    {selectedEmployees.length === 1 ? "empleado seleccionado" : "empleados seleccionados"}
                   </span>
                 </div>
               )}
@@ -364,11 +356,7 @@ export function TemplateApplyDialog() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Zona</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={filteredZones.length === 0}
-                    >
+                    <Select onValueChange={field.onChange} value={field.value} disabled={filteredZones.length === 0}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona una zona" />
@@ -382,11 +370,7 @@ export function TemplateApplyDialog() {
                         ))}
                       </SelectContent>
                     </Select>
-                    {filteredZones.length === 0 && (
-                      <FormDescription>
-                        Selecciona primero un lugar
-                      </FormDescription>
-                    )}
+                    {filteredZones.length === 0 && <FormDescription>Selecciona primero un lugar</FormDescription>}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -421,10 +405,11 @@ export function TemplateApplyDialog() {
             {/* Preview de turnos a crear */}
             {previewShiftsCount > 0 && (
               <Alert variant="default" className="border-primary/50 bg-primary/5">
-                <CheckCircle2 className="h-4 w-4 text-primary" />
+                <CheckCircle2 className="text-primary h-4 w-4" />
                 <AlertDescription className="text-sm">
-                  <strong>Preview:</strong> Se crearán aproximadamente <strong>{previewShiftsCount}</strong> turnos
-                  para {selectedEmployees.length} {selectedEmployees.length === 1 ? 'empleado' : 'empleados'} durante el período seleccionado.
+                  <strong>Preview:</strong> Se crearán aproximadamente <strong>{previewShiftsCount}</strong> turnos para{" "}
+                  {selectedEmployees.length} {selectedEmployees.length === 1 ? "empleado" : "empleados"} durante el
+                  período seleccionado.
                 </AlertDescription>
               </Alert>
             )}
@@ -433,22 +418,17 @@ export function TemplateApplyDialog() {
             <Alert variant="default" className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
               <AlertDescription className="text-sm text-amber-800 dark:text-amber-300">
-                ⚠️ <strong>Mock:</strong> En el sistema real, aquí se validarán conflictos, ausencias y restricciones antes de crear los turnos.
+                ⚠️ <strong>Mock:</strong> En el sistema real, aquí se validarán conflictos, ausencias y restricciones
+                antes de crear los turnos.
               </AlertDescription>
             </Alert>
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeTemplateApplyDialog}
-              >
+              <Button type="button" variant="outline" onClick={closeTemplateApplyDialog}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting || previewShiftsCount === 0}>
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 <Play className="mr-2 h-4 w-4" />
                 Aplicar Plantilla
               </Button>
@@ -457,5 +437,5 @@ export function TemplateApplyDialog() {
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

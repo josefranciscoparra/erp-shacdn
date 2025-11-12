@@ -5,16 +5,18 @@
  * Incluye navegación de semana/mes.
  */
 
-'use client'
+"use client";
 
-import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { useShiftsStore } from '../_store/shifts-store'
-import { formatWeekRange } from '../_lib/shift-utils'
-import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+
+import { formatWeekRange } from "../_lib/shift-utils";
+import { useShiftsStore } from "../_store/shifts-store";
 
 export function ShiftsFiltersBar() {
   const {
@@ -27,14 +29,12 @@ export function ShiftsFiltersBar() {
     goToPreviousWeek,
     goToNextWeek,
     goToToday,
-  } = useShiftsStore()
+  } = useShiftsStore();
 
-  const activeFiltersCount = Object.values(filters).filter((v) => v !== undefined && v !== '').length
+  const activeFiltersCount = Object.values(filters).filter((v) => v !== undefined && v !== "").length;
 
   // Filtrar zonas por lugar seleccionado
-  const filteredZones = filters.costCenterId
-    ? zones.filter((z) => z.costCenterId === filters.costCenterId)
-    : zones
+  const filteredZones = filters.costCenterId ? zones.filter((z) => z.costCenterId === filters.costCenterId) : zones;
 
   return (
     <div className="space-y-4">
@@ -45,7 +45,7 @@ export function ShiftsFiltersBar() {
             <ChevronLeft className="h-4 w-4" />
           </Button>
 
-          <div className="flex items-center gap-2 min-w-[200px] justify-center">
+          <div className="flex min-w-[200px] items-center justify-center gap-2">
             <CalendarIcon className="text-muted-foreground h-4 w-4" />
             <span className="text-sm font-semibold">{formatWeekRange(currentWeekStart)}</span>
           </div>
@@ -63,14 +63,10 @@ export function ShiftsFiltersBar() {
         {activeFiltersCount > 0 && (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="font-medium">
-              {activeFiltersCount} {activeFiltersCount === 1 ? 'filtro' : 'filtros'} activo{activeFiltersCount === 1 ? '' : 's'}
+              {activeFiltersCount} {activeFiltersCount === 1 ? "filtro" : "filtros"} activo
+              {activeFiltersCount === 1 ? "" : "s"}
             </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              className="h-7"
-            >
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7">
               <X className="mr-1 h-3 w-3" />
               Limpiar
             </Button>
@@ -84,12 +80,12 @@ export function ShiftsFiltersBar() {
         <div className="space-y-2">
           <label className="text-muted-foreground text-xs font-medium">Lugar</label>
           <Select
-            value={filters.costCenterId ?? 'all'}
+            value={filters.costCenterId ?? "all"}
             onValueChange={(value) => {
               setFilters({
-                costCenterId: value === 'all' ? undefined : value,
+                costCenterId: value === "all" ? undefined : value,
                 zoneId: undefined, // Reset zona cuando cambia lugar
-              })
+              });
             }}
           >
             <SelectTrigger>
@@ -110,10 +106,8 @@ export function ShiftsFiltersBar() {
         <div className="space-y-2">
           <label className="text-muted-foreground text-xs font-medium">Zona</label>
           <Select
-            value={filters.zoneId ?? 'all'}
-            onValueChange={(value) =>
-              setFilters({ zoneId: value === 'all' ? undefined : value })
-            }
+            value={filters.zoneId ?? "all"}
+            onValueChange={(value) => setFilters({ zoneId: value === "all" ? undefined : value })}
             disabled={filteredZones.length === 0}
           >
             <SelectTrigger>
@@ -135,7 +129,7 @@ export function ShiftsFiltersBar() {
           <label className="text-muted-foreground text-xs font-medium">Rol/Descripción</label>
           <Input
             placeholder="Filtrar por rol..."
-            value={filters.role ?? ''}
+            value={filters.role ?? ""}
             onChange={(e) => setFilters({ role: e.target.value || undefined })}
             className="h-10"
           />
@@ -145,10 +139,8 @@ export function ShiftsFiltersBar() {
         <div className="space-y-2">
           <label className="text-muted-foreground text-xs font-medium">Estado</label>
           <Select
-            value={filters.status ?? 'all'}
-            onValueChange={(value) =>
-              setFilters({ status: value === 'all' ? undefined : (value as any) })
-            }
+            value={filters.status ?? "all"}
+            onValueChange={(value) => setFilters({ status: value === "all" ? undefined : (value as any) })}
           >
             <SelectTrigger>
               <SelectValue placeholder="Todos los estados" />
@@ -163,5 +155,5 @@ export function ShiftsFiltersBar() {
         </div>
       </div>
     </div>
-  )
+  );
 }

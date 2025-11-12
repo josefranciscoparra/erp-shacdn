@@ -6,15 +6,17 @@
  * - Modo: Por Empleado / Por Áreas
  */
 
-'use client'
+"use client";
 
-import { Calendar, CalendarDays, Users, Building2 } from 'lucide-react'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { useShiftsStore } from '../_store/shifts-store'
-import type { CalendarView, CalendarMode } from '../_lib/types'
+import { Calendar, CalendarDays, Users, Building2 } from "lucide-react";
+
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+
+import type { CalendarView, CalendarMode } from "../_lib/types";
+import { useShiftsStore } from "../_store/shifts-store";
 
 export function ShiftsViewSelector() {
-  const { calendarView, calendarMode, setCalendarView, setCalendarMode } = useShiftsStore()
+  const { calendarView, calendarMode, setCalendarView, setCalendarMode } = useShiftsStore();
 
   return (
     <div className="flex flex-wrap items-center gap-4">
@@ -25,7 +27,7 @@ export function ShiftsViewSelector() {
           type="single"
           value={calendarView}
           onValueChange={(value) => {
-            if (value) setCalendarView(value as CalendarView)
+            if (value) setCalendarView(value as CalendarView);
           }}
           className="border"
         >
@@ -47,7 +49,7 @@ export function ShiftsViewSelector() {
           type="single"
           value={calendarMode}
           onValueChange={(value) => {
-            if (value) setCalendarMode(value as CalendarMode)
+            if (value) setCalendarMode(value as CalendarMode);
           }}
           className="border"
         >
@@ -62,5 +64,5 @@ export function ShiftsViewSelector() {
         </ToggleGroup>
       </div>
     </div>
-  )
+  );
 }

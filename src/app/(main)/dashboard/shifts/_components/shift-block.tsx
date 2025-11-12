@@ -5,49 +5,57 @@
  * Soporta drag & drop y muestra información relevante.
  */
 
-'use client'
+"use client";
 
-import { useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { AlertTriangle, Clock } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import type { Shift } from '../_lib/types'
-import { formatShiftTime, formatDuration, calculateDuration, getShiftStatusColor, getShiftStatusBadgeVariant, getShiftStatusText } from '../_lib/shift-utils'
-import { cn } from '@/lib/utils'
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { AlertTriangle, Clock } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+import {
+  formatShiftTime,
+  formatDuration,
+  calculateDuration,
+  getShiftStatusColor,
+  getShiftStatusBadgeVariant,
+  getShiftStatusText,
+} from "../_lib/shift-utils";
+import type { Shift } from "../_lib/types";
 
 interface ShiftBlockProps {
-  shift: Shift
-  onClick: () => void
-  isDraggable?: boolean
-  showEmployeeName?: boolean // Para vista por áreas
-  employeeName?: string
+  shift: Shift;
+  onClick: () => void;
+  isDraggable?: boolean;
+  showEmployeeName?: boolean; // Para vista por áreas
+  employeeName?: string;
 }
 
-export function ShiftBlock({ shift, onClick, isDraggable = true, showEmployeeName = false, employeeName }: ShiftBlockProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+export function ShiftBlock({
+  shift,
+  onClick,
+  isDraggable = true,
+  showEmployeeName = false,
+  employeeName,
+}: ShiftBlockProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: shift.id,
     disabled: !isDraggable,
     data: {
-      type: 'shift',
+      type: "shift",
       shift,
     },
-  })
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-  }
+  };
 
-  const duration = calculateDuration(shift.startTime, shift.endTime)
-  const isConflict = shift.status === 'conflict'
+  const duration = calculateDuration(shift.startTime, shift.endTime);
+  const isConflict = shift.status === "conflict";
 
   return (
     <TooltipProvider>
@@ -59,14 +67,14 @@ export function ShiftBlock({ shift, onClick, isDraggable = true, showEmployeeNam
             {...attributes}
             {...listeners}
             onClick={(e) => {
-              e.stopPropagation()
-              onClick()
+              e.stopPropagation();
+              onClick();
             }}
             className={cn(
-              'group relative cursor-pointer rounded-md border-l-4 p-2 shadow-sm transition-all hover:shadow-md',
+              "group relative cursor-pointer rounded-md border-l-4 p-2 shadow-sm transition-all hover:shadow-md",
               getShiftStatusColor(shift.status),
-              isDragging && 'opacity-50 ring-2 ring-primary',
-              !isDraggable && 'cursor-default',
+              isDragging && "ring-primary opacity-50 ring-2",
+              !isDraggable && "cursor-default",
             )}
           >
             {/* Header: Tiempo + Badge estado */}
@@ -76,9 +84,7 @@ export function ShiftBlock({ shift, onClick, isDraggable = true, showEmployeeNam
                 <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
               </div>
 
-              {isConflict && (
-                <AlertTriangle className="text-destructive h-4 w-4" />
-              )}
+              {isConflict && <AlertTriangle className="text-destructive h-4 w-4" />}
             </div>
 
             {/* Nombre empleado (si aplica) */}
@@ -87,19 +93,14 @@ export function ShiftBlock({ shift, onClick, isDraggable = true, showEmployeeNam
             )}
 
             {/* Rol o zona */}
-            {shift.role && (
-              <p className="text-muted-foreground line-clamp-1 text-xs">{shift.role}</p>
-            )}
+            {shift.role && <p className="text-muted-foreground line-clamp-1 text-xs">{shift.role}</p>}
 
             {/* Duración */}
             <p className="text-muted-foreground mt-1 text-xs">{formatDuration(duration)}</p>
 
             {/* Badge de estado (solo si no es published) */}
-            {shift.status !== 'published' && (
-              <Badge
-                variant={getShiftStatusBadgeVariant(shift.status)}
-                className="absolute top-1 right-1 text-xs"
-              >
+            {shift.status !== "published" && (
+              <Badge variant={getShiftStatusBadgeVariant(shift.status)} className="absolute top-1 right-1 text-xs">
                 {getShiftStatusText(shift.status)}
               </Badge>
             )}
@@ -123,32 +124,28 @@ export function ShiftBlock({ shift, onClick, isDraggable = true, showEmployeeNam
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }
 
 /**
  * Placeholder para celda vacía (donde se puede soltar un turno)
  */
 interface ShiftDropZoneProps {
-  isOver: boolean
-  canDrop: boolean
+  isOver: boolean;
+  canDrop: boolean;
 }
 
 export function ShiftDropZone({ isOver, canDrop }: ShiftDropZoneProps) {
   return (
     <div
       className={cn(
-        'flex h-full min-h-[60px] items-center justify-center rounded-md border-2 border-dashed transition-colors',
-        isOver && canDrop && 'border-primary bg-primary/10',
-        isOver && !canDrop && 'border-destructive bg-destructive/10',
-        !isOver && 'border-transparent',
+        "flex h-full min-h-[60px] items-center justify-center rounded-md border-2 border-dashed transition-colors",
+        isOver && canDrop && "border-primary bg-primary/10",
+        isOver && !canDrop && "border-destructive bg-destructive/10",
+        !isOver && "border-transparent",
       )}
     >
-      {isOver && (
-        <p className="text-muted-foreground text-xs">
-          {canDrop ? 'Soltar aquí' : 'No permitido'}
-        </p>
-      )}
+      {isOver && <p className="text-muted-foreground text-xs">{canDrop ? "Soltar aquí" : "No permitido"}</p>}
     </div>
-  )
+  );
 }

@@ -4,53 +4,65 @@
  * Formulario completo con validaciones en tiempo real y warnings visuales.
  */
 
-'use client'
+"use client";
 
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import * as z from 'zod'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Badge } from '@/components/ui/badge'
-import { AlertTriangle, Clock, Loader2 } from 'lucide-react'
-import { useShiftsStore } from '../_store/shifts-store'
-import type { Shift, ShiftInput } from '../_lib/types'
-import { formatDateISO, calculateDuration, formatDuration } from '../_lib/shift-utils'
+import { useEffect } from "react";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
+import { formatDateISO, calculateDuration, formatDuration } from "../_lib/shift-utils";
+import type { Shift, ShiftInput } from "../_lib/types";
+import { useShiftsStore } from "../_store/shifts-store";
 
 // Schema de validación con Zod
-const shiftFormSchema = z.object({
-  employeeId: z.string().min(1, 'Selecciona un empleado'),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido'),
-  startTime: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido (HH:mm)'),
-  endTime: z.string().regex(/^\d{2}:\d{2}$/, 'Formato de hora inválido (HH:mm)'),
-  costCenterId: z.string().min(1, 'Selecciona un lugar'),
-  zoneId: z.string().min(1, 'Selecciona una zona'),
-  role: z.string().optional(),
-  notes: z.string().optional(),
-}).refine(
-  (data) => {
-    // Validar que endTime sea posterior a startTime (excepto si cruza medianoche)
-    const [startH, startM] = data.startTime.split(':').map(Number)
-    const [endH, endM] = data.endTime.split(':').map(Number)
-    const startMinutes = startH * 60 + startM
-    const endMinutes = endH * 60 + endM
+const shiftFormSchema = z
+  .object({
+    employeeId: z.string().min(1, "Selecciona un empleado"),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Formato de fecha inválido"),
+    startTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:mm)"),
+    endTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:mm)"),
+    costCenterId: z.string().min(1, "Selecciona un lugar"),
+    zoneId: z.string().min(1, "Selecciona una zona"),
+    role: z.string().optional(),
+    notes: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Validar que endTime sea posterior a startTime (excepto si cruza medianoche)
+      const [startH, startM] = data.startTime.split(":").map(Number);
+      const [endH, endM] = data.endTime.split(":").map(Number);
+      const startMinutes = startH * 60 + startM;
+      const endMinutes = endH * 60 + endM;
 
-    // Permitir turnos que cruzan medianoche (ej: 22:00-06:00)
-    return endMinutes !== startMinutes
-  },
-  {
-    message: 'La hora de fin debe ser diferente a la de inicio',
-    path: ['endTime'],
-  }
-)
+      // Permitir turnos que cruzan medianoche (ej: 22:00-06:00)
+      return endMinutes !== startMinutes;
+    },
+    {
+      message: "La hora de fin debe ser diferente a la de inicio",
+      path: ["endTime"],
+    },
+  );
 
-type ShiftFormValues = z.infer<typeof shiftFormSchema>
+type ShiftFormValues = z.infer<typeof shiftFormSchema>;
 
 export function ShiftDialog() {
   const {
@@ -63,23 +75,23 @@ export function ShiftDialog() {
     closeShiftDialog,
     createShift,
     updateShift,
-  } = useShiftsStore()
+  } = useShiftsStore();
 
-  const isEditing = !!selectedShift
+  const isEditing = !!selectedShift;
 
   const form = useForm<ShiftFormValues>({
     resolver: zodResolver(shiftFormSchema),
     defaultValues: {
-      employeeId: '',
+      employeeId: "",
       date: formatDateISO(new Date()),
-      startTime: '08:00',
-      endTime: '16:00',
-      costCenterId: '',
-      zoneId: '',
-      role: '',
-      notes: '',
+      startTime: "08:00",
+      endTime: "16:00",
+      costCenterId: "",
+      zoneId: "",
+      role: "",
+      notes: "",
     },
-  })
+  });
 
   // Actualizar formulario cuando cambie selectedShift o shiftDialogPrefill
   useEffect(() => {
@@ -92,56 +104,56 @@ export function ShiftDialog() {
         endTime: selectedShift.endTime,
         costCenterId: selectedShift.costCenterId,
         zoneId: selectedShift.zoneId,
-        role: selectedShift.role ?? '',
-        notes: selectedShift.notes ?? '',
-      })
+        role: selectedShift.role ?? "",
+        notes: selectedShift.notes ?? "",
+      });
     } else if (shiftDialogPrefill) {
       // Modo creación con datos pre-rellenados
       form.reset({
-        employeeId: shiftDialogPrefill.employeeId ?? '',
+        employeeId: shiftDialogPrefill.employeeId ?? "",
         date: shiftDialogPrefill.date ?? formatDateISO(new Date()),
-        startTime: shiftDialogPrefill.startTime ?? '08:00',
-        endTime: shiftDialogPrefill.endTime ?? '16:00',
-        costCenterId: shiftDialogPrefill.costCenterId ?? '',
-        zoneId: shiftDialogPrefill.zoneId ?? '',
-        role: shiftDialogPrefill.role ?? '',
-        notes: shiftDialogPrefill.notes ?? '',
-      })
+        startTime: shiftDialogPrefill.startTime ?? "08:00",
+        endTime: shiftDialogPrefill.endTime ?? "16:00",
+        costCenterId: shiftDialogPrefill.costCenterId ?? "",
+        zoneId: shiftDialogPrefill.zoneId ?? "",
+        role: shiftDialogPrefill.role ?? "",
+        notes: shiftDialogPrefill.notes ?? "",
+      });
     } else {
       // Modo creación limpio
       form.reset({
-        employeeId: '',
+        employeeId: "",
         date: formatDateISO(new Date()),
-        startTime: '08:00',
-        endTime: '16:00',
-        costCenterId: '',
-        zoneId: '',
-        role: '',
-        notes: '',
-      })
+        startTime: "08:00",
+        endTime: "16:00",
+        costCenterId: "",
+        zoneId: "",
+        role: "",
+        notes: "",
+      });
     }
-  }, [selectedShift, shiftDialogPrefill, form])
+  }, [selectedShift, shiftDialogPrefill, form]);
 
   // Filtrar zonas por lugar seleccionado
-  const selectedCostCenterId = form.watch('costCenterId')
+  const selectedCostCenterId = form.watch("costCenterId");
   const filteredZones = selectedCostCenterId
     ? zones.filter((z) => z.costCenterId === selectedCostCenterId && z.active)
-    : []
+    : [];
 
   // Calcular duración del turno en tiempo real
-  const startTime = form.watch('startTime')
-  const endTime = form.watch('endTime')
-  const duration = startTime && endTime ? calculateDuration(startTime, endTime) : 0
+  const startTime = form.watch("startTime");
+  const endTime = form.watch("endTime");
+  const duration = startTime && endTime ? calculateDuration(startTime, endTime) : 0;
 
   // Manejar cambio de lugar (resetear zona si no es válida)
   const handleCostCenterChange = (value: string) => {
-    form.setValue('costCenterId', value)
-    const currentZoneId = form.getValues('zoneId')
-    const isZoneValid = filteredZones.some((z) => z.id === currentZoneId)
+    form.setValue("costCenterId", value);
+    const currentZoneId = form.getValues("zoneId");
+    const isZoneValid = filteredZones.some((z) => z.id === currentZoneId);
     if (!isZoneValid) {
-      form.setValue('zoneId', '')
+      form.setValue("zoneId", "");
     }
-  }
+  };
 
   // Submit del formulario
   const onSubmit = async (data: ShiftFormValues) => {
@@ -154,32 +166,30 @@ export function ShiftDialog() {
       zoneId: data.zoneId,
       role: data.role || undefined,
       notes: data.notes || undefined,
-    }
+    };
 
     if (isEditing) {
-      await updateShift(selectedShift.id, shiftInput)
+      await updateShift(selectedShift.id, shiftInput);
     } else {
-      await createShift(shiftInput)
+      await createShift(shiftInput);
     }
 
     // El store cierra el diálogo automáticamente después de crear/actualizar
-  }
+  };
 
   // Obtener empleado seleccionado para mostrar info
-  const selectedEmployeeId = form.watch('employeeId')
-  const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId)
+  const selectedEmployeeId = form.watch("employeeId");
+  const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId);
 
   return (
     <Dialog open={isShiftDialogOpen} onOpenChange={closeShiftDialog}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>
-            {isEditing ? 'Editar Turno' : 'Nuevo Turno'}
-          </DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Turno" : "Nuevo Turno"}</DialogTitle>
           <DialogDescription>
             {isEditing
               ? 'Modifica los datos del turno. Los cambios se guardarán al hacer clic en "Actualizar".'
-              : 'Completa los datos para crear un nuevo turno. Se guardará como borrador.'}
+              : "Completa los datos para crear un nuevo turno. Se guardará como borrador."}
           </DialogDescription>
         </DialogHeader>
 
@@ -266,11 +276,9 @@ export function ShiftDialog() {
 
             {/* Duración calculada */}
             {duration > 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">
-                  Duración: {formatDuration(duration)}
-                </span>
+              <div className="bg-muted flex items-center gap-2 rounded-lg px-3 py-2">
+                <Clock className="text-muted-foreground h-4 w-4" />
+                <span className="text-sm font-medium">Duración: {formatDuration(duration)}</span>
               </div>
             )}
 
@@ -309,11 +317,7 @@ export function ShiftDialog() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Zona</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={filteredZones.length === 0}
-                  >
+                  <Select onValueChange={field.onChange} value={field.value} disabled={filteredZones.length === 0}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona una zona" />
@@ -328,9 +332,7 @@ export function ShiftDialog() {
                     </SelectContent>
                   </Select>
                   {filteredZones.length === 0 && (
-                    <FormDescription>
-                      Selecciona primero un lugar de trabajo
-                    </FormDescription>
+                    <FormDescription>Selecciona primero un lugar de trabajo</FormDescription>
                   )}
                   <FormMessage />
                 </FormItem>
@@ -347,9 +349,7 @@ export function ShiftDialog() {
                   <FormControl>
                     <Input placeholder="Ej: Supervisor, Turno mañana..." {...field} />
                   </FormControl>
-                  <FormDescription>
-                    Descripción breve del tipo de turno o rol
-                  </FormDescription>
+                  <FormDescription>Descripción breve del tipo de turno o rol</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -387,23 +387,17 @@ export function ShiftDialog() {
             )}
 
             <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={closeShiftDialog}
-              >
+              <Button type="button" variant="outline" onClick={closeShiftDialog}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={form.formState.isSubmitting}>
-                {form.formState.isSubmitting && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                {isEditing ? 'Actualizar' : 'Crear Turno'}
+                {form.formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {isEditing ? "Actualizar" : "Crear Turno"}
               </Button>
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

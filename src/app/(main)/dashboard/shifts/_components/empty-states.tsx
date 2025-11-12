@@ -4,51 +4,52 @@
  * Muestra mensajes e iconos cuando no hay datos para mostrar.
  */
 
-'use client'
+"use client";
 
-import { Calendar, Users, FileText, Layers, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Calendar, Users, FileText, Layers, Plus } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 
 interface EmptyStateProps {
-  variant: 'shifts' | 'employees' | 'templates' | 'zones'
-  onAction?: () => void
-  actionLabel?: string
+  variant: "shifts" | "employees" | "templates" | "zones";
+  onAction?: () => void;
+  actionLabel?: string;
 }
 
 export function EmptyState({ variant, onAction, actionLabel }: EmptyStateProps) {
   const configs = {
     shifts: {
       icon: Calendar,
-      title: 'No hay turnos para mostrar',
-      description: 'Comienza creando turnos o aplicando una plantilla para organizar tu equipo',
-      defaultActionLabel: 'Crear primer turno',
+      title: "No hay turnos para mostrar",
+      description: "Comienza creando turnos o aplicando una plantilla para organizar tu equipo",
+      defaultActionLabel: "Crear primer turno",
     },
     employees: {
       icon: Users,
-      title: 'No hay empleados con sistema de turnos',
-      description: 'Activa el sistema de turnos para los empleados que necesiten horarios rotativos',
-      defaultActionLabel: 'Ver empleados',
+      title: "No hay empleados con sistema de turnos",
+      description: "Activa el sistema de turnos para los empleados que necesiten horarios rotativos",
+      defaultActionLabel: "Ver empleados",
     },
     templates: {
       icon: FileText,
-      title: 'No hay plantillas creadas',
-      description: 'Crea plantillas de turnos rotativos para aplicarlas rápidamente a tu equipo',
-      defaultActionLabel: 'Crear plantilla',
+      title: "No hay plantillas creadas",
+      description: "Crea plantillas de turnos rotativos para aplicarlas rápidamente a tu equipo",
+      defaultActionLabel: "Crear plantilla",
     },
     zones: {
       icon: Layers,
-      title: 'No hay zonas de trabajo configuradas',
-      description: 'Define las zonas de trabajo (ej: Cocina, Barra) para organizar mejor los turnos',
-      defaultActionLabel: 'Crear zona',
+      title: "No hay zonas de trabajo configuradas",
+      description: "Define las zonas de trabajo (ej: Cocina, Barra) para organizar mejor los turnos",
+      defaultActionLabel: "Crear zona",
     },
-  }
+  };
 
-  const config = configs[variant]
-  const Icon = config.icon
+  const config = configs[variant];
+  const Icon = config.icon;
 
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/10 p-12 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+    <div className="border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-12 text-center">
+      <div className="bg-muted flex h-16 w-16 items-center justify-center rounded-full">
         <Icon className="text-muted-foreground h-8 w-8" />
       </div>
 
@@ -64,20 +65,20 @@ export function EmptyState({ variant, onAction, actionLabel }: EmptyStateProps) 
         </Button>
       )}
     </div>
-  )
+  );
 }
 
 /**
  * Estado vacío para cuando hay filtros activos sin resultados
  */
 interface EmptyFiltersStateProps {
-  onClearFilters: () => void
+  onClearFilters: () => void;
 }
 
 export function EmptyFiltersState({ onClearFilters }: EmptyFiltersStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed border-muted-foreground/20 bg-muted/10 p-12 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+    <div className="border-muted-foreground/20 bg-muted/10 flex flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-12 text-center">
+      <div className="bg-muted flex h-16 w-16 items-center justify-center rounded-full">
         <Calendar className="text-muted-foreground h-8 w-8" />
       </div>
 
@@ -92,7 +93,7 @@ export function EmptyFiltersState({ onClearFilters }: EmptyFiltersStateProps) {
         Limpiar filtros
       </Button>
     </div>
-  )
+  );
 }
 
 /**
@@ -105,5 +106,5 @@ export function EmptyStateLoading() {
         <div key={i} className="bg-muted h-24 animate-pulse rounded-lg" />
       ))}
     </div>
-  )
+  );
 }
