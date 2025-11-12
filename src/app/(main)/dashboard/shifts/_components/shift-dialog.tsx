@@ -6,7 +6,7 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertTriangle, Clock, Loader2 } from "lucide-react";
@@ -16,6 +16,7 @@ import * as z from "zod";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -134,11 +135,25 @@ export function ShiftDialog() {
     }
   }, [selectedShift, shiftDialogPrefill, form]);
 
+  // Estado para checkbox de búsqueda ampliada
+  const [searchOutsideCenter, setSearchOutsideCenter] = useState(false);
+
   // Filtrar zonas por lugar seleccionado
   const selectedCostCenterId = form.watch("costCenterId");
+
+  // Resetear checkbox cuando cambia el centro
+  useEffect(() => {
+    setSearchOutsideCenter(false);
+  }, [selectedCostCenterId]);
+
   const filteredZones = selectedCostCenterId
     ? zones.filter((z) => z.costCenterId === selectedCostCenterId && z.active)
     : [];
+
+  // Filtrar empleados por centro (si hay centro seleccionado y checkbox desactivado)
+  const filteredEmployees = searchOutsideCenter || !selectedCostCenterId
+    ? employees.filter((e) => e.usesShiftSystem)
+    : employees.filter((e) => e.usesShiftSystem && e.costCenterId === selectedCostCenterId);
 
   // Calcular duración del turno en tiempo real
   const startTime = form.watch("startTime");
@@ -209,21 +224,39 @@ export function ShiftDialog() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {employees
-                        .filter((e) => e.usesShiftSystem)
-                        .map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.firstName} {employee.lastName}
-                            {employee.contractHours && (
-                              <span className="text-muted-foreground ml-2 text-xs">
-                                ({employee.contractHours}h/semana)
-                              </span>
-                            )}
-                          </SelectItem>
-                        ))}
+                      {filteredEmployees.map((employee) => (
+                        <SelectItem key={employee.id} value={employee.id}>
+                          {employee.firstName} {employee.lastName}
+                          {employee.contractHours && (
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              ({employee.contractHours}h/semana)
+                            </span>
+                          )}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                   <FormMessage />
+
+                  {/* Checkbox para buscar fuera del centro */}
+                  {selectedCostCenterId && (
+                    <div className="mt-2 flex items-center space-x-2">
+                      <Checkbox
+                        id="search-outside-center"
+                        checked={searchOutsideCenter}
+                        onCheckedChange={(checked) => setSearchOutsideCenter(checked === true)}
+                      />
+                      <label
+                        htmlFor="search-outside-center"
+                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Buscar empleados de otros centros
+                        <span className="text-muted-foreground ml-1">
+                          ({searchOutsideCenter ? employees.filter((e) => e.usesShiftSystem).length : filteredEmployees.length} disponibles)
+                        </span>
+                      </label>
+                    </div>
+                  )}
                 </FormItem>
               )}
             />
