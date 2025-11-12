@@ -81,6 +81,11 @@ export function useSidebarItems(): NavGroup[] {
           icon: CalendarDays,
         },
         {
+          title: "Mis Turnos",
+          url: "/dashboard/me/shifts",
+          icon: CalendarClock,
+        },
+        {
           title: "Mi Calendario",
           url: "/dashboard/me/calendar",
           icon: Calendar,
