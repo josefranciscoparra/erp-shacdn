@@ -36,51 +36,51 @@ interface MyShiftsState {
   setCalendarView: (view: "week" | "month") => void;
 }
 
-// MOCK: ID del empleado actual (en producción vendría del auth)
-const CURRENT_EMPLOYEE_ID = "emp_001"; // Francesc Costa
-
 /**
  * MOCK DATA: Solicitudes de cambio de turno
+ * En producción, estas se cargarían desde el backend filtradas por el empleado actual
  */
-const MOCK_CHANGE_REQUESTS: ShiftChangeRequest[] = [
-  {
-    id: "req_001",
-    shiftId: "shift_001", // Turno del lunes 10
-    requesterId: CURRENT_EMPLOYEE_ID,
-    requesterName: "Francesc Costa",
-    reason: "Cita médica urgente por la mañana",
-    status: "pending",
-    suggestedEmployeeId: "emp_002",
-    suggestedEmployeeName: "Maria García",
-    createdAt: new Date("2025-11-11T10:00:00"),
-  },
-  {
-    id: "req_002",
-    shiftId: "shift_015", // Turno anterior
-    requesterId: CURRENT_EMPLOYEE_ID,
-    requesterName: "Francesc Costa",
-    reason: "Evento familiar",
-    status: "approved",
-    reviewerId: "emp_999",
-    reviewerName: "Carlos Manager",
-    reviewNotes: "Aprobado. Maria García cubrirá el turno.",
-    createdAt: new Date("2025-11-05T14:30:00"),
-    reviewedAt: new Date("2025-11-06T09:15:00"),
-  },
-  {
-    id: "req_003",
-    shiftId: "shift_020",
-    requesterId: CURRENT_EMPLOYEE_ID,
-    requesterName: "Francesc Costa",
-    reason: "Conflicto con otro trabajo",
-    status: "rejected",
-    reviewerId: "emp_999",
-    reviewerName: "Carlos Manager",
-    reviewNotes: "No hay cobertura disponible para ese día. Lo siento.",
-    createdAt: new Date("2025-10-28T16:00:00"),
-    reviewedAt: new Date("2025-10-29T10:00:00"),
-  },
-];
+function getMockChangeRequests(employeeId: string, employeeName: string): ShiftChangeRequest[] {
+  return [
+    {
+      id: "req_001",
+      shiftId: "shift_001", // Turno del lunes 10
+      requesterId: employeeId,
+      requesterName: employeeName,
+      reason: "Cita médica urgente por la mañana",
+      status: "pending",
+      suggestedEmployeeId: "emp_002",
+      suggestedEmployeeName: "Maria García",
+      createdAt: new Date("2025-11-11T10:00:00"),
+    },
+    {
+      id: "req_002",
+      shiftId: "shift_015", // Turno anterior
+      requesterId: employeeId,
+      requesterName: employeeName,
+      reason: "Evento familiar",
+      status: "approved",
+      reviewerId: "emp_999",
+      reviewerName: "Carlos Manager",
+      reviewNotes: "Aprobado. Maria García cubrirá el turno.",
+      createdAt: new Date("2025-11-05T14:30:00"),
+      reviewedAt: new Date("2025-11-06T09:15:00"),
+    },
+    {
+      id: "req_003",
+      shiftId: "shift_020",
+      requesterId: employeeId,
+      requesterName: employeeName,
+      reason: "Conflicto con otro trabajo",
+      status: "rejected",
+      reviewerId: "emp_999",
+      reviewerName: "Carlos Manager",
+      reviewNotes: "No hay cobertura disponible para ese día. Lo siento.",
+      createdAt: new Date("2025-10-28T16:00:00"),
+      reviewedAt: new Date("2025-10-29T10:00:00"),
+    },
+  ];
+}
 
 /**
  * Store de Mis Turnos
@@ -100,8 +100,10 @@ export const useMyShiftsStore = create<MyShiftsState>((set) => ({
     // Simular API delay
     await new Promise((resolve) => setTimeout(resolve, 500));
 
+    // En producción, aquí se haría un fetch real al backend
+    // Por ahora devolvemos un array vacío ya que los MOCKS se generarán dinámicamente
     set({
-      changeRequests: MOCK_CHANGE_REQUESTS,
+      changeRequests: [],
       isLoadingRequests: false,
     });
   },
@@ -165,16 +167,3 @@ export const useMyShiftsStore = create<MyShiftsState>((set) => ({
     set({ calendarView: view });
   },
 }));
-
-/**
- * Hook para obtener el empleado actual (MOCK)
- * En producción, esto vendría del contexto de autenticación
- */
-export function useCurrentEmployee() {
-  return {
-    id: CURRENT_EMPLOYEE_ID,
-    firstName: "Francesc",
-    lastName: "Costa",
-    contractHours: 40,
-  };
-}
