@@ -103,11 +103,11 @@ export default function ShiftsPage() {
           {/* Filtros con selector de vista integrado */}
           <ShiftsFiltersBar />
 
-          {/* Navegación de semana - justo arriba del calendario */}
-          <WeekNavigator />
-
           {/* Área de calendario */}
-          <div className="rounded-lg border">
+          <div className="overflow-hidden rounded-lg border">
+            {/* Navegación de semana - sticky arriba del calendario */}
+            <WeekNavigator />
+
             {isLoading ? (
               <div className="p-6">
                 <EmptyStateLoading />
