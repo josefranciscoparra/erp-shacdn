@@ -1,12 +1,12 @@
 /**
- * Navegador de Semana
+ * Navegador de Semana (v2 - Estilo moderno sticky)
  *
- * Controles para navegar entre semanas: anterior, siguiente, hoy
+ * Controles para navegar entre semanas con diseño limpio y sticky
  */
 
 "use client";
 
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -16,24 +16,25 @@ import { useShiftsStore } from "../_store/shifts-store";
 export function WeekNavigator() {
   const { currentWeekStart, goToPreviousWeek, goToNextWeek, goToToday } = useShiftsStore();
 
+  const weekDisplay = formatWeekRange(currentWeekStart);
+
   return (
-    <div className="bg-card flex items-center justify-center gap-2 rounded-lg border p-3">
-      <Button variant="outline" size="icon" onClick={goToPreviousWeek} aria-label="Semana anterior">
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
+    <div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 border-b backdrop-blur">
+      <div className="flex items-center justify-center gap-4 py-3">
+        <Button variant="ghost" size="icon" onClick={goToPreviousWeek} aria-label="Semana anterior">
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
 
-      <div className="flex min-w-[220px] items-center justify-center gap-2">
-        <CalendarIcon className="text-muted-foreground h-4 w-4" />
-        <span className="text-sm font-semibold">{formatWeekRange(currentWeekStart)}</span>
+        <span className="text-sm font-medium">{weekDisplay}</span>
+
+        <Button variant="ghost" size="icon" onClick={goToNextWeek} aria-label="Semana siguiente">
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+
+        <Button variant="outline" size="sm" onClick={goToToday}>
+          Hoy
+        </Button>
       </div>
-
-      <Button variant="outline" size="icon" onClick={goToNextWeek} aria-label="Semana siguiente">
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-
-      <Button variant="ghost" size="sm" onClick={goToToday}>
-        Hoy
-      </Button>
     </div>
   );
 }

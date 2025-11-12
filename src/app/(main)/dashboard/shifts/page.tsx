@@ -24,9 +24,8 @@
 
 import { useEffect } from "react";
 
-import { Plus, FileText, Settings, LayoutDashboard } from "lucide-react";
+import { FileText, Settings, LayoutDashboard } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { CalendarMonthArea } from "./_components/calendar-month-area";
@@ -72,16 +71,9 @@ export default function ShiftsPage() {
   return (
     <div className="@container/main flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
-        <div>
-          <h1 className="text-foreground text-2xl font-bold">Gestión de Turnos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">Organiza los turnos rotativos de tu equipo</p>
-        </div>
-
-        <Button onClick={() => openShiftDialog()}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nuevo Turno
-        </Button>
+      <div>
+        <h1 className="text-foreground text-2xl font-bold">Gestión de Turnos</h1>
+        <p className="text-muted-foreground mt-1 text-sm">Organiza los turnos rotativos de tu equipo</p>
       </div>
 
       {/* Tabs principales */}
