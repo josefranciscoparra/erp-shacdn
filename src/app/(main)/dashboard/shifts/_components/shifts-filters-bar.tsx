@@ -116,11 +116,19 @@ export function ShiftsFiltersBar() {
               }}
               className="h-9"
             >
-              <ToggleGroupItem value="week" aria-label="Vista semanal" className="h-9 gap-1.5 px-3 text-xs">
+              <ToggleGroupItem
+                value="week"
+                aria-label="Vista semanal"
+                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
+              >
                 <Calendar className="size-3" />
                 <span>Semana</span>
               </ToggleGroupItem>
-              <ToggleGroupItem value="month" aria-label="Vista mensual" className="h-9 gap-1.5 px-3 text-xs">
+              <ToggleGroupItem
+                value="month"
+                aria-label="Vista mensual"
+                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
+              >
                 <CalendarDays className="size-3" />
                 <span>Mes</span>
               </ToggleGroupItem>
@@ -138,11 +146,19 @@ export function ShiftsFiltersBar() {
               }}
               className="h-9"
             >
-              <ToggleGroupItem value="employee" aria-label="Vista por empleado" className="h-9 gap-1.5 px-3 text-xs">
+              <ToggleGroupItem
+                value="employee"
+                aria-label="Vista por empleado"
+                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
+              >
                 <Users className="size-3" />
                 <span>Empleado</span>
               </ToggleGroupItem>
-              <ToggleGroupItem value="area" aria-label="Vista por áreas" className="h-9 gap-1.5 px-3 text-xs">
+              <ToggleGroupItem
+                value="area"
+                aria-label="Vista por áreas"
+                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
+              >
                 <Building2 className="size-3" />
                 <span>Áreas</span>
               </ToggleGroupItem>
