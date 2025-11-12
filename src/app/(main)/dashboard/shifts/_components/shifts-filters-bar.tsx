@@ -103,8 +103,8 @@ export function ShiftsFiltersBar() {
           </Button>
         </div>
 
-        {/* Grupo: Selectores de Vista (alineado a la derecha) */}
-        <div className="ml-auto flex flex-wrap items-center gap-3">
+        {/* Grupo: Selectores de Vista */}
+        <div className="flex flex-wrap items-center gap-3">
           {/* Vista: Semana / Mes */}
           <div className="flex h-9 items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Vista:</span>
