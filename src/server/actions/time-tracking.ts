@@ -4,6 +4,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
+import { detectAssignedShift, updateShiftAssignmentWithClocking } from "@/lib/shifts/shift-integration";
 
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
@@ -291,8 +292,13 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
       throw new Error("Ya has fichado entrada");
     }
 
+    const timestamp = new Date();
+
     // Procesar datos de geolocalización
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
+    // 🆕 SPRINT 5: Detectar turno asignado
+    const shiftDetection = await detectAssignedShift(employeeId, timestamp);
 
     // Crear el fichaje
     const entry = await prisma.timeEntry.create({
@@ -300,15 +306,39 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
         orgId,
         employeeId,
         entryType: "CLOCK_IN",
-        timestamp: new Date(),
+        timestamp,
         ...geoData,
+        // 🆕 Guardar referencia al turno si existe
+        ...(shiftDetection.hasShift && {
+          metadata: {
+            shiftId: shiftDetection.shift?.id,
+            assignmentId: shiftDetection.shift?.assignmentId,
+            anomalies: shiftDetection.anomalies,
+          },
+        }),
       },
     });
 
-    // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
+    // 🆕 SPRINT 5: Actualizar asignación de turno si existe
+    if (shiftDetection.hasShift && shiftDetection.shift?.assignmentId) {
+      await updateShiftAssignmentWithClocking(shiftDetection.shift.assignmentId, timestamp);
+    }
 
-    return { success: true, entry: serializeTimeEntry(entry) };
+    // Actualizar el resumen del día
+    await updateWorkdaySummary(employeeId, orgId, timestamp, dailyHours);
+
+    return {
+      success: true,
+      entry: serializeTimeEntry(entry),
+      // 🆕 Información del turno
+      shift: shiftDetection.hasShift
+        ? {
+            detected: true,
+            ...shiftDetection.shift,
+            anomalies: shiftDetection.anomalies,
+          }
+        : { detected: false, anomalies: shiftDetection.anomalies },
+    };
   } catch (error) {
     console.error("Error al fichar entrada:", error);
     throw error;
@@ -391,6 +421,9 @@ export async function clockOut(
       return { success: true, entry: serializeTimeEntry(entry), cancelled: true };
     }
 
+    // 🆕 SPRINT 5: Detectar turno asignado
+    const shiftDetection = await detectAssignedShift(employeeId, now);
+
     // Fichaje normal (sin cancelación)
     const entry = await prisma.timeEntry.create({
       data: {
@@ -399,13 +432,54 @@ export async function clockOut(
         entryType: "CLOCK_OUT",
         timestamp: now,
         ...geoData,
+        // 🆕 Guardar referencia al turno si existe
+        ...(shiftDetection.hasShift && {
+          metadata: {
+            shiftId: shiftDetection.shift?.id,
+            assignmentId: shiftDetection.shift?.assignmentId,
+            anomalies: shiftDetection.anomalies,
+          },
+        }),
       },
     });
+
+    // 🆕 SPRINT 5: Actualizar asignación de turno si existe (con clockOut)
+    if (shiftDetection.hasShift && shiftDetection.shift?.assignmentId) {
+      // Buscar clockIn correspondiente para obtener timestamp
+      const clockInEntry = await prisma.timeEntry.findFirst({
+        where: {
+          employeeId,
+          entryType: "CLOCK_IN",
+          timestamp: {
+            gte: startOfDay(now),
+            lte: now,
+          },
+        },
+        orderBy: {
+          timestamp: "desc",
+        },
+      });
+
+      if (clockInEntry) {
+        await updateShiftAssignmentWithClocking(shiftDetection.shift.assignmentId, clockInEntry.timestamp, now);
+      }
+    }
 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, now, dailyHours);
 
-    return { success: true, entry: serializeTimeEntry(entry) };
+    return {
+      success: true,
+      entry: serializeTimeEntry(entry),
+      // 🆕 Información del turno
+      shift: shiftDetection.hasShift
+        ? {
+            detected: true,
+            ...shiftDetection.shift,
+            anomalies: shiftDetection.anomalies,
+          }
+        : { detected: false, anomalies: shiftDetection.anomalies },
+    };
   } catch (error) {
     console.error("Error al fichar salida:", error);
     throw error;

@@ -8,6 +8,7 @@ import {
   FileSignature,
   Network,
   Receipt,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,13 +56,29 @@ export const sidebarItems: NavGroup[] = [
   },
   {
     id: 2,
-    label: "Gestión",
+    label: "HR & Organización",
     items: [
       {
         title: "Organigrama",
         url: "/dashboard/organization-chart",
         icon: Network,
         isNew: true,
+      },
+      {
+        title: "Turnos",
+        url: "/dashboard/shifts",
+        icon: CalendarClock,
+        isNew: true,
+        subItems: [
+          { title: "Dashboard", url: "/dashboard/shifts" },
+          { title: "Calendario", url: "/dashboard/shifts/calendar" },
+          { title: "Cobertura", url: "/dashboard/shifts/coverage" },
+          { title: "Publicar", url: "/dashboard/shifts/publish" },
+          { title: "Aprobaciones", url: "/dashboard/shifts/approvals" },
+          { title: "Informes", url: "/dashboard/shifts/reports" },
+          { title: "Plantillas", url: "/dashboard/shifts/templates" },
+          { title: "Configuración", url: "/dashboard/shifts/settings" },
+        ],
       },
       {
         title: "Aprobaciones",
@@ -72,6 +89,18 @@ export const sidebarItems: NavGroup[] = [
         title: "Gestión de Firmas",
         url: "/dashboard/signatures",
         icon: FileSignature,
+        isNew: true,
+      },
+    ],
+  },
+  {
+    id: 3,
+    label: "Mi Espacio",
+    items: [
+      {
+        title: "Mis Turnos",
+        url: "/dashboard/me/shifts",
+        icon: CalendarClock,
         isNew: true,
       },
       {
@@ -94,7 +123,7 @@ export const sidebarItems: NavGroup[] = [
     ],
   },
   {
-    id: 3,
+    id: 4,
     label: "Pages",
     items: [
       {

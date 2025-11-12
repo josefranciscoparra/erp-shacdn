@@ -16,6 +16,7 @@ import {
   FileSignature,
   Receipt,
   MessageSquare,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,6 +86,12 @@ export function useSidebarItems(): NavGroup[] {
           icon: Calendar,
         },
         {
+          title: "Mis Turnos",
+          url: "/dashboard/me/shifts",
+          icon: CalendarClock,
+          isNew: true,
+        },
+        {
           title: "Mis Gastos",
           url: "/dashboard/me/expenses",
           icon: Receipt,
@@ -142,6 +149,55 @@ export function useSidebarItems(): NavGroup[] {
               title: "Horarios",
               url: "/dashboard/schedules",
               permission: "view_contracts",
+            },
+          ],
+        },
+        {
+          title: "Turnos",
+          url: "/dashboard/shifts",
+          icon: CalendarClock,
+          permission: "view_employees",
+          isNew: true,
+          subItems: [
+            {
+              title: "Dashboard",
+              url: "/dashboard/shifts",
+              permission: "view_employees",
+            },
+            {
+              title: "Calendario",
+              url: "/dashboard/shifts/calendar",
+              permission: "view_employees",
+            },
+            {
+              title: "Plantillas",
+              url: "/dashboard/shifts/templates",
+              permission: "view_employees",
+            },
+            {
+              title: "Cobertura",
+              url: "/dashboard/shifts/coverage",
+              permission: "view_employees",
+            },
+            {
+              title: "Publicar",
+              url: "/dashboard/shifts/publish",
+              permission: "view_employees",
+            },
+            {
+              title: "Aprobaciones",
+              url: "/dashboard/shifts/approvals",
+              permission: "approve_requests",
+            },
+            {
+              title: "Informes",
+              url: "/dashboard/shifts/reports",
+              permission: "view_employees",
+            },
+            {
+              title: "Configuración",
+              url: "/dashboard/shifts/settings",
+              permission: "manage_organization",
             },
           ],
         },

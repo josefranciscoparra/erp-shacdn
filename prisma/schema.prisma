@@ -81,6 +81,11 @@ model Organization {
   conversations       Conversation[] // Conversaciones de chat
   messages            Message[] // Mensajes de chat
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas
+  shiftConfiguration  ShiftConfiguration? // Configuración de turnos
+  shiftPlanners       ShiftPlanner[] // Planificadores de turnos
+  shiftTemplates      ShiftTemplate[] // Plantillas de turnos
+  shifts              Shift[] // Turnos
+  shiftCoverageRequirements ShiftCoverageRequirement[] // Requisitos de cobertura
 
   @@map("organizations")
 }
@@ -124,6 +129,13 @@ model User {
   conversationsAsUserB Conversation[] @relation("ConversationUserB") // Conversaciones donde soy UserB
   messagesSent Message[] // Mensajes enviados
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas por el usuario
+  shiftPlannerRoles   ShiftPlanner[] // Roles de planificador de turnos
+  shiftsPublished     Shift[] @relation("ShiftPublisher") // Turnos publicados
+  shiftsApproved      Shift[] @relation("ShiftApprover") // Turnos aprobados
+  shiftsRejected      Shift[] @relation("ShiftRejecter") // Turnos rechazados
+  shiftsClosed        Shift[] @relation("ShiftCloser") // Turnos cerrados
+  shiftsCreated       Shift[] @relation("ShiftCreator") // Turnos creados
+  shiftAssignmentsMade ShiftAssignment[] // Asignaciones de turnos realizadas
 
   @@index([email])
   @@index([orgId])
@@ -186,6 +198,10 @@ model CostCenter {
   calendars          Calendar[]
   timeClockTerminals TimeClockTerminal[]
   expenses           Expense[]
+  shiftPlanners      ShiftPlanner[] // Planificadores de turnos
+  shiftTemplates     ShiftTemplate[] // Plantillas de turnos
+  shifts             Shift[] // Turnos
+  shiftCoverageRequirements ShiftCoverageRequirement[] // Requisitos de cobertura
 
   @@index([orgId])
   @@map("cost_centers")
@@ -268,6 +284,9 @@ model Position {
 
   // Relaciones
   employmentContracts EmploymentContract[]
+  shiftTemplates      ShiftTemplate[] // Plantillas de turnos
+  shifts              Shift[] // Turnos
+  shiftCoverageRequirements ShiftCoverageRequirement[] // Requisitos de cobertura
 
   @@index([orgId])
   @@index([levelId])
@@ -333,6 +352,7 @@ model Employee {
   manualTimeEntryRequests ManualTimeEntryRequest[]
   expenses           Expense[]
   expenseReports     ExpenseReport[]
+  shiftAssignments   ShiftAssignment[] // Asignaciones de turnos
 
   // Aprobador específico de gastos para este empleado (opcional, sobrescribe org)
   expenseApproverId  String?
@@ -381,6 +401,9 @@ model EmploymentContract {
   intensiveFridayHours    Decimal?  @db.Decimal(4,2)
   intensiveSaturdayHours  Decimal?  @db.Decimal(4,2)
   intensiveSundayHours    Decimal?  @db.Decimal(4,2)
+
+  // Modo de gestión de horarios
+  workScheduleMode WorkScheduleMode @default(FIXED_SCHEDULE)
 
   // Metadatos
   active      Boolean   @default(true)
@@ -1681,6 +1704,314 @@ model DismissedNotification {
   @@index([userId, type])
   @@index([orgId])
   @@map("dismissed_notifications")
+}
+
+// ==================== MÓDULO DE GESTIÓN DE TURNOS ====================
+
+// Configuración de turnos por organización (1:1 con Organization)
+model ShiftConfiguration {
+  id                          String   @id @default(cuid())
+
+  // Configuración de granularidad
+  planningGranularityMinutes  Int      @default(30)  // Granularidad de planning (15, 30, 60)
+  weekStartDay                Int      @default(1)   // Día inicio semana (0=domingo, 1=lunes)
+
+  // Límites de jornada
+  maxDailyHours               Decimal  @default(9)   @db.Decimal(4,2)
+  maxWeeklyHours              Decimal  @default(40)  @db.Decimal(5,2)
+  minRestBetweenShiftsHours   Decimal  @default(12)  @db.Decimal(4,2)
+
+  // Horas complementarias (part-time)
+  complementaryHoursEnabled   Boolean  @default(true)
+  complementaryHoursLimitPercent Decimal? @db.Decimal(5,2) // % sobre jornada (ej: 30.00)
+  complementaryHoursMonthlyCap   Decimal? @db.Decimal(6,2) // Cap mensual en horas
+
+  // Políticas de publicación
+  publishRequiresApproval     Boolean  @default(true)
+  minAdvancePublishDays       Int      @default(7)   // Días mínimos de anticipación
+  allowEditAfterPublish       Boolean  @default(false)
+
+  // Validación de cobertura
+  enforceMinimumCoverage      Boolean  @default(true)
+  blockPublishIfUncovered     Boolean  @default(false)
+
+  // Metadatos
+  createdAt                   DateTime @default(now())
+  updatedAt                   DateTime @updatedAt
+
+  // Multi-tenancy (1:1)
+  orgId                       String   @unique
+  organization                Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@map("shift_configurations")
+}
+
+// Planificadores de turno por centro
+model ShiftPlanner {
+  id           String   @id @default(cuid())
+
+  // Ámbito
+  isGlobal     Boolean  @default(false) // Puede planificar en todos los centros
+
+  // Usuario planificador
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Centro específico (null si isGlobal=true)
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Permisos
+  canApprove   Boolean  @default(false) // Puede aprobar publicaciones
+
+  // Metadatos
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId, costCenterId]) // Un usuario no puede ser planificador del mismo centro dos veces
+  @@index([orgId])
+  @@index([userId])
+  @@index([costCenterId])
+  @@map("shift_planners")
+}
+
+// Plantilla de turno reutilizable
+model ShiftTemplate {
+  id                      String   @id @default(cuid())
+  name                    String   // "Mañana", "Tarde", "Noche", "Opening", "Closing"
+  description             String?
+
+  // Horarios por defecto
+  defaultStartTime        String   // "09:00"
+  defaultEndTime          String   // "17:00"
+
+  // Duración calculada (minutos)
+  durationMinutes         Int      // Calculado automáticamente
+
+  // Cobertura requerida por defecto
+  defaultRequiredHeadcount Int     @default(1)
+
+  // Posición/rol asociado (opcional)
+  positionId              String?
+  position                Position? @relation(fields: [positionId], references: [id])
+
+  // Identificación visual
+  color                   String   @default("#3b82f6") // Color hex
+
+  // Estado
+  active                  Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId                   String
+  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Centro específico (opcional)
+  costCenterId            String?
+  costCenter              CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Relaciones
+  shifts                  Shift[]
+
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([positionId])
+  @@map("shift_templates")
+}
+
+// Turno individual (instancia concreta de un día)
+model Shift {
+  id                   String      @id @default(cuid())
+  date                 DateTime    // Fecha del turno (sin hora)
+
+  // Horario específico
+  startTime            String      // "09:00"
+  endTime              String      // "17:00"
+  durationMinutes      Int         // Duración calculada
+
+  // Cobertura requerida
+  requiredHeadcount    Int         @default(1)
+
+  // Posición/rol para este turno
+  positionId           String?
+  position             Position?   @relation(fields: [positionId], references: [id])
+
+  // Tipo de día
+  shiftType            ShiftType   @default(REGULAR)
+
+  // Estado del turno
+  status               ShiftStatus @default(DRAFT)
+
+  // Plantilla origen (opcional)
+  templateId           String?
+  template             ShiftTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  // Aprobación y publicación
+  publishedAt          DateTime?
+  publishedById        String?
+  publishedBy          User?       @relation("ShiftPublisher", fields: [publishedById], references: [id])
+
+  approvedAt           DateTime?
+  approvedById         String?
+  approvedBy           User?       @relation("ShiftApprover", fields: [approvedById], references: [id])
+
+  rejectedAt           DateTime?
+  rejectedById         String?
+  rejectedBy           User?       @relation("ShiftRejecter", fields: [rejectedById], references: [id])
+  rejectionReason      String?
+
+  closedAt             DateTime?
+  closedById           String?
+  closedBy             User?       @relation("ShiftCloser", fields: [closedById], references: [id])
+
+  // Notas
+  notes                String?
+
+  // Metadatos
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  createdById          String
+  createdBy            User        @relation("ShiftCreator", fields: [createdById], references: [id])
+
+  // Multi-tenancy
+  orgId                String
+  organization         Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Centro de coste
+  costCenterId         String
+  costCenter           CostCenter  @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  assignments          ShiftAssignment[]
+  coverageRequirements ShiftCoverageRequirement[]
+
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([date])
+  @@index([status])
+  @@index([positionId])
+  @@index([templateId])
+  @@map("shifts")
+}
+
+// Asignación de empleado a turno
+model ShiftAssignment {
+  id                String   @id @default(cuid())
+
+  // Estado de la asignación
+  status            ShiftAssignmentStatus @default(ASSIGNED)
+
+  // Fichajes reales (relación con TimeEntry)
+  actualClockIn     DateTime?
+  actualClockOut    DateTime?
+  actualWorkedMinutes Decimal? @db.Decimal(10,2)
+
+  // Anomalías detectadas
+  hasDelay          Boolean  @default(false)
+  delayMinutes      Int?
+  hasEarlyExit      Boolean  @default(false)
+  earlyExitMinutes  Int?
+  wasAbsent         Boolean  @default(false)
+  workedOutsideShift Boolean @default(false)
+
+  // Notas
+  notes             String?
+
+  // Metadatos
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  assignedById      String
+  assignedBy        User     @relation(fields: [assignedById], references: [id])
+
+  // Turno asignado
+  shiftId           String
+  shift             Shift    @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  // Empleado asignado
+  employeeId        String
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([shiftId, employeeId]) // Un empleado no puede estar asignado dos veces al mismo turno
+  @@index([shiftId])
+  @@index([employeeId])
+  @@index([status])
+  @@map("shift_assignments")
+}
+
+// Requisitos de cobertura por franja horaria
+model ShiftCoverageRequirement {
+  id                String   @id @default(cuid())
+
+  // Franja horaria
+  timeSlotStart     String   // "12:00"
+  timeSlotEnd       String   // "14:00"
+
+  // Cobertura requerida
+  requiredHeadcount Int
+
+  // Posición/rol (opcional)
+  positionId        String?
+  position          Position? @relation(fields: [positionId], references: [id])
+
+  // Recurrencia (para requisitos permanentes)
+  isRecurring       Boolean  @default(false)
+  recurrencePattern String?  // "WEEKLY", "MONTHLY", "SEASONAL"
+  recurrenceData    Json?    // Configuración de recurrencia
+
+  // Metadatos
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId             String
+  organization      Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Centro de coste
+  costCenterId      String
+  costCenter        CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Turno específico (opcional, para requisitos puntuales)
+  shiftId           String?
+  shift             Shift?   @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([shiftId])
+  @@index([positionId])
+  @@map("shift_coverage_requirements")
+}
+
+// Enums para turnos
+enum WorkScheduleMode {
+  FIXED_SCHEDULE   // Usa jornada fija (existente)
+  SHIFT_BASED      // Usa sistema de turnos
+}
+
+enum ShiftType {
+  REGULAR   // Día regular
+  SUNDAY    // Domingo
+  HOLIDAY   // Festivo
+  NIGHT     // Nocturno
+}
+
+enum ShiftStatus {
+  DRAFT            // Borrador (editable)
+  PENDING_APPROVAL // Pendiente de aprobación
+  PUBLISHED        // Publicado (empleados lo ven)
+  CLOSED           // Cerrado (no editable, listo para informes)
+}
+
+enum ShiftAssignmentStatus {
+  ASSIGNED         // Asignado
+  CONFIRMED        // Confirmado por empleado (futuro)
+  COMPLETED        // Completado (fichó correctamente)
+  ABSENT           // Ausente (no fichó)
+  CANCELLED        // Cancelado
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
