@@ -21,7 +21,6 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { SortableContext } from "@dnd-kit/sortable";
 import { Plus, User } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -138,7 +137,18 @@ export function CalendarWeekEmployee() {
       return;
     }
 
-    // Mover turno
+    // Buscar si hay turnos en la celda destino
+    const targetShifts = shiftsGrid[dropTarget.employeeId]?.[dropTarget.date] ?? [];
+
+    if (targetShifts.length > 0) {
+      // INTERCAMBIAR: mover todos los turnos de la celda destino a la celda origen
+      const swapPromises = targetShifts.map((targetShift) => moveShift(targetShift.id, shift.employeeId, shift.date));
+
+      // Esperar a que se completen todos los swaps
+      await Promise.all(swapPromises);
+    }
+
+    // Mover el turno arrastrado a la celda destino
     await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
   };
 
@@ -154,9 +164,6 @@ export function CalendarWeekEmployee() {
       costCenterId: employee.costCenterId,
     });
   };
-
-  // IDs de todos los turnos para SortableContext
-  const shiftIds = useMemo(() => shifts.map((s) => s.id), [shifts]);
 
   if (filteredEmployees.length === 0) {
     return (
@@ -182,122 +189,121 @@ export function CalendarWeekEmployee() {
       onDragEnd={handleDragEnd}
       modifiers={[restrictToWindowEdges]}
     >
-      <SortableContext items={shiftIds}>
-        <div className="overflow-x-auto">
-          <div className="min-w-[900px]">
-            {/* Header: Días de la semana */}
-            <div className="bg-background sticky top-0 z-10 grid grid-cols-8 gap-2 pb-2">
-              {/* Columna de empleados */}
-              <div className="flex items-center px-3 py-2">
-                <span className="text-sm font-semibold">Empleado</span>
-              </div>
-
-              {/* Columnas de días */}
-              {weekDays.map((day) => {
-                const isToday = formatDateISO(day) === formatDateISO(new Date());
-                return (
-                  <div
-                    key={day.toString()}
-                    className={cn(
-                      "flex flex-col items-center justify-center rounded-lg border p-2 text-center",
-                      isToday && "border-primary bg-primary/5",
-                    )}
-                  >
-                    <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                      {formatDateShort(day).split(" ")[0]}
-                    </span>
-                    <span className={cn("text-lg font-bold", isToday && "text-primary")}>
-                      {formatDateShort(day).split(" ")[1]}
-                    </span>
-                  </div>
-                );
-              })}
+      <div className="overflow-x-auto">
+        <div className="min-w-[900px]">
+          {/* Header: Días de la semana */}
+          <div className="bg-background sticky top-0 z-10 grid grid-cols-8 gap-2 pb-2">
+            {/* Columna de empleados */}
+            <div className="flex items-center px-3 py-2">
+              <span className="text-sm font-semibold">Empleado</span>
             </div>
 
-            {/* Filas: Empleados */}
-            <div className="space-y-2">
-              {filteredEmployees.map((employee) => {
-                const stats = employeeWeekStats[employee.id];
-                const hasConflicts = weekDays.some((day) => {
-                  const dayShifts = shiftsGrid[employee.id]?.[formatDateISO(day)] ?? [];
-                  return dayShifts.some((s) => s.status === "conflict");
-                });
+            {/* Columnas de días */}
+            {weekDays.map((day) => {
+              const isToday = formatDateISO(day) === formatDateISO(new Date());
+              return (
+                <div
+                  key={day.toString()}
+                  className={cn(
+                    "flex flex-col items-center justify-center rounded-lg border p-2 text-center",
+                    isToday && "border-primary bg-primary/5",
+                  )}
+                >
+                  <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                    {formatDateShort(day).split(" ")[0]}
+                  </span>
+                  <span className={cn("text-lg font-bold", isToday && "text-primary")}>
+                    {formatDateShort(day).split(" ")[1]}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
 
-                return (
-                  <div key={employee.id} className="grid grid-cols-8 gap-2">
-                    {/* Columna: Nombre del empleado + Estadísticas */}
-                    <div className="bg-card flex flex-col justify-between rounded-lg border p-3">
-                      <div>
-                        <p className="text-sm font-semibold">
-                          {employee.firstName} {employee.lastName}
+          {/* Filas: Empleados */}
+          <div className="space-y-2">
+            {filteredEmployees.map((employee) => {
+              const stats = employeeWeekStats[employee.id];
+              const hasConflicts = weekDays.some((day) => {
+                const dayShifts = shiftsGrid[employee.id]?.[formatDateISO(day)] ?? [];
+                return dayShifts.some((s) => s.status === "conflict");
+              });
+
+              return (
+                <div key={employee.id} className="grid grid-cols-8 gap-2">
+                  {/* Columna: Nombre del empleado + Estadísticas */}
+                  <div className="bg-card flex flex-col justify-between rounded-lg border p-3">
+                    <div>
+                      <p className="text-sm font-semibold">
+                        {employee.firstName} {employee.lastName}
+                      </p>
+                      {employee.costCenterId && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {/* Aquí podríamos mostrar el nombre del lugar */}
                         </p>
-                        {employee.costCenterId && (
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            {/* Aquí podríamos mostrar el nombre del lugar */}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Estadísticas de la semana */}
-                      <div className="mt-2 space-y-1">
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant={
-                                    stats.totalHours < employee.contractHours
-                                      ? "destructive"
-                                      : stats.totalHours > employee.contractHours * 1.1
-                                        ? "secondary"
-                                        : "default"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {formatDuration(stats.totalHours)}/{formatDuration(employee.contractHours)}
-                                </Badge>
-                                {hasConflicts && (
-                                  <Badge variant="destructive" className="text-xs">
-                                    ⚠️
-                                  </Badge>
-                                )}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <div className="text-xs">
-                                <p>Total semana: {formatDuration(stats.totalHours)}</p>
-                                <p>Contrato: {formatDuration(employee.contractHours)}</p>
-                                <p>Turnos: {stats.shiftCount}</p>
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
+                      )}
                     </div>
 
-                    {/* Columnas: Días (celdas de turnos) */}
-                    {weekDays.map((day) => {
-                      const dateISO = formatDateISO(day);
-                      const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
-
-                      return (
-                        <ShiftCell
-                          key={`${employee.id}-${dateISO}`}
-                          employeeId={employee.id}
-                          date={dateISO}
-                          shifts={dayShifts}
-                          onCreateShift={() => handleCreateShift(employee.id, dateISO)}
-                          onEditShift={(shift) => openShiftDialog(shift)}
-                        />
-                      );
-                    })}
+                    {/* Estadísticas de la semana */}
+                    <div className="mt-2 space-y-1">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant={
+                                  stats.totalHours < employee.contractHours
+                                    ? "destructive"
+                                    : stats.totalHours > employee.contractHours * 1.1
+                                      ? "secondary"
+                                      : "default"
+                                }
+                                className="text-xs"
+                              >
+                                {formatDuration(stats.totalHours)}/{formatDuration(employee.contractHours)}
+                              </Badge>
+                              {hasConflicts && (
+                                <Badge variant="destructive" className="text-xs">
+                                  ⚠️
+                                </Badge>
+                              )}
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <div className="text-xs">
+                              <p>Total semana: {formatDuration(stats.totalHours)}</p>
+                              <p>Contrato: {formatDuration(employee.contractHours)}</p>
+                              <p>Turnos: {stats.shiftCount}</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* Columnas: Días (celdas de turnos) */}
+                  {weekDays.map((day) => {
+                    const dateISO = formatDateISO(day);
+                    const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
+
+                    return (
+                      <ShiftCell
+                        key={`${employee.id}-${dateISO}`}
+                        employeeId={employee.id}
+                        date={dateISO}
+                        shifts={dayShifts}
+                        activeShiftId={activeShift?.id}
+                        onCreateShift={() => handleCreateShift(employee.id, dateISO)}
+                        onEditShift={(shift) => openShiftDialog(shift)}
+                      />
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
-      </SortableContext>
+      </div>
 
       {/* Overlay de drag (muestra el turno mientras se arrastra) */}
       <DragOverlay>
@@ -318,11 +324,12 @@ interface ShiftCellProps {
   employeeId: string;
   date: string;
   shifts: Shift[];
+  activeShiftId?: string;
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
 
-function ShiftCell({ employeeId, date, shifts, onCreateShift, onEditShift }: ShiftCellProps) {
+function ShiftCell({ employeeId, date, shifts, activeShiftId, onCreateShift, onEditShift }: ShiftCellProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell-${employeeId}-${date}`,
     data: {
@@ -331,13 +338,17 @@ function ShiftCell({ employeeId, date, shifts, onCreateShift, onEditShift }: Shi
     },
   });
 
+  // Determinar si esta celda contiene el shift que se está arrastrando
+  const containsActiveShift = shifts.some((s) => s.id === activeShiftId);
+
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative min-h-[100px] rounded-lg border-2 p-2 transition-colors",
+        "group relative min-h-[100px] rounded-lg border-2 p-2 transition-all",
         isOver ? "border-primary bg-primary/5" : "bg-muted/30 border-transparent",
         shifts.length === 0 && "hover:border-primary/50 hover:border-dashed",
+        (isOver || containsActiveShift) && "opacity-50",
       )}
     >
       {/* Turnos existentes */}

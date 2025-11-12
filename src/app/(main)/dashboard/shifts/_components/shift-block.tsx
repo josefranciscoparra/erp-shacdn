@@ -98,10 +98,10 @@ export function ShiftBlock({
             {/* Duración */}
             <p className="text-muted-foreground mt-1 text-xs">{formatDuration(duration)}</p>
 
-            {/* Badge de estado (solo si no es published) */}
-            {shift.status !== "published" && (
-              <Badge variant={getShiftStatusBadgeVariant(shift.status)} className="absolute top-1 right-1 text-xs">
-                {getShiftStatusText(shift.status)}
+            {/* Badge de estado (solo conflictos, no mostrar draft) */}
+            {shift.status === "conflict" && (
+              <Badge variant="destructive" className="absolute top-1 right-1 text-xs">
+                Conflicto
               </Badge>
             )}
           </div>

@@ -19,7 +19,7 @@ import { formatWeekRange } from "../_lib/shift-utils";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function PublishBar() {
-  const { shifts, currentWeekStart, copyFromPreviousWeek, publishWeekShifts } = useShiftsStore();
+  const { shifts, currentWeekStart, copyPreviousWeek, publishShifts } = useShiftsStore();
 
   // Contar turnos en borrador para la semana actual
   const draftShiftsCount = useMemo(() => {
@@ -95,7 +95,7 @@ export function PublishBar() {
       <div className="bg-card flex flex-wrap items-center justify-between gap-4 rounded-lg border p-4">
         <div className="flex flex-wrap items-center gap-3">
           {/* Botón: Copiar semana anterior */}
-          <Button variant="outline" size="default" onClick={() => copyFromPreviousWeek()} disabled={hasShifts}>
+          <Button variant="outline" size="default" onClick={() => copyPreviousWeek()} disabled={hasShifts}>
             <Copy className="mr-2 h-4 w-4" />
             Copiar Semana Anterior
           </Button>
@@ -116,7 +116,7 @@ export function PublishBar() {
               <p className="text-muted-foreground text-xs">Publicar para notificar a empleados</p>
             </div>
 
-            <Button variant="default" size="default" onClick={() => publishWeekShifts()} className="gap-2">
+            <Button variant="default" size="default" onClick={() => publishShifts()} className="gap-2">
               <Send className="h-4 w-4" />
               Publicar Turnos
             </Button>
@@ -131,8 +131,8 @@ export function PublishBar() {
           disponible si la semana actual está vacía.
         </p>
         <p>
-          <strong>Publicar turnos:</strong> Cambia el estado de todos los borradores a "Publicado" y notifica a los
-          empleados. Los turnos publicados NO se pueden editar sin despublicar primero.
+          <strong>Publicar turnos:</strong> Cambia el estado de todos los borradores a &ldquo;Publicado&rdquo; y
+          notifica a los empleados. Los turnos publicados NO se pueden editar sin despublicar primero.
         </p>
       </div>
     </div>

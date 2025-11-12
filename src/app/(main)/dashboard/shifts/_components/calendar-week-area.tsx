@@ -7,10 +7,11 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 
 import { DndContext, DragEndEvent, DragOverlay, useDraggable, useDroppable } from "@dnd-kit/core";
 import { AlertTriangle, GripVertical } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -19,10 +20,12 @@ import { cn } from "@/lib/utils";
 import { getWeekDays, formatDateShort, formatDateISO, getTimeSlot } from "../_lib/shift-utils";
 import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
+
 import { QuickAddEmployeePopover } from "./quick-add-employee-popover";
 
 export function CalendarWeekArea() {
-  const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog, moveShift, copyShift } = useShiftsStore();
+  const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog, moveShift, copyShift } =
+    useShiftsStore();
 
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
   const [isControlPressed, setIsControlPressed] = useState(false);
@@ -79,12 +82,19 @@ export function CalendarWeekArea() {
         });
 
         // Calcular estadísticas por franja
-        const morningCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "morning").map((s) => s.employeeId)).size;
-        const afternoonCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "afternoon").map((s) => s.employeeId)).size;
-        const nightCount = new Set(dayShifts.filter((s) => getTimeSlot(s.startTime) === "night").map((s) => s.employeeId)).size;
+        const morningCount = new Set(
+          dayShifts.filter((s) => getTimeSlot(s.startTime) === "morning").map((s) => s.employeeId),
+        ).size;
+        const afternoonCount = new Set(
+          dayShifts.filter((s) => getTimeSlot(s.startTime) === "afternoon").map((s) => s.employeeId),
+        ).size;
+        const nightCount = new Set(
+          dayShifts.filter((s) => getTimeSlot(s.startTime) === "night").map((s) => s.employeeId),
+        ).size;
 
         const totalAssigned = new Set(dayShifts.map((s) => s.employeeId)).size;
-        const totalRequired = zone.requiredCoverage.morning + zone.requiredCoverage.afternoon + zone.requiredCoverage.night;
+        const totalRequired =
+          zone.requiredCoverage.morning + zone.requiredCoverage.afternoon + zone.requiredCoverage.night;
 
         grid[zone.id][dateISO] = {
           allShifts: sortedShifts,
@@ -124,9 +134,15 @@ export function CalendarWeekArea() {
     }
 
     // active.id = shiftId
-    // over.id = "zone-date" (ej: "z1-2024-01-15")
+    // over.id = "zoneId-date" (ej: "z1-2025-11-12")
     const shiftId = active.id as string;
-    const [targetZoneId, targetDate] = (over.id as string).split("-");
+    const overId = over.id as string;
+
+    // Extraer zoneId y fecha correctamente
+    // El formato es "zoneId-YYYY-MM-DD", por lo que necesitamos extraer solo el primer elemento como zoneId
+    const parts = overId.split("-");
+    const targetZoneId = parts[0]; // Primer elemento es el zoneId (ej: "z1")
+    const targetDate = parts.slice(1).join("-"); // El resto es la fecha (ej: "2025-11-12")
 
     const shift = shifts.find((s) => s.id === shiftId);
     if (!shift) {
@@ -142,6 +158,37 @@ export function CalendarWeekArea() {
       return;
     }
 
+    // VALIDACIÓN: Comprobar si el empleado ya tiene un turno en esa zona/fecha que se solape
+    const existingShifts = shifts.filter(
+      (s) =>
+        s.employeeId === shift.employeeId && s.zoneId === targetZoneId && s.date === targetDate && s.id !== shiftId,
+    );
+
+    if (existingShifts.length > 0) {
+      // Verificar solapamiento de horarios
+      const shiftStart = timeToMinutes(shift.startTime);
+      const shiftEnd = timeToMinutes(shift.endTime);
+
+      const hasOverlap = existingShifts.some((existing) => {
+        const existingStart = timeToMinutes(existing.startTime);
+        const existingEnd = timeToMinutes(existing.endTime);
+
+        // Detectar solapamiento
+        return (
+          (shiftStart >= existingStart && shiftStart < existingEnd) ||
+          (shiftEnd > existingStart && shiftEnd <= existingEnd) ||
+          (shiftStart <= existingStart && shiftEnd >= existingEnd)
+        );
+      });
+
+      if (hasOverlap) {
+        setActiveShift(null);
+        // Mostrar error al usuario
+        toast.error("Este empleado ya tiene un turno en ese horario");
+        return;
+      }
+    }
+
     // Determinar si mover o copiar según tecla Control
     if (isControlPressed) {
       // COPIAR (con Control)
@@ -154,13 +201,19 @@ export function CalendarWeekArea() {
     setActiveShift(null);
   };
 
+  // Helper para convertir tiempo a minutos
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
   if (filteredZones.length === 0) {
     return (
       <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 text-center">
-        <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+        <AlertTriangle className="text-muted-foreground h-12 w-12" />
         <div>
           <h3 className="text-lg font-semibold">No hay zonas configuradas</h3>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-1 text-sm">
             {filters.costCenterId
               ? "No hay zonas activas en el lugar seleccionado."
               : "Configura zonas de trabajo para visualizar la cobertura por áreas."}
@@ -194,90 +247,94 @@ export function CalendarWeekArea() {
         }}
         tabIndex={-1}
       >
-        <div className="min-w-[900px]">
-        {/* Header: Días de la semana */}
-        <div className="sticky top-0 z-10 grid grid-cols-8 gap-2 bg-background pb-2">
-          {/* Columna de zonas */}
-          <div className="flex items-center px-3 py-2">
-            <span className="text-sm font-semibold">Zona / Día</span>
-          </div>
+        <div className="min-w-[900px] overflow-auto rounded-lg border">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="bg-muted/50 border-b">
+                <th className="border-r p-3 text-left text-sm font-semibold">Zona / Día</th>
+                {weekDays.map((day) => {
+                  const isToday = formatDateISO(day) === formatDateISO(new Date());
+                  return (
+                    <th
+                      key={day.toString()}
+                      className={cn(
+                        "min-w-[140px] border-r p-2 text-center last:border-r-0",
+                        isToday && "bg-primary/5",
+                      )}
+                    >
+                      <div className="flex flex-col items-center">
+                        <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+                          {formatDateShort(day).split(" ")[0]}
+                        </span>
+                        <span className={cn("text-lg font-bold", isToday && "text-primary")}>
+                          {formatDateShort(day).split(" ")[1]}
+                        </span>
+                      </div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {/* Agrupar zonas por lugar */}
+              {Array.from(new Set(filteredZones.map((z) => z.costCenterId))).map((costCenterId) => {
+                const zonesInCenter = filteredZones.filter((z) => z.costCenterId === costCenterId);
+                const centerName = getCostCenterName(costCenterId);
 
-          {/* Columnas de días */}
-          {weekDays.map((day) => {
-            const isToday = formatDateISO(day) === formatDateISO(new Date());
-            return (
-              <div
-                key={day.toString()}
-                className={cn(
-                  "flex flex-col items-center justify-center rounded-lg border p-2 text-center",
-                  isToday && "border-primary bg-primary/5",
-                )}
-              >
-                <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                  {formatDateShort(day).split(" ")[0]}
-                </span>
-                <span className={cn("text-lg font-bold", isToday && "text-primary")}>
-                  {formatDateShort(day).split(" ")[1]}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+                return (
+                  <Fragment key={costCenterId}>
+                    {/* Header del lugar */}
+                    {!filters.costCenterId && (
+                      <tr key={`header-${costCenterId}`}>
+                        <td colSpan={8} className="bg-muted/30 border-b px-4 py-2">
+                          <h3 className="text-sm font-semibold">{centerName}</h3>
+                        </td>
+                      </tr>
+                    )}
 
-        {/* Agrupar zonas por lugar */}
-        {Array.from(new Set(filteredZones.map((z) => z.costCenterId))).map((costCenterId) => {
-          const zonesInCenter = filteredZones.filter((z) => z.costCenterId === costCenterId);
-          const centerName = getCostCenterName(costCenterId);
+                    {/* Filas: 1 fila por zona */}
+                    {zonesInCenter.map((zone) => (
+                      <tr key={zone.id} className="border-b last:border-b-0">
+                        {/* Columna: Nombre de zona */}
+                        <td className="bg-muted/20 border-r p-3">
+                          <div>
+                            <p className="text-sm font-semibold">{zone.name}</p>
+                            <p className="text-muted-foreground text-[10px]">
+                              Req: {zone.requiredCoverage.morning}M / {zone.requiredCoverage.afternoon}T /{" "}
+                              {zone.requiredCoverage.night}N
+                            </p>
+                          </div>
+                        </td>
 
-          return (
-            <div key={costCenterId} className="mb-6">
-              {/* Header del lugar */}
-              {!filters.costCenterId && (
-                <div className="mb-2 rounded-lg bg-muted/50 px-4 py-2">
-                  <h3 className="text-sm font-semibold">{centerName}</h3>
-                </div>
-              )}
+                        {/* Columnas: Días (celdas con todos los empleados divididos por turno) */}
+                        {weekDays.map((day) => {
+                          const dateISO = formatDateISO(day);
+                          const dayData = coverageGrid[zone.id]?.[dateISO];
 
-              {/* Filas: 1 fila por zona */}
-              <div className="space-y-3">
-                {zonesInCenter.map((zone) => (
-                  <div key={zone.id} className="grid grid-cols-8 gap-2">
-                    {/* Columna: Nombre de zona */}
-                    <div className="flex flex-col justify-center rounded-lg border bg-card p-3">
-                      <p className="text-sm font-semibold">{zone.name}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Req: {zone.requiredCoverage.morning}M / {zone.requiredCoverage.afternoon}T / {zone.requiredCoverage.night}N
-                      </p>
-                    </div>
-
-                    {/* Columnas: Días (celdas con todos los empleados) */}
-                    {weekDays.map((day) => {
-                      const dateISO = formatDateISO(day);
-                      const dayData = coverageGrid[zone.id]?.[dateISO];
-
-                      return (
-                        <DayCell
-                          key={`${zone.id}-${dateISO}`}
-                          zone={zone}
-                          date={dateISO}
-                          allShifts={dayData?.allShifts ?? []}
-                          stats={dayData?.stats ?? { morning: 0, afternoon: 0, night: 0 }}
-                          totalAssigned={dayData?.totalAssigned ?? 0}
-                          totalRequired={dayData?.totalRequired ?? 0}
-                          getEmployeeName={getEmployeeName}
-                          onEditShift={(shift) => openShiftDialog(shift)}
-                        />
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
+                          return (
+                            <DayCell
+                              key={`${zone.id}-${dateISO}`}
+                              zone={zone}
+                              date={dateISO}
+                              allShifts={dayData?.allShifts ?? []}
+                              stats={dayData?.stats ?? { morning: 0, afternoon: 0, night: 0 }}
+                              totalAssigned={dayData?.totalAssigned ?? 0}
+                              totalRequired={dayData?.totalRequired ?? 0}
+                              getEmployeeName={getEmployeeName}
+                              onEditShift={(shift) => openShiftDialog(shift)}
+                            />
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
 
           {/* Leyenda de colores */}
-          <div className="mt-6 flex flex-wrap items-center gap-4 rounded-lg border bg-card p-4">
+          <div className="bg-card mt-6 flex flex-wrap items-center gap-4 rounded-lg border p-4">
             <span className="text-sm font-semibold">Leyenda:</span>
             <div className="flex items-center gap-2">
               <div className="h-4 w-4 rounded bg-emerald-500" />
@@ -302,7 +359,7 @@ export function CalendarWeekArea() {
       {/* DragOverlay para mostrar el elemento que se está arrastrando */}
       <DragOverlay>
         {activeShift && (
-          <div className="rounded bg-primary/10 px-3 py-2 text-sm font-medium shadow-lg">
+          <div className="bg-primary/10 rounded px-3 py-2 text-sm font-medium shadow-lg">
             {getEmployeeName(activeShift.employeeId)} - {activeShift.startTime}-{activeShift.endTime}
           </div>
         )}
@@ -325,100 +382,167 @@ interface DayCellProps {
   onEditShift: (shift: Shift) => void;
 }
 
-function DayCell({ zone, date, allShifts, stats, totalAssigned, totalRequired, getEmployeeName, onEditShift }: DayCellProps) {
+function DayCell({
+  zone,
+  date,
+  allShifts,
+  stats,
+  totalAssigned,
+  totalRequired,
+  getEmployeeName,
+  onEditShift,
+}: DayCellProps) {
+  const { shifts } = useShiftsStore();
+
   // Droppable: esta celda puede recibir turnos arrastrados
-  const { setNodeRef, isOver } = useDroppable({
+  const { setNodeRef, isOver, active } = useDroppable({
     id: `${zone.id}-${date}`,
   });
 
+  // Helper para convertir tiempo a minutos
+  const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(":").map(Number);
+    return hours * 60 + minutes;
+  };
+
+  // Determinar si el drop es válido (sin solapamiento)
+  const canDrop = useMemo(() => {
+    if (!isOver || !active) return true;
+
+    const shiftId = active.id as string;
+    const draggedShift = shifts.find((s) => s.id === shiftId);
+
+    if (!draggedShift) return true;
+
+    // Si es la misma celda, siempre es válido
+    if (draggedShift.zoneId === zone.id && draggedShift.date === date) {
+      return true;
+    }
+
+    // Verificar solapamiento con turnos existentes del mismo empleado
+    const existingShifts = allShifts.filter((s) => s.employeeId === draggedShift.employeeId && s.id !== shiftId);
+
+    if (existingShifts.length === 0) return true;
+
+    const shiftStart = timeToMinutes(draggedShift.startTime);
+    const shiftEnd = timeToMinutes(draggedShift.endTime);
+
+    const hasOverlap = existingShifts.some((existing) => {
+      const existingStart = timeToMinutes(existing.startTime);
+      const existingEnd = timeToMinutes(existing.endTime);
+
+      return (
+        (shiftStart >= existingStart && shiftStart < existingEnd) ||
+        (shiftEnd > existingStart && shiftEnd <= existingEnd) ||
+        (shiftStart <= existingStart && shiftEnd >= existingEnd)
+      );
+    });
+
+    return !hasOverlap;
+  }, [isOver, active, shifts, zone.id, date, allShifts]);
+
+  // Agrupar turnos por franja horaria
+  const shiftsByTimeSlot = {
+    morning: allShifts.filter((s) => getTimeSlot(s.startTime) === "morning"),
+    afternoon: allShifts.filter((s) => getTimeSlot(s.startTime) === "afternoon"),
+    night: allShifts.filter((s) => getTimeSlot(s.startTime) === "night"),
+  };
+
   // Calcular color según cobertura TOTAL
   const getCoverageColor = () => {
-    if (totalAssigned === 0) return "border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/20";
-    if (totalAssigned < totalRequired) return "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20";
-    if (totalAssigned > totalRequired) return "border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20";
-    return "border-emerald-300 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/20";
+    if (totalAssigned === 0) return "border-red-500/30";
+    if (totalAssigned < totalRequired) return "border-amber-500/30";
+    if (totalAssigned > totalRequired) return "border-blue-500/30";
+    return "border-emerald-500/30";
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            ref={setNodeRef}
-            className={cn(
-              "group relative min-h-[120px] rounded-lg border-2 p-2 transition-all",
-              getCoverageColor(),
-              "hover:shadow-md",
-              isOver && "ring-2 ring-primary ring-offset-2",
-            )}
-          >
-            {/* Header: Badges de resumen + Botón añadir */}
-            <div className="mb-2 flex items-center justify-between gap-1">
-              {/* Badges: 2M 3T 1N */}
-              <div className="flex flex-wrap gap-1">
-                {stats.morning > 0 && (
-                  <Badge variant="outline" className="h-5 bg-amber-100 text-[10px] dark:bg-amber-950/40">
-                    {stats.morning}M
-                  </Badge>
-                )}
-                {stats.afternoon > 0 && (
-                  <Badge variant="outline" className="h-5 bg-orange-100 text-[10px] dark:bg-orange-950/40">
-                    {stats.afternoon}T
-                  </Badge>
-                )}
-                {stats.night > 0 && (
-                  <Badge variant="outline" className="h-5 bg-indigo-100 text-[10px] dark:bg-indigo-950/40">
-                    {stats.night}N
-                  </Badge>
-                )}
-              </div>
-
-              {/* Botón para añadir empleado (QuickAddEmployeePopover) */}
+    <td
+      ref={setNodeRef}
+      className={cn(
+        "group relative border-r p-0 align-top last:border-r-0",
+        "border-l-4",
+        getCoverageColor(),
+        isOver && canDrop && "bg-emerald-100/50 ring-2 ring-emerald-500 dark:bg-emerald-900/20",
+        isOver && !canDrop && "bg-red-100/50 ring-2 ring-red-500 dark:bg-red-900/20",
+      )}
+    >
+      {/* Dividir celda en 3 secciones: Mañana, Tarde, Noche */}
+      <div className="flex min-h-[150px] flex-col divide-y">
+        {/* Mañana */}
+        <div className="flex-1 p-2">
+          <div className="mb-1 flex items-center justify-between gap-1">
+            <span className="text-muted-foreground text-[10px] font-semibold">M</span>
+            {shiftsByTimeSlot.morning.length === 0 && (
               <div className="opacity-0 transition-opacity group-hover:opacity-100">
                 <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
               </div>
-            </div>
-
-            {/* Lista de empleados con horarios */}
-            {allShifts.length > 0 ? (
-              <div className="space-y-1">
-                {allShifts.map((shift) => (
-                  <DraggableShiftBlock key={shift.id} shift={shift} getEmployeeName={getEmployeeName} onEdit={onEditShift} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex h-full min-h-[60px] items-center justify-center text-xs text-muted-foreground">Sin asignar</div>
             )}
+          </div>
+          <div className="space-y-1">
+            {shiftsByTimeSlot.morning.map((shift) => (
+              <DraggableShiftBlock
+                key={shift.id}
+                shift={shift}
+                getEmployeeName={getEmployeeName}
+                onEdit={onEditShift}
+              />
+            ))}
+          </div>
+        </div>
 
-            {/* Indicador de conflictos */}
-            {allShifts.some((s) => s.status === "conflict") && (
-              <div className="absolute right-1 top-1">
-                <AlertTriangle className="h-3 w-3 text-destructive" />
+        {/* Tarde */}
+        <div className="flex-1 p-2">
+          <div className="mb-1 flex items-center justify-between gap-1">
+            <span className="text-muted-foreground text-[10px] font-semibold">T</span>
+            {shiftsByTimeSlot.afternoon.length === 0 && (
+              <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
               </div>
             )}
           </div>
-        </TooltipTrigger>
+          <div className="space-y-1">
+            {shiftsByTimeSlot.afternoon.map((shift) => (
+              <DraggableShiftBlock
+                key={shift.id}
+                shift={shift}
+                getEmployeeName={getEmployeeName}
+                onEdit={onEditShift}
+              />
+            ))}
+          </div>
+        </div>
 
-        <TooltipContent side="top" className="max-w-xs">
-          <div className="space-y-1 text-xs">
-            <p className="font-semibold">
-              {zone.name} - {date}
-            </p>
-            <p>
-              <strong>Asignados:</strong> {totalAssigned} / <strong>Requeridos:</strong> {totalRequired}
-            </p>
-            <p className="text-muted-foreground">
-              Mañana: {stats.morning} | Tarde: {stats.afternoon} | Noche: {stats.night}
-            </p>
-            {allShifts.length > 0 && (
-              <p className="italic text-muted-foreground">
-                {allShifts.length} {allShifts.length === 1 ? "turno" : "turnos"}
-              </p>
+        {/* Noche */}
+        <div className="flex-1 p-2">
+          <div className="mb-1 flex items-center justify-between gap-1">
+            <span className="text-muted-foreground text-[10px] font-semibold">N</span>
+            {shiftsByTimeSlot.night.length === 0 && (
+              <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+              </div>
             )}
           </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+          <div className="space-y-1">
+            {shiftsByTimeSlot.night.map((shift) => (
+              <DraggableShiftBlock
+                key={shift.id}
+                shift={shift}
+                getEmployeeName={getEmployeeName}
+                onEdit={onEditShift}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Indicador de conflictos */}
+      {allShifts.some((s) => s.status === "conflict") && (
+        <div className="absolute top-1 right-1">
+          <AlertTriangle className="text-destructive h-3 w-3" />
+        </div>
+      )}
+    </td>
   );
 }
 
@@ -456,13 +580,13 @@ function DraggableShiftBlock({ shift, getEmployeeName, onEdit }: DraggableShiftB
       <div className="flex items-center gap-1">
         {/* Icono de drag handle */}
         <div {...listeners} className="cursor-grab active:cursor-grabbing">
-          <GripVertical className="h-3 w-3 text-muted-foreground" />
+          <GripVertical className="text-muted-foreground h-3 w-3" />
         </div>
 
         {/* Nombre y horario */}
         <div className="flex flex-1 items-center justify-between gap-1">
           <span className="truncate">{getEmployeeName(shift.employeeId)}</span>
-          <span className="shrink-0 text-[10px] text-muted-foreground">
+          <span className="text-muted-foreground shrink-0 text-[10px]">
             {shift.startTime}-{shift.endTime}
           </span>
         </div>

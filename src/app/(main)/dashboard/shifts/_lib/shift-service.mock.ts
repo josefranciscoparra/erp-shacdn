@@ -39,22 +39,22 @@ import type {
 const MOCK_COST_CENTERS: CostCenter[] = [
   {
     id: "cc1",
+    name: "Rambla del ganso",
+    address: "Rambla Cataluña, 116, Barcelona",
+    timezone: "Europe/Madrid",
+    active: true,
+  },
+  {
+    id: "cc2",
     name: "El Ganso Ferrán",
     address: "C/ Ferrán, 43-45, Barcelona",
     timezone: "Europe/Madrid",
     active: true,
   },
   {
-    id: "cc2",
+    id: "cc3",
     name: "El Ganso Vidrieria",
     address: "C/ Vidrieria, 7, Barcelona",
-    timezone: "Europe/Madrid",
-    active: true,
-  },
-  {
-    id: "cc3",
-    name: "El Ganso Rambla Catalunya",
-    address: "Rambla Cataluña, 116, Barcelona",
     timezone: "Europe/Madrid",
     active: true,
   },
@@ -85,10 +85,19 @@ const MOCK_COST_CENTERS: CostCenter[] = [
  * Zonas de trabajo dentro de tiendas El Ganso
  */
 const MOCK_ZONES: Zone[] = [
-  // Tienda Ferrán
+  // Rambla del ganso (tienda grande, 2 plantas)
   {
     id: "z1",
     name: "Planta Baja",
+    costCenterId: "cc1",
+    requiredCoverage: { morning: 3, afternoon: 3, night: 0 },
+    active: true,
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+  },
+  {
+    id: "z2",
+    name: "Planta 1",
     costCenterId: "cc1",
     requiredCoverage: { morning: 2, afternoon: 2, night: 0 },
     active: true,
@@ -96,18 +105,46 @@ const MOCK_ZONES: Zone[] = [
     updatedAt: new Date("2025-01-01"),
   },
   {
-    id: "z2",
+    id: "z3",
     name: "Caja",
+    costCenterId: "cc1",
+    requiredCoverage: { morning: 1, afternoon: 2, night: 0 },
+    active: true,
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+  },
+  {
+    id: "z4",
+    name: "Probadores",
     costCenterId: "cc1",
     requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
     active: true,
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
   },
+  // Tienda Ferrán
   {
-    id: "z3",
+    id: "z5",
+    name: "Planta Baja",
+    costCenterId: "cc2",
+    requiredCoverage: { morning: 2, afternoon: 2, night: 0 },
+    active: true,
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+  },
+  {
+    id: "z6",
+    name: "Caja",
+    costCenterId: "cc2",
+    requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
+    active: true,
+    createdAt: new Date("2025-01-01"),
+    updatedAt: new Date("2025-01-01"),
+  },
+  {
+    id: "z7",
     name: "Almacén",
-    costCenterId: "cc1",
+    costCenterId: "cc2",
     requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
     active: true,
     createdAt: new Date("2025-01-01"),
@@ -115,54 +152,17 @@ const MOCK_ZONES: Zone[] = [
   },
   // Tienda Vidrieria
   {
-    id: "z4",
-    name: "Planta Baja",
-    costCenterId: "cc2",
-    requiredCoverage: { morning: 2, afternoon: 2, night: 0 },
-    active: true,
-    createdAt: new Date("2025-01-01"),
-    updatedAt: new Date("2025-01-01"),
-  },
-  {
-    id: "z5",
-    name: "Caja",
-    costCenterId: "cc2",
-    requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
-    active: true,
-    createdAt: new Date("2025-01-01"),
-    updatedAt: new Date("2025-01-01"),
-  },
-  // Tienda Rambla Catalunya (tienda grande, 2 plantas)
-  {
-    id: "z6",
-    name: "Planta Baja",
-    costCenterId: "cc3",
-    requiredCoverage: { morning: 3, afternoon: 3, night: 0 },
-    active: true,
-    createdAt: new Date("2025-01-01"),
-    updatedAt: new Date("2025-01-01"),
-  },
-  {
-    id: "z7",
-    name: "Planta 1",
-    costCenterId: "cc3",
-    requiredCoverage: { morning: 2, afternoon: 2, night: 0 },
-    active: true,
-    createdAt: new Date("2025-01-01"),
-    updatedAt: new Date("2025-01-01"),
-  },
-  {
     id: "z8",
-    name: "Caja",
+    name: "Planta Baja",
     costCenterId: "cc3",
-    requiredCoverage: { morning: 1, afternoon: 2, night: 0 },
+    requiredCoverage: { morning: 2, afternoon: 2, night: 0 },
     active: true,
     createdAt: new Date("2025-01-01"),
     updatedAt: new Date("2025-01-01"),
   },
   {
     id: "z9",
-    name: "Probadores",
+    name: "Caja",
     costCenterId: "cc3",
     requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
     active: true,
@@ -232,11 +232,11 @@ const MOCK_ZONES: Zone[] = [
  * Empleados El Ganso Barcelona - Sistema de turnos
  */
 const MOCK_EMPLOYEES: EmployeeShift[] = [
-  // Tienda Ferrán
+  // Rambla del ganso (cc1)
   {
     id: "e1",
-    firstName: "Marta",
-    lastName: "Vila",
+    firstName: "Francesc",
+    lastName: "",
     contractHours: 40,
     usesShiftSystem: true,
     costCenterId: "cc1",
@@ -244,72 +244,90 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
   },
   {
     id: "e2",
-    firstName: "Jordi",
-    lastName: "Puig",
+    firstName: "Marta",
+    lastName: "",
     contractHours: 30,
     usesShiftSystem: true,
     costCenterId: "cc1",
     absences: [],
   },
-  // Tienda Vidrieria
   {
     id: "e3",
-    firstName: "Laura",
-    lastName: "Martínez",
-    contractHours: 40,
+    firstName: "Patricia",
+    lastName: "",
+    contractHours: 30,
     usesShiftSystem: true,
-    costCenterId: "cc2",
+    costCenterId: "cc1",
     absences: [],
   },
   {
     id: "e4",
-    firstName: "Marc",
-    lastName: "Serra",
-    contractHours: 25,
+    firstName: "Tania",
+    lastName: "",
+    contractHours: 20,
     usesShiftSystem: true,
-    costCenterId: "cc2",
+    costCenterId: "cc1",
     absences: [],
   },
-  // Tienda Rambla Catalunya (tienda grande, más empleados)
   {
     id: "e5",
-    firstName: "Anna",
-    lastName: "Rovira",
-    contractHours: 40,
+    firstName: "Andrea",
+    lastName: "",
+    contractHours: 20,
     usesShiftSystem: true,
-    costCenterId: "cc3",
+    costCenterId: "cc1",
     absences: [],
   },
   {
     id: "e6",
-    firstName: "David",
-    lastName: "García",
+    firstName: "Luna",
+    lastName: "",
+    contractHours: 20,
+    usesShiftSystem: true,
+    costCenterId: "cc1",
+    absences: [],
+  },
+  // Tienda Ferrán (cc2)
+  {
+    id: "e7",
+    firstName: "Marta",
+    lastName: "Vila",
+    contractHours: 40,
+    usesShiftSystem: true,
+    costCenterId: "cc2",
+    absences: [],
+  },
+  {
+    id: "e8",
+    firstName: "Jordi",
+    lastName: "Puig",
+    contractHours: 30,
+    usesShiftSystem: true,
+    costCenterId: "cc2",
+    absences: [],
+  },
+  // Tienda Vidrieria (cc3)
+  {
+    id: "e9",
+    firstName: "Laura",
+    lastName: "Martínez",
     contractHours: 40,
     usesShiftSystem: true,
     costCenterId: "cc3",
     absences: [],
   },
   {
-    id: "e7",
-    firstName: "Núria",
-    lastName: "Soler",
-    contractHours: 30,
+    id: "e10",
+    firstName: "Marc",
+    lastName: "Serra",
+    contractHours: 25,
     usesShiftSystem: true,
     costCenterId: "cc3",
     absences: [],
   },
-  {
-    id: "e8",
-    firstName: "Pau",
-    lastName: "Ferrer",
-    contractHours: 25,
-    usesShiftSystem: true,
-    costCenterId: "cc3",
-    absences: [{ start: "2025-11-20", end: "2025-11-22", reason: "Vacaciones" }],
-  },
   // Tienda Diagonal 616
   {
-    id: "e9",
+    id: "e11",
     firstName: "Clara",
     lastName: "Roca",
     contractHours: 40,
@@ -318,7 +336,7 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
     absences: [],
   },
   {
-    id: "e10",
+    id: "e12",
     firstName: "Albert",
     lastName: "Camps",
     contractHours: 30,
@@ -328,7 +346,7 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
   },
   // Tienda Diagonal 545
   {
-    id: "e11",
+    id: "e13",
     firstName: "Sara",
     lastName: "Vidal",
     contractHours: 40,
@@ -337,7 +355,7 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
     absences: [],
   },
   {
-    id: "e12",
+    id: "e14",
     firstName: "Sergi",
     lastName: "Pons",
     contractHours: 25,
@@ -347,7 +365,7 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
   },
   // Tienda Diagonal 557
   {
-    id: "e13",
+    id: "e15",
     firstName: "Júlia",
     lastName: "Mas",
     contractHours: 40,
@@ -356,7 +374,7 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
     absences: [],
   },
   {
-    id: "e14",
+    id: "e16",
     firstName: "Roger",
     lastName: "Llopis",
     contractHours: 30,
@@ -371,500 +389,925 @@ const MOCK_EMPLOYEES: EmployeeShift[] = [
  * Horarios típicos retail: 10:00-14:00 (mañana), 14:00-20:00 (tarde), 10:00-20:00 (completo)
  */
 const MOCK_SHIFTS: Shift[] = [
-  // LUNES 18 - Tiendas abiertas
-  // Ferrán
+  // ========== SEMANA 10-16 NOVIEMBRE ==========
+
+  // LUNES 10 - Rambla del ganso
   {
-    id: "s1",
-    employeeId: "e1",
-    date: "2025-11-18",
+    id: "s101",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-10",
     startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s102",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-10",
+    startTime: "14:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s103",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-10",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s104",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-10",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s105",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-10",
+    startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s106",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-10",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+
+  // MARTES 11 - Rambla del ganso
+  {
+    id: "s107",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-11",
+    startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s108",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-11",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s109",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-11",
+    startTime: "14:00",
     endTime: "20:00",
     costCenterId: "cc1",
     zoneId: "z1",
-    role: "Turno completo",
+    role: "Planta Baja",
     status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s110",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-11",
+    startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s111",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-11",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s112",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-11",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+
+  // MIÉRCOLES 12 - Rambla del ganso
+  {
+    id: "s113",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-12",
+    startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s114",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-12",
+    startTime: "14:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s115",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-12",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s116",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-12",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s117",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-12",
+    startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s118",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-12",
+    startTime: "14:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+
+  // JUEVES 13 - Rambla del ganso
+  {
+    id: "s119",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-13",
+    startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s120",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-13",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s121",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-13",
+    startTime: "14:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s122",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-13",
+    startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s123",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-13",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  // Andrea tiene día libre el jueves
+
+  // VIERNES 14 - Rambla del ganso
+  {
+    id: "s124",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-14",
+    startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s125",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-14",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s126",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-14",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s127",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-14",
+    startTime: "14:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s128",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-14",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  // Tania tiene día libre el viernes
+
+  // SÁBADO 15 - Rambla del ganso
+  {
+    id: "s129",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-15",
+    startTime: "12:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s130",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-15",
+    startTime: "14:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s131",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-15",
+    startTime: "12:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s132",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-15",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s133",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-15",
+    startTime: "12:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s134",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-15",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "published",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+
+  // DOMINGO 16 - Día de descanso para todos
+
+  // ========== SEMANA 18-24 NOVIEMBRE ==========
+
+  // LUNES 18 - Rambla del ganso
+  {
+    id: "s1",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-18",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s2",
-    employeeId: "e2",
+    employeeId: "e2", // Marta - 30h
     date: "2025-11-18",
     startTime: "14:00",
-    endTime: "20:00",
+    endTime: "18:00",
     costCenterId: "cc1",
     zoneId: "z2",
-    role: "Turno tarde",
-    status: "published",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Vidrieria
   {
     id: "s3",
-    employeeId: "e3",
+    employeeId: "e3", // Patricia - 30h
     date: "2025-11-18",
-    startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc2",
-    zoneId: "z4",
-    role: "Turno completo",
-    status: "published",
+    startTime: "14:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s4",
-    employeeId: "e4",
+    employeeId: "e4", // Tania - 20h
     date: "2025-11-18",
     startTime: "10:00",
     endTime: "14:00",
-    costCenterId: "cc2",
-    zoneId: "z5",
-    role: "Turno mañana",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Rambla Catalunya
   {
     id: "s5",
-    employeeId: "e5",
+    employeeId: "e5", // Andrea - 20h
     date: "2025-11-18",
-    startTime: "10:00",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z6",
-    role: "Turno completo",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s6",
-    employeeId: "e6",
+    employeeId: "e6", // Luna - 20h
     date: "2025-11-18",
-    startTime: "10:00",
-    endTime: "14:00",
-    costCenterId: "cc3",
-    zoneId: "z7",
-    role: "Turno mañana",
-    status: "published",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+
+  // MARTES 19 - Rambla del ganso
   {
     id: "s7",
-    employeeId: "e7",
-    date: "2025-11-18",
-    startTime: "14:00",
-    endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z8",
-    role: "Turno tarde",
-    status: "published",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-19",
+    startTime: "10:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Diagonal 616
   {
     id: "s8",
-    employeeId: "e9",
-    date: "2025-11-18",
-    startTime: "10:00",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-19",
+    startTime: "14:00",
     endTime: "20:00",
-    costCenterId: "cc4",
-    zoneId: "z10",
-    role: "Turno completo",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s9",
-    employeeId: "e10",
-    date: "2025-11-18",
-    startTime: "14:00",
-    endTime: "20:00",
-    costCenterId: "cc4",
-    zoneId: "z11",
-    role: "Turno tarde",
-    status: "published",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-19",
+    startTime: "10:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-
-  // MARTES 19
-  // Ferrán
   {
     id: "s10",
-    employeeId: "e1",
+    employeeId: "e4", // Tania - 20h
     date: "2025-11-19",
-    startTime: "10:00",
-    endTime: "14:00",
+    startTime: "16:00",
+    endTime: "20:00",
     costCenterId: "cc1",
     zoneId: "z1",
-    role: "Turno mañana",
-    status: "published",
+    role: "Planta Baja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s11",
-    employeeId: "e2",
+    employeeId: "e5", // Andrea - 20h
     date: "2025-11-19",
     startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "draft",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s12",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-19",
+    startTime: "16:00",
     endTime: "20:00",
     costCenterId: "cc1",
     zoneId: "z2",
-    role: "Turno completo",
-    status: "published",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Vidrieria
-  {
-    id: "s12",
-    employeeId: "e3",
-    date: "2025-11-19",
-    startTime: "14:00",
-    endTime: "20:00",
-    costCenterId: "cc2",
-    zoneId: "z4",
-    role: "Turno tarde",
-    status: "published",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
+
+  // MIÉRCOLES 20 - Rambla del ganso
   {
     id: "s13",
-    employeeId: "e4",
-    date: "2025-11-19",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-20",
     startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc2",
-    zoneId: "z5",
-    role: "Turno completo",
-    status: "published",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Rambla Catalunya
   {
     id: "s14",
-    employeeId: "e5",
-    date: "2025-11-19",
-    startTime: "14:00",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-20",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z6",
-    role: "Turno tarde",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s15",
-    employeeId: "e6",
-    date: "2025-11-19",
-    startTime: "10:00",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-20",
+    startTime: "14:00",
     endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z7",
-    role: "Turno completo",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s16",
-    employeeId: "e7",
-    date: "2025-11-19",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-20",
     startTime: "10:00",
     endTime: "14:00",
-    costCenterId: "cc3",
-    zoneId: "z9",
-    role: "Turno mañana",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Diagonal 545
   {
     id: "s17",
-    employeeId: "e11",
-    date: "2025-11-19",
-    startTime: "10:00",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-20",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc5",
-    zoneId: "z12",
-    role: "Turno completo",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s18",
-    employeeId: "e12",
-    date: "2025-11-19",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-20",
     startTime: "14:00",
     endTime: "20:00",
-    costCenterId: "cc5",
-    zoneId: "z13",
-    role: "Turno tarde",
-    status: "published",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
+    status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
 
-  // MIÉRCOLES 20 (algunos turnos en borrador)
-  // Ferrán
+  // JUEVES 21 - Rambla del ganso
   {
     id: "s19",
-    employeeId: "e1",
-    date: "2025-11-20",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-21",
     startTime: "10:00",
-    endTime: "20:00",
+    endTime: "18:00",
     costCenterId: "cc1",
     zoneId: "z1",
-    role: "Turno completo",
+    role: "Planta Baja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s20",
-    employeeId: "e2",
-    date: "2025-11-20",
-    startTime: "14:00",
-    endTime: "20:00",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-21",
+    startTime: "10:00",
+    endTime: "16:00",
     costCenterId: "cc1",
     zoneId: "z2",
-    role: "Turno tarde",
+    role: "Planta 1",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Rambla Catalunya (Pau de vacaciones)
   {
     id: "s21",
-    employeeId: "e5",
-    date: "2025-11-20",
-    startTime: "10:00",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-21",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z6",
-    role: "Turno completo",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s22",
-    employeeId: "e6",
-    date: "2025-11-20",
-    startTime: "10:00",
-    endTime: "14:00",
-    costCenterId: "cc3",
-    zoneId: "z7",
-    role: "Turno mañana",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-21",
+    startTime: "14:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s23",
-    employeeId: "e7",
-    date: "2025-11-20",
-    startTime: "14:00",
-    endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z8",
-    role: "Turno tarde",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-21",
+    startTime: "10:00",
+    endTime: "14:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Diagonal 557
+  // Andrea tiene día libre el jueves
+
+  // VIERNES 22 - Rambla del ganso
   {
     id: "s24",
-    employeeId: "e13",
-    date: "2025-11-20",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-22",
     startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc6",
-    zoneId: "z14",
-    role: "Turno completo",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s25",
-    employeeId: "e14",
-    date: "2025-11-20",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-22",
     startTime: "14:00",
     endTime: "20:00",
-    costCenterId: "cc6",
-    zoneId: "z15",
-    role: "Turno tarde",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-
-  // JUEVES 21 (más turnos en borrador)
-  // Vidrieria
   {
     id: "s26",
-    employeeId: "e3",
-    date: "2025-11-21",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-22",
     startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc2",
-    zoneId: "z4",
-    role: "Turno completo",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s27",
-    employeeId: "e4",
-    date: "2025-11-21",
-    startTime: "10:00",
-    endTime: "14:00",
-    costCenterId: "cc2",
-    zoneId: "z5",
-    role: "Turno mañana",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-22",
+    startTime: "16:00",
+    endTime: "20:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Diagonal 616
   {
     id: "s28",
-    employeeId: "e9",
-    date: "2025-11-21",
-    startTime: "14:00",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-22",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc4",
-    zoneId: "z10",
-    role: "Turno tarde",
+    costCenterId: "cc1",
+    zoneId: "z4",
+    role: "Probadores",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
+  // Tania tiene día libre el viernes
+
+  // SÁBADO 23 - Rambla del ganso
   {
     id: "s29",
-    employeeId: "e10",
-    date: "2025-11-21",
-    startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc4",
-    zoneId: "z11",
-    role: "Turno completo",
-    status: "draft",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  // Diagonal 545
-  {
-    id: "s30",
-    employeeId: "e11",
-    date: "2025-11-21",
-    startTime: "10:00",
-    endTime: "14:00",
-    costCenterId: "cc5",
-    zoneId: "z12",
-    role: "Turno mañana",
-    status: "draft",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-
-  // VIERNES 22 (día con más afluencia, turnos más largos)
-  // Ferrán
-  {
-    id: "s31",
-    employeeId: "e1",
-    date: "2025-11-22",
-    startTime: "10:00",
+    employeeId: "e1", // Francesc - 40h
+    date: "2025-11-23",
+    startTime: "12:00",
     endTime: "20:00",
     costCenterId: "cc1",
     zoneId: "z1",
-    role: "Turno completo",
+    role: "Planta Baja",
+    status: "draft",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s30",
+    employeeId: "e2", // Marta - 30h
+    date: "2025-11-23",
+    startTime: "14:00",
+    endTime: "18:00",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
+    status: "draft",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "s31",
+    employeeId: "e3", // Patricia - 30h
+    date: "2025-11-23",
+    startTime: "12:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z2",
+    role: "Planta 1",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s32",
-    employeeId: "e2",
-    date: "2025-11-22",
-    startTime: "10:00",
+    employeeId: "e4", // Tania - 20h
+    date: "2025-11-23",
+    startTime: "16:00",
     endTime: "20:00",
     costCenterId: "cc1",
-    zoneId: "z2",
-    role: "Turno completo",
+    zoneId: "z4",
+    role: "Probadores",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  // Rambla Catalunya
   {
     id: "s33",
-    employeeId: "e5",
-    date: "2025-11-22",
-    startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z6",
-    role: "Turno completo",
+    employeeId: "e5", // Andrea - 20h
+    date: "2025-11-23",
+    startTime: "12:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Planta Baja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
   {
     id: "s34",
-    employeeId: "e6",
-    date: "2025-11-22",
-    startTime: "10:00",
+    employeeId: "e6", // Luna - 20h
+    date: "2025-11-23",
+    startTime: "16:00",
     endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z7",
-    role: "Turno completo",
+    costCenterId: "cc1",
+    zoneId: "z3",
+    role: "Caja",
     status: "draft",
     createdAt: new Date(),
     updatedAt: new Date(),
   },
-  {
-    id: "s35",
-    employeeId: "e7",
-    date: "2025-11-22",
-    startTime: "14:00",
-    endTime: "20:00",
-    costCenterId: "cc3",
-    zoneId: "z8",
-    role: "Turno tarde",
-    status: "draft",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  // Diagonal 557
-  {
-    id: "s36",
-    employeeId: "e13",
-    date: "2025-11-22",
-    startTime: "10:00",
-    endTime: "20:00",
-    costCenterId: "cc6",
-    zoneId: "z14",
-    role: "Turno completo",
-    status: "draft",
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
+
+  // DOMINGO 24 - Día de descanso para todos
 ];
 
 /**
@@ -985,17 +1428,20 @@ export class ShiftServiceMock implements IShiftService {
       updatedAt: new Date(),
     };
 
-    // Validar
-    const validation = await this.validateShift({
-      employeeId: updated.employeeId,
-      date: updated.date,
-      startTime: updated.startTime,
-      endTime: updated.endTime,
-      costCenterId: updated.costCenterId,
-      zoneId: updated.zoneId,
-      role: updated.role,
-      notes: updated.notes,
-    });
+    // Validar (excluir el turno que se está editando)
+    const validation = await this.validateShift(
+      {
+        employeeId: updated.employeeId,
+        date: updated.date,
+        startTime: updated.startTime,
+        endTime: updated.endTime,
+        costCenterId: updated.costCenterId,
+        zoneId: updated.zoneId,
+        role: updated.role,
+        notes: updated.notes,
+      },
+      id,
+    );
 
     updated.status = validation.conflicts.length > 0 ? "conflict" : updated.status;
 
@@ -1019,12 +1465,7 @@ export class ShiftServiceMock implements IShiftService {
     return true;
   }
 
-  async moveShift(
-    shiftId: string,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<DragResult> {
+  async moveShift(shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string): Promise<DragResult> {
     const shift = MOCK_SHIFTS.find((s) => s.id === shiftId);
     if (!shift) {
       return { success: false };
@@ -1047,19 +1488,23 @@ export class ShiftServiceMock implements IShiftService {
       }
     }
 
-    // Validar nuevo destino
-    const validation = await this.validateShift({
-      employeeId: updatedShift.employeeId,
-      date: updatedShift.date,
-      startTime: updatedShift.startTime,
-      endTime: updatedShift.endTime,
-      costCenterId: updatedShift.costCenterId,
-      zoneId: updatedShift.zoneId,
-      role: updatedShift.role,
-      notes: updatedShift.notes,
-    });
+    // Validar nuevo destino (excluir el turno que se está moviendo)
+    const validation = await this.validateShift(
+      {
+        employeeId: updatedShift.employeeId,
+        date: updatedShift.date,
+        startTime: updatedShift.startTime,
+        endTime: updatedShift.endTime,
+        costCenterId: updatedShift.costCenterId,
+        zoneId: updatedShift.zoneId,
+        role: updatedShift.role,
+        notes: updatedShift.notes,
+      },
+      shiftId,
+    );
 
-    updatedShift.status = validation.conflicts.length > 0 ? "conflict" : "draft";
+    // Mantener el estado original si no hay conflictos, o marcarlo como conflict si los hay
+    updatedShift.status = validation.conflicts.length > 0 ? "conflict" : shift.status;
 
     const index = MOCK_SHIFTS.findIndex((s) => s.id === shiftId);
     MOCK_SHIFTS[index] = updatedShift;
@@ -1073,12 +1518,7 @@ export class ShiftServiceMock implements IShiftService {
     };
   }
 
-  async copyShift(
-    shiftId: string,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<DragResult> {
+  async copyShift(shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string): Promise<DragResult> {
     const shift = MOCK_SHIFTS.find((s) => s.id === shiftId);
     if (!shift) {
       return { success: false };
@@ -1136,12 +1576,12 @@ export class ShiftServiceMock implements IShiftService {
 
   // ==================== VALIDACIONES ====================
 
-  async validateShift(data: ShiftInput): Promise<ValidationResult> {
+  async validateShift(data: ShiftInput, excludeShiftId?: string): Promise<ValidationResult> {
     const conflicts: ValidationResult["conflicts"] = [];
     const warnings: ValidationResult["warnings"] = [];
 
     // 1. Validar solapamiento
-    const hasOverlap = await this.hasOverlap(data.employeeId, data.date, data.startTime, data.endTime);
+    const hasOverlap = await this.hasOverlap(data.employeeId, data.date, data.startTime, data.endTime, excludeShiftId);
     if (hasOverlap) {
       conflicts.push({
         type: "overlap",

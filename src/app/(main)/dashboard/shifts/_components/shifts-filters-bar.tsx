@@ -2,34 +2,21 @@
  * Barra de Filtros para Turnos
  *
  * Permite filtrar turnos por lugar, zona, rol, estado.
- * Incluye navegación de semana/mes.
  */
 
 "use client";
 
-import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon } from "lucide-react";
+import { X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
-import { formatWeekRange } from "../_lib/shift-utils";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function ShiftsFiltersBar() {
-  const {
-    currentWeekStart,
-    filters,
-    costCenters,
-    zones,
-    setFilters,
-    clearFilters,
-    goToPreviousWeek,
-    goToNextWeek,
-    goToToday,
-  } = useShiftsStore();
+  const { filters, costCenters, zones, setFilters, clearFilters } = useShiftsStore();
 
   const activeFiltersCount = Object.values(filters).filter((v) => v !== undefined && v !== "").length;
 
@@ -38,28 +25,9 @@ export function ShiftsFiltersBar() {
 
   return (
     <div className="space-y-4">
-      {/* Navegación de semana */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={goToPreviousWeek} aria-label="Semana anterior">
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-
-          <div className="flex min-w-[200px] items-center justify-center gap-2">
-            <CalendarIcon className="text-muted-foreground h-4 w-4" />
-            <span className="text-sm font-semibold">{formatWeekRange(currentWeekStart)}</span>
-          </div>
-
-          <Button variant="outline" size="icon" onClick={goToNextWeek} aria-label="Semana siguiente">
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={goToToday}>
-            Hoy
-          </Button>
-        </div>
-
-        {/* Indicador de filtros activos */}
+      {/* Header con indicador de filtros activos */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold">Filtros</h3>
         {activeFiltersCount > 0 && (
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="font-medium">

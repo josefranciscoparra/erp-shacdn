@@ -31,11 +31,11 @@ export function ShiftsViewSelector() {
           }}
           className="border"
         >
-          <ToggleGroupItem value="week" aria-label="Vista semanal" className="gap-2">
+          <ToggleGroupItem value="week" aria-label="Vista semanal" className="gap-2 px-4">
             <Calendar className="h-4 w-4" />
             <span className="hidden @md:inline">Semana</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="month" aria-label="Vista mensual" className="gap-2">
+          <ToggleGroupItem value="month" aria-label="Vista mensual" className="gap-2 px-4">
             <CalendarDays className="h-4 w-4" />
             <span className="hidden @md:inline">Mes</span>
           </ToggleGroupItem>
@@ -53,11 +53,11 @@ export function ShiftsViewSelector() {
           }}
           className="border"
         >
-          <ToggleGroupItem value="employee" aria-label="Vista por empleado" className="gap-2">
+          <ToggleGroupItem value="employee" aria-label="Vista por empleado" className="gap-2 px-4">
             <Users className="h-4 w-4" />
             <span className="hidden @md:inline">Empleado</span>
           </ToggleGroupItem>
-          <ToggleGroupItem value="area" aria-label="Vista por áreas" className="gap-2">
+          <ToggleGroupItem value="area" aria-label="Vista por áreas" className="gap-2 px-4">
             <Building2 className="h-4 w-4" />
             <span className="hidden @md:inline">Áreas</span>
           </ToggleGroupItem>
