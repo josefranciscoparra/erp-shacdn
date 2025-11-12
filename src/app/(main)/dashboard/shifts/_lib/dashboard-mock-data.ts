@@ -60,6 +60,7 @@ export const MOCK_DASHBOARD_STATS: MockStats = {
 
 /**
  * Alertas críticas que requieren atención
+ * Usa nombres de empleados reales de El Ganso Barcelona
  */
 export const MOCK_CRITICAL_ALERTS: MockAlert[] = [
   {
@@ -68,48 +69,35 @@ export const MOCK_CRITICAL_ALERTS: MockAlert[] = [
     severity: "error",
     title: "3 conflictos de horario detectados",
     description: "Empleados con turnos superpuestos que requieren reasignación inmediata",
-    affectedEmployees: ["Ana García", "Carlos López", "María Sánchez"],
+    affectedEmployees: ["Francesc", "Marta", "Patricia"],
     weekDisplay: "Semana 10-16 Nov 2025",
   },
   {
     id: "alert-2",
     type: "coverage",
     severity: "error",
-    title: "Cobertura insuficiente en Recepción",
-    description: "Solo 45% de cobertura en horario de mayor demanda",
-    affectedEmployees: ["Pedro Martínez"],
+    title: "Cobertura insuficiente en Probadores",
+    description: "Solo 50% de cobertura en horario de mayor demanda",
+    affectedEmployees: ["Tania"],
     weekDisplay: "Semana 10-16 Nov 2025",
   },
   {
     id: "alert-3",
     type: "no_shifts",
     severity: "warning",
-    title: "12 empleados sin turnos asignados",
+    title: "4 empleados sin turnos asignados",
     description: "Empleados activos que no tienen ningún turno programado esta semana",
-    affectedEmployees: [
-      "Laura Torres",
-      "Javier Ruiz",
-      "Carmen Díaz",
-      "Roberto Fernández",
-      "Isabel Moreno",
-      "Diego Jiménez",
-      "Patricia Álvarez",
-      "Miguel Romero",
-      "Elena Navarro",
-      "Francisco Gil",
-      "Lucía Serrano",
-      "Antonio Molina",
-    ],
-    weekDisplay: "Semana 10-16 Nov 2025",
+    affectedEmployees: ["Marta Vila", "Jordi Puig", "Laura Martínez", "Marc Serra"],
+    weekDisplay: "Semana 17-23 Nov 2025",
   },
   {
     id: "alert-4",
     type: "unpublished",
     severity: "warning",
-    title: "3 turnos en borrador sin publicar",
+    title: "34 turnos en borrador sin publicar",
     description: "Turnos creados que aún no han sido publicados y notificados a los empleados",
-    affectedEmployees: ["Sofía Castro", "Raúl Ortiz", "Marta Ramos"],
-    weekDisplay: "Semana 17-23 Nov 2025",
+    affectedEmployees: ["Francesc", "Marta", "Patricia", "Tania", "Andrea", "Luna"],
+    weekDisplay: "Semana 18-24 Nov 2025",
   },
   {
     id: "alert-5",
@@ -124,7 +112,7 @@ export const MOCK_CRITICAL_ALERTS: MockAlert[] = [
     id: "alert-6",
     type: "coverage",
     severity: "info",
-    title: "Cobertura completa en Centro Barcelona",
+    title: "Cobertura completa en El Ganso Diagonal 616",
     description: "Todas las zonas tienen 100% de cobertura programada",
     affectedEmployees: [],
     weekDisplay: "Semana 10-16 Nov 2025",
