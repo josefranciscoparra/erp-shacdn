@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { format, startOfDay, endOfDay, setHours, setMinutes, isPast, isFuture, isToday } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2, AlertTriangle } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, AlertTriangle, Clock, Check } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -136,21 +136,35 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[95vh] overflow-y-auto bg-gray-100 p-4 sm:max-w-[600px] sm:p-6 dark:bg-gray-900">
+      <DialogContent
+        className="data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-97 data-[state=open]:zoom-in-98 max-h-[95vh] overflow-y-auto p-4 data-[state=closed]:duration-100 data-[state=open]:duration-150 sm:max-w-[600px] sm:p-6"
+        style={{
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        <style jsx global>{`
+          @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+            [data-radix-dialog-overlay] {
+              background-color: rgba(0, 0, 0, 0.35) !important;
+              backdrop-filter: none !important;
+            }
+          }
+        `}</style>
         <DialogHeader>
-          <DialogTitle>Solicitar fichaje manual</DialogTitle>
+          <DialogTitle className="mb-2 text-xl font-semibold">Solicitar fichaje manual</DialogTitle>
           <DialogDescription>
             Si olvidaste fichar un día, puedes solicitar un fichaje manual. Tu responsable deberá aprobarlo.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Advertencia de fichajes existentes */}
+          {/* Advertencia de fichajes existentes - Bloque suave y premium */}
           {selectedDate && isPast(startOfDay(selectedDate)) && (
-            <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
-              <AlertTriangle className="h-4 w-4 text-orange-700 dark:text-orange-400" />
+            <Alert className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">
+              <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
               <AlertTitle className="text-orange-900 dark:text-orange-300">Atención</AlertTitle>
-              <AlertDescription className="space-y-2 text-orange-800 dark:text-orange-400">
+              <AlertDescription className="space-y-1 text-orange-700 dark:text-orange-400">
                 <p>
                   Si ya tienes fichajes automáticos para este día, serán cancelados y reemplazados por los datos de esta
                   solicitud.
@@ -162,107 +176,124 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </Alert>
           )}
 
-          {/* Fecha */}
-          <div className="space-y-2">
-            <Label htmlFor="date">Fecha del fichaje olvidado</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {selectedDate ? format(selectedDate, "PPP", { locale: es }) : "Selecciona una fecha"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) => isFuture(startOfDay(date)) || isToday(date)}
-                  initialFocus
-                  locale={es}
+          {/* Sección 1: Fecha del fichaje olvidado */}
+          <div className="border-muted/30 space-y-4 border-b py-4">
+            <div className="space-y-3">
+              <Label htmlFor="date">Fecha del fichaje olvidado</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "hover:bg-muted/30 focus-visible:ring-primary/20 w-full justify-start text-left font-normal transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1",
+                      !selectedDate && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {selectedDate ? format(selectedDate, "PPP", { locale: es }) : "Selecciona una fecha"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    disabled={(date) => isFuture(startOfDay(date)) || isToday(date)}
+                    initialFocus
+                    locale={es}
+                  />
+                </PopoverContent>
+              </Popover>
+              <p className="text-muted-foreground text-xs">Solo puedes solicitar fichajes de días pasados</p>
+            </div>
+          </div>
+
+          {/* Sección 2: Hora de entrada / salida */}
+          <div className="border-muted/30 space-y-4 border-b py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-3">
+                <Label htmlFor="clockInTime">Hora de entrada</Label>
+                <Input
+                  id="clockInTime"
+                  type="time"
+                  value={clockInTime}
+                  onChange={(e) => setClockInTime(e.target.value)}
+                  disabled={isLoading}
+                  className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
                 />
-              </PopoverContent>
-            </Popover>
-            <p className="text-muted-foreground text-xs">Solo puedes solicitar fichajes de días pasados</p>
+              </div>
+
+              <div className="space-y-3">
+                <Label htmlFor="clockOutTime">Hora de salida</Label>
+                <Input
+                  id="clockOutTime"
+                  type="time"
+                  value={clockOutTime}
+                  onChange={(e) => setClockOutTime(e.target.value)}
+                  disabled={isLoading}
+                  className="hover:bg-muted/30 focus-visible:ring-primary/20 transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
+                />
+              </div>
+            </div>
+
+            {/* Tiempo total calculado - Badge Premium */}
+            {clockInTime && clockOutTime && clockInTime < clockOutTime && (
+              <div className="bg-primary/10 flex w-fit items-center gap-2 rounded-lg px-3 py-2">
+                <Clock className="text-primary h-4 w-4" />
+                <div>
+                  <p className="text-primary/70 text-xs font-medium">Tiempo total</p>
+                  <p className="text-primary text-sm font-semibold">
+                    {(() => {
+                      const [inH, inM] = clockInTime.split(":").map(Number);
+                      const [outH, outM] = clockOutTime.split(":").map(Number);
+                      const totalMinutes = outH * 60 + outM - (inH * 60 + inM);
+                      const hours = Math.floor(totalMinutes / 60);
+                      const minutes = totalMinutes % 60;
+                      return `${hours}h ${minutes}min`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Hora de entrada */}
-          <div className="space-y-2">
-            <Label htmlFor="clockInTime">Hora de entrada</Label>
-            <Input
-              id="clockInTime"
-              type="time"
-              value={clockInTime}
-              onChange={(e) => setClockInTime(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Hora de salida */}
-          <div className="space-y-2">
-            <Label htmlFor="clockOutTime">Hora de salida</Label>
-            <Input
-              id="clockOutTime"
-              type="time"
-              value={clockOutTime}
-              onChange={(e) => setClockOutTime(e.target.value)}
-              disabled={isLoading}
-            />
-          </div>
-
-          {/* Tiempo total calculado */}
-          {clockInTime && clockOutTime && clockInTime < clockOutTime && (
-            <div className="bg-muted/50 rounded-lg border p-3">
-              <p className="text-sm font-medium">Tiempo total</p>
+          {/* Sección 3: Motivo */}
+          <div className="border-muted/30 space-y-4 border-b py-4">
+            <div className="space-y-3">
+              <Label htmlFor="reason">Motivo (obligatorio)</Label>
+              <Textarea
+                id="reason"
+                placeholder="Explica por qué olvidaste fichar ese día..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                disabled={isLoading}
+                rows={4}
+                className="hover:bg-muted/30 focus-visible:ring-primary/20 resize-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-offset-1"
+              />
               <p className="text-muted-foreground text-xs">
-                {(() => {
-                  const [inH, inM] = clockInTime.split(":").map(Number);
-                  const [outH, outM] = clockOutTime.split(":").map(Number);
-                  const totalMinutes = outH * 60 + outM - (inH * 60 + inM);
-                  const hours = Math.floor(totalMinutes / 60);
-                  const minutes = totalMinutes % 60;
-                  return `${hours}h ${minutes}min`;
-                })()}
+                {reason.length}/10 caracteres mínimo • {reason.length > 0 && reason.length < 10 && "Faltan caracteres"}
               </p>
             </div>
-          )}
-
-          {/* Motivo */}
-          <div className="space-y-2">
-            <Label htmlFor="reason">Motivo (obligatorio)</Label>
-            <Textarea
-              id="reason"
-              placeholder="Explica por qué olvidaste fichar ese día..."
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              disabled={isLoading}
-              rows={4}
-              className="resize-none"
-            />
-            <p className="text-muted-foreground text-xs">
-              {reason.length}/10 caracteres mínimo • {reason.length > 0 && reason.length < 10 && "Faltan caracteres"}
-            </p>
           </div>
 
-          {/* Checkbox de confirmación (solo para días pasados) */}
+          {/* Sección 4: Confirmación final */}
           {selectedDate && isPast(startOfDay(selectedDate)) && (
-            <div className="flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50/50 p-3 dark:border-orange-700 dark:bg-orange-950/20">
-              <Checkbox
-                id="confirm-replacement"
-                checked={confirmReplacement}
-                onCheckedChange={(checked) => setConfirmReplacement(checked === true)}
-                disabled={isLoading}
-                className="mt-0.5"
-              />
-              <label
-                htmlFor="confirm-replacement"
-                className="cursor-pointer text-sm leading-none font-medium text-orange-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-orange-300"
-              >
-                Entiendo que si hay fichajes automáticos, se cancelarán y reemplazarán por los datos de esta solicitud
-              </label>
+            <div className="space-y-4 py-4">
+              <div className="mt-4 mb-2 flex items-start gap-3 rounded-lg border border-orange-300 bg-orange-50/50 p-4 dark:border-orange-700 dark:bg-orange-950/20">
+                <Checkbox
+                  id="confirm-replacement"
+                  checked={confirmReplacement}
+                  onCheckedChange={(checked) => setConfirmReplacement(checked === true)}
+                  disabled={isLoading}
+                  className="mt-0.5"
+                />
+                <label
+                  htmlFor="confirm-replacement"
+                  className="cursor-pointer text-sm leading-tight font-medium text-orange-900 peer-disabled:cursor-not-allowed peer-disabled:opacity-70 dark:text-orange-300"
+                >
+                  Entiendo que si hay fichajes automáticos, se cancelarán y reemplazarán por los datos de esta solicitud
+                </label>
+              </div>
             </div>
           )}
 
@@ -273,7 +304,7 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             </Alert>
           )}
 
-          {/* Botones */}
+          {/* Botones - CTA Premium */}
           <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:justify-end">
             <Button
               type="button"
@@ -287,9 +318,9 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
             <Button
               onClick={handleSubmit}
               disabled={isLoading || (selectedDate && isPast(startOfDay(selectedDate)) && !confirmReplacement)}
-              className="w-full sm:w-auto"
+              className="w-full shadow-[0_1px_4px_rgba(0,0,0,0.06)] transition-all duration-150 hover:shadow-[0_2px_6px_rgba(0,0,0,0.1)] active:scale-[0.97] sm:w-auto"
             >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
               Enviar solicitud
             </Button>
           </div>
