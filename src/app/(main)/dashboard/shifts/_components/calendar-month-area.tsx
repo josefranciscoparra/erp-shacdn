@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { getMonthStart, getMonthDays, formatDateISO, formatMonthRange } from "../_lib/shift-utils";
+import { getMonthStart, getMonthDays, formatDateISO, formatMonthRange, getEmptyDayType } from "../_lib/shift-utils";
 import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
@@ -195,6 +195,7 @@ export function CalendarMonthArea() {
                             assigned={coverage?.assigned ?? 0}
                             required={coverage?.required ?? 0}
                             shifts={coverage?.shifts ?? []}
+                            allShifts={shifts}
                             onCreateShift={() => handleCreateShift(zone.id, dateISO)}
                             onEditShift={(shift) => openShiftDialog(shift)}
                           />
@@ -242,6 +243,7 @@ interface CompactCoverageCellProps {
   assigned: number;
   required: number;
   shifts: Shift[];
+  allShifts: Shift[];
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
@@ -252,6 +254,7 @@ function CompactCoverageCell({
   assigned,
   required,
   shifts,
+  allShifts,
   onCreateShift,
   onEditShift,
 }: CompactCoverageCellProps) {
@@ -265,6 +268,9 @@ function CompactCoverageCell({
 
   // Obtener empleados únicos
   const uniqueEmployeeIds = Array.from(new Set(shifts.map((s) => s.employeeId)));
+
+  // Determinar el tipo de día vacío (descanso vs sin planificar)
+  const emptyDayType = getEmptyDayType(date, allShifts);
 
   return (
     <TooltipProvider>
@@ -286,7 +292,7 @@ function CompactCoverageCell({
             {/* Si no hay turnos, mostrar RestDayCard */}
             {assigned === 0 ? (
               <div className="px-1">
-                <RestDayCard type="unplanned" compact />
+                <RestDayCard type={emptyDayType} compact />
               </div>
             ) : (
               <>
@@ -319,7 +325,7 @@ function CompactCoverageCell({
                 {uniqueEmployeeIds.length} {uniqueEmployeeIds.length === 1 ? "empleado" : "empleados"}
               </p>
             ) : (
-              <RestDayCard type="unplanned" compact />
+              <RestDayCard type={emptyDayType} compact />
             )}
             {shifts.length > 0 && (
               <p className="text-muted-foreground italic">

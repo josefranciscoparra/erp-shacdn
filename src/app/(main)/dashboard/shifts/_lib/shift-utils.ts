@@ -498,3 +498,45 @@ export function getPreviousMonth(currentMonthStart: Date): Date {
 export function getNextMonth(currentMonthStart: Date): Date {
   return addMonths(currentMonthStart, 1);
 }
+
+// ==================== LÓGICA DE PLANIFICACIÓN ====================
+
+/**
+ * Determinar el rango de fechas planificadas basándose en los turnos existentes
+ * @param shifts - Array de turnos (de cualquier tipo)
+ * @returns Objeto con fechas de inicio y fin del periodo planificado, o null si no hay turnos
+ */
+export function getPlannedDateRange(shifts: Array<{ date: string }>): { start: string; end: string } | null {
+  if (shifts.length === 0) return null;
+
+  const dates = shifts.map((s) => s.date).sort();
+  return {
+    start: dates[0],
+    end: dates[dates.length - 1],
+  };
+}
+
+/**
+ * Determinar si un día sin turnos es "descanso" o "sin planificar"
+ *
+ * Lógica:
+ * - Si está DENTRO del rango de fechas con turnos asignados → "rest" (Descanso planificado)
+ * - Si está FUERA del rango (después de la última fecha planificada) → "unplanned" (Sin planificar aún)
+ *
+ * @param date - Fecha a verificar (formato YYYY-MM-DD)
+ * @param shifts - Array de todos los turnos
+ * @returns "rest" si es descanso planificado, "unplanned" si aún no se ha planificado
+ */
+export function getEmptyDayType(date: string, shifts: Array<{ date: string }>): "rest" | "unplanned" {
+  const plannedRange = getPlannedDateRange(shifts);
+
+  if (!plannedRange) return "unplanned";
+
+  // Si la fecha está dentro del rango planificado, es un día de descanso
+  if (date >= plannedRange.start && date <= plannedRange.end) {
+    return "rest";
+  }
+
+  // Si está fuera del rango (después), es sin planificar
+  return "unplanned";
+}

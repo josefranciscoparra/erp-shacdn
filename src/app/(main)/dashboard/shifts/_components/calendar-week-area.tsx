@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { getWeekDays, formatDateShort, formatDateISO, getTimeSlot } from "../_lib/shift-utils";
+import { getWeekDays, formatDateShort, formatDateISO, getTimeSlot, getEmptyDayType } from "../_lib/shift-utils";
 import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
@@ -457,6 +457,9 @@ function DayCell({
     return "border-emerald-500/30";
   };
 
+  // Determinar el tipo de día vacío (descanso vs sin planificar)
+  const emptyDayType = getEmptyDayType(date, shifts);
+
   return (
     <td
       ref={setNodeRef}
@@ -468,10 +471,10 @@ function DayCell({
         isOver && !canDrop && "bg-red-100/50 ring-2 ring-red-500 dark:bg-red-900/20",
       )}
     >
-      {/* Si no hay turnos en todo el día, mostrar card de día sin planificar */}
+      {/* Si no hay turnos en todo el día, mostrar card de día sin planificar o descanso */}
       {allShifts.length === 0 ? (
         <div className="flex min-h-[150px] items-center justify-center p-4">
-          <RestDayCard type="unplanned" compact />
+          <RestDayCard type={emptyDayType} compact />
         </div>
       ) : (
         <>

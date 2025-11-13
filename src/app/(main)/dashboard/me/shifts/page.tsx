@@ -27,7 +27,7 @@ import { es } from "date-fns/locale";
 import { Calendar, FileDown, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { RestDayCard } from "@/app/(main)/dashboard/shifts/_components/rest-day-card";
-import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
+import { formatShiftTime, getEmptyDayType } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
 import { Badge } from "@/components/ui/badge";
@@ -200,6 +200,9 @@ export default function MyShiftsPage() {
                   const hasShifts = dayShifts.length > 0;
                   const today = isToday(day);
 
+                  // Determinar el tipo de día vacío (descanso vs sin planificar)
+                  const emptyDayType = getEmptyDayType(dateKey, shifts);
+
                   return (
                     <div
                       key={dateKey}
@@ -265,7 +268,7 @@ export default function MyShiftsPage() {
                             );
                           })
                         ) : (
-                          <RestDayCard type="unplanned" compact />
+                          <RestDayCard type={emptyDayType} compact />
                         )}
                       </div>
                     </div>

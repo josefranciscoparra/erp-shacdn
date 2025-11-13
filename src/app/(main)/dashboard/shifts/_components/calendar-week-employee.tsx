@@ -28,7 +28,14 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { getWeekDays, formatDateShort, formatDateISO, calculateDuration, formatDuration } from "../_lib/shift-utils";
+import {
+  getWeekDays,
+  formatDateShort,
+  formatDateISO,
+  calculateDuration,
+  formatDuration,
+  getEmptyDayType,
+} from "../_lib/shift-utils";
 import type { Shift, EmployeeShift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
@@ -293,6 +300,7 @@ export function CalendarWeekEmployee() {
                         employeeId={employee.id}
                         date={dateISO}
                         shifts={dayShifts}
+                        allShifts={shifts}
                         activeShiftId={activeShift?.id}
                         onCreateShift={() => handleCreateShift(employee.id, dateISO)}
                         onEditShift={(shift) => openShiftDialog(shift)}
@@ -325,12 +333,13 @@ interface ShiftCellProps {
   employeeId: string;
   date: string;
   shifts: Shift[];
+  allShifts: Shift[];
   activeShiftId?: string;
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
 
-function ShiftCell({ employeeId, date, shifts, activeShiftId, onCreateShift, onEditShift }: ShiftCellProps) {
+function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreateShift, onEditShift }: ShiftCellProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell-${employeeId}-${date}`,
     data: {
@@ -341,6 +350,9 @@ function ShiftCell({ employeeId, date, shifts, activeShiftId, onCreateShift, onE
 
   // Determinar si esta celda contiene el shift que se está arrastrando
   const containsActiveShift = shifts.some((s) => s.id === activeShiftId);
+
+  // Determinar el tipo de día vacío (descanso vs sin planificar)
+  const emptyDayType = getEmptyDayType(date, allShifts);
 
   return (
     <div
@@ -360,9 +372,9 @@ function ShiftCell({ employeeId, date, shifts, activeShiftId, onCreateShift, onE
           ))}
         </div>
       ) : (
-        /* Celda vacía con tarjeta de descanso */
+        /* Celda vacía con tarjeta de descanso o sin planificar */
         <div className="flex h-full min-h-[80px] flex-col items-center justify-center gap-2">
-          <RestDayCard />
+          <RestDayCard type={emptyDayType} />
           <Button
             variant="ghost"
             size="sm"

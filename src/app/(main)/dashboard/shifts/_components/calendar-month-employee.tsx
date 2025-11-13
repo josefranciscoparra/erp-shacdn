@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { formatDateISO, formatDuration, calculateDuration } from "../_lib/shift-utils";
+import { formatDateISO, formatDuration, calculateDuration, getEmptyDayType } from "../_lib/shift-utils";
 import type { Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
@@ -178,6 +178,7 @@ export function CalendarMonthEmployee() {
                       isToday={isToday}
                       hasShifts={hasShifts}
                       shifts={dayShifts}
+                      allShifts={shifts}
                       onCreateShift={() =>
                         openShiftDialog(undefined, {
                           employeeId: employee.id,
@@ -206,12 +207,17 @@ interface MonthDayCellProps {
   isToday: boolean;
   hasShifts: boolean;
   shifts: Shift[];
+  allShifts: Shift[];
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
 
-function MonthDayCell({ day, isToday, hasShifts, shifts, onCreateShift, onEditShift }: MonthDayCellProps) {
+function MonthDayCell({ day, isToday, hasShifts, shifts, allShifts, onCreateShift, onEditShift }: MonthDayCellProps) {
   const dayNumber = format(day, "d");
+  const dateISO = formatDateISO(day);
+
+  // Determinar el tipo de día vacío (descanso vs sin planificar)
+  const emptyDayType = getEmptyDayType(dateISO, allShifts);
 
   const getCellColor = () => {
     if (shifts.some((s) => s.status === "conflict")) {
@@ -260,7 +266,7 @@ function MonthDayCell({ day, isToday, hasShifts, shifts, onCreateShift, onEditSh
                 </ul>
               </>
             ) : (
-              <RestDayCard compact />
+              <RestDayCard type={emptyDayType} compact />
             )}
           </div>
         </TooltipContent>
