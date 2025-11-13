@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useSearchParams } from "next/navigation";
+
 import { Plus, UserRound, Loader2, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -12,6 +14,8 @@ import { useEmployeesStore } from "@/stores/employees-store";
 import { EmployeesDataTable } from "./_components/employees-data-table";
 
 export default function EmployeesPage() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const { employees, isLoading, error, fetchEmployees } = useEmployeesStore();
 
   useEffect(() => {
@@ -61,7 +65,7 @@ export default function EmployeesPage() {
         <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
 
         {hasEmployees ? (
-          <EmployeesDataTable data={employees} />
+          <EmployeesDataTable data={employees} highlightId={highlightId} />
         ) : (
           <EmptyState
             icon={<UserRound className="mx-auto h-12 w-12" />}

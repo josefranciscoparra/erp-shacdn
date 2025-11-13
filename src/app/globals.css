@@ -243,3 +243,22 @@
     transform: translateX(100%);
   }
 }
+
+/* Animación de highlight para empleados recién creados */
+@keyframes highlightFade {
+  0% {
+    background-color: var(--highlight-color);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.animate-highlight {
+  --highlight-color: rgb(254 252 232);
+  animation: highlightFade 3s ease-out;
+}
+
+.dark .animate-highlight {
+  --highlight-color: rgb(133 77 14 / 0.2);
+}

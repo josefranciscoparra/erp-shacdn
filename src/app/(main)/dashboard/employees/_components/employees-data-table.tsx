@@ -32,13 +32,14 @@ import { Employee } from "../types";
 
 import { employeesColumns } from "./employees-columns";
 
-export function EmployeesDataTable({ data }: { data: Employee[] }) {
+export function EmployeesDataTable({ data, highlightId }: { data: Employee[]; highlightId: string | null }) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
+  const [highlightedId, setHighlightedId] = React.useState<string | null>(highlightId);
 
   // Filtrar datos según la pestaña activa
   const filteredData = React.useMemo(() => {
@@ -107,6 +108,27 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
     }),
     [data],
   );
+
+  // Efecto para manejar el highlight del empleado recién creado
+  React.useEffect(() => {
+    if (highlightedId) {
+      // Esperar un poco para que la tabla se renderice completamente
+      const timer = setTimeout(() => {
+        const element = document.getElementById(`employee-row-${highlightedId}`);
+        if (element) {
+          // Scroll hacia el elemento
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+
+          // Remover el highlight después de 3 segundos
+          setTimeout(() => {
+            setHighlightedId(null);
+          }, 3000);
+        }
+      }, 300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedId]);
 
   // Obtener opciones únicas para filtros
   const departmentOptions = React.useMemo(() => {
@@ -246,15 +268,24 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
+                    table.getRowModel().rows.map((row) => {
+                      const employeeId = row.original.id;
+                      const isHighlighted = highlightedId === employeeId;
+                      return (
+                        <TableRow
+                          key={row.id}
+                          id={`employee-row-${employeeId}`}
+                          data-state={row.getIsSelected() && "selected"}
+                          className={isHighlighted ? "animate-highlight" : ""}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
@@ -352,15 +383,24 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
+                    table.getRowModel().rows.map((row) => {
+                      const employeeId = row.original.id;
+                      const isHighlighted = highlightedId === employeeId;
+                      return (
+                        <TableRow
+                          key={row.id}
+                          id={`employee-row-${employeeId}`}
+                          data-state={row.getIsSelected() && "selected"}
+                          className={isHighlighted ? "animate-highlight" : ""}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
@@ -458,15 +498,24 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
+                    table.getRowModel().rows.map((row) => {
+                      const employeeId = row.original.id;
+                      const isHighlighted = highlightedId === employeeId;
+                      return (
+                        <TableRow
+                          key={row.id}
+                          id={`employee-row-${employeeId}`}
+                          data-state={row.getIsSelected() && "selected"}
+                          className={isHighlighted ? "animate-highlight" : ""}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
@@ -564,15 +613,24 @@ export function EmployeesDataTable({ data }: { data: Employee[] }) {
                 </TableHeader>
                 <TableBody>
                   {table.getRowModel().rows?.length ? (
-                    table.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))
+                    table.getRowModel().rows.map((row) => {
+                      const employeeId = row.original.id;
+                      const isHighlighted = highlightedId === employeeId;
+                      return (
+                        <TableRow
+                          key={row.id}
+                          id={`employee-row-${employeeId}`}
+                          data-state={row.getIsSelected() && "selected"}
+                          className={isHighlighted ? "animate-highlight" : ""}
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id} className={cell.column.columnDef.meta?.className}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      );
+                    })
                   ) : (
                     <TableRow>
                       <TableCell colSpan={employeesColumns.length} className="h-24 text-center">
