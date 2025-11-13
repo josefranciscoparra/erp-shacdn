@@ -442,3 +442,66 @@
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
+/* ========================================
+   UI GLOBAL IMPROVEMENTS (Safari-compatible)
+   ======================================== */
+
+@layer utilities {
+  /* Spacing consistente */
+  .spacing-section {
+    margin-bottom: 32px;
+  }
+
+  .spacing-card {
+    padding: 24px;
+  }
+
+  .spacing-form > * + * {
+    margin-top: 16px;
+  }
+
+  /* Jerarquía tipográfica clara */
+  .text-heading {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .text-subheading {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .text-body {
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.5;
+  }
+
+  /* Contenedores anchos limitados para mejor legibilidad */
+  .content-max-width {
+    max-width: 56rem; /* 896px */
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Separadores visibles en Safari (colores hex sólidos, altura mínima 2px) */
+  .separator-line {
+    width: 100%;
+    height: 2px;
+    background-color: #e5e7eb; /* gray-200 */
+  }
+
+  .dark .separator-line {
+    background-color: #374151; /* gray-700 */
+  }
+
+  /* Responsive spacing */
+  @media (min-width: 768px) {
+    .spacing-section {
+      margin-bottom: 32px;
+    }
+  }
+}
