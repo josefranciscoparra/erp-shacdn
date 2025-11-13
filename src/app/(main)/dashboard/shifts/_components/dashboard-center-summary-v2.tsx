@@ -55,7 +55,7 @@ export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenter
       </CardHeader>
 
       <CardContent className="p-5 pt-0">
-        <Accordion type="multiple" className="space-y-2">
+        <Accordion type="multiple" className="space-y-2 pb-1">
           {centers.map((center) => (
             <AccordionItem key={center.id} value={center.id} className="rounded-lg border">
               <AccordionTrigger className="hover:bg-muted/50 rounded-lg px-4 py-3 transition-colors hover:no-underline">
