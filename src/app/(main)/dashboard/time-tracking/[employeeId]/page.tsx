@@ -311,6 +311,13 @@ export default function EmployeeTimeTrackingPage() {
   const allTimeEntries = activeTab === "detail" ? dailyDetailRecords.flatMap((day) => day.timeEntries) : [];
   const entriesWithGPS = allTimeEntries.filter((e) => e.latitude && e.longitude).length;
 
+  // Cambiar automáticamente a vista lista si no hay GPS entries y estamos en vista mapa
+  useEffect(() => {
+    if (activeTab === "detail" && viewMode === "map" && entriesWithGPS === 0 && !isLoading) {
+      setViewMode("list");
+    }
+  }, [activeTab, viewMode, entriesWithGPS, isLoading]);
+
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -453,8 +460,8 @@ export default function EmployeeTimeTrackingPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              {/* Toggle Lista/Mapa solo para tab detalle con GPS - Rediseñado como segmented control */}
-              {activeTab === "detail" && entriesWithGPS > 0 && !isLoading && (
+              {/* Toggle Lista/Mapa solo para tab detalle - Rediseñado como segmented control */}
+              {activeTab === "detail" && !isLoading && (
                 <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
                   <Button
                     size="sm"
@@ -469,10 +476,11 @@ export default function EmployeeTimeTrackingPage() {
                     size="sm"
                     variant={viewMode === "map" ? "secondary" : "ghost"}
                     onClick={() => setViewMode("map")}
+                    disabled={entriesWithGPS === 0}
                     className={cn("h-8 rounded-md px-3", viewMode === "map" && "bg-background shadow-sm")}
                   >
                     <Map className="mr-1.5 h-4 w-4" />
-                    Mapa ({entriesWithGPS})
+                    Mapa {entriesWithGPS > 0 && `(${entriesWithGPS})`}
                   </Button>
                 </div>
               )}
