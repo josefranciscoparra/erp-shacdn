@@ -301,9 +301,11 @@
 
 /* Wizard action bar - Glass en Chrome, sólido en Safari */
 .wizard-action-bar {
-  /* Chrome: efecto glass */
+  /* Base: Chrome efecto glass */
   backdrop-filter: blur(16px);
-  background-color: hsl(var(--background) / 0.95);
+  -webkit-backdrop-filter: blur(16px);
+  background: rgba(255, 255, 255, 0.75);
+  background: hsl(var(--background) / 0.75);
 }
 
 /* Chrome con soporte completo de backdrop-filter */
@@ -314,11 +316,106 @@
   }
 }
 
-/* Safari y navegadores problemáticos: fondo sólido limpio */
+/* Safari: optimizaciones para blur */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  .wizard-action-bar {
+    will-change: backdrop-filter;
+    isolation: isolate;
+    -webkit-backdrop-filter: blur(16px);
+  }
+}
+
+/* Safari fallback si el blur no funciona */
 @supports (-webkit-backdrop-filter: blur(1px)) and (not (backdrop-filter: blur(1px))) {
   .wizard-action-bar {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background-color: hsl(var(--background));
+  }
+}
+
+/* ========================================
+   WIZARD PREMIUM IMPROVEMENTS
+   ======================================== */
+
+/* Animación check completado */
+@keyframes wizard-check-pop {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.wizard-step-completed .lucide-check {
+  animation: wizard-check-pop 160ms ease-out;
+}
+
+/* Transición entre pasos */
+.wizard-content-enter {
+  animation: wizard-slide-fade 200ms ease-out;
+}
+
+@keyframes wizard-slide-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Animación para botón siguiente/finalizar */
+.wizard-next-button {
+  transition:
+    transform 120ms ease-out,
+    box-shadow 150ms ease;
+}
+
+.wizard-next-button:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.wizard-next-button:active {
+  transform: scale(0.98);
+}
+
+/* Focus ring premium para inputs del wizard */
+.wizard-input-focus:focus {
+  outline: none;
+  border-color: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12);
+  transition:
+    border-color 150ms,
+    box-shadow 150ms;
+}
+
+/* Safari: Asegurar que iconos y fondos sean visibles */
+@supports (-webkit-backdrop-filter: none) {
+  .wizard-step-icon {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  .lucide-check {
+    stroke: currentColor !important;
+    stroke-width: 2.5;
+  }
+
+  /* Forzar rendering del fondo verde en Safari */
+  .wizard-step-completed {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
 }

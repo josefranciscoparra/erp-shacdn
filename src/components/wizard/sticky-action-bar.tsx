@@ -53,7 +53,7 @@ export function StickyActionBar({
                 type="submit"
                 onClick={onNext}
                 disabled={isLoading}
-                className="button-active-pressed transition-transform"
+                className="wizard-next-button button-active-pressed transition-transform"
               >
                 {isLoading ? (
                   <>
@@ -62,7 +62,11 @@ export function StickyActionBar({
                   </>
                 ) : (
                   <>
-                    {isLastStep ? <Check className="mr-2 h-4 w-4" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                    {isLastStep ? (
+                      <Check className="animate-in zoom-in-75 mr-2 h-4 w-4 duration-160" />
+                    ) : (
+                      <ArrowRight className="mr-2 h-4 w-4" />
+                    )}
                     {finalNextLabel}
                   </>
                 )}

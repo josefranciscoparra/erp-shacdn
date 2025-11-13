@@ -108,14 +108,14 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
   };
 
   return (
-    <div className="space-y-6 pb-6">
+    <div className="mx-auto max-w-4xl space-y-6 pb-6">
       {/* Switch compacto */}
-      <div className="bg-muted/30 flex items-center justify-between rounded-lg border p-4">
-        <div className="flex-1 space-y-0.5">
-          <Label htmlFor="skip-contract" className="text-base font-semibold">
+      <div className="border-muted bg-muted/30 hover:border-primary/40 flex items-center justify-between rounded-xl border-2 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+        <div className="flex-1 space-y-1">
+          <Label htmlFor="skip-contract" className="text-lg font-semibold">
             Configurar contrato más tarde
           </Label>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground text-sm leading-relaxed">
             Crearemos un contrato básico (Indefinido, 40h, 5 días). Podrás editarlo después.
           </p>
         </div>
@@ -138,7 +138,7 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
 
       {/* Formulario de contrato (solo si no está marcado el checkbox) */}
       {!skipContract && (
-        <div className="animate-in slide-in-from-top-4">
+        <div className="animate-in fade-in-50 slide-in-from-top-2 duration-200">
           <ContractFormSimplified
             onSubmit={handleContractSubmit}
             onCancel={() => {}}

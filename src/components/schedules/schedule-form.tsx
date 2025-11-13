@@ -477,13 +477,15 @@ export function ScheduleForm({
 
   return (
     <Form {...form}>
-      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="mx-auto max-w-4xl space-y-8">
         {/* Jornada y Horarios */}
-        <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-6 p-6">
-            <div className="flex items-center gap-2">
-              <Clock className="text-primary h-5 w-5" />
-              <Label className="text-lg font-semibold">Jornada y Horarios</Label>
+        <Card className="overflow-hidden rounded-xl border shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <CardContent className="space-y-8 p-6 md:p-8">
+            <div className="flex items-center gap-3 pb-2">
+              <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
+                <Clock className="text-primary h-5 w-5" />
+              </div>
+              <Label className="text-xl font-semibold tracking-tight">Jornada y Horarios</Label>
             </div>
 
             <div className="space-y-6">
@@ -491,7 +493,7 @@ export function ScheduleForm({
                 control={form.control}
                 name="hasCustomWeeklyPattern"
                 render={({ field }) => (
-                  <FormItem className="border-muted-foreground/40 flex flex-col gap-3 rounded-lg border border-dashed p-4 md:flex-row md:items-center md:justify-between">
+                  <FormItem className="border-muted-foreground/30 bg-muted/20 hover:border-primary/40 hover:bg-muted/30 flex flex-col gap-3 rounded-xl border-2 border-dashed p-5 transition-all duration-200 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
                       <FormLabel className="text-base">Patrón semanal personalizado</FormLabel>
                       <FormDescription>
@@ -522,7 +524,7 @@ export function ScheduleForm({
                             max="60"
                             step="0.5"
                             placeholder="40"
-                            className="pl-9"
+                            className="focus:ring-primary/20 pl-9 transition-all duration-150 focus:ring-2"
                             value={field.value ?? ""}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -555,7 +557,7 @@ export function ScheduleForm({
                             max="7"
                             step="0.5"
                             placeholder="5"
-                            className="pl-9"
+                            className="focus:ring-primary/20 pl-9 transition-all duration-150 focus:ring-2"
                             value={field.value ?? ""}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -618,10 +620,10 @@ export function ScheduleForm({
 
               {hasCustomWeeklyPattern && (
                 <div
-                  className={`space-y-4 rounded-lg border border-dashed p-4 ${
+                  className={`space-y-5 rounded-xl border-2 p-6 shadow-sm ${
                     customPatternIsConsistent
-                      ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-950/30"
-                      : "border-orange-300 bg-orange-50/60 dark:border-orange-700 dark:bg-orange-950/20"
+                      ? "border-emerald-300 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-900/20"
+                      : "border-orange-300 bg-orange-50/60 dark:border-orange-700 dark:bg-orange-900/20"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">

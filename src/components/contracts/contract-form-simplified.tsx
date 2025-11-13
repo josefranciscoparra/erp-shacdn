@@ -258,15 +258,17 @@ export function ContractFormSimplified({
 
   return (
     <Form {...form}>
-      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="mx-auto max-w-4xl space-y-8">
         {/* Card única compacta */}
-        <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-6 p-4">
+        <Card className="overflow-hidden rounded-xl border shadow-sm transition-shadow duration-200 hover:shadow-md">
+          <CardContent className="space-y-8 p-6 md:p-8">
             {/* Sección: Información del Contrato */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Briefcase className="text-primary h-4 w-4" />
-                <Label className="text-base font-semibold">Información del Contrato</Label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2">
+                <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
+                  <Briefcase className="text-primary h-5 w-5" />
+                </div>
+                <Label className="text-xl font-semibold tracking-tight">Información del Contrato</Label>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -325,13 +327,15 @@ export function ContractFormSimplified({
               </div>
             </div>
 
-            <hr className="border-muted" />
+            <hr className="border-muted-foreground/20 my-6" />
 
             {/* Sección: Salario */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="text-primary text-base font-bold">€</span>
-                <Label className="text-base font-semibold">Información Salarial</Label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
+                  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">€</span>
+                </div>
+                <Label className="text-xl font-semibold tracking-tight">Información Salarial</Label>
               </div>
 
               <div className="grid gap-3 md:grid-cols-3">
@@ -349,7 +353,7 @@ export function ContractFormSimplified({
                             min="0"
                             step="100"
                             placeholder="30000"
-                            className="pl-8"
+                            className="focus:ring-primary/20 pl-8 transition-all duration-150 focus:ring-2"
                             value={field.value ?? ""}
                             onChange={(e) => {
                               const value = e.target.value;
@@ -368,13 +372,18 @@ export function ContractFormSimplified({
               </div>
             </div>
 
-            <hr className="border-muted" />
+            <hr className="border-muted-foreground/20 my-6" />
 
             {/* Sección: Organización */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="text-primary h-4 w-4" />
-                <Label className="text-base font-semibold">Organización (Opcional)</Label>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 pb-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <Label className="text-xl font-semibold tracking-tight">Organización</Label>
+                  <span className="text-muted-foreground text-sm font-normal">(Opcional)</span>
+                </div>
               </div>
 
               <div className="grid gap-3 md:grid-cols-2">

@@ -34,12 +34,25 @@ export function WizardSteps({ steps, currentStep, completedSteps }: WizardStepsP
                   <div
                     className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300",
-                      isCompleted && "border-emerald-500 bg-emerald-500 text-white",
+                      isCompleted && "wizard-step-completed",
                       isCurrent && !isCompleted && "border-primary bg-primary text-white",
                       !isCurrent && !isCompleted && "border-muted-foreground/30 bg-background text-muted-foreground",
                     )}
+                    style={
+                      isCompleted
+                        ? {
+                            backgroundColor: "#10b981",
+                            borderColor: "#10b981",
+                            color: "#ffffff",
+                          }
+                        : undefined
+                    }
                   >
-                    {isCompleted ? <Check className="h-5 w-5" /> : <span className="font-semibold">{stepNumber}</span>}
+                    {isCompleted ? (
+                      <Check className="h-5 w-5" style={{ color: "#ffffff", stroke: "#ffffff" }} strokeWidth={2.5} />
+                    ) : (
+                      <span className="font-semibold">{stepNumber}</span>
+                    )}
                   </div>
 
                   {/* Step label */}
@@ -87,12 +100,25 @@ export function WizardSteps({ steps, currentStep, completedSteps }: WizardStepsP
                   <div
                     className={cn(
                       "flex h-8 w-8 items-center justify-center rounded-full border-2 text-xs font-semibold transition-all",
-                      isCompleted && "border-emerald-500 bg-emerald-500 text-white",
+                      isCompleted && "wizard-step-completed",
                       isCurrent && !isCompleted && "border-primary bg-primary text-white",
                       !isCurrent && !isCompleted && "border-muted-foreground/30 bg-background text-muted-foreground",
                     )}
+                    style={
+                      isCompleted
+                        ? {
+                            backgroundColor: "#10b981",
+                            borderColor: "#10b981",
+                            color: "#ffffff",
+                          }
+                        : undefined
+                    }
                   >
-                    {isCompleted ? <Check className="h-4 w-4" /> : stepNumber}
+                    {isCompleted ? (
+                      <Check className="h-4 w-4" style={{ color: "#ffffff", stroke: "#ffffff" }} strokeWidth={2.5} />
+                    ) : (
+                      stepNumber
+                    )}
                   </div>
 
                   {index < steps.length - 1 && (
