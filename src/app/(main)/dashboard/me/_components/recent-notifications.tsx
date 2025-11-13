@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Bell, ChevronRightIcon, ChevronRight } from "lucide-react";
+import { Bell, ChevronRight } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,7 +74,6 @@ export function RecentNotifications({ notifications }: RecentNotificationsProps)
                   {format(new Date(notification.createdAt), "d MMM 'a las' HH:mm", { locale: es })}
                 </p>
               </div>
-              <ChevronRightIcon className="text-muted-foreground size-4 flex-shrink-0" />
             </Link>
           ))}
         </div>
