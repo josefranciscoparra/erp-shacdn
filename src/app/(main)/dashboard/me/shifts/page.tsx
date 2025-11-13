@@ -26,6 +26,7 @@ import {
 import { es } from "date-fns/locale";
 import { Calendar, FileDown, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
 
+import { RestDayCard } from "@/app/(main)/dashboard/shifts/_components/rest-day-card";
 import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
@@ -228,40 +229,44 @@ export default function MyShiftsPage() {
 
                       {/* Turnos del día */}
                       <div className="space-y-1">
-                        {dayShifts.map((shift) => {
-                          const zone = zones.find((z) => z.id === shift.zoneId);
-                          const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
+                        {hasShifts ? (
+                          dayShifts.map((shift) => {
+                            const zone = zones.find((z) => z.id === shift.zoneId);
+                            const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
 
-                          return (
-                            <button
-                              key={shift.id}
-                              onClick={() => handleShiftClick(shift)}
-                              className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1.5 text-left shadow-sm transition-colors"
-                            >
-                              <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
-                                <Clock className="h-3 w-3" />
-                                <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
-                                {shift.breakMinutes && shift.breakMinutes > 0 && (
-                                  <Coffee
-                                    className="text-muted-foreground h-3 w-3"
-                                    title={`${shift.breakMinutes}min`}
-                                  />
+                            return (
+                              <button
+                                key={shift.id}
+                                onClick={() => handleShiftClick(shift)}
+                                className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1.5 text-left shadow-sm transition-colors"
+                              >
+                                <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
+                                  <Clock className="h-3 w-3" />
+                                  <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
+                                  {shift.breakMinutes && shift.breakMinutes > 0 && (
+                                    <Coffee
+                                      className="text-muted-foreground h-3 w-3"
+                                      title={`${shift.breakMinutes}min`}
+                                    />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 text-[9px]">
+                                  <MapPin className="text-muted-foreground h-2.5 w-2.5" />
+                                  <span className="text-muted-foreground truncate">
+                                    {costCenter?.name ?? "Sin lugar"}
+                                  </span>
+                                </div>
+                                {zone && (
+                                  <Badge variant="outline" className="mt-1 h-4 text-[8px]">
+                                    {zone.name}
+                                  </Badge>
                                 )}
-                              </div>
-                              <div className="flex items-center gap-1 text-[9px]">
-                                <MapPin className="text-muted-foreground h-2.5 w-2.5" />
-                                <span className="text-muted-foreground truncate">
-                                  {costCenter?.name ?? "Sin lugar"}
-                                </span>
-                              </div>
-                              {zone && (
-                                <Badge variant="outline" className="mt-1 h-4 text-[8px]">
-                                  {zone.name}
-                                </Badge>
-                              )}
-                            </button>
-                          );
-                        })}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <RestDayCard type="unplanned" compact />
+                        )}
                       </div>
                     </div>
                   );

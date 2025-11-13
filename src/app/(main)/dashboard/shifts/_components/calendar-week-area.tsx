@@ -22,6 +22,7 @@ import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 import { QuickAddEmployeePopover } from "./quick-add-employee-popover";
+import { RestDayCard } from "./rest-day-card";
 
 export function CalendarWeekArea() {
   const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog, moveShift, copyShift } =
@@ -467,80 +468,89 @@ function DayCell({
         isOver && !canDrop && "bg-red-100/50 ring-2 ring-red-500 dark:bg-red-900/20",
       )}
     >
-      {/* Dividir celda en 3 secciones: Mañana, Tarde, Noche */}
-      <div className="flex min-h-[150px] flex-col divide-y">
-        {/* Mañana */}
-        <div className="flex-1 p-2">
-          <div className="mb-1 flex items-center justify-between gap-1">
-            <span className="text-muted-foreground text-[10px] font-semibold">M</span>
-            {shiftsByTimeSlot.morning.length === 0 && (
-              <div className="opacity-0 transition-opacity group-hover:opacity-100">
-                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+      {/* Si no hay turnos en todo el día, mostrar card de día sin planificar */}
+      {allShifts.length === 0 ? (
+        <div className="flex min-h-[150px] items-center justify-center p-4">
+          <RestDayCard type="unplanned" compact />
+        </div>
+      ) : (
+        <>
+          {/* Dividir celda en 3 secciones: Mañana, Tarde, Noche */}
+          <div className="flex min-h-[150px] flex-col divide-y">
+            {/* Mañana */}
+            <div className="flex-1 p-2">
+              <div className="mb-1 flex items-center justify-between gap-1">
+                <span className="text-muted-foreground text-[10px] font-semibold">M</span>
+                {shiftsByTimeSlot.morning.length === 0 && (
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            {shiftsByTimeSlot.morning.map((shift) => (
-              <DraggableShiftBlock
-                key={shift.id}
-                shift={shift}
-                getEmployeeName={getEmployeeName}
-                onEdit={onEditShift}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Tarde */}
-        <div className="flex-1 p-2">
-          <div className="mb-1 flex items-center justify-between gap-1">
-            <span className="text-muted-foreground text-[10px] font-semibold">T</span>
-            {shiftsByTimeSlot.afternoon.length === 0 && (
-              <div className="opacity-0 transition-opacity group-hover:opacity-100">
-                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+              <div className="space-y-1">
+                {shiftsByTimeSlot.morning.map((shift) => (
+                  <DraggableShiftBlock
+                    key={shift.id}
+                    shift={shift}
+                    getEmployeeName={getEmployeeName}
+                    onEdit={onEditShift}
+                  />
+                ))}
               </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            {shiftsByTimeSlot.afternoon.map((shift) => (
-              <DraggableShiftBlock
-                key={shift.id}
-                shift={shift}
-                getEmployeeName={getEmployeeName}
-                onEdit={onEditShift}
-              />
-            ))}
-          </div>
-        </div>
+            </div>
 
-        {/* Noche */}
-        <div className="flex-1 p-2">
-          <div className="mb-1 flex items-center justify-between gap-1">
-            <span className="text-muted-foreground text-[10px] font-semibold">N</span>
-            {shiftsByTimeSlot.night.length === 0 && (
-              <div className="opacity-0 transition-opacity group-hover:opacity-100">
-                <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+            {/* Tarde */}
+            <div className="flex-1 p-2">
+              <div className="mb-1 flex items-center justify-between gap-1">
+                <span className="text-muted-foreground text-[10px] font-semibold">T</span>
+                {shiftsByTimeSlot.afternoon.length === 0 && (
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="space-y-1">
-            {shiftsByTimeSlot.night.map((shift) => (
-              <DraggableShiftBlock
-                key={shift.id}
-                shift={shift}
-                getEmployeeName={getEmployeeName}
-                onEdit={onEditShift}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
+              <div className="space-y-1">
+                {shiftsByTimeSlot.afternoon.map((shift) => (
+                  <DraggableShiftBlock
+                    key={shift.id}
+                    shift={shift}
+                    getEmployeeName={getEmployeeName}
+                    onEdit={onEditShift}
+                  />
+                ))}
+              </div>
+            </div>
 
-      {/* Indicador de conflictos */}
-      {allShifts.some((s) => s.status === "conflict") && (
-        <div className="absolute top-1 right-1">
-          <AlertTriangle className="text-destructive h-3 w-3" />
-        </div>
+            {/* Noche */}
+            <div className="flex-1 p-2">
+              <div className="mb-1 flex items-center justify-between gap-1">
+                <span className="text-muted-foreground text-[10px] font-semibold">N</span>
+                {shiftsByTimeSlot.night.length === 0 && (
+                  <div className="opacity-0 transition-opacity group-hover:opacity-100">
+                    <QuickAddEmployeePopover date={date} costCenterId={zone.costCenterId} zoneId={zone.id} />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1">
+                {shiftsByTimeSlot.night.map((shift) => (
+                  <DraggableShiftBlock
+                    key={shift.id}
+                    shift={shift}
+                    getEmployeeName={getEmployeeName}
+                    onEdit={onEditShift}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Indicador de conflictos */}
+          {allShifts.some((s) => s.status === "conflict") && (
+            <div className="absolute top-1 right-1">
+              <AlertTriangle className="text-destructive h-3 w-3" />
+            </div>
+          )}
+        </>
       )}
     </td>
   );

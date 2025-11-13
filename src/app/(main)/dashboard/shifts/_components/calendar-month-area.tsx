@@ -22,6 +22,8 @@ import { getMonthStart, getMonthDays, formatDateISO, formatMonthRange } from "..
 import type { Zone, Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
+import { RestDayCard } from "./rest-day-card";
+
 export function CalendarMonthArea() {
   const { shifts, zones, employees, costCenters, currentWeekStart, filters, openShiftDialog } = useShiftsStore();
 
@@ -281,16 +283,25 @@ function CompactCoverageCell({
               }
             }}
           >
-            {/* Ratio de cobertura (compacto) */}
-            <span className="text-[10px] font-bold">
-              {assigned}/{required}
-            </span>
-
-            {/* Indicador de conflictos */}
-            {shifts.some((s) => s.status === "conflict") && (
-              <div className="absolute top-0 right-0">
-                <AlertTriangle className="text-destructive h-2 w-2" />
+            {/* Si no hay turnos, mostrar RestDayCard */}
+            {assigned === 0 ? (
+              <div className="px-1">
+                <RestDayCard type="unplanned" compact />
               </div>
+            ) : (
+              <>
+                {/* Ratio de cobertura (compacto) */}
+                <span className="text-[10px] font-bold">
+                  {assigned}/{required}
+                </span>
+
+                {/* Indicador de conflictos */}
+                {shifts.some((s) => s.status === "conflict") && (
+                  <div className="absolute top-0 right-0">
+                    <AlertTriangle className="text-destructive h-2 w-2" />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </TooltipTrigger>
@@ -308,7 +319,7 @@ function CompactCoverageCell({
                 {uniqueEmployeeIds.length} {uniqueEmployeeIds.length === 1 ? "empleado" : "empleados"}
               </p>
             ) : (
-              <p className="text-muted-foreground italic">Sin asignar</p>
+              <RestDayCard type="unplanned" compact />
             )}
             {shifts.length > 0 && (
               <p className="text-muted-foreground italic">
