@@ -71,7 +71,7 @@ export default function TimeTrackingPage() {
                 <Users className="text-primary size-5" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Total Empleados</span>
+                <span className="text-muted-foreground text-sm">Total empleados</span>
                 <span className="text-2xl font-bold">{employees.length}</span>
               </div>
             </div>
@@ -83,7 +83,7 @@ export default function TimeTrackingPage() {
                 <div className="size-3 rounded-full bg-green-500" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Trabajando Ahora</span>
+                <span className="text-muted-foreground text-sm">Trabajando ahora</span>
                 <span className="text-2xl font-bold">{workingCount}</span>
               </div>
             </div>
@@ -95,7 +95,7 @@ export default function TimeTrackingPage() {
                 <Coffee className="size-5 text-yellow-600" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">En Pausa</span>
+                <span className="text-muted-foreground text-sm">En pausa</span>
                 <span className="text-2xl font-bold">{breakCount}</span>
               </div>
             </div>
@@ -107,7 +107,7 @@ export default function TimeTrackingPage() {
                 <Clock className="size-5 text-blue-600" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Fichados Hoy</span>
+                <span className="text-muted-foreground text-sm">Fichados hoy</span>
                 <span className="text-2xl font-bold">{clockedTodayCount}</span>
               </div>
             </div>
@@ -116,7 +116,8 @@ export default function TimeTrackingPage() {
 
         {/* DataTable */}
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-muted-foreground text-sm font-medium">Vista</span>
             <DataTableViewOptions table={table} />
           </div>
 

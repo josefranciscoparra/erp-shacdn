@@ -53,27 +53,25 @@ export default function PtoPage() {
   );
 
   return (
-    <div className="@container/main flex flex-col gap-3 md:gap-5">
-      <div className="animate-in fade-in duration-500">
-        <SectionHeader
-          title="Mis Vacaciones"
-          actionLabel={canCreateRequests ? "Nueva Solicitud" : undefined}
-          onAction={() => {
-            if (!canCreateRequests) {
-              return;
-            }
-            setNewRequestDialogOpen(true);
-          }}
-        >
-          {!canCreateRequests && (
-            <p className="text-muted-foreground text-sm">
-              {hasProvisionalContract
-                ? "Tu contrato está pendiente de completar. En cuanto RRHH añada los detalles podrás solicitar vacaciones."
-                : "Aún no tienes un contrato activo. Podrás solicitar vacaciones cuando se registre."}
-            </p>
-          )}
-        </SectionHeader>
-      </div>
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader
+        title="Mis Vacaciones"
+        actionLabel={canCreateRequests ? "Nueva Solicitud" : undefined}
+        onAction={() => {
+          if (!canCreateRequests) {
+            return;
+          }
+          setNewRequestDialogOpen(true);
+        }}
+      >
+        {!canCreateRequests && (
+          <p className="text-muted-foreground text-sm">
+            {hasProvisionalContract
+              ? "Tu contrato está pendiente de completar. En cuanto RRHH añada los detalles podrás solicitar vacaciones."
+              : "Aún no tienes un contrato activo. Podrás solicitar vacaciones cuando se registre."}
+          </p>
+        )}
+      </SectionHeader>
 
       {/* Mostrar error si existe */}
       {error && (
@@ -84,107 +82,103 @@ export default function PtoPage() {
       )}
 
       {/* Cards de balance */}
-      <div className="animate-in fade-in duration-700" style={{ animationDelay: "100ms" }}>
-        <PtoBalanceCards error={error} />
-      </div>
+      <PtoBalanceCards error={error} />
 
       {/* Tabs con solicitudes */}
-      <div className="animate-in fade-in duration-700" style={{ animationDelay: "200ms" }}>
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
-            <div className="flex items-center gap-3">
-              {/* Select para móvil */}
-              <Select value={selectedTab} onValueChange={setSelectedTab}>
-                <SelectTrigger className="w-[200px] @4xl/main:hidden">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas {allCount > 0 && `(${allCount})`}</SelectItem>
-                  <SelectItem value="pending">Pendientes {pendingCount > 0 && `(${pendingCount})`}</SelectItem>
-                  <SelectItem value="approved">Aprobadas {approvedCount > 0 && `(${approvedCount})`}</SelectItem>
-                  <SelectItem value="rejected">Rechazadas {rejectedCount > 0 && `(${rejectedCount})`}</SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Tabs para desktop */}
-              <TabsList className="hidden @4xl/main:flex">
-                <TabsTrigger value="all">
-                  Todas
-                  {allCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {allCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="pending">
-                  Pendientes
-                  {pendingCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {pendingCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="approved">
-                  Aprobadas
-                  {approvedCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {approvedCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="rejected">
-                  Rechazadas
-                  {rejectedCount > 0 && (
-                    <Badge variant="secondary" className="ml-2">
-                      {rejectedCount}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-              </TabsList>
-            </div>
-
-            {/* Filtro de año */}
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por año" />
+      <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="flex items-center gap-3">
+            {/* Select para móvil */}
+            <Select value={selectedTab} onValueChange={setSelectedTab}>
+              <SelectTrigger className="w-[200px] @4xl/main:hidden">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los años</SelectItem>
-                {availableYears.map((year) => (
-                  <SelectItem key={year} value={year.toString()}>
-                    {year}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">Todas {allCount > 0 && `(${allCount})`}</SelectItem>
+                <SelectItem value="pending">Pendientes {pendingCount > 0 && `(${pendingCount})`}</SelectItem>
+                <SelectItem value="approved">Aprobadas {approvedCount > 0 && `(${approvedCount})`}</SelectItem>
+                <SelectItem value="rejected">Rechazadas {rejectedCount > 0 && `(${rejectedCount})`}</SelectItem>
               </SelectContent>
             </Select>
+
+            {/* Tabs para desktop */}
+            <TabsList className="hidden @4xl/main:flex">
+              <TabsTrigger value="all">
+                Todas
+                {allCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {allCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="pending">
+                Pendientes
+                {pendingCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="approved">
+                Aprobadas
+                {approvedCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {approvedCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="rejected">
+                Rechazadas
+                {rejectedCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {rejectedCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
           </div>
 
-          {/* Contenido de tabs */}
-          {isLoadingRequests ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <TabsContent value="all">
-                <PtoRequestsTable status="all" yearFilter={selectedYear} />
-              </TabsContent>
+          {/* Filtro de año */}
+          <Select value={selectedYear} onValueChange={setSelectedYear}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filtrar por año" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los años</SelectItem>
+              {availableYears.map((year) => (
+                <SelectItem key={year} value={year.toString()}>
+                  {year}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-              <TabsContent value="pending">
-                <PtoRequestsTable status="pending" yearFilter={selectedYear} />
-              </TabsContent>
+        {/* Contenido de tabs */}
+        {isLoadingRequests ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          </div>
+        ) : (
+          <>
+            <TabsContent value="all">
+              <PtoRequestsTable status="all" yearFilter={selectedYear} />
+            </TabsContent>
 
-              <TabsContent value="approved">
-                <PtoRequestsTable status="approved" yearFilter={selectedYear} />
-              </TabsContent>
+            <TabsContent value="pending">
+              <PtoRequestsTable status="pending" yearFilter={selectedYear} />
+            </TabsContent>
 
-              <TabsContent value="rejected">
-                <PtoRequestsTable status="rejected" yearFilter={selectedYear} />
-              </TabsContent>
-            </>
-          )}
-        </Tabs>
-      </div>
+            <TabsContent value="approved">
+              <PtoRequestsTable status="approved" yearFilter={selectedYear} />
+            </TabsContent>
+
+            <TabsContent value="rejected">
+              <PtoRequestsTable status="rejected" yearFilter={selectedYear} />
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       {/* Dialog de nueva solicitud */}
       <NewPtoRequestDialog open={newRequestDialogOpen} onOpenChange={setNewRequestDialogOpen} />

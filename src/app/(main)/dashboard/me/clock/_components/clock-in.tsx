@@ -6,19 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  LogIn,
-  LogOut,
-  Coffee,
-  MapPin,
-  AlertTriangle,
-  CheckCircle2,
-  List,
-  Map,
-  Loader2,
-  Clock,
-  ArrowRight,
-} from "lucide-react";
+import { LogIn, LogOut, Coffee, AlertTriangle, List, Map, Loader2, Clock, ArrowRight } from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
 
@@ -39,6 +27,7 @@ import { detectIncompleteEntries, clockOut } from "@/server/actions/time-trackin
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
+import { TimeEntriesTimeline } from "./time-entries-timeline";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -810,62 +799,8 @@ export function ClockIn() {
             viewMode === "map" ? (
               <TimeEntriesMap entries={todaySummary.timeEntries} />
             ) : (
-              <div className="animate-in fade-in-0 flex flex-col gap-2 delay-150 duration-500">
-                {todaySummary.timeEntries
-                  .slice()
-                  .reverse()
-                  .map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-4 rounded-lg border p-3">
-                      <div className="flex items-center gap-3">
-                        {entry.entryType === "CLOCK_IN" && <LogIn className="h-4 w-4 shrink-0 text-green-500" />}
-                        {entry.entryType === "CLOCK_OUT" && <LogOut className="h-4 w-4 shrink-0 text-red-500" />}
-                        {entry.entryType === "BREAK_START" && <Coffee className="h-4 w-4 shrink-0 text-yellow-500" />}
-                        {entry.entryType === "BREAK_END" && <Coffee className="h-4 w-4 shrink-0 text-green-500" />}
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">
-                            {entry.entryType === "CLOCK_IN" && "Entrada"}
-                            {entry.entryType === "CLOCK_OUT" && "Salida"}
-                            {entry.entryType === "BREAK_START" && "Inicio de pausa"}
-                            {entry.entryType === "BREAK_END" && "Fin de pausa"}
-                          </span>
-                          <span className="text-muted-foreground text-xs">
-                            {new Date(entry.timestamp).toLocaleString("es-ES", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                              second: "2-digit",
-                            })}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Información de geolocalización - al lado */}
-                      {entry.latitude && entry.longitude && (
-                        <div className="flex flex-wrap items-center justify-end gap-2">
-                          <Badge variant="outline" className="text-xs">
-                            <MapPin className="mr-1 h-3 w-3 text-red-500" />
-                            {Math.round(entry.accuracy ?? 0)}m
-                          </Badge>
-
-                          {entry.isWithinAllowedArea === true && (
-                            <Badge
-                              variant="outline"
-                              className="border-green-500/20 bg-green-500/10 text-xs text-green-700 dark:text-green-400"
-                            >
-                              <CheckCircle2 className="mr-1 h-3 w-3" />
-                              Área OK
-                            </Badge>
-                          )}
-
-                          {entry.requiresReview && (
-                            <Badge variant="destructive" className="text-xs">
-                              <AlertTriangle className="mr-1 h-3 w-3" />
-                              Revisión
-                            </Badge>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+              <div className="animate-in fade-in-0 delay-150 duration-500">
+                <TimeEntriesTimeline entries={todaySummary.timeEntries} />
               </div>
             )
           ) : (

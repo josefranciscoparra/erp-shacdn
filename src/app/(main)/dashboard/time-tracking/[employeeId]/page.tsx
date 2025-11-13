@@ -16,14 +16,13 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { exportToCSV } from "@/lib/export-csv";
+import { cn } from "@/lib/utils";
 import {
   getEmployeeWeeklySummary,
   getEmployeeMonthlySummary,
@@ -31,9 +30,9 @@ import {
   getEmployeeDailyDetail,
 } from "@/server/actions/admin-time-tracking";
 
+import { CalendarDateRangePicker } from "../_components/calendar-date-range-picker";
 import { DayCard } from "../_components/day-card";
 import { monthlyColumns, type MonthlySummary } from "../_components/monthly-columns";
-import { QuickPeriodFilter } from "../_components/quick-period-filter";
 import { weeklyColumns, type WeeklySummary } from "../_components/weekly-columns";
 import { yearlyColumns, type YearlySummary } from "../_components/yearly-columns";
 
@@ -87,7 +86,6 @@ export default function EmployeeTimeTrackingPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isLoading, setIsLoading] = useState(true);
   const [employeeName, setEmployeeName] = useState("");
-  const [employeeImage, setEmployeeImage] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
 
   // Tablas separadas para cada tipo de datos
@@ -135,7 +133,6 @@ export default function EmployeeTimeTrackingPage() {
 
         // Actualizar información del empleado
         setEmployeeName(data.employee.name);
-        setEmployeeImage(data.employee.image);
       } else if (tab === "week") {
         const data = await getEmployeeWeeklySummary(employeeId, dateFrom, dateTo);
         setWeeklyRecords(data);
@@ -165,22 +162,6 @@ export default function EmployeeTimeTrackingPage() {
       to: startOfDay(today),
     });
   }, []);
-
-  const handlePeriodChange = (period: PeriodOption, newDateRange?: DateRange) => {
-    setSelectedPeriod(period);
-    if (newDateRange) {
-      setDateRange(newDateRange);
-    }
-  };
-
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
 
   const handleExport = () => {
     const today = new Date();
@@ -408,38 +389,37 @@ export default function EmployeeTimeTrackingPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        {/* Header con info del empleado */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => router.push("/dashboard/time-tracking")}>
-            <ArrowLeft />
+        {/* Header con info del empleado - Rediseñado */}
+        <div className="flex flex-col gap-4">
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => router.push("/dashboard/time-tracking")}
+            className="text-muted-foreground hover:text-foreground -ml-4 w-fit"
+          >
+            <ArrowLeft className="mr-1 h-4 w-4" />
             Volver
           </Button>
 
           {employeeName && (
-            <div className="flex items-center gap-3">
-              <Avatar className="size-12">
-                <AvatarImage src={employeeImage ?? undefined} alt={employeeName} />
-                <AvatarFallback>{getInitials(employeeName)}</AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col">
-                <span className="text-lg font-semibold">{employeeName}</span>
-                <span className="text-muted-foreground text-sm">Historial de fichajes</span>
-              </div>
+            <div className="flex flex-col">
+              <h1 className="text-xl font-bold tracking-tight lg:text-2xl">{employeeName}</h1>
+              <p className="text-muted-foreground text-sm">Historial de fichajes</p>
             </div>
           )}
         </div>
 
-        {/* Filtros de período (solo para tab Detalle) */}
+        {/* Filtros de período (solo para tab Detalle) - Rediseñado */}
         {activeTab === "detail" && (
-          <div className="flex flex-col gap-4">
-            <QuickPeriodFilter selectedPeriod={selectedPeriod} onPeriodChange={handlePeriodChange} />
-            {selectedPeriod === "custom" && (
-              <DateRangePicker
-                dateRange={dateRange}
-                onDateRangeChange={setDateRange}
-                placeholder="Seleccionar rango de fechas"
-              />
-            )}
+          <div className="flex items-center justify-between gap-4">
+            <CalendarDateRangePicker
+              dateRange={dateRange}
+              onDateRangeChange={setDateRange}
+              selectedPeriod={selectedPeriod}
+              onPeriodChange={(period) => {
+                setSelectedPeriod(period as PeriodOption);
+              }}
+            />
           </div>
         )}
 
@@ -473,21 +453,23 @@ export default function EmployeeTimeTrackingPage() {
             </TabsList>
 
             <div className="flex items-center gap-2">
-              {/* Toggle Lista/Mapa solo para tab detalle con GPS */}
+              {/* Toggle Lista/Mapa solo para tab detalle con GPS - Rediseñado como segmented control */}
               {activeTab === "detail" && entriesWithGPS > 0 && !isLoading && (
-                <div className="flex items-center gap-1 rounded-lg border p-1">
+                <div className="bg-muted inline-flex items-center gap-0.5 rounded-lg p-0.5">
                   <Button
                     size="sm"
-                    variant={viewMode === "list" ? "default" : "ghost"}
+                    variant={viewMode === "list" ? "secondary" : "ghost"}
                     onClick={() => setViewMode("list")}
+                    className={cn("h-8 rounded-md px-3", viewMode === "list" && "bg-background shadow-sm")}
                   >
                     <List className="mr-1.5 h-4 w-4" />
                     Lista
                   </Button>
                   <Button
                     size="sm"
-                    variant={viewMode === "map" ? "default" : "ghost"}
+                    variant={viewMode === "map" ? "secondary" : "ghost"}
                     onClick={() => setViewMode("map")}
+                    className={cn("h-8 rounded-md px-3", viewMode === "map" && "bg-background shadow-sm")}
                   >
                     <Map className="mr-1.5 h-4 w-4" />
                     Mapa ({entriesWithGPS})
@@ -495,6 +477,7 @@ export default function EmployeeTimeTrackingPage() {
                 </div>
               )}
 
+              {/* Botón Exportar CSV - Mejorado visualmente */}
               <Button
                 variant="outline"
                 size="sm"
@@ -509,8 +492,9 @@ export default function EmployeeTimeTrackingPage() {
                         ? monthlyRecords.length === 0
                         : yearlyRecords.length === 0)
                 }
+                className="h-8"
               >
-                <Download className="size-4" />
+                <Download className="mr-1.5 h-4 w-4" />
                 Exportar CSV
               </Button>
 

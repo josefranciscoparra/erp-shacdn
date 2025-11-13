@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   Sidebar,
@@ -76,12 +77,13 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={sidebarItems} />
-        {/* <NavDocuments items={data.documents} /> */}
-        {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
+        <ScrollArea className="h-full">
+          <NavMain items={sidebarItems} />
+          {/* <NavDocuments items={data.documents} /> */}
+          {/* <NavSecondary items={data.navSecondary} className="mt-auto" /> */}
+        </ScrollArea>
       </SidebarContent>
-      <Separator className="mx-2 my-2" />
-      <SidebarFooter className="flex flex-col gap-0 p-0 pt-2">
+      <SidebarFooter>
         {user?.role === "SUPER_ADMIN" && user.orgId && (
           <>
             <div className="px-2 py-1.5">

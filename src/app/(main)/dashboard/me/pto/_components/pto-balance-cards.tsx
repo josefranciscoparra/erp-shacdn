@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { format } from "date-fns";
+import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarDays, TrendingUp, Calendar, X, Loader2 } from "lucide-react";
 
@@ -113,7 +113,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   };
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {/* Card 1: Solicitudes Pendientes */}
       <Card className="h-full">
         <CardHeader>
@@ -158,7 +158,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
                 const isCancelling = cancellingId === request.id;
 
                 return (
-                  <div key={request.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                  <div key={request.id} className="flex flex-col gap-2 rounded-lg border p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-1 flex-col gap-1">
                         <span className="text-sm font-medium">
@@ -199,22 +199,22 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
               })}
             </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-4 py-8">
-              <div className="bg-muted flex size-16 items-center justify-center rounded-full">
-                <CalendarDays className="text-muted-foreground size-8" />
+            <div className="flex h-full flex-col items-center justify-center gap-3 py-6">
+              <div className="bg-muted flex size-14 items-center justify-center rounded-full">
+                <CalendarDays className="text-muted-foreground size-7" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium">Todo al día</p>
                 <p className="text-muted-foreground mt-1 text-xs">No tienes solicitudes pendientes de aprobación</p>
               </div>
-              <div className="mt-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-3">
+              <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
                 <div className="flex items-center gap-2">
-                  <div className="bg-background flex size-8 items-center justify-center rounded-full border">
-                    <span className="text-sm">✓</span>
+                  <div className="bg-background flex size-7 items-center justify-center rounded-full border">
+                    <span className="text-xs">✓</span>
                   </div>
                   <div className="text-left">
                     <p className="text-xs font-medium text-green-600">Estado: OK</p>
-                    <p className="text-muted-foreground text-xs">Todas tus solicitudes han sido procesadas</p>
+                    <p className="text-muted-foreground text-xs">Todas procesadas</p>
                   </div>
                 </div>
               </div>
@@ -224,7 +224,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
       </Card>
 
       {/* Card 2: Próximas vacaciones */}
-      <Card className="h-full">
+      <Card className="h-full min-h-[160px]">
         <CardHeader>
           <CardDescription>Próximas vacaciones</CardDescription>
           <CardAction>
@@ -238,6 +238,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
                 const startDate = new Date(vacation.startDate);
                 const endDate = new Date(vacation.endDate);
                 const days = Math.floor(vacation.workingDays);
+                const isSingleDay = isSameDay(startDate, endDate);
 
                 // Calcular días que faltan
                 const todayNormalized = new Date(today);
@@ -267,11 +268,13 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
                 }
 
                 return (
-                  <div key={vacation.id} className="flex flex-col gap-2 rounded-lg border p-3">
+                  <div key={vacation.id} className="flex flex-col gap-2 rounded-lg border p-4">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm font-medium">
-                          {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
+                        <span className="text-base font-semibold">
+                          {isSingleDay
+                            ? format(startDate, "d 'de' MMMM", { locale: es })
+                            : `${format(startDate, "d MMM", { locale: es })} - ${format(endDate, "d MMM", { locale: es })}`}
                         </span>
                         <span className="text-muted-foreground text-xs">
                           {days} {days === 1 ? "día" : "días"}
@@ -281,13 +284,13 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
                         Aprobada
                       </Badge>
                     </div>
-                    <div className="text-primary text-xs font-medium">{coloquialMessage}</div>
+                    <div className="text-primary text-sm font-medium">{coloquialMessage}</div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <div className="flex h-full min-h-[120px] items-center justify-center rounded-lg border border-dashed">
+            <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed">
               <div className="text-center">
                 <p className="text-muted-foreground text-sm">No hay vacaciones programadas</p>
                 <p className="text-muted-foreground mt-1 text-xs">Tus próximas vacaciones aparecerán aquí</p>
@@ -301,29 +304,29 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
       <Card>
         <CardHeader>
           <CardDescription>Resumen del año {balance.year}</CardDescription>
-          <div className="flex flex-col gap-4 pt-4">
-            <div className="flex items-center justify-between rounded-lg border p-4">
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-muted-foreground text-sm">Total asignado</span>
               <span className="font-display text-2xl">{daysTotal}</span>
             </div>
-            <div className="flex items-center justify-between rounded-lg border p-4">
+            <div className="flex items-center justify-between rounded-lg border p-3">
               <span className="text-muted-foreground text-sm">Días usados</span>
               <span className="font-display text-2xl">{daysUsed}</span>
             </div>
             {daysPending > 0 && (
-              <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex items-center justify-between rounded-lg border p-3">
                 <span className="text-muted-foreground text-sm">Pendientes</span>
                 <span className="font-display text-2xl text-orange-600">{daysPending}</span>
               </div>
             )}
-            <div className="flex items-center justify-between rounded-lg border-2 border-green-500/20 bg-green-500/5 p-4">
+            <div className="flex items-center justify-between rounded-lg border-2 border-green-500/20 bg-green-500/5 p-3">
               <div className="flex items-center gap-3">
                 <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
                   <CalendarDays className="text-primary size-5" />
                 </div>
                 <span className="text-sm font-medium">Vacaciones disponibles</span>
               </div>
-              <span className="font-display text-3xl text-green-600">{daysAvailable}</span>
+              <span className="font-display text-4xl text-green-600">{daysAvailable}</span>
             </div>
           </div>
         </CardHeader>

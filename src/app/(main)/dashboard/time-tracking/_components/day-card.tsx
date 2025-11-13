@@ -141,20 +141,21 @@ export function DayCard({ day }: DayCardProps) {
   }
 
   const complianceColor =
-    day.compliance >= 95
+    day.compliance >= 100
       ? "text-green-600 dark:text-green-400"
       : day.compliance >= 80
         ? "text-amber-600 dark:text-amber-400"
         : "text-red-600 dark:text-red-400";
 
   return (
-    <Card className="overflow-hidden">
-      {/* Header del día */}
-      <div className="bg-muted/50 border-b p-4">
+    <Card className="bg-card overflow-hidden rounded-xl border">
+      {/* Header del día - Más compacto */}
+      <div className="border-b p-3">
         <div className="@container/card flex flex-col gap-2">
-          <div className="flex items-start justify-between gap-2">
+          {/* Fila superior: Fecha + Badge + % */}
+          <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-base font-semibold">
+              <span className="font-semibold">
                 {format(new Date(day.date), "EEEE, d 'de' MMMM yyyy", { locale: es })}
               </span>
               <Badge className={statusInfo.badgeClass}>
@@ -162,42 +163,39 @@ export function DayCard({ day }: DayCardProps) {
                 {statusInfo.label}
               </Badge>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className={cn("text-xl font-bold", complianceColor)}>{day.compliance}%</span>
-              <span className="text-muted-foreground text-sm">cumplimiento</span>
+            <div className="flex shrink-0 items-baseline gap-1">
+              <span className={cn("text-lg font-bold", complianceColor)}>{day.compliance}%</span>
             </div>
           </div>
 
-          {/* Resumen de horas */}
-          <div className="flex flex-wrap items-center gap-4 text-sm">
-            <div className="flex items-center gap-1.5">
-              <Clock className="text-muted-foreground size-4" />
-              <span className="text-muted-foreground">Esperadas:</span>
-              <span className="font-medium">{day.expectedHours}h</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Clock className="size-4 text-blue-600 dark:text-blue-400" />
-              <span className="text-muted-foreground">Trabajadas:</span>
-              <span className="font-medium">{day.actualHours}h</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Coffee className="size-4 text-amber-600 dark:text-amber-400" />
-              <span className="text-muted-foreground">Pausas:</span>
-              <span className="font-medium">{formatMinutes(day.totalBreakMinutes)}</span>
+          {/* Fila secundaria: Resumen compacto con separadores */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <div className="text-muted-foreground flex items-center gap-1">
+              <span>
+                Esperadas: <span className="text-foreground font-medium">{day.expectedHours}h</span>
+              </span>
+              <span className="mx-1">·</span>
+              <span>
+                Trabajadas: <span className="text-foreground font-medium">{day.actualHours}h</span>
+              </span>
+              <span className="mx-1">·</span>
+              <span>
+                Pausas: <span className="text-foreground font-medium">{formatMinutes(day.totalBreakMinutes)}</span>
+              </span>
             </div>
 
-            {/* Botón para expandir/colapsar */}
+            {/* Botón para expandir/colapsar - Alineado a la derecha */}
             {day.timeEntries.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="ml-auto text-xs">
+              <Button variant="ghost" size="sm" onClick={() => setIsExpanded(!isExpanded)} className="h-7 text-xs">
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="mr-1 size-3" />
                     Ocultar fichajes ({day.timeEntries.length})
+                    <ChevronUp className="ml-1 size-3" />
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="mr-1 size-3" />
                     Ver fichajes ({day.timeEntries.length})
+                    <ChevronDown className="ml-1 size-3" />
                   </>
                 )}
               </Button>

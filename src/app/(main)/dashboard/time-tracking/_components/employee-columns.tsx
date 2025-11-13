@@ -7,7 +7,6 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { ArrowRight, Clock } from "lucide-react";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -46,15 +45,6 @@ function formatMinutes(minutes: number): string {
   return `${hours}h ${mins}m`;
 }
 
-function getInitials(name: string): string {
-  return name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
-}
-
 export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
   {
     accessorKey: "name",
@@ -62,18 +52,11 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     cell: ({ row }) => {
       const name = row.getValue("name");
       const email = row.original.email;
-      const image = row.original.image;
 
       return (
-        <div className="flex items-center gap-3">
-          <Avatar className="size-9">
-            <AvatarImage src={image ?? undefined} alt={name} />
-            <AvatarFallback>{getInitials(name)}</AvatarFallback>
-          </Avatar>
-          <div className="flex flex-col">
-            <span className="font-medium">{name}</span>
-            <span className="text-muted-foreground text-xs">{email}</span>
-          </div>
+        <div className="flex flex-col">
+          <span className="font-medium">{name}</span>
+          <span className="text-muted-foreground text-xs">{email}</span>
         </div>
       );
     },
@@ -82,7 +65,8 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     accessorKey: "department",
     header: "Departamento",
     cell: ({ row }) => {
-      return row.getValue("department") ?? "Sin departamento";
+      const department = row.getValue("department");
+      return <span className={department ? "" : "text-muted-foreground"}>{department ?? "Sin departamento"}</span>;
     },
   },
   {
@@ -133,9 +117,9 @@ export const employeeColumns: ColumnDef<EmployeeTimeTracking>[] = [
     cell: ({ row }) => {
       return (
         <div className="flex justify-end">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/dashboard/time-tracking/${row.original.id}`}>
-              Ver fichajes
+          <Button variant="ghost" size="sm" className="text-primary hover:text-primary" asChild>
+            <Link href={`/dashboard/time-tracking/${row.original.id}`} className="flex items-center gap-1.5">
+              <span>Ver fichajes</span>
               <ArrowRight className="size-4" />
             </Link>
           </Button>
