@@ -49,11 +49,16 @@ export function StickyActionBar({
                 </Button>
               )}
 
-              <Button type="submit" onClick={onNext} disabled={isLoading}>
+              <Button
+                type="submit"
+                onClick={onNext}
+                disabled={isLoading}
+                className="button-active-pressed transition-transform"
+              >
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Guardando...
+                    {isLastStep ? "Creando…" : "Guardando..."}
                   </>
                 ) : (
                   <>

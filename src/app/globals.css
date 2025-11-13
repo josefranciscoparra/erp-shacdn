@@ -244,10 +244,13 @@
   }
 }
 
-/* Animación de highlight para empleados recién creados */
+/* Animación de highlight para empleados recién creados - Premium */
 @keyframes highlightFade {
   0% {
-    background-color: var(--highlight-color);
+    background-color: var(--highlight-color-start);
+  }
+  40% {
+    background-color: var(--highlight-color-mid);
   }
   100% {
     background-color: transparent;
@@ -255,10 +258,43 @@
 }
 
 .animate-highlight {
-  --highlight-color: rgb(254 252 232);
-  animation: highlightFade 3s ease-out;
+  --highlight-color-start: #fef08a;
+  --highlight-color-mid: #fef9c3;
+  animation: highlightFade 2.5s ease-out;
 }
 
 .dark .animate-highlight {
-  --highlight-color: rgb(133 77 14 / 0.2);
+  --highlight-color-start: rgb(161 98 7 / 0.4);
+  --highlight-color-mid: rgb(161 98 7 / 0.2);
+}
+
+/* Animación del icono check del toast - Premium */
+@keyframes checkIconBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.toast-check-icon {
+  animation: checkIconBounce 160ms ease-out;
+}
+
+/* Efecto pressed para botones - Premium */
+.button-active-pressed:active {
+  transform: scale(0.97);
+  transition: transform 80ms ease-out;
+}
+
+/* Transición de salida de página - Premium */
+.page-exit {
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out;
 }

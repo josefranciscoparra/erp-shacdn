@@ -119,10 +119,10 @@ export function EmployeesDataTable({ data, highlightId }: { data: Employee[]; hi
           // Scroll hacia el elemento
           element.scrollIntoView({ behavior: "smooth", block: "center" });
 
-          // Remover el highlight después de 3 segundos
+          // Remover el highlight después de 2.5 segundos (duración de la animación)
           setTimeout(() => {
             setHighlightedId(null);
-          }, 3000);
+          }, 2500);
         }
       }, 300);
 

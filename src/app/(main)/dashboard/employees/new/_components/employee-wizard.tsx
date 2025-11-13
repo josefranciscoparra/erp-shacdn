@@ -4,11 +4,13 @@ import { useState, useRef, useEffect } from "react";
 
 import { useRouter } from "next/navigation";
 
+import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { type ScheduleFormData } from "@/components/schedules/schedule-form";
 import { StickyActionBar } from "@/components/wizard/sticky-action-bar";
 import { WizardSteps } from "@/components/wizard/wizard-steps";
+import { cn } from "@/lib/utils";
 import { type CreateEmployeeInput } from "@/lib/validations/employee";
 import { type CreateContractData } from "@/stores/contracts-store";
 import { useEmployeesStore } from "@/stores/employees-store";
@@ -30,6 +32,7 @@ export function EmployeeWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
 
   // Estado local para datos de cada paso (no se crean en BD hasta el final)
   const [employeeData, setEmployeeData] = useState<CreateEmployeeInput | null>(null);
@@ -188,9 +191,14 @@ export function EmployeeWizard() {
       // Refrescar lista de empleados
       await fetchEmployees();
 
-      // TOAST FINAL (sin contraseña)
-      toast.success("Empleado registrado exitosamente", {
-        duration: 5000,
+      // TOAST FINAL - Premium con icono animado
+      toast.success("Empleado creado correctamente", {
+        description: "Se ha añadido a la plantilla.",
+        duration: 2500,
+        icon: <CheckCircle2 className="toast-check-icon h-5 w-5 text-emerald-500" />,
+        classNames: {
+          toast: "animate-in slide-in-from-top-2 fade-in duration-180",
+        },
       });
 
       // Limpiar estado del wizard
@@ -199,6 +207,12 @@ export function EmployeeWizard() {
       setScheduleData(null);
       setCompletedSteps([]);
       setCurrentStep(1);
+
+      // Activar animación de salida
+      setIsExiting(true);
+
+      // Esperar a que termine la animación (150ms)
+      await new Promise((resolve) => setTimeout(resolve, 150));
 
       // Redirigir a la lista con highlight
       router.push(`/dashboard/employees?highlight=${createdEmployeeId}`);
@@ -258,7 +272,7 @@ export function EmployeeWizard() {
   };
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
+    <div className={cn("@container/main flex flex-col gap-4 md:gap-6", isExiting && "page-exit")}>
       {/* Header con stepper */}
       <div className="space-y-2">
         <WizardSteps steps={WIZARD_STEPS} currentStep={currentStep} completedSteps={completedSteps} />
