@@ -85,6 +85,7 @@ interface ContractFormSimplifiedProps {
   isSubmitting?: boolean;
   initialData?: CreateContractData | null;
   hideActions?: boolean;
+  formId?: string;
 }
 
 const toDateInput = (value: string | null | undefined) => (value ? value.split("T")[0] : "");
@@ -104,6 +105,7 @@ export function ContractFormSimplified({
   isSubmitting = false,
   initialData,
   hideActions = false,
+  formId,
 }: ContractFormSimplifiedProps) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -256,7 +258,7 @@ export function ContractFormSimplified({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Card única compacta */}
         <Card className="rounded-lg border shadow-xs">
           <CardContent className="space-y-6 p-4">
@@ -482,25 +484,27 @@ export function ContractFormSimplified({
         </Card>
 
         {/* Botones */}
-        <div className="bg-muted/30 flex justify-end gap-3 border-t px-6 py-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            <X className="mr-2 h-4 w-4" />
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                {mode === "edit" ? "Guardar cambios" : "Crear Contrato"}
-              </>
-            )}
-          </Button>
-        </div>
+        {!hideActions && (
+          <div className="bg-muted/30 flex justify-end gap-3 border-t px-6 py-4">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+              <X className="mr-2 h-4 w-4" />
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  {mode === "edit" ? "Guardar cambios" : "Crear Contrato"}
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   );

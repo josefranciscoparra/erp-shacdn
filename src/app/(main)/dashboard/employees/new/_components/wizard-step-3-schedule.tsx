@@ -81,6 +81,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
             onCancel={() => {}}
             isSubmitting={isLoading}
             hideActions={true}
+            formId="wizard-step-3-form"
           />
         </div>
       )}

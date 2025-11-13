@@ -144,6 +144,8 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
             onCancel={() => {}}
             isSubmitting={isLoading}
             initialData={initialData}
+            hideActions={true}
+            formId="wizard-step-2-form"
           />
         </div>
       )}

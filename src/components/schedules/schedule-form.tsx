@@ -153,6 +153,7 @@ interface ScheduleFormProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   hideActions?: boolean;
+  formId?: string;
 }
 
 const toNumber = (value: any): number | undefined => {
@@ -167,6 +168,7 @@ export function ScheduleForm({
   onCancel,
   isSubmitting = false,
   hideActions = false,
+  formId,
 }: ScheduleFormProps) {
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema),
@@ -475,7 +477,7 @@ export function ScheduleForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form id={formId} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         {/* Jornada y Horarios */}
         <Card className="rounded-lg border shadow-xs">
           <CardContent className="space-y-6 p-6">
