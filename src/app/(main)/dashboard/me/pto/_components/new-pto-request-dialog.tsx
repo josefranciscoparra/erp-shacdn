@@ -261,7 +261,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl bg-gray-100 dark:bg-gray-900">
+      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-gray-100 dark:bg-gray-900">
         <DialogHeader>
           <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
           <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
