@@ -1,76 +1,197 @@
-# Scripts de Inicialización de Datos
+# 🌱 Scripts de Inicialización y Seed
 
-Este directorio contiene scripts para inicializar y rellenar datos en la base de datos.
+Este directorio contiene scripts para inicializar y poblar datos en la base de datos del ERP TimeNow.
 
-## Seed de Departamentos y Puestos
+## 📋 Scripts Disponibles
 
-### 📋 Descripción
+### 1. 🚀 `seed-organization-init.ts` - **SCRIPT PRINCIPAL** ⭐
 
-El script `seed-departments-positions.ts` rellena una organización existente con departamentos y puestos típicos de una empresa española.
+**Inicialización completa de una organización nueva**
 
-**Incluye:**
-- 10 departamentos (Dirección, RRHH, Finanzas, Comercial, Marketing, IT, Producción, Calidad, Logística, Atención al Cliente)
-- 54 puestos distribuidos por departamento
+Crea TODOS los datos necesarios para que una organización esté operativa:
 
-### 🚀 Uso
+- ✅ **7 Tipos de ausencia** (Vacaciones, Baja médica, Permiso personal, etc.)
+- ✅ **Configuración de PTO** (22 días anuales por defecto, reglas España)
+- ✅ **7 Niveles de puesto** (Trainee → Junior → Mid → Senior → Lead → Principal → Director)
+- ✅ **10 Departamentos** profesionales (Dirección, RRHH, Finanzas, Comercial, Marketing, IT, Producción, Calidad, Logística, Atención)
+- ✅ **~50 Puestos de trabajo** distribuidos entre departamentos
+- ✅ **Política de gastos** (tarifas España 2024: 0.26€/km, límites comidas/alojamiento)
+- ✅ **Centro de coste por defecto** (si no existe ninguno)
 
-#### Opción 1: Pasar el ORG_ID como argumento (Recomendado)
-
-```bash
-npm run seed:departments -- --orgId="tu-organization-id-aqui"
-```
-
-#### Opción 2: Variable de entorno
+**Uso:**
 
 ```bash
-ORG_ID="tu-organization-id-aqui" npm run seed:departments
+npm run seed:org-init -- --orgId="org_id_aqui"
 ```
 
-#### Opción 3: Editar el script
+**Características:**
+- ✅ **NO elimina datos existentes** (solo añade los faltantes)
+- ✅ Verifica duplicados antes de crear
+- ✅ Muestra resumen detallado de qué creó/omitió
+- ✅ Confirmación de 5 segundos antes de ejecutar
+- ✅ Validación de que la organización existe
 
-Edita el archivo `scripts/seed-departments-positions.ts` y cambia la línea:
+**Cuándo usarlo:**
+- ✅ Acabas de crear una organización nueva
+- ✅ Quieres tener todos los datos base listos de una vez
+- ✅ Estás configurando un entorno de desarrollo/staging
 
-```typescript
-const ORG_ID = process.env.ORG_ID || "tu-organization-id-aqui";
-```
+---
 
-Luego ejecuta:
+### 2. 📊 `seed-departments-positions.ts`
+
+**Solo departamentos y puestos** (sin otros datos)
+
+Útil si ya tienes una organización configurada y solo quieres añadir más departamentos/puestos.
+
+**Contenido:**
+- 10 Departamentos empresariales
+- ~50 Puestos de trabajo
+
+**Uso:**
 
 ```bash
-npm run seed:departments
+npm run seed:departments -- --orgId="org_id_aqui"
 ```
 
-### 🔍 Cómo obtener tu ORG_ID
+**Cuándo usarlo:**
+- Solo necesitas añadir estructura organizativa
+- Ya tienes tipos de ausencia, PTO config, etc.
 
-#### Desde la base de datos (psql)
+---
+
+### 3. 📈 `seed-position-levels.ts`
+
+**Solo niveles de seniority**
+
+Crea niveles de puesto (Junior, Senior, etc.) para **TODAS las organizaciones** de la base de datos.
+
+**Contenido:**
+- 7 Niveles: Trainee, Junior, Mid, Senior, Lead, Principal, Director
+
+**Uso:**
 
 ```bash
-# Conectar a la base de datos
-psql postgresql://usuario:password@localhost:5432/base_datos
-
-# Listar organizaciones
-SELECT id, name FROM "Organization";
+npx tsx scripts/seed-position-levels.ts
 ```
 
-#### Desde Prisma Studio
+**Cuándo usarlo:**
+- Quieres añadir niveles a todas las organizaciones de golpe
+- Has creado varias organizaciones manualmente sin niveles
+
+---
+
+### 4. 🎨 `seed.ts` (prisma/seed.ts)
+
+**Seed completo para desarrollo**
+
+Crea una organización demo completa con usuarios, empleados, contratos, y datos de ejemplo.
+
+**Contenido:**
+- 1 Organización "Demo Company S.L."
+- 7 Usuarios con diferentes roles
+- 5 Empleados con datos completos
+- 5 Contratos laborales
+- 4 Departamentos
+- 5 Puestos
+- 1 Centro de coste
+- 1 Política de gastos
+
+**Uso:**
 
 ```bash
-npx prisma studio
+npx prisma db seed
 ```
 
-Ve a la tabla `Organization` y copia el `id`.
+**⚠️ IMPORTANTE:**
+- ❌ **ELIMINA TODOS LOS DATOS** existentes
+- Solo usar en desarrollo o para reset completo
+- Crea usuarios con password: `password123`
 
-### ⚙️ Características del Script
+---
 
-- ✅ **Seguro**: Verifica que la organización existe antes de ejecutar
-- ✅ **Idempotente**: No duplica departamentos/puestos existentes, solo añade los que faltan
-- ✅ **Informativo**: Muestra un resumen detallado de lo que creará
-- ✅ **Confirmación**: Espera 5 segundos antes de ejecutar (Ctrl+C para cancelar)
-- ✅ **Detallado**: Muestra progreso en tiempo real
+## 🎯 ¿Qué Script Usar?
 
-### 📊 Datos que se crean
+### Escenario 1: **Nueva organización en producción** ⭐
 
-**Departamentos (10):**
+```bash
+# 1. Crear organización desde la UI o API
+# 2. Inicializar datos base
+npm run seed:org-init -- --orgId="cm123456789"
+```
+
+✅ La organización estará lista para operar
+
+---
+
+### Escenario 2: **Desarrollo local (empezar desde cero)**
+
+```bash
+# 1. Reset completo + datos demo
+npx prisma migrate reset
+npx prisma db seed
+
+# 2. Ya tienes todo: org, usuarios, empleados, datos
+```
+
+✅ Puedes empezar a desarrollar con datos reales
+
+---
+
+### Escenario 3: **Añadir solo departamentos/puestos a org existente**
+
+```bash
+npm run seed:departments -- --orgId="org_existente"
+```
+
+✅ Solo añade estructura organizativa, respeta lo demás
+
+---
+
+### Escenario 4: **Añadir niveles a todas las orgs**
+
+```bash
+npx tsx scripts/seed-position-levels.ts
+```
+
+✅ Todas las organizaciones tendrán niveles de seniority
+
+---
+
+## 📝 Datos Creados por `seed-organization-init`
+
+### Tipos de Ausencia
+
+| Código | Nombre | Requiere Aprobación | Retribuido |
+|--------|---------|---------------------|------------|
+| `VAC` | Vacaciones | ✅ | ✅ |
+| `SICK` | Baja por Enfermedad | ❌ | ✅ |
+| `PERS` | Permiso Personal | ✅ | ✅ |
+| `UNPAID` | Permiso No Retribuido | ✅ | ❌ |
+| `REMOTE` | Teletrabajo | ✅ | ✅ |
+| `TRAIN` | Formación | ✅ | ✅ |
+| `MAT` | Maternidad/Paternidad | ❌ | ✅ |
+
+### Configuración PTO (España)
+
+- **Días anuales:** 22 días laborables
+- **Inicio acumulación:** Enero
+- **Aviso mínimo:** 15 días
+- **Máximo consecutivo:** 30 días
+- **Arrastre:** Deshabilitado por defecto
+
+### Niveles de Puesto
+
+1. **Trainee** - En formación / prácticas
+2. **Junior** - 0-2 años experiencia
+3. **Mid** - 2-4 años experiencia
+4. **Senior** - 4+ años experiencia
+5. **Lead** - Líder técnico
+6. **Principal** - Arquitecto / experto
+7. **Director** - Director de área
+
+### Departamentos
+
 1. Dirección General (3 puestos)
 2. Recursos Humanos (4 puestos)
 3. Administración y Finanzas (5 puestos)
@@ -82,75 +203,246 @@ Ve a la tabla `Organization` y copia el `id`.
 9. Logística y Almacén (4 puestos)
 10. Atención al Cliente (3 puestos)
 
-**Total: 54 puestos**
+**Total:** ~50 puestos distribuidos
 
-### 🔒 Uso en Producción
+### Política de Gastos (España 2024)
 
-**IMPORTANTE:** Este script es seguro para ejecutar en producción porque:
+- **Kilometraje:** 0.26 €/km
+- **Límite comidas:** 30 €/día
+- **Límite alojamiento:** 100 €/día
+- **Categorías:** Combustible, Kilometraje, Comidas, Peajes, Parking, Alojamiento, Otros
 
-1. Solo **añade** datos, nunca elimina
-2. Verifica duplicados antes de crear
-3. Requiere confirmación manual (5 segundos)
-4. Muestra un resumen antes de ejecutar
+---
+
+## 🔍 Cómo obtener tu ORG_ID
+
+### Desde Prisma Studio (Recomendado)
+
+```bash
+npx prisma studio
+```
+
+Ve a la tabla `Organization` y copia el `id`.
+
+### Desde la base de datos (psql)
+
+```bash
+# Conectar a la base de datos
+psql postgresql://erp_user:erp_pass@localhost:5432/erp_dev
+
+# Listar organizaciones
+SELECT id, name FROM "Organization";
+```
+
+---
+
+## 🔧 Modificar los Datos
+
+Si quieres personalizar los datos creados, edita directamente el script:
+
+```bash
+nano scripts/seed-organization-init.ts
+```
+
+**Variables editables:**
+- `ABSENCE_TYPES` - Añadir/modificar tipos de ausencia
+- `PTO_CONFIG` - Cambiar días anuales, reglas, etc.
+- `POSITION_LEVELS` - Añadir/quitar niveles
+- `DEPARTMENTS_AND_POSITIONS` - Añadir/quitar departamentos y puestos
+- `EXPENSE_POLICY` - Cambiar tarifas y límites
+
+---
+
+## 📋 Ejemplo de Salida del Script Principal
+
+```
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║     🚀 INICIALIZACIÓN DE ORGANIZACIÓN - ERP TimeNow       ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+✅ Organización encontrada: Mi Empresa S.L.
+📋 ID: cm123456789
+
+⚠️  Este script creará los siguientes datos iniciales:
+
+   📋 7 tipos de ausencia (vacaciones, bajas, permisos)
+   🏖️  1 configuración de PTO (vacaciones)
+   📊 7 niveles de puesto (Junior, Senior, etc.)
+   🏢 10 departamentos
+   💼 54 puestos de trabajo
+   💰 1 política de gastos
+   🏭 1 centro de coste (si no existe ninguno)
+
+⏳ Esperando 5 segundos antes de continuar...
+   (Presiona Ctrl+C para cancelar)
+
+============================================================
+  📋 TIPOS DE AUSENCIA
+============================================================
+
+   ✅ Creado: Vacaciones (VAC)
+   ✅ Creado: Baja por Enfermedad (SICK)
+   ✅ Creado: Permiso Personal (PERS)
+   ...
+
+   📊 Resumen: 7 creados, 0 omitidos
+
+============================================================
+  🏖️  CONFIGURACIÓN DE PTO (VACACIONES)
+============================================================
+
+   ✅ Configuración de PTO creada
+   📌 Días anuales por defecto: 22
+   📌 Aviso mínimo: 15 días
+   📌 Máximo consecutivo: 30 días
+
+============================================================
+  📊 NIVELES DE PUESTO
+============================================================
+
+   ✅ Creado: Trainee (orden: 1)
+   ✅ Creado: Junior (orden: 2)
+   ...
+
+   📊 Resumen: 7 creados, 0 omitidos
+
+============================================================
+  🏢 DEPARTAMENTOS Y PUESTOS
+============================================================
+
+   ✅ Departamento creado: Dirección General
+      ✅ Puesto creado: Director/a General
+      ✅ Puesto creado: Director/a de Operaciones
+      ✅ Puesto creado: Asistente de Dirección
+
+   ✅ Departamento creado: Recursos Humanos
+      ✅ Puesto creado: Director/a de RRHH
+      ...
+
+   📊 Resumen Departamentos: 10 creados, 0 omitidos
+   📊 Resumen Puestos: 54 creados, 0 omitidos
+
+============================================================
+  💰 POLÍTICA DE GASTOS
+============================================================
+
+   ✅ Política de gastos creada
+   📌 Kilometraje: 0.26 €/km
+   📌 Límite comidas: 30 €/día
+   📌 Límite alojamiento: 100 €/día
+
+============================================================
+  🏭 CENTRO DE COSTE POR DEFECTO (OPCIONAL)
+============================================================
+
+   ✅ Centro de coste creado: Oficina Principal (MAIN)
+   ℹ️  Recuerda actualizar la dirección en la configuración
+
+============================================================
+  ✨ PROCESO COMPLETADO
+============================================================
+
+📊 RESUMEN FINAL:
+
+   📋 Tipos de ausencia: 7 creados, 0 omitidos
+   🏖️  Configuración PTO: 1 creada, 0 omitida
+   📊 Niveles de puesto: 7 creados, 0 omitidos
+   🏢 Departamentos: 10 creados, 0 omitidos
+   💼 Puestos: 54 creados, 0 omitidos
+   💰 Política de gastos: 1 creada, 0 omitida
+   🏭 Centros de coste: 1 creados, 0 omitidos
+
+✅ La organización está lista para empezar a operar!
+
+📝 Próximos pasos sugeridos:
+   1. Crear usuarios y asignar roles
+   2. Crear empleados y vincularlos a usuarios
+   3. Asignar empleados a departamentos y puestos
+   4. Configurar calendarios y festivos
+   5. Configurar centros de coste adicionales (si es necesario)
+```
+
+---
+
+## ⚠️ Importante
+
+1. **Todos los scripts respetan datos existentes** (excepto `prisma db seed` que hace reset)
+2. **Verifican duplicados** por nombre/código antes de crear
+3. **Muestran confirmación** antes de ejecutar (5 segundos)
+4. **Resumen detallado** al finalizar de qué crearon/omitieron
+
+---
+
+## 🔒 Uso en Producción
+
+**IMPORTANTE:** Los scripts son seguros para ejecutar en producción porque:
+
+1. Solo **añaden** datos, nunca eliminan
+2. Verifican duplicados antes de crear
+3. Requieren confirmación manual (5 segundos)
+4. Muestran un resumen antes de ejecutar
 
 Sin embargo, siempre se recomienda:
 - ✅ Hacer backup de la base de datos antes
 - ✅ Ejecutar primero en staging/desarrollo
 - ✅ Revisar el ORG_ID antes de ejecutar
 
-### 📝 Ejemplo de Salida
+---
 
-```
-🚀 Iniciando script de seed de departamentos y puestos...
+## 🆘 Solución de Problemas
 
-✅ Organización encontrada: Mi Empresa S.L. (cm123456789)
+### Error: "Organization not found"
 
-⚠️  Este script creará los siguientes departamentos y puestos:
-   Total: 10 departamentos
-   Total: 54 puestos
-
-⚠️  La organización ya tiene:
-   - 2 departamentos
-   - 5 puestos
-
-   Este script NO eliminará los existentes, solo añadirá los nuevos.
-
-Presiona Ctrl+C para cancelar o espera 5 segundos para continuar...
-
-📝 Creando departamentos y puestos...
-
-   ⏭️  Departamento ya existe: Dirección General
-      ⏭️  Puesto ya existe: Director/a General
-      ✅ Puesto creado: Director/a de Operaciones
-      ✅ Puesto creado: Asistente de Dirección
-
-   ✅ Departamento creado: Recursos Humanos
-      ✅ Puesto creado: Director/a de RRHH
-      ✅ Puesto creado: Responsable de Selección
-      ...
-
-✨ Proceso completado!
-
-📊 Resumen:
-   Departamentos creados: 8
-   Departamentos omitidos (ya existían): 2
-   Puestos creados: 49
-   Puestos omitidos (ya existían): 5
+```bash
+# Verifica que el ID es correcto
+npx prisma studio
+# Busca tu organización y copia el ID exacto
 ```
 
-### 🛠️ Personalización
+### Script se ejecuta pero no crea nada
 
-Si quieres personalizar los departamentos y puestos, edita la constante `DEPARTMENTS_AND_POSITIONS` en el archivo `scripts/seed-departments-positions.ts`.
+- ✅ Probablemente los datos ya existen
+- ✅ Revisa el resumen final para ver qué se omitió
+- ✅ Si necesitas recrear, elimina manualmente desde Prisma Studio
 
-### ❗ Troubleshooting
+### Error: "Debes proporcionar un ORG_ID"
 
-**Error: "No se encontró la organización"**
-- Verifica que el ORG_ID es correcto
-- Verifica que estás conectado a la base de datos correcta
+```bash
+# Asegúrate de pasar el parámetro correctamente
+npm run seed:org-init -- --orgId="tu-org-id-aqui"
+#                       ^^ Los dos guiones son importantes
+```
 
-**Error: "Debes proporcionar un ORG_ID"**
-- Asegúrate de pasar el parámetro `--orgId=` o configurar la variable de entorno
+### "No se puede ejecutar tsx"
 
-**No se crean los datos**
-- Verifica que tienes la conexión DATABASE_URL correcta en tu `.env`
-- Verifica que tienes permisos de escritura en la base de datos
+```bash
+npm install
+```
+
+---
+
+## 📚 Próximos Pasos Después de Seed
+
+Después de ejecutar `seed:org-init`, tu organización tiene:
+
+✅ Tipos de ausencia configurados
+✅ Reglas de vacaciones (PTO)
+✅ Niveles de seniority
+✅ Departamentos y puestos
+✅ Política de gastos
+✅ Centro de coste base
+
+**Ahora puedes:**
+
+1. **Crear usuarios** desde la UI → `/dashboard/users`
+2. **Crear empleados** y vincularlos a usuarios → `/dashboard/employees`
+3. **Asignar empleados** a departamentos y puestos
+4. **Configurar calendarios** y festivos → `/dashboard/calendars`
+5. **Activar fichajes** → Los empleados pueden empezar a fichar
+6. **Solicitar vacaciones** → El sistema PTO está listo
+
+---
+
+**¿Dudas?** Consulta el código de los scripts o revisa la documentación de Prisma.
