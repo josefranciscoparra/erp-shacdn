@@ -174,11 +174,13 @@ npx tsx scripts/seed-position-levels.ts
 
 ### Configuración PTO (España)
 
-- **Días anuales:** 22 días laborables
-- **Inicio acumulación:** Enero
-- **Aviso mínimo:** 15 días
-- **Máximo consecutivo:** 30 días
-- **Arrastre:** Deshabilitado por defecto
+- **Baja maternal:** 16 semanas (legislación española)
+- **Baja paternal:** 16 semanas (desde 2021)
+- **Días extra por antigüedad:**
+  - 5-10 años: +2 días adicionales
+  - 10+ años: +4 días adicionales
+- **Máximo anticipación:** 12 meses para solicitudes
+- **Balance negativo:** No permitido por defecto
 
 ### Niveles de Puesto
 

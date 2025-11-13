@@ -101,15 +101,14 @@ const ABSENCE_TYPES = [
 
 // Configuración de PTO por defecto (España)
 const PTO_CONFIG = {
-  defaultAnnualDays: 22, // Días laborables (España)
-  accrualStartMonth: 1, // Enero
+  maternityLeaveWeeks: 16, // Baja maternal España (16 semanas)
+  paternityLeaveWeeks: 16, // Baja paternal España (16 semanas desde 2021)
+  seniorityRules: [
+    { yearsFrom: 5, yearsTo: 10, extraDays: 2 },
+    { yearsFrom: 10, yearsTo: null, extraDays: 4 },
+  ],
   allowNegativeBalance: false,
-  requiresApproval: true,
-  minRequestNoticeDays: 15,
-  maxConsecutiveDays: 30,
-  carryOverEnabled: false,
-  carryOverMaxDays: 0,
-  carryOverExpiryMonths: 0,
+  maxAdvanceRequestMonths: 12, // 12 meses de anticipación
 };
 
 // Niveles de puesto
@@ -330,7 +329,8 @@ async function createPtoConfig(orgId: string) {
 
   if (existing) {
     console.log(`   ⏭️  Ya existe configuración de PTO para esta organización`);
-    console.log(`   📌 Días anuales actuales: ${existing.defaultAnnualDays}`);
+    console.log(`   📌 Baja maternal: ${existing.maternityLeaveWeeks} semanas`);
+    console.log(`   📌 Baja paternal: ${existing.paternityLeaveWeeks} semanas`);
     return { created: 0, skipped: 1 };
   }
 
@@ -342,9 +342,10 @@ async function createPtoConfig(orgId: string) {
   });
 
   console.log(`   ✅ Configuración de PTO creada`);
-  console.log(`   📌 Días anuales por defecto: ${PTO_CONFIG.defaultAnnualDays}`);
-  console.log(`   📌 Aviso mínimo: ${PTO_CONFIG.minRequestNoticeDays} días`);
-  console.log(`   📌 Máximo consecutivo: ${PTO_CONFIG.maxConsecutiveDays} días`);
+  console.log(`   📌 Baja maternal: ${PTO_CONFIG.maternityLeaveWeeks} semanas`);
+  console.log(`   📌 Baja paternal: ${PTO_CONFIG.paternityLeaveWeeks} semanas`);
+  console.log(`   📌 Días extra por antigüedad: 5-10 años → +2 días, 10+ años → +4 días`);
+  console.log(`   📌 Máximo anticipación: ${PTO_CONFIG.maxAdvanceRequestMonths} meses`);
 
   return { created: 1, skipped: 0 };
 }
