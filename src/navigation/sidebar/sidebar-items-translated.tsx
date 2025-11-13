@@ -145,11 +145,6 @@ export function useSidebarItems(): NavGroup[] {
               permission: "view_employees",
             },
             {
-              title: "Contratos",
-              url: "/dashboard/contracts",
-              permission: "view_contracts",
-            },
-            {
               title: "Horarios",
               url: "/dashboard/schedules",
               permission: "view_contracts",

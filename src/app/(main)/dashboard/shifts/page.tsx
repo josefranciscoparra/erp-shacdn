@@ -73,138 +73,136 @@ export default function ShiftsPage() {
   }, []);
 
   return (
-    <div className="content-max-width">
-      <div className="@container/main flex flex-col gap-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-foreground text-xl font-bold md:text-2xl">Gestión de Turnos</h1>
-          <p className="text-muted-foreground mt-1 text-xs md:text-sm">Organiza los turnos rotativos de tu equipo</p>
+    <div className="@container/main flex flex-col gap-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-foreground text-xl font-bold md:text-2xl">Gestión de Turnos</h1>
+        <p className="text-muted-foreground mt-1 text-xs md:text-sm">Organiza los turnos rotativos de tu equipo</p>
+      </div>
+
+      {/* Tabs principales */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        {/* Select para móvil */}
+        <div className="block md:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Seleccionar vista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dashboard">Dashboard</SelectItem>
+              <SelectItem value="calendar">Cuadrante</SelectItem>
+              <SelectItem value="templates">Plantillas</SelectItem>
+              <SelectItem value="config">Configuración</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
-        {/* Tabs principales */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Select para móvil */}
+        {/* TabsList para desktop */}
+        <TabsList className="hidden md:inline-flex">
+          <TabsTrigger value="dashboard">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
+          <TabsTrigger value="calendar">Cuadrante</TabsTrigger>
+          <TabsTrigger value="templates">
+            <FileText className="mr-2 h-4 w-4" />
+            Plantillas
+          </TabsTrigger>
+          <TabsTrigger value="config">
+            <Settings className="mr-2 h-4 w-4" />
+            Configuración
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab: Dashboard */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <ShiftsDashboard />
+        </TabsContent>
+
+        {/* Tab: Cuadrante */}
+        <TabsContent value="calendar" className="space-y-6">
+          {/* Vista móvil: Aviso */}
           <div className="block md:hidden">
-            <Select value={activeTab} onValueChange={setActiveTab}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Seleccionar vista" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="dashboard">Dashboard</SelectItem>
-                <SelectItem value="calendar">Cuadrante</SelectItem>
-                <SelectItem value="templates">Plantillas</SelectItem>
-                <SelectItem value="config">Configuración</SelectItem>
-              </SelectContent>
-            </Select>
+            <MobileViewWarning
+              title="Cuadrante disponible solo en PC"
+              description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente. Por favor, accede desde un ordenador o tablet."
+            />
           </div>
 
-          {/* TabsList para desktop */}
-          <TabsList className="hidden md:inline-flex">
-            <TabsTrigger value="dashboard">
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Dashboard
-            </TabsTrigger>
-            <TabsTrigger value="calendar">Cuadrante</TabsTrigger>
-            <TabsTrigger value="templates">
-              <FileText className="mr-2 h-4 w-4" />
-              Plantillas
-            </TabsTrigger>
-            <TabsTrigger value="config">
-              <Settings className="mr-2 h-4 w-4" />
-              Configuración
-            </TabsTrigger>
-          </TabsList>
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden space-y-6 md:block">
+            {/* Filtros con selector de vista integrado */}
+            <ShiftsFiltersBar />
 
-          {/* Tab: Dashboard */}
-          <TabsContent value="dashboard" className="space-y-6">
-            <ShiftsDashboard />
-          </TabsContent>
+            {/* Área de calendario */}
+            <div className="overflow-hidden rounded-lg border">
+              {/* Navegación de semana - sticky arriba del calendario */}
+              <WeekNavigator />
 
-          {/* Tab: Cuadrante */}
-          <TabsContent value="calendar" className="space-y-6">
-            {/* Vista móvil: Aviso */}
-            <div className="block md:hidden">
-              <MobileViewWarning
-                title="Cuadrante disponible solo en PC"
-                description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente. Por favor, accede desde un ordenador o tablet."
-              />
+              {isLoading ? (
+                <div className="p-6">
+                  <EmptyStateLoading />
+                </div>
+              ) : shifts.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState variant="shifts" onAction={() => openShiftDialog()} />
+                </div>
+              ) : (
+                <div className="p-6">
+                  {/* Vistas de calendario */}
+                  {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
+
+                  {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
+
+                  {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+
+                  {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
+                </div>
+              )}
             </div>
 
-            {/* Vista desktop: Contenido completo */}
-            <div className="hidden space-y-6 md:block">
-              {/* Filtros con selector de vista integrado */}
-              <ShiftsFiltersBar />
+            {/* Barra de acciones masivas */}
+            <PublishBar />
+          </div>
+        </TabsContent>
 
-              {/* Área de calendario */}
-              <div className="overflow-hidden rounded-lg border">
-                {/* Navegación de semana - sticky arriba del calendario */}
-                <WeekNavigator />
+        {/* Tab: Plantillas */}
+        <TabsContent value="templates" className="space-y-6">
+          {/* Vista móvil: Aviso */}
+          <div className="block md:hidden">
+            <MobileViewWarning
+              title="Plantillas disponibles solo en PC"
+              description="La gestión de plantillas requiere una pantalla más grande para poder ver y editar los detalles correctamente. Por favor, accede desde un ordenador o tablet."
+            />
+          </div>
 
-                {isLoading ? (
-                  <div className="p-6">
-                    <EmptyStateLoading />
-                  </div>
-                ) : shifts.length === 0 ? (
-                  <div className="p-6">
-                    <EmptyState variant="shifts" onAction={() => openShiftDialog()} />
-                  </div>
-                ) : (
-                  <div className="p-6">
-                    {/* Vistas de calendario */}
-                    {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden md:block">
+            <TemplatesTable />
+          </div>
+        </TabsContent>
 
-                    {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
+        {/* Tab: Configuración */}
+        <TabsContent value="config" className="space-y-6">
+          {/* Vista móvil: Aviso */}
+          <div className="block md:hidden">
+            <MobileViewWarning
+              title="Configuración disponible solo en PC"
+              description="La configuración de zonas y áreas requiere una pantalla más grande para poder gestionar los ajustes correctamente. Por favor, accede desde un ordenador o tablet."
+            />
+          </div>
 
-                    {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden md:block">
+            <ZonesTable />
+          </div>
+        </TabsContent>
+      </Tabs>
 
-                    {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
-                  </div>
-                )}
-              </div>
-
-              {/* Barra de acciones masivas */}
-              <PublishBar />
-            </div>
-          </TabsContent>
-
-          {/* Tab: Plantillas */}
-          <TabsContent value="templates" className="space-y-6">
-            {/* Vista móvil: Aviso */}
-            <div className="block md:hidden">
-              <MobileViewWarning
-                title="Plantillas disponibles solo en PC"
-                description="La gestión de plantillas requiere una pantalla más grande para poder ver y editar los detalles correctamente. Por favor, accede desde un ordenador o tablet."
-              />
-            </div>
-
-            {/* Vista desktop: Contenido completo */}
-            <div className="hidden md:block">
-              <TemplatesTable />
-            </div>
-          </TabsContent>
-
-          {/* Tab: Configuración */}
-          <TabsContent value="config" className="space-y-6">
-            {/* Vista móvil: Aviso */}
-            <div className="block md:hidden">
-              <MobileViewWarning
-                title="Configuración disponible solo en PC"
-                description="La configuración de zonas y áreas requiere una pantalla más grande para poder gestionar los ajustes correctamente. Por favor, accede desde un ordenador o tablet."
-              />
-            </div>
-
-            {/* Vista desktop: Contenido completo */}
-            <div className="hidden md:block">
-              <ZonesTable />
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Modales */}
-        <ShiftDialog />
-        <TemplateApplyDialog />
-        <ZoneDialog />
-      </div>
+      {/* Modales */}
+      <ShiftDialog />
+      <TemplateApplyDialog />
+      <ZoneDialog />
     </div>
   );
 }

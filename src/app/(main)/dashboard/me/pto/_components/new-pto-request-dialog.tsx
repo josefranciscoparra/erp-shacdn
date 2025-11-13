@@ -60,30 +60,34 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 
   if (!selectedType) return null;
 
+  // Calcular días restantes
+  const remainingDays = balance ? balance.daysAvailable - (workingDaysCalc ?? 0) : 0;
+
   return (
     <div
       className={cn(
-        "rounded-lg border bg-white p-4 dark:bg-gray-800",
+        "rounded-[14px] border bg-white p-6 shadow-sm dark:bg-gray-800",
         !hasEnoughDays && workingDaysCalc && "border-destructive bg-destructive/5 dark:bg-destructive/10",
       )}
     >
-      {/* Header */}
-      <div className="mb-3 flex items-start justify-between">
+      {/* Header minimalista */}
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <h4 className="text-lg font-semibold">{selectedType.name}</h4>
+          <h4 className="text-base font-semibold">
+            {selectedType.name} — Año {balance?.year ?? new Date().getFullYear()}
+          </h4>
           {selectedType.affectsBalance && balance && (
-            <p className="text-muted-foreground text-sm">
-              Año {balance.year} • {formatDays(balance.daysAvailable)} de {formatDays(balance.annualAllowance)} días
-              disponibles
+            <p className="text-muted-foreground mt-0.5 text-sm">
+              {formatDays(balance.daysAvailable)} disponibles / {formatDays(balance.annualAllowance)} totales
             </p>
           )}
         </div>
         {workingDaysCalc !== null && (
           <>
             {!hasEnoughDays ? (
-              <AlertCircle className="text-destructive h-5 w-5" />
+              <AlertCircle className="text-destructive h-5 w-5 flex-shrink-0" />
             ) : (
-              <CheckCircle className="h-5 w-5 text-green-600" />
+              <CheckCircle className="h-5 w-5 flex-shrink-0 text-green-600" />
             )}
           </>
         )}
@@ -91,31 +95,44 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 
       {/* Estado de cálculo o información */}
       {isCalculating ? (
-        <div className="text-muted-foreground flex items-center gap-2 py-2 text-sm">
+        <div className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
           Calculando días hábiles...
         </div>
       ) : workingDaysCalc !== null ? (
         <>
-          {/* Stats con días */}
+          {/* Grid de métricas - estilo Notion/Linear */}
           {selectedType.affectsBalance && balance && (
-            <div className="space-y-3">
-              {/* Resumen numérico */}
-              <div className="flex items-baseline justify-center gap-2 rounded-md bg-gray-50 py-3 dark:bg-gray-900">
-                <div className="w-full text-center">
-                  <div className="text-2xl font-bold whitespace-nowrap">
-                    {formatDays(balance.daysUsed)} <span className="text-green-600">+{workingDaysCalc}</span>{" "}
-                    <span className="text-muted-foreground">/ {formatDays(balance.annualAllowance)}</span>
+            <div className="space-y-4">
+              {/* Grid de 3 columnas con métricas */}
+              <div className="grid grid-cols-3 gap-4 rounded-lg bg-gray-50 p-4 dark:bg-gray-900/50">
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Consumo</div>
+                  <div className="text-xl font-bold">
+                    {formatDays(balance.daysUsed)} día{balance.daysUsed !== 1 ? "s" : ""}
                   </div>
-                  <div className="text-muted-foreground mt-1 text-xs">días consumidos + solicitados / total anual</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
+                    Solicitar
+                  </div>
+                  <div className="text-xl font-bold text-green-600">
+                    +{workingDaysCalc} día{workingDaysCalc !== 1 ? "s" : ""}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Restante</div>
+                  <div className={cn("text-xl font-bold", remainingDays < 0 && "text-destructive")}>
+                    {formatDays(Math.max(0, remainingDays))} día{remainingDays !== 1 ? "s" : ""}
+                  </div>
                 </div>
               </div>
 
-              {/* Progress bar */}
-              <div className="relative h-5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+              {/* Progress bar minimalista */}
+              <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                 {/* Días consumidos (verde oscuro) */}
                 <div
-                  className="absolute bg-green-700 transition-all duration-300"
+                  className="absolute bg-emerald-600 transition-all duration-300"
                   style={{
                     left: 0,
                     top: 0,
@@ -125,7 +142,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                 />
                 {/* Días seleccionados (verde claro) */}
                 <div
-                  className="absolute bg-green-400 transition-all duration-300"
+                  className="absolute bg-emerald-400 transition-all duration-300"
                   style={{
                     top: 0,
                     bottom: 0,
@@ -134,45 +151,40 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                   }}
                 />
               </div>
-
-              {/* Leyenda de la barra */}
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="h-3 w-3 rounded-sm bg-green-700" />
-                  <span className="text-muted-foreground">Consumidos ({formatDays(balance.daysUsed)})</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="h-3 w-3 rounded-sm bg-green-400" />
-                  <span className="text-muted-foreground">A solicitar (+{workingDaysCalc})</span>
-                </div>
-              </div>
             </div>
           )}
 
-          {/* Info adicional */}
-          <div className="text-muted-foreground mt-3 space-y-1.5 border-t pt-3 text-xs">
-            {selectedType.affectsBalance && balance && <p>✓ Válido hasta el 30 de enero de {balance.year + 1}</p>}
-            <p>✓ Solo cuenta días laborales según tu contrato</p>
+          {/* Info adicional minimalista */}
+          <div className="text-muted-foreground mt-4 space-y-1.5 text-xs">
+            {selectedType.affectsBalance && balance && (
+              <p className="flex items-center gap-1.5">
+                <span className="text-green-600">✔</span> Válido hasta el 30 de enero de {balance.year + 1}
+              </p>
+            )}
+            <p className="flex items-center gap-1.5">
+              <span className="text-green-600">✔</span> Solo días laborables según contrato
+            </p>
             {holidays.length > 0 && (
-              <p className="text-blue-600 dark:text-blue-400">
-                🎉 Festivos incluidos: {holidays.map((h) => h.name).join(", ")}
+              <p className="flex items-start gap-1.5 text-blue-600 dark:text-blue-400">
+                <span>🎉</span>
+                <span>Festivos incluidos: {holidays.map((h) => h.name).join(", ")}</span>
               </p>
             )}
           </div>
 
           {/* Error message */}
           {!hasEnoughDays && (
-            <Alert className="border-destructive bg-destructive/10 mt-3">
+            <Alert className="border-destructive bg-destructive/10 mt-4">
               <AlertCircle className="text-destructive h-4 w-4" />
-              <AlertDescription className="text-destructive">
-                ⚠️ No tienes suficientes días disponibles. Faltan{" "}
+              <AlertDescription className="text-destructive text-sm">
+                No tienes suficientes días disponibles. Faltan{" "}
                 {formatDays(workingDaysCalc - (balance?.daysAvailable ?? 0))} días.
               </AlertDescription>
             </Alert>
           )}
         </>
       ) : (
-        <div className="text-muted-foreground py-2 text-sm">
+        <div className="text-muted-foreground py-3 text-sm">
           Selecciona un rango de fechas para ver el cálculo de días hábiles.
         </div>
       )}
@@ -193,6 +205,17 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   // Calcular días hábiles cuando cambien las fechas
   const hasActiveContract = balance?.hasActiveContract !== false;
   const hasProvisionalContract = balance?.hasProvisionalContract === true;
+
+  // Limpiar formulario cuando se cierre la modal
+  useEffect(() => {
+    if (!open) {
+      setSelectedTypeId("");
+      setDateRange(undefined);
+      setReason("");
+      setWorkingDaysCalc(null);
+      setHolidays([]);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!hasActiveContract) {
@@ -242,13 +265,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
       toast.success("Solicitud enviada correctamente");
 
-      // Limpiar formulario
-      setSelectedTypeId("");
-      setDateRange(undefined);
-      setReason("");
-      setWorkingDaysCalc(null);
-      setHolidays([]);
-
+      // Cerrar modal (el useEffect se encargará de limpiar)
       onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al crear la solicitud");
@@ -267,11 +284,11 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
           <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-6">
           {!hasActiveContract && (
-            <Alert className="border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <Alert className="rounded-[14px] border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
               <div className="flex items-start gap-2">
-                <AlertCircle className="mt-1 h-4 w-4" />
+                <AlertCircle className="mt-1 h-4 w-4 flex-shrink-0" />
                 <AlertDescription>
                   {hasProvisionalContract
                     ? "Tu contrato está pendiente de completar. Contacta con RRHH para poder solicitar vacaciones."
@@ -280,11 +297,14 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               </div>
             </Alert>
           )}
-          {/* Tipo de ausencia */}
+
+          {/* Sección 1: Tipo de ausencia */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="absence-type">Tipo de ausencia *</Label>
+            <Label htmlFor="absence-type" className="text-muted-foreground text-sm font-medium">
+              Tipo de ausencia
+            </Label>
             <Select value={selectedTypeId} onValueChange={setSelectedTypeId} disabled={!hasActiveContract}>
-              <SelectTrigger id="absence-type" className="bg-white">
+              <SelectTrigger id="absence-type" className="rounded-[14px] bg-white shadow-sm dark:bg-gray-800">
                 <SelectValue placeholder="Selecciona un tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -298,10 +318,9 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 ))}
               </SelectContent>
             </Select>
-            {selectedType?.description && <p className="text-muted-foreground text-xs">{selectedType.description}</p>}
           </div>
 
-          {/* Información del tipo de ausencia */}
+          {/* Sección 2: Resumen visual de días */}
           {selectedType && (
             <WorkingDaysDisplay
               selectedType={selectedType}
@@ -313,9 +332,10 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             />
           )}
 
-          {/* Rango de fechas */}
+          {/* Sección 3: Fechas seleccionadas */}
           <div className="flex flex-col gap-2">
-            <Label>Fechas de ausencia *</Label>
+            <Label className="text-muted-foreground text-sm font-medium">Fechas seleccionadas</Label>
+            <p className="text-muted-foreground mb-1 text-xs">Selecciona un rango de días laborables</p>
             <DateRangePicker
               dateRange={dateRange}
               onDateRangeChange={setDateRange}
@@ -324,13 +344,15 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             />
           </div>
 
-          {/* Motivo */}
+          {/* Sección 4: Motivo (opcional) */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="reason">Motivo (opcional)</Label>
+            <Label htmlFor="reason" className="text-muted-foreground text-sm font-medium">
+              Motivo (opcional)
+            </Label>
             <Textarea
               id="reason"
-              placeholder="Describe brevemente el motivo de tu ausencia"
-              className="placeholder:text-muted-foreground/50 bg-white"
+              placeholder="Describe brevemente el motivo (si aplica)"
+              className="placeholder:text-muted-foreground/50 rounded-[14px] bg-white shadow-sm dark:bg-gray-800"
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
@@ -339,8 +361,14 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
           </div>
 
           {/* Botones */}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => onOpenChange(false)}
+              disabled={isSubmitting}
+              className="rounded-[14px]"
+            >
               Cancelar
             </Button>
             <Button
@@ -354,6 +382,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 isCalculating ||
                 !hasActiveContract
               }
+              className="rounded-[14px]"
             >
               {isSubmitting ? (
                 <>

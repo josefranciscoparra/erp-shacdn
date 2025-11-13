@@ -69,123 +69,119 @@ export default function ContractsPage() {
     <PermissionGuard
       permission="view_contracts"
       fallback={
-        <div className="content-max-width">
-          <div className="@container/main flex flex-col gap-4 md:gap-6">
-            <SectionHeader title="Contratos" subtitle="Gestión de contratos laborales" />
-            <EmptyState
-              icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
-              title="Acceso denegado"
-              description="No tienes permisos para ver esta sección"
-            />
-          </div>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader title="Contratos" subtitle="Gestión de contratos laborales" />
+          <EmptyState
+            icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+            title="Acceso denegado"
+            description="No tienes permisos para ver esta sección"
+          />
         </div>
       }
     >
-      <div className="content-max-width">
-        <div className="@container/main flex flex-col gap-4 md:gap-6">
-          {/* Header */}
-          <SectionHeader title="Contratos" subtitle="Gestión de todos los contratos laborales de la organización" />
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        {/* Header */}
+        <SectionHeader title="Contratos" subtitle="Gestión de todos los contratos laborales de la organización" />
 
-          {/* Tabs de contratos */}
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            <div className="flex items-center justify-between">
-              {/* Mobile Select */}
-              <div className="@4xl/main:hidden">
-                <Select value={currentTab} onValueChange={setCurrentTab}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">
-                      Activos
-                      {activeContracts.length > 0 && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {activeContracts.length}
-                        </Badge>
-                      )}
-                    </SelectItem>
-                    <SelectItem value="inactive">
-                      Finalizados
-                      {inactiveContracts.length > 0 && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {inactiveContracts.length}
-                        </Badge>
-                      )}
-                    </SelectItem>
-                    <SelectItem value="all">
-                      Todos
+        {/* Tabs de contratos */}
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <div className="flex items-center justify-between">
+            {/* Mobile Select */}
+            <div className="@4xl/main:hidden">
+              <Select value={currentTab} onValueChange={setCurrentTab}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    Activos
+                    {activeContracts.length > 0 && (
                       <Badge variant="secondary" className="ml-2 text-xs">
-                        {total}
+                        {activeContracts.length}
                       </Badge>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Desktop Tabs */}
-              <TabsList className="hidden @4xl/main:flex">
-                <TabsTrigger value="active" className="relative">
-                  Contratos Activos
-                  {activeContracts.length > 0 && (
+                    )}
+                  </SelectItem>
+                  <SelectItem value="inactive">
+                    Finalizados
+                    {inactiveContracts.length > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {inactiveContracts.length}
+                      </Badge>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="all">
+                    Todos
                     <Badge variant="secondary" className="ml-2 text-xs">
-                      {activeContracts.length}
+                      {total}
                     </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="inactive" className="relative">
-                  Finalizados
-                  {inactiveContracts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {inactiveContracts.length}
-                    </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="all" className="relative">
-                  Todos
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {total}
-                  </Badge>
-                </TabsTrigger>
-              </TabsList>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <TabsContent value="active">
-              {activeContracts.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
-                  title="No hay contratos activos"
-                  description="No hay contratos activos en este momento en la organización"
-                />
-              ) : (
-                <ContractsDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
-              )}
-            </TabsContent>
+            {/* Desktop Tabs */}
+            <TabsList className="hidden @4xl/main:flex">
+              <TabsTrigger value="active" className="relative">
+                Contratos Activos
+                {activeContracts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {activeContracts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="inactive" className="relative">
+                Finalizados
+                {inactiveContracts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {inactiveContracts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="all" className="relative">
+                Todos
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {total}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <TabsContent value="inactive">
-              {inactiveContracts.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={<FileText className="text-muted-foreground mx-auto h-12 w-12" />}
-                  title="No hay contratos finalizados"
-                  description="No hay contratos en el historial"
-                />
-              ) : (
-                <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={isLoading} />
-              )}
-            </TabsContent>
+          <TabsContent value="active">
+            {activeContracts.length === 0 && !isLoading ? (
+              <EmptyState
+                icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay contratos activos"
+                description="No hay contratos activos en este momento en la organización"
+              />
+            ) : (
+              <ContractsDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
+            )}
+          </TabsContent>
 
-            <TabsContent value="all">
-              {contracts.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
-                  title="No hay contratos registrados"
-                  description="No hay contratos en la organización"
-                />
-              ) : (
-                <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
+          <TabsContent value="inactive">
+            {inactiveContracts.length === 0 && !isLoading ? (
+              <EmptyState
+                icon={<FileText className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay contratos finalizados"
+                description="No hay contratos en el historial"
+              />
+            ) : (
+              <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={isLoading} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            {contracts.length === 0 && !isLoading ? (
+              <EmptyState
+                icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay contratos registrados"
+                description="No hay contratos en la organización"
+              />
+            ) : (
+              <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </PermissionGuard>
   );

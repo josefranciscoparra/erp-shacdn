@@ -55,98 +55,94 @@ export default function SchedulesPage() {
     <PermissionGuard
       permission="view_contracts"
       fallback={
-        <div className="content-max-width">
-          <div className="@container/main flex flex-col gap-4 md:gap-6">
-            <SectionHeader title="Horarios" subtitle="Gestión de horarios laborales" />
-            <EmptyState
-              icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
-              title="Acceso denegado"
-              description="No tienes permisos para ver esta sección"
-            />
-          </div>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader title="Horarios" subtitle="Gestión de horarios laborales" />
+          <EmptyState
+            icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+            title="Acceso denegado"
+            description="No tienes permisos para ver esta sección"
+          />
         </div>
       }
     >
-      <div className="content-max-width">
-        <div className="@container/main flex flex-col gap-4 md:gap-6">
-          {/* Header */}
-          <SectionHeader
-            title="Horarios"
-            subtitle="Gestión de horarios laborales de todos los empleados de la organización"
-          />
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        {/* Header */}
+        <SectionHeader
+          title="Horarios"
+          subtitle="Gestión de horarios laborales de todos los empleados de la organización"
+        />
 
-          {/* Tabs de horarios */}
-          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            <div className="flex items-center justify-between">
-              {/* Mobile Select */}
-              <div className="@4xl/main:hidden">
-                <Select value={currentTab} onValueChange={setCurrentTab}>
-                  <SelectTrigger className="w-48">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">
-                      Activos
-                      {activeContracts.length > 0 && (
-                        <Badge variant="secondary" className="ml-2 text-xs">
-                          {activeContracts.length}
-                        </Badge>
-                      )}
-                    </SelectItem>
-                    <SelectItem value="all">
-                      Todos
+        {/* Tabs de horarios */}
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <div className="flex items-center justify-between">
+            {/* Mobile Select */}
+            <div className="@4xl/main:hidden">
+              <Select value={currentTab} onValueChange={setCurrentTab}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    Activos
+                    {activeContracts.length > 0 && (
                       <Badge variant="secondary" className="ml-2 text-xs">
-                        {total}
+                        {activeContracts.length}
                       </Badge>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Desktop Tabs */}
-              <TabsList className="hidden @4xl/main:flex">
-                <TabsTrigger value="active" className="relative">
-                  Horarios Activos
-                  {activeContracts.length > 0 && (
+                    )}
+                  </SelectItem>
+                  <SelectItem value="all">
+                    Todos
                     <Badge variant="secondary" className="ml-2 text-xs">
-                      {activeContracts.length}
+                      {total}
                     </Badge>
-                  )}
-                </TabsTrigger>
-                <TabsTrigger value="all" className="relative">
-                  Todos
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {total}
-                  </Badge>
-                </TabsTrigger>
-              </TabsList>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <TabsContent value="active">
-              {activeContracts.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
-                  title="No hay horarios activos"
-                  description="No hay contratos activos con horarios configurados en este momento"
-                />
-              ) : (
-                <SchedulesDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
-              )}
-            </TabsContent>
+            {/* Desktop Tabs */}
+            <TabsList className="hidden @4xl/main:flex">
+              <TabsTrigger value="active" className="relative">
+                Horarios Activos
+                {activeContracts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {activeContracts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="all" className="relative">
+                Todos
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {total}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-            <TabsContent value="all">
-              {allContractsWithSchedules.length === 0 && !isLoading ? (
-                <EmptyState
-                  icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
-                  title="No hay horarios registrados"
-                  description="No hay horarios configurados en la organización"
-                />
-              ) : (
-                <SchedulesDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
-              )}
-            </TabsContent>
-          </Tabs>
-        </div>
+          <TabsContent value="active">
+            {activeContracts.length === 0 && !isLoading ? (
+              <EmptyState
+                icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay horarios activos"
+                description="No hay contratos activos con horarios configurados en este momento"
+              />
+            ) : (
+              <SchedulesDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            {allContractsWithSchedules.length === 0 && !isLoading ? (
+              <EmptyState
+                icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay horarios registrados"
+                description="No hay horarios configurados en la organización"
+              />
+            ) : (
+              <SchedulesDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </PermissionGuard>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import type { PtoAdjustmentType } from "@prisma/client";
 import { Loader2 } from "lucide-react";
@@ -50,6 +50,18 @@ export function AdjustBalanceDialog({
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Limpiar formulario cuando se cierre la modal
+  useEffect(() => {
+    if (!open) {
+      setAction("add");
+      setDays("");
+      setAdjustmentType("");
+      setIsRecurring(false);
+      setReason("");
+      setNotes("");
+    }
+  }, [open]);
+
   const handleSubmit = async () => {
     if (!days || Number(days) === 0) {
       toast.error("Debes especificar una cantidad de días");
@@ -80,16 +92,10 @@ export function AdjustBalanceDialog({
       });
 
       toast.success("Balance ajustado correctamente");
-      onOpenChange(false);
       onSuccess();
 
-      // Reset form
-      setAction("add");
-      setDays("");
-      setAdjustmentType("");
-      setIsRecurring(false);
-      setReason("");
-      setNotes("");
+      // Cerrar modal (el useEffect se encargará de limpiar)
+      onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error al ajustar balance");
     } finally {
@@ -106,26 +112,26 @@ export function AdjustBalanceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Ajustar Balance de Vacaciones</DialogTitle>
           <DialogDescription>Añade o quita días del balance de vacaciones del empleado</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 py-2">
           {/* Acción */}
           <div className="space-y-2">
             <Label>Acción *</Label>
             <RadioGroup value={action} onValueChange={(v) => setAction(v as "add" | "subtract")}>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="add" id="add" />
-                <Label htmlFor="add" className="font-normal">
+                <Label htmlFor="add" className="cursor-pointer font-normal">
                   ➕ Añadir días
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="subtract" id="subtract" />
-                <Label htmlFor="subtract" className="font-normal">
+                <Label htmlFor="subtract" className="cursor-pointer font-normal">
                   ➖ Quitar días
                 </Label>
               </div>
@@ -170,15 +176,15 @@ export function AdjustBalanceDialog({
               value={isRecurring ? "recurring" : "once"}
               onValueChange={(v) => setIsRecurring(v === "recurring")}
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="once" id="once" />
-                <Label htmlFor="once" className="font-normal">
+              <div className="flex items-start space-x-2">
+                <RadioGroupItem value="once" id="once" className="mt-1" />
+                <Label htmlFor="once" className="cursor-pointer leading-relaxed font-normal">
                   Solo para este año ({new Date().getFullYear()})
                 </Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="recurring" id="recurring" />
-                <Label htmlFor="recurring" className="font-normal">
+              <div className="flex items-start space-x-2">
+                <RadioGroupItem value="recurring" id="recurring" className="mt-1" />
+                <Label htmlFor="recurring" className="cursor-pointer leading-relaxed font-normal">
                   Recurrente (cada año desde {new Date().getFullYear()})
                 </Label>
               </div>
@@ -187,7 +193,7 @@ export function AdjustBalanceDialog({
             {isRecurring && (
               <div className="rounded-lg bg-blue-50 p-3 text-sm dark:bg-blue-950/20">
                 <p className="font-medium text-blue-900 dark:text-blue-100">💡 Ajuste recurrente</p>
-                <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                <p className="mt-1 text-xs leading-relaxed text-blue-700 dark:text-blue-300">
                   Se aplicará automáticamente al calcular el balance cada año. Puedes desactivarlo más tarde si es
                   necesario.
                 </p>
@@ -222,11 +228,11 @@ export function AdjustBalanceDialog({
           {/* Preview */}
           {previewBalance && (
             <div className="border-t pt-4">
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-1 text-sm">
                 <span className="text-muted-foreground">Balance actual ({new Date().getFullYear()}):</span>
                 <span className="font-medium">{previewBalance.before.toFixed(1)} días</span>
               </div>
-              <div className="mt-1 flex items-center justify-between text-sm font-semibold">
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-sm font-semibold">
                 <span>Después del ajuste:</span>
                 <span className={previewBalance.after > previewBalance.before ? "text-green-600" : "text-red-600"}>
                   {previewBalance.after.toFixed(1)} días
@@ -236,7 +242,7 @@ export function AdjustBalanceDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
