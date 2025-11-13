@@ -1,0 +1,69 @@
+/**
+ * Dashboard Principal de Turnos (Rediseño v2)
+ *
+ * Dashboard moderno estilo Factorial/Notion/Linear
+ * ⚠️ Usa datos MOCK para demostración visual
+ * ⚠️ NO conectado a API ni base de datos
+ */
+
+"use client";
+
+import { useMemo, useState } from "react";
+
+import {
+  MOCK_DASHBOARD_STATS,
+  getStatsByCenter,
+  getAlertsByCenter,
+  getCentersSummary,
+} from "../_lib/dashboard-mock-data";
+
+import { DashboardCenterSummaryV2 } from "./dashboard-center-summary-v2";
+import { DashboardCriticalAlertsV2 } from "./dashboard-critical-alerts-v2";
+import { DashboardFilterBar } from "./dashboard-filter-bar";
+import { DashboardStatsCardsV2 } from "./dashboard-stats-cards-v2";
+
+export function ShiftsDashboard() {
+  // Estados de filtros (solo UI, datos MOCK)
+  const [selectedCenter, setSelectedCenter] = useState<string>("all");
+  const [periodType, setPeriodType] = useState<"week" | "month">("week");
+
+  // Simular loading (en producción vendría del store)
+  const isLoading = false;
+
+  // Obtener datos MOCK según filtros
+  const stats = useMemo(() => {
+    return getStatsByCenter(selectedCenter);
+  }, [selectedCenter]);
+
+  const alerts = useMemo(() => {
+    return getAlertsByCenter(selectedCenter);
+  }, [selectedCenter]);
+
+  const centers = useMemo(() => {
+    return getCentersSummary(selectedCenter);
+  }, [selectedCenter]);
+
+  return (
+    <div className="@container/main flex flex-col gap-6">
+      {/* Barra de Filtros Compacta */}
+      <DashboardFilterBar
+        selectedCenter={selectedCenter}
+        onCenterChange={setSelectedCenter}
+        periodType={periodType}
+        onPeriodChange={setPeriodType}
+      />
+
+      {/* Tarjetas de Estadísticas (4 cards) */}
+      <DashboardStatsCardsV2 stats={stats} isLoading={isLoading} />
+
+      {/* Grid de Avisos y Resumen por Centro */}
+      <div className="grid gap-6 @4xl/main:grid-cols-2">
+        {/* Alertas Críticas */}
+        <DashboardCriticalAlertsV2 alerts={alerts} isLoading={isLoading} />
+
+        {/* Resumen por Centro */}
+        <DashboardCenterSummaryV2 centers={centers} isLoading={isLoading} />
+      </div>
+    </div>
+  );
+}

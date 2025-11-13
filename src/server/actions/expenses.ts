@@ -226,65 +226,65 @@ export async function createExpense(data: z.infer<typeof CreateExpenseSchema>) {
     const validatedData = CreateExpenseSchema.parse(data);
     console.log("✅ Validación de Zod exitosa");
 
-  // Obtener o crear la política actual de la organización
-  let policy = await prisma.expensePolicy.findUnique({
-    where: { orgId: employee.orgId },
-  });
+    // Obtener o crear la política actual de la organización
+    let policy = await prisma.expensePolicy.findUnique({
+      where: { orgId: employee.orgId },
+    });
 
-  // Crear una política por defecto si no existe
-  policy ??= await prisma.expensePolicy.create({
-    data: {
-      orgId: employee.orgId,
-      mileageRateEurPerKm: new Decimal(0.26), // Tarifa por defecto
-      attachmentRequired: true,
-      costCenterRequired: false,
-      vatAllowed: true,
-      approvalLevels: 1,
-      categoryRequirements: {},
-    },
-  });
+    // Crear una política por defecto si no existe
+    policy ??= await prisma.expensePolicy.create({
+      data: {
+        orgId: employee.orgId,
+        mileageRateEurPerKm: new Decimal(0.26), // Tarifa por defecto
+        attachmentRequired: true,
+        costCenterRequired: false,
+        vatAllowed: true,
+        approvalLevels: 1,
+        categoryRequirements: {},
+      },
+    });
 
-  // Obtener mileageRate de la política si es MILEAGE
-  let mileageRate: Decimal | null = null;
-  if (validatedData.category === "MILEAGE") {
-    mileageRate = policy.mileageRateEurPerKm;
-  }
+    // Obtener mileageRate de la política si es MILEAGE
+    let mileageRate: Decimal | null = null;
+    if (validatedData.category === "MILEAGE") {
+      mileageRate = policy.mileageRateEurPerKm;
+    }
 
-  // Calcular el monto total
-  const totalAmount = calculateTotalAmount(
-    validatedData.category,
-    new Decimal(validatedData.amount),
-    validatedData.vatPercent ? new Decimal(validatedData.vatPercent) : null,
-    validatedData.mileageKm ? new Decimal(validatedData.mileageKm) : null,
-    mileageRate,
-  );
-
-  // Crear el gasto
-  const expense = await prisma.expense.create({
-    data: {
-      date: validatedData.date,
-      currency: validatedData.currency,
-      amount: new Decimal(validatedData.amount),
-      vatPercent: validatedData.vatPercent ? new Decimal(validatedData.vatPercent) : null,
-      totalAmount,
-      category: validatedData.category,
-      mileageKm: validatedData.mileageKm ? new Decimal(validatedData.mileageKm) : null,
+    // Calcular el monto total
+    const totalAmount = calculateTotalAmount(
+      validatedData.category,
+      new Decimal(validatedData.amount),
+      validatedData.vatPercent ? new Decimal(validatedData.vatPercent) : null,
+      validatedData.mileageKm ? new Decimal(validatedData.mileageKm) : null,
       mileageRate,
-      costCenterId: validatedData.costCenterId,
-      notes: validatedData.notes,
-      merchantName: validatedData.merchantName,
-      merchantVat: validatedData.merchantVat,
-      ocrRawData: validatedData.ocrRawData,
-      status: "DRAFT",
-      orgId: employee.orgId,
-      employeeId: employee.id,
-      createdBy: employee.userId, // Campo de auditoría requerido
-    },
-    include: {
-      attachments: true,
-      approvals: true,
-    },
-  });
+    );
+
+    // Crear el gasto
+    const expense = await prisma.expense.create({
+      data: {
+        date: validatedData.date,
+        currency: validatedData.currency,
+        amount: new Decimal(validatedData.amount),
+        vatPercent: validatedData.vatPercent ? new Decimal(validatedData.vatPercent) : null,
+        totalAmount,
+        category: validatedData.category,
+        mileageKm: validatedData.mileageKm ? new Decimal(validatedData.mileageKm) : null,
+        mileageRate,
+        costCenterId: validatedData.costCenterId,
+        notes: validatedData.notes,
+        merchantName: validatedData.merchantName,
+        merchantVat: validatedData.merchantVat,
+        ocrRawData: validatedData.ocrRawData,
+        status: "DRAFT",
+        orgId: employee.orgId,
+        employeeId: employee.id,
+        createdBy: employee.userId, // Campo de auditoría requerido
+      },
+      include: {
+        attachments: true,
+        approvals: true,
+      },
+    });
 
     // Crear snapshot de la política (solo campos que existen en PolicySnapshot)
     await prisma.policySnapshot.create({
@@ -352,8 +352,7 @@ export async function updateExpense(id: string, data: z.infer<typeof UpdateExpen
     validatedData.vatPercent !== undefined ||
     validatedData.mileageKm !== undefined
   ) {
-    const mileageRate =
-      validatedData.category === "MILEAGE" ? expense.mileageRate : expense.mileageRate;
+    const mileageRate = validatedData.category === "MILEAGE" ? expense.mileageRate : expense.mileageRate;
 
     totalAmount = calculateTotalAmount(
       validatedData.category ?? expense.category,

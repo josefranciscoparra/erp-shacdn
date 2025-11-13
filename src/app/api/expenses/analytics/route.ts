@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
 
         const result = await getExpensesByCategory(
           year ? parseInt(year) : undefined,
-          month ? parseInt(month) : undefined
+          month ? parseInt(month) : undefined,
         );
 
         if (!result.success) {
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
 
         const result = await getExpensesByEmployee(
           year ? parseInt(year) : undefined,
-          month ? parseInt(month) : undefined
+          month ? parseInt(month) : undefined,
         );
 
         if (!result.success) {
@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
 
         const result = await getExecutiveSummary(
           year ? parseInt(year) : undefined,
-          month ? parseInt(month) : undefined
+          month ? parseInt(month) : undefined,
         );
 
         if (!result.success) {
@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       default:
         return NextResponse.json(
           { error: "Tipo de análisis no válido. Use: stats, by-category, by-employee, trend, executive" },
-          { status: 400 }
+          { status: 400 },
         );
     }
   } catch (error) {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { sseManager } from "@/lib/chat/sse-manager";
 import { auth } from "@/lib/auth";
+import { sseManager } from "@/lib/chat/sse-manager";
 import { markMessagesAsRead } from "@/server/actions/chat";
 
 /**
@@ -22,17 +22,11 @@ export async function POST(request: NextRequest) {
     const { conversationId, messageId } = body;
 
     if (!conversationId || typeof conversationId !== "string") {
-      return NextResponse.json(
-        { error: "conversationId es requerido y debe ser una cadena" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "conversationId es requerido y debe ser una cadena" }, { status: 400 });
     }
 
     if (!messageId || typeof messageId !== "string") {
-      return NextResponse.json(
-        { error: "messageId es requerido y debe ser una cadena" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "messageId es requerido y debe ser una cadena" }, { status: 400 });
     }
 
     const count = await markMessagesAsRead(conversationId, messageId);
@@ -54,7 +48,7 @@ export async function POST(request: NextRequest) {
     console.error("[API] Error en POST /api/chat/messages/read:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error al marcar mensajes como leídos" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

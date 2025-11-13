@@ -1,4 +1,13 @@
-import { Fuel, Car, UtensilsCrossed, Ticket, ParkingCircle, Hotel, MoreHorizontal, type LucideIcon } from "lucide-react";
+import {
+  Fuel,
+  Car,
+  UtensilsCrossed,
+  Ticket,
+  ParkingCircle,
+  Hotel,
+  MoreHorizontal,
+  type LucideIcon,
+} from "lucide-react";
 
 export function getCategoryLabel(category: string): string {
   const labels: Record<string, string> = {

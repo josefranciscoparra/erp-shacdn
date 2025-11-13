@@ -1,0 +1,161 @@
+/**
+ * Componente Bloque de Turno
+ *
+ * Representa visualmente un turno en el calendario.
+ * Soporta drag & drop y muestra información relevante.
+ */
+
+"use client";
+
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { AlertTriangle, Clock, Coffee } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+import {
+  formatShiftTime,
+  formatDuration,
+  calculateDuration,
+  getShiftStatusColor,
+  getShiftStatusBadgeVariant,
+  getShiftStatusText,
+} from "../_lib/shift-utils";
+import type { Shift } from "../_lib/types";
+
+interface ShiftBlockProps {
+  shift: Shift;
+  onClick: () => void;
+  isDraggable?: boolean;
+  showEmployeeName?: boolean; // Para vista por áreas
+  employeeName?: string;
+}
+
+export function ShiftBlock({
+  shift,
+  onClick,
+  isDraggable = true,
+  showEmployeeName = false,
+  employeeName,
+}: ShiftBlockProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: shift.id,
+    disabled: !isDraggable,
+    data: {
+      type: "shift",
+      shift,
+    },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  const duration = calculateDuration(shift.startTime, shift.endTime);
+  const isConflict = shift.status === "conflict";
+
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            style={style}
+            {...attributes}
+            {...listeners}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className={cn(
+              "group relative cursor-pointer rounded-md border-l-4 p-2 shadow-sm transition-all hover:shadow-md",
+              getShiftStatusColor(shift.status),
+              isDragging && "ring-primary opacity-50 ring-2",
+              !isDraggable && "cursor-default",
+              "hover:brightness-110",
+            )}
+          >
+            {/* Header: Tiempo + Badge estado */}
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <div className="text-foreground flex items-center gap-1 text-sm font-medium">
+                <Clock className="h-3 w-3" />
+                <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
+                {shift.breakMinutes && shift.breakMinutes > 0 && (
+                  <Coffee className="h-3 w-3" title={`${shift.breakMinutes} min descanso`} />
+                )}
+              </div>
+
+              {isConflict && <AlertTriangle className="text-destructive h-4 w-4" />}
+            </div>
+
+            {/* Nombre empleado (si aplica) */}
+            {showEmployeeName && employeeName && (
+              <p className="text-foreground mb-1 text-xs font-medium">{employeeName}</p>
+            )}
+
+            {/* Rol o zona */}
+            {shift.role && <p className="text-foreground line-clamp-1 text-xs">{shift.role}</p>}
+
+            {/* Duración */}
+            <p className="text-foreground mt-1 text-xs">{formatDuration(duration)}</p>
+
+            {/* Badge de estado (solo conflictos, no mostrar draft) */}
+            {shift.status === "conflict" && (
+              <Badge variant="destructive" className="absolute top-1 right-1 text-xs">
+                Conflicto
+              </Badge>
+            )}
+          </div>
+        </TooltipTrigger>
+
+        <TooltipContent side="top" className="max-w-xs">
+          <div className="space-y-1 text-sm">
+            <p className="font-semibold text-white">
+              {formatShiftTime(shift.startTime, shift.endTime)} ({formatDuration(duration)})
+            </p>
+            {shift.breakMinutes && shift.breakMinutes > 0 && (
+              <p className="flex items-center gap-1 text-xs text-white">
+                <Coffee className="h-3 w-3" />
+                {shift.breakMinutes} min de descanso
+              </p>
+            )}
+            {shift.role && <p className="text-white">{shift.role}</p>}
+            {shift.notes && <p className="text-white italic">{shift.notes}</p>}
+            {isConflict && (
+              <p className="text-destructive flex items-center gap-1 font-medium">
+                <AlertTriangle className="h-3 w-3" />
+                Turno con conflictos
+              </p>
+            )}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+/**
+ * Placeholder para celda vacía (donde se puede soltar un turno)
+ */
+interface ShiftDropZoneProps {
+  isOver: boolean;
+  canDrop: boolean;
+}
+
+export function ShiftDropZone({ isOver, canDrop }: ShiftDropZoneProps) {
+  return (
+    <div
+      className={cn(
+        "flex h-full min-h-[60px] items-center justify-center rounded-md border-2 border-dashed transition-colors",
+        isOver && canDrop && "border-primary bg-primary/10",
+        isOver && !canDrop && "border-destructive bg-destructive/10",
+        !isOver && "border-transparent",
+      )}
+    >
+      {isOver && <p className="text-muted-foreground text-xs">{canDrop ? "Soltar aquí" : "No permitido"}</p>}
+    </div>
+  );
+}

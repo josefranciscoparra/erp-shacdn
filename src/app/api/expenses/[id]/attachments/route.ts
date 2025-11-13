@@ -8,10 +8,7 @@ import { getAuthenticatedEmployee } from "@/server/actions/shared/get-authentica
  * POST /api/expenses/[id]/attachments
  * Sube un adjunto a un gasto
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: expenseId } = await params;
     const { employee } = await getAuthenticatedEmployee();
@@ -26,17 +23,11 @@ export async function POST(
     }
 
     if (expense.employeeId !== employee.id) {
-      return NextResponse.json(
-        { error: "No tienes permisos para adjuntar archivos a este gasto" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "No tienes permisos para adjuntar archivos a este gasto" }, { status: 403 });
     }
 
     if (expense.status !== "DRAFT") {
-      return NextResponse.json(
-        { error: "Solo se pueden adjuntar archivos a gastos en borrador" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Solo se pueden adjuntar archivos a gastos en borrador" }, { status: 400 });
     }
 
     // Obtener el archivo del FormData
@@ -49,24 +40,15 @@ export async function POST(
 
     // Validar tamaño (máximo 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "El archivo no puede exceder 10MB" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "El archivo no puede exceder 10MB" }, { status: 400 });
     }
 
     // Validar tipo de archivo
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/webp",
-      "application/pdf",
-    ];
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { error: "Tipo de archivo no permitido. Solo se permiten imágenes (JPEG, PNG, WebP) y PDF" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -106,10 +88,7 @@ export async function POST(
     return NextResponse.json(attachment, { status: 201 });
   } catch (error) {
     console.error("Error en POST /api/expenses/[id]/attachments:", error);
-    return NextResponse.json(
-      { error: "Error al subir archivo" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al subir archivo" }, { status: 500 });
   }
 }
 
@@ -117,10 +96,7 @@ export async function POST(
  * GET /api/expenses/[id]/attachments
  * Obtiene los adjuntos de un gasto
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: expenseId } = await params;
     const { employee, user } = await getAuthenticatedEmployee();
@@ -146,10 +122,7 @@ export async function GET(
     const isApprover = expense.approvals.some((approval) => approval.approverId === user.id);
 
     if (!isOwner && !isApprover) {
-      return NextResponse.json(
-        { error: "No tienes permisos para ver los adjuntos de este gasto" },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: "No tienes permisos para ver los adjuntos de este gasto" }, { status: 403 });
     }
 
     // Obtener adjuntos
@@ -161,9 +134,6 @@ export async function GET(
     return NextResponse.json(attachments);
   } catch (error) {
     console.error("Error en GET /api/expenses/[id]/attachments:", error);
-    return NextResponse.json(
-      { error: "Error al obtener adjuntos" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Error al obtener adjuntos" }, { status: 500 });
   }
 }

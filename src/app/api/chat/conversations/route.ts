@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     console.error("[API] Error en GET /api/chat/conversations:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error al obtener conversaciones" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -33,10 +33,7 @@ export async function POST(request: NextRequest) {
     const { peerUserId } = body;
 
     if (!peerUserId || typeof peerUserId !== "string") {
-      return NextResponse.json(
-        { error: "peerUserId es requerido y debe ser una cadena" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "peerUserId es requerido y debe ser una cadena" }, { status: 400 });
     }
 
     const conversation = await getOrCreateConversation(peerUserId);
@@ -46,7 +43,7 @@ export async function POST(request: NextRequest) {
     console.error("[API] Error en POST /api/chat/conversations:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error al crear conversación" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

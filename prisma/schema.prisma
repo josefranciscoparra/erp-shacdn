@@ -45,6 +45,9 @@ model Organization {
   // Configuración de Chat
   chatEnabled             Boolean @default(false) // Activar/desactivar módulo de chat 1:1
 
+  // Configuración de Turnos
+  shiftsEnabled           Boolean @default(false) // Activar/desactivar módulo de gestión de turnos
+
   // Feature flags (DEPRECATED: migrar a campos booleanos específicos)
   features                Json    @default("{}") // Feature flags JSON: { chat: true, ... }
 

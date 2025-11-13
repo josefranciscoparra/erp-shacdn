@@ -134,9 +134,7 @@ export const useExpensesStore = create<ExpensesState>()((set, get) => ({
     set((state) => ({
       expenses: state.expenses.map((exp) => (exp.id === id ? { ...exp, ...expenseData } : exp)),
       selectedExpense:
-        state.selectedExpense?.id === id
-          ? { ...state.selectedExpense, ...expenseData }
-          : state.selectedExpense,
+        state.selectedExpense?.id === id ? { ...state.selectedExpense, ...expenseData } : state.selectedExpense,
     })),
 
   removeExpense: (id) =>

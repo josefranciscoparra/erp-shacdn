@@ -24,6 +24,7 @@ export async function GET() {
       where: { id: session.user.orgId },
       select: {
         chatEnabled: true,
+        shiftsEnabled: true,
         // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
       },
     });
@@ -34,6 +35,7 @@ export async function GET() {
 
     return NextResponse.json({
       chatEnabled: org.chatEnabled,
+      shiftsEnabled: org.shiftsEnabled,
       // Futuros módulos aquí
     });
   } catch (error) {

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     console.error("[API] Error en GET /api/chat/users/search:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Error al buscar usuarios" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

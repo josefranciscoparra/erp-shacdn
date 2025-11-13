@@ -272,7 +272,9 @@ export function EventCalendar({
           <span className="max-[479px]:hidden min-md:hidden" aria-hidden="true">
             {capitalizeWords(format(currentDate, "d 'de' MMMM 'de' yyyy", { locale: es }))}
           </span>
-          <span className="max-md:hidden">{capitalizeWords(format(currentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }))}</span>
+          <span className="max-md:hidden">
+            {capitalizeWords(format(currentDate, "EEEE d 'de' MMMM 'de' yyyy", { locale: es }))}
+          </span>
         </>
       );
     } else if (view === "agenda") {

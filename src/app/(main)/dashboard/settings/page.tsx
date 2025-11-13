@@ -14,6 +14,7 @@ import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
 import { OrganizationTab } from "./_components/organization-tab";
+import { ShiftsTab } from "./_components/shifts-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 
 export default function SettingsPage() {
@@ -22,6 +23,7 @@ export default function SettingsPage() {
   const tabs = [
     { value: "organization", label: "Organización" },
     { value: "chat", label: "Chat" },
+    { value: "shifts", label: "Turnos" },
     { value: "geolocation", label: "Geolocalización" },
     { value: "expenses", label: "Gastos" },
     { value: "system", label: "Sistema" },
@@ -76,6 +78,10 @@ export default function SettingsPage() {
 
           <TabsContent value="chat" className="mt-4 md:mt-6">
             <ChatTab />
+          </TabsContent>
+
+          <TabsContent value="shifts" className="mt-4 md:mt-6">
+            <ShiftsTab />
           </TabsContent>
 
           <TabsContent value="geolocation" className="mt-4 md:mt-6">

@@ -33,12 +33,14 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     where: { id: session.user.orgId },
     select: {
       chatEnabled: true,
+      shiftsEnabled: true,
       // Futuros módulos aquí
     },
   });
 
   const orgFeatures = {
     chatEnabled: org?.chatEnabled ?? false,
+    shiftsEnabled: org?.shiftsEnabled ?? false,
     // Futuros módulos aquí
   };
 

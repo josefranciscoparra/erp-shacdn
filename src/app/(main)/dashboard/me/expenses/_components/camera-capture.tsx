@@ -54,18 +54,23 @@ export function CameraCapture({ onCapture, capturedFile, onRemove }: CameraCaptu
     return (
       <div className="relative overflow-hidden rounded-lg border">
         {displayUrl && (
-          <img src={displayUrl} alt="Ticket capturado" className="w-full object-contain" style={{ maxHeight: "500px" }} />
+          <img
+            src={displayUrl}
+            alt="Ticket capturado"
+            className="w-full object-contain"
+            style={{ maxHeight: "500px" }}
+          />
         )}
 
         {/* Botón para eliminar */}
-        <div className="absolute right-2 top-2">
+        <div className="absolute top-2 right-2">
           <Button type="button" variant="destructive" size="icon" onClick={handleRemove}>
             <X className="size-4" />
           </Button>
         </div>
 
         {/* Info del archivo */}
-        <div className="absolute bottom-0 left-0 right-0 bg-black/70 p-2">
+        <div className="absolute right-0 bottom-0 left-0 bg-black/70 p-2">
           <p className="truncate text-xs text-white">{capturedFile?.name}</p>
         </div>
       </div>
