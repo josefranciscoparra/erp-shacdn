@@ -28,6 +28,8 @@ export default function MyManualTimeEntryRequestsPage() {
   const [activeTab, setActiveTab] = useState<"PENDING" | "APPROVED" | "REJECTED">("PENDING");
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
 
   const getStatusText = (status: "PENDING" | "APPROVED" | "REJECTED") => {
     switch (status) {
@@ -42,6 +44,7 @@ export default function MyManualTimeEntryRequestsPage() {
 
   useEffect(() => {
     loadRequests(activeTab);
+    setCurrentPage(1); // Reset página al cambiar tab
   }, [activeTab, loadRequests]);
 
   const handleCancelRequest = async (requestId: string) => {
@@ -63,7 +66,7 @@ export default function MyManualTimeEntryRequestsPage() {
         return (
           <Badge
             variant="secondary"
-            className="gap-1 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
           >
             <Clock className="h-3 w-3" />
             Pendiente
@@ -73,7 +76,7 @@ export default function MyManualTimeEntryRequestsPage() {
         return (
           <Badge
             variant="secondary"
-            className="gap-1 bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300"
+            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
           >
             <CheckCircle className="h-3 w-3" />
             Aprobado
@@ -81,7 +84,10 @@ export default function MyManualTimeEntryRequestsPage() {
         );
       case "REJECTED":
         return (
-          <Badge variant="destructive" className="gap-1">
+          <Badge
+            variant="secondary"
+            className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300"
+          >
             <XCircle className="h-3 w-3" />
             Rechazado
           </Badge>
@@ -96,6 +102,12 @@ export default function MyManualTimeEntryRequestsPage() {
   const formatDate = (date: Date) => {
     return format(new Date(date), "dd MMM yyyy", { locale: es });
   };
+
+  // Calcular paginación
+  const totalPages = Math.ceil(requests.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedRequests = requests.slice(startIndex, endIndex);
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -207,78 +219,119 @@ export default function MyManualTimeEntryRequestsPage() {
                 <p className="text-muted-foreground text-sm">No hay solicitudes {getStatusText(activeTab)}</p>
               </Card>
             ) : (
-              <div className="grid gap-4">
-                {requests.map((request) => (
-                  <Card key={request.id} className="p-4">
-                    <div className="flex flex-col gap-4 @lg/main:flex-row @lg/main:items-start @lg/main:justify-between">
-                      {/* Info principal */}
-                      <div className="flex-1 space-y-3">
-                        {/* Fecha y estado */}
-                        <div className="flex items-center gap-3">
-                          <h3 className="text-lg font-semibold">{formatDate(request.date)}</h3>
-                          {getStatusBadge(request.status)}
+              <>
+                <div className="grid gap-3">
+                  {paginatedRequests.map((request) => (
+                    <Card
+                      key={request.id}
+                      className="group border-border/60 hover:bg-muted/30 dark:bg-card dark:hover:bg-muted/20 rounded-xl bg-white p-4 shadow-sm transition-colors duration-150"
+                    >
+                      <div className="space-y-3.5">
+                        {/* Fila superior: Fecha + Badge + Botón cancelar */}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-[15px] leading-none font-semibold">{formatDate(request.date)}</h3>
+                            {getStatusBadge(request.status)}
+                          </div>
+
+                          {/* Botón cancelar más discreto */}
+                          {request.status === "PENDING" && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCancelRequest(request.id)}
+                              className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 px-2"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="ml-1.5 text-xs">Cancelar</span>
+                            </Button>
+                          )}
                         </div>
 
-                        {/* Horas */}
-                        <div className="flex gap-6 text-sm">
-                          <div>
-                            <span className="text-muted-foreground">Entrada:</span>{" "}
-                            <span className="font-medium">{formatTime(request.clockInTime)}</span>
+                        {/* Segunda fila: Entrada y Salida en misma línea */}
+                        <div className="flex items-center gap-6">
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-muted-foreground text-xs">Entrada:</span>
+                            <span className="text-sm font-medium">{formatTime(request.clockInTime)}</span>
                           </div>
-                          <div>
-                            <span className="text-muted-foreground">Salida:</span>{" "}
-                            <span className="font-medium">{formatTime(request.clockOutTime)}</span>
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="text-muted-foreground text-xs">Salida:</span>
+                            <span className="text-sm font-medium">{formatTime(request.clockOutTime)}</span>
                           </div>
                         </div>
 
-                        {/* Motivo */}
-                        <div className="bg-muted/50 rounded-md p-3">
-                          <p className="text-muted-foreground text-xs font-medium">Motivo</p>
-                          <p className="mt-1 text-sm">{request.reason}</p>
+                        {/* Motivo sin fondo gris */}
+                        <div>
+                          <p className="text-muted-foreground mb-1 text-xs">Motivo</p>
+                          <p className="text-sm leading-relaxed">{request.reason}</p>
                         </div>
 
                         {/* Información de aprobación/rechazo */}
                         {request.status === "APPROVED" && request.approverComments && (
-                          <div className="rounded-md border border-green-200 bg-green-50 p-3 dark:border-green-900 dark:bg-green-950">
-                            <p className="text-xs font-medium text-green-700 dark:text-green-300">
+                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950">
+                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
                               Comentario del aprobador
                             </p>
-                            <p className="text-muted-foreground mt-1 text-sm">{request.approverComments}</p>
+                            <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
+                              {request.approverComments}
+                            </p>
                           </div>
                         )}
 
                         {request.status === "REJECTED" && request.rejectionReason && (
-                          <div className="rounded-md border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
+                          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
                             <p className="text-xs font-medium text-red-700 dark:text-red-300">Motivo del rechazo</p>
-                            <p className="text-muted-foreground mt-1 text-sm">{request.rejectionReason}</p>
+                            <p className="mt-1 text-sm text-red-900/80 dark:text-red-100/80">
+                              {request.rejectionReason}
+                            </p>
                           </div>
                         )}
 
-                        {/* Metadata */}
-                        <div className="text-muted-foreground flex gap-4 text-xs">
-                          <span>Solicitado: {formatDate(request.submittedAt)}</span>
-                          {request.approverName && <span>Aprobador: {request.approverName}</span>}
+                        {/* Metadata discreta al final */}
+                        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
+                          <span>Solicitado {formatDate(request.submittedAt)}</span>
+                          {request.approverName && (
+                            <>
+                              <span className="text-border">•</span>
+                              <span>Aprobador: {request.approverName}</span>
+                            </>
+                          )}
                         </div>
                       </div>
+                    </Card>
+                  ))}
+                </div>
 
-                      {/* Acciones */}
-                      {request.status === "PENDING" && (
-                        <div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleCancelRequest(request.id)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Cancelar
-                          </Button>
-                        </div>
-                      )}
+                {/* Paginación */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between gap-2 pt-2">
+                    <div className="text-muted-foreground text-sm">
+                      Mostrando {startIndex + 1}-{Math.min(endIndex, requests.length)} de {requests.length}
                     </div>
-                  </Card>
-                ))}
-              </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <div className="text-sm">
+                        Página {currentPage} de {totalPages}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </TabsContent>
         </Tabs>
