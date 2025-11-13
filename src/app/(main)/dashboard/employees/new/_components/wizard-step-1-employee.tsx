@@ -102,7 +102,7 @@ export function WizardStep1Employee({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 pb-32">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 pb-6">
         {/* Campos Esenciales */}
         <Card className="rounded-lg border shadow-xs">
           <CardHeader>

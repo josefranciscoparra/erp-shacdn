@@ -2,14 +2,12 @@
 
 import { useState } from "react";
 
-import { Clock, Info } from "lucide-react";
+import { Info } from "lucide-react";
 
 import { ScheduleForm, type ScheduleFormData } from "@/components/schedules/schedule-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 interface WizardStep3ScheduleProps {
   onSubmit: (data: ScheduleFormData | null) => Promise<void>;
@@ -39,54 +37,33 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
   };
 
   return (
-    <div className="space-y-6 pb-32">
-      {/* Checkbox destacado */}
-      <Card className="border-primary/30 rounded-lg border-2 border-dashed shadow-xs">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="text-primary h-5 w-5" />
-            <CardTitle>Horarios Laborales</CardTitle>
-          </div>
-          <CardDescription>Configura los horarios del empleado o déjalo para más tarde</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div
-            className={cn(
-              "border-muted-foreground/40 flex items-start space-x-3 rounded-lg border border-dashed p-4 transition-colors",
-              skipSchedule && "bg-muted/50",
-            )}
-          >
-            <Checkbox
-              id="skip-schedule"
-              checked={skipSchedule}
-              onCheckedChange={(checked) => setSkipSchedule(checked === true)}
-              className="mt-1"
-            />
-            <div className="flex-1 space-y-1">
-              <Label
-                htmlFor="skip-schedule"
-                className="cursor-pointer text-base leading-none font-semibold peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Configurar horarios más tarde
-              </Label>
-              <p className="text-muted-foreground text-sm">
-                Usaremos los horarios por defecto del contrato (40 horas semanales, 5 días laborables). Podrás
-                personalizarlos después.
-              </p>
-            </div>
-          </div>
+    <div className="space-y-6 pb-6">
+      {/* Switch compacto */}
+      <div className="bg-muted/30 flex items-center justify-between rounded-lg border p-4">
+        <div className="flex-1 space-y-0.5">
+          <Label htmlFor="skip-schedule" className="text-base font-semibold">
+            Configurar horarios más tarde
+          </Label>
+          <p className="text-muted-foreground text-sm">
+            Usaremos los horarios por defecto (40h semanales, 5 días). Podrás personalizarlos después.
+          </p>
+        </div>
+        <Switch
+          id="skip-schedule"
+          checked={skipSchedule}
+          onCheckedChange={setSkipSchedule}
+          className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
+        />
+      </div>
 
-          {skipSchedule && (
-            <Alert className="mt-4 border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-              <Info className="h-4 w-4 text-blue-600" />
-              <AlertDescription className="text-blue-800 dark:text-blue-200">
-                Se mantendrán los horarios por defecto (40 horas semanales distribuidas en 5 días laborables). Podrás
-                modificarlos desde el perfil del empleado.
-              </AlertDescription>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
+      {skipSchedule && (
+        <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+          <Info className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-blue-800 dark:text-blue-200">
+            Se mantendrán los horarios por defecto (40h semanales distribuidas en 5 días).
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Formulario de horarios (solo si no está marcado el checkbox) */}
       {!skipSchedule && (
@@ -103,6 +80,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
             onSubmit={handleScheduleSubmit}
             onCancel={() => {}}
             isSubmitting={isLoading}
+            hideActions={true}
           />
         </div>
       )}

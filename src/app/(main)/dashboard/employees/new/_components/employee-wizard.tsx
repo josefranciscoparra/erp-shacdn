@@ -272,7 +272,7 @@ export function EmployeeWizard() {
   };
 
   return (
-    <div className={cn("@container/main flex flex-col gap-4 md:gap-6", isExiting && "page-exit")}>
+    <div className={cn("@container/main flex min-h-screen flex-col gap-4 md:gap-6", isExiting && "page-exit")}>
       {/* Header con stepper */}
       <div className="space-y-2">
         <WizardSteps steps={WIZARD_STEPS} currentStep={currentStep} completedSteps={completedSteps} />
@@ -287,7 +287,7 @@ export function EmployeeWizard() {
       </div>
 
       {/* Contenido del paso actual */}
-      <div className="animate-in fade-in-50 slide-in-from-right-4 duration-300">
+      <div className="animate-in fade-in-50 slide-in-from-right-4 flex-1 duration-300">
         {currentStep === 1 && (
           <WizardStep1Employee
             onSubmit={handleEmployeeSubmit}

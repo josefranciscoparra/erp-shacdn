@@ -126,6 +126,104 @@ When working with components:
 - Follow the established pattern for data tables
 - Maintain TypeScript type safety throughout
 
+## CRÍTICO: Compatibilidad Safari ⚠️
+
+Safari requiere atención especial en varios aspectos. **Ver documentación completa en `/docs/SAFARI_COMPATIBILITY.md`**.
+
+### Reglas Obligatorias para Safari
+
+#### 1. Backdrop Filter / Blur
+- ❌ **NUNCA** confiar en que `backdrop-filter` funcione en Safari
+- ✅ **SIEMPRE** tener fallback con fondo sólido usando `@supports`
+- ✅ **SIEMPRE** aceptar que Safari puede tener fondo sólido
+
+**Patrón recomendado**:
+```css
+.elemento-con-blur {
+  backdrop-filter: blur(16px);
+  background-color: hsl(var(--background) / 0.95);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .elemento-con-blur {
+    background-color: hsl(var(--background) / 0.6);
+  }
+}
+
+@supports (-webkit-backdrop-filter: blur(1px)) and (not (backdrop-filter: blur(1px))) {
+  .elemento-con-blur {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: hsl(var(--background)); /* sólido */
+  }
+}
+```
+
+#### 2. Elementos Visuales Pequeños (líneas, bordes, separadores)
+- ❌ **NUNCA** usar Tailwind con opacidades para elementos críticos (`bg-gray-300/30`)
+- ❌ **NUNCA** usar `hsl()` con opacidades en elementos pequeños
+- ❌ **NUNCA** confiar en que Safari renderice elementos con `h-0.5` o `h-1`
+- ✅ **SIEMPRE** usar estilos inline con colores hex sólidos
+- ✅ **SIEMPRE** usar `height: "2px"` o más (mínimo 2px)
+
+**Patrón recomendado**:
+```tsx
+{/* ❌ NO hacer esto - invisible en Safari */}
+<div className="h-0.5 w-full bg-gray-300/30" />
+
+{/* ✅ SÍ hacer esto - visible en Safari y Chrome */}
+<div
+  style={{
+    width: "100%",
+    height: "2px",
+    backgroundColor: "#d1d5db", // hex sólido, sin opacidad
+  }}
+/>
+```
+
+#### 3. Layout con Viewport (h-screen, footers sticky/fixed)
+- ❌ **NUNCA** usar `h-screen` + `position: fixed` para footers
+- ❌ **NUNCA** usar `overflow-hidden` en contenedores con sticky/fixed
+- ✅ **SIEMPRE** usar `min-h-screen` + flexbox + `position: sticky`
+- ✅ **SIEMPRE** usar `flex-1` en contenido y `mt-auto` en footer
+
+**Patrón recomendado**:
+```tsx
+<div className="flex min-h-screen flex-col gap-4">
+  {/* Header */}
+  <div>...</div>
+
+  {/* Contenido - flex-1 empuja footer al final */}
+  <div className="flex-1">
+    {/* Contenido con scroll */}
+  </div>
+
+  {/* Footer - sticky en lugar de fixed */}
+  <div className="sticky bottom-0 z-50 mt-auto">
+    {/* Acciones */}
+  </div>
+</div>
+```
+
+#### 4. Testing Obligatorio
+**SIEMPRE** probar en Safari cuando el código incluya:
+- `backdrop-filter` o efectos blur
+- Elementos visuales pequeños (`< 3px`)
+- Opacidades en Tailwind (`/30`, `/50`, etc.) para elementos críticos
+- `position: fixed` con viewport units
+- Layouts con `h-screen`
+
+### Checklist Pre-Commit
+
+Si modificas alguno de estos elementos, verificar en Safari:
+- [ ] Footer sticky/fixed visible y accesible
+- [ ] Efectos blur tienen fallback sólido
+- [ ] Líneas divisoras/bordes visibles
+- [ ] Layout no se rompe (botones accesibles)
+- [ ] Elementos pequeños visibles (>= 2px)
+
+**Si no tienes Safari disponible**: dejar comentario en el PR indicando que requiere testing en Safari.
+
 ## ERP Development Strategy
 
 ### IMPORTANTE: Desarrollo Incremental de Base de Datos

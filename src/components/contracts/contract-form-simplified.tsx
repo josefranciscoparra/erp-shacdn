@@ -84,6 +84,7 @@ interface ContractFormSimplifiedProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   initialData?: CreateContractData | null;
+  hideActions?: boolean;
 }
 
 const toDateInput = (value: string | null | undefined) => (value ? value.split("T")[0] : "");
@@ -102,6 +103,7 @@ export function ContractFormSimplified({
   onCancel,
   isSubmitting = false,
   initialData,
+  hideActions = false,
 }: ContractFormSimplifiedProps) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -255,233 +257,226 @@ export function ContractFormSimplified({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
-        {/* Información del Contrato */}
+        {/* Card única compacta */}
         <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-4 p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <Briefcase className="text-primary h-5 w-5" />
-              <Label className="text-lg font-semibold">Información del Contrato</Label>
-            </div>
+          <CardContent className="space-y-6 p-4">
+            {/* Sección: Información del Contrato */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Briefcase className="text-primary h-4 w-4" />
+                <Label className="text-base font-semibold">Información del Contrato</Label>
+              </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="contractType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo de Contrato *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+              <div className="grid gap-3 md:grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="contractType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Tipo de Contrato *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {Object.entries(CONTRACT_TYPES).map(([key, label]) => (
+                            <SelectItem key={key} value={key}>
+                              {label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="startDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fecha Inicio *</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona el tipo" />
-                        </SelectTrigger>
+                        <Input type="date" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {Object.entries(CONTRACT_TYPES).map(([key, label]) => (
-                          <SelectItem key={key} value={key}>
-                            {label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </Card>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-        {/* Fechas */}
-        <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-4 p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <Calendar className="text-primary h-5 w-5" />
-              <Label className="text-lg font-semibold">Período del Contrato</Label>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha de Inicio *</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fecha de Fin (opcional)</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Salario */}
-        <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-4 p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-primary text-lg font-bold">€</span>
-              <Label className="text-lg font-semibold">Información Salarial</Label>
-            </div>
-
-            <FormField
-              control={form.control}
-              name="grossSalary"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Salario Bruto Anual (€)</FormLabel>
-                  <FormControl>
-                    <div className="relative">
-                      <span className="text-muted-foreground absolute top-3 left-3 text-sm font-medium">€</span>
-                      <Input
-                        type="number"
-                        min="0"
-                        step="100"
-                        placeholder="30000"
-                        className="pl-8"
-                        value={field.value ?? ""}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          field.onChange(value === "" ? undefined : Number(value));
-                        }}
-                        onBlur={field.onBlur}
-                        name={field.name}
-                        ref={field.ref}
-                      />
-                    </div>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        {/* Organización */}
-        <Card className="rounded-lg border shadow-xs">
-          <CardContent className="space-y-4 p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <Building2 className="text-primary h-5 w-5" />
-              <Label className="text-lg font-semibold">Organización</Label>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <FormField
-                control={form.control}
-                name="positionId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Puesto</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormField
+                  control={form.control}
+                  name="endDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Fecha Fin</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona puesto" />
-                        </SelectTrigger>
+                        <Input type="date" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin puesto asignado</SelectItem>
-                        {positions.map((position) => (
-                          <SelectItem key={position.id} value={position.id}>
-                            {position.title}
-                            {position.level?.name && (
-                              <span className="text-muted-foreground text-sm"> • {position.level.name}</span>
-                            )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
-              <FormField
-                control={form.control}
-                name="departmentId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Departamento</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <hr className="border-muted" />
+
+            {/* Sección: Salario */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="text-primary text-base font-bold">€</span>
+                <Label className="text-base font-semibold">Información Salarial</Label>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-3">
+                <FormField
+                  control={form.control}
+                  name="grossSalary"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Salario Bruto Anual (€)</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona departamento" />
-                        </SelectTrigger>
+                        <div className="relative">
+                          <span className="text-muted-foreground absolute top-3 left-3 text-sm font-medium">€</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="100"
+                            placeholder="30000"
+                            className="pl-8"
+                            value={field.value ?? ""}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              field.onChange(value === "" ? undefined : Number(value));
+                            }}
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </div>
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin departamento asignado</SelectItem>
-                        {departments.map((department) => (
-                          <SelectItem key={department.id} value={department.id}>
-                            {department.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
-              <FormField
-                control={form.control}
-                name="costCenterId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Centro de Coste</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+            <hr className="border-muted" />
+
+            {/* Sección: Organización */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="text-primary h-4 w-4" />
+                <Label className="text-base font-semibold">Organización (Opcional)</Label>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="positionId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Puesto</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona puesto" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sin puesto asignado</SelectItem>
+                          {positions.map((position) => (
+                            <SelectItem key={position.id} value={position.id}>
+                              {position.title}
+                              {position.level?.name && (
+                                <span className="text-muted-foreground text-sm"> • {position.level.name}</span>
+                              )}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="departmentId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Departamento</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona departamento" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sin departamento asignado</SelectItem>
+                          {departments.map((department) => (
+                            <SelectItem key={department.id} value={department.id}>
+                              {department.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="costCenterId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Centro de Coste</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona centro" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sin centro asignado</SelectItem>
+                          {costCenters.map((center) => (
+                            <SelectItem key={center.id} value={center.id}>
+                              {center.name}
+                              {center.code && <span className="text-muted-foreground text-sm"> ({center.code})</span>}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="managerId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Responsable</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona centro" />
-                        </SelectTrigger>
+                        <EmployeeCombobox
+                          value={field.value}
+                          onValueChange={field.onChange}
+                          placeholder="Selecciona responsable"
+                          emptyText="Sin responsable asignado"
+                        />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin centro asignado</SelectItem>
-                        {costCenters.map((center) => (
-                          <SelectItem key={center.id} value={center.id}>
-                            {center.name}
-                            {center.code && <span className="text-muted-foreground text-sm"> ({center.code})</span>}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="managerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Responsable</FormLabel>
-                    <FormControl>
-                      <EmployeeCombobox
-                        value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder="Selecciona responsable"
-                        emptyText="Sin responsable asignado"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>

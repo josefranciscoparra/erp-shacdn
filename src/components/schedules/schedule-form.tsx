@@ -152,6 +152,7 @@ interface ScheduleFormProps {
   onSubmit: (data: ScheduleFormData) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  hideActions?: boolean;
 }
 
 const toNumber = (value: any): number | undefined => {
@@ -160,7 +161,13 @@ const toNumber = (value: any): number | undefined => {
   return Number.isNaN(num) ? undefined : num;
 };
 
-export function ScheduleForm({ initialData, onSubmit, onCancel, isSubmitting = false }: ScheduleFormProps) {
+export function ScheduleForm({
+  initialData,
+  onSubmit,
+  onCancel,
+  isSubmitting = false,
+  hideActions = false,
+}: ScheduleFormProps) {
   const form = useForm<ScheduleFormData>({
     resolver: zodResolver(scheduleSchema),
     defaultValues: {
@@ -1091,25 +1098,27 @@ export function ScheduleForm({ initialData, onSubmit, onCancel, isSubmitting = f
         </Card>
 
         {/* Botones */}
-        <div className="bg-muted/30 flex justify-end gap-3 border-t px-6 py-4">
-          <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
-            <X className="mr-2 h-4 w-4" />
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Guardar Horarios
-              </>
-            )}
-          </Button>
-        </div>
+        {!hideActions && (
+          <div className="bg-muted/30 flex justify-end gap-3 border-t px-6 py-4">
+            <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>
+              <X className="mr-2 h-4 w-4" />
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Guardar Horarios
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </form>
     </Form>
   );

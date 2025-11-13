@@ -30,10 +30,10 @@ export function StickyActionBar({
   const finalNextLabel = nextLabel ?? defaultNextLabel;
 
   return (
-    <div className={cn("fixed right-0 bottom-0 left-0 z-50 md:left-64", className)}>
-      <div className="from-background/95 to-background/80 border-t backdrop-blur-lg">
-        <div className="@container/main px-6 py-4">
-          <div className="mx-auto flex max-w-(--breakpoint-lg) items-center justify-between gap-4">
+    <div className={cn("sticky bottom-0 z-50 mt-auto", className)}>
+      <div className="wizard-action-bar bg-background border-t">
+        <div className="@container/main mx-auto max-w-7xl px-4 py-4 sm:px-6">
+          <div className="flex items-center justify-between gap-4">
             {/* Left: Cancel */}
             <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
               <X className="mr-2 h-4 w-4" />

@@ -60,14 +60,14 @@ export function WizardSteps({ steps, currentStep, completedSteps }: WizardStepsP
 
                 {/* Connector line */}
                 {!isLast && (
-                  <div className="w-24">
-                    <div
-                      className={cn(
-                        "h-0.5 transition-all duration-300",
-                        isCompleted ? "bg-emerald-500" : "bg-muted-foreground/30",
-                      )}
-                    />
-                  </div>
+                  <div
+                    style={{
+                      width: "96px",
+                      height: "2px",
+                      backgroundColor: isCompleted ? "#10b981" : "#d1d5db",
+                      transition: "all 300ms",
+                    }}
+                  />
                 )}
               </div>
             );
@@ -95,7 +95,16 @@ export function WizardSteps({ steps, currentStep, completedSteps }: WizardStepsP
                     {isCompleted ? <Check className="h-4 w-4" /> : stepNumber}
                   </div>
 
-                  {index < steps.length - 1 && <div className="bg-muted-foreground/30 mx-1 h-0.5 w-6" />}
+                  {index < steps.length - 1 && (
+                    <div
+                      style={{
+                        width: "24px",
+                        height: "2px",
+                        backgroundColor: "#d1d5db",
+                        margin: "0 4px",
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
