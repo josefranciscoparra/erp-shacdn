@@ -32,6 +32,7 @@ import { getWeekDays, formatDateShort, formatDateISO, calculateDuration, formatD
 import type { Shift, EmployeeShift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
+import { RestDayCard } from "./rest-day-card";
 import { ShiftBlock, ShiftDropZone } from "./shift-block";
 
 export function CalendarWeekEmployee() {
@@ -359,15 +360,16 @@ function ShiftCell({ employeeId, date, shifts, activeShiftId, onCreateShift, onE
           ))}
         </div>
       ) : (
-        /* Celda vacía con botón para crear turno */
-        <div className="flex h-full min-h-[80px] items-center justify-center">
+        /* Celda vacía con tarjeta de descanso */
+        <div className="flex h-full min-h-[80px] flex-col items-center justify-center gap-2">
+          <RestDayCard />
           <Button
             variant="ghost"
             size="sm"
             onClick={onCreateShift}
-            className="text-muted-foreground h-full w-full opacity-0 transition-opacity group-hover:opacity-100"
+            className="text-muted-foreground h-8 w-full opacity-0 transition-opacity group-hover:opacity-100"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-3 w-3" />
           </Button>
         </div>
       )}

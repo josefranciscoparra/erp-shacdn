@@ -21,6 +21,8 @@ import { formatDateISO, formatDuration, calculateDuration } from "../_lib/shift-
 import type { Shift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
+import { RestDayCard } from "./rest-day-card";
+
 export function CalendarMonthEmployee() {
   const { shifts, employees, currentWeekStart, filters, openShiftDialog } = useShiftsStore();
 
@@ -252,13 +254,13 @@ function MonthDayCell({ day, isToday, hasShifts, shifts, onCreateShift, onEditSh
                 <ul className="list-inside list-disc">
                   {shifts.map((shift) => (
                     <li key={shift.id}>
-                      {shift.startTime}-{shift.endTime} • {shift.role || "Sin rol"}
+                      {shift.startTime}-{shift.endTime} • {shift.role ?? "Sin rol"}
                     </li>
                   ))}
                 </ul>
               </>
             ) : (
-              <p className="text-muted-foreground">Sin turnos asignados</p>
+              <RestDayCard compact />
             )}
           </div>
         </TooltipContent>
