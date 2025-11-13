@@ -289,11 +289,13 @@ function CompactCoverageCell({
               }
             }}
           >
-            {/* Si no hay turnos, mostrar RestDayCard */}
+            {/* Si no hay turnos, mostrar abreviatura SP (sin planificar) o D (descanso) */}
             {assigned === 0 ? (
-              <div className="px-1">
-                <RestDayCard type={emptyDayType} compact />
-              </div>
+              <span
+                className={cn("text-[10px] font-bold", emptyDayType === "rest" ? "text-emerald-600" : "text-slate-400")}
+              >
+                {emptyDayType === "rest" ? "D" : "SP"}
+              </span>
             ) : (
               <>
                 {/* Ratio de cobertura (compacto) */}
