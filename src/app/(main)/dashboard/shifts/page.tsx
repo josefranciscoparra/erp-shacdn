@@ -22,10 +22,11 @@
 
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 import { FileText, Settings, LayoutDashboard } from "lucide-react";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { CalendarMonthArea } from "./_components/calendar-month-area";
@@ -33,6 +34,7 @@ import { CalendarMonthEmployee } from "./_components/calendar-month-employee";
 import { CalendarWeekArea } from "./_components/calendar-week-area";
 import { CalendarWeekEmployee } from "./_components/calendar-week-employee";
 import { EmptyState, EmptyFiltersState, EmptyStateLoading } from "./_components/empty-states";
+import { MobileViewWarning } from "./_components/mobile-view-warning";
 import { PublishBar } from "./_components/publish-bar";
 import { ShiftDialog } from "./_components/shift-dialog";
 import { ShiftsDashboard } from "./_components/shifts-dashboard";
@@ -58,6 +60,9 @@ export default function ShiftsPage() {
     fetchTemplates,
   } = useShiftsStore();
 
+  // Estado local para tab activo
+  const [activeTab, setActiveTab] = useState("dashboard");
+
   // Cargar datos iniciales
   useEffect(() => {
     void fetchShifts();
@@ -71,13 +76,29 @@ export default function ShiftsPage() {
     <div className="@container/main flex flex-col gap-6">
       {/* Header */}
       <div>
-        <h1 className="text-foreground text-2xl font-bold">Gestión de Turnos</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Organiza los turnos rotativos de tu equipo</p>
+        <h1 className="text-foreground text-xl font-bold md:text-2xl">Gestión de Turnos</h1>
+        <p className="text-muted-foreground mt-1 text-xs md:text-sm">Organiza los turnos rotativos de tu equipo</p>
       </div>
 
       {/* Tabs principales */}
-      <Tabs defaultValue="dashboard" className="space-y-6">
-        <TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        {/* Select para móvil */}
+        <div className="block md:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Seleccionar vista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dashboard">Dashboard</SelectItem>
+              <SelectItem value="calendar">Cuadrante</SelectItem>
+              <SelectItem value="templates">Plantillas</SelectItem>
+              <SelectItem value="config">Configuración</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* TabsList para desktop */}
+        <TabsList className="hidden md:inline-flex">
           <TabsTrigger value="dashboard">
             <LayoutDashboard className="mr-2 h-4 w-4" />
             Dashboard
@@ -100,48 +121,81 @@ export default function ShiftsPage() {
 
         {/* Tab: Cuadrante */}
         <TabsContent value="calendar" className="space-y-6">
-          {/* Filtros con selector de vista integrado */}
-          <ShiftsFiltersBar />
-
-          {/* Área de calendario */}
-          <div className="overflow-hidden rounded-lg border">
-            {/* Navegación de semana - sticky arriba del calendario */}
-            <WeekNavigator />
-
-            {isLoading ? (
-              <div className="p-6">
-                <EmptyStateLoading />
-              </div>
-            ) : shifts.length === 0 ? (
-              <div className="p-6">
-                <EmptyState variant="shifts" onAction={() => openShiftDialog()} />
-              </div>
-            ) : (
-              <div className="p-6">
-                {/* Vistas de calendario */}
-                {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
-
-                {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
-
-                {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
-
-                {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
-              </div>
-            )}
+          {/* Vista móvil: Aviso */}
+          <div className="block md:hidden">
+            <MobileViewWarning
+              title="Cuadrante disponible solo en PC"
+              description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente. Por favor, accede desde un ordenador o tablet."
+            />
           </div>
 
-          {/* Barra de acciones masivas */}
-          <PublishBar />
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden space-y-6 md:block">
+            {/* Filtros con selector de vista integrado */}
+            <ShiftsFiltersBar />
+
+            {/* Área de calendario */}
+            <div className="overflow-hidden rounded-lg border">
+              {/* Navegación de semana - sticky arriba del calendario */}
+              <WeekNavigator />
+
+              {isLoading ? (
+                <div className="p-6">
+                  <EmptyStateLoading />
+                </div>
+              ) : shifts.length === 0 ? (
+                <div className="p-6">
+                  <EmptyState variant="shifts" onAction={() => openShiftDialog()} />
+                </div>
+              ) : (
+                <div className="p-6">
+                  {/* Vistas de calendario */}
+                  {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
+
+                  {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
+
+                  {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+
+                  {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
+                </div>
+              )}
+            </div>
+
+            {/* Barra de acciones masivas */}
+            <PublishBar />
+          </div>
         </TabsContent>
 
         {/* Tab: Plantillas */}
         <TabsContent value="templates" className="space-y-6">
-          <TemplatesTable />
+          {/* Vista móvil: Aviso */}
+          <div className="block md:hidden">
+            <MobileViewWarning
+              title="Plantillas disponibles solo en PC"
+              description="La gestión de plantillas requiere una pantalla más grande para poder ver y editar los detalles correctamente. Por favor, accede desde un ordenador o tablet."
+            />
+          </div>
+
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden md:block">
+            <TemplatesTable />
+          </div>
         </TabsContent>
 
         {/* Tab: Configuración */}
         <TabsContent value="config" className="space-y-6">
-          <ZonesTable />
+          {/* Vista móvil: Aviso */}
+          <div className="block md:hidden">
+            <MobileViewWarning
+              title="Configuración disponible solo en PC"
+              description="La configuración de zonas y áreas requiere una pantalla más grande para poder gestionar los ajustes correctamente. Por favor, accede desde un ordenador o tablet."
+            />
+          </div>
+
+          {/* Vista desktop: Contenido completo */}
+          <div className="hidden md:block">
+            <ZonesTable />
+          </div>
         </TabsContent>
       </Tabs>
 

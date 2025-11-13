@@ -133,8 +133,8 @@ export default function MyShiftsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
         <div>
-          <h1 className="text-foreground text-2xl font-bold">Mis Turnos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
+          <h1 className="text-foreground text-xl font-bold md:text-2xl">Mis Turnos</h1>
+          <p className="text-muted-foreground mt-1 text-xs md:text-sm">
             Hola {currentEmployee.firstName}, aquí puedes consultar tus turnos asignados
           </p>
         </div>
@@ -185,7 +185,7 @@ export default function MyShiftsPage() {
           ) : (
             <div className="space-y-4">
               {/* Grid de calendario */}
-              <div className="grid grid-cols-7 gap-2">
+              <div className="grid grid-cols-7 gap-1 md:gap-2">
                 {/* Headers de días de la semana */}
                 {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
                   <div key={day} className="text-muted-foreground py-2 text-center text-xs font-medium">
@@ -207,16 +207,16 @@ export default function MyShiftsPage() {
                     <div
                       key={dateKey}
                       className={cn(
-                        "hover:border-primary/50 min-h-[120px] rounded-lg border p-2 transition-all",
+                        "hover:border-primary/50 min-h-[60px] rounded-lg border p-1 transition-all md:min-h-[100px] md:p-2 lg:min-h-[120px]",
                         today && "border-primary bg-primary/5",
                         hasShifts && "from-primary/10 bg-gradient-to-br to-transparent",
                         !hasShifts && "bg-muted/30",
                       )}
                     >
-                      <div className="mb-2 flex items-center justify-between">
+                      <div className="mb-1 flex items-center justify-between md:mb-2">
                         <span
                           className={cn(
-                            "text-sm font-medium",
+                            "text-xs font-medium md:text-sm",
                             today && "text-primary",
                             !isSameMonth(day, currentMonth) && "text-muted-foreground",
                           )}
@@ -224,7 +224,7 @@ export default function MyShiftsPage() {
                           {format(day, "d")}
                         </span>
                         {hasShifts && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                          <Badge variant="secondary" className="h-4 px-1 text-[9px] md:h-5 md:px-1.5 md:text-[10px]">
                             {dayShifts.length}
                           </Badge>
                         )}
@@ -233,7 +233,7 @@ export default function MyShiftsPage() {
                       {/* Turnos del día */}
                       <div className="space-y-1">
                         {hasShifts ? (
-                          dayShifts.map((shift) => {
+                          dayShifts.map((shift, index) => {
                             const zone = zones.find((z) => z.id === shift.zoneId);
                             const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
 
@@ -241,34 +241,44 @@ export default function MyShiftsPage() {
                               <button
                                 key={shift.id}
                                 onClick={() => handleShiftClick(shift)}
-                                className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1.5 text-left shadow-sm transition-colors"
+                                className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1 text-left shadow-sm transition-colors md:p-1.5"
                               >
-                                <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
-                                  <Clock className="h-3 w-3" />
-                                  <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
-                                  {shift.breakMinutes && shift.breakMinutes > 0 && (
-                                    <Coffee
-                                      className="text-muted-foreground h-3 w-3"
-                                      title={`${shift.breakMinutes}min`}
-                                    />
+                                {/* Vista móvil: solo indicador de color */}
+                                <div className="flex items-center justify-center md:hidden">
+                                  <div className="bg-primary h-1.5 w-1.5 rounded-full" />
+                                </div>
+
+                                {/* Vista desktop: detalles completos */}
+                                <div className="hidden md:block">
+                                  <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
+                                    <Clock className="h-3 w-3" />
+                                    <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
+                                    {shift.breakMinutes && shift.breakMinutes > 0 && (
+                                      <Coffee
+                                        className="text-muted-foreground h-3 w-3"
+                                        title={`${shift.breakMinutes}min`}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-[9px]">
+                                    <MapPin className="text-muted-foreground h-2.5 w-2.5" />
+                                    <span className="text-muted-foreground truncate">
+                                      {costCenter?.name ?? "Sin lugar"}
+                                    </span>
+                                  </div>
+                                  {zone && (
+                                    <Badge variant="outline" className="mt-1 h-4 text-[8px]">
+                                      {zone.name}
+                                    </Badge>
                                   )}
                                 </div>
-                                <div className="flex items-center gap-1 text-[9px]">
-                                  <MapPin className="text-muted-foreground h-2.5 w-2.5" />
-                                  <span className="text-muted-foreground truncate">
-                                    {costCenter?.name ?? "Sin lugar"}
-                                  </span>
-                                </div>
-                                {zone && (
-                                  <Badge variant="outline" className="mt-1 h-4 text-[8px]">
-                                    {zone.name}
-                                  </Badge>
-                                )}
                               </button>
                             );
                           })
                         ) : (
-                          <RestDayCard type={emptyDayType} compact />
+                          <div className="hidden md:block">
+                            <RestDayCard type={emptyDayType} compact />
+                          </div>
                         )}
                       </div>
                     </div>
