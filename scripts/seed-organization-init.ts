@@ -32,9 +32,9 @@ const ABSENCE_TYPES = [
     code: "VAC",
     description: "Vacaciones anuales retribuidas",
     requiresApproval: true,
-    affectsPayroll: false,
+    affectsBalance: true,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 15,
     color: "#10b981", // green
   },
   {
@@ -42,9 +42,9 @@ const ABSENCE_TYPES = [
     code: "SICK",
     description: "Baja médica por enfermedad común",
     requiresApproval: false,
-    affectsPayroll: true,
+    affectsBalance: false,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 0,
     color: "#ef4444", // red
   },
   {
@@ -52,9 +52,9 @@ const ABSENCE_TYPES = [
     code: "PERS",
     description: "Permiso por asuntos personales",
     requiresApproval: true,
-    affectsPayroll: false,
+    affectsBalance: true,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 3,
     color: "#f59e0b", // amber
   },
   {
@@ -62,9 +62,9 @@ const ABSENCE_TYPES = [
     code: "UNPAID",
     description: "Permiso sin sueldo",
     requiresApproval: true,
-    affectsPayroll: true,
+    affectsBalance: false,
     isPaid: false,
-    countAsWorkedDays: false,
+    minDaysAdvance: 7,
     color: "#6b7280", // gray
   },
   {
@@ -72,9 +72,9 @@ const ABSENCE_TYPES = [
     code: "REMOTE",
     description: "Trabajo desde casa",
     requiresApproval: true,
-    affectsPayroll: false,
+    affectsBalance: false,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 1,
     color: "#3b82f6", // blue
   },
   {
@@ -82,9 +82,9 @@ const ABSENCE_TYPES = [
     code: "TRAIN",
     description: "Asistencia a formación o eventos",
     requiresApproval: true,
-    affectsPayroll: false,
+    affectsBalance: false,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 7,
     color: "#8b5cf6", // violet
   },
   {
@@ -92,9 +92,9 @@ const ABSENCE_TYPES = [
     code: "MAT",
     description: "Baja por maternidad o paternidad",
     requiresApproval: false,
-    affectsPayroll: true,
+    affectsBalance: false,
     isPaid: true,
-    countAsWorkedDays: true,
+    minDaysAdvance: 0,
     color: "#ec4899", // pink
   },
 ];

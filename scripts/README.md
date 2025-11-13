@@ -162,15 +162,15 @@ npx tsx scripts/seed-position-levels.ts
 
 ### Tipos de Ausencia
 
-| Código | Nombre | Requiere Aprobación | Retribuido |
-|--------|---------|---------------------|------------|
-| `VAC` | Vacaciones | ✅ | ✅ |
-| `SICK` | Baja por Enfermedad | ❌ | ✅ |
-| `PERS` | Permiso Personal | ✅ | ✅ |
-| `UNPAID` | Permiso No Retribuido | ✅ | ❌ |
-| `REMOTE` | Teletrabajo | ✅ | ✅ |
-| `TRAIN` | Formación | ✅ | ✅ |
-| `MAT` | Maternidad/Paternidad | ❌ | ✅ |
+| Código | Nombre | Aprobación | Retribuido | Afecta Balance | Días Aviso |
+|--------|---------|------------|------------|----------------|------------|
+| `VAC` | Vacaciones | ✅ | ✅ | ✅ | 15 días |
+| `SICK` | Baja por Enfermedad | ❌ | ✅ | ❌ | - |
+| `PERS` | Permiso Personal | ✅ | ✅ | ✅ | 3 días |
+| `UNPAID` | Permiso No Retribuido | ✅ | ❌ | ❌ | 7 días |
+| `REMOTE` | Teletrabajo | ✅ | ✅ | ❌ | 1 día |
+| `TRAIN` | Formación | ✅ | ✅ | ❌ | 7 días |
+| `MAT` | Maternidad/Paternidad | ❌ | ✅ | ❌ | - |
 
 ### Configuración PTO (España)
 
