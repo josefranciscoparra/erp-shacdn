@@ -48,12 +48,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
             Usaremos los horarios por defecto (40h semanales, 5 días). Podrás personalizarlos después.
           </p>
         </div>
-        <Switch
-          id="skip-schedule"
-          checked={skipSchedule}
-          onCheckedChange={setSkipSchedule}
-          className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
-        />
+        <Switch id="skip-schedule" checked={skipSchedule} onCheckedChange={setSkipSchedule} className="wizard-switch" />
       </div>
 
       {skipSchedule && (

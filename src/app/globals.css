@@ -419,3 +419,26 @@
     -webkit-backface-visibility: hidden;
   }
 }
+
+/* Switch visibility fix for Safari - Wizard steps */
+.wizard-switch[data-state="unchecked"] {
+  background-color: #d1d5db !important; /* gray-300 light mode */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .wizard-switch[data-state="unchecked"] {
+  background-color: #4b5563 !important; /* gray-600 dark mode */
+}
+
+/* Asegurar que el estado checked también sea visible en Safari */
+.wizard-switch[data-state="checked"] {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}

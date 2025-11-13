@@ -268,7 +268,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 
 ## 🎛️ Toggles y Switches
 
-### Switch Card (Estilo Premium)
+### Switch Card (Estilo Premium + Safari Compatible)
 
 ```tsx
 <div className="flex items-center justify-between rounded-xl border-2 border-muted bg-muted/30 p-5 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md">
@@ -284,7 +284,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
     id="skip-option"
     checked={skipOption}
     onCheckedChange={setSkipOption}
-    className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
+    className="wizard-switch"
   />
 </div>
 ```
@@ -300,14 +300,55 @@ Este documento define el sistema de diseño visual para **todos los formularios*
     </FormDescription>
   </div>
   <FormControl>
-    <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />
+    <Switch
+      checked={field.value ?? false}
+      onCheckedChange={field.onChange}
+      className="wizard-switch"
+    />
   </FormControl>
 </FormItem>
 ```
 
+### CSS Requerido para Safari (globals.css)
+
+**⚠️ CRÍTICO - Safari no renderiza switches correctamente sin esto**:
+
+```css
+/* Switch visibility fix for Safari */
+.wizard-switch[data-state="unchecked"] {
+  background-color: #d1d5db !important; /* gray-300 light mode */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .wizard-switch[data-state="unchecked"] {
+  background-color: #4b5563 !important; /* gray-600 dark mode */
+}
+
+/* Asegurar que el estado checked también sea visible en Safari */
+.wizard-switch[data-state="checked"] {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+```
+
+**Por qué es necesario**:
+- Safari ignora clases Tailwind con opacidades en switches (`data-[state=unchecked]:bg-gray-300`)
+- `!important` + colores hex sólidos Safari no puede ignorar (solo en `unchecked`)
+- Estado `checked` usa color primary del tema (sin `!important` para no sobrescribir)
+- GPU acceleration (`translateZ(0)`) asegura rendering correcto en ambos estados
+- `backface-visibility: hidden` elimina artefactos visuales
+
 **Claves Switch Visibility**:
-- Safari oculta switches con fondo muy claro
-- Solución: `data-[state=unchecked]:bg-gray-300`
+- ❌ **NUNCA** usar: `data-[state=unchecked]:bg-gray-300` (invisible en Safari)
+- ✅ **SIEMPRE** usar: `className="wizard-switch"` con CSS custom
+- ✅ Probar en Safari ambos estados (checked/unchecked)
 
 ---
 

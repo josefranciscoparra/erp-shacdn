@@ -119,12 +119,7 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
             Crearemos un contrato básico (Indefinido, 40h, 5 días). Podrás editarlo después.
           </p>
         </div>
-        <Switch
-          id="skip-contract"
-          checked={skipContract}
-          onCheckedChange={setSkipContract}
-          className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
-        />
+        <Switch id="skip-contract" checked={skipContract} onCheckedChange={setSkipContract} className="wizard-switch" />
       </div>
 
       {skipContract && (
