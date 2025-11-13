@@ -56,6 +56,7 @@ export interface NavGroup {
 export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated } = usePermissions();
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
+  const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
 
@@ -80,11 +81,15 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/pto",
           icon: CalendarDays,
         },
-        {
-          title: "Mis Turnos",
-          url: "/dashboard/me/shifts",
-          icon: CalendarClock,
-        },
+        ...(shiftsEnabled
+          ? [
+              {
+                title: "Mis Turnos",
+                url: "/dashboard/me/shifts",
+                icon: CalendarClock,
+              },
+            ]
+          : []),
         {
           title: "Mi Calendario",
           url: "/dashboard/me/calendar",
@@ -266,12 +271,16 @@ export function useSidebarItems(): NavGroup[] {
             },
           ],
         },
-        {
-          title: "Gestión de Turnos",
-          url: "/dashboard/shifts",
-          icon: CalendarClock,
-          permission: "manage_organization",
-        },
+        ...(shiftsEnabled
+          ? [
+              {
+                title: "Gestión de Turnos",
+                url: "/dashboard/shifts",
+                icon: CalendarClock,
+                permission: "manage_organization" as Permission,
+              },
+            ]
+          : []),
       ],
     },
     {

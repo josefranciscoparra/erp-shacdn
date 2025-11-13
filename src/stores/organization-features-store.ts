@@ -11,6 +11,7 @@ import { create } from "zustand";
 
 export interface OrganizationFeatures {
   chatEnabled: boolean;
+  shiftsEnabled: boolean;
   // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
 }
 
@@ -31,6 +32,7 @@ interface OrganizationFeaturesState {
 
 const initialFeatures: OrganizationFeatures = {
   chatEnabled: false,
+  shiftsEnabled: false,
 };
 
 export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()((set, get) => ({
@@ -66,6 +68,7 @@ export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()(
       set({
         features: {
           chatEnabled: data.chatEnabled ?? false,
+          shiftsEnabled: data.shiftsEnabled ?? false,
           // Futuros módulos aquí
         },
         isLoaded: true,
