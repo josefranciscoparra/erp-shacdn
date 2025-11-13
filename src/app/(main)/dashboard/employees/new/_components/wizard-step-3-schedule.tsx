@@ -12,12 +12,12 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 interface WizardStep3ScheduleProps {
-  contractId: string;
   onSubmit: (data: ScheduleFormData | null) => Promise<void>;
   isLoading?: boolean;
+  initialData?: ScheduleFormData | null;
 }
 
-export function WizardStep3Schedule({ contractId, onSubmit, isLoading = false }: WizardStep3ScheduleProps) {
+export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }: WizardStep3ScheduleProps) {
   const [skipSchedule, setSkipSchedule] = useState(false);
 
   const handleScheduleSubmit = async (data: ScheduleFormData) => {
@@ -92,12 +92,14 @@ export function WizardStep3Schedule({ contractId, onSubmit, isLoading = false }:
       {!skipSchedule && (
         <div className="animate-in slide-in-from-top-4">
           <ScheduleForm
-            initialData={{
-              weeklyHours: 40,
-              workingDaysPerWeek: 5,
-              hasIntensiveSchedule: false,
-              hasCustomWeeklyPattern: false,
-            }}
+            initialData={
+              initialData ?? {
+                weeklyHours: 40,
+                workingDaysPerWeek: 5,
+                hasIntensiveSchedule: false,
+                hasCustomWeeklyPattern: false,
+              }
+            }
             onSubmit={handleScheduleSubmit}
             onCancel={() => {}}
             isSubmitting={isLoading}

@@ -13,18 +13,12 @@ import { cn } from "@/lib/utils";
 import { type CreateContractData } from "@/stores/contracts-store";
 
 interface WizardStep2ContractProps {
-  employeeId: string;
-  employeeName: string;
   onSubmit: (data: CreateContractData | null) => Promise<void>;
   isLoading?: boolean;
+  initialData?: CreateContractData | null;
 }
 
-export function WizardStep2Contract({
-  employeeId,
-  employeeName,
-  onSubmit,
-  isLoading = false,
-}: WizardStep2ContractProps) {
+export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }: WizardStep2ContractProps) {
   const [skipContract, setSkipContract] = useState(false);
 
   // Cuando cambia skipContract, si es true, llamar onSubmit con null inmediatamente
@@ -169,11 +163,10 @@ export function WizardStep2Contract({
       {!skipContract && (
         <div className="animate-in slide-in-from-top-4">
           <ContractFormSimplified
-            employeeId={employeeId}
-            employeeName={employeeName}
             onSubmit={handleContractSubmit}
             onCancel={() => {}}
             isSubmitting={isLoading}
+            initialData={initialData}
           />
         </div>
       )}

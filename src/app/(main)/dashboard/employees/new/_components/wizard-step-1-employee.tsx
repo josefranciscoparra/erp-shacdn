@@ -5,10 +5,11 @@ import { useEffect, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, ChevronUp, Mail, Phone, User, CreditCard, Calendar as CalendarIcon } from "lucide-react";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -18,15 +19,21 @@ interface WizardStep1EmployeeProps {
   onSubmit: (data: CreateEmployeeInput) => Promise<void>;
   isLoading?: boolean;
   onTriggerSubmit?: (submitFn: () => void) => void;
+  initialData?: CreateEmployeeInput;
 }
 
-export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubmit }: WizardStep1EmployeeProps) {
+export function WizardStep1Employee({
+  onSubmit,
+  isLoading = false,
+  onTriggerSubmit,
+  initialData,
+}: WizardStep1EmployeeProps) {
   const [showMoreFields, setShowMoreFields] = useState(false);
 
   const form = useForm<CreateEmployeeInput>({
     resolver: zodResolver(createEmployeeSchema),
     mode: "onChange",
-    defaultValues: {
+    defaultValues: initialData ?? {
       firstName: "",
       lastName: "",
       secondLastName: "",
@@ -62,7 +69,20 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
   useEffect(() => {
     if (onTriggerSubmit) {
       onTriggerSubmit(() => {
-        form.handleSubmit(handleSubmit)();
+        form.handleSubmit(handleSubmit, (errors) => {
+          const errorMessages = Object.values(errors).map((error) => error.message);
+
+          toast.error("Revisa los siguientes campos", {
+            description: (
+              <ul className="mt-2 list-disc space-y-1 pl-4 text-xs">
+                {errorMessages.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+              </ul>
+            ),
+            duration: 6000,
+          });
+        })();
       });
     }
   }, [onTriggerSubmit, form]);
@@ -112,7 +132,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -131,7 +150,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         autoComplete="family-name"
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -152,7 +170,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         autoComplete="family-name"
                       />
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -174,7 +191,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -200,7 +216,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -222,7 +237,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -246,7 +260,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -268,7 +281,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                         />
                       </div>
                     </FormControl>
-                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -312,7 +324,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                       <FormControl>
                         <Input {...field} placeholder="Española" className={getInputClasses(fieldState)} />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -340,7 +351,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                           autoComplete="street-address"
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -360,7 +370,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                             autoComplete="address-level2"
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -379,7 +388,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                             autoComplete="postal-code"
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -398,7 +406,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                             autoComplete="address-level1"
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -427,7 +434,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                           autoComplete="off"
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -456,7 +462,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                             autoComplete="off"
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -475,7 +480,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                             autoComplete="tel"
                           />
                         </FormControl>
-                        <FormMessage />
                       </FormItem>
                     )}
                   />
@@ -495,7 +499,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                           autoComplete="off"
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
@@ -523,7 +526,6 @@ export function WizardStep1Employee({ onSubmit, isLoading = false, onTriggerSubm
                           className={getInputClasses(fieldState)}
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />

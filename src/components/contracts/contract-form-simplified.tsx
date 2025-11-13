@@ -77,12 +77,13 @@ const CONTRACT_TYPES = {
 } as const;
 
 interface ContractFormSimplifiedProps {
-  employeeId: string;
-  employeeName: string;
+  employeeId?: string;
+  employeeName?: string;
   contract?: Contract | null;
   onSubmit: (data: CreateContractData) => Promise<void>;
   onCancel: () => void;
   isSubmitting?: boolean;
+  initialData?: CreateContractData | null;
 }
 
 const toDateInput = (value: string | null | undefined) => (value ? value.split("T")[0] : "");
@@ -100,6 +101,7 @@ export function ContractFormSimplified({
   onSubmit,
   onCancel,
   isSubmitting = false,
+  initialData,
 }: ContractFormSimplifiedProps) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -135,8 +137,20 @@ export function ContractFormSimplified({
         costCenterId: contract.costCenter?.id ?? "__none__",
         managerId: contract.manager?.id ?? "__none__",
       });
+    } else if (initialData) {
+      // Cargar datos guardados del wizard
+      form.reset({
+        contractType: initialData.contractType as ContractFormData["contractType"],
+        startDate: initialData.startDate,
+        endDate: initialData.endDate ?? "",
+        grossSalary: initialData.grossSalary ?? undefined,
+        positionId: initialData.positionId ?? "__none__",
+        departmentId: initialData.departmentId ?? "__none__",
+        costCenterId: initialData.costCenterId ?? "__none__",
+        managerId: initialData.managerId ?? "__none__",
+      });
     }
-  }, [mode, contract]);
+  }, [mode, contract, initialData]);
 
   const loadSelectData = async () => {
     setLoadingData(true);

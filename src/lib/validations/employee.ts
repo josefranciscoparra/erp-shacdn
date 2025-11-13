@@ -3,7 +3,11 @@ import { z } from "zod";
 // Validador NIF/NIE español
 export const nifNieSchema = z
   .string()
-  .regex(/^[0-9]{8}[TRWAGMYFPDXBNJZSQVHLCKE]$|^[XYZ][0-9]{7}[TRWAGMYFPDXBNJZSQVHLCKE]$/, "Formato NIF/NIE inválido")
+  .min(1, "Por favor, indica el NIF/NIE del empleado.")
+  .regex(
+    /^[0-9]{8}[TRWAGMYFPDXBNJZSQVHLCKE]$|^[XYZ][0-9]{7}[TRWAGMYFPDXBNJZSQVHLCKE]$/,
+    "El NIF/NIE no tiene un formato válido. Revísalo e inténtalo de nuevo.",
+  )
   .refine((value) => {
     // Algoritmo de validación NIF/NIE
     const letters = "TRWAGMYFPDXBNJZSQVHLCKE";
@@ -21,7 +25,7 @@ export const nifNieSchema = z
     const letter = number.charAt(8);
 
     return letters.charAt(dni % 23) === letter;
-  }, "NIF/NIE inválido");
+  }, "El NIF/NIE no tiene un formato válido. Revísalo e inténtalo de nuevo.");
 
 // Validador IBAN español
 export const ibanSchema = z
@@ -37,42 +41,48 @@ export const ibanSchema = z
     // Validación algoritmo módulo 97 (simplificada)
     const cleanIban = value.replace(/\s/g, "");
     return cleanIban.length === 24;
-  }, "IBAN español inválido");
+  }, "El IBAN no tiene un formato válido. Debe ser un IBAN español.");
 
 // Schema principal para crear empleado
 export const createEmployeeSchema = z.object({
   // Datos personales obligatorios
-  firstName: z.string().min(1, "Nombre es obligatorio").max(50),
-  lastName: z.string().min(1, "Primer apellido es obligatorio").max(50),
-  secondLastName: z.string().max(50).optional(),
+  firstName: z.string().min(1, "Por favor, indica el nombre del empleado.").max(50, "El nombre es demasiado largo."),
+  lastName: z
+    .string()
+    .min(1, "El primer apellido es necesario para continuar.")
+    .max(50, "El primer apellido es demasiado largo."),
+  secondLastName: z.string().max(50, "El segundo apellido es demasiado largo.").optional(),
   nifNie: nifNieSchema,
 
   // Datos de contacto
-  email: z.string().email("Email es obligatorio").min(1, "Email es obligatorio"),
-  phone: z.string().max(20).optional(),
-  mobilePhone: z.string().max(20).optional(),
+  email: z
+    .string()
+    .min(1, "Por favor, proporciona un email de contacto.")
+    .email("El email no tiene un formato válido. Revísalo e inténtalo de nuevo."),
+  phone: z.string().max(20, "El teléfono es demasiado largo.").optional(),
+  mobilePhone: z.string().max(20, "El móvil es demasiado largo.").optional(),
 
   // Dirección
-  address: z.string().max(200).optional(),
-  city: z.string().max(100).optional(),
-  postalCode: z.string().max(10).optional(),
-  province: z.string().max(100).optional(),
+  address: z.string().max(200, "La dirección es demasiado larga.").optional(),
+  city: z.string().max(100, "El nombre de la ciudad es demasiado largo.").optional(),
+  postalCode: z.string().max(10, "El código postal no es válido.").optional(),
+  province: z.string().max(100, "El nombre de la provincia es demasiado largo.").optional(),
 
   // Datos adicionales
   birthDate: z.string().optional(), // Se convertirá a Date en el servidor
-  nationality: z.string().max(50).optional(),
-  employeeNumber: z.string().max(20).optional(),
+  nationality: z.string().max(50, "La nacionalidad es demasiado larga.").optional(),
+  employeeNumber: z.string().max(20, "El número de empleado es demasiado largo.").optional(),
 
   // Datos bancarios
   iban: ibanSchema,
 
   // Contacto de emergencia
-  emergencyContactName: z.string().max(100).optional(),
-  emergencyContactPhone: z.string().max(20).optional(),
-  emergencyRelationship: z.string().max(50).optional(),
+  emergencyContactName: z.string().max(100, "El nombre del contacto es demasiado largo.").optional(),
+  emergencyContactPhone: z.string().max(20, "El teléfono del contacto es demasiado largo.").optional(),
+  emergencyRelationship: z.string().max(50, "La relación es demasiado larga.").optional(),
 
   // Notas
-  notes: z.string().max(1000).optional(),
+  notes: z.string().max(1000, "Las notas son demasiado largas (máximo 1000 caracteres).").optional(),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
