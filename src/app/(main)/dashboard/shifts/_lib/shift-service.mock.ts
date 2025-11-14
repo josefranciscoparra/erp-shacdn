@@ -558,14 +558,15 @@ const MOCK_SHIFTS: Shift[] = [
   // MIÉRCOLES 12 - Rambla del ganso
   {
     id: "s113",
-    employeeId: "e1", // Francesc - 40h
+    employeeId: "e1", // Francesc - 40h - VACACIONES
     date: "2025-11-12",
-    startTime: "10:00",
-    endTime: "18:00",
+    startTime: "00:00",
+    endTime: "23:59",
     costCenterId: "cc1",
     zoneId: "z1",
-    role: "Planta Baja",
+    role: "Vacaciones",
     status: "published",
+    notes: "Día de vacaciones",
     createdAt: new Date(),
     updatedAt: new Date(),
   },

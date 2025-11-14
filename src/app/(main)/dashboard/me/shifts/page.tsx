@@ -39,7 +39,7 @@ import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dia
 import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
 
 // Helper: Determinar tipo de turno según hora de inicio
-function getShiftType(startTime: string): "morning" | "afternoon" | "night" {
+function getShiftType(startTime: string): "morning" | "afternoon" | "night" | "vacation" {
   const hour = parseInt(startTime.split(":")[0] ?? "0", 10);
   if (hour >= 6 && hour < 14) return "morning";
   if (hour >= 14 && hour < 22) return "afternoon";
@@ -47,21 +47,23 @@ function getShiftType(startTime: string): "morning" | "afternoon" | "night" {
 }
 
 // Helper: Colores pastel más fuertes estilo Linear/Factorial
-function getShiftColors(type: "morning" | "afternoon" | "night" | "rest") {
+function getShiftColors(type: "morning" | "afternoon" | "night" | "rest" | "vacation") {
   switch (type) {
     case "morning":
-      return "bg-blue-100 dark:bg-blue-900/50 text-blue-900 dark:text-blue-100";
+      return "bg-yellow-100 dark:bg-yellow-900/50 text-yellow-900 dark:text-yellow-100";
     case "afternoon":
-      return "bg-orange-100 dark:bg-orange-900/50 text-orange-900 dark:text-orange-100";
+      return "bg-blue-100 dark:bg-blue-900/50 text-blue-900 dark:text-blue-100";
     case "night":
       return "bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-100";
+    case "vacation":
+      return "bg-orange-100 dark:bg-orange-900/50 text-orange-900 dark:text-orange-100";
     case "rest":
       return "bg-green-100 dark:bg-green-900/50 text-green-900 dark:text-green-100";
   }
 }
 
 // Helper: Etiqueta del tipo de turno
-function getShiftLabel(type: "morning" | "afternoon" | "night") {
+function getShiftLabel(type: "morning" | "afternoon" | "night" | "vacation") {
   switch (type) {
     case "morning":
       return "Mañana";
@@ -69,6 +71,8 @@ function getShiftLabel(type: "morning" | "afternoon" | "night") {
       return "Tarde";
     case "night":
       return "Noche";
+    case "vacation":
+      return "Vacaciones";
   }
 }
 
@@ -229,7 +233,9 @@ export default function MyShiftsPage() {
                       {/* Turnos del día */}
                       {hasShifts ? (
                         dayShifts.map((shift) => {
-                          const shiftType = getShiftType(shift.startTime);
+                          // Detectar vacaciones basándose en el campo role
+                          const isVacation = shift.role?.toLowerCase().includes("vacaciones");
+                          const shiftType = isVacation ? "vacation" : getShiftType(shift.startTime);
                           const colors = getShiftColors(shiftType);
                           const label = getShiftLabel(shiftType);
 
@@ -246,12 +252,16 @@ export default function MyShiftsPage() {
                               <div className="flex h-full flex-col justify-between">
                                 {/* Fila superior */}
                                 <div className="flex items-start justify-between">
-                                  <span className="text-[11px] font-bold tracking-wide uppercase">{label}</span>
+                                  {/* Texto completo en desktop, letra inicial en móvil */}
+                                  <span className="hidden text-[11px] font-bold tracking-wide uppercase md:inline">
+                                    {label}
+                                  </span>
+                                  <span className="text-[13px] font-bold uppercase md:hidden">{label.charAt(0)}</span>
                                   <span className="text-[10px] opacity-60">{format(day, "d")}</span>
                                 </div>
 
-                                {/* Fila inferior */}
-                                <div className="flex justify-end">
+                                {/* Fila inferior - solo en desktop */}
+                                <div className="hidden justify-end md:flex">
                                   <span className="text-[10px] font-medium">
                                     {formatShiftTime(shift.startTime, shift.endTime)}
                                   </span>
@@ -269,9 +279,17 @@ export default function MyShiftsPage() {
                           )}
                         >
                           {emptyDayType === "rest" ? (
-                            <span className="text-[10px] font-bold tracking-wide uppercase opacity-70">Descanso</span>
+                            <>
+                              <span className="hidden text-[10px] font-bold tracking-wide uppercase opacity-70 md:inline">
+                                Descanso
+                              </span>
+                              <span className="text-[13px] font-bold uppercase opacity-70 md:hidden">D</span>
+                            </>
                           ) : (
-                            <span className="text-[9px] tracking-wide uppercase opacity-50">Sin planificar</span>
+                            // Sin planificar: mostrar solo en desktop
+                            <span className="hidden text-[9px] tracking-wide uppercase opacity-50 md:inline">
+                              Sin planificar
+                            </span>
                           )}
                         </div>
                       )}
