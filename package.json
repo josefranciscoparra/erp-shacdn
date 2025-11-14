@@ -54,6 +54,7 @@
     "input-otp": "^1.4.2",
     "leaflet": "^1.9.4",
     "leaflet-defaulticon-compatibility": "^0.1.2",
+    "lottie-react": "^2.4.1",
     "lucide-react": "^0.453.0",
     "multer": "^2.0.2",
     "next": "^15.5.2",
