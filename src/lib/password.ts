@@ -30,12 +30,13 @@ export function generateTemporaryPassword(length: number = 12): string {
 }
 
 /**
- * Genera un número de empleado único
+ * Genera un número de empleado único y secuencial
+ * @param prefix - Prefijo de la organización (ej: "EMP", "TMNW")
+ * @param counter - Contador secuencial de la organización
+ * @returns Número de empleado formateado (ej: "EMP00001", "TMNW00042")
  */
-export function generateEmployeeNumber(prefix: string = "EMP"): string {
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 999)
-    .toString()
-    .padStart(3, "0");
-  return `${prefix}${timestamp}${random}`;
+export function generateEmployeeNumber(prefix: string = "EMP", counter: number = 1): string {
+  // Formatear el contador con 5 dígitos (máximo 99,999 empleados)
+  const formattedCounter = counter.toString().padStart(5, "0");
+  return `${prefix}${formattedCounter}`;
 }
