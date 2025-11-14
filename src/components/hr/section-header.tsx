@@ -31,7 +31,7 @@ export function SectionHeader({
       <div className="space-y-1">
         <h1 className="text-[20px] leading-tight font-semibold">{title}</h1>
         {subtitle ? <p className="text-muted-foreground text-sm">{subtitle}</p> : null}
-        {description ? <p className="text-muted-foreground text-sm">{description}</p> : null}
+        {description ? <p className="text-muted-foreground mb-2 text-sm">{description}</p> : null}
         {children}
       </div>
       {action ??

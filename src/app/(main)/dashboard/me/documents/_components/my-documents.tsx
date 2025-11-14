@@ -14,7 +14,6 @@ import {
   Loader2,
   Folder,
   ChevronRight,
-  Home,
   MoreVertical,
   ArrowLeft,
   FolderOpen,
@@ -259,7 +258,7 @@ export function MyDocuments() {
       )}
 
       {/* Navegación: Botón Volver + Breadcrumb */}
-      <div className="flex items-center gap-3">
+      <div className="mt-1 flex items-center gap-3">
         {currentFolder && (
           <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
             <ArrowLeft className="h-4 w-4" />
@@ -267,7 +266,7 @@ export function MyDocuments() {
           </Button>
         )}
         <div className="flex items-center gap-2 text-sm">
-          <Home className="text-muted-foreground h-4 w-4" />
+          <FolderOpen className="text-muted-foreground h-4 w-4" />
           <span className="text-muted-foreground">Carpetas</span>
           {currentFolder && (
             <>
@@ -348,14 +347,14 @@ export function MyDocuments() {
                   <button
                     key={category}
                     onClick={() => setCurrentFolder(category as DocumentKind)}
-                    className="group relative flex h-28 flex-col items-start gap-3 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5"
+                    className="group hover:bg-muted/30 relative flex h-28 flex-col items-start gap-3 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5 dark:hover:bg-white/10"
                   >
                     <div className="flex w-full items-start justify-between gap-3">
                       <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors">
                         <Folder className="h-6 w-6" />
                       </div>
-                      <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                        <span className="text-foreground truncate font-semibold">
+                      <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <span className="text-foreground truncate text-base font-semibold">
                           {documentKindLabels[category as DocumentKind]}
                         </span>
                         <span className="text-muted-foreground text-sm">
