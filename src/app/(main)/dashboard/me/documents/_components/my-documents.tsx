@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   FileText,
@@ -14,9 +14,10 @@ import {
   Loader2,
   Folder,
   ChevronRight,
-  Home,
   MoreVertical,
   ArrowLeft,
+  FolderOpen,
+  Filter,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,9 +32,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,8 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { documentKindLabels, documentKindColors, formatFileSize, type DocumentKind } from "@/lib/validations/document";
+import { documentKindLabels, formatFileSize, type DocumentKind } from "@/lib/validations/document";
 import { getMyDocuments, type MyDocument } from "@/server/actions/my-documents";
 
 import { UploadDocumentDialog } from "./upload-document-dialog";
@@ -52,7 +50,6 @@ export function MyDocuments() {
   const [documents, setDocuments] = useState<MyDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterCategory, setFilterCategory] = useState<string>("all");
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
@@ -64,10 +61,6 @@ export function MyDocuments() {
     try {
       setIsLoading(true);
       const filters: any = {};
-
-      if (filterCategory !== "all") {
-        filters.documentKind = filterCategory as DocumentKind;
-      }
 
       if (searchQuery.trim()) {
         filters.search = searchQuery.trim();
@@ -86,7 +79,7 @@ export function MyDocuments() {
   // Cargar documentos al montar y cuando cambien los filtros
   useEffect(() => {
     loadDocuments();
-  }, [filterCategory, searchQuery]);
+  }, [searchQuery]);
 
   // Descargar documento
   const handleDownload = async (documentId: string, fileName: string) => {
@@ -173,12 +166,10 @@ export function MyDocuments() {
       doc.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = filterCategory === "all" || doc.kind === filterCategory;
-
     // Si estamos en una carpeta, solo mostrar documentos de esa carpeta
     const matchesFolder = !currentFolder || doc.kind === currentFolder;
 
-    return matchesSearch && matchesCategory && matchesFolder;
+    return matchesSearch && matchesFolder;
   });
 
   // Agrupar por categoría
@@ -209,6 +200,17 @@ export function MyDocuments() {
     toast.info("Función de arrastrar y soltar próximamente");
   };
 
+  // Calcular estadísticas
+  const totalDocuments = documents.length;
+  const totalFolders = Object.keys(groupedDocuments).length;
+  const lastUploadDate =
+    documents.length > 0
+      ? documents.reduce((latest, doc) => {
+          const docDate = new Date(doc.createdAt);
+          return docDate > latest ? docDate : latest;
+        }, new Date(documents[0].createdAt))
+      : null;
+
   return (
     <div
       className="@container/main flex flex-col gap-4 md:gap-6"
@@ -216,37 +218,81 @@ export function MyDocuments() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <SectionHeader title="Mis Documentos" actionLabel="Subir documento" onAction={() => setUploadDialogOpen(true)} />
+      <SectionHeader
+        title="Mis Documentos"
+        description="Accede a tus documentos personales y laborales de forma organizada."
+      />
 
-      {/* Navegación: Botón Volver + Breadcrumb */}
-      <div className="flex items-center gap-3">
-        {currentFolder && (
-          <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Volver
-          </Button>
-        )}
-        <div className="flex items-center gap-2 text-sm">
-          <Home className="text-muted-foreground h-4 w-4" />
-          <span className="text-muted-foreground">Carpetas</span>
-          {currentFolder && (
+      {/* Mini resumen con estadísticas */}
+      {!isLoading && totalDocuments > 0 && (
+        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-sm">
+          <div className="flex items-center gap-1.5">
+            <FileText className="h-4 w-4" />
+            <span>
+              <span className="text-foreground font-medium">{totalDocuments}</span>{" "}
+              {totalDocuments === 1 ? "documento" : "documentos"}
+            </span>
+          </div>
+          <span className="text-muted-foreground/50">·</span>
+          <div className="flex items-center gap-1.5">
+            <FolderOpen className="h-4 w-4" />
+            <span>
+              <span className="text-foreground font-medium">{totalFolders}</span>{" "}
+              {totalFolders === 1 ? "carpeta" : "carpetas"}
+            </span>
+          </div>
+          {lastUploadDate && (
             <>
-              <ChevronRight className="text-muted-foreground h-4 w-4" />
-              <span className="text-foreground font-semibold">{documentKindLabels[currentFolder]}</span>
+              <span className="text-muted-foreground/50">·</span>
+              <div className="flex items-center gap-1.5">
+                <span>
+                  Última subida{" "}
+                  <span className="text-foreground font-medium">
+                    {formatDistanceToNow(lastUploadDate, { addSuffix: true, locale: es })}
+                  </span>
+                </span>
+              </div>
             </>
           )}
         </div>
-      </div>
+      )}
 
-      {/* Buscador */}
-      <div className="relative max-w-md">
-        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-        <Input
-          placeholder={currentFolder ? `Buscar en ${documentKindLabels[currentFolder]}...` : "Buscar documentos..."}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="h-9 pl-9"
-        />
+      {/* Buscador con acciones rápidas */}
+      <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+        <div className="relative w-full max-w-md">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            placeholder={
+              currentFolder
+                ? `Buscar en ${documentKindLabels[currentFolder]}...`
+                : "Buscar documentos por nombre o tipo..."
+            }
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 pr-16 pl-9"
+          />
+          <kbd className="bg-muted pointer-events-none absolute top-1/2 right-3 hidden -translate-y-1/2 items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium opacity-100 select-none @xl/main:inline-flex">
+            <span className="text-xs">⌘</span>K
+          </kbd>
+        </div>
+
+        {/* Acciones rápidas */}
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            disabled
+            title="Próximamente: Filtrar por fecha, tamaño, tipo"
+          >
+            <Filter className="h-4 w-4" />
+            <span className="hidden @xl/main:inline">Filtros</span>
+          </Button>
+          <Button size="sm" className="gap-2" onClick={() => setUploadDialogOpen(true)}>
+            <UploadIcon className="h-4 w-4" />
+            <span className="hidden @xl/main:inline">Subir documento</span>
+          </Button>
+        </div>
       </div>
 
       {/* Zona de drop con feedback visual */}
@@ -267,26 +313,63 @@ export function MyDocuments() {
         </div>
       ) : (
         <>
+          {/* Navegación: Breadcrumb */}
+          {Object.keys(groupedDocuments).length > 0 && (
+            <div className="flex items-center gap-3">
+              {currentFolder && (
+                <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver
+                </Button>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <FolderOpen className="text-muted-foreground h-4 w-4" />
+                <span className="text-muted-foreground">Carpetas</span>
+                {currentFolder && (
+                  <>
+                    <ChevronRight className="text-muted-foreground h-4 w-4" />
+                    <span className="text-foreground font-semibold">{documentKindLabels[currentFolder]}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Vista de carpetas */}
           {!currentFolder && Object.keys(groupedDocuments).length > 0 && (
             <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
-              {Object.entries(groupedDocuments).map(([category, docs]) => (
-                <button
-                  key={category}
-                  onClick={() => setCurrentFolder(category as DocumentKind)}
-                  className="group relative flex h-24 items-center gap-4 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5"
-                >
-                  <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-14 w-14 shrink-0 items-center justify-center rounded-lg transition-colors">
-                    <Folder className="h-7 w-7" />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col items-start">
-                    <span className="truncate font-semibold">{documentKindLabels[category as DocumentKind]}</span>
-                    <span className="text-muted-foreground text-sm">
-                      {docs.length} {docs.length === 1 ? "documento" : "documentos"}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              {Object.entries(groupedDocuments).map(([category, docs]) => {
+                // Calcular última actualización de la carpeta
+                const lastUpdate = docs.reduce((latest, doc) => {
+                  const docDate = new Date(doc.createdAt);
+                  return docDate > latest ? docDate : latest;
+                }, new Date(docs[0].createdAt));
+
+                return (
+                  <button
+                    key={category}
+                    onClick={() => setCurrentFolder(category as DocumentKind)}
+                    className="group hover:bg-muted/30 relative flex h-28 flex-col items-start gap-3 rounded-xl border bg-white p-5 shadow-sm transition-all hover:shadow-md dark:bg-white/5 dark:hover:bg-white/10"
+                  >
+                    <div className="flex w-full items-start justify-between gap-3">
+                      <div className="bg-primary/10 text-primary group-hover:bg-primary/20 flex h-12 w-12 shrink-0 items-center justify-center rounded-lg transition-colors">
+                        <Folder className="h-6 w-6" />
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+                        <span className="text-foreground truncate text-base font-semibold">
+                          {documentKindLabels[category as DocumentKind]}
+                        </span>
+                        <span className="text-muted-foreground text-sm">
+                          {docs.length} {docs.length === 1 ? "documento" : "documentos"}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <span>Actualizado {formatDistanceToNow(lastUpdate, { addSuffix: true, locale: es })}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -359,22 +442,22 @@ export function MyDocuments() {
 
           {/* Estado vacío */}
           {Object.keys(groupedDocuments).length === 0 && (
-            <div className="flex flex-col items-center justify-center gap-6 py-16">
-              <div className="bg-primary/5 flex h-24 w-24 items-center justify-center rounded-full">
-                <FileText className="text-primary h-12 w-12" />
+            <div className="flex flex-col items-center justify-center gap-6 py-20">
+              <div className="bg-primary/10 flex h-28 w-28 items-center justify-center rounded-full">
+                <FileText className="text-primary h-14 w-14" />
               </div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">No tienes documentos aún</h3>
-                <p className="text-muted-foreground mt-1 text-sm">
+              <div className="max-w-md text-center">
+                <h3 className="text-xl font-semibold">No tienes documentos aún</h3>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
                   {searchQuery
-                    ? "No se encontraron documentos con ese criterio"
-                    : "Comienza subiendo tu primer documento"}
+                    ? "No se encontraron documentos con ese criterio de búsqueda. Intenta con otros términos."
+                    : "Sube tu primer documento para empezar a organizar tus archivos personales y laborales."}
                 </p>
               </div>
               {!searchQuery && (
-                <Button onClick={() => setUploadDialogOpen(true)} size="lg">
-                  <UploadIcon className="mr-2 h-5 w-5" />
-                  Subir primer documento
+                <Button onClick={() => setUploadDialogOpen(true)} size="lg" className="gap-2">
+                  <UploadIcon className="h-5 w-5" />
+                  Subir documento
                 </Button>
               )}
             </div>
@@ -382,18 +465,26 @@ export function MyDocuments() {
 
           {/* Carpeta vacía */}
           {currentFolder && (!groupedDocuments[currentFolder] || groupedDocuments[currentFolder].length === 0) && (
-            <div className="flex flex-col items-center justify-center gap-6 py-16">
-              <div className="bg-muted flex h-24 w-24 items-center justify-center rounded-full">
-                <Folder className="text-muted-foreground h-12 w-12" />
+            <div className="flex flex-col items-center justify-center gap-6 py-20">
+              <div className="bg-muted flex h-28 w-28 items-center justify-center rounded-full">
+                <Folder className="text-muted-foreground h-14 w-14" />
               </div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">Esta carpeta está vacía</h3>
-                <p className="text-muted-foreground mt-1 text-sm">No hay documentos en esta categoría</p>
+              <div className="max-w-md text-center">
+                <h3 className="text-xl font-semibold">Esta carpeta está vacía</h3>
+                <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                  No hay documentos en &ldquo;{documentKindLabels[currentFolder]}&rdquo;. Sube tu primer documento aquí.
+                </p>
               </div>
-              <Button onClick={() => setUploadDialogOpen(true)} size="lg">
-                <UploadIcon className="mr-2 h-5 w-5" />
-                Subir documento
-              </Button>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={() => setUploadDialogOpen(true)} size="lg" className="gap-2">
+                  <UploadIcon className="h-5 w-5" />
+                  Subir documento
+                </Button>
+                <Button variant="outline" size="lg" className="gap-2" onClick={() => setCurrentFolder(null)}>
+                  <ArrowLeft className="h-5 w-5" />
+                  Volver
+                </Button>
+              </div>
             </div>
           )}
         </>

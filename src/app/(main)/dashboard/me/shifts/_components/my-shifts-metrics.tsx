@@ -12,12 +12,11 @@
 
 "use client";
 
-import { Calendar, Clock, TrendingUp, CalendarClock } from "lucide-react";
+import { Calendar, TrendingUp, CalendarClock } from "lucide-react";
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { formatShiftTime, formatDateShort } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -70,7 +69,7 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
       {/* Card 1: Horas Asignadas Esta Semana */}
       <Card className="gap-2">
         <CardHeader>
-          <CardTitle className="font-display text-lg md:text-xl">
+          <CardTitle className="font-display text-xl">
             {metrics.weekProgress >= 100
               ? "Horas completas"
               : metrics.weekProgress >= 70
@@ -81,7 +80,7 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
         <CardContent>
           <div className="flex items-center gap-2">
             <div>
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[50px] md:h-[60px]">
+              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[60px]">
                 <RadialBarChart
                   data={weekProgressChartData}
                   startAngle={0}
@@ -109,7 +108,8 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
                 </RadialBarChart>
               </ChartContainer>
             </div>
-            <p className="text-muted-foreground text-xs md:text-sm">
+            <p className="text-muted-foreground text-sm">
+              Has completado{" "}
               <span className={cn("font-semibold", getWeekProgressColor(metrics.weekProgress))}>
                 {formatHoursDetailed(metrics.weekHoursAssigned)}
               </span>{" "}
@@ -120,121 +120,77 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
       </Card>
 
       {/* Card 2: Próximo Turno */}
-      <Card>
+      <Card className="gap-2">
         <CardHeader>
-          <CardDescription>Próximo Turno</CardDescription>
-          <div className="flex flex-col gap-2">
-            {metrics.nextShift ? (
-              <>
-                <h4 className="font-display text-xl md:text-2xl lg:text-3xl">
-                  {formatShiftTime(metrics.nextShift.startTime, metrics.nextShift.endTime)}
-                </h4>
-                <div className="text-muted-foreground text-xs md:text-sm">
-                  {formatDateShort(new Date(metrics.nextShift.date))} · En{" "}
-                  <span className="text-foreground font-semibold">{Math.abs(metrics.hoursUntilNextShift)}h</span>
-                </div>
-              </>
-            ) : (
-              <>
-                <h4 className="font-display text-xl md:text-2xl lg:text-3xl">Sin turnos</h4>
-                <div className="text-muted-foreground text-xs md:text-sm">No tienes turnos próximos</div>
-              </>
-            )}
-          </div>
-          <CardAction>
-            <div className="flex gap-2">
-              <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
-                <CalendarClock className="size-5" />
-              </div>
-            </div>
-          </CardAction>
+          <CardTitle className="font-display text-xl">
+            {metrics.nextShift ? "Próximo turno" : "Sin turnos próximos"}
+          </CardTitle>
         </CardHeader>
-        {metrics.nextShift && (
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className="text-[10px] md:text-xs">
-                {metrics.nextShift.role ?? "Sin rol"}
-              </Badge>
-              {metrics.nextShift.breakMinutes && metrics.nextShift.breakMinutes > 0 && (
-                <Badge variant="secondary" className="text-[10px] md:text-xs">
-                  {metrics.nextShift.breakMinutes}min descanso
-                </Badge>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <CalendarClock className="size-5" />
+            </div>
+            <div className="flex-1">
+              {metrics.nextShift ? (
+                <>
+                  <p className="text-sm font-semibold">
+                    {formatShiftTime(metrics.nextShift.startTime, metrics.nextShift.endTime)}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    {formatDateShort(new Date(metrics.nextShift.date))} · En{" "}
+                    <span className="text-foreground font-semibold">{Math.abs(metrics.hoursUntilNextShift)}h</span>
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">No tienes turnos asignados próximamente</p>
               )}
             </div>
-          </CardContent>
-        )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Card 3: Turnos Este Mes */}
-      <Card>
+      <Card className="gap-2">
         <CardHeader>
-          <CardDescription>Turnos Este Mes</CardDescription>
-          <div className="flex flex-col gap-2">
-            <h4 className="font-display text-xl md:text-2xl lg:text-3xl">{metrics.monthTotalShifts}</h4>
-            <div className="text-muted-foreground text-xs md:text-sm">
-              {formatHoursDetailed(metrics.monthTotalHours)} totales
-            </div>
-          </div>
-          <CardAction>
-            <div className="flex gap-2">
-              <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
-                <Calendar className="size-5" />
-              </div>
-            </div>
-          </CardAction>
+          <CardTitle className="font-display text-xl">Turnos este mes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="default" className="text-[10px] md:text-xs">
-              {(metrics.monthTotalHours / (metrics.monthTotalShifts || 1)).toFixed(1)}h por turno
-            </Badge>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <Calendar className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold">
+                {metrics.monthTotalShifts} turno{metrics.monthTotalShifts !== 1 ? "s" : ""}
+              </p>
+              <p className="text-muted-foreground text-sm">{formatHoursDetailed(metrics.monthTotalHours)} totales</p>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Card 4: Balance Semanal */}
-      <Card>
+      <Card className="gap-2">
         <CardHeader>
-          <CardDescription>Balance Semanal</CardDescription>
-          <div className="flex flex-col gap-2">
-            <h4
-              className={cn(
-                "font-display text-xl md:text-2xl lg:text-3xl",
-                getBalanceStatusColor(metrics.weekBalanceStatus),
-              )}
-            >
-              {metrics.weekBalance >= 0 ? "+" : ""}
-              {formatHoursDetailed(Math.abs(metrics.weekBalance))}
-            </h4>
-            <div className="text-muted-foreground text-xs md:text-sm">
-              {metrics.weekBalanceStatus === "under" && "Menos de lo esperado"}
-              {metrics.weekBalanceStatus === "ok" && "Dentro del rango"}
-              {metrics.weekBalanceStatus === "over" && "Más de lo esperado"}
-            </div>
-          </div>
-          <CardAction>
-            <div className="flex gap-2">
-              <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
-                <TrendingUp className="size-5" />
-              </div>
-            </div>
-          </CardAction>
+          <CardTitle className="font-display text-xl">Balance semanal</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant={metrics.weekBalanceStatus === "ok" ? "default" : "secondary"}
-              className={cn(
-                "text-[10px] md:text-xs",
-                metrics.weekBalanceStatus === "under" && "border-red-500 bg-red-100 text-red-700 dark:bg-red-950/30",
-                metrics.weekBalanceStatus === "over" &&
-                  "border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-950/30",
-              )}
-            >
-              {metrics.weekBalanceStatus === "under" && "⚠️ Subcontratado"}
-              {metrics.weekBalanceStatus === "ok" && "✅ Equilibrado"}
-              {metrics.weekBalanceStatus === "over" && "Sobrecontratado"}
-            </Badge>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <TrendingUp className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className={cn("text-sm font-semibold", getBalanceStatusColor(metrics.weekBalanceStatus))}>
+                {metrics.weekBalance >= 0 ? "+" : ""}
+                {formatHoursDetailed(Math.abs(metrics.weekBalance))}
+              </p>
+              <p className="text-muted-foreground text-sm">
+                {metrics.weekBalanceStatus === "under" && "Menos de lo esperado"}
+                {metrics.weekBalanceStatus === "ok" && "Dentro del rango"}
+                {metrics.weekBalanceStatus === "over" && "Más de lo esperado"}
+              </p>
+            </div>
           </div>
         </CardContent>
       </Card>

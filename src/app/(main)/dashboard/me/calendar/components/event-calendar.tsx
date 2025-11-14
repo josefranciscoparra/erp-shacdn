@@ -305,20 +305,37 @@ export function EventCalendar({
     >
       <CalendarDndProvider onEventUpdate={handleEventUpdate}>
         <div className={cn("flex items-center justify-between p-2 sm:p-4", className)}>
-          <div className="flex items-center gap-1 sm:gap-4">
-            <Button variant="outline" className="max-[479px]:aspect-square max-[479px]:p-0!" onClick={handleToday}>
-              <CalendarCheck className="min-[480px]:hidden" size={16} aria-hidden="true" />
+          <div className="flex items-center gap-3">
+            {/* Botón Hoy más prominente */}
+            <Button variant="outline" size="sm" onClick={handleToday}>
+              <CalendarCheck className="mr-2 h-4 w-4 max-[479px]:mr-0" aria-hidden="true" />
               <span className="max-[479px]:sr-only">Hoy</span>
             </Button>
-            <div className="flex items-center sm:gap-2">
-              <Button variant="ghost" size="icon" onClick={handlePrevious} aria-label="Previous">
-                <ChevronLeftIcon size={16} aria-hidden="true" />
+
+            {/* Navegación mes centrada con flechas redondeadas - estilo Factorial/Linear */}
+            <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-2 py-1.5 sm:px-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full hover:bg-accent"
+                onClick={handlePrevious}
+                aria-label="Mes anterior"
+              >
+                <ChevronLeftIcon className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={handleNext} aria-label="Next">
-                <ChevronRightIcon size={16} aria-hidden="true" />
+              <h2 className="min-w-[140px] text-center text-sm font-semibold sm:min-w-[180px] sm:text-base">
+                {viewTitle}
+              </h2>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full hover:bg-accent"
+                onClick={handleNext}
+                aria-label="Mes siguiente"
+              >
+                <ChevronRightIcon className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
-            <h2 className="text-sm font-semibold sm:text-lg md:text-xl">{viewTitle}</h2>
           </div>
           <div className="flex items-center gap-2">
             <DropdownMenu>

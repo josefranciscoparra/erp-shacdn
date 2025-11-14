@@ -13,21 +13,58 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Download, Eye, FileSignature } from "lucide-react";
+import { ArrowUpDown, Download, Eye, FileSignature, FileText } from "lucide-react";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
 import { useSignaturesStore, type MySignature } from "@/stores/signatures-store";
 
 interface MySignaturesDataTableProps {
   data: MySignature[];
+  emptyStateType?: "pending" | "signed" | "rejected" | "expired" | "all";
 }
 
-export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
+export function MySignaturesDataTable({ data, emptyStateType = "all" }: MySignaturesDataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const { downloadEvidence } = useSignaturesStore();
+
+  const getEmptyStateMessage = () => {
+    switch (emptyStateType) {
+      case "pending":
+        return {
+          title: "Nada por aquí",
+          description: "No tienes documentos pendientes de firma.",
+        };
+      case "signed":
+        return {
+          title: "Nada por aquí",
+          description: "Aún no has firmado ningún documento.",
+        };
+      case "rejected":
+        return {
+          title: "Nada por aquí",
+          description: "No has rechazado ningún documento.",
+        };
+      case "expired":
+        return {
+          title: "Nada por aquí",
+          description: "No tienes documentos expirados.",
+        };
+      case "all":
+      default:
+        return {
+          title: "Nada por aquí",
+          description: "No hay documentos disponibles.",
+        };
+    }
+  };
+
+  const emptyState = getEmptyStateMessage();
 
   const columns: ColumnDef<MySignature>[] = [
     {
@@ -47,51 +84,53 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
       cell: ({ row }) => {
         const title = row.original.document.title;
         const category = row.original.document.category;
+        const status = row.original.status;
+        const expiresAt = row.original.request.expiresAt;
+        const isUrgent =
+          row.original.status === "PENDING" && new Date(expiresAt) < new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+
         return (
-          <div>
-            <p className="font-medium">{title}</p>
-            <p className="text-muted-foreground text-xs">{category}</p>
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2">
+              <p className="font-medium">{title}</p>
+              <SignatureStatusBadge status={status} />
+              {isUrgent && (
+                <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">
+                  Urgente
+                </Badge>
+              )}
+            </div>
+            <p className="text-muted-foreground text-xs">{signableDocumentCategoryLabels[category]}</p>
           </div>
         );
       },
     },
     {
-      accessorKey: "status",
-      header: "Estado",
+      accessorKey: "lastActivity",
+      header: "Última actividad",
       cell: ({ row }) => {
-        return <SignatureStatusBadge status={row.original.status} />;
-      },
-    },
-    {
-      accessorKey: "request.expiresAt",
-      header: ({ column }) => {
-        return (
-          <Button
-            variant="ghost"
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="hover:bg-transparent"
-          >
-            Urgencia
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        );
-      },
-      cell: ({ row }) => {
-        return <SignatureUrgencyBadge expiresAt={row.original.request.expiresAt} />;
-      },
-    },
-    {
-      accessorKey: "signedAt",
-      header: "Firmado",
-      cell: ({ row }) => {
+        const status = row.original.status;
         const signedAt = row.original.signedAt;
-        if (!signedAt) return <span className="text-muted-foreground text-sm">-</span>;
+        const expiresAt = row.original.request.expiresAt;
+
+        if (status === "SIGNED" && signedAt) {
+          return (
+            <span className="text-muted-foreground text-sm">
+              Firmado{" "}
+              {new Date(signedAt).toLocaleDateString("es-ES", {
+                day: "2-digit",
+                month: "short",
+              })}
+            </span>
+          );
+        }
+
         return (
           <span className="text-muted-foreground text-sm">
-            {new Date(signedAt).toLocaleDateString("es-ES", {
+            Expira{" "}
+            {new Date(expiresAt).toLocaleDateString("es-ES", {
               day: "2-digit",
               month: "short",
-              year: "numeric",
             })}
           </span>
         );
@@ -178,8 +217,12 @@ export function MySignaturesDataTable({ data }: MySignaturesDataTableProps) {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No hay documentos en este estado
+                <TableCell colSpan={columns.length} className="p-0">
+                  <EmptyState
+                    icon={<FileSignature className="h-8 w-8" />}
+                    title={emptyState.title}
+                    description={emptyState.description}
+                  />
                 </TableCell>
               </TableRow>
             )}

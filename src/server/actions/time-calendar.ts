@@ -1,13 +1,24 @@
 "use server";
 
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isWeekend } from "date-fns";
-import { es } from "date-fns/locale";
 
 import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 // Tipos
+type CalendarTimeEntry = {
+  id: string;
+  entryType: string;
+  timestamp: Date;
+  location?: string | null;
+  notes?: string | null;
+  ipAddress?: string | null;
+  isManual?: boolean;
+  manualRequestId?: string | null;
+  createdAt?: Date;
+};
+
 export interface DayCalendarData {
   date: Date;
   isWorkday: boolean; // Día laboral según contrato y festivos
@@ -18,6 +29,7 @@ export interface DayCalendarData {
   status: "COMPLETED" | "INCOMPLETE" | "ABSENT" | "NON_WORKDAY";
   workdaySummary?: any;
   hasPendingRequest?: boolean; // Tiene solicitud de fichaje manual pendiente
+  timeEntries?: CalendarTimeEntry[];
 }
 
 export interface MonthlyCalendarData {
@@ -190,6 +202,42 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
 
     const pendingRequestMap = new Set(pendingRequests.map((r) => format(r.date, "yyyy-MM-dd")));
 
+    // Obtener fichajes individuales del mes (aunque no estén vinculados al resumen)
+    const timeEntries = await prisma.timeEntry.findMany({
+      where: {
+        orgId,
+        employeeId,
+        timestamp: {
+          gte: monthStart,
+          lte: monthEnd,
+        },
+        isCancelled: false,
+      },
+      orderBy: {
+        timestamp: "asc",
+      },
+    });
+
+    const timeEntriesByDay = new Map<string, CalendarTimeEntry[]>();
+    timeEntries.forEach((entry) => {
+      const dateKey = format(entry.timestamp, "yyyy-MM-dd");
+      const normalizedEntry: CalendarTimeEntry = {
+        id: entry.id,
+        entryType: entry.entryType,
+        timestamp: entry.timestamp,
+        location: entry.location,
+        notes: entry.notes,
+        ipAddress: entry.ipAddress,
+        isManual: entry.isManual,
+        manualRequestId: entry.manualRequestId,
+        createdAt: entry.createdAt,
+      };
+
+      const existing = timeEntriesByDay.get(dateKey) ?? [];
+      existing.push(normalizedEntry);
+      timeEntriesByDay.set(dateKey, existing);
+    });
+
     // Procesar cada día del mes
     const days: DayCalendarData[] = daysInMonth.map((date) => {
       const dateKey = format(date, "yyyy-MM-dd");
@@ -213,7 +261,20 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
       const isWorkday = expectedHours > 0;
 
       const summary = summaryMap.get(dateKey);
+      const fallbackEntries = timeEntriesByDay.get(dateKey)?.map((entry) => ({ ...entry })) ?? [];
       const workedHours = summary ? Number(summary.totalWorkedMinutes) / 60 : 0;
+      const summaryEntries = (summary?.timeEntries ?? []).map((entry) => ({
+        id: entry.id,
+        entryType: entry.entryType,
+        timestamp: entry.timestamp,
+        location: entry.location,
+        notes: entry.notes,
+        ipAddress: entry.ipAddress,
+        isManual: entry.isManual,
+        manualRequestId: entry.manualRequestId,
+        createdAt: entry.createdAt,
+      }));
+      const mergedTimeEntries = summaryEntries.length > 0 ? summaryEntries : fallbackEntries;
 
       // Determinar estado del día
       let status: DayCalendarData["status"];
@@ -236,6 +297,7 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
         workedHours,
         status,
         hasPendingRequest: pendingRequestMap.has(dateKey),
+        timeEntries: mergedTimeEntries,
         workdaySummary: summary
           ? {
               id: summary.id,
@@ -250,14 +312,7 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
               updatedAt: summary.updatedAt,
               orgId: summary.orgId,
               employeeId: summary.employeeId,
-              timeEntries: (summary.timeEntries || []).map((entry) => ({
-                id: entry.id,
-                entryType: entry.entryType,
-                timestamp: entry.timestamp,
-                location: entry.location,
-                notes: entry.notes,
-                ipAddress: entry.ipAddress,
-              })),
+              timeEntries: mergedTimeEntries,
             }
           : undefined,
       };

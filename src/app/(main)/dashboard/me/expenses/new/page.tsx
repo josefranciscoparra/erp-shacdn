@@ -4,10 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import { PulseLoader } from "@/components/ui/pulse-loader";
 import { useReceiptOcr } from "@/hooks/use-receipt-ocr";
 import { ParsedReceiptData } from "@/lib/ocr/receipt-parser";
 import { useExpensesStore } from "@/stores/expenses-store";
@@ -21,7 +21,7 @@ type WizardStep = "capture" | "ocr-processing" | "ocr-suggestions" | "form";
 export default function NewExpensePage() {
   const router = useRouter();
   const { createExpense, uploadAttachment } = useExpensesStore();
-  const { isProcessing, progress, error, result, processReceipt, reset } = useReceiptOcr();
+  const { error, processReceipt, reset } = useReceiptOcr();
 
   const [currentStep, setCurrentStep] = useState<WizardStep>("capture");
   const [capturedFile, setCapturedFile] = useState<File | null>(null);
@@ -179,15 +179,13 @@ export default function NewExpensePage() {
         {/* PASO 2: Procesando OCR */}
         {currentStep === "ocr-processing" && (
           <div className="bg-card rounded-lg border p-6">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Loader2 className="text-primary size-5 animate-spin" />
+            <div className="space-y-6">
+              <div className="flex flex-col items-center gap-4">
                 <h2 className="text-lg font-semibold">Analizando el ticket...</h2>
+                <PulseLoader />
               </div>
 
-              <Progress value={progress} className="h-2" />
-
-              <p className="text-muted-foreground text-sm">Esto puede tardar unos segundos</p>
+              <p className="text-muted-foreground text-center text-sm">Esto puede tardar unos segundos</p>
 
               {error && (
                 <div className="border-destructive bg-destructive/10 rounded-lg border p-4">

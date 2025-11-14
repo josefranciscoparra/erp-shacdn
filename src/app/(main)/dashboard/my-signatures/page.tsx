@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { FileSignature, Loader2 } from "lucide-react";
+import { Clock, FileCheck, FileSignature, FileX, FolderOpen, HourglassIcon, Loader2 } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,45 +89,26 @@ export default function MySignaturesPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Mis Firmas</h1>
-        </div>
-        {urgentCount > 0 && (
-          <Badge variant="destructive" className="gap-1.5">
-            <FileSignature className="h-3.5 w-3.5" />
-            {urgentCount} urgente{urgentCount !== 1 ? "s" : ""}
-          </Badge>
-        )}
-      </div>
+      <SectionHeader title="Firmas digitales" description="Gestiona los documentos que requieren tu firma." />
 
-      <div className="flex flex-col gap-3">
-        <div className="flex items-end gap-3">
-          <div className="w-full space-y-1 md:w-[300px]">
-            <Label htmlFor="my-signatures-search">Buscar</Label>
-            <Input
-              id="my-signatures-search"
-              placeholder="Busca por título o categoría"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
-              <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm("");
-              setCategoryFilter("all");
-            }}
-          >
-            Limpiar filtros
-          </Button>
+      {/* Barra de filtros compacta */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full space-y-1 md:w-[300px]">
+          <Label htmlFor="my-signatures-search" className="text-xs">
+            Buscar
+          </Label>
+          <Input
+            id="my-signatures-search"
+            placeholder="Busca por título o categoría"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+          {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
+            <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
+          )}
         </div>
         <div className="w-full space-y-1 md:w-[200px]">
-          <Label>Categoría</Label>
+          <Label className="text-xs">Categoría</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger>
               <SelectValue placeholder="Categoría" />
@@ -162,6 +144,7 @@ export default function MySignaturesPage() {
           {/* TabsList para desktop */}
           <TabsList className="hidden @4xl/main:flex">
             <TabsTrigger value="pending" className="gap-2">
+              <Clock className="h-4 w-4" />
               Pendientes
               {filtered.pending.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -170,6 +153,7 @@ export default function MySignaturesPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="signed" className="gap-2">
+              <FileCheck className="h-4 w-4" />
               Firmadas
               {filtered.signed.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -178,6 +162,7 @@ export default function MySignaturesPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="rejected" className="gap-2">
+              <FileX className="h-4 w-4" />
               Rechazadas
               {filtered.rejected.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -186,6 +171,7 @@ export default function MySignaturesPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="expired" className="gap-2">
+              <HourglassIcon className="h-4 w-4" />
               Expiradas
               {filtered.expired.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -194,6 +180,7 @@ export default function MySignaturesPage() {
               )}
             </TabsTrigger>
             <TabsTrigger value="all" className="gap-2">
+              <FolderOpen className="h-4 w-4" />
               Todas
               {allSignatures.length > 0 && (
                 <Badge variant="secondary" className="ml-1">
@@ -206,27 +193,27 @@ export default function MySignaturesPage() {
 
         {/* Pendientes */}
         <TabsContent value="pending">
-          <MySignaturesDataTable data={filtered.pending} />
+          <MySignaturesDataTable data={filtered.pending} emptyStateType="pending" />
         </TabsContent>
 
         {/* Firmadas */}
         <TabsContent value="signed">
-          <MySignaturesDataTable data={filtered.signed} />
+          <MySignaturesDataTable data={filtered.signed} emptyStateType="signed" />
         </TabsContent>
 
         {/* Rechazadas */}
         <TabsContent value="rejected">
-          <MySignaturesDataTable data={filtered.rejected} />
+          <MySignaturesDataTable data={filtered.rejected} emptyStateType="rejected" />
         </TabsContent>
 
         {/* Expiradas */}
         <TabsContent value="expired">
-          <MySignaturesDataTable data={filtered.expired} />
+          <MySignaturesDataTable data={filtered.expired} emptyStateType="expired" />
         </TabsContent>
 
         {/* Todas */}
         <TabsContent value="all">
-          <MySignaturesDataTable data={allSignatures} />
+          <MySignaturesDataTable data={allSignatures} emptyStateType="all" />
         </TabsContent>
       </Tabs>
     </div>

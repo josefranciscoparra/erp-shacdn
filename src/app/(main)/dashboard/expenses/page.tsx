@@ -20,6 +20,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -172,12 +173,10 @@ export default function ExpensesAnalyticsPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics de Gastos</h1>
-            <p className="text-muted-foreground">Métricas y estadísticas de gastos de la organización</p>
-          </div>
-        </div>
+        <SectionHeader
+          title="Analytics de Gastos"
+          description="Métricas y estadísticas de gastos de la organización."
+        />
 
         {/* KPI Cards skeleton */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -220,12 +219,10 @@ export default function ExpensesAnalyticsPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Analytics de Gastos</h1>
-            <p className="text-muted-foreground">Métricas y estadísticas de gastos de la organización</p>
-          </div>
-        </div>
+        <SectionHeader
+          title="Analytics de Gastos"
+          description="Métricas y estadísticas de gastos de la organización."
+        />
 
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -238,20 +235,19 @@ export default function ExpensesAnalyticsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Analytics de Gastos</h1>
-          <p className="text-muted-foreground">Métricas y estadísticas de gastos de la organización</p>
-        </div>
-        <button
-          className="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-          onClick={() => toast.info("Exportar CSV (próximamente)")}
-        >
-          <Download className="h-4 w-4" />
-          Exportar CSV
-        </button>
-      </div>
+      <SectionHeader
+        title="Analytics de Gastos"
+        description="Métricas y estadísticas de gastos de la organización."
+        action={
+          <button
+            className="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+            onClick={() => toast.info("Exportar CSV (próximamente)")}
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </button>
+        }
+      />
 
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

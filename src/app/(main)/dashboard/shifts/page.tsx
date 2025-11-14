@@ -26,6 +26,7 @@ import { useEffect, useState } from "react";
 
 import { FileText, Settings, LayoutDashboard } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -74,11 +75,10 @@ export default function ShiftsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-foreground text-xl font-bold md:text-2xl">Gestión de Turnos</h1>
-        <p className="text-muted-foreground mt-1 text-xs md:text-sm">Organiza los turnos rotativos de tu equipo</p>
-      </div>
+      <SectionHeader
+        title="Gestión de Turnos"
+        description="Organiza los turnos rotativos de tu equipo de forma eficiente."
+      />
 
       {/* Tabs principales */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

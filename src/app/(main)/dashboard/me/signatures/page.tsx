@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { AlertCircle, Loader2 } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -42,10 +43,10 @@ export default function MySignaturesPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold">Mis Firmas</h1>
-        <p className="text-muted-foreground mt-1 text-sm">Gestiona los documentos que debes firmar</p>
-      </div>
+      <SectionHeader
+        title="Mis Firmas"
+        description="Gestiona los documentos que requieren tu firma de forma digital."
+      />
 
       {/* Banner de urgencia */}
       {urgentCount > 0 && (

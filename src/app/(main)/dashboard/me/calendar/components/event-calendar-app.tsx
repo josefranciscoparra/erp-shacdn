@@ -6,6 +6,7 @@ import { startOfMonth, endOfMonth, addMonths, subMonths, isWithinInterval } from
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { getMyCalendarEvents } from "@/server/actions/employee-calendars";
 
 import { mapServerEventsToCalendarEvents } from "../utils";
@@ -67,14 +68,28 @@ export default function EventCalendarApp() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[calc(100vh-var(--header-height)-3rem)] items-center justify-center rounded-lg border">
-        <div className="text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Cargando calendario...</span>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Mi Calendario"
+          description="Visualiza y gestiona tus eventos, vacaciones y turnos en un solo lugar."
+        />
+        <div className="flex min-h-[calc(100vh-var(--header-height)-3rem)] items-center justify-center rounded-lg border">
+          <div className="text-muted-foreground flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Cargando calendario...</span>
+          </div>
         </div>
       </div>
     );
   }
 
-  return <EventCalendar events={events} readOnly={true} onMonthChange={handleMonthChange} />;
+  return (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader
+        title="Mi Calendario"
+        description="Visualiza y gestiona tus eventos, vacaciones y turnos en un solo lugar."
+      />
+      <EventCalendar events={events} readOnly={true} onMonthChange={handleMonthChange} />
+    </div>
+  );
 }

@@ -471,7 +471,10 @@ export default function PtoApprovalsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Solicitudes de PTO" />
+      <SectionHeader
+        title="Solicitudes de PTO"
+        description="Revisa y gestiona las solicitudes de vacaciones y ausencias de tu equipo."
+      />
 
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
         <TabsList className="justify-start overflow-x-auto">
