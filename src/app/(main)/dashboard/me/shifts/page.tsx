@@ -166,7 +166,7 @@ export default function MyShiftsPage() {
   }
 
   return (
-    <div className="@container/main flex flex-col gap-6">
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
       <SectionHeader
         title="Mis Turnos"
@@ -178,42 +178,38 @@ export default function MyShiftsPage() {
 
       {/* Calendario de Turnos Mensual */}
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            {/* Navegación izquierda */}
-            <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-
-            {/* Mes en el centro */}
-            <div className="text-center">
-              <h2 className="text-xl font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: es })}</h2>
-            </div>
-
-            {/* Navegación derecha */}
-            <div className="flex items-center gap-2">
+            {/* Navegación y mes juntos (izquierda) */}
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="px-3 text-xl font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: es })}</h2>
               <Button variant="outline" size="icon" onClick={goToNextMonth}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={goToToday}>
-                Hoy
-              </Button>
             </div>
+
+            {/* Botón Hoy (derecha) */}
+            <Button variant="outline" size="sm" onClick={goToToday}>
+              Hoy
+            </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           {myShifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <Calendar className="text-muted-foreground size-12" />
               <p className="text-muted-foreground text-sm">No tienes turnos asignados este mes</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <>
               {/* Grid de calendario */}
-              <div className="grid grid-cols-7 gap-1 md:gap-2">
+              <div className="grid grid-cols-7 gap-2 md:gap-3">
                 {/* Headers de días de la semana */}
                 {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((day) => (
-                  <div key={day} className="text-muted-foreground py-2 text-center text-xs font-medium">
+                  <div key={day} className="text-muted-foreground pb-2 text-center text-xs font-medium uppercase">
                     {day}
                   </div>
                 ))}
@@ -229,7 +225,7 @@ export default function MyShiftsPage() {
                   const emptyDayType = getEmptyDayType(dateKey, shifts);
 
                   return (
-                    <div key={dateKey} className={cn("min-h-[60px] p-1 md:min-h-[100px] md:p-2 lg:min-h-[120px]")}>
+                    <div key={dateKey} className="min-h-[60px] md:min-h-[80px]">
                       {/* Turnos del día */}
                       {hasShifts ? (
                         dayShifts.map((shift) => {
@@ -244,25 +240,29 @@ export default function MyShiftsPage() {
                               key={shift.id}
                               onClick={() => handleShiftClick(shift)}
                               className={cn(
-                                "h-full w-full rounded-xl p-2 text-left transition-opacity hover:opacity-80",
+                                "h-full w-full rounded-lg p-2 text-left transition-all hover:scale-[1.02] hover:opacity-90",
                                 colors,
                               )}
                             >
-                              {/* Layout: MAÑANA (izq) + 15 (der) arriba, horario abajo derecha */}
-                              <div className="flex h-full flex-col justify-between">
-                                {/* Fila superior */}
-                                <div className="flex items-start justify-between">
-                                  {/* Texto completo en desktop, letra inicial en móvil */}
-                                  <span className="hidden text-[11px] font-bold tracking-wide uppercase md:inline">
-                                    {label}
-                                  </span>
-                                  <span className="text-[13px] font-bold uppercase md:hidden">{label.charAt(0)}</span>
-                                  <span className="text-[10px] opacity-60">{format(day, "d")}</span>
+                              {/* Layout vertical con jerarquía clara */}
+                              <div className="flex h-full flex-col justify-between gap-1">
+                                {/* Fecha arriba izquierda */}
+                                <div className="flex justify-start">
+                                  <span className="text-[10px] font-medium opacity-60">{format(day, "d")}</span>
                                 </div>
 
-                                {/* Fila inferior - solo en desktop */}
-                                <div className="hidden justify-end md:flex">
-                                  <span className="text-[10px] font-medium">
+                                {/* Tag tipo turno centrado */}
+                                <div className="flex flex-1 items-center justify-center">
+                                  {/* Texto completo en desktop, letra inicial en móvil */}
+                                  <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                    {label}
+                                  </span>
+                                  <span className="text-xs font-bold uppercase md:hidden">{label.charAt(0)}</span>
+                                </div>
+
+                                {/* Horario abajo centrado - solo desktop */}
+                                <div className="hidden justify-center md:flex">
+                                  <span className="text-[9px] font-medium opacity-80">
                                     {formatShiftTime(shift.startTime, shift.endTime)}
                                   </span>
                                 </div>
@@ -274,30 +274,38 @@ export default function MyShiftsPage() {
                         // Días sin turnos
                         <div
                           className={cn(
-                            "flex h-full w-full items-center justify-center rounded-xl p-2",
-                            emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/70 dark:bg-muted/40",
+                            "flex h-full w-full flex-col justify-between rounded-lg p-2",
+                            emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/50 dark:bg-muted/30",
                           )}
                         >
-                          {emptyDayType === "rest" ? (
-                            <>
-                              <span className="hidden text-[10px] font-bold tracking-wide uppercase opacity-70 md:inline">
-                                Descanso
+                          {/* Fecha arriba izquierda */}
+                          <div className="flex justify-start">
+                            <span className="text-[10px] font-medium opacity-40">{format(day, "d")}</span>
+                          </div>
+
+                          {/* Estado del día centrado */}
+                          <div className="flex flex-1 items-center justify-center">
+                            {emptyDayType === "rest" ? (
+                              <>
+                                <span className="hidden text-[9px] font-bold tracking-wider uppercase opacity-70 md:inline">
+                                  Descanso
+                                </span>
+                                <span className="text-xs font-bold uppercase opacity-70 md:hidden">D</span>
+                              </>
+                            ) : (
+                              // Sin planificar: mostrar solo en desktop
+                              <span className="hidden text-[8px] tracking-wide uppercase opacity-40 md:inline">
+                                Libre
                               </span>
-                              <span className="text-[13px] font-bold uppercase opacity-70 md:hidden">D</span>
-                            </>
-                          ) : (
-                            // Sin planificar: mostrar solo en desktop
-                            <span className="hidden text-[9px] tracking-wide uppercase opacity-50 md:inline">
-                              Sin planificar
-                            </span>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </>
           )}
         </CardContent>
       </Card>
