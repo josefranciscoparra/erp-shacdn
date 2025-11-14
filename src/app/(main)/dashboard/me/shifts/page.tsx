@@ -23,9 +23,8 @@ import {
   startOfToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
-import { RestDayCard } from "@/app/(main)/dashboard/shifts/_components/rest-day-card";
 import { formatShiftTime, getEmptyDayType } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
@@ -38,6 +37,40 @@ import { cn } from "@/lib/utils";
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
 import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
+
+// Helper: Determinar tipo de turno según hora de inicio
+function getShiftType(startTime: string): "morning" | "afternoon" | "night" {
+  const hour = parseInt(startTime.split(":")[0] ?? "0", 10);
+  if (hour >= 6 && hour < 14) return "morning";
+  if (hour >= 14 && hour < 22) return "afternoon";
+  return "night";
+}
+
+// Helper: Colores pastel más fuertes estilo Linear/Factorial
+function getShiftColors(type: "morning" | "afternoon" | "night" | "rest") {
+  switch (type) {
+    case "morning":
+      return "bg-blue-100 dark:bg-blue-900/50 text-blue-900 dark:text-blue-100";
+    case "afternoon":
+      return "bg-orange-100 dark:bg-orange-900/50 text-orange-900 dark:text-orange-100";
+    case "night":
+      return "bg-purple-100 dark:bg-purple-900/50 text-purple-900 dark:text-purple-100";
+    case "rest":
+      return "bg-green-100 dark:bg-green-900/50 text-green-900 dark:text-green-100";
+  }
+}
+
+// Helper: Etiqueta del tipo de turno
+function getShiftLabel(type: "morning" | "afternoon" | "night") {
+  switch (type) {
+    case "morning":
+      return "Mañana";
+    case "afternoon":
+      return "Tarde";
+    case "night":
+      return "Noche";
+  }
+}
 
 export default function MyShiftsPage() {
   // Store de turnos (compartido con el módulo de gestión)
@@ -192,83 +225,56 @@ export default function MyShiftsPage() {
                   const emptyDayType = getEmptyDayType(dateKey, shifts);
 
                   return (
-                    <div
-                      key={dateKey}
-                      className={cn(
-                        "hover:border-primary/50 min-h-[60px] rounded-lg border p-1 transition-all md:min-h-[100px] md:p-2 lg:min-h-[120px]",
-                        today && "border-primary bg-primary/5",
-                        hasShifts && "from-primary/10 bg-gradient-to-br to-transparent",
-                        !hasShifts && "bg-muted/30",
-                      )}
-                    >
-                      <div className="mb-1 flex items-center justify-between md:mb-2">
-                        <span
+                    <div key={dateKey} className={cn("min-h-[60px] p-1 md:min-h-[100px] md:p-2 lg:min-h-[120px]")}>
+                      {/* Turnos del día */}
+                      {hasShifts ? (
+                        dayShifts.map((shift) => {
+                          const shiftType = getShiftType(shift.startTime);
+                          const colors = getShiftColors(shiftType);
+                          const label = getShiftLabel(shiftType);
+
+                          return (
+                            <button
+                              key={shift.id}
+                              onClick={() => handleShiftClick(shift)}
+                              className={cn(
+                                "h-full w-full rounded-xl p-2 text-left transition-opacity hover:opacity-80",
+                                colors,
+                              )}
+                            >
+                              {/* Layout: MAÑANA (izq) + 15 (der) arriba, horario abajo derecha */}
+                              <div className="flex h-full flex-col justify-between">
+                                {/* Fila superior */}
+                                <div className="flex items-start justify-between">
+                                  <span className="text-[11px] font-bold tracking-wide uppercase">{label}</span>
+                                  <span className="text-[10px] opacity-60">{format(day, "d")}</span>
+                                </div>
+
+                                {/* Fila inferior */}
+                                <div className="flex justify-end">
+                                  <span className="text-[10px] font-medium">
+                                    {formatShiftTime(shift.startTime, shift.endTime)}
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })
+                      ) : (
+                        // Días sin turnos
+                        <div
                           className={cn(
-                            "text-xs font-medium md:text-sm",
-                            today && "text-primary",
-                            !isSameMonth(day, currentMonth) && "text-muted-foreground",
+                            "flex h-full w-full items-center justify-center rounded-xl p-2",
+                            emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/20",
                           )}
                         >
-                          {format(day, "d")}
-                        </span>
-                        {hasShifts && (
-                          <Badge variant="secondary" className="h-4 px-1 text-[9px] md:h-5 md:px-1.5 md:text-[10px]">
-                            {dayShifts.length}
-                          </Badge>
-                        )}
-                      </div>
-
-                      {/* Turnos del día */}
-                      <div className="space-y-1">
-                        {hasShifts ? (
-                          dayShifts.map((shift, index) => {
-                            const zone = zones.find((z) => z.id === shift.zoneId);
-                            const costCenter = costCenters.find((cc) => cc.id === shift.costCenterId);
-
-                            return (
-                              <button
-                                key={shift.id}
-                                onClick={() => handleShiftClick(shift)}
-                                className="hover:bg-primary/20 bg-card hover:border-primary/30 w-full cursor-pointer rounded border border-transparent p-1 text-left shadow-sm transition-colors md:p-1.5"
-                              >
-                                {/* Vista móvil: solo indicador de color */}
-                                <div className="flex items-center justify-center md:hidden">
-                                  <div className="bg-primary h-1.5 w-1.5 rounded-full" />
-                                </div>
-
-                                {/* Vista desktop: detalles completos */}
-                                <div className="hidden md:block">
-                                  <div className="mb-1 flex items-center gap-1 text-[10px] font-semibold">
-                                    <Clock className="h-3 w-3" />
-                                    <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
-                                    {shift.breakMinutes && shift.breakMinutes > 0 && (
-                                      <Coffee
-                                        className="text-muted-foreground h-3 w-3"
-                                        title={`${shift.breakMinutes}min`}
-                                      />
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[9px]">
-                                    <MapPin className="text-muted-foreground h-2.5 w-2.5" />
-                                    <span className="text-muted-foreground truncate">
-                                      {costCenter?.name ?? "Sin lugar"}
-                                    </span>
-                                  </div>
-                                  {zone && (
-                                    <Badge variant="outline" className="mt-1 h-4 text-[8px]">
-                                      {zone.name}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </button>
-                            );
-                          })
-                        ) : (
-                          <div className="hidden md:block">
-                            <RestDayCard type={emptyDayType} compact />
-                          </div>
-                        )}
-                      </div>
+                          {emptyDayType === "rest" ? (
+                            <span className="text-[10px] font-bold tracking-wide uppercase opacity-70">Descanso</span>
+                          ) : (
+                            <span className="text-[9px] tracking-wide uppercase opacity-40">Sin planificar</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
