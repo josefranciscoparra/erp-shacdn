@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
-
 import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, TrendingUp, Calendar, X, Loader2 } from "lucide-react";
+import { CalendarDays, Calendar, FileCheck } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardDescription, CardContent, CardAction } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePtoStore } from "@/stores/pto-store";
 
@@ -17,19 +13,19 @@ interface PtoBalanceCardsProps {
 }
 
 export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
-  const { balance, isLoadingBalance, requests, cancelRequest } = usePtoStore();
-  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const { balance, isLoadingBalance, requests } = usePtoStore();
 
   if (isLoadingBalance) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {[1, 2, 3].map((i) => (
-          <Card key={i}>
+          <Card key={i} className="gap-2">
             <CardHeader>
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-8 w-16" />
-              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-5 w-32" />
             </CardHeader>
+            <CardContent>
+              <Skeleton className="h-12 w-full" />
+            </CardContent>
           </Card>
         ))}
       </div>
@@ -67,268 +63,118 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   const daysTotal = Math.floor(balance.annualAllowance);
   const daysPending = Math.floor(balance.daysPending);
 
-  // Calcular porcentajes
-  const usagePercentage = daysTotal > 0 ? Math.round((daysUsed / daysTotal) * 100) : 0;
-  const pendingPercentage = daysTotal > 0 ? Math.round((daysPending / daysTotal) * 100) : 0;
-
-  // Calcular anchos de barras (usados + pendientes no debe superar 100%)
-  const usedBarWidth = Math.min(usagePercentage, 100);
-  const pendingBarWidth = Math.min(pendingPercentage, 100 - usedBarWidth);
-
   // Filtrar próximas vacaciones aprobadas (futuras)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const upcomingVacations = requests
     .filter((r) => r.status === "APPROVED" && new Date(r.startDate) >= today)
-    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-    .slice(0, 3);
+    .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
   // Siguiente vacación más cercana
   const nextVacation = upcomingVacations[0];
-  const daysUntilVacation = nextVacation
-    ? Math.floor((new Date(nextVacation.startDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
 
   // Filtrar solicitudes pendientes
-  const pendingRequests = requests
-    .filter((r) => r.status === "PENDING")
-    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-    .slice(0, 3);
+  const pendingRequests = requests.filter((r) => r.status === "PENDING");
 
-  // Manejar cancelación de solicitud
-  const handleCancelRequest = async (requestId: string) => {
-    if (!confirm("¿Estás seguro de que quieres cancelar esta solicitud?")) {
-      return;
-    }
+  // Calcular última solicitud
+  const lastRequest = requests
+    .filter((r) => r.submittedAt)
+    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
 
-    setCancellingId(requestId);
-    try {
-      await cancelRequest(requestId, "Cancelada por el usuario");
-    } catch (error) {
-      console.error("Error al cancelar solicitud:", error);
-      alert("Error al cancelar la solicitud. Por favor, inténtalo de nuevo.");
-    } finally {
-      setCancellingId(null);
-    }
-  };
+  const daysAgoLastRequest = lastRequest
+    ? Math.floor((today.getTime() - new Date(lastRequest.submittedAt).getTime()) / (1000 * 60 * 60 * 24))
+    : null;
 
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {/* Card 1: Solicitudes Pendientes */}
-      <Card className="h-full">
+      {/* Card 1: Estado de solicitudes */}
+      <Card className="gap-2">
         <CardHeader>
-          <CardDescription>Solicitudes Pendientes</CardDescription>
-          <CardAction>
-            <Badge variant="secondary" className="bg-orange-500/10 text-orange-600">
-              {pendingRequests.length}
-            </Badge>
-          </CardAction>
+          <CardTitle className="font-display text-xl">Estado de solicitudes</CardTitle>
         </CardHeader>
         <CardContent>
-          {pendingRequests.length > 0 ? (
-            <div className="space-y-3">
-              {pendingRequests.map((request) => {
-                const startDate = new Date(request.startDate);
-                const endDate = new Date(request.endDate);
-                const days = Math.floor(request.workingDays);
-                const submittedAt = new Date(request.submittedAt);
-
-                // Normalizar fechas a medianoche para evitar problemas de zona horaria
-                const todayNormalized = new Date(today);
-                todayNormalized.setHours(0, 0, 0, 0);
-                const submittedNormalized = new Date(submittedAt);
-                submittedNormalized.setHours(0, 0, 0, 0);
-
-                const daysAgo = Math.floor(
-                  (todayNormalized.getTime() - submittedNormalized.getTime()) / (1000 * 60 * 60 * 24),
-                );
-
-                // Generar mensaje seguro
-                let timeAgoMessage = "hoy";
-                if (daysAgo < 0) {
-                  timeAgoMessage = "hoy"; // Si es futuro (no debería pasar), mostrar "hoy"
-                } else if (daysAgo === 0) {
-                  timeAgoMessage = "hoy";
-                } else if (daysAgo === 1) {
-                  timeAgoMessage = "hace 1 día";
-                } else {
-                  timeAgoMessage = `hace ${daysAgo} días`;
-                }
-
-                const isCancelling = cancellingId === request.id;
-
-                return (
-                  <div key={request.id} className="flex flex-col gap-2 rounded-lg border p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-1 flex-col gap-1">
-                        <span className="text-sm font-medium">
-                          {format(startDate, "d MMM", { locale: es })} - {format(endDate, "d MMM", { locale: es })}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {days} {days === 1 ? "día" : "días"}
-                        </span>
-                      </div>
-                      <Badge variant="secondary" className="bg-orange-500/10 text-orange-600">
-                        Pendiente
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-muted-foreground text-xs">Solicitado {timeAgoMessage}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleCancelRequest(request.id)}
-                        disabled={isCancelling}
-                        className="text-destructive hover:bg-destructive/10 hover:text-destructive h-7 px-2 text-xs"
-                      >
-                        {isCancelling ? (
-                          <>
-                            <Loader2 className="mr-1 size-3 animate-spin" />
-                            Cancelando...
-                          </>
-                        ) : (
-                          <>
-                            <X className="mr-1 size-3" />
-                            Cancelar
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <FileCheck className="size-5" />
             </div>
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 py-6">
-              <div className="bg-muted flex size-14 items-center justify-center rounded-full">
-                <CalendarDays className="text-muted-foreground size-7" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium">Todo al día</p>
-                <p className="text-muted-foreground mt-1 text-xs">No tienes solicitudes pendientes de aprobación</p>
-              </div>
-              <div className="rounded-lg border border-green-500/20 bg-green-500/5 px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <div className="bg-background flex size-7 items-center justify-center rounded-full border">
-                    <span className="text-xs">✓</span>
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-medium text-green-600">Estado: OK</p>
-                    <p className="text-muted-foreground text-xs">Todas procesadas</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+            <p className="text-muted-foreground text-sm">
+              {pendingRequests.length > 0 ? (
+                <>
+                  Tienes{" "}
+                  <span className="text-orange-600">
+                    {pendingRequests.length}{" "}
+                    {pendingRequests.length === 1 ? "solicitud pendiente" : "solicitudes pendientes"}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Todas las solicitudes <span className="text-green-600">procesadas</span>
+                </>
+              )}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
       {/* Card 2: Próximas vacaciones */}
-      <Card className="h-full min-h-[160px]">
+      <Card className="gap-2">
         <CardHeader>
-          <CardDescription>Próximas vacaciones</CardDescription>
-          <CardAction>
-            <Calendar className="text-primary size-4" />
-          </CardAction>
+          <CardTitle className="font-display text-xl">
+            {nextVacation ? "Próximas vacaciones" : "Sin vacaciones programadas"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {upcomingVacations.length > 0 ? (
-            <div className="space-y-3">
-              {upcomingVacations.map((vacation) => {
-                const startDate = new Date(vacation.startDate);
-                const endDate = new Date(vacation.endDate);
-                const days = Math.floor(vacation.workingDays);
-                const isSingleDay = isSameDay(startDate, endDate);
-
-                // Calcular días que faltan
-                const todayNormalized = new Date(today);
-                todayNormalized.setHours(0, 0, 0, 0);
-                const startNormalized = new Date(startDate);
-                startNormalized.setHours(0, 0, 0, 0);
-                const daysUntil = Math.floor(
-                  (startNormalized.getTime() - todayNormalized.getTime()) / (1000 * 60 * 60 * 24),
-                );
-
-                // Mensaje coloquial según días que faltan
-                let coloquialMessage = "";
-                if (daysUntil === 0) {
-                  coloquialMessage = "¡Hoy empiezan tus vacaciones!";
-                } else if (daysUntil === 1) {
-                  coloquialMessage = "¡Mañana empiezan! 🎉";
-                } else if (daysUntil <= 3) {
-                  coloquialMessage = `¡Ya queda nada! ${daysUntil} días 🔥`;
-                } else if (daysUntil <= 7) {
-                  coloquialMessage = `Falta una semanita (${daysUntil} días) 🌴`;
-                } else if (daysUntil <= 14) {
-                  coloquialMessage = `Faltan ${daysUntil} días 🏖️`;
-                } else if (daysUntil <= 30) {
-                  coloquialMessage = `En ${daysUntil} días te vas ⛱️`;
-                } else {
-                  coloquialMessage = `Falta un ratito (${daysUntil} días) 🗓️`;
-                }
-
-                return (
-                  <div key={vacation.id} className="flex flex-col gap-2 rounded-lg border p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-base font-semibold">
-                          {isSingleDay
-                            ? format(startDate, "d 'de' MMMM", { locale: es })
-                            : `${format(startDate, "d MMM", { locale: es })} - ${format(endDate, "d MMM", { locale: es })}`}
-                        </span>
-                        <span className="text-muted-foreground text-xs">
-                          {days} {days === 1 ? "día" : "días"}
-                        </span>
-                      </div>
-                      <Badge variant="secondary" className="bg-green-500/10 text-green-600">
-                        Aprobada
-                      </Badge>
-                    </div>
-                    <div className="text-primary text-sm font-medium">{coloquialMessage}</div>
-                  </div>
-                );
-              })}
+          {nextVacation ? (
+            <div className="flex items-center gap-2">
+              <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+                <Calendar className="size-5" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">
+                  {format(new Date(nextVacation.startDate), "d 'de' MMMM", { locale: es })}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  {(() => {
+                    const daysUntil = Math.floor(
+                      (new Date(nextVacation.startDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+                    );
+                    if (daysUntil === 0) return "Hoy empiezan · 🏖️";
+                    if (daysUntil === 1) return "Mañana · 🔥";
+                    if (daysUntil <= 7) return `Dentro de ${daysUntil} días · 🌴`;
+                    if (daysUntil <= 30) return `Dentro de ${daysUntil} días · ⛱️`;
+                    return `Dentro de ${daysUntil} días · 🗓️`;
+                  })()}
+                </p>
+              </div>
             </div>
           ) : (
-            <div className="flex h-full min-h-[100px] items-center justify-center rounded-lg border border-dashed">
-              <div className="text-center">
-                <p className="text-muted-foreground text-sm">No hay vacaciones programadas</p>
-                <p className="text-muted-foreground mt-1 text-xs">Tus próximas vacaciones aparecerán aquí</p>
+            <div className="flex items-center gap-2">
+              <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+                <Calendar className="size-5" />
               </div>
+              <p className="text-muted-foreground text-sm">No tienes vacaciones programadas</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Card 3: Resumen del año */}
+      {/* Card 3: Días disponibles */}
       <Card>
         <CardHeader>
-          <CardDescription>Resumen del año {balance.year}</CardDescription>
-          <div className="flex flex-col gap-3 pt-4">
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Total asignado</span>
-              <span className="font-display text-2xl">{daysTotal}</span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border p-3">
-              <span className="text-muted-foreground text-sm">Días usados</span>
-              <span className="font-display text-2xl">{daysUsed}</span>
-            </div>
-            {daysPending > 0 && (
-              <div className="flex items-center justify-between rounded-lg border p-3">
-                <span className="text-muted-foreground text-sm">Pendientes</span>
-                <span className="font-display text-2xl text-orange-600">{daysPending}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between rounded-lg border-2 border-green-500/20 bg-green-500/5 p-3">
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
-                  <CalendarDays className="text-primary size-5" />
-                </div>
-                <span className="text-sm font-medium">Vacaciones disponibles</span>
-              </div>
-              <span className="font-display text-4xl text-green-600">{daysAvailable}</span>
+          <CardDescription>Vacaciones</CardDescription>
+          <div className="flex flex-col gap-2">
+            <h4 className="font-display text-2xl lg:text-3xl">{daysAvailable} días</h4>
+            <div className="text-muted-foreground text-sm">
+              Te quedan {daysAvailable} {daysAvailable === 1 ? "día" : "días"} de vacaciones
             </div>
           </div>
+          <CardAction>
+            <div className="flex gap-4">
+              <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
+                <CalendarDays className="size-5" />
+              </div>
+            </div>
+          </CardAction>
         </CardHeader>
       </Card>
     </div>
