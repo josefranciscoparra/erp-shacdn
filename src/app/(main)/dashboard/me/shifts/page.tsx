@@ -16,7 +16,6 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameDay,
   isSameMonth,
   isToday,
   addMonths,
@@ -24,15 +23,16 @@ import {
   startOfToday,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, FileDown, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Coffee, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { RestDayCard } from "@/app/(main)/dashboard/shifts/_components/rest-day-card";
 import { formatShiftTime, getEmptyDayType } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
@@ -131,22 +131,7 @@ export default function MyShiftsPage() {
   return (
     <div className="@container/main flex flex-col gap-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-center @xl/main:justify-between">
-        <div>
-          <h1 className="text-foreground text-xl font-bold md:text-2xl">Mis Turnos</h1>
-          <p className="text-muted-foreground mt-1 text-xs md:text-sm">
-            Hola {currentEmployee.firstName}, aquí puedes consultar tus turnos asignados
-          </p>
-        </div>
-
-        <div className="flex gap-2">
-          {/* Botón exportar (placeholder) */}
-          <Button variant="outline" disabled>
-            <FileDown className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-        </div>
-      </div>
+      <SectionHeader title="Mis Turnos" />
 
       {/* Métricas */}
       <MyShiftsMetricsCards metrics={metrics} isLoading={isLoading} />

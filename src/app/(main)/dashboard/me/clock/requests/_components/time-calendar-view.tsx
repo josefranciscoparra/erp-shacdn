@@ -91,8 +91,98 @@ export function TimeCalendarView() {
       const missingPercentage = 100 - workedPercentage;
 
       // Obtener fichajes del día para la línea de tiempo
-      const timeEntries = dayData.workdaySummary?.timeEntries ?? [];
+      const timeEntries = dayData.workdaySummary?.timeEntries ?? dayData.timeEntries ?? [];
       const workdaySummary = dayData.workdaySummary;
+      const sortedTimeEntries = [...timeEntries].sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+      const deduplicatedEntries: typeof sortedTimeEntries = [];
+      const seenEntries = new Set<string>();
+      for (const entry of sortedTimeEntries) {
+        const key = entry.id ?? `${entry.entryType}-${new Date(entry.timestamp).getTime()}`;
+        if (seenEntries.has(key)) continue;
+        seenEntries.add(key);
+        deduplicatedEntries.push(entry);
+      }
+      const dayKey = format(props.day.date, "yyyy-MM-dd");
+      const isSameDayAsCell = (date: Date) => format(date, "yyyy-MM-dd") === dayKey;
+      const getHourValue = (date: Date) => date.getHours() + date.getMinutes() / 60 + date.getSeconds() / 3600;
+      const MIN_DISPLAY_MINUTES = 5;
+      const manualEntries = deduplicatedEntries.filter((entry) => entry.isManual);
+      const isManualOnlyDay = manualEntries.length > 0 && manualEntries.length === deduplicatedEntries.length;
+
+      const getManualEntriesForDisplay = () => {
+        if (!isManualOnlyDay) {
+          return deduplicatedEntries;
+        }
+
+        const manualGroups = new Map<string, { entries: typeof deduplicatedEntries; latestCreatedAt: number }>();
+        manualEntries.forEach((entry) => {
+          const groupKey = entry.manualRequestId ?? `manual-${entry.id}`;
+          const existingGroup = manualGroups.get(groupKey) ?? { entries: [], latestCreatedAt: 0 };
+          existingGroup.entries.push(entry);
+          const createdAtTime = entry.createdAt
+            ? new Date(entry.createdAt).getTime()
+            : new Date(entry.timestamp).getTime();
+          existingGroup.latestCreatedAt = Math.max(existingGroup.latestCreatedAt, createdAtTime);
+          manualGroups.set(groupKey, existingGroup);
+        });
+
+        const sortedGroups = Array.from(manualGroups.values())
+          .map((group) => ({
+            entries: [...group.entries].sort(
+              (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+            ),
+            latestCreatedAt: group.latestCreatedAt,
+          }))
+          .sort((a, b) => b.latestCreatedAt - a.latestCreatedAt);
+
+        const latestGroupEntries = sortedGroups[0]?.entries ?? manualEntries;
+
+        const manualClockIns = latestGroupEntries.filter((entry) => entry.entryType === "CLOCK_IN");
+        const manualClockOuts = latestGroupEntries.filter((entry) => entry.entryType === "CLOCK_OUT");
+
+        const firstClockIn = manualClockIns.length > 0 ? manualClockIns[0] : latestGroupEntries[0];
+        const lastClockOut =
+          manualClockOuts.length > 0
+            ? manualClockOuts[manualClockOuts.length - 1]
+            : latestGroupEntries[latestGroupEntries.length - 1];
+
+        const result: typeof deduplicatedEntries = [];
+
+        if (firstClockIn) {
+          result.push(firstClockIn);
+        }
+
+        if (lastClockOut && (!firstClockIn || lastClockOut.id !== firstClockIn.id)) {
+          result.push(lastClockOut);
+        }
+
+        return result.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      };
+
+      const getRegularEntriesForDisplay = () => {
+        if (deduplicatedEntries.length === 0) {
+          return deduplicatedEntries;
+        }
+
+        const firstClockIn =
+          deduplicatedEntries.find((entry) => entry.entryType === "CLOCK_IN") ?? deduplicatedEntries[0];
+        const lastClockOut =
+          [...deduplicatedEntries].reverse().find((entry) => entry.entryType === "CLOCK_OUT") ?? null;
+
+        const result: typeof deduplicatedEntries = [];
+
+        if (firstClockIn) {
+          result.push(firstClockIn);
+        }
+
+        if (lastClockOut && (!firstClockIn || lastClockOut.id !== firstClockIn.id)) {
+          result.push(lastClockOut);
+        }
+
+        return result;
+      };
 
       // Crear entradas simplificadas desde clockIn/clockOut si no hay timeEntries
       const simplifiedEntries = [];
@@ -109,30 +199,229 @@ export function TimeCalendarView() {
         });
       }
 
-      const entriesToShow = timeEntries.length > 0 ? timeEntries : simplifiedEntries;
+      const entriesForDisplay = isManualOnlyDay ? getManualEntriesForDisplay() : getRegularEntriesForDisplay();
+      const entriesToShow = entriesForDisplay.length > 0 ? entriesForDisplay : simplifiedEntries;
 
-      // Crear bloques de tiempo trabajado
-      const workBlocks: { start: number; end: number; type: "work" | "break" }[] = [];
+      const clampDurationMinutes = (minutes: number) => {
+        if (minutes <= 0) return 0;
+        return Math.max(minutes, MIN_DISPLAY_MINUTES);
+      };
 
-      // Si tenemos clockIn y clockOut, crear un bloque simple
-      if (workdaySummary?.clockIn && workdaySummary?.clockOut) {
-        const clockInDate = new Date(workdaySummary.clockIn);
-        const clockOutDate = new Date(workdaySummary.clockOut);
-        const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
-        const endHour = clockOutDate.getHours() + clockOutDate.getMinutes() / 60;
+      const buildBlocksFromEntries = (entries: typeof deduplicatedEntries, allowSyntheticBlock = true) => {
+        const blocks: { start: number; end: number; type: "work" | "break" }[] = [];
+        if (entries.length === 0) {
+          return blocks;
+        }
 
-        workBlocks.push({ start: startHour, end: endHour, type: "work" });
-      } else if (workdaySummary?.clockIn) {
-        // Solo clockIn, sin clockOut (todavía trabajando)
-        const clockInDate = new Date(workdaySummary.clockIn);
-        const startHour = clockInDate.getHours() + clockInDate.getMinutes() / 60;
+        let currentBlockStart: Date | null = null;
+        let currentBlockType: "work" | "break" | null = null;
 
-        const now = new Date();
-        const isToday = format(props.day.date, "yyyy-MM-dd") === format(now, "yyyy-MM-dd");
-        const endHour = isToday ? now.getHours() + now.getMinutes() / 60 : 24;
+        const closeBlock = (endDate: Date) => {
+          if (!currentBlockStart || !currentBlockType) return;
+          const startHour = getHourValue(currentBlockStart);
+          const endHour = getHourValue(endDate);
+          if (endHour > startHour) {
+            blocks.push({ start: startHour, end: endHour, type: currentBlockType });
+          }
+          currentBlockStart = null;
+          currentBlockType = null;
+        };
 
-        workBlocks.push({ start: startHour, end: endHour, type: "work" });
-      }
+        for (const entry of entries) {
+          const entryDate = new Date(entry.timestamp);
+          switch (entry.entryType) {
+            case "CLOCK_IN": {
+              if (currentBlockStart && currentBlockType) {
+                closeBlock(entryDate);
+              }
+              currentBlockStart = entryDate;
+              currentBlockType = "work";
+              break;
+            }
+            case "CLOCK_OUT": {
+              closeBlock(entryDate);
+              break;
+            }
+            case "BREAK_START":
+            case "PAUSE_START": {
+              closeBlock(entryDate);
+              currentBlockStart = entryDate;
+              currentBlockType = "break";
+              break;
+            }
+            case "BREAK_END":
+            case "PAUSE_END": {
+              closeBlock(entryDate);
+              currentBlockStart = entryDate;
+              currentBlockType = "work";
+              break;
+            }
+            default:
+              break;
+          }
+        }
+
+        if (currentBlockStart && currentBlockType) {
+          const now = new Date();
+          if (isSameDayAsCell(now)) {
+            closeBlock(now);
+          }
+        }
+
+        if (allowSyntheticBlock && blocks.length === 0 && entries.length > 0) {
+          const firstEntry = entries.find((entry) => entry.entryType === "CLOCK_IN") ?? entries[0];
+          const firstDate = new Date(firstEntry.timestamp);
+          const durationMinutes = clampDurationMinutes(dayData.workedHours * 60);
+          if (durationMinutes > 0) {
+            const endDate = new Date(firstDate.getTime() + durationMinutes * 60 * 1000);
+            const startHour = getHourValue(firstDate);
+            const endHour = Math.min(getHourValue(endDate), 24);
+            if (endHour > startHour) {
+              blocks.push({ start: startHour, end: endHour, type: "work" });
+            }
+          }
+        }
+
+        return blocks;
+      };
+
+      const createWorkBlock = (startDate: Date | null, endDate: Date | null, durationMinutes = 0) => {
+        if (!startDate) {
+          return null;
+        }
+
+        let blockEnd = endDate;
+        if (!blockEnd && durationMinutes > 0) {
+          blockEnd = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+        }
+
+        if (!blockEnd || blockEnd <= startDate) {
+          return null;
+        }
+
+        const startHour = getHourValue(startDate);
+        const endHour = Math.min(getHourValue(blockEnd), 24);
+
+        if (endHour <= startHour) {
+          return null;
+        }
+
+        return { start: startHour, end: endHour, type: "work" as const };
+      };
+
+      const buildBlocksFromSummary = () => {
+        if (!workdaySummary?.clockIn) {
+          return [];
+        }
+
+        const startDate = new Date(workdaySummary.clockIn);
+        const endDate = workdaySummary.clockOut
+          ? new Date(workdaySummary.clockOut)
+          : dayData.workedHours > 0
+            ? new Date(startDate.getTime() + dayData.workedHours * 60 * 60 * 1000)
+            : null;
+
+        const finalEndDate =
+          endDate ??
+          new Date(
+            Math.min(startDate.getTime() + MIN_DISPLAY_MINUTES * 60 * 1000, new Date(startDate).setHours(24, 0, 0, 0)),
+          );
+
+        const startHour = getHourValue(startDate);
+        const endHour = Math.min(getHourValue(finalEndDate), 24);
+
+        return endHour > startHour ? [{ start: startHour, end: endHour, type: "work" as const }] : [];
+      };
+
+      const buildManualBlocks = () => {
+        if (!isManualOnlyDay || entriesForDisplay.length === 0) {
+          return [];
+        }
+        const firstEntry = entriesForDisplay.find((entry) => entry.entryType === "CLOCK_IN") ?? entriesForDisplay[0];
+        if (!firstEntry) {
+          return [];
+        }
+
+        const startDate = new Date(firstEntry.timestamp);
+        const lastExit = [...entriesForDisplay].reverse().find((entry) => entry.entryType === "CLOCK_OUT") ?? null;
+
+        const durationMinutes =
+          dayData.workedHours > 0
+            ? Math.max(dayData.workedHours * 60, MIN_DISPLAY_MINUTES)
+            : lastExit
+              ? Math.max(
+                  (new Date(lastExit.timestamp).getTime() - startDate.getTime()) / (60 * 1000),
+                  MIN_DISPLAY_MINUTES,
+                )
+              : MIN_DISPLAY_MINUTES;
+        const endDate = new Date(startDate.getTime() + durationMinutes * 60 * 1000);
+
+        const startHour = getHourValue(startDate);
+        const endHour = Math.min(getHourValue(endDate), 24);
+
+        return endHour > startHour ? [{ start: startHour, end: endHour, type: "work" as const }] : [];
+      };
+
+      const buildRegularBlocks = () => {
+        const summaryDuration = clampDurationMinutes(dayData.workedHours * 60);
+        const summaryBlock =
+          workdaySummary && summaryDuration > 0
+            ? createWorkBlock(workdaySummary.clockIn ? new Date(workdaySummary.clockIn) : null, null, summaryDuration)
+            : null;
+
+        if (summaryBlock) {
+          return [summaryBlock];
+        }
+
+        const firstEntry =
+          entriesForDisplay.find((entry) => entry.entryType === "CLOCK_IN") ??
+          deduplicatedEntries.find((entry) => entry.entryType === "CLOCK_IN") ??
+          deduplicatedEntries[0];
+
+        const lastExit =
+          [...entriesForDisplay].reverse().find((entry) => entry.entryType === "CLOCK_OUT") ??
+          [...deduplicatedEntries].reverse().find((entry) => entry.entryType === "CLOCK_OUT") ??
+          null;
+
+        const fallbackMinutes = dayData.workedHours > 0 ? clampDurationMinutes(dayData.workedHours * 60) : 0;
+
+        const entriesBlock =
+          fallbackMinutes > 0
+            ? createWorkBlock(firstEntry ? new Date(firstEntry.timestamp) : null, null, fallbackMinutes)
+            : null;
+
+        if (entriesBlock) {
+          return [entriesBlock];
+        }
+
+        return buildBlocksFromEntries(deduplicatedEntries, dayData.workedHours > 0);
+      };
+
+      const workBlocks = (() => {
+        if (isManualOnlyDay) {
+          const manualBlocks = buildManualBlocks();
+          if (manualBlocks.length > 0) {
+            return manualBlocks;
+          }
+        }
+
+        const regularBlocks = buildRegularBlocks();
+        if (regularBlocks.length > 0) {
+          return regularBlocks;
+        }
+
+        return [];
+      })();
+
+      const clockInMarkers = entriesForDisplay
+        .filter((entry) => entry.entryType === "CLOCK_IN")
+        .map((entry, index) => {
+          const date = new Date(entry.timestamp);
+          return {
+            key: `${entry.entryType}-${index}-${date.getTime()}`,
+            positionPercent: (getHourValue(date) / 24) * 100,
+          };
+        });
 
       return (
         <TooltipProvider delayDuration={100}>
@@ -172,17 +461,29 @@ export function TimeCalendarView() {
                       return (
                         <div
                           key={`${block.type}-${block.start}-${block.end}`}
-                          className={cn(
-                            "absolute top-0 h-full",
-                            block.type === "work" ? "bg-green-500/80" : "bg-orange-400/60",
-                          )}
+                          className="absolute top-0 h-full"
                           style={{
                             left: `${startPercent}%`,
                             width: `${widthPercent}%`,
+                            minWidth: widthPercent < 0.5 ? "2px" : undefined,
+                            backgroundColor: block.type === "work" ? "#22c55e" : "#fb923c",
+                            opacity: block.type === "work" ? 0.85 : 0.7,
                           }}
                         />
                       );
                     })}
+                    {clockInMarkers.map((marker) => (
+                      <div
+                        key={marker.key}
+                        className="absolute top-0 h-full"
+                        style={{
+                          left: `calc(${marker.positionPercent}% - 1px)`,
+                          width: "2px",
+                          backgroundColor: "#16a34a",
+                          opacity: 0.8,
+                        }}
+                      />
+                    ))}
                   </div>
 
                   {/* Marcadores de hora */}
@@ -207,14 +508,16 @@ export function TimeCalendarView() {
                               "font-semibold",
                               entry.entryType === "CLOCK_IN" && "text-green-600 dark:text-green-400",
                               entry.entryType === "CLOCK_OUT" && "text-blue-600 dark:text-blue-400",
-                              entry.entryType === "PAUSE_START" && "text-orange-600 dark:text-orange-400",
-                              entry.entryType === "PAUSE_END" && "text-green-600 dark:text-green-400",
+                              (entry.entryType === "PAUSE_START" || entry.entryType === "BREAK_START") &&
+                                "text-orange-600 dark:text-orange-400",
+                              (entry.entryType === "PAUSE_END" || entry.entryType === "BREAK_END") &&
+                                "text-green-600 dark:text-green-400",
                             )}
                           >
                             {entry.entryType === "CLOCK_IN" && "Entrada"}
                             {entry.entryType === "CLOCK_OUT" && "Salida"}
-                            {entry.entryType === "PAUSE_START" && "Pausa"}
-                            {entry.entryType === "PAUSE_END" && "Reanuda"}
+                            {(entry.entryType === "PAUSE_START" || entry.entryType === "BREAK_START") && "Pausa"}
+                            {(entry.entryType === "PAUSE_END" || entry.entryType === "BREAK_END") && "Reanuda"}
                           </span>
                           <span className="text-card-foreground font-mono font-semibold">
                             {format(new Date(entry.timestamp), "HH:mm")}
