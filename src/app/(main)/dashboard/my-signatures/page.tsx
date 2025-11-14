@@ -92,46 +92,35 @@ export default function MySignaturesPage() {
       <SectionHeader title="Firmas digitales" description="Gestiona los documentos que requieren tu firma." />
 
       {/* Barra de filtros compacta */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-full space-y-1 md:w-[300px]">
-            <Label htmlFor="my-signatures-search" className="text-xs">
-              Buscar
-            </Label>
-            <Input
-              id="my-signatures-search"
-              placeholder="Busca por título o categoría"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-            />
-            {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
-              <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
-            )}
-          </div>
-          <div className="w-full space-y-1 md:w-[200px]">
-            <Label className="text-xs">Categoría</Label>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                {categoryOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setSearchTerm("");
-              setCategoryFilter("all");
-            }}
-          >
-            Limpiar filtros
-          </Button>
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-full space-y-1 md:w-[300px]">
+          <Label htmlFor="my-signatures-search" className="text-xs">
+            Buscar
+          </Label>
+          <Input
+            id="my-signatures-search"
+            placeholder="Busca por título o categoría"
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+          />
+          {normalizedSearch.length > 0 && normalizedSearch.length < 2 && (
+            <p className="text-muted-foreground text-xs">Introduce al menos 2 caracteres para filtrar</p>
+          )}
+        </div>
+        <div className="w-full space-y-1 md:w-[200px]">
+          <Label className="text-xs">Categoría</Label>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="Categoría" />
+            </SelectTrigger>
+            <SelectContent>
+              {categoryOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
