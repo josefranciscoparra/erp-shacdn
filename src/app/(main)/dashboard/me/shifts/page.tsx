@@ -265,13 +265,13 @@ export default function MyShiftsPage() {
                         <div
                           className={cn(
                             "flex h-full w-full items-center justify-center rounded-xl p-2",
-                            emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/20",
+                            emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/70 dark:bg-muted/40",
                           )}
                         >
                           {emptyDayType === "rest" ? (
                             <span className="text-[10px] font-bold tracking-wide uppercase opacity-70">Descanso</span>
                           ) : (
-                            <span className="text-[9px] tracking-wide uppercase opacity-40">Sin planificar</span>
+                            <span className="text-[9px] tracking-wide uppercase opacity-50">Sin planificar</span>
                           )}
                         </div>
                       )}
