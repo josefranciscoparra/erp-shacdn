@@ -5,26 +5,27 @@ import type { CalendarEventData } from "@/server/actions/employee-calendars";
 import type { CalendarEvent, EventColor } from "./components";
 
 /**
- * Get CSS classes for event colors
+ * Get CSS classes for event colors (chips estilo Factorial/Linear)
+ * Colores más sólidos y visibles para Safari
  */
 export function getEventColorClasses(color?: EventColor | string): string {
   const eventColor = color ?? "sky";
 
   switch (eventColor) {
     case "sky":
-      return "bg-sky-200/50 hover:bg-sky-200/40 text-sky-950/80 dark:bg-sky-400/25 dark:hover:bg-sky-400/20 dark:text-sky-200 shadow-sky-700/8";
+      return "bg-sky-100 hover:bg-sky-200 text-sky-900 dark:bg-sky-900/70 dark:hover:bg-sky-900/80 dark:text-sky-100";
     case "amber":
-      return "bg-amber-200/50 hover:bg-amber-200/40 text-amber-950/80 dark:bg-amber-400/25 dark:hover:bg-amber-400/20 dark:text-amber-200 shadow-amber-700/8";
+      return "bg-amber-100 hover:bg-amber-200 text-amber-900 dark:bg-amber-900/70 dark:hover:bg-amber-900/80 dark:text-amber-100";
     case "violet":
-      return "bg-violet-200/50 hover:bg-violet-200/40 text-violet-950/80 dark:bg-violet-400/25 dark:hover:bg-violet-400/20 dark:text-violet-200 shadow-violet-700/8";
+      return "bg-violet-100 hover:bg-violet-200 text-violet-900 dark:bg-violet-900/70 dark:hover:bg-violet-900/80 dark:text-violet-100";
     case "rose":
-      return "bg-rose-200/50 hover:bg-rose-200/40 text-rose-950/80 dark:bg-rose-400/25 dark:hover:bg-rose-400/20 dark:text-rose-200 shadow-rose-700/8";
+      return "bg-rose-100 hover:bg-rose-200 text-rose-900 dark:bg-rose-900/70 dark:hover:bg-rose-900/80 dark:text-rose-100";
     case "emerald":
-      return "bg-emerald-200/50 hover:bg-emerald-200/40 text-emerald-950/80 dark:bg-emerald-400/25 dark:hover:bg-emerald-400/20 dark:text-emerald-200 shadow-emerald-700/8";
+      return "bg-emerald-100 hover:bg-emerald-200 text-emerald-900 dark:bg-emerald-900/70 dark:hover:bg-emerald-900/80 dark:text-emerald-100";
     case "orange":
-      return "bg-orange-200/50 hover:bg-orange-200/40 text-orange-950/80 dark:bg-orange-400/25 dark:hover:bg-orange-400/20 dark:text-orange-200 shadow-orange-700/8";
+      return "bg-orange-100 hover:bg-orange-200 text-orange-900 dark:bg-orange-900/70 dark:hover:bg-orange-900/80 dark:text-orange-100";
     default:
-      return "bg-sky-200/50 hover:bg-sky-200/40 text-sky-950/80 dark:bg-sky-400/25 dark:hover:bg-sky-400/20 dark:text-sky-200 shadow-sky-700/8";
+      return "bg-sky-100 hover:bg-sky-200 text-sky-900 dark:bg-sky-900/70 dark:hover:bg-sky-900/80 dark:text-sky-100";
   }
 }
 
@@ -154,8 +155,10 @@ export function mapServerEventToCalendarEvent(serverEvent: CalendarEventData): C
   const start = new Date(serverEvent.date);
   const end = serverEvent.endDate ? new Date(serverEvent.endDate) : new Date(serverEvent.date);
 
-  // Si no tiene endDate, considerarlo como evento de todo el día
-  const allDay = !serverEvent.endDate;
+  // Considerarlo evento de todo el día si:
+  // 1. No tiene endDate, O
+  // 2. endDate es el mismo día que date (festivos, eventos de 1 día)
+  const allDay = !serverEvent.endDate || serverEvent.date === serverEvent.endDate;
 
   return {
     id: serverEvent.id,
