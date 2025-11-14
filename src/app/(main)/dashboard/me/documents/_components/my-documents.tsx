@@ -257,26 +257,6 @@ export function MyDocuments() {
         </div>
       )}
 
-      {/* Navegación: Botón Volver + Breadcrumb */}
-      <div className="mt-1 flex items-center gap-3">
-        {currentFolder && (
-          <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Volver
-          </Button>
-        )}
-        <div className="flex items-center gap-2 text-sm">
-          <FolderOpen className="text-muted-foreground h-4 w-4" />
-          <span className="text-muted-foreground">Carpetas</span>
-          {currentFolder && (
-            <>
-              <ChevronRight className="text-muted-foreground h-4 w-4" />
-              <span className="text-foreground font-semibold">{documentKindLabels[currentFolder]}</span>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Buscador con acciones rápidas */}
       <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
         <div className="relative w-full max-w-md">
@@ -333,6 +313,28 @@ export function MyDocuments() {
         </div>
       ) : (
         <>
+          {/* Navegación: Breadcrumb */}
+          {Object.keys(groupedDocuments).length > 0 && (
+            <div className="flex items-center gap-3">
+              {currentFolder && (
+                <Button variant="outline" size="sm" onClick={() => setCurrentFolder(null)} className="gap-2">
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver
+                </Button>
+              )}
+              <div className="flex items-center gap-2 text-sm">
+                <FolderOpen className="text-muted-foreground h-4 w-4" />
+                <span className="text-muted-foreground">Carpetas</span>
+                {currentFolder && (
+                  <>
+                    <ChevronRight className="text-muted-foreground h-4 w-4" />
+                    <span className="text-foreground font-semibold">{documentKindLabels[currentFolder]}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Vista de carpetas */}
           {!currentFolder && Object.keys(groupedDocuments).length > 0 && (
             <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
