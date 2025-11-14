@@ -56,6 +56,7 @@ export default function PtoPage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
         title="Mis Vacaciones"
+        description="Solicita y gestiona tus días de descanso y ausencias de forma sencilla."
         actionLabel={canCreateRequests ? "Nueva Solicitud" : undefined}
         onAction={() => {
           if (!canCreateRequests) {

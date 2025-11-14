@@ -469,7 +469,10 @@ export default function ExpenseApprovalsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Aprobación de Gastos" />
+      <SectionHeader
+        title="Aprobación de Gastos"
+        description="Revisa y aprueba los gastos presentados por los empleados de tu organización."
+      />
 
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
         <TabsList className="justify-start overflow-x-auto">

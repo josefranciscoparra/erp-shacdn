@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Loader2, SlidersHorizontal } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -114,15 +115,11 @@ export default function SignaturesPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Gestión de Firmas</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Administra las solicitudes de firma electrónica por estado, trabajador o categoría
-          </p>
-        </div>
-        <CreateSignatureDialog onSuccess={() => fetchAllRequests({ refresh: true })} />
-      </div>
+      <SectionHeader
+        title="Gestión de Firmas"
+        description="Administra las solicitudes de firma electrónica por estado, trabajador o categoría."
+        action={<CreateSignatureDialog onSuccess={() => fetchAllRequests({ refresh: true })} />}
+      />
 
       <Card>
         <CardContent className="flex flex-col gap-4 p-4">

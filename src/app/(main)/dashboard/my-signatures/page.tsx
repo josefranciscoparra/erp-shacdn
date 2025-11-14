@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { FileSignature, Loader2 } from "lucide-react";
 
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,18 +89,18 @@ export default function MySignaturesPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">Mis Firmas</h1>
-        </div>
-        {urgentCount > 0 && (
-          <Badge variant="destructive" className="gap-1.5">
-            <FileSignature className="h-3.5 w-3.5" />
-            {urgentCount} urgente{urgentCount !== 1 ? "s" : ""}
-          </Badge>
-        )}
-      </div>
+      <SectionHeader
+        title="Mis Firmas"
+        description="Gestiona los documentos que requieren tu firma de forma digital."
+        action={
+          urgentCount > 0 ? (
+            <Badge variant="destructive" className="gap-1.5">
+              <FileSignature className="h-3.5 w-3.5" />
+              {urgentCount} urgente{urgentCount !== 1 ? "s" : ""}
+            </Badge>
+          ) : undefined
+        }
+      />
 
       <div className="flex flex-col gap-3">
         <div className="flex items-end gap-3">

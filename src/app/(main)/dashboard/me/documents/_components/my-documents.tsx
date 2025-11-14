@@ -216,7 +216,12 @@ export function MyDocuments() {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <SectionHeader title="Mis Documentos" actionLabel="Subir documento" onAction={() => setUploadDialogOpen(true)} />
+      <SectionHeader
+        title="Mis Documentos"
+        description="Accede a tus documentos personales y laborales en un solo lugar."
+        actionLabel="Subir documento"
+        onAction={() => setUploadDialogOpen(true)}
+      />
 
       {/* Navegación: Botón Volver + Breadcrumb */}
       <div className="flex items-center gap-3">

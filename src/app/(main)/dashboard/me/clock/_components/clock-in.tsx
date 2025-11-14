@@ -376,7 +376,8 @@ export function ClockIn() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
-        title="Fichar"
+        title="Registrar tu jornada"
+        description="Gestiona tus fichajes y revisa tu progreso diario de forma sencilla."
         action={
           <Link href="/dashboard/me/clock/requests">
             <Button
