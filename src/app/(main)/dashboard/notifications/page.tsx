@@ -56,6 +56,7 @@ import {
   markNotificationAsUnread,
   markAllNotificationsAsRead,
 } from "@/server/actions/notifications";
+import { useNotificationsStore } from "@/stores/notifications-store";
 
 interface Notification {
   id: string;
@@ -150,6 +151,9 @@ export default function NotificationsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
+  // Store de Zustand para sincronizar la campanita
+  const { loadUnreadCount } = useNotificationsStore();
+
   const loadNotifications = async (unreadOnly: boolean = false, page: number = 1, pageSize: number = 20) => {
     setIsLoading(true);
     try {
@@ -203,6 +207,9 @@ export default function NotificationsPage() {
       await markAllNotificationsAsRead();
       toast.success("Todas las notificaciones marcadas como leídas");
 
+      // Actualizar el contador de la campanita
+      void loadUnreadCount();
+
       // Si estamos en modo "solo no leídas", recargar para mostrar mensaje vacío
       if (filterMode === "unread") {
         await loadNotifications(true, pagination.page, pagination.pageSize);
@@ -211,6 +218,7 @@ export default function NotificationsPage() {
       // En caso de error, recargar para obtener el estado correcto del servidor
       toast.error("Error al marcar notificaciones como leídas");
       await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
+      void loadUnreadCount();
     }
   };
 
@@ -234,13 +242,17 @@ export default function NotificationsPage() {
           await markNotificationAsRead(notification.id);
           toast.success("Notificación marcada como leída");
         }
+
+        // Actualizar el contador de la campanita
+        void loadUnreadCount();
       } catch {
         // En caso de error, recargar para obtener el estado correcto
         toast.error("Error al actualizar notificación");
         await loadNotifications(filterMode === "unread", pagination.page, pagination.pageSize);
+        void loadUnreadCount();
       }
     },
-    [filterMode, loadNotifications, pagination.page, pagination.pageSize],
+    [filterMode, loadNotifications, pagination.page, pagination.pageSize, loadUnreadCount],
   );
 
   const handleNotificationClick = useCallback(
@@ -254,6 +266,9 @@ export default function NotificationsPage() {
         try {
           await markNotificationAsRead(notification.id);
           updatedNotification = { ...notification, isRead: true };
+
+          // Actualizar el contador de la campanita
+          void loadUnreadCount();
         } catch (error) {
           console.error("Error al marcar notificación:", error);
         }
@@ -298,7 +313,7 @@ export default function NotificationsPage() {
         setIsDetailOpen(false);
       }
     },
-    [router, filterMode],
+    [router, filterMode, loadUnreadCount],
   );
 
   useEffect(() => {
