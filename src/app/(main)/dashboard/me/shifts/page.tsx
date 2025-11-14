@@ -244,29 +244,43 @@ export default function MyShiftsPage() {
                                 colors,
                               )}
                             >
-                              {/* Layout vertical con jerarquía clara */}
-                              <div className="flex h-full flex-col justify-between gap-1">
-                                {/* Fecha arriba izquierda */}
-                                <div className="flex justify-start">
-                                  <span className="text-[10px] font-medium opacity-60">{format(day, "d")}</span>
-                                </div>
-
-                                {/* Tag tipo turno centrado */}
-                                <div className="flex flex-1 items-center justify-center">
-                                  {/* Texto completo en desktop, letra inicial en móvil */}
+                              {/* Vacaciones: centrado */}
+                              {isVacation ? (
+                                <div className="flex h-full items-center justify-center">
+                                  {/* Desktop: texto completo */}
                                   <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
                                     {label}
                                   </span>
-                                  <span className="text-xs font-bold uppercase md:hidden">{label.charAt(0)}</span>
+                                  {/* Móvil: solo letra V centrada */}
+                                  <span className="text-xs font-bold uppercase md:hidden">V</span>
                                 </div>
+                              ) : (
+                                /* Turnos normales: layout completo */
+                                <div className="flex h-full flex-col justify-between">
+                                  {/* Fila superior: Tipo turno (izq) + Fecha (der) */}
+                                  <div className="flex items-start justify-between md:justify-start">
+                                    {/* Desktop: tipo turno izquierda + fecha derecha */}
+                                    <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                      {label}
+                                    </span>
+                                    <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
+                                      {format(day, "d")}
+                                    </span>
 
-                                {/* Horario abajo centrado - solo desktop */}
-                                <div className="hidden justify-center md:flex">
-                                  <span className="text-[9px] font-medium opacity-80">
-                                    {formatShiftTime(shift.startTime, shift.endTime)}
-                                  </span>
+                                    {/* Móvil: solo letra centrada */}
+                                    <span className="mx-auto text-xs font-bold uppercase md:hidden">
+                                      {label.charAt(0)}
+                                    </span>
+                                  </div>
+
+                                  {/* Fila inferior: Horario abajo derecha - solo desktop */}
+                                  <div className="hidden justify-end md:flex">
+                                    <span className="text-[9px] font-medium opacity-80">
+                                      {formatShiftTime(shift.startTime, shift.endTime)}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
+                              )}
                             </button>
                           );
                         })
@@ -274,31 +288,26 @@ export default function MyShiftsPage() {
                         // Días sin turnos
                         <div
                           className={cn(
-                            "flex h-full w-full flex-col justify-between rounded-lg p-2",
+                            "flex h-full w-full items-center justify-center rounded-lg p-2",
                             emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/50 dark:bg-muted/30",
                           )}
                         >
-                          {/* Fecha arriba izquierda */}
-                          <div className="flex justify-start">
-                            <span className="text-[10px] font-medium opacity-40">{format(day, "d")}</span>
-                          </div>
-
-                          {/* Estado del día centrado */}
-                          <div className="flex flex-1 items-center justify-center">
-                            {emptyDayType === "rest" ? (
-                              <>
-                                <span className="hidden text-[9px] font-bold tracking-wider uppercase opacity-70 md:inline">
-                                  Descanso
-                                </span>
-                                <span className="text-xs font-bold uppercase opacity-70 md:hidden">D</span>
-                              </>
-                            ) : (
-                              // Sin planificar: mostrar solo en desktop
-                              <span className="hidden text-[8px] tracking-wide uppercase opacity-40 md:inline">
-                                Libre
+                          {/* Descanso: centrado */}
+                          {emptyDayType === "rest" ? (
+                            <>
+                              {/* Desktop: texto completo */}
+                              <span className="hidden text-[9px] font-bold tracking-wider uppercase opacity-70 md:inline">
+                                Descanso
                               </span>
-                            )}
-                          </div>
+                              {/* Móvil: solo letra D centrada */}
+                              <span className="text-xs font-bold uppercase opacity-70 md:hidden">D</span>
+                            </>
+                          ) : (
+                            // Sin planificar: texto solo en desktop, NADA en móvil
+                            <span className="hidden text-[8px] tracking-wide uppercase opacity-40 md:inline">
+                              Sin planificar
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
