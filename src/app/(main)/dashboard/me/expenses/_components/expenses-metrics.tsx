@@ -2,8 +2,7 @@
 
 import { TrendingDown, TrendingUp, Wallet, Clock, CheckCircle2 } from "lucide-react";
 
-import { Card, CardAction, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ExpenseMetric {
   name: string;
@@ -30,58 +29,45 @@ export function ExpensesMetrics({ metrics }: ExpensesMetricsProps) {
     }
   };
 
-  const getIconStyles = (iconType: ExpenseMetric["icon"]) => {
-    switch (iconType) {
-      case "total":
-        return "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/50 dark:border-blue-900 dark:text-blue-400";
-      case "pending":
-        return "bg-green-50 border-green-200 text-green-600 dark:bg-green-950/50 dark:border-green-900 dark:text-green-400";
-      case "review":
-        return "bg-orange-50 border-orange-200 text-orange-600 dark:bg-orange-950/50 dark:border-orange-900 dark:text-orange-400";
-    }
-  };
-
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {metrics.map((metric) => (
-        <Card key={metric.name}>
+        <Card key={metric.name} className="gap-2">
           <CardHeader>
-            <CardDescription>{metric.name}</CardDescription>
-            <div className="flex flex-col gap-2">
-              <h4 className="font-display text-2xl lg:text-3xl">{metric.value}</h4>
-              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                {metric.change && metric.changeType !== "neutral" && (
-                  <span
-                    className={
-                      metric.changeType === "positive"
-                        ? "text-green-600 dark:text-green-500"
-                        : "text-red-600 dark:text-red-500"
-                    }
-                  >
-                    {metric.changeType === "positive" ? (
-                      <TrendingDown className="inline size-4" />
-                    ) : (
-                      <TrendingUp className="inline size-4" />
-                    )}{" "}
-                    {metric.change}
-                  </span>
-                )}
-                {metric.subtitle && <span>{metric.subtitle}</span>}
+            <CardTitle className="font-display text-xl">{metric.name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-2">
+              <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+                {getIcon(metric.icon)}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">{metric.value}</p>
+                <p className="text-muted-foreground text-sm">
+                  {metric.change && metric.changeType !== "neutral" && (
+                    <>
+                      <span
+                        className={
+                          metric.changeType === "positive"
+                            ? "text-green-600 dark:text-green-500"
+                            : "text-red-600 dark:text-red-500"
+                        }
+                      >
+                        {metric.changeType === "positive" ? (
+                          <TrendingDown className="inline size-3" />
+                        ) : (
+                          <TrendingUp className="inline size-3" />
+                        )}{" "}
+                        {metric.change}
+                      </span>
+                      {metric.subtitle && " · "}
+                    </>
+                  )}
+                  {metric.subtitle}
+                </p>
               </div>
             </div>
-            <CardAction>
-              <div className="flex gap-4">
-                <div
-                  className={cn(
-                    "flex size-12 items-center justify-center rounded-full border",
-                    getIconStyles(metric.icon),
-                  )}
-                >
-                  {getIcon(metric.icon)}
-                </div>
-              </div>
-            </CardAction>
-          </CardHeader>
+          </CardContent>
         </Card>
       ))}
     </div>
