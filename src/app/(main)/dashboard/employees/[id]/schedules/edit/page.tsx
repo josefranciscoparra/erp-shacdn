@@ -7,9 +7,9 @@ import { useParams, useRouter } from "next/navigation";
 import { Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import { WizardStep3Schedule } from "@/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { ScheduleForm, type ScheduleFormData } from "@/components/schedules/schedule-form";
 import { useContractsStore } from "@/stores/contracts-store";
 
 interface Employee {
@@ -39,7 +39,12 @@ export default function EditSchedulePage() {
         setIsLoading(true);
 
         // Cargar empleado
-        const employeeRes = await fetch(`/api/employees/${params.id}`);
+        const employeeRes = await fetch(`/api/employees/${params.id}`, {
+          cache: "no-store", // Fuerza fetch sin cache
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
         if (!employeeRes.ok) {
           throw new Error("Empleado no encontrado");
         }
@@ -53,7 +58,12 @@ export default function EditSchedulePage() {
         }
 
         // Cargar contrato completo
-        const contractRes = await fetch(`/api/contracts/${activeContract.id}`);
+        const contractRes = await fetch(`/api/contracts/${activeContract.id}`, {
+          cache: "no-store", // Fuerza fetch sin cache
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        });
         if (!contractRes.ok) {
           throw new Error("Error al cargar contrato");
         }
@@ -72,11 +82,12 @@ export default function EditSchedulePage() {
     }
   }, [params.id]);
 
-  const handleSubmit = async (data: ScheduleFormData) => {
+  const handleSubmit = async (data: any) => {
+    console.log("🔴 handleSubmit EDIT PAGE - data recibida:", data);
     if (!contract) return;
 
     try {
-      // Preparar payload con solo los campos de horarios
+      // Preparar payload con TODOS los campos del wizard (incluyendo FIXED)
       const payload = {
         // Mantener campos existentes del contrato
         contractType: contract.contractType,
@@ -87,43 +98,18 @@ export default function EditSchedulePage() {
         departmentId: contract.department?.id ?? null,
         costCenterId: contract.costCenter?.id ?? null,
         managerId: contract.manager?.id ?? null,
-        // Actualizar campos de horarios
-        weeklyHours: data.weeklyHours,
-        workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
-        hasIntensiveSchedule: data.hasIntensiveSchedule ?? false,
-        intensiveStartDate:
-          data.intensiveStartDate && data.intensiveStartDate.trim().length > 0 ? data.intensiveStartDate.trim() : null,
-        intensiveEndDate:
-          data.intensiveEndDate && data.intensiveEndDate.trim().length > 0 ? data.intensiveEndDate.trim() : null,
-        intensiveWeeklyHours: data.hasIntensiveSchedule ? (data.intensiveWeeklyHours ?? null) : null,
-        hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
-        mondayHours: data.hasCustomWeeklyPattern ? (data.mondayHours ?? 0) : null,
-        tuesdayHours: data.hasCustomWeeklyPattern ? (data.tuesdayHours ?? 0) : null,
-        wednesdayHours: data.hasCustomWeeklyPattern ? (data.wednesdayHours ?? 0) : null,
-        thursdayHours: data.hasCustomWeeklyPattern ? (data.thursdayHours ?? 0) : null,
-        fridayHours: data.hasCustomWeeklyPattern ? (data.fridayHours ?? 0) : null,
-        saturdayHours: data.hasCustomWeeklyPattern ? (data.saturdayHours ?? 0) : null,
-        sundayHours: data.hasCustomWeeklyPattern ? (data.sundayHours ?? 0) : null,
-        intensiveMondayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveMondayHours ?? 0) : null,
-        intensiveTuesdayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveTuesdayHours ?? 0) : null,
-        intensiveWednesdayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveWednesdayHours ?? 0) : null,
-        intensiveThursdayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveThursdayHours ?? 0) : null,
-        intensiveFridayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveFridayHours ?? 0) : null,
-        intensiveSaturdayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveSaturdayHours ?? 0) : null,
-        intensiveSundayHours:
-          data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveSundayHours ?? 0) : null,
+        // Actualizar TODOS los campos de horarios del wizard
+        ...data,
       };
 
+      console.log("🟠 Payload a enviar al servidor:", payload);
+      console.log("🟠 Contract ID:", contract.id);
       await updateContract(contract.id, payload);
+      console.log("🟢 updateContract completado");
       toast.success("Horarios actualizados exitosamente");
       router.push(`/dashboard/employees/${params.id}/schedules`);
     } catch (error: any) {
+      console.error("❌ Error en handleSubmit:", error);
       toast.error("Error al actualizar horarios", {
         description: error.message ?? "Ocurrió un error inesperado",
       });
@@ -175,13 +161,13 @@ export default function EditSchedulePage() {
     return Number.isNaN(num) ? undefined : num;
   };
 
-  const initialData: Partial<ScheduleFormData> = {
+  // Preparar TODOS los datos iniciales del contrato (incluye campos FIXED)
+  const initialData = {
+    // Tipo de horario
+    scheduleType: contract.scheduleType ?? "FLEXIBLE",
+    // Campos FLEXIBLE
     weeklyHours: toNumber(contract.weeklyHours) ?? 40,
     workingDaysPerWeek: toNumber(contract.workingDaysPerWeek) ?? 5,
-    hasIntensiveSchedule: contract.hasIntensiveSchedule ?? false,
-    intensiveStartDate: contract.intensiveStartDate ?? "",
-    intensiveEndDate: contract.intensiveEndDate ?? "",
-    intensiveWeeklyHours: toNumber(contract.intensiveWeeklyHours),
     hasCustomWeeklyPattern: contract.hasCustomWeeklyPattern ?? false,
     mondayHours: toNumber(contract.mondayHours),
     tuesdayHours: toNumber(contract.tuesdayHours),
@@ -190,6 +176,51 @@ export default function EditSchedulePage() {
     fridayHours: toNumber(contract.fridayHours),
     saturdayHours: toNumber(contract.saturdayHours),
     sundayHours: toNumber(contract.sundayHours),
+    // Campos FIXED - Días laborables
+    workMonday: contract.workMonday ?? false,
+    workTuesday: contract.workTuesday ?? false,
+    workWednesday: contract.workWednesday ?? false,
+    workThursday: contract.workThursday ?? false,
+    workFriday: contract.workFriday ?? false,
+    workSaturday: contract.workSaturday ?? false,
+    workSunday: contract.workSunday ?? false,
+    hasFixedTimeSlots: contract.hasFixedTimeSlots ?? false,
+    // Campos FIXED - Franjas horarias normales
+    mondayStartTime: contract.mondayStartTime ?? null,
+    mondayEndTime: contract.mondayEndTime ?? null,
+    tuesdayStartTime: contract.tuesdayStartTime ?? null,
+    tuesdayEndTime: contract.tuesdayEndTime ?? null,
+    wednesdayStartTime: contract.wednesdayStartTime ?? null,
+    wednesdayEndTime: contract.wednesdayEndTime ?? null,
+    thursdayStartTime: contract.thursdayStartTime ?? null,
+    thursdayEndTime: contract.thursdayEndTime ?? null,
+    fridayStartTime: contract.fridayStartTime ?? null,
+    fridayEndTime: contract.fridayEndTime ?? null,
+    saturdayStartTime: contract.saturdayStartTime ?? null,
+    saturdayEndTime: contract.saturdayEndTime ?? null,
+    sundayStartTime: contract.sundayStartTime ?? null,
+    sundayEndTime: contract.sundayEndTime ?? null,
+    // Campos FIXED - Pausas normales
+    mondayBreakStartTime: contract.mondayBreakStartTime ?? null,
+    mondayBreakEndTime: contract.mondayBreakEndTime ?? null,
+    tuesdayBreakStartTime: contract.tuesdayBreakStartTime ?? null,
+    tuesdayBreakEndTime: contract.tuesdayBreakEndTime ?? null,
+    wednesdayBreakStartTime: contract.wednesdayBreakStartTime ?? null,
+    wednesdayBreakEndTime: contract.wednesdayBreakEndTime ?? null,
+    thursdayBreakStartTime: contract.thursdayBreakStartTime ?? null,
+    thursdayBreakEndTime: contract.thursdayBreakEndTime ?? null,
+    fridayBreakStartTime: contract.fridayBreakStartTime ?? null,
+    fridayBreakEndTime: contract.fridayBreakEndTime ?? null,
+    saturdayBreakStartTime: contract.saturdayBreakStartTime ?? null,
+    saturdayBreakEndTime: contract.saturdayBreakEndTime ?? null,
+    sundayBreakStartTime: contract.sundayBreakStartTime ?? null,
+    sundayBreakEndTime: contract.sundayBreakEndTime ?? null,
+    // Jornada intensiva
+    hasIntensiveSchedule: contract.hasIntensiveSchedule ?? false,
+    intensiveStartDate: contract.intensiveStartDate ?? "",
+    intensiveEndDate: contract.intensiveEndDate ?? "",
+    intensiveWeeklyHours: toNumber(contract.intensiveWeeklyHours),
+    // Campos FLEXIBLE intensiva (legacy)
     intensiveMondayHours: toNumber(contract.intensiveMondayHours),
     intensiveTuesdayHours: toNumber(contract.intensiveTuesdayHours),
     intensiveWednesdayHours: toNumber(contract.intensiveWednesdayHours),
@@ -197,6 +228,36 @@ export default function EditSchedulePage() {
     intensiveFridayHours: toNumber(contract.intensiveFridayHours),
     intensiveSaturdayHours: toNumber(contract.intensiveSaturdayHours),
     intensiveSundayHours: toNumber(contract.intensiveSundayHours),
+    // Campos FIXED - Franjas horarias intensivas
+    intensiveMondayStartTime: contract.intensiveMondayStartTime ?? null,
+    intensiveMondayEndTime: contract.intensiveMondayEndTime ?? null,
+    intensiveTuesdayStartTime: contract.intensiveTuesdayStartTime ?? null,
+    intensiveTuesdayEndTime: contract.intensiveTuesdayEndTime ?? null,
+    intensiveWednesdayStartTime: contract.intensiveWednesdayStartTime ?? null,
+    intensiveWednesdayEndTime: contract.intensiveWednesdayEndTime ?? null,
+    intensiveThursdayStartTime: contract.intensiveThursdayStartTime ?? null,
+    intensiveThursdayEndTime: contract.intensiveThursdayEndTime ?? null,
+    intensiveFridayStartTime: contract.intensiveFridayStartTime ?? null,
+    intensiveFridayEndTime: contract.intensiveFridayEndTime ?? null,
+    intensiveSaturdayStartTime: contract.intensiveSaturdayStartTime ?? null,
+    intensiveSaturdayEndTime: contract.intensiveSaturdayEndTime ?? null,
+    intensiveSundayStartTime: contract.intensiveSundayStartTime ?? null,
+    intensiveSundayEndTime: contract.intensiveSundayEndTime ?? null,
+    // Campos FIXED - Pausas intensivas
+    intensiveMondayBreakStartTime: contract.intensiveMondayBreakStartTime ?? null,
+    intensiveMondayBreakEndTime: contract.intensiveMondayBreakEndTime ?? null,
+    intensiveTuesdayBreakStartTime: contract.intensiveTuesdayBreakStartTime ?? null,
+    intensiveTuesdayBreakEndTime: contract.intensiveTuesdayBreakEndTime ?? null,
+    intensiveWednesdayBreakStartTime: contract.intensiveWednesdayBreakStartTime ?? null,
+    intensiveWednesdayBreakEndTime: contract.intensiveWednesdayBreakEndTime ?? null,
+    intensiveThursdayBreakStartTime: contract.intensiveThursdayBreakStartTime ?? null,
+    intensiveThursdayBreakEndTime: contract.intensiveThursdayBreakEndTime ?? null,
+    intensiveFridayBreakStartTime: contract.intensiveFridayBreakStartTime ?? null,
+    intensiveFridayBreakEndTime: contract.intensiveFridayBreakEndTime ?? null,
+    intensiveSaturdayBreakStartTime: contract.intensiveSaturdayBreakStartTime ?? null,
+    intensiveSaturdayBreakEndTime: contract.intensiveSaturdayBreakEndTime ?? null,
+    intensiveSundayBreakStartTime: contract.intensiveSundayBreakStartTime ?? null,
+    intensiveSundayBreakEndTime: contract.intensiveSundayBreakEndTime ?? null,
   };
 
   return (
@@ -215,12 +276,7 @@ export default function EditSchedulePage() {
         }
       />
 
-      <ScheduleForm
-        initialData={initialData}
-        onSubmit={handleSubmit}
-        onCancel={() => router.back()}
-        isSubmitting={isUpdating}
-      />
+      <WizardStep3Schedule initialData={initialData} onSubmit={handleSubmit} isLoading={isUpdating} isEditMode={true} />
     </div>
   );
 }

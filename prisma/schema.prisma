@@ -385,6 +385,86 @@ model EmploymentContract {
   intensiveSaturdayHours  Decimal?  @db.Decimal(4,2)
   intensiveSundayHours    Decimal?  @db.Decimal(4,2)
 
+  // Tipo de horario (FLEXIBLE, FIXED, SHIFTS)
+  scheduleType ScheduleType @default(FLEXIBLE)
+
+  // Días laborables para horario FIXED (qué días trabaja)
+  workMonday    Boolean? @default(false)
+  workTuesday   Boolean? @default(false)
+  workWednesday Boolean? @default(false)
+  workThursday  Boolean? @default(false)
+  workFriday    Boolean? @default(false)
+  workSaturday  Boolean? @default(false)
+  workSunday    Boolean? @default(false)
+
+  // Franjas horarias para horario FIXED (opcional)
+  hasFixedTimeSlots  Boolean? @default(false)
+  mondayStartTime    String?   // Formato: "09:00"
+  mondayEndTime      String?   // Formato: "17:00"
+  tuesdayStartTime   String?
+  tuesdayEndTime     String?
+  wednesdayStartTime String?
+  wednesdayEndTime   String?
+  thursdayStartTime  String?
+  thursdayEndTime    String?
+  fridayStartTime    String?
+  fridayEndTime      String?
+  saturdayStartTime  String?
+  saturdayEndTime    String?
+  sundayStartTime    String?
+  sundayEndTime      String?
+
+  // Pausas/Breaks para horario FIXED (ej: pausa comida 14:00-15:00)
+  // Solo aplica cuando hasFixedTimeSlots = true
+  mondayBreakStartTime    String?   // Formato: "14:00"
+  mondayBreakEndTime      String?   // Formato: "15:00"
+  tuesdayBreakStartTime   String?
+  tuesdayBreakEndTime     String?
+  wednesdayBreakStartTime String?
+  wednesdayBreakEndTime   String?
+  thursdayBreakStartTime  String?
+  thursdayBreakEndTime    String?
+  fridayBreakStartTime    String?
+  fridayBreakEndTime      String?
+  saturdayBreakStartTime  String?
+  saturdayBreakEndTime    String?
+  sundayBreakStartTime    String?
+  sundayBreakEndTime      String?
+
+  // Franjas horarias para jornada intensiva en horario FIXED
+  // Solo aplica cuando hasIntensiveSchedule = true Y scheduleType = FIXED
+  intensiveMondayStartTime    String?   // Formato: "08:00"
+  intensiveMondayEndTime      String?   // Formato: "15:00"
+  intensiveTuesdayStartTime   String?
+  intensiveTuesdayEndTime     String?
+  intensiveWednesdayStartTime String?
+  intensiveWednesdayEndTime   String?
+  intensiveThursdayStartTime  String?
+  intensiveThursdayEndTime    String?
+  intensiveFridayStartTime    String?
+  intensiveFridayEndTime      String?
+  intensiveSaturdayStartTime  String?
+  intensiveSaturdayEndTime    String?
+  intensiveSundayStartTime    String?
+  intensiveSundayEndTime      String?
+
+  // Pausas durante jornada intensiva en horario FIXED
+  // Solo aplica cuando hasIntensiveSchedule = true Y scheduleType = FIXED Y hasFixedTimeSlots = true
+  intensiveMondayBreakStartTime    String?
+  intensiveMondayBreakEndTime      String?
+  intensiveTuesdayBreakStartTime   String?
+  intensiveTuesdayBreakEndTime     String?
+  intensiveWednesdayBreakStartTime String?
+  intensiveWednesdayBreakEndTime   String?
+  intensiveThursdayBreakStartTime  String?
+  intensiveThursdayBreakEndTime    String?
+  intensiveFridayBreakStartTime    String?
+  intensiveFridayBreakEndTime      String?
+  intensiveSaturdayBreakStartTime  String?
+  intensiveSaturdayBreakEndTime    String?
+  intensiveSundayBreakStartTime    String?
+  intensiveSundayBreakEndTime      String?
+
   // Metadatos
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -466,6 +546,13 @@ enum EmploymentStatus {
   SUSPENDED        // Suspendido
   TERMINATED       // Dado de baja
   RETIRED          // Jubilado
+}
+
+// Tipos de horario (sistema escalable para 3 modos)
+enum ScheduleType {
+  FLEXIBLE  // Horario flexible (40h/semana, cualquier día/hora)
+  FIXED     // Horario fijo (días y horas específicas, NO cambian)
+  SHIFTS    // Turnos rotativos (asignaciones variables - FUTURO/FASE 2)
 }
 
 // ==================== SISTEMA DE CONTRASEÑAS TEMPORALES ====================

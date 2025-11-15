@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, AlertTriangle, List, Map, Loader2, Clock, ArrowRight } from "lucide-react";
+import { LogIn, LogOut, Coffee, AlertTriangle, List, Map, Loader2, Clock, ArrowRight, Info } from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
 
@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
-import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
@@ -60,6 +60,7 @@ export function ClockIn() {
     todaySummary,
     expectedDailyHours,
     hasActiveContract,
+    isWorkingDay,
     liveWorkedMinutes,
     isClocking,
     isLoading,
@@ -350,7 +351,10 @@ export function ClockIn() {
   const breakMinutes = todaySummary?.totalBreakMinutes ?? 0;
   const totalMinutes = expectedDailyHours * 60;
   const chartRemainingMinutes = Math.max(0, totalMinutes - workedMinutes);
-  const progressPercentage = Math.min(Math.round((workedMinutes / totalMinutes) * 100), 100);
+
+  // Si es día no laborable (totalMinutes = 0), usar workedMinutes o 1 para mostrar el gráfico
+  const effectiveTotalMinutes = totalMinutes > 0 ? totalMinutes : Math.max(workedMinutes, 1);
+  const progressPercentage = totalMinutes > 0 ? Math.min(Math.round((workedMinutes / totalMinutes) * 100), 100) : 0;
 
   const chartConfig = {
     worked: {
@@ -367,11 +371,18 @@ export function ClockIn() {
     },
   } satisfies ChartConfig;
 
-  const chartData = [
-    { name: "worked", value: workedMinutes, fill: "var(--color-worked)" },
-    { name: "breaks", value: breakMinutes, fill: "var(--color-breaks)" },
-    { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
-  ];
+  // En días no laborables, mostrar solo lo trabajado + un mínimo para que se vea el círculo
+  const chartData =
+    totalMinutes > 0
+      ? [
+          { name: "worked", value: workedMinutes, fill: "var(--color-worked)" },
+          { name: "breaks", value: breakMinutes, fill: "var(--color-breaks)" },
+          { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
+        ]
+      : [
+          { name: "worked", value: workedMinutes > 0 ? workedMinutes : 0, fill: "var(--color-worked)" },
+          { name: "remaining", value: workedMinutes > 0 ? 0 : 1, fill: "var(--color-remaining)" },
+        ];
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -510,11 +521,19 @@ export function ClockIn() {
             </div>
 
             {/* Tiempo restante o completado */}
-            <div className="flex flex-col items-center gap-1">
+            <div className="flex w-full flex-col items-center gap-1">
               {isLoading ? (
                 <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 </div>
+              ) : !isWorkingDay ? (
+                <Alert className="animate-in fade-in-0 zoom-in-95 border-muted-foreground/20 bg-muted/40 w-full duration-500">
+                  <Info className="text-muted-foreground h-4 w-4" />
+                  <AlertTitle className="font-semibold">Día no laborable según tu contrato.</AlertTitle>
+                  <AlertDescription className="text-muted-foreground">
+                    Los fichajes de hoy se registrarán como tiempo extra en la bolsa de horas.
+                  </AlertDescription>
+                </Alert>
               ) : isCompleted ? (
                 <div className="animate-in fade-in-0 zoom-in-95 flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2 duration-500">
                   <span className="text-sm font-semibold text-green-600 dark:text-green-400">
@@ -550,19 +569,34 @@ export function ClockIn() {
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                 >
-                  <Button
-                    size="lg"
-                    onClick={handleClockIn}
-                    className="w-full disabled:opacity-70"
-                    disabled={isLoading || isClocking}
-                  >
-                    {isLoading || isClocking ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      <LogIn className="mr-2 h-5 w-5" />
-                    )}
-                    Fichar Entrada
-                  </Button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="lg"
+                          onClick={handleClockIn}
+                          className="w-full disabled:opacity-70"
+                          disabled={isLoading || isClocking}
+                        >
+                          {isLoading || isClocking ? (
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          ) : (
+                            <LogIn className="mr-2 h-5 w-5" />
+                          )}
+                          Fichar Entrada
+                        </Button>
+                      </TooltipTrigger>
+                      {!isWorkingDay && (
+                        <TooltipContent className="max-w-xs">
+                          <p className="text-sm">
+                            Día no laborable.
+                            <br />
+                            Se registrará como tiempo extra.
+                          </p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </motion.div>
               ) : (
                 <motion.div
@@ -639,7 +673,7 @@ export function ClockIn() {
                                   y={(viewBox.cy ?? 0) + 20}
                                   className="fill-muted-foreground text-sm"
                                 >
-                                  de tu jornada
+                                  {totalMinutes > 0 ? "de tu jornada" : "tiempo extra"}
                                 </tspan>
                               </text>
                             );

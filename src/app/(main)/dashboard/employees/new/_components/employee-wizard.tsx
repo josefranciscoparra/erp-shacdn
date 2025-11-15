@@ -93,97 +93,33 @@ export function EmployeeWizard() {
 
     setIsLoading(true);
     try {
-      // 1. CREAR EMPLEADO
-      const employeeResponse = await fetch("/api/employees", {
+      // Combinar todos los datos en un único payload
+      const wizardPayload = {
+        employee: employeeData,
+        contract: {
+          ...contractData,
+          // Añadir datos de horarios si existen
+          ...(data ?? {}),
+        },
+      };
+
+      // CREAR TODO EN UNA TRANSACCIÓN ATÓMICA
+      const response = await fetch("/api/employees/wizard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(employeeData),
+        body: JSON.stringify(wizardPayload),
       });
 
-      const employeeResult = await employeeResponse.json();
+      const result = await response.json();
 
-      if (!employeeResponse.ok) {
-        throw new Error(employeeResult.error ?? "Error al crear empleado");
+      if (!response.ok) {
+        throw new Error(result.error ?? "Error al crear empleado");
       }
 
-      const createdEmployeeId = employeeResult.id;
-      const temporaryPassword = employeeResult.temporaryPassword;
-      const userWasCreated = employeeResult.userCreated;
-
-      // 2. CREAR CONTRATO
-      const contractResponse = await fetch(`/api/employees/${createdEmployeeId}/contracts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify(contractData),
-      });
-
-      const contractResult = await contractResponse.json();
-
-      if (!contractResponse.ok) {
-        throw new Error(contractResult.error ?? "Error al crear contrato");
-      }
-
-      const createdContractId = contractResult.id;
-
-      // 3. ACTUALIZAR HORARIOS (si se configuraron)
-      if (data) {
-        const contract = contractResult;
-
-        // Preparar payload con campos del contrato + horarios actualizados
-        const payload = {
-          contractType: contract.contractType,
-          startDate: contract.startDate?.split("T")[0] ?? "",
-          endDate: contract.endDate ? contract.endDate.split("T")[0] : null,
-          grossSalary: contract.grossSalary ? Number(contract.grossSalary) : null,
-          positionId: contract.position?.id ?? null,
-          departmentId: contract.department?.id ?? null,
-          costCenterId: contract.costCenter?.id ?? null,
-          managerId: contract.manager?.id ?? null,
-          // Horarios del formulario
-          weeklyHours: data.weeklyHours,
-          workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
-          hasIntensiveSchedule: data.hasIntensiveSchedule ?? false,
-          intensiveStartDate: data.intensiveStartDate ?? null,
-          intensiveEndDate: data.intensiveEndDate ?? null,
-          intensiveWeeklyHours: data.intensiveWeeklyHours ?? null,
-          hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
-          mondayHours: data.hasCustomWeeklyPattern ? (data.mondayHours ?? 0) : null,
-          tuesdayHours: data.hasCustomWeeklyPattern ? (data.tuesdayHours ?? 0) : null,
-          wednesdayHours: data.hasCustomWeeklyPattern ? (data.wednesdayHours ?? 0) : null,
-          thursdayHours: data.hasCustomWeeklyPattern ? (data.thursdayHours ?? 0) : null,
-          fridayHours: data.hasCustomWeeklyPattern ? (data.fridayHours ?? 0) : null,
-          saturdayHours: data.hasCustomWeeklyPattern ? (data.saturdayHours ?? 0) : null,
-          sundayHours: data.hasCustomWeeklyPattern ? (data.sundayHours ?? 0) : null,
-          intensiveMondayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveMondayHours ?? 0) : null,
-          intensiveTuesdayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveTuesdayHours ?? 0) : null,
-          intensiveWednesdayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveWednesdayHours ?? 0) : null,
-          intensiveThursdayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveThursdayHours ?? 0) : null,
-          intensiveFridayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveFridayHours ?? 0) : null,
-          intensiveSaturdayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveSaturdayHours ?? 0) : null,
-          intensiveSundayHours:
-            data.hasCustomWeeklyPattern && data.hasIntensiveSchedule ? (data.intensiveSundayHours ?? 0) : null,
-        };
-
-        const scheduleResponse = await fetch(`/api/contracts/${createdContractId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify(payload),
-        });
-
-        if (!scheduleResponse.ok) {
-          const scheduleResult = await scheduleResponse.json();
-          throw new Error(scheduleResult.error ?? "Error al actualizar horarios");
-        }
-      }
+      const createdEmployeeId = result.employeeId;
+      const temporaryPassword = result.temporaryPassword;
+      const userWasCreated = result.userWasCreated;
 
       // Marcar paso 3 como completado
       setCompletedSteps((prev) => [...prev, 3]);

@@ -48,10 +48,14 @@ interface DayDetailData {
   clockOut?: Date | null;
   totalWorkedMinutes: number;
   totalBreakMinutes: number;
-  status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "ABSENT";
+  status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "ABSENT" | "HOLIDAY" | "NON_WORKDAY";
   expectedHours: number;
   actualHours: number;
   compliance: number;
+  // Nuevos campos
+  isWorkingDay: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
   timeEntries: {
     id: string;
     entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";

@@ -18,6 +18,8 @@ import {
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
+  CalendarX,
+  PartyPopper,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -50,10 +52,14 @@ interface DayData {
   clockOut?: Date | null;
   totalWorkedMinutes: number;
   totalBreakMinutes: number;
-  status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "ABSENT";
+  status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" | "ABSENT" | "HOLIDAY" | "NON_WORKDAY";
   expectedHours: number;
   actualHours: number;
   compliance: number;
+  // Nuevos campos
+  isWorkingDay?: boolean;
+  isHoliday?: boolean;
+  holidayName?: string;
   timeEntries: TimeEntry[];
 }
 
@@ -113,6 +119,18 @@ const statusConfig = {
     color: "text-red-600 dark:text-red-400",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
   },
+  HOLIDAY: {
+    label: "Festivo",
+    icon: PartyPopper,
+    color: "text-purple-600 dark:text-purple-400",
+    badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
+  },
+  NON_WORKDAY: {
+    label: "Día no laborable",
+    icon: CalendarX,
+    color: "text-gray-600 dark:text-gray-400",
+    badgeClass: "bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-300",
+  },
 };
 
 function formatMinutes(minutes: number): string {
@@ -162,6 +180,14 @@ export function DayCard({ day }: DayCardProps) {
               <StatusIcon className="mr-1 size-3" />
               {statusInfo.label}
             </Badge>
+            {day.holidayName && (
+              <Badge
+                variant="outline"
+                className="border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-300"
+              >
+                {day.holidayName}
+              </Badge>
+            )}
           </div>
           <span className={cn("text-lg font-bold", complianceColor)}>{day.compliance}%</span>
         </div>

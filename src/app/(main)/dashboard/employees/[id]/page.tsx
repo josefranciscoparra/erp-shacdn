@@ -356,7 +356,7 @@ export default function EmployeeProfilePage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="flex flex-wrap items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
+          <Button variant="outline" size="sm" onClick={() => router.push("/dashboard/employees")}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver
           </Button>

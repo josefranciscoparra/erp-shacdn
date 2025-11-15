@@ -2,6 +2,9 @@
 
 import { create } from "zustand";
 
+// Tipo de horario (escalable a 3 modos)
+export type ScheduleType = "FLEXIBLE" | "FIXED" | "SHIFTS";
+
 export interface Position {
   id: string;
   title: string;
@@ -63,6 +66,75 @@ export interface Contract {
   intensiveFridayHours?: number | null;
   intensiveSaturdayHours?: number | null;
   intensiveSundayHours?: number | null;
+  // Nuevos campos para FLEXIBLE, FIXED, SHIFTS
+  scheduleType?: ScheduleType;
+  workMonday?: boolean | null;
+  workTuesday?: boolean | null;
+  workWednesday?: boolean | null;
+  workThursday?: boolean | null;
+  workFriday?: boolean | null;
+  workSaturday?: boolean | null;
+  workSunday?: boolean | null;
+  hasFixedTimeSlots?: boolean | null;
+  mondayStartTime?: string | null;
+  mondayEndTime?: string | null;
+  tuesdayStartTime?: string | null;
+  tuesdayEndTime?: string | null;
+  wednesdayStartTime?: string | null;
+  wednesdayEndTime?: string | null;
+  thursdayStartTime?: string | null;
+  thursdayEndTime?: string | null;
+  fridayStartTime?: string | null;
+  fridayEndTime?: string | null;
+  saturdayStartTime?: string | null;
+  saturdayEndTime?: string | null;
+  sundayStartTime?: string | null;
+  sundayEndTime?: string | null;
+  // Pausas/Breaks para horario FIXED
+  mondayBreakStartTime?: string | null;
+  mondayBreakEndTime?: string | null;
+  tuesdayBreakStartTime?: string | null;
+  tuesdayBreakEndTime?: string | null;
+  wednesdayBreakStartTime?: string | null;
+  wednesdayBreakEndTime?: string | null;
+  thursdayBreakStartTime?: string | null;
+  thursdayBreakEndTime?: string | null;
+  fridayBreakStartTime?: string | null;
+  fridayBreakEndTime?: string | null;
+  saturdayBreakStartTime?: string | null;
+  saturdayBreakEndTime?: string | null;
+  sundayBreakStartTime?: string | null;
+  sundayBreakEndTime?: string | null;
+  // Franjas horarias para jornada intensiva en horario FIXED
+  intensiveMondayStartTime?: string | null;
+  intensiveMondayEndTime?: string | null;
+  intensiveTuesdayStartTime?: string | null;
+  intensiveTuesdayEndTime?: string | null;
+  intensiveWednesdayStartTime?: string | null;
+  intensiveWednesdayEndTime?: string | null;
+  intensiveThursdayStartTime?: string | null;
+  intensiveThursdayEndTime?: string | null;
+  intensiveFridayStartTime?: string | null;
+  intensiveFridayEndTime?: string | null;
+  intensiveSaturdayStartTime?: string | null;
+  intensiveSaturdayEndTime?: string | null;
+  intensiveSundayStartTime?: string | null;
+  intensiveSundayEndTime?: string | null;
+  // Pausas durante jornada intensiva en horario FIXED
+  intensiveMondayBreakStartTime?: string | null;
+  intensiveMondayBreakEndTime?: string | null;
+  intensiveTuesdayBreakStartTime?: string | null;
+  intensiveTuesdayBreakEndTime?: string | null;
+  intensiveWednesdayBreakStartTime?: string | null;
+  intensiveWednesdayBreakEndTime?: string | null;
+  intensiveThursdayBreakStartTime?: string | null;
+  intensiveThursdayBreakEndTime?: string | null;
+  intensiveFridayBreakStartTime?: string | null;
+  intensiveFridayBreakEndTime?: string | null;
+  intensiveSaturdayBreakStartTime?: string | null;
+  intensiveSaturdayBreakEndTime?: string | null;
+  intensiveSundayBreakStartTime?: string | null;
+  intensiveSundayBreakEndTime?: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -107,6 +179,75 @@ export interface CreateContractData {
   intensiveFridayHours?: number | null;
   intensiveSaturdayHours?: number | null;
   intensiveSundayHours?: number | null;
+  // Nuevos campos para FLEXIBLE, FIXED, SHIFTS
+  scheduleType?: ScheduleType;
+  workMonday?: boolean;
+  workTuesday?: boolean;
+  workWednesday?: boolean;
+  workThursday?: boolean;
+  workFriday?: boolean;
+  workSaturday?: boolean;
+  workSunday?: boolean;
+  hasFixedTimeSlots?: boolean;
+  mondayStartTime?: string;
+  mondayEndTime?: string;
+  tuesdayStartTime?: string;
+  tuesdayEndTime?: string;
+  wednesdayStartTime?: string;
+  wednesdayEndTime?: string;
+  thursdayStartTime?: string;
+  thursdayEndTime?: string;
+  fridayStartTime?: string;
+  fridayEndTime?: string;
+  saturdayStartTime?: string;
+  saturdayEndTime?: string;
+  sundayStartTime?: string;
+  sundayEndTime?: string;
+  // Pausas/Breaks para horario FIXED
+  mondayBreakStartTime?: string;
+  mondayBreakEndTime?: string;
+  tuesdayBreakStartTime?: string;
+  tuesdayBreakEndTime?: string;
+  wednesdayBreakStartTime?: string;
+  wednesdayBreakEndTime?: string;
+  thursdayBreakStartTime?: string;
+  thursdayBreakEndTime?: string;
+  fridayBreakStartTime?: string;
+  fridayBreakEndTime?: string;
+  saturdayBreakStartTime?: string;
+  saturdayBreakEndTime?: string;
+  sundayBreakStartTime?: string;
+  sundayBreakEndTime?: string;
+  // Franjas horarias para jornada intensiva en horario FIXED
+  intensiveMondayStartTime?: string;
+  intensiveMondayEndTime?: string;
+  intensiveTuesdayStartTime?: string;
+  intensiveTuesdayEndTime?: string;
+  intensiveWednesdayStartTime?: string;
+  intensiveWednesdayEndTime?: string;
+  intensiveThursdayStartTime?: string;
+  intensiveThursdayEndTime?: string;
+  intensiveFridayStartTime?: string;
+  intensiveFridayEndTime?: string;
+  intensiveSaturdayStartTime?: string;
+  intensiveSaturdayEndTime?: string;
+  intensiveSundayStartTime?: string;
+  intensiveSundayEndTime?: string;
+  // Pausas durante jornada intensiva en horario FIXED
+  intensiveMondayBreakStartTime?: string;
+  intensiveMondayBreakEndTime?: string;
+  intensiveTuesdayBreakStartTime?: string;
+  intensiveTuesdayBreakEndTime?: string;
+  intensiveWednesdayBreakStartTime?: string;
+  intensiveWednesdayBreakEndTime?: string;
+  intensiveThursdayBreakStartTime?: string;
+  intensiveThursdayBreakEndTime?: string;
+  intensiveFridayBreakStartTime?: string;
+  intensiveFridayBreakEndTime?: string;
+  intensiveSaturdayBreakStartTime?: string;
+  intensiveSaturdayBreakEndTime?: string;
+  intensiveSundayBreakStartTime?: string;
+  intensiveSundayBreakEndTime?: string;
   positionId?: string | null;
   departmentId?: string | null;
   costCenterId?: string | null;

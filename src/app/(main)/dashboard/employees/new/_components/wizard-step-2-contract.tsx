@@ -29,33 +29,12 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
 
   const handleContractSubmit = async (data: CreateContractData) => {
     if (skipContract) {
-      // Si está marcado, crear contrato básico automático
+      // Si está marcado, crear contrato básico automático (SOLO datos contractuales)
       const defaultContract: CreateContractData = {
         contractType: "INDEFINIDO",
         startDate: new Date().toISOString().split("T")[0],
         endDate: null,
-        weeklyHours: 40,
-        workingDaysPerWeek: 5,
         grossSalary: null,
-        hasIntensiveSchedule: false,
-        intensiveStartDate: null,
-        intensiveEndDate: null,
-        intensiveWeeklyHours: null,
-        hasCustomWeeklyPattern: false,
-        mondayHours: null,
-        tuesdayHours: null,
-        wednesdayHours: null,
-        thursdayHours: null,
-        fridayHours: null,
-        saturdayHours: null,
-        sundayHours: null,
-        intensiveMondayHours: null,
-        intensiveTuesdayHours: null,
-        intensiveWednesdayHours: null,
-        intensiveThursdayHours: null,
-        intensiveFridayHours: null,
-        intensiveSaturdayHours: null,
-        intensiveSundayHours: null,
         positionId: null,
         departmentId: null,
         costCenterId: null,
@@ -71,33 +50,12 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
   // Función que será llamada desde el wizard cuando el usuario haga click en "Siguiente"
   const handleWizardNext = () => {
     if (skipContract) {
-      // Crear contrato básico automático
+      // Crear contrato básico automático (SOLO datos contractuales)
       const defaultContract: CreateContractData = {
         contractType: "INDEFINIDO",
         startDate: new Date().toISOString().split("T")[0],
         endDate: null,
-        weeklyHours: 40,
-        workingDaysPerWeek: 5,
         grossSalary: null,
-        hasIntensiveSchedule: false,
-        intensiveStartDate: null,
-        intensiveEndDate: null,
-        intensiveWeeklyHours: null,
-        hasCustomWeeklyPattern: false,
-        mondayHours: null,
-        tuesdayHours: null,
-        wednesdayHours: null,
-        thursdayHours: null,
-        fridayHours: null,
-        saturdayHours: null,
-        sundayHours: null,
-        intensiveMondayHours: null,
-        intensiveTuesdayHours: null,
-        intensiveWednesdayHours: null,
-        intensiveThursdayHours: null,
-        intensiveFridayHours: null,
-        intensiveSaturdayHours: null,
-        intensiveSundayHours: null,
         positionId: null,
         departmentId: null,
         costCenterId: null,
@@ -110,13 +68,13 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-6">
       {/* Switch compacto */}
-      <div className="border-muted bg-muted/30 hover:border-primary/40 flex items-center justify-between rounded-xl border-2 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+      <div className="from-primary/15 to-card border-muted hover:border-primary/40 flex items-center justify-between rounded-xl border-2 bg-gradient-to-br p-5 shadow-sm transition-all duration-200 hover:shadow-md">
         <div className="flex-1 space-y-1">
           <Label htmlFor="skip-contract" className="text-lg font-semibold">
             Configurar contrato más tarde
           </Label>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Crearemos un contrato básico (Indefinido, 40h, 5 días). Podrás editarlo después.
+            Crearemos un contrato indefinido básico. Podrás editarlo después.
           </p>
         </div>
         <Switch id="skip-contract" checked={skipContract} onCheckedChange={setSkipContract} className="wizard-switch" />
@@ -126,7 +84,7 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
         <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
           <Info className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800 dark:text-blue-200">
-            Se creará un contrato indefinido con 40 horas semanales y 5 días laborables.
+            Se creará un contrato indefinido básico. Los horarios se configurarán en el siguiente paso.
           </AlertDescription>
         </Alert>
       )}
