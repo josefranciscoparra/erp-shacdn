@@ -267,6 +267,7 @@ export async function GET(request: NextRequest) {
         nameEn: h.name,
         global: h.global,
         type: h.types[0] || "Public",
+        counties: h.counties,
       })),
     });
   } catch (error: any) {

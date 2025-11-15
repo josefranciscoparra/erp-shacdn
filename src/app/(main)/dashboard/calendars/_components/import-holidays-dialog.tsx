@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useCalendarsStore } from "@/stores/calendars-store";
@@ -52,6 +54,7 @@ interface HolidayPreview {
   nameEn: string;
   global: boolean;
   type: string;
+  counties: string[] | null;
 }
 
 interface ImportHolidaysDialogProps {
@@ -87,12 +90,34 @@ const COLOR_PRESETS = [
   { name: "Rosa", value: "#ec4899" },
 ];
 
+const SPANISH_REGIONS = [
+  { code: "ES-AN", name: "Andalucía" },
+  { code: "ES-AR", name: "Aragón" },
+  { code: "ES-AS", name: "Asturias" },
+  { code: "ES-IB", name: "Baleares" },
+  { code: "ES-CN", name: "Canarias" },
+  { code: "ES-CB", name: "Cantabria" },
+  { code: "ES-CM", name: "Castilla-La Mancha" },
+  { code: "ES-CL", name: "Castilla y León" },
+  { code: "ES-CT", name: "Cataluña" },
+  { code: "ES-VC", name: "C. Valenciana" },
+  { code: "ES-EX", name: "Extremadura" },
+  { code: "ES-GA", name: "Galicia" },
+  { code: "ES-MD", name: "Madrid" },
+  { code: "ES-MC", name: "Murcia" },
+  { code: "ES-NC", name: "Navarra" },
+  { code: "ES-PV", name: "País Vasco" },
+  { code: "ES-RI", name: "La Rioja" },
+];
+
 export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = React.useState(false);
   const [isImporting, setIsImporting] = React.useState(false);
   const [preview, setPreview] = React.useState<HolidayPreview[]>([]);
   const [selectedHolidays, setSelectedHolidays] = React.useState<Set<string>>(new Set());
+  const [filterType, setFilterType] = React.useState<"all" | "national" | "regional">("all");
+  const [selectedRegion, setSelectedRegion] = React.useState<string>("");
 
   const { calendars, fetchCalendars, fetchCalendarById } = useCalendarsStore();
   const { costCenters, fetchCostCenters } = useCostCentersStore();
@@ -120,6 +145,23 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
   const isNewCalendar = !form.watch("calendarId") || form.watch("calendarId") === "__new__";
   const selectedCalendarType = form.watch("calendarType");
   const requiresCostCenter = selectedCalendarType === "LOCAL_HOLIDAY";
+
+  // Filtrar festivos según los filtros seleccionados
+  const filteredPreview = React.useMemo(() => {
+    if (form.watch("countryCode") !== "ES") {
+      return preview; // Sin filtrado para otros países
+    }
+
+    if (filterType === "national") {
+      return preview.filter((h) => h.global === true);
+    }
+
+    if (filterType === "regional" && selectedRegion) {
+      return preview.filter((h) => h.global === true || h.counties?.includes(selectedRegion));
+    }
+
+    return preview; // "all" - mostrar todos
+  }, [preview, filterType, selectedRegion, form]);
 
   React.useEffect(() => {
     if (!requiresCostCenter && form.getValues("costCenterId") !== "__none__") {
@@ -174,11 +216,17 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
   };
 
   const toggleAll = () => {
-    if (selectedHolidays.size === preview.length) {
+    if (selectedHolidays.size === filteredPreview.length) {
       setSelectedHolidays(new Set());
     } else {
-      setSelectedHolidays(new Set(preview.map((h) => h.date)));
+      setSelectedHolidays(new Set(filteredPreview.map((h) => h.date)));
     }
+  };
+
+  // Helper para obtener nombre de región
+  const getRegionName = (countyCode: string): string => {
+    const region = SPANISH_REGIONS.find((r) => r.code === countyCode);
+    return region?.name ?? countyCode;
   };
 
   const onSubmit = async (data: ImportFormData) => {
@@ -269,7 +317,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         )}
       </DialogTrigger>
       <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 bg-gray-100 p-0 dark:bg-gray-900">
-        <DialogHeader className="px-6 pt-6 pb-4">
+        <DialogHeader className="shrink-0 px-6 pt-6 pb-4">
           <DialogTitle>Importar festivos automáticamente</DialogTitle>
           <DialogDescription>
             Importa festivos oficiales de diferentes países desde fuentes gubernamentales
@@ -279,7 +327,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-h-0 flex-1 flex-col">
             <div className="flex-1 overflow-y-auto px-6">
-              <div className="space-y-4 pb-4">
+              <div className="space-y-4">
                 {/* País y año */}
                 <div className="grid gap-4 @xl/main:grid-cols-2">
                   <FormField
@@ -348,26 +396,76 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                   )}
                 </Button>
 
+                {/* Controles de filtrado - Solo para España */}
+                {preview.length > 0 && form.watch("countryCode") === "ES" && (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Filtros</CardTitle>
+                      <CardDescription className="text-xs">Filtra los festivos que deseas importar</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3 pt-0">
+                      <RadioGroup value={filterType} onValueChange={(v) => setFilterType(v as typeof filterType)}>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="all" id="filter-all" />
+                          <Label htmlFor="filter-all">Mostrar todos los festivos</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="national" id="filter-national" />
+                          <Label htmlFor="filter-national">Solo festivos nacionales</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="regional" id="filter-regional" />
+                          <Label htmlFor="filter-regional">Nacionales + Comunidad autónoma</Label>
+                        </div>
+                      </RadioGroup>
+
+                      {filterType === "regional" && (
+                        <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+                          <SelectTrigger className="bg-white">
+                            <SelectValue placeholder="Selecciona una comunidad autónoma" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SPANISH_REGIONS.map((region) => (
+                              <SelectItem key={region.code} value={region.code}>
+                                {region.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
                 {/* Preview de festivos */}
                 {preview.length > 0 && (
                   <Card>
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0 flex-1">
                           <CardTitle className="text-base">
-                            Vista previa ({selectedHolidays.size} de {preview.length} seleccionados)
+                            Vista previa ({selectedHolidays.size} de {filteredPreview.length} seleccionados)
                           </CardTitle>
-                          <CardDescription>Selecciona los festivos que deseas importar</CardDescription>
+                          <CardDescription className="text-xs">
+                            Selecciona los festivos que deseas importar
+                            {filterType !== "all" && preview.length !== filteredPreview.length && (
+                              <span className="text-muted-foreground ml-1">
+                                ({filteredPreview.length} de {preview.length} después de filtrar)
+                              </span>
+                            )}
+                          </CardDescription>
                         </div>
-                        <Button type="button" variant="outline" size="sm" onClick={toggleAll}>
-                          {selectedHolidays.size === preview.length ? "Deseleccionar todos" : "Seleccionar todos"}
+                        <Button type="button" variant="outline" size="sm" onClick={toggleAll} className="shrink-0">
+                          {selectedHolidays.size === filteredPreview.length
+                            ? "Deseleccionar todos"
+                            : "Seleccionar todos"}
                         </Button>
                       </div>
                     </CardHeader>
-                    <CardContent>
-                      <ScrollArea className="h-32">
+                    <CardContent className="pt-0">
+                      <ScrollArea className="h-48">
                         <div className="space-y-2">
-                          {preview.map((holiday, index) => (
+                          {filteredPreview.map((holiday, index) => (
                             <div
                               key={`${holiday.date}-${index}`}
                               className="hover:bg-accent flex cursor-pointer items-center gap-3 rounded-lg border p-2"
@@ -378,12 +476,21 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
                                 onCheckedChange={() => toggleHoliday(holiday.date)}
                               />
                               <div className="flex-1">
-                                <div className="flex items-center gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                   <span className="text-sm font-medium">{holiday.name}</span>
-                                  {holiday.global && (
+                                  {holiday.global ? (
                                     <Badge variant="secondary" className="text-xs">
                                       Nacional
                                     </Badge>
+                                  ) : (
+                                    holiday.counties &&
+                                    holiday.counties.length > 0 && (
+                                      <Badge variant="outline" className="text-xs">
+                                        {holiday.counties.length === 1
+                                          ? getRegionName(holiday.counties[0])
+                                          : `${holiday.counties.length} regiones`}
+                                      </Badge>
+                                    )
                                   )}
                                 </div>
                                 <span className="text-muted-foreground text-xs">
@@ -561,7 +668,7 @@ export function ImportHolidaysDialog({ calendarId, trigger }: ImportHolidaysDial
               </div>
             </div>
 
-            <DialogFooter className="bg-background border-t px-6 py-4">
+            <DialogFooter className="bg-background shrink-0 border-t px-6 py-3">
               <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isImporting}>
                 Cancelar
               </Button>
