@@ -1,33 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import { Info, Clock, Calendar as CalendarIcon, RefreshCw } from "lucide-react";
+import { Info, Clock, RefreshCw, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
 import { ScheduleForm, type ScheduleFormData } from "@/components/schedules/schedule-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
 import type { ScheduleType } from "@/stores/contracts-store";
+
+const MONTHS = [
+  { value: "01", label: "Enero" },
+  { value: "02", label: "Febrero" },
+  { value: "03", label: "Marzo" },
+  { value: "04", label: "Abril" },
+  { value: "05", label: "Mayo" },
+  { value: "06", label: "Junio" },
+  { value: "07", label: "Julio" },
+  { value: "08", label: "Agosto" },
+  { value: "09", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" },
+];
+
+const getDaysInMonth = (month: string): number => {
+  const daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  const monthNum = parseInt(month, 10);
+  return monthNum >= 1 && monthNum <= 12 ? daysInMonth[monthNum - 1] : 31;
+};
 
 interface WizardStep3ScheduleProps {
   onSubmit: (data: any) => Promise<void>;
   isLoading?: boolean;
   initialData?: ScheduleFormData | null;
+  isEditMode?: boolean;
 }
 
-export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }: WizardStep3ScheduleProps) {
+export function WizardStep3Schedule({
+  onSubmit,
+  isLoading = false,
+  initialData,
+  isEditMode = false,
+}: WizardStep3ScheduleProps) {
   const [skipSchedule, setSkipSchedule] = useState(false);
   const [scheduleType, setScheduleType] = useState<ScheduleType>("FLEXIBLE");
 
@@ -81,8 +105,10 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
 
   // Estados para FIXED - jornada intensiva
   const [hasIntensiveSchedule, setHasIntensiveSchedule] = useState(false);
-  const [intensiveStartDate, setIntensiveStartDate] = useState<Date>();
-  const [intensiveEndDate, setIntensiveEndDate] = useState<Date>();
+  const [intensiveStartMonth, setIntensiveStartMonth] = useState("");
+  const [intensiveStartDay, setIntensiveStartDay] = useState("");
+  const [intensiveEndMonth, setIntensiveEndMonth] = useState("");
+  const [intensiveEndDay, setIntensiveEndDay] = useState("");
   const [intensiveDateError, setIntensiveDateError] = useState(false);
   const [intensiveTimeSlots, setIntensiveTimeSlots] = useState({
     mondayStart: "08:00",
@@ -144,6 +170,164 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
   const [simpleIntensiveBreakEnd, setSimpleIntensiveBreakEnd] = useState("11:30");
   const [applyIntensiveBreakToAllDays, setApplyIntensiveBreakToAllDays] = useState(true);
 
+  // Cargar initialData cuando está en modo edición
+  useEffect(() => {
+    if (!initialData) return;
+
+    // Cargar tipo de horario
+    if (initialData.scheduleType) {
+      setScheduleType(initialData.scheduleType);
+    }
+
+    // Cargar días laborables (FIXED)
+    if (initialData.workMonday !== undefined) {
+      setWorkDays({
+        monday: initialData.workMonday ?? false,
+        tuesday: initialData.workTuesday ?? false,
+        wednesday: initialData.workWednesday ?? false,
+        thursday: initialData.workThursday ?? false,
+        friday: initialData.workFriday ?? false,
+        saturday: initialData.workSaturday ?? false,
+        sunday: initialData.workSunday ?? false,
+      });
+    }
+
+    // Cargar franjas horarias normales (FIXED)
+    if (initialData.mondayStartTime !== undefined) {
+      setTimeSlots({
+        mondayStart: initialData.mondayStartTime ?? "09:00",
+        mondayEnd: initialData.mondayEndTime ?? "17:00",
+        tuesdayStart: initialData.tuesdayStartTime ?? "09:00",
+        tuesdayEnd: initialData.tuesdayEndTime ?? "17:00",
+        wednesdayStart: initialData.wednesdayStartTime ?? "09:00",
+        wednesdayEnd: initialData.wednesdayEndTime ?? "17:00",
+        thursdayStart: initialData.thursdayStartTime ?? "09:00",
+        thursdayEnd: initialData.thursdayEndTime ?? "17:00",
+        fridayStart: initialData.fridayStartTime ?? "09:00",
+        fridayEnd: initialData.fridayEndTime ?? "17:00",
+        saturdayStart: initialData.saturdayStartTime ?? "09:00",
+        saturdayEnd: initialData.saturdayEndTime ?? "14:00",
+        sundayStart: initialData.sundayStartTime ?? "09:00",
+        sundayEnd: initialData.sundayEndTime ?? "14:00",
+      });
+    }
+
+    // Cargar pausas normales (FIXED)
+    if (initialData.mondayBreakStartTime !== undefined) {
+      // Determinar si tiene pausas configuradas
+      const hasPausas = !!(
+        initialData.mondayBreakStartTime ??
+        initialData.tuesdayBreakStartTime ??
+        initialData.wednesdayBreakStartTime ??
+        initialData.thursdayBreakStartTime ??
+        initialData.fridayBreakStartTime ??
+        initialData.saturdayBreakStartTime ??
+        initialData.sundayBreakStartTime
+      );
+      setHasBreaks(hasPausas);
+
+      if (hasPausas) {
+        setBreakTimes({
+          mondayBreakStart: initialData.mondayBreakStartTime ?? "14:00",
+          mondayBreakEnd: initialData.mondayBreakEndTime ?? "15:00",
+          tuesdayBreakStart: initialData.tuesdayBreakStartTime ?? "14:00",
+          tuesdayBreakEnd: initialData.tuesdayBreakEndTime ?? "15:00",
+          wednesdayBreakStart: initialData.wednesdayBreakStartTime ?? "14:00",
+          wednesdayBreakEnd: initialData.wednesdayBreakEndTime ?? "15:00",
+          thursdayBreakStart: initialData.thursdayBreakStartTime ?? "14:00",
+          thursdayBreakEnd: initialData.thursdayBreakEndTime ?? "15:00",
+          fridayBreakStart: initialData.fridayBreakStartTime ?? "14:00",
+          fridayBreakEnd: initialData.fridayBreakEndTime ?? "15:00",
+          saturdayBreakStart: initialData.saturdayBreakStartTime ?? "12:00",
+          saturdayBreakEnd: initialData.saturdayBreakEndTime ?? "12:30",
+          sundayBreakStart: initialData.sundayBreakStartTime ?? "12:00",
+          sundayBreakEnd: initialData.sundayBreakEndTime ?? "12:30",
+        });
+      }
+    }
+
+    // Cargar jornada intensiva
+    if (initialData.hasIntensiveSchedule !== undefined) {
+      setHasIntensiveSchedule(initialData.hasIntensiveSchedule);
+
+      // Cargar fechas de jornada intensiva (parsear MM-DD)
+      if (initialData.intensiveStartDate && typeof initialData.intensiveStartDate === "string") {
+        const [month, day] = initialData.intensiveStartDate.split("-");
+        if (month && day) {
+          setIntensiveStartMonth(month);
+          setIntensiveStartDay(day);
+        }
+      }
+
+      if (initialData.intensiveEndDate && typeof initialData.intensiveEndDate === "string") {
+        const [month, day] = initialData.intensiveEndDate.split("-");
+        if (month && day) {
+          setIntensiveEndMonth(month);
+          setIntensiveEndDay(day);
+        }
+      }
+    }
+
+    // Cargar franjas horarias intensivas (FIXED)
+    if (initialData.intensiveMondayStartTime !== undefined) {
+      setIntensiveTimeSlots({
+        mondayStart: initialData.intensiveMondayStartTime ?? "08:00",
+        mondayEnd: initialData.intensiveMondayEndTime ?? "15:00",
+        tuesdayStart: initialData.intensiveTuesdayStartTime ?? "08:00",
+        tuesdayEnd: initialData.intensiveTuesdayEndTime ?? "15:00",
+        wednesdayStart: initialData.intensiveWednesdayStartTime ?? "08:00",
+        wednesdayEnd: initialData.intensiveWednesdayEndTime ?? "15:00",
+        thursdayStart: initialData.intensiveThursdayStartTime ?? "08:00",
+        thursdayEnd: initialData.intensiveThursdayEndTime ?? "15:00",
+        fridayStart: initialData.intensiveFridayStartTime ?? "08:00",
+        fridayEnd: initialData.intensiveFridayEndTime ?? "15:00",
+        saturdayStart: initialData.intensiveSaturdayStartTime ?? "08:00",
+        saturdayEnd: initialData.intensiveSaturdayEndTime ?? "14:00",
+        sundayStart: initialData.intensiveSundayStartTime ?? "08:00",
+        sundayEnd: initialData.intensiveSundayEndTime ?? "14:00",
+      });
+    }
+
+    // Cargar pausas intensivas (FIXED)
+    if (initialData.intensiveMondayBreakStartTime !== undefined) {
+      // Determinar si tiene pausas intensivas configuradas
+      const hasPausasIntensivas = !!(
+        initialData.intensiveMondayBreakStartTime ??
+        initialData.intensiveTuesdayBreakStartTime ??
+        initialData.intensiveWednesdayBreakStartTime ??
+        initialData.intensiveThursdayBreakStartTime ??
+        initialData.intensiveFridayBreakStartTime ??
+        initialData.intensiveSaturdayBreakStartTime ??
+        initialData.intensiveSundayBreakStartTime
+      );
+      setHasIntensiveBreaks(hasPausasIntensivas);
+
+      if (hasPausasIntensivas) {
+        setIntensiveBreakTimes({
+          mondayBreakStart: initialData.intensiveMondayBreakStartTime ?? "11:00",
+          mondayBreakEnd: initialData.intensiveMondayBreakEndTime ?? "11:30",
+          tuesdayBreakStart: initialData.intensiveTuesdayBreakStartTime ?? "11:00",
+          tuesdayBreakEnd: initialData.intensiveTuesdayBreakEndTime ?? "11:30",
+          wednesdayBreakStart: initialData.intensiveWednesdayBreakStartTime ?? "11:00",
+          wednesdayBreakEnd: initialData.intensiveWednesdayBreakEndTime ?? "11:30",
+          thursdayBreakStart: initialData.intensiveThursdayBreakStartTime ?? "11:00",
+          thursdayBreakEnd: initialData.intensiveThursdayBreakEndTime ?? "11:30",
+          fridayBreakStart: initialData.intensiveFridayBreakStartTime ?? "11:00",
+          fridayBreakEnd: initialData.intensiveFridayBreakEndTime ?? "11:30",
+          saturdayBreakStart: initialData.intensiveSaturdayBreakStartTime ?? "11:00",
+          saturdayBreakEnd: initialData.intensiveSaturdayBreakEndTime ?? "11:30",
+          sundayBreakStart: initialData.intensiveSundayBreakStartTime ?? "11:00",
+          sundayBreakEnd: initialData.intensiveSundayBreakEndTime ?? "11:30",
+        });
+      }
+    }
+
+    // Cargar hasFixedTimeSlots para determinar modo simple/personalizado
+    if (initialData.hasFixedTimeSlots !== undefined) {
+      setUseSimpleSchedule(!initialData.hasFixedTimeSlots);
+    }
+  }, [initialData]);
+
   const handleScheduleSubmit = async (data: ScheduleFormData) => {
     if (skipSchedule) {
       // Si está marcado, enviar horarios por defecto (FLEXIBLE, 40h, 5d)
@@ -176,8 +360,10 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
   };
 
   const handleFixedSubmit = async () => {
+    console.log("🟢 handleFixedSubmit iniciado");
     // Validación 1: Al menos 1 día debe estar seleccionado
     const activeDaysCount = Object.values(workDays).filter(Boolean).length;
+    console.log("🟡 Días activos:", activeDaysCount, workDays);
     if (activeDaysCount === 0) {
       toast.error("Días laborables requeridos", {
         description: "Debes seleccionar al menos un día laboral",
@@ -220,10 +406,13 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
     }
 
     // Validación 4: Si jornada intensiva está activada, las fechas son obligatorias
-    if (hasIntensiveSchedule && (!intensiveStartDate || !intensiveEndDate)) {
+    if (
+      hasIntensiveSchedule &&
+      (!intensiveStartMonth || !intensiveStartDay || !intensiveEndMonth || !intensiveEndDay)
+    ) {
       setIntensiveDateError(true);
       toast.error("Fechas obligatorias", {
-        description: "Por favor, selecciona las fechas de inicio y fin para la jornada intensiva",
+        description: "Por favor, selecciona mes y día de inicio y fin para la jornada intensiva",
       });
       return;
     }
@@ -265,6 +454,53 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
         return type === "Start" ? simpleIntensiveBreakStart : simpleIntensiveBreakEnd;
       }
       return intensiveBreakTimes[`${day}Break${type}`];
+    };
+
+    // Función helper: calcular horas semanales intensivas
+    const calculateTotalIntensiveHours = () => {
+      if (!hasIntensiveSchedule) return undefined;
+
+      let totalHours = 0;
+      const days: Array<keyof typeof workDays> = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+      ];
+
+      for (const day of days) {
+        if (!workDays[day]) continue;
+
+        const startTime = getIntensiveTimeSlot(day, "Start");
+        const endTime = getIntensiveTimeSlot(day, "End");
+
+        if (startTime && endTime) {
+          const [startHour, startMin] = startTime.split(":").map(Number);
+          const [endHour, endMin] = endTime.split(":").map(Number);
+
+          let dayHours = endHour - startHour + (endMin - startMin) / 60;
+
+          // Restar pausa si existe
+          if (hasIntensiveBreaks) {
+            const breakStart = getIntensiveBreakTime(day, "Start");
+            const breakEnd = getIntensiveBreakTime(day, "End");
+
+            if (breakStart && breakEnd) {
+              const [breakStartHour, breakStartMin] = breakStart.split(":").map(Number);
+              const [breakEndHour, breakEndMin] = breakEnd.split(":").map(Number);
+              const breakHours = breakEndHour - breakStartHour + (breakEndMin - breakStartMin) / 60;
+              dayHours -= breakHours;
+            }
+          }
+
+          totalHours += dayHours;
+        }
+      }
+
+      return totalHours > 0 ? Math.round(totalHours * 100) / 100 : undefined;
     };
 
     const fixedData = {
@@ -314,8 +550,10 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
       // Jornada intensiva
       hasIntensiveSchedule,
       ...(hasIntensiveSchedule && {
-        intensiveStartDate: intensiveStartDate ? format(intensiveStartDate, "MM-dd") : undefined,
-        intensiveEndDate: intensiveEndDate ? format(intensiveEndDate, "MM-dd") : undefined,
+        intensiveStartDate:
+          intensiveStartMonth && intensiveStartDay ? `${intensiveStartMonth}-${intensiveStartDay}` : undefined,
+        intensiveEndDate: intensiveEndMonth && intensiveEndDay ? `${intensiveEndMonth}-${intensiveEndDay}` : undefined,
+        intensiveWeeklyHours: calculateTotalIntensiveHours(),
         // Franjas horarias intensivas
         intensiveMondayStartTime: getIntensiveTimeSlot("monday", "Start"),
         intensiveMondayEndTime: getIntensiveTimeSlot("monday", "End"),
@@ -352,31 +590,42 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
         }),
     };
 
+    console.log("🟣 Datos a enviar (fixedData):", fixedData);
     await onSubmit(fixedData);
+    console.log("✅ onSubmit completado");
   };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-6">
-      {/* Switch compacto: Configurar ahora o más tarde */}
-      <div className="from-primary/15 to-card border-muted hover:border-primary/40 flex items-center justify-between rounded-xl border-2 bg-gradient-to-br p-5 shadow-sm transition-all duration-200 hover:shadow-md">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor="skip-schedule" className="text-lg font-semibold">
-            Configurar horarios más tarde
-          </Label>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Usaremos horario flexible por defecto (40h semanales, 5 días). Podrás personalizarlo después.
-          </p>
-        </div>
-        <Switch id="skip-schedule" checked={skipSchedule} onCheckedChange={setSkipSchedule} className="wizard-switch" />
-      </div>
+      {/* Switch compacto: Configurar ahora o más tarde - Solo en modo creación */}
+      {!isEditMode && (
+        <>
+          <div className="from-primary/15 to-card border-muted hover:border-primary/40 flex items-center justify-between rounded-xl border-2 bg-gradient-to-br p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+            <div className="flex-1 space-y-1">
+              <Label htmlFor="skip-schedule" className="text-lg font-semibold">
+                Configurar horarios más tarde
+              </Label>
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                Usaremos horario flexible por defecto (40h semanales, 5 días). Podrás personalizarlo después.
+              </p>
+            </div>
+            <Switch
+              id="skip-schedule"
+              checked={skipSchedule}
+              onCheckedChange={setSkipSchedule}
+              className="wizard-switch"
+            />
+          </div>
 
-      {skipSchedule && (
-        <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
-          <Info className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-800 dark:text-blue-200">
-            Se mantendrán los horarios por defecto (40h semanales distribuidas en 5 días).
-          </AlertDescription>
-        </Alert>
+          {skipSchedule && (
+            <Alert className="border-blue-500 bg-blue-50 dark:bg-blue-950/20">
+              <Info className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-blue-800 dark:text-blue-200">
+                Se mantendrán los horarios por defecto (40h semanales distribuidas en 5 días).
+              </AlertDescription>
+            </Alert>
+          )}
+        </>
       )}
 
       {/* Selector de tipo de horario (3 tabs) */}
@@ -393,7 +642,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                     Flexible
                   </TabsTrigger>
                   <TabsTrigger value="FIXED">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    <Calendar className="mr-2 h-4 w-4" />
                     Fijo
                   </TabsTrigger>
                   <TabsTrigger value="SHIFTS" disabled>
@@ -788,78 +1037,126 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                           Periodo intensivo <span className="text-destructive">*</span>
                         </Label>
                         <div className="mt-2 grid grid-cols-2 gap-4">
-                          <div>
+                          <div className="space-y-2">
                             <Label>
                               Desde <span className="text-destructive">*</span>
                             </Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !intensiveStartDate && "text-muted-foreground",
-                                    intensiveDateError && !intensiveStartDate && "border-destructive",
-                                  )}
+                            <div className="grid grid-cols-2 gap-2">
+                              <Select
+                                value={intensiveStartMonth}
+                                onValueChange={(value) => {
+                                  setIntensiveStartMonth(value);
+                                  if (value && intensiveStartDay && intensiveEndMonth && intensiveEndDay) {
+                                    setIntensiveDateError(false);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={
+                                    intensiveDateError && !intensiveStartMonth ? "border-destructive" : undefined
+                                  }
                                 >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {intensiveStartDate ? (
-                                    format(intensiveStartDate, "dd/MM/yyyy", { locale: es })
-                                  ) : (
-                                    <span>Seleccionar fecha</span>
-                                  )}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={intensiveStartDate}
-                                  onSelect={(date) => {
-                                    setIntensiveStartDate(date);
-                                    if (date && intensiveEndDate) setIntensiveDateError(false);
-                                  }}
-                                  locale={es}
-                                  initialFocus
-                                />
-                              </PopoverContent>
-                            </Popover>
+                                  <SelectValue placeholder="Mes" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MONTHS.map((month) => (
+                                    <SelectItem key={month.value} value={month.value}>
+                                      {month.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <Select
+                                value={intensiveStartDay}
+                                onValueChange={(value) => {
+                                  setIntensiveStartDay(value);
+                                  if (intensiveStartMonth && value && intensiveEndMonth && intensiveEndDay) {
+                                    setIntensiveDateError(false);
+                                  }
+                                }}
+                                disabled={!intensiveStartMonth}
+                              >
+                                <SelectTrigger
+                                  className={
+                                    intensiveDateError && !intensiveStartDay ? "border-destructive" : undefined
+                                  }
+                                >
+                                  <SelectValue placeholder="Día" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: getDaysInMonth(intensiveStartMonth) }, (_, i) => {
+                                    const day = String(i + 1).padStart(2, "0");
+                                    return (
+                                      <SelectItem key={day} value={day}>
+                                        {day}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <p className="text-muted-foreground text-xs">Ejemplo: Junio - 15</p>
                           </div>
-                          <div>
+
+                          <div className="space-y-2">
                             <Label>
                               Hasta <span className="text-destructive">*</span>
                             </Label>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className={cn(
-                                    "w-full justify-start text-left font-normal",
-                                    !intensiveEndDate && "text-muted-foreground",
-                                    intensiveDateError && !intensiveEndDate && "border-destructive",
-                                  )}
+                            <div className="grid grid-cols-2 gap-2">
+                              <Select
+                                value={intensiveEndMonth}
+                                onValueChange={(value) => {
+                                  setIntensiveEndMonth(value);
+                                  if (intensiveStartMonth && intensiveStartDay && value && intensiveEndDay) {
+                                    setIntensiveDateError(false);
+                                  }
+                                }}
+                              >
+                                <SelectTrigger
+                                  className={
+                                    intensiveDateError && !intensiveEndMonth ? "border-destructive" : undefined
+                                  }
                                 >
-                                  <CalendarIcon className="mr-2 h-4 w-4" />
-                                  {intensiveEndDate ? (
-                                    format(intensiveEndDate, "dd/MM/yyyy", { locale: es })
-                                  ) : (
-                                    <span>Seleccionar fecha</span>
-                                  )}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-auto p-0" align="start">
-                                <Calendar
-                                  mode="single"
-                                  selected={intensiveEndDate}
-                                  onSelect={(date) => {
-                                    setIntensiveEndDate(date);
-                                    if (date && intensiveStartDate) setIntensiveDateError(false);
-                                  }}
-                                  locale={es}
-                                  initialFocus
-                                  disabled={(date) => (intensiveStartDate ? date < intensiveStartDate : false)}
-                                />
-                              </PopoverContent>
-                            </Popover>
+                                  <SelectValue placeholder="Mes" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MONTHS.map((month) => (
+                                    <SelectItem key={month.value} value={month.value}>
+                                      {month.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <Select
+                                value={intensiveEndDay}
+                                onValueChange={(value) => {
+                                  setIntensiveEndDay(value);
+                                  if (intensiveStartMonth && intensiveStartDay && intensiveEndMonth && value) {
+                                    setIntensiveDateError(false);
+                                  }
+                                }}
+                                disabled={!intensiveEndMonth}
+                              >
+                                <SelectTrigger
+                                  className={intensiveDateError && !intensiveEndDay ? "border-destructive" : undefined}
+                                >
+                                  <SelectValue placeholder="Día" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: getDaysInMonth(intensiveEndMonth) }, (_, i) => {
+                                    const day = String(i + 1).padStart(2, "0");
+                                    return (
+                                      <SelectItem key={day} value={day}>
+                                        {day}
+                                      </SelectItem>
+                                    );
+                                  })}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <p className="text-muted-foreground text-xs">Ejemplo: Septiembre - 15</p>
                           </div>
                         </div>
                       </div>
@@ -1158,6 +1455,34 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
             </Card>
           )}
         </>
+      )}
+
+      {/* Botón de guardar - Solo en modo edición */}
+      {isEditMode && (
+        <div className="flex justify-end gap-3 pt-4">
+          <Button
+            type="button"
+            onClick={async () => {
+              console.log("🔵 Click en Guardar, scheduleType:", scheduleType);
+              if (scheduleType === "FLEXIBLE") {
+                await handleScheduleSubmit({} as ScheduleFormData);
+              } else if (scheduleType === "FIXED") {
+                await handleFixedSubmit();
+              }
+            }}
+            disabled={isLoading}
+            className="min-w-[120px]"
+          >
+            {isLoading ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              "Guardar Cambios"
+            )}
+          </Button>
+        </div>
       )}
 
       {/* Formulario oculto para manejar el submit cuando skipSchedule está true */}

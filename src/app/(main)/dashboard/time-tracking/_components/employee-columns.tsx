@@ -16,9 +16,20 @@ export interface EmployeeTimeTracking {
   email: string;
   image?: string | null;
   department: string;
+  costCenter: string;
   status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
   lastAction: Date | null;
   todayWorkedMinutes: number;
+  todayBreakMinutes: number;
+  clockIn?: Date;
+  clockOut?: Date;
+  // Nuevos campos para validación de días laborables
+  isWorkingDay: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
+  expectedHours: number;
+  expectedEntryTime: string | null;
+  isAbsent: boolean;
 }
 
 const statusConfig = {

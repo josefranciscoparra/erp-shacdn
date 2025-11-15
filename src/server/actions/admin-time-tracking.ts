@@ -11,15 +11,20 @@ import {
   endOfYear,
   eachDayOfInterval,
   isWeekend,
+  format,
 } from "date-fns";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 // Helper: Calcular días laborables en un período
-// Considera: inicio de contrato, fines de semana
-// TODO: En el futuro, excluir también festivos y vacaciones
-function calculateWorkableDays(periodStart: Date, periodEnd: Date, contractStartDate: Date | null): number {
+// Considera: inicio de contrato, patrón de días laborables, festivos
+async function calculateWorkableDays(
+  employeeId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  contractStartDate: Date | null,
+): Promise<number> {
   // El período efectivo empieza en la fecha más tardía entre el inicio del período y el inicio del contrato
   const effectiveStart = contractStartDate && contractStartDate > periodStart ? contractStartDate : periodStart;
 
@@ -28,9 +33,12 @@ function calculateWorkableDays(periodStart: Date, periodEnd: Date, contractStart
 
   const days = eachDayOfInterval({ start: effectiveStart, end: periodEnd });
 
-  // Contar solo días laborables (lunes a viernes)
-  // TODO: Aquí se podrán excluir festivos y días de vacaciones en el futuro
-  const workableDays = days.filter((day) => !isWeekend(day)).length;
+  // Obtener información de días laborables para todos los días (en paralelo)
+  const dayInfoPromises = days.map((day) => getExpectedHoursForDay(employeeId, day));
+  const dayInfos = await Promise.all(dayInfoPromises);
+
+  // Contar solo días laborables
+  const workableDays = dayInfos.filter((info) => info.isWorkingDay).length;
 
   return workableDays;
 }
@@ -76,6 +84,468 @@ async function checkAdminPermissions() {
     orgId: user.orgId,
     role: user.role,
   };
+}
+
+// ============================================================================
+// HELPER FUNCTIONS - Cálculo de horas esperadas
+// ============================================================================
+
+// Helper: Calcular horas trabajadas desde franjas horarias con pausas
+function calculateHoursFromTimeSlots(
+  startTime: string | null,
+  endTime: string | null,
+  breakStart: string | null,
+  breakEnd: string | null,
+): number {
+  if (!startTime || !endTime) {
+    return 0;
+  }
+
+  // Parsear horas (formato "HH:MM")
+  const [startHour, startMin] = startTime.split(":").map(Number);
+  const [endHour, endMin] = endTime.split(":").map(Number);
+
+  // Calcular horas trabajadas
+  const totalMinutes = endHour * 60 + endMin - (startHour * 60 + startMin);
+
+  // Restar pausa si existe
+  let breakMinutes = 0;
+  if (breakStart && breakEnd) {
+    const [breakStartHour, breakStartMin] = breakStart.split(":").map(Number);
+    const [breakEndHour, breakEndMin] = breakEnd.split(":").map(Number);
+    breakMinutes = breakEndHour * 60 + breakEndMin - (breakStartHour * 60 + breakStartMin);
+  }
+
+  return (totalMinutes - breakMinutes) / 60;
+}
+
+// Helper: Calcular horas promedio desde horas semanales
+function calculateAverageHours(
+  isIntensivePeriod: boolean,
+  intensiveWeeklyHours: any,
+  weeklyHours: any,
+  workingDaysPerWeek: any,
+): number {
+  const hours = isIntensivePeriod && intensiveWeeklyHours ? Number(intensiveWeeklyHours) : Number(weeklyHours);
+  const days = Number(workingDaysPerWeek ?? 5);
+  return hours / days;
+}
+
+// Helper: Calcular horas para un día en horario FIXED
+function calculateFixedScheduleHours(
+  worksToday: boolean,
+  hasFixedTimeSlots: boolean,
+  dayOfWeek: number,
+  isIntensivePeriod: boolean,
+  contract: any,
+): number {
+  if (!worksToday) {
+    return 0;
+  }
+
+  if (!hasFixedTimeSlots) {
+    return calculateAverageHours(
+      isIntensivePeriod,
+      contract.intensiveWeeklyHours,
+      contract.weeklyHours,
+      contract.workingDaysPerWeek,
+    );
+  }
+
+  // Obtener franjas horarias para hoy
+  const startTimeFields = [
+    contract.sundayStartTime,
+    contract.mondayStartTime,
+    contract.tuesdayStartTime,
+    contract.wednesdayStartTime,
+    contract.thursdayStartTime,
+    contract.fridayStartTime,
+    contract.saturdayStartTime,
+  ];
+  const endTimeFields = [
+    contract.sundayEndTime,
+    contract.mondayEndTime,
+    contract.tuesdayEndTime,
+    contract.wednesdayEndTime,
+    contract.thursdayEndTime,
+    contract.fridayEndTime,
+    contract.saturdayEndTime,
+  ];
+  const breakStartFields = [
+    contract.sundayBreakStartTime,
+    contract.mondayBreakStartTime,
+    contract.tuesdayBreakStartTime,
+    contract.wednesdayBreakStartTime,
+    contract.thursdayBreakStartTime,
+    contract.fridayBreakStartTime,
+    contract.saturdayBreakStartTime,
+  ];
+  const breakEndFields = [
+    contract.sundayBreakEndTime,
+    contract.mondayBreakEndTime,
+    contract.tuesdayBreakEndTime,
+    contract.wednesdayBreakEndTime,
+    contract.thursdayBreakEndTime,
+    contract.fridayBreakEndTime,
+    contract.saturdayBreakEndTime,
+  ];
+
+  // Intensive variants
+  const intensiveStartTimeFields = [
+    contract.intensiveSundayStartTime,
+    contract.intensiveMondayStartTime,
+    contract.intensiveTuesdayStartTime,
+    contract.intensiveWednesdayStartTime,
+    contract.intensiveThursdayStartTime,
+    contract.intensiveFridayStartTime,
+    contract.intensiveSaturdayStartTime,
+  ];
+  const intensiveEndTimeFields = [
+    contract.intensiveSundayEndTime,
+    contract.intensiveMondayEndTime,
+    contract.intensiveTuesdayEndTime,
+    contract.intensiveWednesdayEndTime,
+    contract.intensiveThursdayEndTime,
+    contract.intensiveFridayEndTime,
+    contract.intensiveSaturdayEndTime,
+  ];
+  const intensiveBreakStartFields = [
+    contract.intensiveSundayBreakStartTime,
+    contract.intensiveMondayBreakStartTime,
+    contract.intensiveTuesdayBreakStartTime,
+    contract.intensiveWednesdayBreakStartTime,
+    contract.intensiveThursdayBreakStartTime,
+    contract.intensiveFridayBreakStartTime,
+    contract.intensiveSaturdayBreakStartTime,
+  ];
+  const intensiveBreakEndFields = [
+    contract.intensiveSundayBreakEndTime,
+    contract.intensiveMondayBreakEndTime,
+    contract.intensiveTuesdayBreakEndTime,
+    contract.intensiveWednesdayBreakEndTime,
+    contract.intensiveThursdayBreakEndTime,
+    contract.intensiveFridayBreakEndTime,
+    contract.intensiveSaturdayBreakEndTime,
+  ];
+
+  const startTime = isIntensivePeriod ? intensiveStartTimeFields[dayOfWeek] : startTimeFields[dayOfWeek];
+  const endTime = isIntensivePeriod ? intensiveEndTimeFields[dayOfWeek] : endTimeFields[dayOfWeek];
+  const breakStart = isIntensivePeriod ? intensiveBreakStartFields[dayOfWeek] : breakStartFields[dayOfWeek];
+  const breakEnd = isIntensivePeriod ? intensiveBreakEndFields[dayOfWeek] : breakEndFields[dayOfWeek];
+
+  const calculated = calculateHoursFromTimeSlots(startTime, endTime, breakStart, breakEnd);
+
+  if (calculated > 0) {
+    return calculated;
+  }
+
+  // Fallback to average
+  return calculateAverageHours(
+    isIntensivePeriod,
+    contract.intensiveWeeklyHours,
+    contract.weeklyHours,
+    contract.workingDaysPerWeek,
+  );
+}
+
+// ============================================================================
+// FUNCIÓN PRINCIPAL - Obtener horas esperadas para un día específico
+// ============================================================================
+
+/**
+ * Obtiene las horas esperadas para un empleado en una fecha específica
+ * Considera: tipo de contrato, patrón semanal, jornada intensiva, festivos
+ *
+ * @param employeeId - ID del empleado
+ * @param targetDate - Fecha a consultar
+ * @returns Información completa del día laborable
+ */
+export async function getExpectedHoursForDay(
+  employeeId: string,
+  targetDate: Date,
+): Promise<{
+  hoursExpected: number;
+  isWorkingDay: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
+  hasActiveContract: boolean;
+}> {
+  try {
+    // Obtener el empleado con su organización
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { orgId: true },
+    });
+
+    if (!employee) {
+      throw new Error("Empleado no encontrado");
+    }
+
+    const { orgId } = employee;
+
+    // Obtener contrato activo
+    const contract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId,
+        active: true,
+        weeklyHours: { gt: 0 },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    const hasActiveContract = Boolean(contract);
+
+    // Si no hay contrato, retornar valores por defecto
+    if (!contract) {
+      return {
+        hoursExpected: 0,
+        isWorkingDay: false,
+        isHoliday: false,
+        hasActiveContract: false,
+      };
+    }
+
+    // Obtener día de la semana (0 = domingo, 1 = lunes, ..., 6 = sábado)
+    const dayOfWeek = targetDate.getDay();
+
+    // Verificar si es festivo
+    const dayStart = startOfDay(targetDate);
+    const dayEnd = endOfDay(targetDate);
+    const targetYear = targetDate.getFullYear();
+
+    const holiday = await prisma.calendarEvent.findFirst({
+      where: {
+        calendar: {
+          orgId,
+          active: true,
+          year: targetYear,
+        },
+        date: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+        eventType: "HOLIDAY",
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    // Si es festivo, no hay que trabajar
+    if (holiday) {
+      return {
+        hoursExpected: 0,
+        isWorkingDay: false,
+        isHoliday: true,
+        holidayName: holiday.name,
+        hasActiveContract,
+      };
+    }
+
+    // Verificar si estamos en periodo de jornada intensiva
+    let isIntensivePeriod = false;
+    if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
+      const currentMonthDay = format(targetDate, "MM-dd");
+      const startMonthDay = contract.intensiveStartDate;
+      const endMonthDay = contract.intensiveEndDate;
+
+      // Comparar fechas MM-DD
+      if (startMonthDay <= endMonthDay) {
+        // Periodo dentro del mismo año (ej: 06-15 a 09-15)
+        isIntensivePeriod = currentMonthDay >= startMonthDay && currentMonthDay <= endMonthDay;
+      } else {
+        // Periodo que cruza año (ej: 12-15 a 02-15)
+        isIntensivePeriod = currentMonthDay >= startMonthDay || currentMonthDay <= endMonthDay;
+      }
+    }
+
+    // Determinar horas según tipo de horario y día de la semana
+    let hoursExpected = 0;
+    let isWorkingDay = false;
+
+    // Array con los campos de horas por día de la semana (domingo a sábado)
+    const regularHoursByDay = [
+      contract.sundayHours,
+      contract.mondayHours,
+      contract.tuesdayHours,
+      contract.wednesdayHours,
+      contract.thursdayHours,
+      contract.fridayHours,
+      contract.saturdayHours,
+    ];
+
+    const intensiveHoursByDay = [
+      contract.intensiveSundayHours,
+      contract.intensiveMondayHours,
+      contract.intensiveTuesdayHours,
+      contract.intensiveWednesdayHours,
+      contract.intensiveThursdayHours,
+      contract.intensiveFridayHours,
+      contract.intensiveSaturdayHours,
+    ];
+
+    const workDaysByDay = [
+      contract.workSunday,
+      contract.workMonday,
+      contract.workTuesday,
+      contract.workWednesday,
+      contract.workThursday,
+      contract.workFriday,
+      contract.workSaturday,
+    ];
+
+    if (contract.scheduleType === "FLEXIBLE") {
+      if (contract.hasCustomWeeklyPattern) {
+        // FLEXIBLE con patrón personalizado: Usar horas específicas del día
+        const todayHours = isIntensivePeriod ? intensiveHoursByDay[dayOfWeek] : regularHoursByDay[dayOfWeek];
+
+        if (todayHours !== null && todayHours !== undefined) {
+          hoursExpected = Number(todayHours);
+          isWorkingDay = hoursExpected > 0;
+        } else {
+          // Si no hay horas definidas para hoy, no es día laborable
+          hoursExpected = 0;
+          isWorkingDay = false;
+        }
+      } else {
+        // FLEXIBLE sin patrón: Usar promedio (comportamiento legacy)
+        hoursExpected = calculateAverageHours(
+          isIntensivePeriod,
+          contract.intensiveWeeklyHours,
+          contract.weeklyHours,
+          contract.workingDaysPerWeek,
+        );
+        isWorkingDay = true; // Asumimos que trabaja si no hay patrón específico
+      }
+    } else if (contract.scheduleType === "FIXED") {
+      // FIXED: Verificar si trabaja hoy según workMonday, workTuesday, etc.
+      const worksToday = workDaysByDay[dayOfWeek] ?? false;
+      isWorkingDay = worksToday;
+      hoursExpected = calculateFixedScheduleHours(
+        worksToday,
+        contract.hasFixedTimeSlots ?? false,
+        dayOfWeek,
+        isIntensivePeriod,
+        contract,
+      );
+    } else {
+      // SHIFTS u otro tipo: Por ahora usar promedio
+      hoursExpected = calculateAverageHours(
+        isIntensivePeriod,
+        contract.intensiveWeeklyHours,
+        contract.weeklyHours,
+        contract.workingDaysPerWeek,
+      );
+      isWorkingDay = true;
+    }
+
+    return {
+      hoursExpected,
+      isWorkingDay,
+      isHoliday: false,
+      hasActiveContract,
+    };
+  } catch (error) {
+    console.error("Error al obtener horas esperadas para el día:", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene la hora de entrada esperada para un empleado en una fecha específica
+ * Solo aplica para contratos FIXED con franjas horarias definidas
+ *
+ * @param employeeId - ID del empleado
+ * @param targetDate - Fecha a consultar
+ * @returns Hora de entrada en formato "HH:MM" o null si no aplica
+ */
+export async function getEmployeeEntryTime(employeeId: string, targetDate: Date): Promise<string | null> {
+  try {
+    // Obtener contrato activo
+    const contract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId,
+        active: true,
+        weeklyHours: { gt: 0 },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    // Si no hay contrato o no es FIXED, no hay hora de entrada definida
+    if (!contract || contract.scheduleType !== "FIXED") {
+      return null;
+    }
+
+    // Si no tiene franjas horarias definidas, no hay hora de entrada
+    if (!contract.hasFixedTimeSlots) {
+      return null;
+    }
+
+    // Obtener día de la semana (0 = domingo, 1 = lunes, ..., 6 = sábado)
+    const dayOfWeek = targetDate.getDay();
+
+    // Verificar si trabaja este día
+    const workDaysByDay = [
+      contract.workSunday,
+      contract.workMonday,
+      contract.workTuesday,
+      contract.workWednesday,
+      contract.workThursday,
+      contract.workFriday,
+      contract.workSaturday,
+    ];
+
+    const worksToday = workDaysByDay[dayOfWeek] ?? false;
+
+    // Si no trabaja hoy, no hay hora de entrada
+    if (!worksToday) {
+      return null;
+    }
+
+    // Verificar si estamos en periodo de jornada intensiva
+    let isIntensivePeriod = false;
+    if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
+      const currentMonthDay = format(targetDate, "MM-dd");
+      const startMonthDay = contract.intensiveStartDate;
+      const endMonthDay = contract.intensiveEndDate;
+
+      // Comparar fechas MM-DD
+      if (startMonthDay <= endMonthDay) {
+        isIntensivePeriod = currentMonthDay >= startMonthDay && currentMonthDay <= endMonthDay;
+      } else {
+        isIntensivePeriod = currentMonthDay >= startMonthDay || currentMonthDay <= endMonthDay;
+      }
+    }
+
+    // Obtener franjas horarias de inicio
+    const startTimeFields = [
+      contract.sundayStartTime,
+      contract.mondayStartTime,
+      contract.tuesdayStartTime,
+      contract.wednesdayStartTime,
+      contract.thursdayStartTime,
+      contract.fridayStartTime,
+      contract.saturdayStartTime,
+    ];
+
+    const intensiveStartTimeFields = [
+      contract.intensiveSundayStartTime,
+      contract.intensiveMondayStartTime,
+      contract.intensiveTuesdayStartTime,
+      contract.intensiveWednesdayStartTime,
+      contract.intensiveThursdayStartTime,
+      contract.intensiveFridayStartTime,
+      contract.intensiveSaturdayStartTime,
+    ];
+
+    // Elegir la hora de inicio según periodo intensivo o normal
+    const startTime = isIntensivePeriod ? intensiveStartTimeFields[dayOfWeek] : startTimeFields[dayOfWeek];
+
+    return startTime ?? null;
+  } catch (error) {
+    console.error("Error al obtener hora de entrada del empleado:", error);
+    throw error;
+  }
 }
 
 // Obtener lista de empleados para time tracking
@@ -265,37 +735,39 @@ export async function getEmployeeWeeklySummary(employeeId: string, dateFrom?: Da
       if (summary.status === "ABSENT") week.daysAbsent++;
     });
 
-    return Array.from(weeklyData.values()).map((week) => {
-      // Calcular días laborables esperados en esta semana (considerando inicio de contrato)
-      const expectedDays = calculateWorkableDays(week.weekStart, week.weekEnd, contractStartDate);
-      const expectedHours = expectedDays * dailyHours;
+    return Promise.all(
+      Array.from(weeklyData.values()).map(async (week) => {
+        // Calcular días laborables esperados en esta semana (considerando inicio de contrato)
+        const expectedDays = await calculateWorkableDays(employeeId, week.weekStart, week.weekEnd, contractStartDate);
+        const expectedHours = expectedDays * dailyHours;
 
-      const actualHours = week.totalWorkedMinutes / 60;
-      const compliance = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
-      const averageDaily = week.daysWorked > 0 ? actualHours / week.daysWorked : 0;
+        const actualHours = week.totalWorkedMinutes / 60;
+        const compliance = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
+        const averageDaily = week.daysWorked > 0 ? actualHours / week.daysWorked : 0;
 
-      let status: "complete" | "incomplete" | "absent";
-      if (compliance >= 95) status = "complete";
-      else if (compliance >= 70) status = "incomplete";
-      else status = "absent";
+        let status: "complete" | "incomplete" | "absent";
+        if (compliance >= 95) status = "complete";
+        else if (compliance >= 70) status = "incomplete";
+        else status = "absent";
 
-      return {
-        weekStart: week.weekStart,
-        weekEnd: week.weekEnd,
-        totalWorkedMinutes: week.totalWorkedMinutes,
-        totalBreakMinutes: week.totalBreakMinutes,
-        expectedHours: Math.round(expectedHours * 100) / 100,
-        actualHours: Math.round(actualHours * 100) / 100,
-        compliance: Math.round(compliance),
-        daysWorked: week.daysWorked,
-        expectedDays,
-        daysCompleted: week.daysCompleted,
-        daysIncomplete: week.daysIncomplete,
-        daysAbsent: week.daysAbsent,
-        averageDaily: Math.round(averageDaily * 100) / 100,
-        status,
-      };
-    });
+        return {
+          weekStart: week.weekStart,
+          weekEnd: week.weekEnd,
+          totalWorkedMinutes: week.totalWorkedMinutes,
+          totalBreakMinutes: week.totalBreakMinutes,
+          expectedHours: Math.round(expectedHours * 100) / 100,
+          actualHours: Math.round(actualHours * 100) / 100,
+          compliance: Math.round(compliance),
+          daysWorked: week.daysWorked,
+          expectedDays,
+          daysCompleted: week.daysCompleted,
+          daysIncomplete: week.daysIncomplete,
+          daysAbsent: week.daysAbsent,
+          averageDaily: Math.round(averageDaily * 100) / 100,
+          status,
+        };
+      }),
+    );
   } catch (error) {
     console.error("Error al obtener resumen semanal:", error);
     throw error;
@@ -385,33 +857,35 @@ export async function getEmployeeMonthlySummary(employeeId: string, dateFrom?: D
       if (summary.status === "ABSENT") monthData.daysAbsent++;
     });
 
-    return Array.from(monthlyData.values()).map((month) => {
-      // Calcular días laborables esperados en este mes (considerando inicio de contrato)
-      const monthEnd = endOfMonth(month.month);
-      const expectedDays = calculateWorkableDays(month.month, monthEnd, contractStartDate);
-      const expectedHours = expectedDays * dailyHours;
+    return Promise.all(
+      Array.from(monthlyData.values()).map(async (month) => {
+        // Calcular días laborables esperados en este mes (considerando inicio de contrato)
+        const monthEnd = endOfMonth(month.month);
+        const expectedDays = await calculateWorkableDays(employeeId, month.month, monthEnd, contractStartDate);
+        const expectedHours = expectedDays * dailyHours;
 
-      const actualHours = month.totalWorkedMinutes / 60;
-      const averageDaily = month.daysWorked > 0 ? actualHours / month.daysWorked : 0;
-      const averageWeekly = actualHours / 4.33; // Promedio de semanas por mes
-      const compliance = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
+        const actualHours = month.totalWorkedMinutes / 60;
+        const averageDaily = month.daysWorked > 0 ? actualHours / month.daysWorked : 0;
+        const averageWeekly = actualHours / 4.33; // Promedio de semanas por mes
+        const compliance = expectedHours > 0 ? (actualHours / expectedHours) * 100 : 0;
 
-      return {
-        month: month.month,
-        totalWorkedMinutes: month.totalWorkedMinutes,
-        totalBreakMinutes: month.totalBreakMinutes,
-        actualHours: Math.round(actualHours * 100) / 100,
-        expectedHours: Math.round(expectedHours * 100) / 100,
-        averageDaily: Math.round(averageDaily * 100) / 100,
-        averageWeekly: Math.round(averageWeekly * 100) / 100,
-        compliance: Math.round(compliance),
-        daysWorked: month.daysWorked,
-        expectedDays,
-        daysCompleted: month.daysCompleted,
-        daysIncomplete: month.daysIncomplete,
-        daysAbsent: month.daysAbsent,
-      };
-    });
+        return {
+          month: month.month,
+          totalWorkedMinutes: month.totalWorkedMinutes,
+          totalBreakMinutes: month.totalBreakMinutes,
+          actualHours: Math.round(actualHours * 100) / 100,
+          expectedHours: Math.round(expectedHours * 100) / 100,
+          averageDaily: Math.round(averageDaily * 100) / 100,
+          averageWeekly: Math.round(averageWeekly * 100) / 100,
+          compliance: Math.round(compliance),
+          daysWorked: month.daysWorked,
+          expectedDays,
+          daysCompleted: month.daysCompleted,
+          daysIncomplete: month.daysIncomplete,
+          daysAbsent: month.daysAbsent,
+        };
+      }),
+    );
   } catch (error) {
     console.error("Error al obtener resumen mensual:", error);
     throw error;
@@ -501,32 +975,34 @@ export async function getEmployeeYearlySummary(employeeId: string, dateFrom?: Da
       if (summary.status === "ABSENT") yearData.daysAbsent++;
     });
 
-    return Array.from(yearlyData.values()).map((year) => {
-      // Calcular días laborables esperados en este año (considerando inicio de contrato)
-      const yearStart = startOfYear(new Date(year.year, 0, 1));
-      const yearEnd = endOfYear(new Date(year.year, 11, 31));
-      const expectedDays = calculateWorkableDays(yearStart, yearEnd, contractStartDate);
-      const expectedHours = expectedDays * dailyHours;
+    return Promise.all(
+      Array.from(yearlyData.values()).map(async (year) => {
+        // Calcular días laborables esperados en este año (considerando inicio de contrato)
+        const yearStart = startOfYear(new Date(year.year, 0, 1));
+        const yearEnd = endOfYear(new Date(year.year, 11, 31));
+        const expectedDays = await calculateWorkableDays(employeeId, yearStart, yearEnd, contractStartDate);
+        const expectedHours = expectedDays * dailyHours;
 
-      const actualHours = year.totalWorkedMinutes / 60;
-      const averageMonthly = actualHours / 12;
-      const attendanceRate = year.daysWorked > 0 ? (year.daysCompleted / year.daysWorked) * 100 : 0;
+        const actualHours = year.totalWorkedMinutes / 60;
+        const averageMonthly = actualHours / 12;
+        const attendanceRate = year.daysWorked > 0 ? (year.daysCompleted / year.daysWorked) * 100 : 0;
 
-      return {
-        year: year.year,
-        totalWorkedMinutes: year.totalWorkedMinutes,
-        totalBreakMinutes: year.totalBreakMinutes,
-        actualHours: Math.round(actualHours),
-        expectedHours: Math.round(expectedHours * 100) / 100,
-        averageMonthly: Math.round(averageMonthly),
-        attendanceRate: Math.round(attendanceRate),
-        daysWorked: year.daysWorked,
-        expectedDays,
-        daysCompleted: year.daysCompleted,
-        daysIncomplete: year.daysIncomplete,
-        daysAbsent: year.daysAbsent,
-      };
-    });
+        return {
+          year: year.year,
+          totalWorkedMinutes: year.totalWorkedMinutes,
+          totalBreakMinutes: year.totalBreakMinutes,
+          actualHours: Math.round(actualHours),
+          expectedHours: Math.round(expectedHours * 100) / 100,
+          averageMonthly: Math.round(averageMonthly),
+          attendanceRate: Math.round(attendanceRate),
+          daysWorked: year.daysWorked,
+          expectedDays,
+          daysCompleted: year.daysCompleted,
+          daysIncomplete: year.daysIncomplete,
+          daysAbsent: year.daysAbsent,
+        };
+      }),
+    );
   } catch (error) {
     console.error("Error al obtener resumen anual:", error);
     throw error;
@@ -795,6 +1271,9 @@ export async function getCurrentlyWorkingEmployees() {
     const dayStart = startOfDay(today);
     const dayEnd = endOfDay(today);
 
+    // Margen de tolerancia para considerar ausencia (15 minutos)
+    const ABSENCE_MARGIN_MINUTES = 15;
+
     // Obtener todos los empleados con sus últimos fichajes de hoy
     const employees = await prisma.employee.findMany({
       where: {
@@ -856,46 +1335,78 @@ export async function getCurrentlyWorkingEmployees() {
       },
     });
 
-    // Determinar el estado actual de cada empleado
-    const employeesWithStatus = employees.map((employee) => {
-      const lastEntry = employee.timeEntries[0];
-      const todaySummary = employee.workdaySummaries[0];
-      const contract = employee.employmentContracts[0];
+    // Determinar el estado actual de cada empleado (con validación de días laborables)
+    const employeesWithStatus = await Promise.all(
+      employees.map(async (employee) => {
+        const lastEntry = employee.timeEntries[0];
+        const todaySummary = employee.workdaySummaries[0];
+        const contract = employee.employmentContracts[0];
 
-      let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
-      let lastAction = null;
+        // Obtener información del día laborable
+        const dayInfo = await getExpectedHoursForDay(employee.id, today);
+        const expectedEntryTime = await getEmployeeEntryTime(employee.id, today);
 
-      if (lastEntry) {
-        lastAction = lastEntry.timestamp;
-        switch (lastEntry.entryType) {
-          case "CLOCK_IN":
-          case "BREAK_END":
-            status = "CLOCKED_IN";
-            break;
-          case "BREAK_START":
-            status = "ON_BREAK";
-            break;
-          case "CLOCK_OUT":
-          default:
-            status = "CLOCKED_OUT";
-            break;
+        // Determinar estado de fichaje actual
+        let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
+        let lastAction = null;
+
+        if (lastEntry) {
+          lastAction = lastEntry.timestamp;
+          switch (lastEntry.entryType) {
+            case "CLOCK_IN":
+            case "BREAK_END":
+              status = "CLOCKED_IN";
+              break;
+            case "BREAK_START":
+              status = "ON_BREAK";
+              break;
+            case "CLOCK_OUT":
+            default:
+              status = "CLOCKED_OUT";
+              break;
+          }
         }
-      }
 
-      return {
-        id: employee.id,
-        name: employee.user.name,
-        email: employee.user.email,
-        department: contract?.department?.name ?? "Sin departamento",
-        costCenter: contract?.costCenter?.name ?? "Sin centro de coste",
-        status,
-        lastAction,
-        todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
-        todayBreakMinutes: todaySummary ? Number(todaySummary.totalBreakMinutes) : 0,
-        clockIn: todaySummary?.clockIn,
-        clockOut: todaySummary?.clockOut,
-      };
-    });
+        // Calcular si está ausente (solo si es día laborable y tiene hora de entrada definida)
+        let isAbsent = false;
+        if (dayInfo.isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT") {
+          // Parsear hora de entrada esperada (formato "HH:MM")
+          const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
+          const expectedEntry = new Date(today);
+          expectedEntry.setHours(entryHour, entryMinute, 0, 0);
+
+          // Añadir margen de tolerancia
+          const absenceThreshold = new Date(expectedEntry);
+          absenceThreshold.setMinutes(absenceThreshold.getMinutes() + ABSENCE_MARGIN_MINUTES);
+
+          // Si la hora actual ya pasó el umbral y no ha fichado, está ausente
+          if (today >= absenceThreshold) {
+            isAbsent = true;
+          }
+        }
+
+        return {
+          id: employee.id,
+          name: employee.user.name,
+          email: employee.user.email,
+          department: contract?.department?.name ?? "Sin departamento",
+          costCenter: contract?.costCenter?.name ?? "Sin centro de coste",
+          status,
+          lastAction,
+          todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
+          todayBreakMinutes: todaySummary ? Number(todaySummary.totalBreakMinutes) : 0,
+          clockIn: todaySummary?.clockIn,
+          clockOut: todaySummary?.clockOut,
+          // Nuevos campos
+          isWorkingDay: dayInfo.isWorkingDay,
+          isHoliday: dayInfo.isHoliday,
+          holidayName: dayInfo.holidayName,
+          expectedHours: dayInfo.hoursExpected,
+          expectedEntryTime,
+          isAbsent,
+        };
+      }),
+    );
 
     return employeesWithStatus;
   } catch (error) {
@@ -1067,11 +1578,6 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       throw new Error("Empleado no encontrado");
     }
 
-    const activeContract = employee.employmentContracts[0];
-    const weeklyHours = activeContract?.weeklyHours ? Number(activeContract.weeklyHours) : 40;
-    const workingDaysPerWeek = activeContract?.workingDaysPerWeek ? Number(activeContract.workingDaysPerWeek) : 5;
-    const dailyHours = weeklyHours / workingDaysPerWeek;
-
     // Generar el rango de fechas completo
     const startDate = dateFrom ?? startOfDay(new Date());
     const endDate = dateTo ?? endOfDay(new Date());
@@ -1140,6 +1646,17 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       entriesByDay.get(dayKey)!.push(entry);
     });
 
+    // Obtener información de días laborables para todos los días del rango (en paralelo)
+    const dayInfoPromises = allDaysInRange.map((dayDate) => getExpectedHoursForDay(employeeId, dayDate));
+    const dayInfos = await Promise.all(dayInfoPromises);
+
+    // Crear un mapa de información de días por fecha
+    const dayInfoMap = new Map<string, Awaited<ReturnType<typeof getExpectedHoursForDay>>>();
+    allDaysInRange.forEach((dayDate, index) => {
+      const dayKey = startOfDay(dayDate).toISOString();
+      dayInfoMap.set(dayKey, dayInfos[index]);
+    });
+
     return {
       employee: {
         id: employee.id,
@@ -1153,11 +1670,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           const dayKey = startOfDay(dayDate).toISOString();
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
+          const dayInfo = dayInfoMap.get(dayKey)!;
 
           // Si existe summary, usarlo; si no, crear uno virtual
           if (summary) {
             const workedHours = Number(summary.totalWorkedMinutes) / 60;
-            const compliance = dailyHours > 0 ? Math.round((workedHours / dailyHours) * 100) : 0;
+            const compliance = dayInfo.hoursExpected > 0 ? Math.round((workedHours / dayInfo.hoursExpected) * 100) : 0;
 
             return {
               id: summary.id,
@@ -1167,9 +1685,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               totalWorkedMinutes: Number(summary.totalWorkedMinutes),
               totalBreakMinutes: Number(summary.totalBreakMinutes),
               status: summary.status,
-              expectedHours: dailyHours,
+              expectedHours: dayInfo.hoursExpected,
               actualHours: Math.round(workedHours * 100) / 100,
               compliance,
+              isWorkingDay: dayInfo.isWorkingDay,
+              isHoliday: dayInfo.isHoliday,
+              holidayName: dayInfo.holidayName,
               timeEntries: dayEntries.map((entry) => ({
                 id: entry.id,
                 entryType: entry.entryType,
@@ -1192,6 +1713,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           }
 
           // Crear un summary virtual para días sin fichajes
+          // Determinar el status correcto según el tipo de día
+          let virtualStatus: "ABSENT" | "HOLIDAY" | "NON_WORKDAY";
+          if (dayInfo.isHoliday) {
+            virtualStatus = "HOLIDAY";
+          } else if (!dayInfo.isWorkingDay) {
+            virtualStatus = "NON_WORKDAY";
+          } else {
+            virtualStatus = "ABSENT";
+          }
+
           return {
             id: `virtual-${dayKey}`,
             date: dayDate,
@@ -1199,10 +1730,13 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             clockOut: null,
             totalWorkedMinutes: 0,
             totalBreakMinutes: 0,
-            status: "ABSENT" as const,
-            expectedHours: dailyHours,
+            status: virtualStatus,
+            expectedHours: dayInfo.hoursExpected,
             actualHours: 0,
             compliance: 0,
+            isWorkingDay: dayInfo.isWorkingDay,
+            isHoliday: dayInfo.isHoliday,
+            holidayName: dayInfo.holidayName,
             timeEntries: dayEntries.map((entry) => ({
               id: entry.id,
               entryType: entry.entryType,

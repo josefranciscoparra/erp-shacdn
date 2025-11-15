@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { RefreshCw, Users, Clock, Coffee, ShieldAlert } from "lucide-react";
+import { RefreshCw, Users, Clock, Coffee, ShieldAlert, AlertTriangle, CalendarX } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable as DataTableNew } from "@/components/data-table/data-table";
@@ -21,24 +21,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDataTableInstance } from "@/hooks/use-data-table-instance";
 import { getCurrentlyWorkingEmployees } from "@/server/actions/admin-time-tracking";
 
-import { employeeColumns } from "../_components/employee-columns";
+import { employeeColumns, EmployeeTimeTracking } from "../_components/employee-columns";
 
-interface EmployeeStatus {
-  id: string;
-  name: string | null;
-  email: string;
-  image?: string | null;
-  department: string;
-  costCenter: string;
-  status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK";
-  lastAction: Date | null;
-  todayWorkedMinutes: number;
-  todayBreakMinutes: number;
-  clockIn?: Date;
-  clockOut?: Date;
-}
-
-type FilterValue = "all" | "working" | "break";
+type FilterValue = "all" | "working" | "break" | "absent" | "non-working";
 
 // Orden de prioridad para estados
 const statusPriority = {
@@ -48,8 +33,8 @@ const statusPriority = {
 };
 
 export default function LiveMonitorPage() {
-  const [employees, setEmployees] = useState<EmployeeStatus[]>([]);
-  const [filteredEmployees, setFilteredEmployees] = useState<EmployeeStatus[]>([]);
+  const [employees, setEmployees] = useState<EmployeeTimeTracking[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<EmployeeTimeTracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [filter, setFilter] = useState<FilterValue>("all");
@@ -58,13 +43,6 @@ export default function LiveMonitorPage() {
   const table = useDataTableInstance({
     data: filteredEmployees,
     columns: employeeColumns,
-    getRowId: (row) => row.id,
-    initialState: {
-      sorting: [
-        { id: "status", desc: false },
-        { id: "name", desc: false },
-      ],
-    },
   });
 
   const loadData = async () => {
@@ -77,7 +55,7 @@ export default function LiveMonitorPage() {
         const statusDiff = statusPriority[a.status] - statusPriority[b.status];
         if (statusDiff !== 0) return statusDiff;
         return (a.name || "").localeCompare(b.name || "");
-      });
+      }) as EmployeeTimeTracking[];
 
       setEmployees(sorted);
       setLastUpdate(new Date());
@@ -89,7 +67,7 @@ export default function LiveMonitorPage() {
     }
   };
 
-  const applyFilter = (data: EmployeeStatus[], filterValue: FilterValue) => {
+  const applyFilter = (data: EmployeeTimeTracking[], filterValue: FilterValue) => {
     let filtered = data;
 
     switch (filterValue) {
@@ -98,6 +76,12 @@ export default function LiveMonitorPage() {
         break;
       case "break":
         filtered = data.filter((e) => e.status === "ON_BREAK");
+        break;
+      case "absent":
+        filtered = data.filter((e) => e.isAbsent);
+        break;
+      case "non-working":
+        filtered = data.filter((e) => !e.isWorkingDay);
         break;
       case "all":
       default:
@@ -118,7 +102,8 @@ export default function LiveMonitorPage() {
 
   const workingCount = employees.filter((e) => e.status === "CLOCKED_IN").length;
   const breakCount = employees.filter((e) => e.status === "ON_BREAK").length;
-  const offlineCount = employees.filter((e) => e.status === "CLOCKED_OUT").length;
+  const absentCount = employees.filter((e) => e.isAbsent).length;
+  const nonWorkingCount = employees.filter((e) => !e.isWorkingDay).length;
 
   return (
     <PermissionGuard
@@ -155,7 +140,7 @@ export default function LiveMonitorPage() {
         )}
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-4">
           <Card className="to-card bg-gradient-to-t from-green-500/5 p-4 shadow-xs">
             <div className="flex items-center gap-3">
               <div className="flex size-10 items-center justify-center rounded-full bg-green-500/10">
@@ -180,14 +165,26 @@ export default function LiveMonitorPage() {
             </div>
           </Card>
 
-          <Card className="to-card bg-gradient-to-t from-gray-500/5 p-4 shadow-xs">
+          <Card className="to-card bg-gradient-to-t from-red-500/5 p-4 shadow-xs">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-gray-500/10">
-                <Users className="size-5 text-gray-600" />
+              <div className="flex size-10 items-center justify-center rounded-full bg-red-500/10">
+                <AlertTriangle className="size-5 text-red-600" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Sin fichar</span>
-                <span className="text-2xl font-bold">{offlineCount}</span>
+                <span className="text-muted-foreground text-sm">Ausentes</span>
+                <span className="text-2xl font-bold">{absentCount}</span>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="to-card bg-gradient-to-t from-blue-500/5 p-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
+                <CalendarX className="size-5 text-blue-600" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-sm">Día no laborable</span>
+                <span className="text-2xl font-bold">{nonWorkingCount}</span>
               </div>
             </div>
           </Card>
@@ -208,19 +205,15 @@ export default function LiveMonitorPage() {
                 <SelectValue placeholder="Filtrar" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="working">Solo trabajando</SelectItem>
+                <SelectItem value="working">Trabajando</SelectItem>
                 <SelectItem value="break">En pausa</SelectItem>
+                <SelectItem value="absent">Ausentes</SelectItem>
+                <SelectItem value="non-working">Día no laborable</SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
               </SelectContent>
             </Select>
 
             <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="all">
-                Todos{" "}
-                <Badge variant="secondary" className="ml-2">
-                  {employees.length}
-                </Badge>
-              </TabsTrigger>
               <TabsTrigger value="working">
                 Trabajando{" "}
                 <Badge variant="secondary" className="ml-2">
@@ -233,6 +226,24 @@ export default function LiveMonitorPage() {
                   {breakCount}
                 </Badge>
               </TabsTrigger>
+              <TabsTrigger value="absent">
+                Ausentes{" "}
+                <Badge variant="destructive" className="ml-2">
+                  {absentCount}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="non-working">
+                Día no laborable{" "}
+                <Badge variant="secondary" className="ml-2">
+                  {nonWorkingCount}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="all">
+                Todos{" "}
+                <Badge variant="secondary" className="ml-2">
+                  {employees.length}
+                </Badge>
+              </TabsTrigger>
             </TabsList>
 
             <div className="flex items-center gap-2">
@@ -240,28 +251,45 @@ export default function LiveMonitorPage() {
             </div>
           </div>
 
-          {["all", "working", "break"].map((tab) => (
-            <TabsContent key={tab} value={tab} className="relative flex flex-col gap-4">
-              {isLoading ? (
-                <div className="flex h-96 items-center justify-center">
-                  <span className="text-muted-foreground">Cargando...</span>
-                </div>
-              ) : filteredEmployees.length === 0 ? (
-                <EmptyState
-                  icon="users"
-                  title="No hay empleados"
-                  description={`No hay empleados ${tab === "working" ? "trabajando" : tab === "break" ? "en pausa" : "para mostrar"} en este momento`}
-                />
-              ) : (
-                <>
-                  <div className="overflow-hidden rounded-lg border">
-                    <DataTableNew table={table} columns={employeeColumns} />
+          {["working", "break", "absent", "non-working", "all"].map((tab) => {
+            const getEmptyMessage = () => {
+              switch (tab) {
+                case "working":
+                  return "No hay empleados trabajando en este momento";
+                case "break":
+                  return "No hay empleados en pausa en este momento";
+                case "absent":
+                  return "No hay ausencias registradas";
+                case "non-working":
+                  return "Todos los empleados tienen día laborable hoy";
+                default:
+                  return "No hay empleados para mostrar";
+              }
+            };
+
+            return (
+              <TabsContent key={tab} value={tab} className="relative flex flex-col gap-4">
+                {isLoading ? (
+                  <div className="flex h-96 items-center justify-center">
+                    <span className="text-muted-foreground">Cargando...</span>
                   </div>
-                  <DataTablePagination table={table} />
-                </>
-              )}
-            </TabsContent>
-          ))}
+                ) : filteredEmployees.length === 0 ? (
+                  <EmptyState
+                    icon={<Users className="size-12" />}
+                    title="No hay empleados"
+                    description={getEmptyMessage()}
+                  />
+                ) : (
+                  <>
+                    <div className="overflow-hidden rounded-lg border">
+                      <DataTableNew table={table} columns={employeeColumns} />
+                    </div>
+                    <DataTablePagination table={table} />
+                  </>
+                )}
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </div>
     </PermissionGuard>
