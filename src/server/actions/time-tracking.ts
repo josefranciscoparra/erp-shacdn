@@ -703,6 +703,31 @@ export async function getExpectedHoursForToday() {
     const today = new Date();
     const dayOfWeek = today.getDay();
 
+    // Verificar si hoy es festivo
+    const dayStart = startOfDay(today);
+    const dayEnd = endOfDay(today);
+    const currentYear = today.getFullYear();
+
+    const isHoliday = await prisma.calendarEvent.findFirst({
+      where: {
+        calendar: {
+          orgId,
+          active: true,
+          year: currentYear,
+        },
+        date: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+        eventType: "HOLIDAY",
+      },
+    });
+
+    // Si hoy es festivo, no hay que trabajar
+    if (isHoliday) {
+      return { hoursToday: 0, isWorkingDay: false, hasActiveContract };
+    }
+
     // Verificar si estamos en periodo de jornada intensiva
     let isIntensivePeriod = false;
     if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
