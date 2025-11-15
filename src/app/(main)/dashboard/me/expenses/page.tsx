@@ -14,15 +14,10 @@ import {
   SortingState,
   VisibilityState,
 } from "@tanstack/react-table";
-import { Receipt, Plus } from "lucide-react";
 
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Expense, useExpensesStore } from "@/stores/expenses-store";
@@ -71,6 +66,21 @@ export default function ExpensesPage() {
         return expenses;
     }
   }, [currentTab, draftExpenses, inReviewExpenses, completedExpenses, expenses]);
+
+  // Obtener mensaje de empty state según el tab actual
+  const emptyStateMessage = useMemo(() => {
+    switch (currentTab) {
+      case "draft":
+        return { title: "Nada por aquí", description: "No tienes borradores de gastos." };
+      case "in-review":
+        return { title: "Nada por aquí", description: "No tienes gastos en revisión." };
+      case "completed":
+        return { title: "Nada por aquí", description: "No tienes gastos finalizados." };
+      case "all":
+      default:
+        return { title: "Nada por aquí", description: "No tienes gastos registrados." };
+    }
+  }, [currentTab]);
 
   // Memoizar callbacks para evitar recrear en cada render
   const handleView = useMemo(
@@ -276,156 +286,81 @@ export default function ExpensesPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">
-                  Todos
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {expenses.length}
-                  </Badge>
-                </SelectItem>
-                <SelectItem value="draft">
-                  Borradores
-                  {draftExpenses.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {draftExpenses.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="in-review">
-                  En revisión
-                  {inReviewExpenses.length > 0 && (
-                    <Badge variant="default" className="ml-2 text-xs">
-                      {inReviewExpenses.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="completed">
-                  Finalizados
-                  {completedExpenses.length > 0 && (
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {completedExpenses.length}
-                    </Badge>
-                  )}
-                </SelectItem>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="draft">Borradores</SelectItem>
+                <SelectItem value="in-review">En revisión</SelectItem>
+                <SelectItem value="completed">Finalizados</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {/* Desktop Tabs */}
           <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="all" className="relative">
-              Todos
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {expenses.length}
-              </Badge>
-            </TabsTrigger>
-            <TabsTrigger value="draft" className="relative">
-              Borradores
-              {draftExpenses.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {draftExpenses.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="in-review" className="relative">
-              En revisión
-              {inReviewExpenses.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {inReviewExpenses.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="completed" className="relative">
-              Finalizados
-              {completedExpenses.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {completedExpenses.length}
-                </Badge>
-              )}
-            </TabsTrigger>
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="draft">Borradores</TabsTrigger>
+            <TabsTrigger value="in-review">En revisión</TabsTrigger>
+            <TabsTrigger value="completed">Finalizados</TabsTrigger>
           </TabsList>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <DataTableViewOptions table={table} />
-          </div>
         </div>
 
         {/* Tab Content - Todos */}
         <TabsContent value="all" className="mt-4">
-          {expenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos"
-              description="Crea tu primer gasto para empezar"
-              action={
-                <Button onClick={handleNewExpense}>
-                  <Plus className="mr-2 size-4" />
-                  Nuevo Gasto
-                </Button>
-              }
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                table={table}
+                columns={columns}
+                emptyStateTitle={emptyStateMessage.title}
+                emptyStateDescription={emptyStateMessage.description}
+              />
             </div>
-          )}
+            <DataTablePagination table={table} />
+          </div>
         </TabsContent>
 
         {/* Tab Content - Borradores */}
         <TabsContent value="draft" className="mt-4">
-          {draftExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay borradores"
-              description="Los gastos guardados como borrador aparecerán aquí"
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                table={table}
+                columns={columns}
+                emptyStateTitle={emptyStateMessage.title}
+                emptyStateDescription={emptyStateMessage.description}
+              />
             </div>
-          )}
+            <DataTablePagination table={table} />
+          </div>
         </TabsContent>
 
         {/* Tab Content - En revisión */}
         <TabsContent value="in-review" className="mt-4">
-          {inReviewExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos en revisión"
-              description="Los gastos enviados y en proceso de aprobación aparecerán aquí"
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                table={table}
+                columns={columns}
+                emptyStateTitle={emptyStateMessage.title}
+                emptyStateDescription={emptyStateMessage.description}
+              />
             </div>
-          )}
+            <DataTablePagination table={table} />
+          </div>
         </TabsContent>
 
         {/* Tab Content - Finalizados */}
         <TabsContent value="completed" className="mt-4">
-          {completedExpenses.length === 0 ? (
-            <EmptyState
-              icon={<Receipt className="text-muted-foreground mx-auto size-12" />}
-              title="No hay gastos finalizados"
-              description="Los gastos rechazados o reembolsados aparecerán aquí"
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="overflow-hidden rounded-lg border">
-                <DataTable table={table} columns={columns} />
-              </div>
-              <DataTablePagination table={table} />
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                table={table}
+                columns={columns}
+                emptyStateTitle={emptyStateMessage.title}
+                emptyStateDescription={emptyStateMessage.description}
+              />
             </div>
-          )}
+            <DataTablePagination table={table} />
+          </div>
         </TabsContent>
       </Tabs>
     </div>

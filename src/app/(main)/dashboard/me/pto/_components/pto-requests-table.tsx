@@ -19,6 +19,7 @@ import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal } from "lucide-react"
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { EmptyState } from "@/components/hr/empty-state";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -261,8 +262,8 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No hay solicitudes para mostrar
+                <TableCell colSpan={columns.length} className="p-0">
+                  <EmptyState title="Nada por aquí" description="No tienes solicitudes de vacaciones." />
                 </TableCell>
               </TableRow>
             )}

@@ -2,11 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Clock, FileCheck, FileSignature, FileX, FolderOpen, HourglassIcon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -133,61 +131,21 @@ export default function MySignaturesPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="pending">Pendientes ({filtered.pending.length})</SelectItem>
-              <SelectItem value="signed">Firmadas ({filtered.signed.length})</SelectItem>
-              <SelectItem value="rejected">Rechazadas ({filtered.rejected.length})</SelectItem>
-              <SelectItem value="expired">Expiradas ({filtered.expired.length})</SelectItem>
-              <SelectItem value="all">Todas ({allSignatures.length})</SelectItem>
+              <SelectItem value="pending">Pendientes</SelectItem>
+              <SelectItem value="signed">Firmadas</SelectItem>
+              <SelectItem value="rejected">Rechazadas</SelectItem>
+              <SelectItem value="expired">Expiradas</SelectItem>
+              <SelectItem value="all">Todas</SelectItem>
             </SelectContent>
           </Select>
 
           {/* TabsList para desktop */}
           <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="pending" className="gap-2">
-              <Clock className="h-4 w-4" />
-              Pendientes
-              {filtered.pending.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.pending.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="signed" className="gap-2">
-              <FileCheck className="h-4 w-4" />
-              Firmadas
-              {filtered.signed.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.signed.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="rejected" className="gap-2">
-              <FileX className="h-4 w-4" />
-              Rechazadas
-              {filtered.rejected.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.rejected.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="expired" className="gap-2">
-              <HourglassIcon className="h-4 w-4" />
-              Expiradas
-              {filtered.expired.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {filtered.expired.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all" className="gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Todas
-              {allSignatures.length > 0 && (
-                <Badge variant="secondary" className="ml-1">
-                  {allSignatures.length}
-                </Badge>
-              )}
-            </TabsTrigger>
+            <TabsTrigger value="pending">Pendientes</TabsTrigger>
+            <TabsTrigger value="signed">Firmadas</TabsTrigger>
+            <TabsTrigger value="rejected">Rechazadas</TabsTrigger>
+            <TabsTrigger value="expired">Expiradas</TabsTrigger>
+            <TabsTrigger value="all">Todas</TabsTrigger>
           </TabsList>
         </div>
 

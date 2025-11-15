@@ -15,6 +15,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { ColumnDef, flexRender, type Table as TanStackTable } from "@tanstack/react-table";
 
+import { EmptyState } from "@/components/hr/empty-state";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { DraggableRow } from "./draggable-row";
@@ -24,6 +25,8 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   dndEnabled?: boolean;
   onReorder?: (newData: TData[]) => void;
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
 }
 
 function renderTableBody<TData, TValue>({
@@ -31,17 +34,24 @@ function renderTableBody<TData, TValue>({
   columns,
   dndEnabled,
   dataIds,
+  emptyStateTitle,
+  emptyStateDescription,
 }: {
   table: TanStackTable<TData>;
   columns: ColumnDef<TData, TValue>[];
   dndEnabled: boolean;
   dataIds: UniqueIdentifier[];
+  emptyStateTitle?: string;
+  emptyStateDescription?: string;
 }) {
   if (!table.getRowModel().rows.length) {
     return (
       <TableRow>
-        <TableCell colSpan={columns.length} className="h-24 text-center">
-          No results.
+        <TableCell colSpan={columns.length} className="p-0">
+          <EmptyState
+            title={emptyStateTitle ?? "Nada por aquí"}
+            description={emptyStateDescription ?? "No hay datos para mostrar."}
+          />
         </TableCell>
       </TableRow>
     );
@@ -69,6 +79,8 @@ export function DataTable<TData, TValue>({
   columns,
   dndEnabled = false,
   onReorder,
+  emptyStateTitle,
+  emptyStateDescription,
 }: DataTableProps<TData, TValue>) {
   const dataIds: UniqueIdentifier[] = table.getRowModel().rows.map((row) => Number(row.id) as UniqueIdentifier);
   const sortableId = React.useId();
@@ -102,7 +114,7 @@ export function DataTable<TData, TValue>({
         ))}
       </TableHeader>
       <TableBody className="**:data-[slot=table-cell]:first:w-8">
-        {renderTableBody({ table, columns, dndEnabled, dataIds })}
+        {renderTableBody({ table, columns, dndEnabled, dataIds, emptyStateTitle, emptyStateDescription })}
       </TableBody>
     </Table>
   );

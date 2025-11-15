@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -95,47 +94,19 @@ export default function PtoPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas {allCount > 0 && `(${allCount})`}</SelectItem>
-                <SelectItem value="pending">Pendientes {pendingCount > 0 && `(${pendingCount})`}</SelectItem>
-                <SelectItem value="approved">Aprobadas {approvedCount > 0 && `(${approvedCount})`}</SelectItem>
-                <SelectItem value="rejected">Rechazadas {rejectedCount > 0 && `(${rejectedCount})`}</SelectItem>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="pending">Pendientes</SelectItem>
+                <SelectItem value="approved">Aprobadas</SelectItem>
+                <SelectItem value="rejected">Rechazadas</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Tabs para desktop */}
             <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="all">
-                Todas
-                {allCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {allCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="pending">
-                Pendientes
-                {pendingCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="approved">
-                Aprobadas
-                {approvedCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {approvedCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="rejected">
-                Rechazadas
-                {rejectedCount > 0 && (
-                  <Badge variant="secondary" className="ml-2">
-                    {rejectedCount}
-                  </Badge>
-                )}
-              </TabsTrigger>
+              <TabsTrigger value="all">Todas</TabsTrigger>
+              <TabsTrigger value="pending">Pendientes</TabsTrigger>
+              <TabsTrigger value="approved">Aprobadas</TabsTrigger>
+              <TabsTrigger value="rejected">Rechazadas</TabsTrigger>
             </TabsList>
           </div>
 
