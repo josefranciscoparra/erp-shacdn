@@ -318,25 +318,33 @@ async function createUser(session: any, data: any) {
     // Convertir fecha de nacimiento
     const birthDate = validatedData.birthDate ? new Date(validatedData.birthDate) : null;
 
-    // Crear empleado + usuario en transacción (como lo hace /api/employees)
+    // Crear empleado + usuario en transacción
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Incrementar contador de empleados atómicamente y generar número
-      const updatedOrg = await tx.organization.update({
+      // 1. Generar número de empleado - Método SELECT MAX (igual que wizard)
+      const org = await tx.organization.findUnique({
         where: { id: session.orgId },
-        data: {
-          employeeNumberCounter: { increment: 1 },
+        select: { employeeNumberPrefix: true },
+      });
+      const prefix = org?.employeeNumberPrefix ?? "EMP";
+
+      // Buscar último número de empleado con ese prefijo
+      const lastEmployee = await tx.employee.findFirst({
+        where: {
+          orgId: session.orgId,
+          employeeNumber: { startsWith: prefix },
         },
-        select: {
-          employeeNumberPrefix: true,
-          employeeNumberCounter: true,
-        },
+        orderBy: { employeeNumber: "desc" },
+        select: { employeeNumber: true },
       });
 
-      // Generar número de empleado con prefijo + contador (5 dígitos)
-      const employeeNumber = formatEmployeeNumber(
-        updatedOrg.employeeNumberPrefix ?? "EMP",
-        updatedOrg.employeeNumberCounter,
-      );
+      // Calcular siguiente número
+      let nextNumber = 1;
+      if (lastEmployee?.employeeNumber) {
+        const numericPart = lastEmployee.employeeNumber.replace(/[A-Z]/g, "");
+        nextNumber = parseInt(numericPart, 10) + 1;
+      }
+
+      const employeeNumber = formatEmployeeNumber(prefix, nextNumber);
 
       // 2. Crear empleado
       const employee = await tx.employee.create({

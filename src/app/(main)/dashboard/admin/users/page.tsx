@@ -37,7 +37,8 @@ export default function UsersManagementPage() {
     try {
       setIsLoading(true);
       setError(null);
-      const response = await fetch("/api/admin/users");
+      // Fetch all users (limit=1000 to get all users, pagination is handled client-side by TanStack Table)
+      const response = await fetch("/api/admin/users?limit=1000");
 
       if (!response.ok) {
         throw new Error("Error al cargar usuarios");
@@ -90,7 +91,7 @@ export default function UsersManagementPage() {
   };
 
   // Determinar roles permitidos basándose en el rol del usuario actual
-  // Solo ORG_ADMIN y HR_ADMIN (roles administrativos)
+  // Solo ORG_ADMIN y HR_ADMIN (roles administrativos) para CREACIÓN
   const getAllowedRoles = (): Role[] => {
     if (!userRole) return [];
 
@@ -99,6 +100,24 @@ export default function UsersManagementPage() {
         return ["ORG_ADMIN", "HR_ADMIN"];
       case "ORG_ADMIN":
         return ["HR_ADMIN"]; // Solo puede crear HR_ADMIN
+      case "HR_ADMIN":
+        return ["HR_ADMIN"]; // Puede crear otros HR_ADMIN
+      default:
+        return [];
+    }
+  };
+
+  // Determinar roles permitidos para CAMBIO de rol (más permisivo)
+  const getAllowedRolesForChange = (): Role[] => {
+    if (!userRole) return [];
+
+    switch (userRole) {
+      case "SUPER_ADMIN":
+        return ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+      case "ORG_ADMIN":
+        return ["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+      case "HR_ADMIN":
+        return ["MANAGER", "EMPLOYEE"];
       default:
         return [];
     }
@@ -192,7 +211,7 @@ export default function UsersManagementPage() {
           open={changeRoleDialogOpen}
           onOpenChange={setChangeRoleDialogOpen}
           onSuccess={handleActionSuccess}
-          allowedRoles={getAllowedRoles()}
+          allowedRoles={getAllowedRolesForChange()}
         />
 
         <ResetPasswordDialog

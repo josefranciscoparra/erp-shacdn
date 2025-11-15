@@ -51,6 +51,11 @@ export function canCreateRole(currentRole: Role, targetRole: Role): boolean {
     return false;
   }
 
+  // HR_ADMIN puede crear otros HR_ADMIN (excepción especial)
+  if (currentRole === "HR_ADMIN" && targetRole === "HR_ADMIN") {
+    return true;
+  }
+
   // Tu rol debe ser estrictamente superior al target
   return ROLE_HIERARCHY[currentRole] > ROLE_HIERARCHY[targetRole];
 }
