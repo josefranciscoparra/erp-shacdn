@@ -157,44 +157,67 @@ export async function POST(request: Request) {
       let userId: string | null = null;
       let temporaryPassword: string | null = null;
 
-      // 1. Crear usuario si es necesario
-      if (data.employee.createUser && data.employee.email) {
-        const tempPassword = generateTemporaryPassword();
-        const hashedPassword = await hash(tempPassword, 10);
+      // 1. Crear usuario de sistema (SIEMPRE obligatorio para cada empleado)
+      const tempPassword = generateTemporaryPassword();
+      const hashedPassword = await hash(tempPassword, 10);
 
-        const user = await tx.user.create({
-          data: {
-            email: data.employee.email,
-            password: hashedPassword,
-            name: `${data.employee.firstName} ${data.employee.lastName}`,
-            role: "employee",
-            orgId: currentUser.orgId,
-            mustChangePassword: true,
-          },
-        });
-
-        userId = user.id;
-        temporaryPassword = tempPassword;
-
-        // Guardar contraseña temporal
-        await tx.temporaryPassword.create({
-          data: {
-            userId: user.id,
-            password: tempPassword,
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
-            reason: "Nuevo empleado creado",
-            createdById: currentUser.id,
-          },
-        });
-      }
-
-      // 2. Generar número de empleado
-      const org = await tx.organization.update({
-        where: { id: currentUser.orgId },
-        data: { employeeNumberCounter: { increment: 1 } },
+      const user = await tx.user.create({
+        data: {
+          email: data.employee.email,
+          password: hashedPassword,
+          name: `${data.employee.firstName} ${data.employee.lastName}`,
+          role: "EMPLOYEE",
+          orgId: currentUser.orgId,
+          mustChangePassword: true,
+        },
       });
 
-      const employeeNumber = formatEmployeeNumber(org.employeeNumberPrefix ?? "EMP", org.employeeNumberCounter);
+      userId = user.id;
+      temporaryPassword = tempPassword;
+
+      // Guardar contraseña temporal
+      await tx.temporaryPassword.create({
+        data: {
+          userId: user.id,
+          orgId: currentUser.orgId,
+          password: tempPassword,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 días
+          reason: "Nuevo empleado creado",
+          createdById: currentUser.id,
+        },
+      });
+
+      // 2. Generar número de empleado - Método SELECT MAX con filtro por prefijo
+      // Primero obtener prefijo de la organización
+      const org = await tx.organization.findUnique({
+        where: { id: currentUser.orgId },
+        select: { employeeNumberPrefix: true },
+      });
+      const prefix = org?.employeeNumberPrefix ?? "EMP";
+
+      // Buscar último número de empleado CON ESE PREFIJO en la org
+      const lastEmployee = await tx.employee.findFirst({
+        where: {
+          orgId: currentUser.orgId,
+          employeeNumber: { startsWith: prefix }, // Filtrar solo por el prefijo actual
+        },
+        orderBy: { employeeNumber: "desc" },
+        select: { employeeNumber: true },
+      });
+
+      // Calcular siguiente número
+      let nextNumber = 1;
+      if (lastEmployee?.employeeNumber) {
+        // Extraer parte numérica (quitar prefijo como "EMP", "TMNW", etc.)
+        const numericPart = lastEmployee.employeeNumber.replace(/[A-Z]/g, "");
+        nextNumber = parseInt(numericPart, 10) + 1;
+      }
+
+      // Formatear con padding de 5 dígitos (00001, 00010, 00100, etc.)
+      const employeeNumber = formatEmployeeNumber(prefix, nextNumber);
+      console.log(
+        `Generando número de empleado: ${employeeNumber} (prefijo: ${prefix}, último: ${lastEmployee?.employeeNumber ?? "ninguno"}, siguiente: ${nextNumber})`,
+      );
 
       // 3. Crear empleado
       const employee = await tx.employee.create({
@@ -346,19 +369,50 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Datos inválidos", details: error.errors }, { status: 400 });
     }
 
-    // Error de Prisma: NIF/NIE duplicado
+    // Error de Prisma: Constraint único duplicado (P2002)
     if (error.code === "P2002") {
       const fields = error.meta?.target;
-      if (fields?.includes("nifNie")) {
+      console.log("Prisma P2002 - Campos duplicados:", fields);
+
+      // Normalizar fields a array si es string
+      const fieldsArray = Array.isArray(fields) ? fields : [fields];
+      const fieldsStr = fieldsArray.join(", ");
+
+      // Número de empleado duplicado (esto NO debería pasar)
+      if (fieldsArray.includes("employeeNumber")) {
+        console.error("CRITICAL: Número de empleado duplicado detectado. Esto indica un problema de concurrencia.");
         return NextResponse.json(
-          { error: "Ya existe un empleado con este NIF/NIE en la organización" },
+          {
+            error: `Error de sistema: número de empleado duplicado. Por favor, inténtalo de nuevo. Si el problema persiste, contacta con soporte.`,
+          },
           { status: 409 },
         );
       }
-      if (fields?.includes("email")) {
-        return NextResponse.json({ error: "Ya existe un usuario con este email en la organización" }, { status: 409 });
+
+      // NIF/NIE duplicado
+      if (fieldsArray.includes("nifNie")) {
+        return NextResponse.json(
+          { error: `Ya existe un empleado con este NIF/NIE en tu organización` },
+          { status: 409 },
+        );
       }
-      return NextResponse.json({ error: "Ya existe un registro con estos datos" }, { status: 409 });
+
+      // Email duplicado
+      if (fieldsArray.includes("email")) {
+        return NextResponse.json({ error: `Ya existe un usuario con este email en tu organización` }, { status: 409 });
+      }
+
+      // Fallback con información del campo
+      return NextResponse.json(
+        { error: `Ya existe un registro con este valor en el campo: ${fieldsStr}` },
+        { status: 409 },
+      );
+    }
+
+    // Otros errores de Prisma
+    if (error.code) {
+      console.log("Prisma error code:", error.code, "Message:", error.message);
+      return NextResponse.json({ error: `Error de base de datos (${error.code}): ${error.message}` }, { status: 500 });
     }
 
     return NextResponse.json({ error: "Error al crear empleado" }, { status: 500 });

@@ -514,6 +514,299 @@ export async function getExpectedDailyHours() {
   }
 }
 
+// Helper: Calcular horas trabajadas desde franjas horarias con pausas
+function calculateHoursFromTimeSlots(
+  startTime: string | null,
+  endTime: string | null,
+  breakStart: string | null,
+  breakEnd: string | null,
+): number {
+  if (!startTime || !endTime) {
+    return 0;
+  }
+
+  // Parsear horas (formato "HH:MM")
+  const [startHour, startMin] = startTime.split(":").map(Number);
+  const [endHour, endMin] = endTime.split(":").map(Number);
+
+  // Calcular horas trabajadas
+  const totalMinutes = endHour * 60 + endMin - (startHour * 60 + startMin);
+
+  // Restar pausa si existe
+  let breakMinutes = 0;
+  if (breakStart && breakEnd) {
+    const [breakStartHour, breakStartMin] = breakStart.split(":").map(Number);
+    const [breakEndHour, breakEndMin] = breakEnd.split(":").map(Number);
+    breakMinutes = breakEndHour * 60 + breakEndMin - (breakStartHour * 60 + breakStartMin);
+  }
+
+  return (totalMinutes - breakMinutes) / 60;
+}
+
+// Helper: Calcular horas promedio desde horas semanales
+function calculateAverageHours(
+  isIntensivePeriod: boolean,
+  intensiveWeeklyHours: any,
+  weeklyHours: any,
+  workingDaysPerWeek: any,
+): number {
+  const hours = isIntensivePeriod && intensiveWeeklyHours ? Number(intensiveWeeklyHours) : Number(weeklyHours);
+  const days = Number(workingDaysPerWeek ?? 5);
+  return hours / days;
+}
+
+// Helper: Calcular horas para un día en horario FIXED
+function calculateFixedScheduleHours(
+  worksToday: boolean,
+  hasFixedTimeSlots: boolean,
+  dayOfWeek: number,
+  isIntensivePeriod: boolean,
+  contract: any,
+): number {
+  if (!worksToday) {
+    return 0;
+  }
+
+  if (!hasFixedTimeSlots) {
+    return calculateAverageHours(
+      isIntensivePeriod,
+      contract.intensiveWeeklyHours,
+      contract.weeklyHours,
+      contract.workingDaysPerWeek,
+    );
+  }
+
+  // Obtener franjas horarias para hoy
+  const startTimeFields = [
+    contract.sundayStartTime,
+    contract.mondayStartTime,
+    contract.tuesdayStartTime,
+    contract.wednesdayStartTime,
+    contract.thursdayStartTime,
+    contract.fridayStartTime,
+    contract.saturdayStartTime,
+  ];
+  const endTimeFields = [
+    contract.sundayEndTime,
+    contract.mondayEndTime,
+    contract.tuesdayEndTime,
+    contract.wednesdayEndTime,
+    contract.thursdayEndTime,
+    contract.fridayEndTime,
+    contract.saturdayEndTime,
+  ];
+  const breakStartFields = [
+    contract.sundayBreakStartTime,
+    contract.mondayBreakStartTime,
+    contract.tuesdayBreakStartTime,
+    contract.wednesdayBreakStartTime,
+    contract.thursdayBreakStartTime,
+    contract.fridayBreakStartTime,
+    contract.saturdayBreakStartTime,
+  ];
+  const breakEndFields = [
+    contract.sundayBreakEndTime,
+    contract.mondayBreakEndTime,
+    contract.tuesdayBreakEndTime,
+    contract.wednesdayBreakEndTime,
+    contract.thursdayBreakEndTime,
+    contract.fridayBreakEndTime,
+    contract.saturdayBreakEndTime,
+  ];
+
+  // Intensive variants
+  const intensiveStartTimeFields = [
+    contract.intensiveSundayStartTime,
+    contract.intensiveMondayStartTime,
+    contract.intensiveTuesdayStartTime,
+    contract.intensiveWednesdayStartTime,
+    contract.intensiveThursdayStartTime,
+    contract.intensiveFridayStartTime,
+    contract.intensiveSaturdayStartTime,
+  ];
+  const intensiveEndTimeFields = [
+    contract.intensiveSundayEndTime,
+    contract.intensiveMondayEndTime,
+    contract.intensiveTuesdayEndTime,
+    contract.intensiveWednesdayEndTime,
+    contract.intensiveThursdayEndTime,
+    contract.intensiveFridayEndTime,
+    contract.intensiveSaturdayEndTime,
+  ];
+  const intensiveBreakStartFields = [
+    contract.intensiveSundayBreakStartTime,
+    contract.intensiveMondayBreakStartTime,
+    contract.intensiveTuesdayBreakStartTime,
+    contract.intensiveWednesdayBreakStartTime,
+    contract.intensiveThursdayBreakStartTime,
+    contract.intensiveFridayBreakStartTime,
+    contract.intensiveSaturdayBreakStartTime,
+  ];
+  const intensiveBreakEndFields = [
+    contract.intensiveSundayBreakEndTime,
+    contract.intensiveMondayBreakEndTime,
+    contract.intensiveTuesdayBreakEndTime,
+    contract.intensiveWednesdayBreakEndTime,
+    contract.intensiveThursdayBreakEndTime,
+    contract.intensiveFridayBreakEndTime,
+    contract.intensiveSaturdayBreakEndTime,
+  ];
+
+  const startTime = isIntensivePeriod ? intensiveStartTimeFields[dayOfWeek] : startTimeFields[dayOfWeek];
+  const endTime = isIntensivePeriod ? intensiveEndTimeFields[dayOfWeek] : endTimeFields[dayOfWeek];
+  const breakStart = isIntensivePeriod ? intensiveBreakStartFields[dayOfWeek] : breakStartFields[dayOfWeek];
+  const breakEnd = isIntensivePeriod ? intensiveBreakEndFields[dayOfWeek] : breakEndFields[dayOfWeek];
+
+  const calculated = calculateHoursFromTimeSlots(startTime, endTime, breakStart, breakEnd);
+
+  if (calculated > 0) {
+    return calculated;
+  }
+
+  // Fallback to average
+  return calculateAverageHours(
+    isIntensivePeriod,
+    contract.intensiveWeeklyHours,
+    contract.weeklyHours,
+    contract.workingDaysPerWeek,
+  );
+}
+
+// Obtener horas esperadas PARA HOY específicamente (detecta días laborables)
+export async function getExpectedHoursForToday() {
+  try {
+    const { employee } = await getAuthenticatedUser();
+
+    // Si no hay empleado asociado, retornar valores por defecto
+    if (!employee) {
+      return { hoursToday: 8, isWorkingDay: true, hasActiveContract: false };
+    }
+
+    // Obtener contrato activo
+    const contract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId: employee.id,
+        active: true,
+        weeklyHours: { gt: 0 },
+      },
+      orderBy: { startDate: "desc" },
+    });
+
+    const hasActiveContract = Boolean(contract);
+
+    // Si no hay contrato, retornar valores por defecto
+    if (!contract) {
+      return { hoursToday: 8, isWorkingDay: true, hasActiveContract: false };
+    }
+
+    // Obtener día de la semana actual (0 = domingo, 1 = lunes, ..., 6 = sábado)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+
+    // Verificar si estamos en periodo de jornada intensiva
+    let isIntensivePeriod = false;
+    if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
+      const currentMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const startMonthDay = contract.intensiveStartDate;
+      const endMonthDay = contract.intensiveEndDate;
+
+      // Comparar fechas MM-DD
+      if (startMonthDay <= endMonthDay) {
+        // Periodo dentro del mismo año (ej: 06-15 a 09-15)
+        isIntensivePeriod = currentMonthDay >= startMonthDay && currentMonthDay <= endMonthDay;
+      } else {
+        // Periodo que cruza año (ej: 12-15 a 02-15)
+        isIntensivePeriod = currentMonthDay >= startMonthDay || currentMonthDay <= endMonthDay;
+      }
+    }
+
+    // Determinar horas según tipo de horario y día de la semana
+    let hoursToday = 0;
+    let isWorkingDay = false;
+
+    // Array con los campos de horas por día de la semana (domingo a sábado)
+    const regularHoursByDay = [
+      contract.sundayHours,
+      contract.mondayHours,
+      contract.tuesdayHours,
+      contract.wednesdayHours,
+      contract.thursdayHours,
+      contract.fridayHours,
+      contract.saturdayHours,
+    ];
+
+    const intensiveHoursByDay = [
+      contract.intensiveSundayHours,
+      contract.intensiveMondayHours,
+      contract.intensiveTuesdayHours,
+      contract.intensiveWednesdayHours,
+      contract.intensiveThursdayHours,
+      contract.intensiveFridayHours,
+      contract.intensiveSaturdayHours,
+    ];
+
+    const workDaysByDay = [
+      contract.workSunday,
+      contract.workMonday,
+      contract.workTuesday,
+      contract.workWednesday,
+      contract.workThursday,
+      contract.workFriday,
+      contract.workSaturday,
+    ];
+
+    if (contract.scheduleType === "FLEXIBLE") {
+      if (contract.hasCustomWeeklyPattern) {
+        // FLEXIBLE con patrón personalizado: Usar horas específicas del día
+        const todayHours = isIntensivePeriod ? intensiveHoursByDay[dayOfWeek] : regularHoursByDay[dayOfWeek];
+
+        if (todayHours !== null && todayHours !== undefined) {
+          hoursToday = Number(todayHours);
+          isWorkingDay = hoursToday > 0;
+        } else {
+          // Si no hay horas definidas para hoy, no es día laborable
+          hoursToday = 0;
+          isWorkingDay = false;
+        }
+      } else {
+        // FLEXIBLE sin patrón: Usar promedio (comportamiento legacy)
+        hoursToday = calculateAverageHours(
+          isIntensivePeriod,
+          contract.intensiveWeeklyHours,
+          contract.weeklyHours,
+          contract.workingDaysPerWeek,
+        );
+        isWorkingDay = true; // Asumimos que trabaja si no hay patrón específico
+      }
+    } else if (contract.scheduleType === "FIXED") {
+      // FIXED: Verificar si trabaja hoy según workMonday, workTuesday, etc.
+      const worksToday = workDaysByDay[dayOfWeek] ?? false;
+      isWorkingDay = worksToday;
+      hoursToday = calculateFixedScheduleHours(
+        worksToday,
+        contract.hasFixedTimeSlots,
+        dayOfWeek,
+        isIntensivePeriod,
+        contract,
+      );
+    } else {
+      // SHIFTS u otro tipo: Por ahora usar promedio
+      hoursToday = calculateAverageHours(
+        isIntensivePeriod,
+        contract.intensiveWeeklyHours,
+        contract.weeklyHours,
+        contract.workingDaysPerWeek,
+      );
+      isWorkingDay = true;
+    }
+
+    return { hoursToday, isWorkingDay, hasActiveContract };
+  } catch (error) {
+    console.error("Error al obtener horas esperadas para hoy:", error);
+    throw error;
+  }
+}
+
 // Obtener resumen de hoy
 export async function getTodaySummary() {
   try {

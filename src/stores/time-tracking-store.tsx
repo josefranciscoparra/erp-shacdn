@@ -11,7 +11,7 @@ import {
   getWeeklySummary as getWeeklySummaryAction,
   getMonthlySummaries as getMonthlySummariesAction,
   getCurrentStatus as getCurrentStatusAction,
-  getExpectedDailyHours as getExpectedDailyHoursAction,
+  getExpectedHoursForToday as getExpectedHoursForTodayAction,
 } from "@/server/actions/time-tracking";
 
 // Tipos para el store
@@ -70,6 +70,7 @@ interface TimeTrackingState {
   // Info del contrato
   expectedDailyHours: number;
   hasActiveContract: boolean;
+  isWorkingDay: boolean; // Si hoy es día laborable según contrato
 
   // Loading states
   isLoading: boolean;
@@ -115,6 +116,7 @@ const initialState = {
   liveWorkedMinutes: 0,
   expectedDailyHours: 8,
   hasActiveContract: true,
+  isWorkingDay: true, // Por defecto asumimos que hoy es día laborable
   isLoading: false,
   isClocking: false,
   error: null,
@@ -233,10 +235,11 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
   loadExpectedDailyHours: async () => {
     try {
-      const hoursInfo = await getExpectedDailyHoursAction();
+      const hoursInfo = await getExpectedHoursForTodayAction();
       set({
-        expectedDailyHours: hoursInfo.dailyHours,
+        expectedDailyHours: hoursInfo.hoursToday,
         hasActiveContract: hoursInfo.hasActiveContract,
+        isWorkingDay: hoursInfo.isWorkingDay,
       });
     } catch (error) {
       set({
@@ -311,7 +314,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
       const [status, summary, hoursInfo] = await Promise.all([
         getCurrentStatusAction(),
         getTodaySummaryAction(),
-        getExpectedDailyHoursAction(),
+        getExpectedHoursForTodayAction(),
       ]);
 
       // Duración mínima de 400ms para que se vea la animación
@@ -328,8 +331,9 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
         currentStatus: status?.status ?? "CLOCKED_OUT",
         todaySummary: summary as any,
         liveWorkedMinutes: initialMinutes,
-        expectedDailyHours: hoursInfo.dailyHours,
+        expectedDailyHours: hoursInfo.hoursToday,
         hasActiveContract: hoursInfo.hasActiveContract,
+        isWorkingDay: hoursInfo.isWorkingDay,
         isLoading: false,
       });
     } catch (error) {

@@ -42,8 +42,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
     sunday: false,
   });
 
-  // Estados para FIXED - franjas horarias
-  const [hasFixedTimeSlots, setHasFixedTimeSlots] = useState(false);
+  // Estados para FIXED - franjas horarias (SIEMPRE activas cuando scheduleType=FIXED)
   const [timeSlots, setTimeSlots] = useState({
     mondayStart: "09:00",
     mondayEnd: "17:00",
@@ -147,8 +146,15 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
 
   const handleScheduleSubmit = async (data: ScheduleFormData) => {
     if (skipSchedule) {
-      // Si está marcado, mantener valores por defecto (40h, 5d)
-      await onSubmit(null);
+      // Si está marcado, enviar horarios por defecto (FLEXIBLE, 40h, 5d)
+      const defaultSchedule = {
+        scheduleType: "FLEXIBLE" as const,
+        weeklyHours: 40,
+        workingDaysPerWeek: 5,
+        hasIntensiveSchedule: false,
+        hasCustomWeeklyPattern: false,
+      };
+      await onSubmit(defaultSchedule);
     } else {
       // Si no está marcado, usar los datos del formulario con scheduleType
       await onSubmit({ ...data, scheduleType: "FLEXIBLE" });
@@ -157,13 +163,63 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
 
   const handleWizardFinish = () => {
     if (skipSchedule) {
-      // Mantener valores por defecto
-      return onSubmit(null);
+      // Enviar horarios por defecto
+      const defaultSchedule = {
+        scheduleType: "FLEXIBLE" as const,
+        weeklyHours: 40,
+        workingDaysPerWeek: 5,
+        hasIntensiveSchedule: false,
+        hasCustomWeeklyPattern: false,
+      };
+      return onSubmit(defaultSchedule);
     }
   };
 
   const handleFixedSubmit = async () => {
-    // Validación: Si jornada intensiva está activada, las fechas son obligatorias
+    // Validación 1: Al menos 1 día debe estar seleccionado
+    const activeDaysCount = Object.values(workDays).filter(Boolean).length;
+    if (activeDaysCount === 0) {
+      toast.error("Días laborables requeridos", {
+        description: "Debes seleccionar al menos un día laboral",
+      });
+      return;
+    }
+
+    // Validación 2: Horarios configurados para todos los días activos
+    const dayNames: Record<string, string> = {
+      monday: "Lunes",
+      tuesday: "Martes",
+      wednesday: "Miércoles",
+      thursday: "Jueves",
+      friday: "Viernes",
+      saturday: "Sábado",
+      sunday: "Domingo",
+    };
+
+    const daysToCheck = Object.keys(workDays).filter((day) => workDays[day as keyof typeof workDays]);
+    for (const day of daysToCheck) {
+      const startTime =
+        useSimpleSchedule && applyToAllDays ? simpleEntry : timeSlots[`${day}Start` as keyof typeof timeSlots];
+      const endTime =
+        useSimpleSchedule && applyToAllDays ? simpleExit : timeSlots[`${day}End` as keyof typeof timeSlots];
+
+      if (!startTime || !endTime) {
+        toast.error("Horario incompleto", {
+          description: `Falta configurar el horario para ${dayNames[day]}`,
+        });
+        return;
+      }
+
+      // Validación 3: Hora de salida debe ser mayor que hora de entrada
+      if (startTime >= endTime) {
+        toast.error("Horario inválido", {
+          description: `El horario de ${dayNames[day]} no es válido. La hora de salida debe ser posterior a la hora de entrada.`,
+        });
+        return;
+      }
+    }
+
+    // Validación 4: Si jornada intensiva está activada, las fechas son obligatorias
     if (hasIntensiveSchedule && (!intensiveStartDate || !intensiveEndDate)) {
       setIntensiveDateError(true);
       toast.error("Fechas obligatorias", {
@@ -174,9 +230,6 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
 
     // Limpiar errores si todo está OK
     setIntensiveDateError(false);
-
-    // Calcular weeklyHours y workingDaysPerWeek basado en días seleccionados
-    const activeDaysCount = Object.values(workDays).filter(Boolean).length;
 
     // Función helper: obtener horario (simple o personalizado)
     const getTimeSlot = (day: keyof typeof workDays, type: "Start" | "End") => {
@@ -225,41 +278,39 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
       workFriday: workDays.friday,
       workSaturday: workDays.saturday,
       workSunday: workDays.sunday,
-      hasFixedTimeSlots,
-      ...(hasFixedTimeSlots && {
-        mondayStartTime: getTimeSlot("monday", "Start"),
-        mondayEndTime: getTimeSlot("monday", "End"),
-        tuesdayStartTime: getTimeSlot("tuesday", "Start"),
-        tuesdayEndTime: getTimeSlot("tuesday", "End"),
-        wednesdayStartTime: getTimeSlot("wednesday", "Start"),
-        wednesdayEndTime: getTimeSlot("wednesday", "End"),
-        thursdayStartTime: getTimeSlot("thursday", "Start"),
-        thursdayEndTime: getTimeSlot("thursday", "End"),
-        fridayStartTime: getTimeSlot("friday", "Start"),
-        fridayEndTime: getTimeSlot("friday", "End"),
-        saturdayStartTime: getTimeSlot("saturday", "Start"),
-        saturdayEndTime: getTimeSlot("saturday", "End"),
-        sundayStartTime: getTimeSlot("sunday", "Start"),
-        sundayEndTime: getTimeSlot("sunday", "End"),
-      }),
+      hasFixedTimeSlots: true, // Siempre true para horario FIXED
+      // Franjas horarias (SIEMPRE incluidas)
+      mondayStartTime: getTimeSlot("monday", "Start"),
+      mondayEndTime: getTimeSlot("monday", "End"),
+      tuesdayStartTime: getTimeSlot("tuesday", "Start"),
+      tuesdayEndTime: getTimeSlot("tuesday", "End"),
+      wednesdayStartTime: getTimeSlot("wednesday", "Start"),
+      wednesdayEndTime: getTimeSlot("wednesday", "End"),
+      thursdayStartTime: getTimeSlot("thursday", "Start"),
+      thursdayEndTime: getTimeSlot("thursday", "End"),
+      fridayStartTime: getTimeSlot("friday", "Start"),
+      fridayEndTime: getTimeSlot("friday", "End"),
+      saturdayStartTime: getTimeSlot("saturday", "Start"),
+      saturdayEndTime: getTimeSlot("saturday", "End"),
+      sundayStartTime: getTimeSlot("sunday", "Start"),
+      sundayEndTime: getTimeSlot("sunday", "End"),
       // Pausas/breaks normales
-      ...(hasBreaks &&
-        hasFixedTimeSlots && {
-          mondayBreakStartTime: getBreakTime("monday", "Start"),
-          mondayBreakEndTime: getBreakTime("monday", "End"),
-          tuesdayBreakStartTime: getBreakTime("tuesday", "Start"),
-          tuesdayBreakEndTime: getBreakTime("tuesday", "End"),
-          wednesdayBreakStartTime: getBreakTime("wednesday", "Start"),
-          wednesdayBreakEndTime: getBreakTime("wednesday", "End"),
-          thursdayBreakStartTime: getBreakTime("thursday", "Start"),
-          thursdayBreakEndTime: getBreakTime("thursday", "End"),
-          fridayBreakStartTime: getBreakTime("friday", "Start"),
-          fridayBreakEndTime: getBreakTime("friday", "End"),
-          saturdayBreakStartTime: getBreakTime("saturday", "Start"),
-          saturdayBreakEndTime: getBreakTime("saturday", "End"),
-          sundayBreakStartTime: getBreakTime("sunday", "Start"),
-          sundayBreakEndTime: getBreakTime("sunday", "End"),
-        }),
+      ...(hasBreaks && {
+        mondayBreakStartTime: getBreakTime("monday", "Start"),
+        mondayBreakEndTime: getBreakTime("monday", "End"),
+        tuesdayBreakStartTime: getBreakTime("tuesday", "Start"),
+        tuesdayBreakEndTime: getBreakTime("tuesday", "End"),
+        wednesdayBreakStartTime: getBreakTime("wednesday", "Start"),
+        wednesdayBreakEndTime: getBreakTime("wednesday", "End"),
+        thursdayBreakStartTime: getBreakTime("thursday", "Start"),
+        thursdayBreakEndTime: getBreakTime("thursday", "End"),
+        fridayBreakStartTime: getBreakTime("friday", "Start"),
+        fridayBreakEndTime: getBreakTime("friday", "End"),
+        saturdayBreakStartTime: getBreakTime("saturday", "Start"),
+        saturdayBreakEndTime: getBreakTime("saturday", "End"),
+        sundayBreakStartTime: getBreakTime("sunday", "Start"),
+        sundayBreakEndTime: getBreakTime("sunday", "End"),
+      }),
       // Jornada intensiva
       hasIntensiveSchedule,
       ...(hasIntensiveSchedule && {
@@ -307,7 +358,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
   return (
     <div className="mx-auto max-w-4xl space-y-6 pb-6">
       {/* Switch compacto: Configurar ahora o más tarde */}
-      <div className="border-muted bg-muted/30 hover:border-primary/40 flex items-center justify-between rounded-xl border-2 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+      <div className="from-primary/15 to-card border-muted hover:border-primary/40 flex items-center justify-between rounded-xl border-2 bg-gradient-to-br p-5 shadow-sm transition-all duration-200 hover:shadow-md">
         <div className="flex-1 space-y-1">
           <Label htmlFor="skip-schedule" className="text-lg font-semibold">
             Configurar horarios más tarde
@@ -451,37 +502,172 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
               {/* BLOQUE 2: Horario fijo semanal */}
               <Card>
                 <CardContent className="space-y-4 p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1 space-y-1">
-                      <Label htmlFor="fixed-time-slots" className="text-lg font-semibold">
-                        Horario fijo semanal
-                      </Label>
-                      <p className="text-muted-foreground text-sm">
-                        Define un horario de entrada y salida para los días laborables.
-                      </p>
-                    </div>
-                    <Switch id="fixed-time-slots" checked={hasFixedTimeSlots} onCheckedChange={setHasFixedTimeSlots} />
+                  <div className="space-y-1">
+                    <Label className="text-lg font-semibold">Horario fijo semanal</Label>
+                    <p className="text-muted-foreground text-sm">
+                      Define un horario de entrada y salida para los días laborables.
+                    </p>
                   </div>
 
-                  {hasFixedTimeSlots && (
+                  <div className="space-y-4 pt-2">
+                    {useSimpleSchedule ? (
+                      <>
+                        {/* Modo simple */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Entrada</Label>
+                            <Input type="time" value={simpleEntry} onChange={(e) => setSimpleEntry(e.target.value)} />
+                          </div>
+                          <div>
+                            <Label>Salida</Label>
+                            <Input type="time" value={simpleExit} onChange={(e) => setSimpleExit(e.target.value)} />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <Checkbox id="apply-all" checked={applyToAllDays} onCheckedChange={setApplyToAllDays} />
+                          <Label htmlFor="apply-all" className="cursor-pointer text-sm font-normal">
+                            Aplicar a todos los días laborables
+                          </Label>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Pre-poblar todos los días con los valores simples
+                            const entry = simpleEntry;
+                            const exit = simpleExit;
+                            setTimeSlots({
+                              mondayStart: entry,
+                              mondayEnd: exit,
+                              tuesdayStart: entry,
+                              tuesdayEnd: exit,
+                              wednesdayStart: entry,
+                              wednesdayEnd: exit,
+                              thursdayStart: entry,
+                              thursdayEnd: exit,
+                              fridayStart: entry,
+                              fridayEnd: exit,
+                              saturdayStart: entry,
+                              saturdayEnd: exit,
+                              sundayStart: entry,
+                              sundayEnd: exit,
+                            });
+                            setUseSimpleSchedule(false);
+                          }}
+                          className="text-primary text-sm font-medium hover:underline"
+                        >
+                          Personalizar horario por día
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {/* Modo personalizado - Tabla compacta */}
+                        <div className="space-y-3">
+                          {Object.entries(workDays)
+                            .filter(([_, works]) => works)
+                            .map(([day]) => {
+                              const dayNames: Record<string, string> = {
+                                monday: "Lunes",
+                                tuesday: "Martes",
+                                wednesday: "Miércoles",
+                                thursday: "Jueves",
+                                friday: "Viernes",
+                                saturday: "Sábado",
+                                sunday: "Domingo",
+                              };
+                              return (
+                                <div key={day} className="grid grid-cols-[100px_1fr_1fr] items-center gap-3">
+                                  <Label className="text-sm">{dayNames[day]}</Label>
+                                  <Input
+                                    type="time"
+                                    value={timeSlots[`${day}Start` as keyof typeof timeSlots]}
+                                    onChange={(e) =>
+                                      setTimeSlots((prev) => ({
+                                        ...prev,
+                                        [`${day}Start`]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                  <Input
+                                    type="time"
+                                    value={timeSlots[`${day}End` as keyof typeof timeSlots]}
+                                    onChange={(e) =>
+                                      setTimeSlots((prev) => ({
+                                        ...prev,
+                                        [`${day}End`]: e.target.value,
+                                      }))
+                                    }
+                                  />
+                                </div>
+                              );
+                            })}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setUseSimpleSchedule(true)}
+                          className="text-primary text-sm font-medium hover:underline"
+                        >
+                          Volver a modo simple
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* BLOQUE 2.5: Pausas en la jornada */}
+              <Card>
+                <CardContent className="space-y-4 p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 space-y-1">
+                      <Label htmlFor="has-breaks" className="text-lg font-semibold">
+                        Pausas en la jornada (opcional)
+                      </Label>
+                      <p className="text-muted-foreground text-sm">
+                        Configura pausas que se descontarán del tiempo trabajado.
+                      </p>
+                    </div>
+                    <Switch
+                      id="has-breaks"
+                      checked={hasBreaks}
+                      onCheckedChange={setHasBreaks}
+                      className="wizard-switch"
+                    />
+                  </div>
+
+                  {hasBreaks && (
                     <div className="space-y-4 pt-2">
-                      {useSimpleSchedule ? (
+                      {useSimpleBreak ? (
                         <>
                           {/* Modo simple */}
                           <div className="grid grid-cols-2 gap-4">
                             <div>
-                              <Label>Entrada</Label>
-                              <Input type="time" value={simpleEntry} onChange={(e) => setSimpleEntry(e.target.value)} />
+                              <Label>Inicio pausa</Label>
+                              <Input
+                                type="time"
+                                value={simpleBreakStart}
+                                onChange={(e) => setSimpleBreakStart(e.target.value)}
+                              />
                             </div>
                             <div>
-                              <Label>Salida</Label>
-                              <Input type="time" value={simpleExit} onChange={(e) => setSimpleExit(e.target.value)} />
+                              <Label>Fin pausa</Label>
+                              <Input
+                                type="time"
+                                value={simpleBreakEnd}
+                                onChange={(e) => setSimpleBreakEnd(e.target.value)}
+                              />
                             </div>
                           </div>
 
                           <div className="flex items-center space-x-2">
-                            <Checkbox id="apply-all" checked={applyToAllDays} onCheckedChange={setApplyToAllDays} />
-                            <Label htmlFor="apply-all" className="cursor-pointer text-sm font-normal">
+                            <Checkbox
+                              id="apply-break-all"
+                              checked={applyBreakToAllDays}
+                              onCheckedChange={setApplyBreakToAllDays}
+                            />
+                            <Label htmlFor="apply-break-all" className="cursor-pointer text-sm font-normal">
                               Aplicar a todos los días laborables
                             </Label>
                           </div>
@@ -490,29 +676,29 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                             type="button"
                             onClick={() => {
                               // Pre-poblar todos los días con los valores simples
-                              const entry = simpleEntry;
-                              const exit = simpleExit;
-                              setTimeSlots({
-                                mondayStart: entry,
-                                mondayEnd: exit,
-                                tuesdayStart: entry,
-                                tuesdayEnd: exit,
-                                wednesdayStart: entry,
-                                wednesdayEnd: exit,
-                                thursdayStart: entry,
-                                thursdayEnd: exit,
-                                fridayStart: entry,
-                                fridayEnd: exit,
-                                saturdayStart: entry,
-                                saturdayEnd: exit,
-                                sundayStart: entry,
-                                sundayEnd: exit,
+                              const start = simpleBreakStart;
+                              const end = simpleBreakEnd;
+                              setBreakTimes({
+                                mondayBreakStart: start,
+                                mondayBreakEnd: end,
+                                tuesdayBreakStart: start,
+                                tuesdayBreakEnd: end,
+                                wednesdayBreakStart: start,
+                                wednesdayBreakEnd: end,
+                                thursdayBreakStart: start,
+                                thursdayBreakEnd: end,
+                                fridayBreakStart: start,
+                                fridayBreakEnd: end,
+                                saturdayBreakStart: start,
+                                saturdayBreakEnd: end,
+                                sundayBreakStart: start,
+                                sundayBreakEnd: end,
                               });
-                              setUseSimpleSchedule(false);
+                              setUseSimpleBreak(false);
                             }}
                             className="text-primary text-sm font-medium hover:underline"
                           >
-                            Personalizar horario por día
+                            Personalizar pausas por día
                           </button>
                         </>
                       ) : (
@@ -536,21 +722,21 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                                     <Label className="text-sm">{dayNames[day]}</Label>
                                     <Input
                                       type="time"
-                                      value={timeSlots[`${day}Start` as keyof typeof timeSlots]}
+                                      value={breakTimes[`${day}BreakStart` as keyof typeof breakTimes]}
                                       onChange={(e) =>
-                                        setTimeSlots((prev) => ({
+                                        setBreakTimes((prev) => ({
                                           ...prev,
-                                          [`${day}Start`]: e.target.value,
+                                          [`${day}BreakStart`]: e.target.value,
                                         }))
                                       }
                                     />
                                     <Input
                                       type="time"
-                                      value={timeSlots[`${day}End` as keyof typeof timeSlots]}
+                                      value={breakTimes[`${day}BreakEnd` as keyof typeof breakTimes]}
                                       onChange={(e) =>
-                                        setTimeSlots((prev) => ({
+                                        setBreakTimes((prev) => ({
                                           ...prev,
-                                          [`${day}End`]: e.target.value,
+                                          [`${day}BreakEnd`]: e.target.value,
                                         }))
                                       }
                                     />
@@ -561,7 +747,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
 
                           <button
                             type="button"
-                            onClick={() => setUseSimpleSchedule(true)}
+                            onClick={() => setUseSimpleBreak(true)}
                             className="text-primary text-sm font-medium hover:underline"
                           >
                             Volver a modo simple
@@ -572,145 +758,6 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                   )}
                 </CardContent>
               </Card>
-
-              {/* BLOQUE 2.5: Pausas en la jornada */}
-              {hasFixedTimeSlots && (
-                <Card>
-                  <CardContent className="space-y-4 p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 space-y-1">
-                        <Label htmlFor="has-breaks" className="text-lg font-semibold">
-                          Pausas en la jornada (opcional)
-                        </Label>
-                        <p className="text-muted-foreground text-sm">
-                          Configura pausas que se descontarán del tiempo trabajado.
-                        </p>
-                      </div>
-                      <Switch id="has-breaks" checked={hasBreaks} onCheckedChange={setHasBreaks} />
-                    </div>
-
-                    {hasBreaks && (
-                      <div className="space-y-4 pt-2">
-                        {useSimpleBreak ? (
-                          <>
-                            {/* Modo simple */}
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <Label>Inicio pausa</Label>
-                                <Input
-                                  type="time"
-                                  value={simpleBreakStart}
-                                  onChange={(e) => setSimpleBreakStart(e.target.value)}
-                                />
-                              </div>
-                              <div>
-                                <Label>Fin pausa</Label>
-                                <Input
-                                  type="time"
-                                  value={simpleBreakEnd}
-                                  onChange={(e) => setSimpleBreakEnd(e.target.value)}
-                                />
-                              </div>
-                            </div>
-
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                id="apply-break-all"
-                                checked={applyBreakToAllDays}
-                                onCheckedChange={setApplyBreakToAllDays}
-                              />
-                              <Label htmlFor="apply-break-all" className="cursor-pointer text-sm font-normal">
-                                Aplicar a todos los días laborables
-                              </Label>
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                // Pre-poblar todos los días con los valores simples
-                                const start = simpleBreakStart;
-                                const end = simpleBreakEnd;
-                                setBreakTimes({
-                                  mondayBreakStart: start,
-                                  mondayBreakEnd: end,
-                                  tuesdayBreakStart: start,
-                                  tuesdayBreakEnd: end,
-                                  wednesdayBreakStart: start,
-                                  wednesdayBreakEnd: end,
-                                  thursdayBreakStart: start,
-                                  thursdayBreakEnd: end,
-                                  fridayBreakStart: start,
-                                  fridayBreakEnd: end,
-                                  saturdayBreakStart: start,
-                                  saturdayBreakEnd: end,
-                                  sundayBreakStart: start,
-                                  sundayBreakEnd: end,
-                                });
-                                setUseSimpleBreak(false);
-                              }}
-                              className="text-primary text-sm font-medium hover:underline"
-                            >
-                              Personalizar pausas por día
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {/* Modo personalizado - Tabla compacta */}
-                            <div className="space-y-3">
-                              {Object.entries(workDays)
-                                .filter(([_, works]) => works)
-                                .map(([day]) => {
-                                  const dayNames: Record<string, string> = {
-                                    monday: "Lunes",
-                                    tuesday: "Martes",
-                                    wednesday: "Miércoles",
-                                    thursday: "Jueves",
-                                    friday: "Viernes",
-                                    saturday: "Sábado",
-                                    sunday: "Domingo",
-                                  };
-                                  return (
-                                    <div key={day} className="grid grid-cols-[100px_1fr_1fr] items-center gap-3">
-                                      <Label className="text-sm">{dayNames[day]}</Label>
-                                      <Input
-                                        type="time"
-                                        value={breakTimes[`${day}BreakStart` as keyof typeof breakTimes]}
-                                        onChange={(e) =>
-                                          setBreakTimes((prev) => ({
-                                            ...prev,
-                                            [`${day}BreakStart`]: e.target.value,
-                                          }))
-                                        }
-                                      />
-                                      <Input
-                                        type="time"
-                                        value={breakTimes[`${day}BreakEnd` as keyof typeof breakTimes]}
-                                        onChange={(e) =>
-                                          setBreakTimes((prev) => ({
-                                            ...prev,
-                                            [`${day}BreakEnd`]: e.target.value,
-                                          }))
-                                        }
-                                      />
-                                    </div>
-                                  );
-                                })}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => setUseSimpleBreak(true)}
-                              className="text-primary text-sm font-medium hover:underline"
-                            >
-                              Volver a modo simple
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
 
               {/* BLOQUE 3: Jornada intensiva */}
               <Card>
@@ -729,6 +776,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                       id="has-intensive"
                       checked={hasIntensiveSchedule}
                       onCheckedChange={setHasIntensiveSchedule}
+                      className="wizard-switch"
                     />
                   </div>
 
@@ -943,6 +991,7 @@ export function WizardStep3Schedule({ onSubmit, isLoading = false, initialData }
                             id="has-intensive-breaks"
                             checked={hasIntensiveBreaks}
                             onCheckedChange={setHasIntensiveBreaks}
+                            className="wizard-switch"
                           />
                         </div>
 
