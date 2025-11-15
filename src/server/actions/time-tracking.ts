@@ -675,7 +675,7 @@ function calculateFixedScheduleHours(
 // Obtener horas esperadas PARA HOY específicamente (detecta días laborables)
 export async function getExpectedHoursForToday() {
   try {
-    const { employee } = await getAuthenticatedUser();
+    const { employee, orgId } = await getAuthenticatedUser();
 
     // Si no hay empleado asociado, retornar valores por defecto
     if (!employee) {
