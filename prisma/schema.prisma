@@ -118,6 +118,7 @@ model User {
   createdSignableDocuments SignableDocument[] // Documentos firmables que ha creado
   approvedManualTimeEntries ManualTimeEntryRequest[] @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
   createdExpenses Expense[] @relation("ExpenseCreator") // Gastos creados
+  reimbursedExpenses Expense[] @relation("ExpenseReimburser") // Gastos que he reembolsado
   expenseApprovals ExpenseApproval[] // Aprobaciones de gastos
   expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
   employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
@@ -298,7 +299,8 @@ model Employee {
   
   // Datos bancarios (cifrados)
   iban            String?   // Se cifrará a nivel de aplicación
-  
+  preferredReimbursementMethod ReimbursementMethod? // Método preferido para reembolsos
+
   // Contacto de emergencia
   emergencyContactName  String?
   emergencyContactPhone String?
@@ -1413,6 +1415,13 @@ enum ApprovalDecision {
   REJECTED       // Rechazado
 }
 
+enum ReimbursementMethod {
+  TRANSFER       // Transferencia bancaria
+  PAYROLL        // Nómina
+  CASH           // Efectivo
+  OTHER          // Otro método
+}
+
 // Gasto individual
 model Expense {
   id              String          @id @default(cuid())
@@ -1441,6 +1450,13 @@ model Expense {
 
   // Estado
   status          ExpenseStatus   @default(DRAFT)
+
+  // Reembolso
+  reimbursedAt        DateTime?
+  reimbursedBy        String?
+  reimbursedByUser    User?                @relation("ExpenseReimburser", fields: [reimbursedBy], references: [id])
+  reimbursementMethod ReimbursementMethod?
+  reimbursementReference String?          // Nº transferencia o referencia
 
   // Auditoría
   createdBy       String

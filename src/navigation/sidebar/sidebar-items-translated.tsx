@@ -17,6 +17,8 @@ import {
   Receipt,
   MessageSquare,
   CalendarClock,
+  Banknote,
+  BarChart3,
   type LucideIcon,
 } from "lucide-react";
 
@@ -185,10 +187,24 @@ export function useSidebarItems(): NavGroup[] {
           ],
         },
         {
-          title: "Analytics de Gastos",
+          title: "Gastos",
           url: "/dashboard/expenses",
           icon: Receipt,
           permission: "approve_requests",
+          subItems: [
+            {
+              title: "Analytics",
+              url: "/dashboard/expenses",
+              icon: BarChart3,
+              permission: "approve_requests",
+            },
+            {
+              title: "Reembolsos",
+              url: "/dashboard/expenses/reimbursements",
+              icon: Banknote,
+              permission: "approve_requests",
+            },
+          ],
         },
         ...(signaturesEnabled
           ? [

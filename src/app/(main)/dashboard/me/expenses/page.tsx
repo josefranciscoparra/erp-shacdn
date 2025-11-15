@@ -47,8 +47,9 @@ export default function ExpensesPage() {
   // Filtrar gastos por estado (memoizado para evitar recálculos)
   const draftExpenses = useMemo(() => expenses.filter((e) => e.status === "DRAFT"), [expenses]);
   const inReviewExpenses = useMemo(() => expenses.filter((e) => e.status === "SUBMITTED"), [expenses]);
+  const reimbursedExpenses = useMemo(() => expenses.filter((e) => e.status === "REIMBURSED"), [expenses]);
   const completedExpenses = useMemo(
-    () => expenses.filter((e) => e.status === "APPROVED" || e.status === "REJECTED" || e.status === "REIMBURSED"),
+    () => expenses.filter((e) => e.status === "APPROVED" || e.status === "REJECTED"),
     [expenses],
   );
 
@@ -59,13 +60,15 @@ export default function ExpensesPage() {
         return draftExpenses;
       case "in-review":
         return inReviewExpenses;
+      case "reimbursed":
+        return reimbursedExpenses;
       case "completed":
         return completedExpenses;
       case "all":
       default:
         return expenses;
     }
-  }, [currentTab, draftExpenses, inReviewExpenses, completedExpenses, expenses]);
+  }, [currentTab, draftExpenses, inReviewExpenses, reimbursedExpenses, completedExpenses, expenses]);
 
   // Obtener mensaje de empty state según el tab actual
   const emptyStateMessage = useMemo(() => {
@@ -74,6 +77,8 @@ export default function ExpensesPage() {
         return { title: "Nada por aquí", description: "No tienes borradores de gastos." };
       case "in-review":
         return { title: "Nada por aquí", description: "No tienes gastos en revisión." };
+      case "reimbursed":
+        return { title: "Nada por aquí", description: "No tienes gastos reembolsados." };
       case "completed":
         return { title: "Nada por aquí", description: "No tienes gastos finalizados." };
       case "all":
@@ -289,6 +294,7 @@ export default function ExpensesPage() {
                 <SelectItem value="all">Todos</SelectItem>
                 <SelectItem value="draft">Borradores</SelectItem>
                 <SelectItem value="in-review">En revisión</SelectItem>
+                <SelectItem value="reimbursed">Reembolsados</SelectItem>
                 <SelectItem value="completed">Finalizados</SelectItem>
               </SelectContent>
             </Select>
@@ -299,6 +305,7 @@ export default function ExpensesPage() {
             <TabsTrigger value="all">Todos</TabsTrigger>
             <TabsTrigger value="draft">Borradores</TabsTrigger>
             <TabsTrigger value="in-review">En revisión</TabsTrigger>
+            <TabsTrigger value="reimbursed">Reembolsados</TabsTrigger>
             <TabsTrigger value="completed">Finalizados</TabsTrigger>
           </TabsList>
         </div>
@@ -335,6 +342,21 @@ export default function ExpensesPage() {
 
         {/* Tab Content - En revisión */}
         <TabsContent value="in-review" className="mt-4">
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-lg border">
+              <DataTable
+                table={table}
+                columns={columns}
+                emptyStateTitle={emptyStateMessage.title}
+                emptyStateDescription={emptyStateMessage.description}
+              />
+            </div>
+            <DataTablePagination table={table} />
+          </div>
+        </TabsContent>
+
+        {/* Tab Content - Reembolsados */}
+        <TabsContent value="reimbursed" className="mt-4">
           <div className="space-y-4">
             <div className="overflow-hidden rounded-lg border">
               <DataTable

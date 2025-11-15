@@ -32,6 +32,7 @@ import {
   Mail,
   MailOpen,
   ExternalLink,
+  Banknote,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -108,6 +109,7 @@ const notificationIcons = {
   EXPENSE_SUBMITTED: Receipt,
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
+  EXPENSE_REIMBURSED: Banknote,
 };
 
 const notificationTypeLabels = {
@@ -128,6 +130,7 @@ const notificationTypeLabels = {
   EXPENSE_SUBMITTED: "Gasto enviado",
   EXPENSE_APPROVED: "Gasto aprobado",
   EXPENSE_REJECTED: "Gasto rechazado",
+  EXPENSE_REIMBURSED: "Gasto reembolsado",
 };
 
 export default function NotificationsPage() {
@@ -363,6 +366,8 @@ export default function NotificationsPage() {
       if (notification.expenseId ?? notification.type.startsWith("EXPENSE_")) {
         if (notification.type === "EXPENSE_SUBMITTED") {
           router.push(`/dashboard/approvals/expenses`);
+        } else if (notification.type === "EXPENSE_REIMBURSED") {
+          router.push(`/dashboard/me/expenses`);
         } else {
           router.push(`/dashboard/me/expenses`);
         }
@@ -478,6 +483,8 @@ export default function NotificationsPage() {
                     "bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400",
                   type === "EXPENSE_APPROVED" && "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "EXPENSE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                  type === "EXPENSE_REIMBURSED" &&
+                    "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
                 )}
                 title={label}
               >
@@ -747,7 +754,8 @@ export default function NotificationsPage() {
                   {selectedNotification.type === "EXPENSE_SUBMITTED"
                     ? "Ir a revisar gastos"
                     : selectedNotification.type === "EXPENSE_APPROVED" ||
-                        selectedNotification.type === "EXPENSE_REJECTED"
+                        selectedNotification.type === "EXPENSE_REJECTED" ||
+                        selectedNotification.type === "EXPENSE_REIMBURSED"
                       ? "Ver mis gastos"
                       : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
                         ? "Ir a revisar solicitud"

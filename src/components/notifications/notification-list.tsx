@@ -18,6 +18,7 @@ import {
   FileX,
   Clock,
   Receipt,
+  Banknote,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const notificationIcons = {
   EXPENSE_SUBMITTED: Receipt,
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
+  EXPENSE_REIMBURSED: Banknote,
 };
 
 interface NotificationListProps {
@@ -132,6 +134,8 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
                         "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                       notification.type === "EXPENSE_REJECTED" &&
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
+                      notification.type === "EXPENSE_REIMBURSED" &&
+                        "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
