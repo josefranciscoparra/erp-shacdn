@@ -94,7 +94,7 @@ export function PositionLevelsDataTable({ data, onNewLevel, onEdit, onDelete }: 
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="outline" size="sm" onClick={onNewLevel}>
+          <Button variant="default" size="sm" onClick={onNewLevel}>
             <Plus />
             <span className="hidden lg:inline">Nuevo nivel</span>
           </Button>

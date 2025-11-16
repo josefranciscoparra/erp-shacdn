@@ -59,6 +59,65 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    // Si se está cambiando el order, implementar reordenación automática usando transacción
+    if (validatedData.order !== undefined && validatedData.order !== existingLevel.order) {
+      const oldOrder = existingLevel.order;
+      const newOrder = validatedData.order;
+
+      // Usar transacción para evitar conflictos con la restricción única
+      const level = await prisma.$transaction(async (tx) => {
+        // Paso 1: Mover temporalmente el nivel actual a un order negativo (fuera del rango válido)
+        await tx.positionLevel.update({
+          where: { id },
+          data: { order: -1 },
+        });
+
+        // Paso 2: Reordenar los demás niveles
+        if (newOrder > oldOrder) {
+          // Movimiento hacia abajo: decrementar los niveles entre oldOrder y newOrder
+          await tx.positionLevel.updateMany({
+            where: {
+              orgId,
+              order: {
+                gt: oldOrder,
+                lte: newOrder,
+              },
+            },
+            data: {
+              order: {
+                decrement: 1,
+              },
+            },
+          });
+        } else {
+          // Movimiento hacia arriba: incrementar los niveles entre newOrder y oldOrder
+          await tx.positionLevel.updateMany({
+            where: {
+              orgId,
+              order: {
+                gte: newOrder,
+                lt: oldOrder,
+              },
+            },
+            data: {
+              order: {
+                increment: 1,
+              },
+            },
+          });
+        }
+
+        // Paso 3: Actualizar el nivel actual con todos los datos (incluyendo el nuevo order)
+        return tx.positionLevel.update({
+          where: { id },
+          data: validatedData,
+        });
+      });
+
+      return NextResponse.json(level);
+    }
+
+    // Si no se está cambiando el order, actualizar normalmente
     const level = await prisma.positionLevel.update({
       where: { id },
       data: validatedData,

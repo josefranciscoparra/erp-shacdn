@@ -86,6 +86,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Ya existe un nivel con el nombre "${validatedData.name}"` }, { status: 400 });
     }
 
+    // Reordenación automática: incrementar el order de niveles >= nuevo order
+    // Esto permite insertar un nivel "entre medio" de niveles existentes
+    await prisma.positionLevel.updateMany({
+      where: {
+        orgId,
+        order: {
+          gte: validatedData.order,
+        },
+      },
+      data: {
+        order: {
+          increment: 1,
+        },
+      },
+    });
+
+    // Crear el nuevo nivel con el order solicitado
     const level = await prisma.positionLevel.create({
       data: {
         ...validatedData,

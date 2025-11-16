@@ -248,6 +248,7 @@ model PositionLevel {
   positions Position[]
 
   @@unique([orgId, name]) // No duplicar niveles en la misma organización
+  @@unique([orgId, order]) // No duplicar orden en la misma organización
   @@index([orgId])
   @@index([order])
   @@map("position_levels")

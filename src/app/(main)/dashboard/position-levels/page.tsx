@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Plus, Briefcase, Loader2, ShieldAlert } from "lucide-react";
+import { Briefcase, Loader2, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -59,8 +59,6 @@ export default function PositionLevelsPage() {
         <SectionHeader
           title="Niveles de puestos"
           subtitle="Define los niveles jerárquicos para los puestos de trabajo"
-          actionLabel="Nuevo nivel"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
@@ -76,8 +74,6 @@ export default function PositionLevelsPage() {
         <SectionHeader
           title="Niveles de puestos"
           subtitle="Define los niveles jerárquicos para los puestos de trabajo"
-          actionLabel="Nuevo nivel"
-          actionIcon={<Plus className="h-4 w-4" />}
         />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar niveles: {error}</span>
@@ -106,21 +102,10 @@ export default function PositionLevelsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Niveles de puestos</h1>
-            <p className="text-muted-foreground text-sm">Define los niveles jerárquicos para los puestos de trabajo</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              className="focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 inline-flex h-9 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-medium whitespace-nowrap shadow transition-colors focus-visible:ring-1 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0"
-              onClick={() => setDialogOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Nuevo nivel</span>
-            </button>
-          </div>
-        </div>
+        <SectionHeader
+          title="Niveles de puestos"
+          subtitle="Define los niveles jerárquicos para los puestos de trabajo"
+        />
 
         {hasLevels ? (
           <PositionLevelsDataTable

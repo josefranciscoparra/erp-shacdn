@@ -4,6 +4,7 @@ import { useEffect } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -72,13 +73,17 @@ export function PositionLevelDialog({ open, onOpenChange, level }: PositionLevel
     try {
       if (level) {
         await updatePositionLevelById(level.id, data);
+        toast.success("Nivel de puesto actualizado correctamente");
       } else {
         await createPositionLevel(data);
+        toast.success("Nivel de puesto creado correctamente");
       }
       form.reset();
       onOpenChange(false);
     } catch (error) {
       console.error("Error al guardar nivel de puesto:", error);
+      const errorMessage = error instanceof Error ? error.message : "Error al guardar nivel de puesto";
+      toast.error(errorMessage);
     }
   };
 
