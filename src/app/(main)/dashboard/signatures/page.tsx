@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { Loader2 } from "lucide-react";
 
@@ -34,13 +36,23 @@ export default function SignaturesPage() {
     summary,
   } = useSignaturesStore();
 
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hasInitializedRef = useRef(false);
+
   const searchFilter = filters.search ?? "";
   const [searchTerm, setSearchTerm] = useState(searchFilter);
   const [employeeName, setEmployeeName] = useState<string>("");
 
+  // Detectar navegación a la página o query param "refresh=true"
   useEffect(() => {
-    fetchAllRequests();
-  }, [fetchAllRequests]);
+    const shouldRefresh = searchParams.get("refresh") === "true";
+
+    if (!hasInitializedRef.current || shouldRefresh) {
+      hasInitializedRef.current = true;
+      fetchAllRequests({ refresh: true });
+    }
+  }, [pathname, searchParams, fetchAllRequests]);
 
   useEffect(() => {
     setSearchTerm(searchFilter);

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
       const employees = await prisma.employee.findMany({
         where: {
           orgId: session.user.orgId,
-          isActive: true,
+          active: true,
         },
         select: { id: true },
       });
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
       const employees = await prisma.employee.findMany({
         where: {
           orgId: session.user.orgId,
-          isActive: true,
+          active: true,
           contracts: {
             some: {
               departmentId: { in: departmentIds },
@@ -97,17 +97,21 @@ export async function POST(request: NextRequest) {
 
       employeeIds = JSON.parse(employeeIdsStr) as string[];
 
-      // Verificar que los empleados existen y pertenecen a la organización
+      // Verificar que los empleados existen, pertenecen a la organización y están activos
       const employees = await prisma.employee.findMany({
         where: {
           id: { in: employeeIds },
           orgId: session.user.orgId,
+          active: true,
         },
         select: { id: true },
       });
 
       if (employees.length !== employeeIds.length) {
-        return NextResponse.json({ error: "Uno o más empleados no fueron encontrados" }, { status: 400 });
+        return NextResponse.json(
+          { error: "Uno o más empleados no fueron encontrados o están inactivos" },
+          { status: 400 },
+        );
       }
     }
 

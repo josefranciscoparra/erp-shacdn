@@ -24,6 +24,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  exportExpensesCSV,
   getExpensesByCategory,
   getExpensesByEmployee,
   getExpenseStats,
@@ -100,6 +101,7 @@ export default function ExpensesAnalyticsPage() {
   const [employeeData, setEmployeeData] = useState<EmployeeData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const loadData = useCallback(async () => {
     try {
@@ -169,6 +171,43 @@ export default function ExpensesAnalyticsPage() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const handleExportCSV = async () => {
+    try {
+      setIsExporting(true);
+
+      // Llamar al server action para generar el CSV
+      const result = await exportExpensesCSV();
+
+      if (!result.success) {
+        toast.error(result.error ?? "Error al exportar gastos");
+        return;
+      }
+
+      // Crear blob con BOM UTF-8 para compatibilidad con Excel
+      const BOM = "\uFEFF";
+      const blob = new Blob([BOM + result.csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+
+      // Crear link de descarga
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `gastos_${new Date().toISOString().split("T")[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast.success(`CSV exportado correctamente (${result.count} gastos)`);
+    } catch (err) {
+      console.error("Error exporting CSV:", err);
+      toast.error("Error inesperado al exportar CSV");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -241,10 +280,11 @@ export default function ExpensesAnalyticsPage() {
         action={
           <button
             className="border-input bg-background ring-offset-background hover:bg-accent hover:text-accent-foreground focus-visible:ring-ring inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-            onClick={() => toast.info("Exportar CSV (próximamente)")}
+            onClick={handleExportCSV}
+            disabled={isExporting}
           >
             <Download className="h-4 w-4" />
-            Exportar CSV
+            {isExporting ? "Exportando..." : "Exportar CSV"}
           </button>
         }
       />

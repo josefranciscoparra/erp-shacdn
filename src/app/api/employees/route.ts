@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
-import { formatEmployeeNumber } from "@/lib/employee-numbering";
+import { generateSafeEmployeeNumber } from "@/lib/employee-numbering";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
@@ -162,29 +162,29 @@ export async function POST(request: NextRequest) {
 
     // Crear empleado en transacción
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Incrementar contador de empleados atómicamente y generar número
-      const updatedOrg = await tx.organization.update({
+      // 1. Obtener prefijo y generar número de empleado de forma SEGURA
+      const org = await tx.organization.findUnique({
         where: { id: orgId },
-        data: {
-          employeeNumberCounter: { increment: 1 },
-        },
-        select: {
-          employeeNumberPrefix: true,
-          employeeNumberCounter: true,
-        },
+        select: { employeeNumberPrefix: true },
       });
+      const prefix = org?.employeeNumberPrefix ?? "EMP";
 
-      // Generar número de empleado con prefijo + contador (5 dígitos)
-      const employeeNumber = formatEmployeeNumber(
-        updatedOrg.employeeNumberPrefix ?? "EMP",
-        updatedOrg.employeeNumberCounter,
-      );
+      // Usar función segura con sistema de reintentos (4 capas de defensa)
+      const numberResult = await generateSafeEmployeeNumber(tx, orgId, prefix);
+
+      // Si no se pudo generar número, continuar sin número (requiere revisión)
+      if (!numberResult.success) {
+        console.warn(
+          `⚠️ No se pudo generar número de empleado único. Empleado creado sin número para revisión manual. Error: ${numberResult.error}`,
+        );
+      }
 
       // 2. Crear empleado
       const employee = await tx.employee.create({
         data: {
           orgId,
-          employeeNumber,
+          employeeNumber: numberResult.employeeNumber,
+          requiresEmployeeNumberReview: numberResult.requiresReview,
           firstName: data.firstName,
           lastName: data.lastName,
           secondLastName: data.secondLastName,

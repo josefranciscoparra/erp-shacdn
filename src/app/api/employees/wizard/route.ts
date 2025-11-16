@@ -4,7 +4,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import { formatEmployeeNumber } from "@/lib/employee-numbering";
+import { generateSafeEmployeeNumber } from "@/lib/employee-numbering";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
@@ -187,7 +187,7 @@ export async function POST(request: Request) {
         },
       });
 
-      // 2. Generar número de empleado - Método SELECT MAX con filtro por prefijo
+      // 2. Generar número de empleado - Método SEGURO con reintentos
       // Primero obtener prefijo de la organización
       const org = await tx.organization.findUnique({
         where: { id: currentUser.orgId },
@@ -195,34 +195,21 @@ export async function POST(request: Request) {
       });
       const prefix = org?.employeeNumberPrefix ?? "EMP";
 
-      // Buscar último número de empleado CON ESE PREFIJO en la org
-      const lastEmployee = await tx.employee.findFirst({
-        where: {
-          orgId: currentUser.orgId,
-          employeeNumber: { startsWith: prefix }, // Filtrar solo por el prefijo actual
-        },
-        orderBy: { employeeNumber: "desc" },
-        select: { employeeNumber: true },
-      });
+      // Usar función segura con sistema de reintentos (4 capas de defensa)
+      const numberResult = await generateSafeEmployeeNumber(tx, currentUser.orgId, prefix);
 
-      // Calcular siguiente número
-      let nextNumber = 1;
-      if (lastEmployee?.employeeNumber) {
-        // Extraer parte numérica (quitar prefijo como "EMP", "TMNW", etc.)
-        const numericPart = lastEmployee.employeeNumber.replace(/[A-Z]/g, "");
-        nextNumber = parseInt(numericPart, 10) + 1;
+      // Si no se pudo generar número, continuar sin número (requiere revisión)
+      if (!numberResult.success) {
+        console.warn(
+          `⚠️ No se pudo generar número de empleado único. Empleado creado sin número para revisión manual. Error: ${numberResult.error}`,
+        );
       }
-
-      // Formatear con padding de 5 dígitos (00001, 00010, 00100, etc.)
-      const employeeNumber = formatEmployeeNumber(prefix, nextNumber);
-      console.log(
-        `Generando número de empleado: ${employeeNumber} (prefijo: ${prefix}, último: ${lastEmployee?.employeeNumber ?? "ninguno"}, siguiente: ${nextNumber})`,
-      );
 
       // 3. Crear empleado
       const employee = await tx.employee.create({
         data: {
-          employeeNumber,
+          employeeNumber: numberResult.employeeNumber,
+          requiresEmployeeNumberReview: numberResult.requiresReview,
           firstName: data.employee.firstName,
           lastName: data.employee.lastName,
           secondLastName: data.employee.secondLastName,

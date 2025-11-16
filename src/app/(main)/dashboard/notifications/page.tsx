@@ -399,10 +399,10 @@ export default function NotificationsPage() {
           notification.title === "Documento rechazado por firmante"
         ) {
           // HR/Admin: ver todos los documentos de firma
-          router.push(`/dashboard/signatures`);
+          router.push(`/dashboard/signatures?refresh=true`);
         } else {
           // Empleado: ver mis propias firmas
-          router.push(`/dashboard/me/signatures`);
+          router.push(`/dashboard/me/signatures?refresh=true`);
         }
         setIsDetailOpen(false);
         return;

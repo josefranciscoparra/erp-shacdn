@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+
+import { usePathname, useSearchParams } from "next/navigation";
 
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -25,9 +27,19 @@ export default function MySignaturesPage() {
     fetchMyPendingSignatures,
   } = useSignaturesStore();
 
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hasInitializedRef = useRef(false);
+
+  // Detectar navegación a la página o query param "refresh=true"
   useEffect(() => {
-    fetchMyPendingSignatures();
-  }, [fetchMyPendingSignatures]);
+    const shouldRefresh = searchParams.get("refresh") === "true";
+
+    if (!hasInitializedRef.current || shouldRefresh) {
+      hasInitializedRef.current = true;
+      fetchMyPendingSignatures({ refresh: true });
+    }
+  }, [pathname, searchParams, fetchMyPendingSignatures]);
 
   if (isLoadingMySignatures) {
     return (

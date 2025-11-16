@@ -1,6 +1,7 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { Download, FileText } from "lucide-react";
+import { ArrowLeft, Download, FileText } from "lucide-react";
 
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,14 @@ export default async function SignatureRequestDetailPage({ params }: { params: P
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <div className="flex items-start justify-between">
         <div>
+          <div className="mb-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/signatures" className="gap-2">
+                <ArrowLeft className="h-4 w-4" />
+                Volver a Gestión de Firmas
+              </Link>
+            </Button>
+          </div>
           <h1 className="text-2xl font-bold">Detalle de Solicitud de Firma</h1>
           <p className="text-muted-foreground text-sm">
             ID: <code className="bg-muted rounded px-1 py-0.5 text-xs">{request.id}</code>
