@@ -280,5 +280,11 @@ class SSEManager {
   }
 }
 
-// Instancia singleton
-export const sseManager = new SSEManager();
+// Instancia singleton compartida entre todos los route handlers (Next divide el bundle)
+const globalForSSE = globalThis as unknown as {
+  sseManager?: SSEManager;
+};
+
+globalForSSE.sseManager ??= new SSEManager();
+
+export const sseManager = globalForSSE.sseManager;
