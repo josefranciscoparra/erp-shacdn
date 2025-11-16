@@ -18,11 +18,11 @@ const statusConfig: Record<
   },
   SUBMITTED: {
     label: "Enviado",
-    variant: "default",
+    variant: "warning",
   },
   APPROVED: {
     label: "Aprobado",
-    variant: "success",
+    variant: "default",
   },
   REJECTED: {
     label: "Rechazado",
@@ -30,7 +30,7 @@ const statusConfig: Record<
   },
   REIMBURSED: {
     label: "Reembolsado",
-    variant: "outline",
+    variant: "success",
   },
 };
 

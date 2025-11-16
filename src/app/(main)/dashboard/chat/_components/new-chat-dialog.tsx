@@ -82,8 +82,17 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
     }
   };
 
+  // Limpiar formulario cuando se cierra el modal
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      setQuery("");
+      setResults([]);
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Nuevo chat</DialogTitle>
@@ -99,6 +108,10 @@ export function NewChatDialog({ open, onOpenChange, onConversationCreated }: New
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9"
               disabled={creating}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
           </div>
 
