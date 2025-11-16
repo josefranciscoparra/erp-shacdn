@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { format, startOfDay, endOfDay, setHours, setMinutes, isPast, isFuture, isToday } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar as CalendarIcon, Loader2, AlertTriangle, Clock, Check } from "lucide-react";
+import { Calendar as CalendarIcon, Loader2, AlertTriangle, Clock, Check, User } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { getMyApprover } from "@/server/actions/manual-time-entry";
 import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
@@ -42,12 +43,35 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
   // Estados para advertencias de fichajes existentes
   const [confirmReplacement, setConfirmReplacement] = useState(false);
 
+  // Aprobador
+  const [approver, setApprover] = useState<{ name: string; role: string } | null>(null);
+  const [loadingApprover, setLoadingApprover] = useState(false);
+
   // Actualizar fecha cuando cambie initialDate
   useEffect(() => {
     if (initialDate) {
       setSelectedDate(initialDate);
     }
   }, [initialDate]);
+
+  // Cargar aprobador cuando se abre el diálogo
+  useEffect(() => {
+    if (open) {
+      setLoadingApprover(true);
+      getMyApprover()
+        .then((data) => {
+          if (data) {
+            setApprover({ name: data.name, role: data.role });
+          }
+        })
+        .catch((err) => {
+          console.error("Error al cargar aprobador:", err);
+        })
+        .finally(() => {
+          setLoadingApprover(false);
+        });
+    }
+  }, [open]);
 
   // Resetear estados de advertencia cuando cambia la fecha
   useEffect(() => {
@@ -159,6 +183,23 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          {/* Información del aprobador */}
+          {loadingApprover ? (
+            <div className="bg-muted/30 flex items-center gap-2 rounded-lg border p-3">
+              <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+              <span className="text-muted-foreground text-sm">Cargando información del aprobador...</span>
+            </div>
+          ) : approver ? (
+            <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+              <User className="mt-0.5 h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="flex-1 space-y-0.5">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-300">Esta solicitud será revisada por</p>
+                <p className="text-sm font-semibold text-blue-950 dark:text-blue-100">{approver.name}</p>
+                <p className="text-xs text-blue-700 dark:text-blue-400">{approver.role}</p>
+              </div>
+            </div>
+          ) : null}
+
           {/* Advertencia de fichajes existentes - Bloque suave y premium */}
           {selectedDate && isPast(startOfDay(selectedDate)) && (
             <Alert className="mb-4 rounded-xl border border-orange-200 bg-orange-50 p-4 dark:border-orange-800 dark:bg-orange-950/20">

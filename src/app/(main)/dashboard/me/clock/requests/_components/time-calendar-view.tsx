@@ -4,13 +4,17 @@ import { useCallback, useEffect, useState } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { RefreshCw } from "lucide-react";
 import { DayButton, type DayMouseEventHandler } from "react-day-picker";
+import { toast } from "sonner";
 
+import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { type DayCalendarData } from "@/server/actions/time-calendar";
+import { recalculateWorkdaySummary } from "@/server/actions/time-tracking";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
 import { ManualTimeEntryDialog } from "../../_components/manual-time-entry-dialog";
@@ -21,6 +25,32 @@ export function TimeCalendarView() {
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [month, setMonth] = useState<Date>(new Date(selectedYear, selectedMonth - 1));
+  const [isRecalculating, setIsRecalculating] = useState<string | null>(null); // ID del día que se está recalculando
+
+  const handleRecalculate = async (date: Date, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevenir que se abra el tooltip/dialog
+    e.preventDefault();
+
+    const dayKey = format(date, "yyyy-MM-dd");
+    setIsRecalculating(dayKey);
+
+    try {
+      const result = await recalculateWorkdaySummary(date);
+      toast.success("Horas recalculadas correctamente", {
+        description: `Trabajadas: ${(result.totalWorkedMinutes / 60).toFixed(1)}h | Pausas: ${(result.totalBreakMinutes / 60).toFixed(1)}h`,
+      });
+
+      // Recargar los datos del mes para reflejar el cambio
+      await loadMonthlyData(selectedYear, selectedMonth);
+    } catch (error) {
+      console.error("Error al recalcular:", error);
+      toast.error("Error al recalcular horas", {
+        description: error instanceof Error ? error.message : "Intenta de nuevo",
+      });
+    } finally {
+      setIsRecalculating(null);
+    }
+  };
 
   useEffect(() => {
     loadMonthlyData(selectedYear, selectedMonth);
@@ -529,7 +559,7 @@ export function TimeCalendarView() {
                 </div>
 
                 {/* Información de horas */}
-                <div className="space-y-1 border-t pt-2 text-xs">
+                <div className="space-y-2 border-t pt-2 text-xs">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Trabajadas:</span>
                     <span className="text-card-foreground font-medium">{dayData.workedHours.toFixed(1)}h</span>
@@ -545,6 +575,27 @@ export function TimeCalendarView() {
                         {(dayData.expectedHours - dayData.workedHours).toFixed(1)}h
                       </span>
                     </div>
+                  )}
+
+                  {/* Botón de recalcular */}
+                  {dayData.entries && dayData.entries.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 w-full gap-1.5 text-xs"
+                      onClick={(e) => handleRecalculate(new Date(dayData.date), e)}
+                      disabled={isRecalculating === format(new Date(dayData.date), "yyyy-MM-dd")}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "size-3",
+                          isRecalculating === format(new Date(dayData.date), "yyyy-MM-dd") && "animate-spin",
+                        )}
+                      />
+                      {isRecalculating === format(new Date(dayData.date), "yyyy-MM-dd")
+                        ? "Recalculando..."
+                        : "Recalcular horas"}
+                    </Button>
                   )}
                 </div>
               </div>

@@ -1211,3 +1211,137 @@ export async function cancelOpenClockIn(
     return null; // No lanzar error para no bloquear la aprobación
   }
 }
+
+/**
+ * Recalcular WorkdaySummary para un día específico
+ * Útil para corregir discrepancias causadas por fichajes manuales o errores en el cálculo
+ */
+export async function recalculateWorkdaySummary(date: Date) {
+  try {
+    const { employee, orgId } = await getAuthenticatedEmployee();
+    const employeeId = employee.id;
+
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+
+    console.log("🔄 RECALCULANDO WorkdaySummary...");
+    console.log(`   Empleado: ${employeeId}`);
+    console.log(`   Fecha: ${dayStart.toLocaleDateString("es-ES")}`);
+
+    // 1. Obtener TODOS los fichajes del día (solo NO cancelados)
+    const entries = await prisma.timeEntry.findMany({
+      where: {
+        employeeId,
+        orgId,
+        isCancelled: false, // ⚠️ CRÍTICO: Solo fichajes activos
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      orderBy: {
+        timestamp: "asc",
+      },
+    });
+
+    console.log(`   📋 Fichajes activos encontrados: ${entries.length}`);
+
+    if (entries.length === 0) {
+      console.log("   ⚠️ No hay fichajes activos para este día");
+
+      // Eliminar el WorkdaySummary si existe (día sin fichajes)
+      await prisma.workdaySummary.deleteMany({
+        where: {
+          orgId,
+          employeeId,
+          date: dayStart,
+        },
+      });
+
+      return {
+        success: true,
+        message: "No hay fichajes para este día",
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+      };
+    }
+
+    // Imprimir todos los fichajes para debugging
+    for (const entry of entries) {
+      const manualMark = entry.isManual ? "📝 MANUAL" : "🤖 AUTO";
+      console.log(
+        `   ${manualMark} | ${entry.entryType.padEnd(12)} | ${new Date(entry.timestamp).toLocaleString("es-ES")}`,
+      );
+    }
+
+    // 2. Calcular minutos trabajados
+    const { worked, break: breakTime } = calculateWorkedMinutes(entries);
+
+    console.log(`   ✅ Trabajado: ${worked.toFixed(2)} min (${(worked / 60).toFixed(2)} horas)`);
+    console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)} horas)`);
+
+    // 3. Determinar clockIn y clockOut
+    const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
+    const lastExit = [...entries].reverse().find((e) => e.entryType === "CLOCK_OUT");
+
+    // 4. Determinar estado
+    let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
+    if (lastExit) {
+      const expectedHours = await getExpectedHoursForToday();
+      const dailyHours = expectedHours?.dailyHours ?? 8;
+      const workedHours = worked / 60;
+      const compliance = (workedHours / dailyHours) * 100;
+
+      if (compliance >= 95) {
+        status = "COMPLETED";
+      } else {
+        status = "INCOMPLETE";
+      }
+    }
+
+    console.log(`   📊 Status: ${status}`);
+
+    // 5. Actualizar o crear WorkdaySummary
+    const summary = await prisma.workdaySummary.upsert({
+      where: {
+        orgId_employeeId_date: {
+          orgId,
+          employeeId,
+          date: dayStart,
+        },
+      },
+      create: {
+        orgId,
+        employeeId,
+        date: dayStart,
+        clockIn: firstEntry?.timestamp ?? null,
+        clockOut: lastExit?.timestamp ?? null,
+        totalWorkedMinutes: worked,
+        totalBreakMinutes: breakTime,
+        status,
+      },
+      update: {
+        clockIn: firstEntry?.timestamp ?? null,
+        clockOut: lastExit?.timestamp ?? null,
+        totalWorkedMinutes: worked,
+        totalBreakMinutes: breakTime,
+        status,
+      },
+    });
+
+    console.log("   ✅ WorkdaySummary actualizado correctamente");
+
+    return {
+      success: true,
+      message: "Resumen recalculado correctamente",
+      totalWorkedMinutes: worked,
+      totalBreakMinutes: breakTime,
+      status,
+      clockIn: firstEntry?.timestamp ?? null,
+      clockOut: lastExit?.timestamp ?? null,
+    };
+  } catch (error) {
+    console.error("❌ Error al recalcular WorkdaySummary:", error);
+    throw error;
+  }
+}

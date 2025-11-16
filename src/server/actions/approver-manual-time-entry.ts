@@ -297,6 +297,10 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     });
 
     // Actualizar el WorkdaySummary del día
+    console.log("📊 ACTUALIZANDO WorkdaySummary después de aprobar fichaje manual...");
+    console.log(`   Día: ${dayStart.toLocaleDateString("es-ES")}`);
+    console.log(`   Empleado: ${request.employeeId}`);
+
     const allEntriesOfDay = await prisma.timeEntry.findMany({
       where: {
         employeeId: request.employeeId,
@@ -311,10 +315,27 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       },
     });
 
+    console.log(`   📋 Total fichajes encontrados (incluidos cancelados): ${allEntriesOfDay.length}`);
+
     // IMPORTANTE: Solo calcular con fichajes NO cancelados
     const activeEntries = allEntriesOfDay.filter((e) => !e.isCancelled);
+    const cancelledEntries = allEntriesOfDay.filter((e) => e.isCancelled);
+
+    console.log(`   ✅ Fichajes ACTIVOS: ${activeEntries.length}`);
+    console.log(`   🚫 Fichajes CANCELADOS: ${cancelledEntries.length}`);
+
+    // Log de todos los fichajes activos
+    for (const entry of activeEntries) {
+      const manualMark = entry.isManual ? "📝 MANUAL" : "🤖 AUTO";
+      console.log(
+        `   ${manualMark} | ${entry.entryType.padEnd(12)} | ${new Date(entry.timestamp).toLocaleString("es-ES")}`,
+      );
+    }
 
     const { worked, break: breakTime } = calculateWorkedMinutes(activeEntries);
+
+    console.log(`   💡 Calculado: ${worked.toFixed(2)} min trabajados (${(worked / 60).toFixed(2)}h)`);
+    console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)}h)`);
 
     const firstEntry = activeEntries.find((e) => e.entryType === "CLOCK_IN");
     const lastExit = [...activeEntries].reverse().find((e) => e.entryType === "CLOCK_OUT");
@@ -322,7 +343,9 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     // Determinar el estado (COMPLETED si tiene salida)
     const status = lastExit ? "COMPLETED" : "IN_PROGRESS";
 
-    await prisma.workdaySummary.upsert({
+    console.log(`   📊 Estado: ${status}`);
+
+    const updatedSummary = await prisma.workdaySummary.upsert({
       where: {
         orgId_employeeId_date: {
           orgId: user.orgId,
@@ -334,20 +357,23 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
         orgId: user.orgId,
         employeeId: request.employeeId,
         date: dayStart,
-        clockIn: firstEntry?.timestamp,
-        clockOut: lastExit?.timestamp,
+        clockIn: firstEntry?.timestamp ?? null,
+        clockOut: lastExit?.timestamp ?? null,
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
         status,
       },
       update: {
-        clockIn: firstEntry?.timestamp,
-        clockOut: lastExit?.timestamp,
+        clockIn: firstEntry?.timestamp ?? null,
+        clockOut: lastExit?.timestamp ?? null,
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
         status,
       },
     });
+
+    console.log("   ✅ WorkdaySummary actualizado correctamente");
+    console.log(`   💾 Guardado en BD: ${updatedSummary.totalWorkedMinutes} min trabajados`);
 
     // Actualizar la solicitud como aprobada
     await prisma.manualTimeEntryRequest.update({

@@ -306,3 +306,71 @@ export async function cancelManualTimeEntryRequest(requestId: string) {
     throw error;
   }
 }
+
+/**
+ * Obtener información del aprobador del empleado actual
+ */
+export async function getMyApprover() {
+  try {
+    const { employee, orgId } = await getAuthenticatedEmployee();
+
+    // Buscar el manager del empleado en su contrato activo
+    const contract = await prisma.employmentContract.findFirst({
+      where: {
+        employeeId: employee.id,
+        orgId,
+        active: true,
+      },
+      include: {
+        manager: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (contract?.manager?.user) {
+      return {
+        id: contract.manager.user.id,
+        name: contract.manager.user.name,
+        email: contract.manager.user.email,
+        role: "Manager",
+      };
+    }
+
+    // Si no tiene manager, buscar un usuario con rol HR_ADMIN
+    const hrAdmin = await prisma.user.findFirst({
+      where: {
+        orgId,
+        role: "HR_ADMIN",
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+      },
+    });
+
+    if (hrAdmin) {
+      return {
+        id: hrAdmin.id,
+        name: hrAdmin.name,
+        email: hrAdmin.email,
+        role: "RRHH",
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error al obtener aprobador:", error);
+    return null;
+  }
+}
