@@ -538,7 +538,12 @@ function ConversationViewComponent({
             disabled={sending}
           />
           <div className="absolute end-4 flex items-center">
-            <Button onClick={handleSend} disabled={!newMessage.trim() || sending} variant="outline">
+            <Button
+              type="button"
+              onClick={() => handleSend()}
+              disabled={!newMessage.trim() || sending}
+              variant="outline"
+            >
               {sending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
