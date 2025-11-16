@@ -116,9 +116,8 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
             </div>
             <p className="text-muted-foreground text-sm">
               Has completado{" "}
-              <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>
-                {todayHours} de {todayExpectedHours}
-              </span>{" "}
+              <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>{todayHours}</span> de{" "}
+              <span className={todayProgress >= 100 ? "text-green-600" : "text-orange-500"}>{todayExpectedHours}</span>{" "}
               de tu jornada de hoy
             </p>
           </div>
@@ -159,10 +158,9 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
             </div>
             <p className="text-muted-foreground text-sm">
               Has completado{" "}
-              <span className={weekProgress >= 100 ? "text-green-600" : "text-orange-500"}>
-                {weekHours} de {weekExpectedHours}
-              </span>{" "}
-              de tu jornada semanal
+              <span className={weekProgress >= 100 ? "text-green-600" : "text-orange-500"}>{weekHours}</span> de{" "}
+              <span className={weekProgress >= 100 ? "text-green-600" : "text-orange-500"}>{weekExpectedHours}</span> de
+              tu jornada semanal
             </p>
           </div>
         </CardContent>
