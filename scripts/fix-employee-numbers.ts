@@ -14,7 +14,7 @@
 
 import { PrismaClient } from "@prisma/client";
 
-import { formatEmployeeNumber } from "../src/lib/employee-numbering";
+import { formatEmployeeNumber } from "@/lib/employee-numbering";
 
 const prisma = new PrismaClient();
 
