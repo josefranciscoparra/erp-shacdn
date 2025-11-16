@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,6 +32,18 @@ import { TimeEntriesTimeline } from "./time-entries-timeline";
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
+  const [shouldAnimateChart, setShouldAnimateChart] = useState(false);
+  const [chartSnapshot, setChartSnapshot] = useState<{
+    workedMinutes: number;
+    breakMinutes: number;
+    expectedDailyHours: number;
+    updatedAt: Date;
+  } | null>(null);
+  const latestChartValuesRef = useRef({
+    workedMinutes: 0,
+    breakMinutes: 0,
+    expectedDailyHours: 0,
+  });
 
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
@@ -99,15 +111,6 @@ export function ClockIn() {
           // Convertir a Number porque viene como Decimal de Prisma
           const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
 
-          console.log(
-            "🔢 Base:",
-            baseMinutes,
-            "Desde inicio:",
-            minutesFromStart,
-            "Total:",
-            baseMinutes + minutesFromStart,
-          );
-
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }
       } else {
@@ -157,6 +160,59 @@ export function ClockIn() {
     };
     load();
   }, [loadInitialData]);
+
+  const restartChartAnimation = useCallback(() => {
+    setShouldAnimateChart(false);
+    if (typeof window !== "undefined") {
+      window.requestAnimationFrame(() => setShouldAnimateChart(true));
+    } else {
+      setShouldAnimateChart(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    latestChartValuesRef.current = {
+      workedMinutes: liveWorkedMinutes,
+      breakMinutes: todaySummary?.totalBreakMinutes ?? 0,
+      expectedDailyHours,
+    };
+  }, [liveWorkedMinutes, todaySummary?.totalBreakMinutes, expectedDailyHours]);
+
+  const updateChartSnapshot = useCallback(() => {
+    const latestValues = latestChartValuesRef.current;
+    setChartSnapshot({
+      workedMinutes: latestValues.workedMinutes,
+      breakMinutes: latestValues.breakMinutes,
+      expectedDailyHours: latestValues.expectedDailyHours,
+      updatedAt: new Date(),
+    });
+    restartChartAnimation();
+  }, [restartChartAnimation]);
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const handleFocus = () => {
+      updateChartSnapshot();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateChartSnapshot();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    updateChartSnapshot();
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isLoading, updateChartSnapshot]);
 
   // Helper para ejecutar fichaje con geolocalización
   const executeWithGeolocation = async (
@@ -346,15 +402,14 @@ export function ClockIn() {
   // Contar fichajes con GPS
   const entriesWithGPS = todaySummary?.timeEntries?.filter((e) => e.latitude && e.longitude).length ?? 0;
 
-  // Configuración del gráfico de progreso
-  const workedMinutes = todaySummary?.totalWorkedMinutes ?? 0;
-  const breakMinutes = todaySummary?.totalBreakMinutes ?? 0;
-  const totalMinutes = expectedDailyHours * 60;
-  const chartRemainingMinutes = Math.max(0, totalMinutes - workedMinutes);
-
-  // Si es día no laborable (totalMinutes = 0), usar workedMinutes o 1 para mostrar el gráfico
-  const effectiveTotalMinutes = totalMinutes > 0 ? totalMinutes : Math.max(workedMinutes, 1);
-  const progressPercentage = totalMinutes > 0 ? Math.min(Math.round((workedMinutes / totalMinutes) * 100), 100) : 0;
+  // Configuración del gráfico de progreso - usar snapshot estático para evitar parpadeos
+  const chartWorkedMinutes = chartSnapshot?.workedMinutes ?? liveWorkedMinutes;
+  const chartBreakMinutes = chartSnapshot?.breakMinutes ?? todaySummary?.totalBreakMinutes ?? 0;
+  const chartExpectedDailyHours = chartSnapshot?.expectedDailyHours ?? expectedDailyHours;
+  const chartTotalMinutes = chartExpectedDailyHours * 60;
+  const chartRemainingMinutes = Math.max(0, chartTotalMinutes - chartWorkedMinutes);
+  const chartProgressPercentage =
+    chartTotalMinutes > 0 ? Math.min(Math.round((chartWorkedMinutes / chartTotalMinutes) * 100), 100) : 0;
 
   const chartConfig = {
     worked: {
@@ -373,16 +428,57 @@ export function ClockIn() {
 
   // En días no laborables, mostrar solo lo trabajado + un mínimo para que se vea el círculo
   const chartData =
-    totalMinutes > 0
+    chartTotalMinutes > 0
       ? [
-          { name: "worked", value: workedMinutes, fill: "var(--color-worked)" },
-          { name: "breaks", value: breakMinutes, fill: "var(--color-breaks)" },
+          { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
+          { name: "breaks", value: chartBreakMinutes, fill: "var(--color-breaks)" },
           { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
         ]
       : [
-          { name: "worked", value: workedMinutes > 0 ? workedMinutes : 0, fill: "var(--color-worked)" },
-          { name: "remaining", value: workedMinutes > 0 ? 0 : 1, fill: "var(--color-remaining)" },
+          { name: "worked", value: chartWorkedMinutes > 0 ? chartWorkedMinutes : 0, fill: "var(--color-worked)" },
+          { name: "remaining", value: chartWorkedMinutes > 0 ? 0 : 1, fill: "var(--color-remaining)" },
         ];
+  const chartLastUpdatedAt = chartSnapshot?.updatedAt ?? currentTime;
+
+  // Memoizar el gráfico para evitar re-renders innecesarios - solo actualizar cada minuto
+  const memoizedChart = useMemo(
+    () => (
+      <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[270px]">
+        <PieChart key="progress-chart">
+          <Pie
+            data={chartData}
+            dataKey="value"
+            nameKey="name"
+            innerRadius={60}
+            strokeWidth={5}
+            animationBegin={0}
+            animationDuration={800}
+            animationEasing="ease-out"
+            isAnimationActive={shouldAnimateChart}
+          >
+            <Label
+              content={({ viewBox }) => {
+                if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                  return (
+                    <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                      <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) - 8} className="fill-foreground font-display text-3xl">
+                        {chartProgressPercentage}%
+                      </tspan>
+                      <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-sm">
+                        {chartTotalMinutes > 0 ? "de tu jornada" : "tiempo extra"}
+                      </tspan>
+                    </text>
+                  );
+                }
+              }}
+            />
+          </Pie>
+        </PieChart>
+      </ChartContainer>
+    ),
+    // Solo actualizar cuando cambian los minutos (redondeados), o cuando se activa la animación
+    [Math.floor(chartWorkedMinutes), chartBreakMinutes, chartProgressPercentage, chartTotalMinutes, shouldAnimateChart],
+  );
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -510,7 +606,7 @@ export function ClockIn() {
                   </div>
                 </div>
               ) : (
-                <div className="animate-in fade-in-0 slide-in-from-bottom-2 flex items-center gap-1 tabular-nums duration-500">
+                <div className="flex items-center gap-1 tabular-nums">
                   <span className="font-display text-5xl font-bold">{workedTime.hours}</span>
                   <span className="text-muted-foreground text-2xl font-bold">:</span>
                   <span className="font-display text-5xl font-bold">{workedTime.minutes}</span>
@@ -527,7 +623,7 @@ export function ClockIn() {
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 </div>
               ) : !isWorkingDay ? (
-                <Alert className="animate-in fade-in-0 zoom-in-95 border-muted-foreground/20 bg-muted/40 w-full duration-500">
+                <Alert className="border-muted-foreground/20 bg-muted/40 w-full">
                   <Info className="text-muted-foreground h-4 w-4" />
                   <AlertTitle className="font-semibold">Día no laborable según tu contrato.</AlertTitle>
                   <AlertDescription className="text-muted-foreground">
@@ -535,13 +631,13 @@ export function ClockIn() {
                   </AlertDescription>
                 </Alert>
               ) : isCompleted ? (
-                <div className="animate-in fade-in-0 zoom-in-95 flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2 duration-500">
+                <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2">
                   <span className="text-sm font-semibold text-green-600 dark:text-green-400">
                     ¡Jornada completada! 🎉
                   </span>
                 </div>
               ) : (
-                <div className="animate-in fade-in-0 slide-in-from-bottom-1 delay-100 duration-500">
+                <div>
                   <span className="text-muted-foreground text-xs">Tiempo restante</span>
                   <div className="flex items-center gap-1 tabular-nums">
                     <span className="text-muted-foreground font-display text-2xl font-semibold">
@@ -653,38 +749,10 @@ export function ClockIn() {
               </div>
             ) : (
               <>
-                <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[270px]">
-                  <PieChart>
-                    <Pie data={chartData} dataKey="value" nameKey="name" innerRadius={60} strokeWidth={5}>
-                      <Label
-                        content={({ viewBox }) => {
-                          if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                            return (
-                              <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={(viewBox.cy ?? 0) - 8}
-                                  className="fill-foreground font-display text-3xl"
-                                >
-                                  {progressPercentage}%
-                                </tspan>
-                                <tspan
-                                  x={viewBox.cx}
-                                  y={(viewBox.cy ?? 0) + 20}
-                                  className="fill-muted-foreground text-sm"
-                                >
-                                  {totalMinutes > 0 ? "de tu jornada" : "tiempo extra"}
-                                </tspan>
-                              </text>
-                            );
-                          }
-                        }}
-                      />
-                    </Pie>
-                  </PieChart>
-                </ChartContainer>
+                {memoizedChart}
                 <p className="text-muted-foreground text-center text-xs">
-                  Actualizado a las {currentTime.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
+                  Actualizado a las{" "}
+                  {chartLastUpdatedAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
                 </p>
               </>
             )}
@@ -834,14 +902,10 @@ export function ClockIn() {
             viewMode === "map" ? (
               <TimeEntriesMap entries={todaySummary.timeEntries} />
             ) : (
-              <div className="animate-in fade-in-0 delay-150 duration-500">
-                <TimeEntriesTimeline entries={todaySummary.timeEntries} />
-              </div>
+              <TimeEntriesTimeline entries={todaySummary.timeEntries} />
             )
           ) : (
-            <p className="text-muted-foreground animate-in fade-in-0 text-sm duration-500">
-              Aún no has registrado fichajes hoy.
-            </p>
+            <p className="text-muted-foreground text-sm">Aún no has registrado fichajes hoy.</p>
           )}
         </CardContent>
       </Card>
