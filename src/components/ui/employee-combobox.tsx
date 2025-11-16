@@ -185,19 +185,7 @@ export function EmployeeCombobox({
           ) : (
             <span className="text-muted-foreground flex-1 truncate text-left">{placeholder}</span>
           )}
-          <div className="ml-2 flex flex-shrink-0 items-center gap-1">
-            {selectedEmployee && !disabled && (
-              <X
-                className="text-muted-foreground h-4 w-4 opacity-50 hover:opacity-100"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  handleClear(e);
-                }}
-              />
-            )}
-            <ChevronsUpDown className="text-muted-foreground h-4 w-4 shrink-0 opacity-50" />
-          </div>
+          <ChevronsUpDown className="text-muted-foreground ml-2 h-4 w-4 flex-shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[500px] p-0" align="start">

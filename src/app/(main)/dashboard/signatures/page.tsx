@@ -36,6 +36,7 @@ export default function SignaturesPage() {
 
   const searchFilter = filters.search ?? "";
   const [searchTerm, setSearchTerm] = useState(searchFilter);
+  const [employeeName, setEmployeeName] = useState<string>("");
 
   useEffect(() => {
     fetchAllRequests();
@@ -44,6 +45,26 @@ export default function SignaturesPage() {
   useEffect(() => {
     setSearchTerm(searchFilter);
   }, [searchFilter]);
+
+  // Cargar nombre del empleado cuando cambia el filtro
+  useEffect(() => {
+    if (filters.employeeId && filters.employeeId !== "__none__") {
+      fetch(`/api/employees/${filters.employeeId}`, { credentials: "include" })
+        .then((res) => {
+          if (!res.ok) throw new Error("Empleado no encontrado");
+          return res.json();
+        })
+        .then((employee) => {
+          const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
+          setEmployeeName(fullName);
+        })
+        .catch(() => {
+          setEmployeeName("");
+        });
+    } else {
+      setEmployeeName("");
+    }
+  }, [filters.employeeId]);
 
   useEffect(() => {
     const debounced = setTimeout(() => {
@@ -182,7 +203,7 @@ export default function SignaturesPage() {
           </div>
 
           {/* Filtros activos como chips */}
-          <ActiveFilters filters={filters} onRemoveFilter={handleRemoveFilter} />
+          <ActiveFilters filters={filters} employeeName={employeeName} onRemoveFilter={handleRemoveFilter} />
         </CardContent>
       </Card>
 
