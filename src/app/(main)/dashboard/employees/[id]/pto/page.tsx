@@ -33,6 +33,28 @@ interface Employee {
   secondLastName?: string | null;
 }
 
+/**
+ * Formatea el tipo de ajuste de PTO para que se muestre en español
+ * Convierte "COLLECTIVE_AGREEMENT" → "Convenio colectivo"
+ * Convierte "MANUAL_ADJUSTMENT" → "Ajuste manual"
+ */
+function formatAdjustmentType(type: string): string {
+  const translations: Record<string, string> = {
+    COLLECTIVE_AGREEMENT: "Convenio colectivo",
+    MANUAL_ADJUSTMENT: "Ajuste manual",
+    INITIAL_BALANCE: "Balance inicial",
+    CARRYOVER: "Traspaso del año anterior",
+    EXPIRATION: "Expiración de días",
+    COMPANY_POLICY: "Política de empresa",
+    LEGAL_REQUIREMENT: "Requisito legal",
+    CORRECTION: "Corrección",
+    BONUS: "Bonificación",
+    OTHER: "Otro",
+  };
+
+  return translations[type] ?? type;
+}
+
 export default function EmployeePtoManagementPage() {
   const params = useParams();
   const router = useRouter();
@@ -211,7 +233,7 @@ export default function EmployeePtoManagementPage() {
                       <div className="flex items-start justify-between">
                         <div>
                           <p className="font-medium">
-                            {adjustment.adjustmentType.replace(/_/g, " ")} -{" "}
+                            {formatAdjustmentType(adjustment.adjustmentType)} -{" "}
                             <span className={adjustment.daysAdjusted > 0 ? "text-green-600" : "text-red-600"}>
                               {adjustment.daysAdjusted > 0 ? "+" : ""}
                               {adjustment.daysAdjusted} días
