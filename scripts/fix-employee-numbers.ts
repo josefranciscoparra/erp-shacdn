@@ -14,7 +14,11 @@
 
 import { PrismaClient } from "@prisma/client";
 
-import { formatEmployeeNumber } from "@/lib/employee-numbering";
+// Importar directamente la función inline para evitar problemas de paths
+function formatEmployeeNumber(prefix: string, counter: number, padding: number = 5): string {
+  const paddedNumber = String(counter).padStart(padding, "0");
+  return `${prefix}${paddedNumber}`;
+}
 
 const prisma = new PrismaClient();
 
