@@ -130,11 +130,20 @@ export function ManualTimeEntryDialog({ open, onOpenChange, initialDate }: Manua
       const [inHours, inMinutes] = clockInTime.split(":").map(Number);
       const [outHours, outMinutes] = clockOutTime.split(":").map(Number);
 
+      // IMPORTANTE: Enviar fecha a mediodía UTC para evitar problemas de timezone
+      // El servidor está en UTC, pero el navegador puede estar en UTC+1 (España)
+      // Si enviamos "5 nov 00:00 UTC+1", el servidor lo recibe como "4 nov 23:00 UTC"
+      // Solución: enviamos "5 nov 12:00" para que incluso con offset de timezone, el día se mantenga
+      const year = selectedDate!.getFullYear();
+      const month = selectedDate!.getMonth();
+      const day = selectedDate!.getDate();
+      const dateAtNoonUTC = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+
       const clockInDateTime = setMinutes(setHours(selectedDate!, inHours), inMinutes);
       const clockOutDateTime = setMinutes(setHours(selectedDate!, outHours), outMinutes);
 
       await createRequest({
-        date: startOfDay(selectedDate!),
+        date: dateAtNoonUTC,
         clockInTime: clockInDateTime,
         clockOutTime: clockOutDateTime,
         reason: reason.trim(),

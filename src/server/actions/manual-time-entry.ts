@@ -61,22 +61,45 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
   try {
     const { employee, orgId } = await getAuthenticatedEmployee();
 
+    // NORMALIZAR FECHAS A UTC para evitar problemas de timezone
+    // El cliente puede estar en UTC+1, el servidor en UTC
+    // Extraemos año/mes/día y reconstruimos en UTC
+    const inputDate = new Date(input.date);
+    const year = inputDate.getUTCFullYear();
+    const month = inputDate.getUTCMonth();
+    const day = inputDate.getUTCDate();
+
+    // Crear fecha normalizada a medianoche UTC
+    const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+    const dayStart = normalizedDate;
+    const dayEnd = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+
+    // Normalizar clockInTime y clockOutTime para que usen la fecha correcta en UTC
+    const clockInDate = new Date(input.clockInTime);
+    const clockOutDate = new Date(input.clockOutTime);
+
+    const clockInHours = clockInDate.getUTCHours();
+    const clockInMinutes = clockInDate.getUTCMinutes();
+    const clockOutHours = clockOutDate.getUTCHours();
+    const clockOutMinutes = clockOutDate.getUTCMinutes();
+
+    const normalizedClockIn = new Date(Date.UTC(year, month, day, clockInHours, clockInMinutes, 0, 0));
+    const normalizedClockOut = new Date(Date.UTC(year, month, day, clockOutHours, clockOutMinutes, 0, 0));
+
     // Validaciones
     if (!input.reason || input.reason.trim().length < 10) {
       throw new Error("El motivo debe tener al menos 10 caracteres");
     }
 
-    if (isFuture(startOfDay(input.date))) {
+    if (isFuture(dayStart)) {
       throw new Error("No puedes solicitar fichajes para fechas futuras");
     }
 
-    if (input.clockInTime >= input.clockOutTime) {
+    if (normalizedClockIn >= normalizedClockOut) {
       throw new Error("La hora de entrada debe ser anterior a la hora de salida");
     }
 
     // Verificar que no exista ya un fichaje automático ese día
-    const dayStart = startOfDay(input.date);
-    const dayEnd = endOfDay(input.date);
 
     const existingEntries = await prisma.timeEntry.findMany({
       where: {
@@ -135,14 +158,14 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
       }
     }
 
-    // Crear la solicitud
+    // Crear la solicitud CON LAS FECHAS NORMALIZADAS
     const request = await prisma.manualTimeEntryRequest.create({
       data: {
         orgId,
         employeeId: employee.id,
-        date: dayStart,
-        clockInTime: input.clockInTime,
-        clockOutTime: input.clockOutTime,
+        date: dayStart, // Ya normalizado a medianoche UTC
+        clockInTime: normalizedClockIn, // Hora de entrada normalizada
+        clockOutTime: normalizedClockOut, // Hora de salida normalizada
         reason: input.reason.trim(),
         approverId,
         status: "PENDING",
@@ -176,8 +199,22 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
       requestId: request.id,
     };
   } catch (error) {
-    console.error("Error al crear solicitud de fichaje manual:", error);
-    throw error;
+    // Manejo de errores mejorado para mostrar mensajes user-friendly
+    console.error("[Manual Time Entry] Error al crear solicitud:", {
+      error: error instanceof Error ? error.message : "Error desconocido",
+      stack: error instanceof Error ? error.stack : undefined,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Si es un error de validación conocido, re-lanzarlo tal cual
+    if (error instanceof Error && error.message) {
+      throw error;
+    }
+
+    // Para errores desconocidos (de BD, red, etc.), mensaje genérico user-friendly
+    throw new Error(
+      "No se pudo crear la solicitud de fichaje manual. Por favor, inténtalo de nuevo o contacta con soporte si el problema persiste.",
+    );
   }
 }
 

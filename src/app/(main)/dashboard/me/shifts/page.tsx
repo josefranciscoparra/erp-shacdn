@@ -21,6 +21,8 @@ import {
   addMonths,
   subMonths,
   startOfToday,
+  getDay,
+  startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
@@ -128,6 +130,11 @@ export default function MyShiftsPage() {
   const monthEnd = endOfMonth(currentMonth);
   const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
+  // Calcular días vacíos al inicio para alinear el calendario (lunes = 0)
+  const firstDayOfMonth = getDay(monthStart);
+  // getDay devuelve 0=domingo, 1=lunes, etc. Convertir a lunes=0
+  const emptyDaysCount = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
   // Funciones de navegación
   const goToPreviousMonth = () => setCurrentMonth((prev) => subMonths(prev, 1));
   const goToNextMonth = () => setCurrentMonth((prev) => addMonths(prev, 1));
@@ -214,6 +221,11 @@ export default function MyShiftsPage() {
                   </div>
                 ))}
 
+                {/* Días vacíos al inicio para alinear el calendario */}
+                {Array.from({ length: emptyDaysCount }).map((_, index) => (
+                  <div key={`empty-${index}`} className="min-h-[60px] md:min-h-[80px]" />
+                ))}
+
                 {/* Días del mes */}
                 {daysInMonth.map((day) => {
                   const dateKey = format(day, "yyyy-MM-dd");
@@ -225,7 +237,14 @@ export default function MyShiftsPage() {
                   const emptyDayType = getEmptyDayType(dateKey, shifts);
 
                   return (
-                    <div key={dateKey} className="min-h-[60px] md:min-h-[80px]">
+                    <div key={dateKey} className="relative min-h-[60px] md:min-h-[80px]">
+                      {/* Indicador de día actual */}
+                      {today && (
+                        <div className="absolute -top-1 left-1/2 z-10 flex size-2 -translate-x-1/2 items-center justify-center">
+                          <div className="bg-primary size-2 rounded-full" />
+                        </div>
+                      )}
+
                       {/* Turnos del día */}
                       {hasShifts ? (
                         dayShifts.map((shift) => {
