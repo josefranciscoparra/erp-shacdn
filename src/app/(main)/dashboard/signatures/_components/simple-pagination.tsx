@@ -29,7 +29,7 @@ export function SimplePagination({
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <div className="flex flex-col gap-4 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-4 bg-transparent px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="text-muted-foreground text-sm">
         Mostrando {startItem} a {endItem} de {totalItems} solicitud{totalItems === 1 ? "" : "es"}
       </div>

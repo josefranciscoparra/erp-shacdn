@@ -2,23 +2,23 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Loader2, SlidersHorizontal } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmployeeCombobox } from "@/components/ui/employee-combobox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { signatureRequestStatusLabels, signableDocumentCategoryLabels } from "@/lib/validations/signature";
 import { useSignaturesStore } from "@/stores/signatures-store";
 
+import { ActiveFilters } from "./_components/active-filters";
 import { CreateSignatureDialog } from "./_components/create-signature-dialog";
 import { SignaturesDataTable } from "./_components/signatures-data-table";
 import { SimplePagination } from "./_components/simple-pagination";
+import { SummaryCards } from "./_components/summary-cards";
 
 export default function SignaturesPage() {
   const {
@@ -89,16 +89,9 @@ export default function SignaturesPage() {
     setFilters({ employeeId: value === "__none__" ? undefined : value });
   };
 
-  const statusSummaryBadges = useMemo(
-    () => [
-      { key: "PENDING", label: signatureRequestStatusLabels.PENDING, count: summary.byStatus.PENDING },
-      { key: "IN_PROGRESS", label: signatureRequestStatusLabels.IN_PROGRESS, count: summary.byStatus.IN_PROGRESS },
-      { key: "COMPLETED", label: signatureRequestStatusLabels.COMPLETED, count: summary.byStatus.COMPLETED },
-      { key: "REJECTED", label: signatureRequestStatusLabels.REJECTED, count: summary.byStatus.REJECTED },
-      { key: "EXPIRED", label: signatureRequestStatusLabels.EXPIRED, count: summary.byStatus.EXPIRED },
-    ],
-    [summary.byStatus],
-  );
+  const handleRemoveFilter = (filterKey: "search" | "status" | "category" | "employeeId") => {
+    setFilters({ [filterKey]: undefined });
+  };
 
   const isInitialLoading = isLoadingRequests && summary.total === 0 && allRequests.length === 0;
 
@@ -115,44 +108,37 @@ export default function SignaturesPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
+      {/* Header */}
       <SectionHeader
         title="Gestión de Firmas"
-        description="Administra las solicitudes de firma electrónica por estado, trabajador o categoría."
+        description="Gestiona y realiza el seguimiento de solicitudes de firma electrónica de documentos"
         action={<CreateSignatureDialog onSuccess={() => fetchAllRequests({ refresh: true })} />}
       />
 
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline" className="gap-2">
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filtros activos
-            </Badge>
-            <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
-              <span>{summary.total} solicitudes totales</span>
-              {statusSummaryBadges.map((item) => (
-                <Badge key={item.key} variant="secondary" className="pointer-events-none">
-                  {item.label}: {item.count}
-                </Badge>
-              ))}
-            </div>
-          </div>
+      {/* Summary cards premium */}
+      <SummaryCards summary={summary} />
 
+      {/* Filtros compactos */}
+      <Card>
+        <CardContent className="flex flex-col gap-3 p-4">
           <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr]">
-            <div className="space-y-1">
-              <Label htmlFor="signatures-search">Buscar</Label>
+            <div className="space-y-1.5">
+              <Label htmlFor="signatures-search" className="text-xs">
+                Buscar documento
+              </Label>
               <Input
                 id="signatures-search"
-                placeholder="Busca por título de documento, descripción o trabajador"
+                placeholder="Título, descripción o trabajador..."
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
+                className="h-9"
               />
             </div>
-            <div className="space-y-1">
-              <Label>Estado</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Estado</Label>
               <Select value={filters.status ?? "all"} onValueChange={handleStatusChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Estado" />
+                  <SelectValue placeholder="Todos" />
                 </SelectTrigger>
                 <SelectContent>
                   {statusOptions.map((option) => (
@@ -163,11 +149,11 @@ export default function SignaturesPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Categoría</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Categoría</Label>
               <Select value={filters.category ?? "all"} onValueChange={handleCategoryChange}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Categoría" />
+                  <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
                   {categoryOptions.map((option) => (
@@ -181,55 +167,56 @@ export default function SignaturesPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-[2fr,auto]">
-            <div className="space-y-1">
-              <Label>Trabajador</Label>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Trabajador</Label>
               <EmployeeCombobox
                 value={filters.employeeId ?? "__none__"}
                 onValueChange={handleEmployeeChange}
-                placeholder="Filtrar por trabajador"
+                placeholder="Todos los trabajadores"
                 minChars={2}
+                className="h-9"
               />
             </div>
-            <div className="flex items-end justify-end gap-2">
-              <Button variant="outline" onClick={clearFilters}>
+            <div className="flex items-end">
+              <Button variant="outline" size="sm" onClick={clearFilters} className="h-9">
                 Limpiar filtros
               </Button>
             </div>
           </div>
+
+          {/* Filtros activos como chips */}
+          <ActiveFilters filters={filters} onRemoveFilter={handleRemoveFilter} />
         </CardContent>
       </Card>
 
-      <Separator />
-
-      <Card>
-        <CardContent className="p-0">
-          {isLoadingRequests ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-              <span className="text-muted-foreground ml-2 text-sm">Actualizando listado...</span>
+      {/* Tabla mejorada */}
+      <div className="overflow-hidden rounded-lg">
+        {isLoadingRequests ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            <span className="text-muted-foreground ml-2 text-sm">Actualizando listado...</span>
+          </div>
+        ) : allRequests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <p className="text-lg font-medium">No hay solicitudes que coincidan con los filtros actuales</p>
+            <p className="text-muted-foreground mt-1 text-sm">Ajusta los filtros o crea una nueva solicitud</p>
+          </div>
+        ) : (
+          <>
+            <SignaturesDataTable data={allRequests} />
+            <div className="border-t">
+              <SimplePagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages || 1}
+                pageSize={pagination.limit}
+                totalItems={pagination.total}
+                onPageChange={setPage}
+                onPageSizeChange={setLimit}
+              />
             </div>
-          ) : allRequests.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-lg font-medium">No hay solicitudes que coincidan con los filtros actuales</p>
-              <p className="text-muted-foreground mt-1 text-sm">Ajusta los filtros o crea una nueva solicitud</p>
-            </div>
-          ) : (
-            <>
-              <SignaturesDataTable data={allRequests} />
-              <div className="border-t">
-                <SimplePagination
-                  currentPage={pagination.page}
-                  totalPages={pagination.totalPages || 1}
-                  pageSize={pagination.limit}
-                  totalItems={pagination.total}
-                  onPageChange={setPage}
-                  onPageSizeChange={setLimit}
-                />
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+          </>
+        )}
+      </div>
     </div>
   );
 }

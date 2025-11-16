@@ -12,7 +12,7 @@ import {
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Download, Eye, MoreHorizontal } from "lucide-react";
+import { ArrowUpDown, Clock, Download, Eye, FileText, MoreHorizontal, Users } from "lucide-react";
 
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
 import { Badge } from "@/components/ui/badge";
@@ -46,6 +46,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="hover:bg-transparent"
           >
+            <FileText className="mr-2 h-4 w-4" />
             Documento
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -57,7 +58,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
         const requestId = row.original.id;
         return (
           <Link href={`/dashboard/signatures/${requestId}`}>
-            <div className="cursor-pointer hover:underline">
+            <div className="hover:text-primary cursor-pointer transition-colors">
               <p className="font-medium">{title}</p>
               <p className="text-muted-foreground text-xs">{category}</p>
             </div>
@@ -67,7 +68,12 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
     },
     {
       accessorKey: "signers",
-      header: "Firmantes",
+      header: () => (
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4" />
+          <span>Firmantes</span>
+        </div>
+      ),
       cell: ({ row }) => {
         const signers = row.original.signers;
         const signedCount = signers.filter((s) => s.status === "SIGNED").length;
@@ -75,19 +81,14 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
 
         return (
           <div className="space-y-1 text-sm">
-            <p className="font-medium">
+            <p className="font-medium tabular-nums">
               {signedCount} / {totalCount} completado{totalCount === 1 ? "" : "s"}
             </p>
             <div className="space-y-1">
               {signers.slice(0, 3).map((signer) => (
-                <div key={signer.id} className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground truncate text-xs">
-                    {signer.employee.firstName} {signer.employee.lastName}
-                  </span>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {signer.status === "SIGNED" ? "Firmado" : signer.status === "REJECTED" ? "Rechazado" : "Pendiente"}
-                  </Badge>
-                </div>
+                <p key={signer.id} className="text-muted-foreground text-xs">
+                  {signer.employee.firstName} {signer.employee.lastName}
+                </p>
               ))}
               {signers.length > 3 && (
                 <p className="text-muted-foreground text-[11px]">+{signers.length - 3} firmante(s) adicional(es)</p>
@@ -113,6 +114,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             className="hover:bg-transparent"
           >
+            <Clock className="mr-2 h-4 w-4" />
             Urgencia
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
@@ -196,7 +198,7 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
   });
 
   return (
-    <div className="rounded-md border">
+    <div className="overflow-hidden rounded-lg border">
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -214,7 +216,11 @@ export function SignaturesDataTable({ data }: SignaturesDataTableProps) {
         <TableBody>
           {table.getRowModel().rows.length ? (
             table.getRowModel().rows.map((row) => (
-              <TableRow key={row.id} data-state={row.getIsSelected() && "selected"}>
+              <TableRow
+                key={row.id}
+                data-state={row.getIsSelected() && "selected"}
+                className="hover:bg-muted/50 transition-colors"
+              >
                 {row.getVisibleCells().map((cell) => (
                   <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                 ))}
