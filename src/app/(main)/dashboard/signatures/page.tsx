@@ -121,8 +121,8 @@ export default function SignaturesPage() {
       {/* Filtros compactos */}
       <Card>
         <CardContent className="flex flex-col gap-3 p-4">
-          <div className="grid gap-3 md:grid-cols-[2fr,1fr,1fr]">
-            <div className="space-y-1.5">
+          <div className="grid gap-3 md:grid-cols-6">
+            <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="signatures-search" className="text-xs">
                 Buscar documento
               </Label>
@@ -164,9 +164,6 @@ export default function SignaturesPage() {
                 </SelectContent>
               </Select>
             </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-[2fr,auto]">
             <div className="space-y-1.5">
               <Label className="text-xs">Trabajador</Label>
               <EmployeeCombobox
@@ -178,7 +175,7 @@ export default function SignaturesPage() {
               />
             </div>
             <div className="flex items-end">
-              <Button variant="outline" size="sm" onClick={clearFilters} className="h-9">
+              <Button variant="outline" size="sm" onClick={clearFilters} className="h-9 w-full">
                 Limpiar filtros
               </Button>
             </div>

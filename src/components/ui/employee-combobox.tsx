@@ -169,13 +169,13 @@ export function EmployeeCombobox({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between"
+          className="h-9 w-full justify-between overflow-hidden"
           disabled={disabled}
         >
           {selectedEmployee ? (
-            <div className="flex items-center gap-2 overflow-hidden">
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
               <User className="text-muted-foreground h-4 w-4 flex-shrink-0" />
-              <div className="flex flex-col items-start overflow-hidden">
+              <div className="flex min-w-0 flex-1 flex-col items-start overflow-hidden">
                 <span className="truncate font-medium">{selectedEmployee.fullName}</span>
                 {selectedEmployee.position && (
                   <span className="text-muted-foreground truncate text-xs">{selectedEmployee.position}</span>
@@ -183,13 +183,20 @@ export function EmployeeCombobox({
               </div>
             </div>
           ) : (
-            <span className="text-muted-foreground">{placeholder}</span>
+            <span className="text-muted-foreground flex-1 truncate text-left">{placeholder}</span>
           )}
-          <div className="flex items-center gap-1">
+          <div className="ml-2 flex flex-shrink-0 items-center gap-1">
             {selectedEmployee && !disabled && (
-              <X className="text-muted-foreground h-4 w-4 opacity-50 hover:opacity-100" onClick={handleClear} />
+              <X
+                className="text-muted-foreground h-4 w-4 opacity-50 hover:opacity-100"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleClear(e);
+                }}
+              />
             )}
-            <ChevronsUpDown className="text-muted-foreground ml-2 h-4 w-4 shrink-0 opacity-50" />
+            <ChevronsUpDown className="text-muted-foreground h-4 w-4 shrink-0 opacity-50" />
           </div>
         </Button>
       </PopoverTrigger>
