@@ -61,9 +61,15 @@ export function MySpaceMetrics({ data, isLoading }: MySpaceMetricsProps) {
   const weekHours = formatMinutesToTime(timeTracking.week.totalWorkedMinutes);
   const weekExpectedHours = formatMinutesToTime(timeTracking.week.expectedMinutes);
 
-  // Calcular porcentaje de progreso
-  const todayProgress = Math.round((timeTracking.today.workedMinutes / timeTracking.today.expectedMinutes) * 100);
-  const weekProgress = Math.round((timeTracking.week.totalWorkedMinutes / timeTracking.week.expectedMinutes) * 100);
+  // Calcular porcentaje de progreso (evitar NaN si expectedMinutes es 0)
+  const todayProgress =
+    timeTracking.today.expectedMinutes > 0
+      ? Math.round((timeTracking.today.workedMinutes / timeTracking.today.expectedMinutes) * 100)
+      : 0;
+  const weekProgress =
+    timeTracking.week.expectedMinutes > 0
+      ? Math.round((timeTracking.week.totalWorkedMinutes / timeTracking.week.expectedMinutes) * 100)
+      : 0;
 
   // Configuración de gráficas radiales
   const todayChartData = [{ value: Math.min(todayProgress, 100), fill: "var(--color-today)" }];
