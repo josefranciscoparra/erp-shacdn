@@ -4,13 +4,18 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { FileText, Users, HardDrive, TrendingUp } from "lucide-react";
 
-import { Card, CardAction, CardDescription, CardHeader } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { formatFileSize } from "@/lib/validations/document";
 import { useGlobalDocumentStats } from "@/stores/documents-store";
 
 export function DocumentStatsCards() {
   const stats = useGlobalDocumentStats();
+
+  // Límite de almacenamiento (3 GB en bytes)
+  const STORAGE_LIMIT = 3 * 1024 * 1024 * 1024; // 3 GB
+  const storagePercentage = Math.min((stats.totalSize / STORAGE_LIMIT) * 100, 100);
 
   const cards = [
     {
@@ -32,10 +37,12 @@ export function DocumentStatsCards() {
     {
       title: "Espacio Usado",
       value: formatFileSize(stats.totalSize),
-      description: "En almacenamiento",
+      description: `${storagePercentage.toFixed(1)}% de ${formatFileSize(STORAGE_LIMIT)}`,
       icon: HardDrive,
       iconStyles:
         "bg-purple-50 border-purple-200 text-purple-600 dark:bg-purple-950/50 dark:border-purple-900 dark:text-purple-400",
+      showProgress: true,
+      progressValue: storagePercentage,
     },
     {
       title: "Último Subido",
@@ -59,8 +66,9 @@ export function DocumentStatsCards() {
               <CardDescription>{card.title}</CardDescription>
               <div className="flex flex-col gap-2">
                 <h4 className="font-display text-2xl lg:text-3xl">{card.value}</h4>
-                <div className="text-muted-foreground text-sm">
+                <div className="text-muted-foreground flex flex-col gap-1.5 text-sm">
                   <span>{card.description}</span>
+                  {card.showProgress && <Progress value={card.progressValue} className="h-1.5 w-full" />}
                 </div>
               </div>
               <CardAction>
