@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { cn } from "@/lib/utils";
 
 import type { MockCenter } from "../_lib/dashboard-mock-data";
+import { sanitizeNumber } from "../_lib/dashboard-utils";
 
 interface DashboardCenterSummaryProps {
   centers: MockCenter[];
@@ -97,7 +98,7 @@ export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenter
                                 : "bg-red-500",
                           )}
                           style={{
-                            width: `${center.coverage}%`,
+                            width: `${sanitizeNumber(center.coverage, 0)}%`,
                           }}
                         />
                       </div>
@@ -111,7 +112,7 @@ export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenter
                               : "text-red-600",
                         )}
                       >
-                        {center.coverage}%
+                        {sanitizeNumber(center.coverage, 0)}%
                       </span>
                     </div>
                   </td>

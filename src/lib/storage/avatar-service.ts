@@ -20,7 +20,6 @@ export class AvatarUploadService {
    */
   async uploadAvatar(orgId: string, userId: string, file: File | Buffer, mimeType?: string): Promise<string> {
     let buffer: Buffer;
-    let type = mimeType;
 
     // Convertir File a Buffer si es necesario
     if (file instanceof File) {
@@ -31,9 +30,11 @@ export class AvatarUploadService {
         throw new Error("El archivo es demasiado grande. Máximo 2MB.");
       }
       buffer = Buffer.from(await file.arrayBuffer());
-      type = file.type;
     } else {
       buffer = file;
+      if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType)) {
+        throw new Error(`Tipo de archivo no permitido. Solo se permiten: ${ALLOWED_MIME_TYPES.join(", ")}`);
+      }
     }
 
     // Optimizar y redimensionar imagen
@@ -65,6 +66,27 @@ export class AvatarUploadService {
   }
 
   /**
+   * Descarga el avatar original desde el storage y lo retorna como Buffer
+   */
+  async getAvatarBuffer(path: string): Promise<Buffer> {
+    const blob = await this.storageProvider.download(path, { responseType: "buffer" });
+    const arrayBuffer = await blob.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
+
+  /**
+   * Convierte un avatar WebP a PNG para navegadores sin soporte WebP (Safari viejos, etc.)
+   */
+  async convertAvatarToPng(buffer: Buffer): Promise<Buffer> {
+    return await sharp(buffer)
+      .png({
+        compressionLevel: 9,
+        adaptiveFiltering: true,
+      })
+      .toBuffer();
+  }
+
+  /**
    * Optimiza y redimensiona una imagen para usar como avatar
    */
   private async optimizeAvatar(buffer: Buffer): Promise<Buffer> {
@@ -81,12 +103,16 @@ export class AvatarUploadService {
    * Obtiene la extensión de archivo a partir del MIME type
    */
   private getExtensionFromMimeType(mimeType: string): string {
-    const map: Record<string, string> = {
-      "image/jpeg": "jpg",
-      "image/png": "png",
-      "image/webp": "webp",
-    };
-    return map[mimeType] ?? "webp";
+    switch (mimeType) {
+      case "image/jpeg":
+        return "jpg";
+      case "image/png":
+        return "png";
+      case "image/webp":
+        return "webp";
+      default:
+        return "webp";
+    }
   }
 
   /**

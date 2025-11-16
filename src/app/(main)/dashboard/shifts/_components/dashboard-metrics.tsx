@@ -7,7 +7,7 @@
 
 "use client";
 
-import { Calendar, Users, Clock, TrendingUp } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
-import type { DashboardMetrics } from "../_lib/dashboard-utils";
+import { sanitizeNumber, safePercentage, type DashboardMetrics } from "../_lib/dashboard-utils";
 
 interface DashboardMetricsProps {
   metrics: DashboardMetrics | null;
@@ -48,14 +48,10 @@ export function DashboardMetricsCards({ metrics, isLoading }: DashboardMetricsPr
     );
   }
 
-  // Calcular porcentajes
-  const coverageProgress = Math.round(metrics.averageCoverage);
-  const employeesProgress =
-    metrics.totalEmployees > 0 ? Math.round((metrics.employeesWithShifts / metrics.totalEmployees) * 100) : 0;
-  const hoursProgress =
-    metrics.totalHoursContracted > 0
-      ? Math.round((metrics.totalHoursAssigned / metrics.totalHoursContracted) * 100)
-      : 0;
+  // Calcular porcentajes con sanitización para evitar NaN/Infinity
+  const coverageProgress = Math.round(sanitizeNumber(metrics.averageCoverage, 0));
+  const employeesProgress = Math.round(safePercentage(metrics.employeesWithShifts, metrics.totalEmployees));
+  const hoursProgress = Math.round(safePercentage(metrics.totalHoursAssigned, metrics.totalHoursContracted));
 
   // Datos para gráficas
   const coverageChartData = [{ value: Math.min(coverageProgress, 100), fill: "var(--color-coverage)" }];

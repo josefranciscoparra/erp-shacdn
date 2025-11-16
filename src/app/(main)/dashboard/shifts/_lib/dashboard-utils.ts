@@ -113,11 +113,14 @@ export function getDashboardMetrics(
   // Cobertura promedio
   const coverageStats = zones.map((zone) => {
     const zoneCoverage = getCoverageStatsForZone(zone, filteredShifts, dateRange);
-    return zoneCoverage.reduce((acc, day) => acc + day.overall, 0) / zoneCoverage.length;
+    // Evitar división por cero: si no hay días, retornar 0
+    if (zoneCoverage.length === 0) return 0;
+    const sum = zoneCoverage.reduce((acc, day) => acc + day.overall, 0);
+    return sanitizeNumber(sum / zoneCoverage.length, 0);
   });
 
-  const averageCoverage =
-    coverageStats.length > 0 ? coverageStats.reduce((a, b) => a + b, 0) / coverageStats.length : 0;
+  // Usar safeAverage para evitar NaN/Infinity
+  const averageCoverage = safeAverage(coverageStats);
 
   return {
     totalShifts: filteredShifts.length,
@@ -177,7 +180,10 @@ export function getCriticalAlerts(
   // 2. Zonas con cobertura < 70%
   const lowCoverageZones = zones.filter((zone) => {
     const coverageStats = getCoverageStatsForZone(zone, filteredShifts, dateRange);
-    const avgCoverage = coverageStats.reduce((acc, day) => acc + day.overall, 0) / coverageStats.length;
+    // Calcular promedio seguro para evitar NaN
+    if (coverageStats.length === 0) return false;
+    const sum = coverageStats.reduce((acc, day) => acc + day.overall, 0);
+    const avgCoverage = sanitizeNumber(sum / coverageStats.length, 0);
     return avgCoverage < 70;
   });
 
@@ -313,11 +319,14 @@ export function getCenterSummaries(
     // Cobertura
     const coverageStats = centerZones.map((zone) => {
       const zoneCoverage = getCoverageStatsForZone(zone, centerShifts, dateRange);
-      return zoneCoverage.reduce((acc, day) => acc + day.overall, 0) / (zoneCoverage.length || 1);
+      // Evitar división por cero
+      if (zoneCoverage.length === 0) return 0;
+      const sum = zoneCoverage.reduce((acc, day) => acc + day.overall, 0);
+      return sanitizeNumber(sum / zoneCoverage.length, 0);
     });
 
-    const averageCoverage =
-      coverageStats.length > 0 ? coverageStats.reduce((a, b) => a + b, 0) / coverageStats.length : 0;
+    // Usar safeAverage para evitar NaN/Infinity
+    const averageCoverage = safeAverage(coverageStats);
 
     // Avisos específicos del centro
     const alerts = getCriticalAlerts(centerShifts, employees, centerZones, [center], dateRange);
@@ -372,11 +381,13 @@ function getCoverageStatsForZone(zone: Zone, shifts: Shift[], dateRange: DateRan
         required: zone.requiredCoverage.night,
         percentage: zone.requiredCoverage.night > 0 ? (nightCoverage / zone.requiredCoverage.night) * 100 : 100,
       },
-      overall:
+      overall: sanitizeNumber(
         ((morningCoverage / (zone.requiredCoverage.morning || 1)) * 100 +
           (afternoonCoverage / (zone.requiredCoverage.afternoon || 1)) * 100 +
           (nightCoverage / (zone.requiredCoverage.night || 1)) * 100) /
-        3,
+          3,
+        0,
+      ),
     });
   });
 
@@ -438,6 +449,44 @@ export function getEmployeeHoursStats(
         status,
       };
     });
+}
+
+// ==================== UTILIDADES DE NÚMEROS ====================
+
+/**
+ * Garantiza que un número sea finito y válido
+ * @param value - Valor a validar
+ * @param fallback - Valor por defecto si es inválido (default: 0)
+ * @returns Número válido
+ */
+export function sanitizeNumber(value: number, fallback = 0): number {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Calcula porcentaje seguro evitando división por cero
+ * @param numerator - Numerador
+ * @param denominator - Denominador
+ * @returns Porcentaje (0-100+) o 0 si hay error
+ */
+export function safePercentage(numerator: number, denominator: number): number {
+  if (denominator === 0 || !Number.isFinite(denominator)) return 0;
+  const result = (numerator / denominator) * 100;
+  return sanitizeNumber(result, 0);
+}
+
+/**
+ * Calcula promedio seguro de un array de números
+ * @param values - Array de valores
+ * @returns Promedio o 0 si el array está vacío o tiene valores inválidos
+ */
+export function safeAverage(values: number[]): number {
+  if (values.length === 0) return 0;
+  // Filtrar valores no finitos (NaN, Infinity, -Infinity)
+  const validValues = values.filter((v) => Number.isFinite(v));
+  if (validValues.length === 0) return 0;
+  const sum = validValues.reduce((acc, val) => acc + val, 0);
+  return sanitizeNumber(sum / validValues.length, 0);
 }
 
 // ==================== UTILIDADES ====================

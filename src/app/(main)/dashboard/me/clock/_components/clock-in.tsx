@@ -408,8 +408,9 @@ export function ClockIn() {
   const chartExpectedDailyHours = chartSnapshot?.expectedDailyHours ?? expectedDailyHours;
   const chartTotalMinutes = chartExpectedDailyHours * 60;
   const chartRemainingMinutes = Math.max(0, chartTotalMinutes - chartWorkedMinutes);
+  // Permitir porcentajes > 100% cuando trabajas más horas de las esperadas
   const chartProgressPercentage =
-    chartTotalMinutes > 0 ? Math.min(Math.round((chartWorkedMinutes / chartTotalMinutes) * 100), 100) : 0;
+    chartTotalMinutes > 0 ? Math.round((chartWorkedMinutes / chartTotalMinutes) * 100) : 0;
 
   const chartConfig = {
     worked: {
@@ -427,13 +428,19 @@ export function ClockIn() {
   } satisfies ChartConfig;
 
   // En días no laborables, mostrar solo lo trabajado + un mínimo para que se vea el círculo
+  // Si trabajas más de lo esperado (chartWorkedMinutes > chartTotalMinutes), mostrar solo worked
   const chartData =
     chartTotalMinutes > 0
-      ? [
-          { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
-          { name: "breaks", value: chartBreakMinutes, fill: "var(--color-breaks)" },
-          { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
-        ]
+      ? chartWorkedMinutes > chartTotalMinutes
+        ? [
+            // Si excede el 100%, mostrar todo como "worked" (círculo completo)
+            { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
+          ]
+        : [
+            { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
+            { name: "breaks", value: chartBreakMinutes, fill: "var(--color-breaks)" },
+            { name: "remaining", value: chartRemainingMinutes, fill: "var(--color-remaining)" },
+          ]
       : [
           { name: "worked", value: chartWorkedMinutes > 0 ? chartWorkedMinutes : 0, fill: "var(--color-worked)" },
           { name: "remaining", value: chartWorkedMinutes > 0 ? 0 : 1, fill: "var(--color-remaining)" },

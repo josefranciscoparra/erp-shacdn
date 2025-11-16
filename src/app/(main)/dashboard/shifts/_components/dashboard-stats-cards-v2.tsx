@@ -15,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import type { MockStats } from "../_lib/dashboard-mock-data";
+import { safePercentage } from "../_lib/dashboard-utils";
 
 interface DashboardStatsCardsProps {
   stats: MockStats;
@@ -123,8 +124,7 @@ export function DashboardStatsCardsV2({ stats, isLoading }: DashboardStatsCardsP
               <p className="text-lg font-semibold tabular-nums">{stats.hoursAssigned}h</p>
               <p className="text-muted-foreground text-xs">horas asignadas</p>
               <p className="text-muted-foreground text-xs">
-                de {stats.hoursContracted}h (
-                {stats.hoursContracted > 0 ? Math.round((stats.hoursAssigned / stats.hoursContracted) * 100) : 0}
+                de {stats.hoursContracted}h ({Math.round(safePercentage(stats.hoursAssigned, stats.hoursContracted))}
                 %)
               </p>
             </div>
