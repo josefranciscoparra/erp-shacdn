@@ -210,18 +210,41 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       }
     }
 
+    // Calcular tiempo en progreso (igual que en quick-clock-widget.tsx)
+    let todayWorkedMinutes = todaySummary?.totalWorkedMinutes ?? 0;
+    let weekWorkedMinutes = weeklySummary?.totalWorkedMinutes ?? 0;
+
+    if (clockStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
+      const now = new Date();
+      const entries = todaySummary.timeEntries;
+      // Buscar la última entrada de tipo CLOCK_IN o BREAK_END
+      const lastWorkStart = [...entries]
+        .reverse()
+        .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
+
+      if (lastWorkStart) {
+        const startTime = new Date(lastWorkStart.timestamp);
+        const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
+        const minutesFromStart = secondsFromStart / 60;
+        // Sumar los minutos en progreso al tiempo trabajado hoy
+        todayWorkedMinutes += minutesFromStart;
+        // También sumar al total semanal
+        weekWorkedMinutes += minutesFromStart;
+      }
+    }
+
     return {
       isAdminWithoutEmployee: false,
       timeTracking: {
         today: {
-          workedMinutes: todaySummary?.totalWorkedMinutes ?? 0,
+          workedMinutes: todayWorkedMinutes,
           breakMinutes: todaySummary?.totalBreakMinutes ?? 0,
           expectedMinutes: expectedDailyMinutes,
           status: clockStatus,
         },
         week: {
-          totalWorkedMinutes: weeklySummary?.totalWorkedMinutes || 0,
-          totalBreakMinutes: weeklySummary?.totalBreakMinutes || 0,
+          totalWorkedMinutes: weekWorkedMinutes,
+          totalBreakMinutes: weeklySummary?.totalBreakMinutes ?? 0,
           expectedMinutes: expectedWeeklyMinutes,
         },
       },
