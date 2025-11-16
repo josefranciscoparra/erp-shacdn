@@ -1,7 +1,11 @@
 /**
- * Dashboard Principal de Turnos (Rediseño v2)
+ * Dashboard Principal de Turnos (Rediseño v3 - Factorial Style)
  *
- * Dashboard moderno estilo Factorial/Notion/Linear
+ * Dashboard con storytelling visual que responde 3 preguntas:
+ * 1. ¿Estamos bien cubiertos esta semana? → Hero Card
+ * 2. ¿Dónde hay problemas urgentes? → Alertas
+ * 3. ¿Qué tengo que hacer ahora? → Resumen por Centro
+ *
  * ⚠️ Usa datos MOCK para demostración visual
  * ⚠️ NO conectado a API ni base de datos
  */
@@ -10,12 +14,7 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  MOCK_DASHBOARD_STATS,
-  getStatsByCenter,
-  getAlertsByCenter,
-  getCentersSummary,
-} from "../_lib/dashboard-mock-data";
+import { getAlertsByCenter, getCentersSummary, getStatsByCenter } from "../_lib/dashboard-mock-data";
 
 import { DashboardCenterSummaryV2 } from "./dashboard-center-summary-v2";
 import { DashboardCriticalAlertsV2 } from "./dashboard-critical-alerts-v2";
@@ -44,7 +43,7 @@ export function ShiftsDashboard() {
   }, [selectedCenter]);
 
   return (
-    <div className="@container/main flex flex-col gap-6">
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Barra de Filtros Compacta */}
       <DashboardFilterBar
         selectedCenter={selectedCenter}
@@ -53,15 +52,15 @@ export function ShiftsDashboard() {
         onPeriodChange={setPeriodType}
       />
 
-      {/* Tarjetas de Estadísticas (4 cards) */}
+      {/* 1️⃣ Pregunta: ¿Estamos bien cubiertos? → Hero Card Compacta */}
       <DashboardStatsCardsV2 stats={stats} isLoading={isLoading} />
 
-      {/* Grid de Avisos y Resumen por Centro */}
-      <div className="grid gap-6 @4xl/main:grid-cols-2">
-        {/* Alertas Críticas */}
+      {/* 2️⃣ y 3️⃣ Preguntas: ¿Problemas urgentes? ¿Qué hacer? */}
+      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
+        {/* Alertas Críticas - Problemas que requieren atención */}
         <DashboardCriticalAlertsV2 alerts={alerts} isLoading={isLoading} />
 
-        {/* Resumen por Centro */}
+        {/* Resumen por Centro - Vista general de cada centro */}
         <DashboardCenterSummaryV2 centers={centers} isLoading={isLoading} />
       </div>
     </div>

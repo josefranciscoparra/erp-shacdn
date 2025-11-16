@@ -1,18 +1,16 @@
 /**
- * Tarjetas de Estadísticas del Dashboard (Rediseño v2)
+ * Hero Card Compacta del Dashboard (Rediseño v3 - Factorial Style)
  *
- * 4 cards modernas con diseño limpio nivel Factorial/Notion
- * Con iconos, KPIs grandes y mini gráficos
+ * Single hero card con KPI principal + métricas secundarias
+ * Diseño limpio, storytelling visual, altura consistente con dashboard principal
  */
 
 "use client";
 
-import { Calendar, AlertTriangle, Users, Clock } from "lucide-react";
-import { Label, PolarGrid, PolarRadiusAxis, RadialBar, RadialBarChart } from "recharts";
+import { AlertCircle, Calendar, Clock, Users } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
@@ -26,246 +24,113 @@ interface DashboardStatsCardsProps {
 export function DashboardStatsCardsV2({ stats, isLoading }: DashboardStatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="rounded-xl border-slate-200 shadow-sm">
-            <CardContent className="p-5">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <Skeleton className="mt-4 h-10 w-20" />
-              <Skeleton className="mt-2 h-4 w-32" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="@container/card">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <Skeleton className="h-6 w-48" />
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-12 w-24" />
+          <Skeleton className="mt-4 h-20 w-full" />
+        </CardContent>
+      </Card>
     );
   }
 
-  const coverageProgress = Math.round(stats.coverage);
-  const employeesProgress =
-    stats.totalEmployees > 0
-      ? Math.round(((stats.totalEmployees - stats.employeesWithoutShifts) / stats.totalEmployees) * 100)
-      : 0;
-  const hoursProgress = stats.hoursContracted > 0 ? Math.round((stats.hoursAssigned / stats.hoursContracted) * 100) : 0;
-
-  const chartConfig = {
-    value: {
-      label: "Progreso",
-      color: "hsl(var(--primary))",
-    },
-  } satisfies ChartConfig;
+  const coverageStatus = stats.coverage >= 80 ? "Adecuada" : stats.coverage >= 60 ? "Moderada" : "Insuficiente";
+  const hasCriticalIssues = stats.conflictShifts > 0 || stats.coverage < 70 || stats.employeesWithoutShifts > 5;
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-      {/* Card 1: Estado de Turnos */}
-      <Card className="rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
-        <CardContent className="p-5">
-          {/* Header con icono */}
-          <div className="flex items-start justify-between">
-            <div className="bg-primary/10 rounded-full p-3">
-              <Calendar className="text-primary size-6" />
-            </div>
-            {stats.conflictShifts > 0 && (
-              <Badge variant="destructive" className="text-xs">
-                {stats.conflictShifts} conflictos
-              </Badge>
+    <Card className="@container/card">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base font-medium">Estado de Cobertura (Semana Actual)</CardTitle>
+          <CardDescription className="text-xs">Resumen de turnos y asignaciones</CardDescription>
+        </div>
+        {hasCriticalIssues && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-orange-200 bg-orange-50/30 text-xs text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70"
+          >
+            <AlertCircle className="size-3" />
+            Requiere atención
+          </Badge>
+        )}
+      </CardHeader>
+      <CardContent>
+        {/* KPI Principal */}
+        <div className="mb-4 flex items-baseline gap-2">
+          <div className="font-display text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+            {stats.coverage}%
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-xs",
+              stats.coverage >= 80 &&
+                "border-orange-200 bg-orange-50/30 text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70",
+              stats.coverage >= 70 &&
+                stats.coverage < 80 &&
+                "border-orange-200 bg-orange-50/30 text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70",
+              stats.coverage < 70 &&
+                "border-orange-200 bg-orange-50/30 text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70",
             )}
-          </div>
+          >
+            {coverageStatus}
+          </Badge>
+        </div>
 
-          {/* KPI */}
-          <div className="mt-4">
-            <p className="font-display text-4xl font-bold">{stats.totalShifts}</p>
-            <p className="text-muted-foreground mt-1 text-sm">Turnos asignados</p>
-          </div>
-
-          {/* Badges de estado */}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {stats.draftShifts > 0 && (
-              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-xs text-amber-700">
-                {stats.draftShifts} borradores
-              </Badge>
-            )}
-            {stats.publishedShifts > 0 && (
-              <Badge variant="outline" className="text-xs">
-                {stats.publishedShifts} publicados
-              </Badge>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card 2: Cobertura */}
-      <Card className="rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
-        <CardContent className="p-5">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="rounded-full bg-red-100 p-3">
-              <AlertTriangle className="size-6 text-red-600" />
+        {/* Métricas Secundarias */}
+        <div className="grid gap-3 @lg/card:grid-cols-3">
+          {/* Turnos asignados */}
+          <div className="bg-muted/30 flex items-center gap-3 rounded-lg border p-3">
+            <div className="bg-primary/10 rounded-full p-2">
+              <Calendar className="text-primary size-4" />
             </div>
-          </div>
-
-          {/* KPI con mini gráfico */}
-          <div className="mt-4 flex items-end justify-between">
-            <div>
-              <p className="font-display text-4xl font-bold">{coverageProgress}%</p>
-              <p className="text-muted-foreground mt-1 text-sm">Cobertura promedio</p>
-            </div>
-
-            {/* Mini RadialChart */}
-            <ChartContainer config={chartConfig} className="aspect-square h-[50px]">
-              <RadialBarChart
-                data={[{ value: Math.min(coverageProgress, 100), fill: "var(--primary)" }]}
-                startAngle={0}
-                endAngle={250}
-                innerRadius={18}
-                outerRadius={15}
-              >
-                <PolarGrid gridType="circle" radialLines={false} stroke="none" polarRadius={[30, 20]} />
-                <RadialBar dataKey="value" background cornerRadius={10} />
-                <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-xs font-bold">
-                              {coverageProgress}
-                            </tspan>
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                </PolarRadiusAxis>
-              </RadialBarChart>
-            </ChartContainer>
-          </div>
-
-          {/* Badge de estado */}
-          <div className="mt-3">
-            <Badge
-              variant={coverageProgress >= 80 ? "default" : "secondary"}
-              className={cn(
-                "text-xs",
-                coverageProgress < 70 && "border-red-300 bg-red-50 text-red-700 dark:bg-red-950/20",
+            <div className="flex-1">
+              <p className="text-lg font-semibold tabular-nums">{stats.totalShifts}</p>
+              <p className="text-muted-foreground text-xs">turnos asignados</p>
+              {stats.conflictShifts > 0 && (
+                <Badge
+                  variant="outline"
+                  className="mt-1 border-orange-200 bg-orange-50/30 text-xs text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70"
+                >
+                  {stats.conflictShifts} {stats.conflictShifts === 1 ? "conflicto" : "conflictos"}
+                </Badge>
               )}
-            >
-              {coverageProgress >= 80 ? "✓ Adecuada" : "⚠ Insuficiente"}
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card 3: Empleados sin asignar */}
-      <Card className="rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
-        <CardContent className="p-5">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="rounded-full bg-amber-100 p-3">
-              <Users className="size-6 text-amber-600" />
             </div>
           </div>
 
-          {/* KPI con mini gráfico */}
-          <div className="mt-4 flex items-end justify-between">
-            <div>
-              <p className="font-display text-4xl font-bold">{stats.employeesWithoutShifts}</p>
-              <p className="text-muted-foreground mt-1 text-sm">Sin turnos</p>
+          {/* Empleados sin turno */}
+          <div className="bg-muted/30 flex items-center gap-3 rounded-lg border p-3">
+            <div className="rounded-full bg-slate-100 p-2 dark:bg-slate-800">
+              <Users className="size-4 text-slate-600 dark:text-slate-400" />
             </div>
-
-            {/* Mini RadialChart */}
-            <ChartContainer config={chartConfig} className="aspect-square h-[50px]">
-              <RadialBarChart
-                data={[{ value: Math.min(employeesProgress, 100), fill: "var(--primary)" }]}
-                startAngle={0}
-                endAngle={250}
-                innerRadius={18}
-                outerRadius={15}
-              >
-                <PolarGrid gridType="circle" radialLines={false} stroke="none" polarRadius={[30, 20]} />
-                <RadialBar dataKey="value" background cornerRadius={10} />
-                <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-xs font-bold">
-                              {employeesProgress}
-                            </tspan>
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                </PolarRadiusAxis>
-              </RadialBarChart>
-            </ChartContainer>
-          </div>
-
-          {/* Detalles */}
-          <div className="mt-3">
-            <p className="text-muted-foreground text-xs">
-              {stats.totalEmployees - stats.employeesWithoutShifts} de {stats.totalEmployees} con turnos
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Card 4: Horas asignadas */}
-      <Card className="rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
-        <CardContent className="p-5">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="rounded-full bg-blue-100 p-3">
-              <Clock className="size-6 text-blue-600" />
+            <div className="flex-1">
+              <p className="text-lg font-semibold tabular-nums">{stats.employeesWithoutShifts}</p>
+              <p className="text-muted-foreground text-xs">sin turnos</p>
+              <p className="text-muted-foreground text-xs">
+                {stats.totalEmployees - stats.employeesWithoutShifts}/{stats.totalEmployees} asignados
+              </p>
             </div>
           </div>
 
-          {/* KPI con mini gráfico */}
-          <div className="mt-4 flex items-end justify-between">
-            <div>
-              <p className="font-display text-4xl font-bold">{stats.hoursAssigned}h</p>
-              <p className="text-muted-foreground mt-1 text-sm">Horas asignadas</p>
+          {/* Horas asignadas */}
+          <div className="bg-muted/30 flex items-center gap-3 rounded-lg border p-3">
+            <div className="rounded-full bg-slate-100 p-2 dark:bg-slate-800">
+              <Clock className="size-4 text-slate-600 dark:text-slate-400" />
             </div>
-
-            {/* Mini RadialChart */}
-            <ChartContainer config={chartConfig} className="aspect-square h-[50px]">
-              <RadialBarChart
-                data={[{ value: Math.min(hoursProgress, 100), fill: "var(--primary)" }]}
-                startAngle={0}
-                endAngle={250}
-                innerRadius={18}
-                outerRadius={15}
-              >
-                <PolarGrid gridType="circle" radialLines={false} stroke="none" polarRadius={[30, 20]} />
-                <RadialBar dataKey="value" background cornerRadius={10} />
-                <PolarRadiusAxis tick={false} tickLine={false} axisLine={false}>
-                  <Label
-                    content={({ viewBox }) => {
-                      if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                        return (
-                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-foreground text-xs font-bold">
-                              {hoursProgress}
-                            </tspan>
-                          </text>
-                        );
-                      }
-                    }}
-                  />
-                </PolarRadiusAxis>
-              </RadialBarChart>
-            </ChartContainer>
+            <div className="flex-1">
+              <p className="text-lg font-semibold tabular-nums">{stats.hoursAssigned}h</p>
+              <p className="text-muted-foreground text-xs">horas asignadas</p>
+              <p className="text-muted-foreground text-xs">
+                de {stats.hoursContracted}h (
+                {stats.hoursContracted > 0 ? Math.round((stats.hoursAssigned / stats.hoursContracted) * 100) : 0}
+                %)
+              </p>
+            </div>
           </div>
-
-          {/* Detalles */}
-          <div className="mt-3">
-            <p className="text-muted-foreground text-xs">
-              de {stats.hoursContracted}h contratadas ({hoursProgress}%)
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

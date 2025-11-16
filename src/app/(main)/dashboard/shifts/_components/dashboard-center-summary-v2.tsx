@@ -1,17 +1,15 @@
 /**
- * Resumen por Centro de Trabajo (Rediseño v2)
+ * Resumen por Centro de Trabajo (Rediseño v3 - Factorial Style)
  *
- * Accordion con estadísticas de cada centro
- * Diseño limpio con barras de progreso y chips de estado
+ * Tabla simple con estadísticas esenciales de cada centro
+ * Diseño minimalista sin accordion ni elementos innecesarios
  */
 
 "use client";
 
-import { Building2, ChevronRight } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle } from "lucide-react";
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +23,12 @@ interface DashboardCenterSummaryProps {
 export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenterSummaryProps) {
   if (isLoading) {
     return (
-      <Card className="rounded-xl border-slate-200 shadow-sm">
-        <CardHeader className="p-5 pb-3">
-          <CardTitle className="text-xl font-semibold">📊 Resumen por Centro</CardTitle>
-          <CardDescription>Cargando...</CardDescription>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base font-medium">Resumen por Centro</CardTitle>
+            <CardDescription className="text-xs">Cargando...</CardDescription>
+          </div>
         </CardHeader>
       </Card>
     );
@@ -36,46 +36,57 @@ export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenter
 
   if (centers.length === 0) {
     return (
-      <Card className="rounded-xl border-slate-200 shadow-sm">
-        <CardHeader className="p-5 pb-3">
-          <CardTitle className="text-xl font-semibold">📊 Resumen por Centro</CardTitle>
-          <CardDescription>No hay centros de trabajo configurados</CardDescription>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div>
+            <CardTitle className="text-base font-medium">Resumen por Centro</CardTitle>
+            <CardDescription className="text-xs">No hay centros configurados</CardDescription>
+          </div>
         </CardHeader>
       </Card>
     );
   }
 
   return (
-    <Card className="rounded-xl border-slate-200 shadow-sm">
-      <CardHeader className="p-5 pb-3">
-        <CardTitle className="text-xl font-semibold">📊 Resumen por Centro</CardTitle>
-        <CardDescription className="text-muted-foreground mt-1 text-sm">
-          Estadísticas de cada lugar de trabajo
-        </CardDescription>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base font-medium">Resumen por Centro</CardTitle>
+          <CardDescription className="text-xs">
+            {centers.length} {centers.length === 1 ? "centro de trabajo" : "centros de trabajo"}
+          </CardDescription>
+        </div>
       </CardHeader>
 
-      <CardContent className="p-5 pt-0">
-        <Accordion type="multiple" className="space-y-2 pb-1">
-          {centers.map((center) => (
-            <AccordionItem key={center.id} value={center.id} className="rounded-lg border">
-              <AccordionTrigger className="hover:bg-muted/50 rounded-lg px-4 py-3 transition-colors hover:no-underline">
-                <div className="flex w-full items-center justify-between pr-4">
-                  {/* Info del centro */}
-                  <div className="flex items-center gap-3">
-                    <div className="bg-primary/10 shrink-0 rounded-full p-2">
-                      <Building2 className="text-primary size-4" />
+      <CardContent>
+        {/* Tabla simple estilo DataTable */}
+        <div className="overflow-hidden rounded-lg border">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 border-b">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">Centro</th>
+                <th className="px-4 py-2 text-center font-medium">Cobertura</th>
+                <th className="px-4 py-2 text-center font-medium">Turnos</th>
+                <th className="px-4 py-2 text-center font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {centers.map((center) => (
+                <tr key={center.id} className="hover:bg-muted/30 transition-colors">
+                  {/* Nombre del centro */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-primary/10 shrink-0 rounded-full p-1.5">
+                        <Building2 className="text-primary size-3.5" />
+                      </div>
+                      <span className="font-medium">{center.name}</span>
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-semibold">{center.name}</p>
-                      <p className="text-muted-foreground text-xs">{center.totalShifts} turnos asignados</p>
-                    </div>
-                  </div>
+                  </td>
 
-                  {/* Estadísticas y badges */}
-                  <div className="flex items-center gap-3">
-                    {/* Barra de cobertura */}
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+                  {/* Cobertura con barra de progreso */}
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-2 w-16 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                         <div
                           className={cn(
                             "h-full rounded-full transition-all",
@@ -85,81 +96,53 @@ export function DashboardCenterSummaryV2({ centers, isLoading }: DashboardCenter
                                 ? "bg-amber-500"
                                 : "bg-red-500",
                           )}
-                          style={{ width: `${center.coverage}%` }}
+                          style={{
+                            width: `${center.coverage}%`,
+                          }}
                         />
                       </div>
-                      <span className="w-10 text-right text-xs font-medium">{center.coverage}%</span>
+                      <span
+                        className={cn(
+                          "w-10 text-right text-xs font-medium tabular-nums",
+                          center.coverage >= 80
+                            ? "text-emerald-600"
+                            : center.coverage >= 60
+                              ? "text-amber-600"
+                              : "text-red-600",
+                        )}
+                      >
+                        {center.coverage}%
+                      </span>
                     </div>
+                  </td>
 
-                    {/* Badge de alertas */}
-                    {center.alerts > 0 && (
-                      <Badge variant="destructive" className="shrink-0 text-xs">
-                        {center.alerts} {center.alerts === 1 ? "aviso" : "avisos"}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </AccordionTrigger>
+                  {/* Turnos asignados */}
+                  <td className="px-4 py-3 text-center tabular-nums">{center.totalShifts}</td>
 
-              <AccordionContent className="px-4 pb-3">
-                <div className="mt-2 space-y-2">
-                  {/* Zonas del centro */}
-                  {center.zones.map((zone, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-muted flex items-center justify-between rounded-md border border-transparent p-3 transition-colors hover:border-slate-200"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{zone.name}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {zone.assignedEmployees} de {zone.requiredEmployees} empleados asignados
-                        </p>
-                      </div>
-
-                      {/* Barra de progreso de la zona */}
-                      <div className="ml-4 flex items-center gap-2">
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
-                          <div
-                            className={cn(
-                              "h-full rounded-full transition-all",
-                              zone.coverage === 100
-                                ? "bg-emerald-500"
-                                : zone.coverage >= 70
-                                  ? "bg-amber-500"
-                                  : "bg-red-500",
-                            )}
-                            style={{ width: `${zone.coverage}%` }}
-                          />
-                        </div>
-                        <span
-                          className={cn(
-                            "w-10 text-right text-xs font-medium",
-                            zone.coverage === 100
-                              ? "text-emerald-600"
-                              : zone.coverage >= 70
-                                ? "text-amber-600"
-                                : "text-red-600",
-                          )}
+                  {/* Estado con badge */}
+                  <td className="px-4 py-3">
+                    <div className="flex justify-center">
+                      {center.alerts > 0 ? (
+                        <Badge variant="destructive" className="gap-1 text-xs">
+                          <AlertCircle className="size-3" />
+                          {center.alerts} {center.alerts === 1 ? "aviso" : "avisos"}
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="gap-1 border-emerald-200 bg-emerald-50 text-xs text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/20"
                         >
-                          {zone.coverage}%
-                        </span>
-                      </div>
+                          <CheckCircle className="size-3" />
+                          OK
+                        </Badge>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-
-        {/* Footer con "Ver más" si hay muchos centros */}
-        {centers.length > 3 && (
-          <div className="mt-4 flex justify-end">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-xs">
-              Ver detalles completos →
-            </Button>
-          </div>
-        )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </CardContent>
     </Card>
   );

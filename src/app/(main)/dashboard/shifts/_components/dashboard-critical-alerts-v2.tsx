@@ -1,18 +1,17 @@
 /**
- * Alertas Críticas del Dashboard (Rediseño v2)
+ * Alertas Críticas del Dashboard (Rediseño v3 - Factorial Style)
  *
- * Card con lista de alertas que requieren atención
- * Diseño limpio estilo Notion/Linear
+ * Card con lista de alertas accionables
+ * Diseño limpio, CTAs claros, menos ruido visual
  */
 
 "use client";
 
-import { AlertTriangle, AlertCircle, Info, Calendar, ChevronRight } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowRight, Info } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 
 import type { MockAlert } from "../_lib/dashboard-mock-data";
@@ -53,130 +52,85 @@ export function DashboardCriticalAlertsV2({ alerts, isLoading }: DashboardCritic
   const hasAlerts = alerts.length > 0;
 
   return (
-    <Card className="rounded-xl border-slate-200 shadow-sm">
-      <CardHeader className="p-5 pb-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-xl font-semibold">
-              <AlertTriangle className="size-5 text-red-600" />
-              Requieren Atención
-            </CardTitle>
-            <CardDescription className="text-muted-foreground mt-1 text-sm">
-              {hasAlerts
-                ? `${alerts.length} ${alerts.length === 1 ? "aviso detectado" : "avisos detectados"}`
-                : "Todo en orden"}
-            </CardDescription>
-          </div>
-          {hasAlerts && errorAlerts.length > 0 && (
-            <Badge variant="destructive" className="text-xs">
-              {errorAlerts.length} crítico{errorAlerts.length === 1 ? "" : "s"}
-            </Badge>
-          )}
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-base font-medium">Requiere Atención</CardTitle>
+          <CardDescription className="text-xs">
+            {hasAlerts
+              ? `${errorAlerts.length + warningAlerts.length} ${errorAlerts.length + warningAlerts.length === 1 ? "aviso pendiente" : "avisos pendientes"}`
+              : "Todo en orden"}
+          </CardDescription>
         </div>
+        {errorAlerts.length > 0 && (
+          <Badge
+            variant="outline"
+            className="gap-1 border-orange-200 bg-orange-50/30 text-xs text-orange-700/80 dark:border-orange-800/30 dark:bg-orange-950/10 dark:text-orange-300/70"
+          >
+            <AlertTriangle className="size-3" />
+            {errorAlerts.length} {errorAlerts.length === 1 ? "crítico" : "críticos"}
+          </Badge>
+        )}
       </CardHeader>
 
-      <CardContent className="p-5 pt-0">
+      <CardContent>
         {!hasAlerts ? (
           <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
-            <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
+            <div className="bg-muted flex size-12 items-center justify-center rounded-full">
               <Info className="text-muted-foreground size-5" />
             </div>
             <p className="text-muted-foreground text-sm">No hay avisos pendientes</p>
+            <p className="text-muted-foreground text-xs">Todas las asignaciones están en orden</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {/* Mostrar solo los primeros 3 avisos más críticos */}
-            {[...errorAlerts, ...warningAlerts].slice(0, 3).map((alert) => {
+          <div className="space-y-2">
+            {/* Mostrar solo los primeros 4 avisos más críticos */}
+            {[...errorAlerts, ...warningAlerts].slice(0, 4).map((alert) => {
               const Icon = getAlertIcon(alert.type);
-              const hasEmployees = alert.affectedEmployees && alert.affectedEmployees.length > 0;
 
               return (
-                <Card
+                <div
                   key={alert.id}
-                  className={cn(
-                    "rounded-lg border shadow-none",
-                    alert.severity === "error" && "border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/20",
-                    alert.severity === "warning" &&
-                      "border-amber-200 bg-amber-50 dark:border-amber-900/50 dark:bg-amber-950/20",
-                  )}
+                  className="group hover:bg-muted/50 flex items-start gap-3 rounded-lg border p-3 transition-colors"
                 >
-                  <CardContent className="p-4">
-                    <div className="flex gap-3">
-                      {/* Icono */}
-                      <div
-                        className={cn(
-                          "flex size-10 shrink-0 items-center justify-center rounded-full border",
-                          alert.severity === "error" &&
-                            "border-red-300 bg-red-100 dark:border-red-800 dark:bg-red-900/30",
-                          alert.severity === "warning" &&
-                            "border-amber-300 bg-amber-100 dark:border-amber-800 dark:bg-amber-900/30",
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            "size-4",
-                            alert.severity === "error" && "text-red-600 dark:text-red-400",
-                            alert.severity === "warning" && "text-amber-600 dark:text-amber-400",
-                          )}
-                        />
-                      </div>
+                  {/* Icono */}
+                  <div className="bg-muted mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full">
+                    <Icon className="text-muted-foreground size-4" />
+                  </div>
 
-                      {/* Contenido */}
-                      <div className="flex-1 space-y-2">
-                        <div>
-                          <p className="text-sm font-semibold">{alert.title}</p>
-                          <p className="text-muted-foreground mt-0.5 text-xs">{alert.description}</p>
-                        </div>
+                  {/* Contenido */}
+                  <div className="flex-1 space-y-1">
+                    <p className="text-sm leading-tight font-medium">{alert.title}</p>
+                    <p className="text-muted-foreground text-xs leading-tight">{alert.description}</p>
 
-                        {/* Semana display prominente */}
-                        {alert.weekDisplay && (
-                          <div className="flex items-center gap-2 rounded-md border border-slate-200 bg-white/50 px-3 py-1.5">
-                            <Calendar className="text-primary size-3" />
-                            <span className="text-xs font-medium">{alert.weekDisplay}</span>
-                          </div>
-                        )}
+                    {/* Empleados afectados si existen */}
+                    {alert.affectedEmployees.length > 0 && (
+                      <p className="text-muted-foreground text-xs">
+                        {alert.affectedEmployees.length}{" "}
+                        {alert.affectedEmployees.length === 1 ? "empleado afectado" : "empleados afectados"}
+                      </p>
+                    )}
+                  </div>
 
-                        {/* Empleados afectados */}
-                        {hasEmployees && (
-                          <Collapsible>
-                            <CollapsibleTrigger className="group text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors">
-                              <span>
-                                {alert.affectedEmployees.length}{" "}
-                                {alert.affectedEmployees.length === 1 ? "empleado afectado" : "empleados afectados"}
-                              </span>
-                              <ChevronRight className="size-3 transition-transform group-data-[state=open]:rotate-90" />
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="mt-2">
-                              <div className="flex flex-wrap gap-1">
-                                {alert.affectedEmployees.slice(0, 6).map((name, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {name}
-                                  </Badge>
-                                ))}
-                                {alert.affectedEmployees.length > 6 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{alert.affectedEmployees.length - 6} más
-                                  </Badge>
-                                )}
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  {/* CTA */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 shrink-0 gap-1 px-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
+                  >
+                    Resolver
+                    <ArrowRight className="size-3" />
+                  </Button>
+                </div>
               );
             })}
-          </div>
-        )}
 
-        {/* Footer con "Ver más" si hay más de 3 avisos */}
-        {alerts.length > 3 && (
-          <div className="mt-4 flex justify-end">
-            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground text-xs">
-              Ver {alerts.length - 3} más →
-            </Button>
+            {/* Footer con "Ver todos" si hay más avisos */}
+            {alerts.length > 4 && (
+              <Button variant="ghost" size="sm" className="mt-2 w-full text-xs">
+                Ver todos los avisos ({alerts.length})
+              </Button>
+            )}
           </div>
         )}
       </CardContent>
