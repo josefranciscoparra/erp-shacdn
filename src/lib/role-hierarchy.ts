@@ -70,6 +70,14 @@ export function canEditRole(currentRole: Role, targetUserCurrentRole: Role, targ
     return false;
   }
 
+  // HR_ADMIN puede ascender a HR_ADMIN (excepción especial para consistencia)
+  if (currentRole === "HR_ADMIN" && targetUserNewRole === "HR_ADMIN") {
+    // Solo si el usuario actual NO es SUPER_ADMIN u ORG_ADMIN
+    if (targetUserCurrentRole !== "SUPER_ADMIN" && targetUserCurrentRole !== "ORG_ADMIN") {
+      return true;
+    }
+  }
+
   // No puedes ascender usuarios a tu mismo nivel o superior
   if (ROLE_HIERARCHY[targetUserNewRole] >= ROLE_HIERARCHY[currentRole]) {
     return false;

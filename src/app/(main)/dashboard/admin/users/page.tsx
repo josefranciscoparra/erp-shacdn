@@ -117,7 +117,7 @@ export default function UsersManagementPage() {
       case "ORG_ADMIN":
         return ["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
       case "HR_ADMIN":
-        return ["MANAGER", "EMPLOYEE"];
+        return ["HR_ADMIN", "MANAGER", "EMPLOYEE"]; // Ahora puede ascender a HR_ADMIN
       default:
         return [];
     }
