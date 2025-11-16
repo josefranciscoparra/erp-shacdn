@@ -772,8 +772,9 @@ export async function updateOrganizationChatStatus(enabled: boolean): Promise<vo
       throw new Error("NO_AUTH");
     }
 
-    // Verificar permisos de administrador (solo SUPER_ADMIN)
-    if (session.user.role !== "SUPER_ADMIN") {
+    // Verificar permisos de administrador (SUPER_ADMIN, ORG_ADMIN o HR_ADMIN)
+    const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+    if (!allowedRoles.includes(session.user.role)) {
       throw new Error("NO_PERMISSION");
     }
 

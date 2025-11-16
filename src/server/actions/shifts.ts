@@ -51,7 +51,7 @@ export async function getOrganizationShiftsConfig(): Promise<{ shiftsEnabled: bo
 
 /**
  * Actualiza el estado del módulo de turnos para la organización
- * Solo SUPER_ADMIN puede modificar esta configuración
+ * Solo SUPER_ADMIN, ORG_ADMIN o HR_ADMIN pueden modificar esta configuración
  */
 export async function updateOrganizationShiftsStatus(enabled: boolean): Promise<void> {
   try {
@@ -61,8 +61,9 @@ export async function updateOrganizationShiftsStatus(enabled: boolean): Promise<
       throw new Error("NO_AUTH");
     }
 
-    // Verificar permisos de administrador (solo SUPER_ADMIN)
-    if (session.user.role !== "SUPER_ADMIN") {
+    // Verificar permisos de administrador (SUPER_ADMIN, ORG_ADMIN o HR_ADMIN)
+    const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+    if (!allowedRoles.includes(session.user.role)) {
       throw new Error("NO_PERMISSION");
     }
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 import {
   ArrowLeft,
@@ -140,6 +140,7 @@ interface Employee {
 export default function EmployeeProfilePage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -172,6 +173,14 @@ export default function EmployeeProfilePage() {
     if (documentsEnabled) return MAIN_TABS;
     return MAIN_TABS.filter((tab) => !tab.requiresDocuments);
   }, [documentsEnabled]);
+
+  // Leer tab desde URL query param
+  useEffect(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && availableMainTabs.some((tab) => tab.value === tabParam)) {
+      setActiveMainTab(tabParam as MainTabValue);
+    }
+  }, [searchParams, availableMainTabs]);
 
   useEffect(() => {
     if (!availableMainTabs.some((tab) => tab.value === activeMainTab) && availableMainTabs.length) {

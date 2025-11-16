@@ -260,7 +260,7 @@ export function GlobalDocumentsTable({ documents }: GlobalDocumentsTableProps) {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link href={`/dashboard/employees/${doc.employeeId}/documents`}>
+                  <Link href={`/dashboard/employees/${doc.employeeId}?tab=documents`}>
                     <ExternalLink className="mr-2 h-4 w-4" />
                     Ver todos del empleado
                   </Link>
