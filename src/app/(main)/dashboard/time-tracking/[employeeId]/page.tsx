@@ -210,7 +210,7 @@ export default function EmployeeTimeTrackingPage() {
 
           // Fichajes activos
           activeEntries.forEach((entry) => {
-            const estado = entry.isManual ? "Manual" : "Automático";
+            const estado = entry.isManual ? "Rectificado" : "";
 
             detailData.push({
               Fecha: "",
@@ -239,7 +239,7 @@ export default function EmployeeTimeTrackingPage() {
 
             // Fichajes cancelados
             cancelledEntries.forEach((entry) => {
-              const estado = entry.isManual ? "CANCELADO - Manual" : "CANCELADO - Automático";
+              const estado = entry.isManual ? "CANCELADO - Rectificado" : "CANCELADO";
 
               detailData.push({
                 Fecha: "",

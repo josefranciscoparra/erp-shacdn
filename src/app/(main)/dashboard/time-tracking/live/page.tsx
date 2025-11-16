@@ -4,26 +4,21 @@ import { useState, useEffect } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { RefreshCw, Users, Clock, Coffee, ShieldAlert, AlertTriangle, CalendarX } from "lucide-react";
+import { RefreshCw, Clock, ShieldAlert, Search } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
-import { DataTable as DataTableNew } from "@/components/data-table/data-table";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useDataTableInstance } from "@/hooks/use-data-table-instance";
+import { Switch } from "@/components/ui/switch";
 import { getCurrentlyWorkingEmployees } from "@/server/actions/admin-time-tracking";
 
-import { employeeColumns, EmployeeTimeTracking } from "../_components/employee-columns";
+import { EmployeeTimeTracking } from "../_components/employee-columns";
 
-type FilterValue = "all" | "working" | "break" | "absent" | "non-working";
+import { StatusBoard } from "./_components/status-board";
 
 // Orden de prioridad para estados
 const statusPriority = {
@@ -37,13 +32,8 @@ export default function LiveMonitorPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<EmployeeTimeTracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-  const [filter, setFilter] = useState<FilterValue>("all");
-
-  // Configurar la tabla
-  const table = useDataTableInstance({
-    data: filteredEmployees,
-    columns: employeeColumns,
-  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showOnlyWorkingDay, setShowOnlyWorkingDay] = useState(true);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -54,12 +44,11 @@ export default function LiveMonitorPage() {
       const sorted = data.sort((a, b) => {
         const statusDiff = statusPriority[a.status] - statusPriority[b.status];
         if (statusDiff !== 0) return statusDiff;
-        return (a.name || "").localeCompare(b.name || "");
+        return (a.name ?? "").localeCompare(b.name ?? "");
       }) as EmployeeTimeTracking[];
 
       setEmployees(sorted);
       setLastUpdate(new Date());
-      applyFilter(sorted, filter);
     } catch (error) {
       console.error("Error al cargar empleados:", error);
     } finally {
@@ -67,43 +56,34 @@ export default function LiveMonitorPage() {
     }
   };
 
-  const applyFilter = (data: EmployeeTimeTracking[], filterValue: FilterValue) => {
-    let filtered = data;
-
-    switch (filterValue) {
-      case "working":
-        filtered = data.filter((e) => e.status === "CLOCKED_IN");
-        break;
-      case "break":
-        filtered = data.filter((e) => e.status === "ON_BREAK");
-        break;
-      case "absent":
-        filtered = data.filter((e) => e.isAbsent);
-        break;
-      case "non-working":
-        filtered = data.filter((e) => !e.isWorkingDay);
-        break;
-      case "all":
-      default:
-        filtered = data;
-        break;
-    }
-
-    setFilteredEmployees(filtered);
-  };
-
   useEffect(() => {
     loadData();
   }, []);
 
+  // Aplicar filtros
   useEffect(() => {
-    applyFilter(employees, filter);
-  }, [filter, employees]);
+    let filtered = employees;
 
-  const workingCount = employees.filter((e) => e.status === "CLOCKED_IN").length;
-  const breakCount = employees.filter((e) => e.status === "ON_BREAK").length;
-  const absentCount = employees.filter((e) => e.isAbsent).length;
-  const nonWorkingCount = employees.filter((e) => !e.isWorkingDay).length;
+    // Filtro: Solo empleados con jornada hoy
+    if (showOnlyWorkingDay) {
+      filtered = filtered.filter((e) => e.isWorkingDay);
+    }
+
+    // Filtro: Búsqueda por nombre o departamento
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (e) => e.name.toLowerCase().includes(query) || e.department.toLowerCase().includes(query),
+      );
+    }
+
+    setFilteredEmployees(filtered);
+  }, [employees, showOnlyWorkingDay, searchQuery]);
+
+  const workingCount = filteredEmployees.filter((e) => e.status === "CLOCKED_IN").length;
+  const breakCount = filteredEmployees.filter((e) => e.status === "ON_BREAK").length;
+  const absentCount = filteredEmployees.filter((e) => e.isAbsent).length;
+  const nonWorkingCount = filteredEmployees.filter((e) => !e.isWorkingDay).length;
 
   return (
     <PermissionGuard
@@ -122,7 +102,7 @@ export default function LiveMonitorPage() {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
           title="Monitor en Vivo"
-          description="Estado actual de fichajes de empleados"
+          description="Vista en tiempo real de fichajes por estado"
           action={
             <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
               <RefreshCw className={isLoading ? "animate-spin" : ""} />
@@ -131,166 +111,75 @@ export default function LiveMonitorPage() {
           }
         />
 
-        {/* Última actualización */}
-        {lastUpdate && (
-          <div className="text-muted-foreground flex items-center gap-2 text-sm">
-            <Clock className="size-4" />
-            <span>Última actualización: {format(lastUpdate, "HH:mm:ss", { locale: es })}</span>
+        {/* Última actualización + Filtros */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          {lastUpdate && (
+            <div className="text-muted-foreground flex items-center gap-2 text-sm">
+              <Clock className="size-4" />
+              <span>Última actualización: {format(lastUpdate, "HH:mm:ss", { locale: es })}</span>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {/* Búsqueda */}
+            <div className="relative flex-1 sm:w-64">
+              <Search className="text-muted-foreground absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+              <Input
+                type="text"
+                placeholder="Buscar por nombre o departamento..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            {/* Toggle solo jornada */}
+            <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+              <Switch id="working-day-filter" checked={showOnlyWorkingDay} onCheckedChange={setShowOnlyWorkingDay} />
+              <Label htmlFor="working-day-filter" className="cursor-pointer text-sm">
+                Solo con jornada hoy
+              </Label>
+            </div>
           </div>
-        )}
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @3xl/main:grid-cols-4">
-          <Card className="to-card bg-gradient-to-t from-green-500/5 p-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-green-500/10">
-                <div className="size-3 rounded-full bg-green-500" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Trabajando</span>
-                <span className="text-2xl font-bold">{workingCount}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="to-card bg-gradient-to-t from-yellow-500/5 p-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-yellow-500/10">
-                <Coffee className="size-5 text-yellow-600" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">En pausa</span>
-                <span className="text-2xl font-bold">{breakCount}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="to-card bg-gradient-to-t from-red-500/5 p-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-red-500/10">
-                <AlertTriangle className="size-5 text-red-600" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Ausentes</span>
-                <span className="text-2xl font-bold">{absentCount}</span>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="to-card bg-gradient-to-t from-blue-500/5 p-4 shadow-xs">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
-                <CalendarX className="size-5 text-blue-600" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="text-muted-foreground text-sm">Día no laborable</span>
-                <span className="text-2xl font-bold">{nonWorkingCount}</span>
-              </div>
-            </div>
-          </Card>
         </div>
 
-        {/* Tabs con filtros */}
-        <Tabs
-          value={filter}
-          onValueChange={(v) => setFilter(v as FilterValue)}
-          className="w-full flex-col justify-start gap-6"
-        >
-          <div className="flex items-center justify-between">
-            <Label htmlFor="filter-selector" className="sr-only">
-              Filtro
-            </Label>
-            <Select value={filter} onValueChange={(v) => setFilter(v as FilterValue)}>
-              <SelectTrigger className="flex w-fit @4xl/main:hidden" size="sm" id="filter-selector">
-                <SelectValue placeholder="Filtrar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="working">Trabajando</SelectItem>
-                <SelectItem value="break">En pausa</SelectItem>
-                <SelectItem value="absent">Ausentes</SelectItem>
-                <SelectItem value="non-working">Día no laborable</SelectItem>
-                <SelectItem value="all">Todos</SelectItem>
-              </SelectContent>
-            </Select>
+        {/* Stats compactos */}
+        <Card className="p-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="size-2 rounded-full bg-green-500" />
+              <span className="text-sm">Trabajando:</span>
+              <span className="font-semibold">{workingCount}</span>
+            </div>
 
-            <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="working">
-                Trabajando{" "}
-                <Badge variant="secondary" className="ml-2">
-                  {workingCount}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="break">
-                En pausa{" "}
-                <Badge variant="secondary" className="ml-2">
-                  {breakCount}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="absent">
-                Ausentes{" "}
-                <Badge variant="destructive" className="ml-2">
-                  {absentCount}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="non-working">
-                Día no laborable{" "}
-                <Badge variant="secondary" className="ml-2">
-                  {nonWorkingCount}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="all">
-                Todos{" "}
-                <Badge variant="secondary" className="ml-2">
-                  {employees.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
+            <div className="text-border h-4 w-px" />
 
             <div className="flex items-center gap-2">
-              <DataTableViewOptions table={table} />
+              <div className="size-2 rounded-full bg-yellow-500" />
+              <span className="text-sm">En pausa:</span>
+              <span className="font-semibold">{breakCount}</span>
+            </div>
+
+            <div className="text-border h-4 w-px" />
+
+            <div className="flex items-center gap-2">
+              <div className="size-2 rounded-full bg-red-500" />
+              <span className="text-sm">Ausentes:</span>
+              <span className="font-semibold">{absentCount}</span>
+            </div>
+
+            <div className="text-border h-4 w-px" />
+
+            <div className="flex items-center gap-2">
+              <div className="size-2 rounded-full bg-blue-500" />
+              <span className="text-sm">Día no laborable:</span>
+              <span className="font-semibold">{nonWorkingCount}</span>
             </div>
           </div>
+        </Card>
 
-          {["working", "break", "absent", "non-working", "all"].map((tab) => {
-            const getEmptyMessage = () => {
-              switch (tab) {
-                case "working":
-                  return "No hay empleados trabajando en este momento";
-                case "break":
-                  return "No hay empleados en pausa en este momento";
-                case "absent":
-                  return "No hay ausencias registradas";
-                case "non-working":
-                  return "Todos los empleados tienen día laborable hoy";
-                default:
-                  return "No hay empleados para mostrar";
-              }
-            };
-
-            return (
-              <TabsContent key={tab} value={tab} className="relative flex flex-col gap-4">
-                {isLoading ? (
-                  <div className="flex h-96 items-center justify-center">
-                    <span className="text-muted-foreground">Cargando...</span>
-                  </div>
-                ) : filteredEmployees.length === 0 ? (
-                  <EmptyState
-                    icon={<Users className="size-12" />}
-                    title="No hay empleados"
-                    description={getEmptyMessage()}
-                  />
-                ) : (
-                  <>
-                    <div className="overflow-hidden rounded-lg border">
-                      <DataTableNew table={table} columns={employeeColumns} />
-                    </div>
-                    <DataTablePagination table={table} />
-                  </>
-                )}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+        {/* Board Kanban */}
+        <StatusBoard employees={filteredEmployees} isLoading={isLoading} />
       </div>
     </PermissionGuard>
   );

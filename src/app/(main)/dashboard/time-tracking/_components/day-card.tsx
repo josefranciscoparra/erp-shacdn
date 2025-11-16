@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
@@ -100,36 +99,42 @@ const statusConfig = {
     icon: CheckCircle,
     color: "text-green-600 dark:text-green-400",
     badgeClass: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
+    headerClass: "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30",
   },
   IN_PROGRESS: {
     label: "En progreso",
     icon: Clock,
     color: "text-blue-600 dark:text-blue-400",
     badgeClass: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
+    headerClass: "border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30",
   },
   INCOMPLETE: {
     label: "Incompleto",
     icon: AlertCircle,
     color: "text-amber-600 dark:text-amber-400",
     badgeClass: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    headerClass: "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30",
   },
   ABSENT: {
     label: "Ausente",
     icon: XCircle,
     color: "text-red-600 dark:text-red-400",
     badgeClass: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+    headerClass: "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950/30",
   },
   HOLIDAY: {
     label: "Festivo",
     icon: PartyPopper,
     color: "text-purple-600 dark:text-purple-400",
     badgeClass: "bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300",
+    headerClass: "border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/30",
   },
   NON_WORKDAY: {
     label: "Día no laborable",
     icon: CalendarX,
     color: "text-gray-600 dark:text-gray-400",
     badgeClass: "bg-gray-100 text-gray-700 dark:bg-gray-950 dark:text-gray-300",
+    headerClass: "border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950/30",
   },
 };
 
@@ -166,115 +171,113 @@ export function DayCard({ day }: DayCardProps) {
         ? "text-amber-600 dark:text-amber-400"
         : "text-red-600 dark:text-red-400";
 
+  const ComplianceIcon = day.compliance >= 100 ? CheckCircle2 : day.compliance >= 80 ? AlertCircle : XCircle;
+
   return (
-    <Card className="bg-card rounded-xl border shadow-sm transition-shadow hover:shadow-md">
-      {/* Contenedor principal con padding compacto */}
-      <div className="flex flex-col gap-2 p-3">
-        {/* Fila 1: Cabecera compacta - Fecha + Badge + % en una línea */}
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold capitalize">
-              {format(new Date(day.date), "EEEE, d MMM yyyy", { locale: es })}
-            </span>
-            <Badge className={statusInfo.badgeClass}>
-              <StatusIcon className="mr-1 size-3" />
-              {statusInfo.label}
-            </Badge>
-            {day.holidayName && (
-              <Badge
-                variant="outline"
-                className="border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-300"
-              >
-                {day.holidayName}
-              </Badge>
-            )}
-          </div>
-          <span className={cn("text-lg font-bold", complianceColor)}>{day.compliance}%</span>
-        </div>
-
-        {/* Fila 2: Resumen en 3 bloques con separadores verticales */}
-        <div className="grid grid-cols-1 gap-2 @md/card:grid-cols-3 @md/card:gap-0">
-          {/* Bloque 1: Esperadas */}
-          <div className="flex flex-col gap-0.5">
-            <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Esperadas</span>
-            <span className="text-sm font-semibold">{day.expectedHours}h</span>
-          </div>
-
-          {/* Separador vertical (solo desktop) */}
-          <div className="border-border/50 hidden @md/card:block @md/card:border-l" />
-
-          {/* Bloque 2: Trabajadas */}
-          <div className="flex flex-col gap-0.5 @md/card:px-3">
-            <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Trabajadas</span>
-            <span className="text-sm font-semibold">{day.actualHours}h</span>
-          </div>
-
-          {/* Separador vertical (solo desktop) */}
-          <div className="border-border/50 hidden @md/card:block @md/card:border-l" />
-
-          {/* Bloque 3: Pausas */}
-          <div className="flex flex-col gap-0.5 @md/card:px-3">
-            <span className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Pausas</span>
-            <span className="text-sm font-semibold">{formatMinutes(day.totalBreakMinutes)}</span>
-          </div>
-        </div>
-
-        {/* Fila 3: Indicadores visuales (condicional) */}
-        {(day.compliance < 80 || day.status === "ABSENT" || day.compliance > 120) && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {day.compliance < 80 && day.status !== "ABSENT" && (
-              <div className="flex items-center gap-1">
-                <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-500" />
-                <span className="text-xs text-amber-600 dark:text-amber-500">Por debajo del objetivo</span>
-              </div>
-            )}
-            {day.status === "ABSENT" && (
-              <div className="flex items-center gap-1">
-                <XCircle className="size-3.5 text-red-600 dark:text-red-500" />
-                <span className="text-xs text-red-600 dark:text-red-500">Día ausente</span>
-              </div>
-            )}
-            {day.compliance > 120 && (
-              <div className="flex items-center gap-1">
-                <TrendingUp className="size-3.5 text-green-600 dark:text-green-500" />
-                <span className="text-xs text-green-600 dark:text-green-500">Exceso de horas</span>
-              </div>
-            )}
-          </div>
+    <Card className="overflow-hidden rounded-lg border shadow-sm transition-shadow hover:shadow-md">
+      {/* Header Accordion Compacto - Clickeable */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className={cn(
+          "flex w-full items-center justify-between gap-3 border-b px-4 py-2.5 text-left transition-colors hover:opacity-90",
+          statusInfo.headerClass,
         )}
-
-        {/* Fila 4: Botón Ver fichajes más integrado */}
-        {day.timeEntries.length > 0 && (
-          <div className="flex justify-end pt-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-muted-foreground hover:text-foreground h-7 text-xs"
+      >
+        {/* Izquierda: Fecha + Badge */}
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold capitalize">
+            {format(new Date(day.date), "EEEE, d MMM", { locale: es })}
+          </span>
+          <Badge className={cn("shrink-0", statusInfo.badgeClass)}>
+            <StatusIcon className="mr-1 size-3" />
+            {statusInfo.label}
+          </Badge>
+          {day.holidayName && (
+            <Badge
+              variant="outline"
+              className="shrink-0 border-purple-300 bg-purple-50 text-purple-700 dark:border-purple-800 dark:bg-purple-950/30 dark:text-purple-300"
             >
-              {isExpanded ? (
-                <>
-                  Ocultar
-                  <ChevronUp className="ml-1.5 size-3.5" />
-                </>
-              ) : (
-                <>
-                  Ver fichajes
-                  <ChevronDown className="ml-1.5 size-3.5" />
-                </>
-              )}
-            </Button>
-          </div>
-        )}
-      </div>
+              {day.holidayName}
+            </Badge>
+          )}
+        </div>
 
-      {/* Timeline de fichajes (colapsable) */}
+        {/* Derecha: % + Icono compliance + Chevron */}
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex items-center gap-1">
+            <ComplianceIcon className={cn("size-4", complianceColor)} />
+            <span className={cn("text-sm font-bold tabular-nums", complianceColor)}>{day.compliance}%</span>
+          </div>
+          {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+        </div>
+      </button>
+
+      {/* Contenido Expandible */}
       {isExpanded && (
-        <div className="p-3 pt-0">
-          {day.timeEntries.length === 0 ? (
-            <div className="text-muted-foreground py-8 text-center text-sm">No hay fichajes registrados</div>
-          ) : (
-            <div className="space-y-6">
+        <div className="flex flex-col gap-3 px-4 py-3">
+          {/* Métricas con iconos */}
+          <div className="grid grid-cols-1 gap-3 @sm/card:grid-cols-3">
+            {/* Esperadas */}
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-blue-100 dark:bg-blue-950/30">
+                <Clock className="size-4 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground text-xs">Esperadas</span>
+                <span className="text-sm font-semibold">{day.expectedHours}h</span>
+              </div>
+            </div>
+
+            {/* Trabajadas */}
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-green-100 dark:bg-green-950/30">
+                <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground text-xs">Trabajadas</span>
+                <span className="text-sm font-semibold">{day.actualHours}h</span>
+              </div>
+            </div>
+
+            {/* Pausas */}
+            <div className="flex items-center gap-2">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-amber-100 dark:bg-amber-950/30">
+                <Coffee className="size-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-muted-foreground text-xs">Pausas</span>
+                <span className="text-sm font-semibold">{formatMinutes(day.totalBreakMinutes)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Indicadores visuales (condicional) */}
+          {(day.compliance < 80 || day.status === "ABSENT" || day.compliance > 120) && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              {day.compliance < 80 && day.status !== "ABSENT" && (
+                <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 dark:bg-amber-950/30">
+                  <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-500" />
+                  <span className="text-xs text-amber-600 dark:text-amber-500">Por debajo del objetivo</span>
+                </div>
+              )}
+              {day.status === "ABSENT" && (
+                <div className="flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 dark:bg-red-950/30">
+                  <XCircle className="size-3.5 text-red-600 dark:text-red-500" />
+                  <span className="text-xs text-red-600 dark:text-red-500">Día ausente</span>
+                </div>
+              )}
+              {day.compliance > 120 && (
+                <div className="flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 dark:bg-green-950/30">
+                  <TrendingUp className="size-3.5 text-green-600 dark:text-green-500" />
+                  <span className="text-xs text-green-600 dark:text-green-500">Exceso de horas</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Timeline de fichajes */}
+          {day.timeEntries.length > 0 && (
+            <div className="space-y-4 border-t pt-3">
               {/* Fichajes activos */}
               <div className="relative space-y-0">
                 {day.timeEntries
@@ -285,7 +288,7 @@ export function DayCard({ day }: DayCardProps) {
                     const breakInfo = breakDurations.find((b) => b.startIndex === index);
                     const isLast = index === filteredArray.length - 1;
 
-                    // Determinar color de fondo sólido según tipo
+                    // Determinar color de fondo sólido según tipo (compatible Safari)
                     const solidBgColor =
                       entry.entryType === "CLOCK_IN"
                         ? "bg-emerald-500"
@@ -326,7 +329,7 @@ export function DayCard({ day }: DayCardProps) {
                               <span className="text-sm leading-tight font-semibold">{config.label}</span>
                               {entry.isManual && (
                                 <Badge variant="outline" className="text-[11px]">
-                                  Manual
+                                  Rectificado
                                 </Badge>
                               )}
                               {breakInfo && (
@@ -401,7 +404,7 @@ export function DayCard({ day }: DayCardProps) {
                         const breakInfo = breakDurations.find((b) => b.startIndex === index);
                         const isLast = index === filteredArray.length - 1;
 
-                        // Determinar color de fondo sólido según tipo
+                        // Determinar color de fondo sólido según tipo (compatible Safari)
                         const solidBgColor =
                           entry.entryType === "CLOCK_IN"
                             ? "bg-emerald-500"
@@ -444,7 +447,7 @@ export function DayCard({ day }: DayCardProps) {
                                   </span>
                                   {entry.isManual && (
                                     <Badge variant="outline" className="text-[11px]">
-                                      Manual
+                                      Rectificado
                                     </Badge>
                                   )}
                                   <Badge

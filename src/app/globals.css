@@ -444,6 +444,79 @@
 }
 
 /* ========================================
+   MONITOR LIVE - Status Board (Safari-compatible)
+   ======================================== */
+
+/* Status card backgrounds - Trabajando */
+.status-card-working {
+  background-color: #ecfdf5; /* emerald-50 */
+  border-color: #a7f3d0; /* emerald-200 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .status-card-working {
+  background-color: #064e3b; /* emerald-950 */
+  border-color: #065f46; /* emerald-800 */
+}
+
+/* Status card backgrounds - En pausa */
+.status-card-break {
+  background-color: #fef3c7; /* yellow-50 */
+  border-color: #fde68a; /* yellow-200 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .status-card-break {
+  background-color: #713f12; /* yellow-950 */
+  border-color: #854d0e; /* yellow-900 */
+}
+
+/* Status card backgrounds - Ausente */
+.status-card-absent {
+  background-color: #fef2f2; /* red-50 */
+  border-color: #fecaca; /* red-200 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .status-card-absent {
+  background-color: #7f1d1d; /* red-950 */
+  border-color: #991b1b; /* red-900 */
+}
+
+/* Status card backgrounds - Día no laborable */
+.status-card-non-working {
+  background-color: #eff6ff; /* blue-50 */
+  border-color: #bfdbfe; /* blue-200 */
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.dark .status-card-non-working {
+  background-color: #1e3a8a; /* blue-950 */
+  border-color: #1e40af; /* blue-900 */
+}
+
+/* Status indicator dot - Safari needs GPU acceleration */
+.status-indicator {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* ========================================
    UI GLOBAL IMPROVEMENTS (Safari-compatible)
    ======================================== */
 
