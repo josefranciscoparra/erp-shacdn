@@ -120,10 +120,18 @@ export default function EmployeeTimeTrackingPage() {
       // Para el tab de detalle, usar el dateRange que viene del filtro de período
       if (tab === "detail") {
         if (dateRange?.from) {
-          dateFrom = startOfDay(dateRange.from);
+          // IMPORTANTE: Normalizar a mediodía UTC para evitar problemas de timezone
+          // Igual que en commit 327daa3 - Si enviamos "17 nov 00:00 UTC+1", servidor recibe "16 nov 23:00 UTC"
+          const year = dateRange.from.getFullYear();
+          const month = dateRange.from.getMonth();
+          const day = dateRange.from.getDate();
+          dateFrom = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
         }
         if (dateRange?.to) {
-          dateTo = endOfDay(dateRange.to);
+          const year = dateRange.to.getFullYear();
+          const month = dateRange.to.getMonth();
+          const day = dateRange.to.getDate();
+          dateTo = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
         }
       } else {
         // Para los tabs de resumen, usar todo el historial

@@ -1614,10 +1614,17 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     });
 
     // Crear un Map de summaries por fecha para búsqueda rápida
+    // IMPORTANTE: Normalizar a UTC para evitar problemas de timezone al agrupar
     type SummaryType = (typeof summaries)[number];
     const summariesByDate = new Map<string, SummaryType>();
     summaries.forEach((summary) => {
-      const dateKey = startOfDay(summary.date).toISOString();
+      // Normalizar fecha a UTC antes de agrupar
+      const date = new Date(summary.date);
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth();
+      const day = date.getUTCDate();
+      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const dateKey = normalizedDate.toISOString();
       summariesByDate.set(dateKey, summary);
     });
 
@@ -1645,9 +1652,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     });
 
     // Agrupar TimeEntries por día
+    // IMPORTANTE: Normalizar timestamps a UTC antes de agrupar
     const entriesByDay = new Map<string, typeof allTimeEntries>();
     allTimeEntries.forEach((entry) => {
-      const dayKey = startOfDay(entry.timestamp).toISOString();
+      // Normalizar timestamp a UTC antes de agrupar por día
+      const timestamp = new Date(entry.timestamp);
+      const year = timestamp.getUTCFullYear();
+      const month = timestamp.getUTCMonth();
+      const day = timestamp.getUTCDate();
+      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const dayKey = normalizedDate.toISOString();
       if (!entriesByDay.has(dayKey)) {
         entriesByDay.set(dayKey, []);
       }
@@ -1659,9 +1673,15 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     const dayInfos = await Promise.all(dayInfoPromises);
 
     // Crear un mapa de información de días por fecha
+    // IMPORTANTE: Normalizar fechas a UTC antes de crear keys
     const dayInfoMap = new Map<string, Awaited<ReturnType<typeof getExpectedHoursForDay>>>();
     allDaysInRange.forEach((dayDate, index) => {
-      const dayKey = startOfDay(dayDate).toISOString();
+      // Normalizar fecha a UTC antes de crear key
+      const year = dayDate.getFullYear();
+      const month = dayDate.getMonth();
+      const day = dayDate.getDate();
+      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      const dayKey = normalizedDate.toISOString();
       dayInfoMap.set(dayKey, dayInfos[index]);
     });
 
@@ -1675,7 +1695,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       days: allDaysInRange
         .reverse() // Ordenar de más reciente a más antiguo
         .map((dayDate) => {
-          const dayKey = startOfDay(dayDate).toISOString();
+          // IMPORTANTE: Normalizar fecha a UTC para buscar en los Maps (misma lógica de arriba)
+          const year = dayDate.getFullYear();
+          const month = dayDate.getMonth();
+          const day = dayDate.getDate();
+          const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+          const dayKey = normalizedDate.toISOString();
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
           const dayInfo = dayInfoMap.get(dayKey)!;
