@@ -32,6 +32,9 @@ export class LocalStorageProvider extends StorageProvider {
     let mimeType: string;
 
     if (file instanceof File) {
+      // Si el MIME type está vacío (común en Mac), inferirlo de la extensión
+      const fileMimeType = file.type || this.getMimeTypeFromExtension(file.name);
+
       this.validateFile(file, [
         "application/pdf",
         "application/msword",
@@ -43,7 +46,7 @@ export class LocalStorageProvider extends StorageProvider {
 
       buffer = Buffer.from(await file.arrayBuffer());
       size = file.size;
-      mimeType = file.type;
+      mimeType = fileMimeType;
     } else {
       buffer = file;
       size = buffer.length;
@@ -130,20 +133,5 @@ export class LocalStorageProvider extends StorageProvider {
     } catch {
       return false;
     }
-  }
-
-  private getMimeTypeFromExtension(fileName: string): string {
-    const ext = path.extname(fileName).toLowerCase();
-    const mimeTypes: Record<string, string> = {
-      ".pdf": "application/pdf",
-      ".doc": "application/msword",
-      ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".png": "image/png",
-      ".webp": "image/webp",
-    };
-
-    return mimeTypes[ext] || "application/octet-stream";
   }
 }

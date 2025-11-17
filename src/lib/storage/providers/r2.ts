@@ -73,10 +73,13 @@ export class R2StorageProvider extends StorageProvider {
     let size: number;
 
     if (file instanceof File) {
+      // Si el MIME type está vacío (común en Mac), inferirlo de la extensión
+      const fileMimeType = file.type || this.getMimeTypeFromExtension(file.name);
+
       this.validateFile(file, ALLOWED_MIME_TYPES);
       body = Buffer.from(await file.arrayBuffer());
       size = file.size;
-      mimeType = file.type || mimeType;
+      mimeType = fileMimeType;
     } else {
       body = file;
       size = body.length;
@@ -88,7 +91,7 @@ export class R2StorageProvider extends StorageProvider {
         Key: path,
         Body: body,
         ContentType: mimeType,
-        Metadata: options?.metadata,
+        Metadata: this.sanitizeMetadata(options?.metadata),
       }),
     );
 

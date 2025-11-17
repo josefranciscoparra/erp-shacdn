@@ -38,6 +38,9 @@ export class AzureStorageProvider extends StorageProvider {
     let mimeType: string;
 
     if (file instanceof File) {
+      // Si el MIME type está vacío (común en Mac), inferirlo de la extensión
+      const fileMimeType = file.type || this.getMimeTypeFromExtension(file.name);
+
       this.validateFile(file, [
         "application/pdf",
         "application/msword",
@@ -49,7 +52,7 @@ export class AzureStorageProvider extends StorageProvider {
 
       buffer = Buffer.from(await file.arrayBuffer());
       size = file.size;
-      mimeType = file.type;
+      mimeType = fileMimeType;
     } else {
       buffer = file;
       size = buffer.length;
@@ -69,17 +72,23 @@ export class AzureStorageProvider extends StorageProvider {
     const blobName = this.getBlobName(filePath);
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
-    // Subir archivo con metadatos
+    // Subir archivo con metadatos sanitizados
+    const originalName = file instanceof File ? file.name : "uploaded-file";
+    const sanitizedOriginalName = originalName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\u0020-\u007E]/g, "");
+
     await blockBlobClient.uploadData(buffer, {
       blobHTTPHeaders: {
         blobContentType: mimeType,
         blobContentLength: size,
       },
-      metadata: {
-        originalName: file instanceof File ? file.name : "uploaded-file",
+      metadata: this.sanitizeMetadata({
+        originalName: sanitizedOriginalName,
         uploadedAt: new Date().toISOString(),
         ...options?.metadata,
-      },
+      }),
     });
 
     return {

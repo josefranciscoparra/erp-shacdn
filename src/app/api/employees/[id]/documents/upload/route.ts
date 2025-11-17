@@ -48,6 +48,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const documentKind = formData.get("documentKind") as string;
     const description = formData.get("description") as string | null;
 
+    console.log("📄 Datos recibidos:", {
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      documentKind,
+    });
+
     // Validar archivo
     if (!file || !(file instanceof File)) {
       return NextResponse.json({ error: "Archivo requerido" }, { status: 400 });
@@ -95,14 +102,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    // Subir archivo al storage
+    // Subir archivo al storage (sanitizar metadata para headers HTTP)
+    const uploadedByName = session.user.name || session.user.email;
+    const sanitizedUploadedBy = uploadedByName
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^\u0020-\u007E]/g, "");
+
     const uploadResult = await documentStorageService.uploadEmployeeDocument(
       session.user.orgId,
       employeeId,
       file,
       validDocumentKind,
       {
-        uploadedBy: session.user.name || session.user.email,
+        uploadedBy: sanitizedUploadedBy,
         uploadedById: session.user.id,
       },
     );
@@ -160,6 +173,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     });
   } catch (error) {
     console.error("❌ Error al subir documento:", error);
+    console.error("❌ Error stack:", error instanceof Error ? error.stack : "No stack available");
+    console.error("❌ Error message:", error instanceof Error ? error.message : String(error));
 
     // Manejar errores específicos del storage
     if (error instanceof Error) {
@@ -168,6 +183,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       }
       if (error.message.includes("demasiado grande")) {
         return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      // Devolver el mensaje de error real en desarrollo
+      if (process.env.NODE_ENV === "development") {
+        return NextResponse.json({ error: error.message }, { status: 500 });
       }
     }
 

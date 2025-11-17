@@ -51,14 +51,61 @@ export abstract class StorageProvider {
   // Método helper para validar archivos
   protected validateFile(file: File | Buffer, allowedTypes: string[]): void {
     if (file instanceof File) {
-      if (!allowedTypes.includes(file.type)) {
-        throw new Error(`Tipo de archivo no permitido: ${file.type}`);
-      }
+      // Validar por tamaño primero
       if (file.size > 10 * 1024 * 1024) {
         // 10MB límite
         throw new Error("El archivo es demasiado grande (máximo 10MB)");
       }
+
+      // Si el MIME type está vacío o no es confiable, validar por extensión
+      if (!file.type || file.type === "application/octet-stream") {
+        const ext = file.name.split(".").pop()?.toLowerCase();
+        const allowedExtensions = ["pdf", "doc", "docx", "jpg", "jpeg", "png", "webp"];
+
+        if (!ext || !allowedExtensions.includes(ext)) {
+          throw new Error(`Extensión de archivo no permitida: ${ext ?? "sin extensión"}`);
+        }
+      } else if (!allowedTypes.includes(file.type)) {
+        throw new Error(`Tipo de archivo no permitido: ${file.type}`);
+      }
     }
+  }
+
+  // Método helper para obtener MIME type desde extensión
+  protected getMimeTypeFromExtension(fileName: string): string {
+    const ext = fileName.split(".").pop()?.toLowerCase();
+    const mimeTypes: Record<string, string> = {
+      pdf: "application/pdf",
+      doc: "application/msword",
+      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      webp: "image/webp",
+    };
+
+    return mimeTypes[ext ?? ""] ?? "application/octet-stream";
+  }
+
+  // Método helper para sanitizar metadata (remover caracteres no-ASCII)
+  protected sanitizeMetadata(metadata: Record<string, string> | undefined): Record<string, string> | undefined {
+    if (!metadata) return undefined;
+
+    const sanitized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      // Remover caracteres no-ASCII y reemplazar con versiones ASCII
+      const sanitizedValue = value
+        .normalize("NFD") // Descomponer caracteres con tildes
+        .replace(/[\u0300-\u036f]/g, "") // Remover marcas diacríticas
+        .replace(/[^\u0020-\u007E]/g, "") // Remover caracteres no-ASCII (solo imprimibles ASCII)
+        .trim();
+
+      if (sanitizedValue) {
+        sanitized[key] = sanitizedValue;
+      }
+    }
+
+    return Object.keys(sanitized).length > 0 ? sanitized : undefined;
   }
 }
 
