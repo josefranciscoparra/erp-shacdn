@@ -309,9 +309,17 @@ export async function getExpectedHoursForDay(
     const dayOfWeek = targetDate.getDay();
 
     // Verificar si es festivo
-    const dayStart = startOfDay(targetDate);
-    const dayEnd = endOfDay(targetDate);
-    const targetYear = targetDate.getFullYear();
+    // IMPORTANTE: Normalizar fechas a UTC para evitar problemas de timezone
+    // El cliente puede estar en UTC+1 (España), el servidor en UTC
+    // Si usamos startOfDay() directamente: "17 nov 00:00 UTC+1" = "16 nov 23:00 UTC" en BD
+    // Solución: normalizar a mediodía UTC para que el día se mantenga independiente del timezone
+    const year = targetDate.getFullYear();
+    const month = targetDate.getMonth();
+    const day = targetDate.getDate();
+    const normalizedDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    const dayStart = startOfDay(normalizedDate);
+    const dayEnd = endOfDay(normalizedDate);
+    const targetYear = normalizedDate.getFullYear();
 
     const holiday = await prisma.calendarEvent.findFirst({
       where: {
