@@ -27,6 +27,7 @@ import {
   FileSignature,
   FileClock,
   FileX,
+  FileText,
   Clock,
   Receipt,
   Mail,
@@ -97,7 +98,7 @@ const notificationIcons = {
   PTO_REJECTED: X,
   PTO_CANCELLED: Ban,
   PTO_REMINDER: Calendar,
-  DOCUMENT_UPLOADED: Calendar,
+  DOCUMENT_UPLOADED: FileText,
   SYSTEM_ANNOUNCEMENT: Calendar,
   SIGNATURE_PENDING: FileSignature,
   SIGNATURE_COMPLETED: FileCheck,
@@ -362,6 +363,13 @@ export default function NotificationsPage() {
 
   const handleNavigate = useCallback(
     (notification: Notification) => {
+      // Manejar notificaciones de documentos subidos
+      if (notification.type === "DOCUMENT_UPLOADED") {
+        router.push(`/dashboard/me/documents`);
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de gastos
       if (notification.expenseId ?? notification.type.startsWith("EXPENSE_")) {
         if (notification.type === "EXPENSE_SUBMITTED") {
@@ -485,6 +493,8 @@ export default function NotificationsPage() {
                   type === "EXPENSE_REJECTED" && "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                   type === "EXPENSE_REIMBURSED" &&
                     "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                  type === "DOCUMENT_UPLOADED" &&
+                    "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
                 )}
                 title={label}
               >
@@ -745,6 +755,7 @@ export default function NotificationsPage() {
                 !!selectedNotification.manualTimeEntryRequestId ||
                 !!selectedNotification.expenseId ||
                 selectedNotification.type.startsWith("EXPENSE_") ||
+                selectedNotification.type === "DOCUMENT_UPLOADED" ||
                 selectedNotification.type === "SIGNATURE_PENDING" ||
                 selectedNotification.type === "SIGNATURE_COMPLETED" ||
                 selectedNotification.type === "SIGNATURE_REJECTED" ||
@@ -757,18 +768,20 @@ export default function NotificationsPage() {
                         selectedNotification.type === "EXPENSE_REJECTED" ||
                         selectedNotification.type === "EXPENSE_REIMBURSED"
                       ? "Ver mis gastos"
-                      : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                        ? "Ir a revisar solicitud"
-                        : selectedNotification.type === "SIGNATURE_PENDING"
-                          ? "Ir a firmar"
-                          : selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                              selectedNotification.type === "SIGNATURE_REJECTED" ||
-                              selectedNotification.type === "SIGNATURE_EXPIRED"
-                            ? selectedNotification.title === "Documento completamente firmado" ||
-                              selectedNotification.title === "Documento rechazado por firmante"
-                              ? "Ver gestión de firmas"
-                              : "Ver mis firmas"
-                            : "Ir a la solicitud"}
+                      : selectedNotification.type === "DOCUMENT_UPLOADED"
+                        ? "Ir a Mis Documentos"
+                        : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                          ? "Ir a revisar solicitud"
+                          : selectedNotification.type === "SIGNATURE_PENDING"
+                            ? "Ir a firmar"
+                            : selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                                selectedNotification.type === "SIGNATURE_REJECTED" ||
+                                selectedNotification.type === "SIGNATURE_EXPIRED"
+                              ? selectedNotification.title === "Documento completamente firmado" ||
+                                selectedNotification.title === "Documento rechazado por firmante"
+                                ? "Ver gestión de firmas"
+                                : "Ver mis firmas"
+                              : "Ir a la solicitud"}
                 </Button>
               )}
           </DialogFooter>

@@ -6,7 +6,8 @@ import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
-import { documentKindSchema } from "@/lib/validations/document";
+import { documentKindSchema, documentKindLabels } from "@/lib/validations/document";
+import { createNotification } from "@/server/actions/notifications";
 
 // Schema para validar form data
 const uploadFormSchema = z.object({
@@ -129,6 +130,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         },
       },
     });
+
+    // Notificar al empleado si tiene usuario asociado
+    if (employee.userId) {
+      try {
+        await createNotification(
+          employee.userId,
+          session.user.orgId,
+          "DOCUMENT_UPLOADED",
+          `Nuevo documento: ${documentKindLabels[validDocumentKind]}`,
+          `${session.user.name || "Un administrador"} ha subido un documento de tipo ${documentKindLabels[validDocumentKind]} a tu perfil.`,
+        );
+      } catch (notificationError) {
+        // No fallar la subida si falla la notificación
+        console.error("⚠️ Error al enviar notificación de documento:", notificationError);
+      }
+    }
 
     // Transformar fechas para el cliente
     const transformedDocument = {

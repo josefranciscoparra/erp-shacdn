@@ -16,6 +16,7 @@ import {
   FileSignature,
   FileClock,
   FileX,
+  FileText,
   Clock,
   Receipt,
   Banknote,
@@ -31,7 +32,7 @@ const notificationIcons = {
   PTO_REJECTED: X,
   PTO_CANCELLED: Ban,
   PTO_REMINDER: Calendar,
-  DOCUMENT_UPLOADED: Calendar,
+  DOCUMENT_UPLOADED: FileText,
   SYSTEM_ANNOUNCEMENT: Calendar,
   SIGNATURE_PENDING: FileSignature,
   SIGNATURE_COMPLETED: FileCheck,
@@ -122,6 +123,8 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                       notification.type === "SIGNATURE_EXPIRED" &&
                         "bg-slate-100 text-slate-600 dark:bg-slate-900/30 dark:text-slate-400",
+                      notification.type === "DOCUMENT_UPLOADED" &&
+                        "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
                       notification.type === "MANUAL_TIME_ENTRY_SUBMITTED" &&
                         "bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400",
                       notification.type === "MANUAL_TIME_ENTRY_APPROVED" &&
