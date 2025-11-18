@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Calendar, Clock } from "lucide-react";
 
@@ -18,12 +18,7 @@ export function TodaySchedule() {
 
   console.log("[TodaySchedule] Component mounted");
 
-  useEffect(() => {
-    console.log("[TodaySchedule] useEffect triggered");
-    loadSchedule();
-  }, []);
-
-  async function loadSchedule() {
+  const loadSchedule = useCallback(async () => {
     try {
       setIsLoading(true);
       const result = await getTodaySchedule();
@@ -39,7 +34,11 @@ export function TodaySchedule() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadSchedule();
+  }, [loadSchedule]);
 
   if (isLoading) {
     return (

@@ -275,16 +275,6 @@ async function getActiveAssignment(employeeId: string, date: Date) {
     },
   });
 
-  console.log("[DEBUG] getActiveAssignment:", {
-    employeeId,
-    date: date.toISOString(),
-    found: !!assignment,
-    assignmentId: assignment?.id,
-    isActive: assignment?.isActive,
-    validFrom: assignment?.validFrom,
-    validTo: assignment?.validTo,
-  });
-
   return assignment;
 }
 
