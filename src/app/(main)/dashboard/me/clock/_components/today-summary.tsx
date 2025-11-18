@@ -2,7 +2,7 @@
 
 import { memo, useCallback, useEffect, useState } from "react";
 
-import { CheckCircle2, Clock, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +16,18 @@ interface TodaySummaryData {
   deviationMinutes: number | null;
   status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE";
   hasFinished: boolean;
+  validationWarnings: string[];
+  validationErrors: string[];
+}
+
+/**
+ * Formatea los mensajes de validación reemplazando "X minutos" con formato legible
+ * Ejemplo: "383 minutos de retraso" → "6h 23min de retraso"
+ */
+function formatValidationMessage(message: string): string {
+  return message.replace(/(\d+) minutos/g, (_, minutes) => {
+    return formatDuration(parseInt(minutes, 10));
+  });
 }
 
 function TodaySummaryComponent() {
@@ -153,6 +165,35 @@ function TodaySummaryComponent() {
               {formatDuration(Math.abs(deviation))}
             </Badge>
           </div>
+
+          {/* Validaciones */}
+          {(summary.validationWarnings.length > 0 || summary.validationErrors.length > 0) && (
+            <>
+              <Separator />
+              <div className="space-y-2">
+                {summary.validationErrors.map((error, index) => (
+                  <div
+                    key={`error-${index}`}
+                    className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 p-2.5 dark:border-red-900 dark:bg-red-950/30"
+                  >
+                    <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+                    <span className="text-xs text-red-700 dark:text-red-300">{formatValidationMessage(error)}</span>
+                  </div>
+                ))}
+                {summary.validationWarnings.map((warning, index) => (
+                  <div
+                    key={`warning-${index}`}
+                    className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900 dark:bg-amber-950/30"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span className="text-xs text-amber-700 dark:text-amber-300">
+                      {formatValidationMessage(warning)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

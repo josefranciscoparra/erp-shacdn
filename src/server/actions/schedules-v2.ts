@@ -837,7 +837,13 @@ export async function assignScheduleToEmployee(
       assignmentType = "FIXED" as any;
     }
 
-    // Desactivar asignaciones anteriores que se solapen
+    // Cerrar fecha de asignaciones anteriores que se solapen
+    // En lugar de desactivarlas (isActive: false), ajustamos su validTo
+    // al día anterior del nuevo horario para mantener el historial correcto
+    const dayBeforeNew = new Date(data.validFrom);
+    dayBeforeNew.setDate(dayBeforeNew.getDate() - 1);
+    dayBeforeNew.setHours(23, 59, 59, 999);
+
     await prisma.employeeScheduleAssignment.updateMany({
       where: {
         employeeId: data.employeeId,
@@ -853,7 +859,10 @@ export async function assignScheduleToEmployee(
           },
         ],
       },
-      data: { isActive: false },
+      data: {
+        validTo: dayBeforeNew,
+        // Mantenemos isActive: true para que las consultas históricas funcionen
+      },
     });
 
     // Crear nueva asignación

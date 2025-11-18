@@ -202,9 +202,28 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   const [holidays, setHolidays] = useState<Array<{ date: Date; name: string }>>([]);
   const [isCalculating, setIsCalculating] = useState(false);
 
+  // 🆕 Estados para ausencias parciales (horas)
+  const [startTime, setStartTime] = useState<string>("09:00"); // Formato HH:mm
+  const [endTime, setEndTime] = useState<string>("17:00"); // Formato HH:mm
+
   // Calcular días hábiles cuando cambien las fechas
   const hasActiveContract = balance?.hasActiveContract !== false;
   const hasProvisionalContract = balance?.hasProvisionalContract === true;
+
+  // Calcular duración en minutos basándose en startTime y endTime
+  const calculateDuration = (start: string, end: string): number => {
+    const [startHour, startMin] = start.split(":").map(Number);
+    const [endHour, endMin] = end.split(":").map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    return Math.max(0, endMinutes - startMinutes);
+  };
+
+  // Convertir "HH:mm" a minutos desde medianoche
+  const timeToMinutes = (time: string): number => {
+    const [hour, min] = time.split(":").map(Number);
+    return hour * 60 + min;
+  };
 
   // Limpiar formulario cuando se cierre la modal
   useEffect(() => {
@@ -214,6 +233,8 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setReason("");
       setWorkingDaysCalc(null);
       setHolidays([]);
+      setStartTime("09:00");
+      setEndTime("17:00");
     }
   }, [open]);
 
@@ -256,12 +277,21 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     }
 
     try {
-      await createRequest({
+      const requestData: any = {
         absenceTypeId: selectedTypeId,
         startDate: dateRange.from,
         endDate: dateRange.to,
         reason: reason.trim() || undefined,
-      });
+      };
+
+      // 🆕 Si el tipo permite fracciones, incluir campos de hora
+      if (selectedType?.allowPartialDays) {
+        requestData.startTime = timeToMinutes(startTime);
+        requestData.endTime = timeToMinutes(endTime);
+        requestData.durationMinutes = calculateDuration(startTime, endTime);
+      }
+
+      await createRequest(requestData);
 
       toast.success("Solicitud enviada correctamente");
 
@@ -343,6 +373,68 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               disabled={!hasActiveContract || !selectedType}
             />
           </div>
+
+          {/* Sección 3.5: Horarios (solo si allowPartialDays) */}
+          {selectedType?.allowPartialDays && (
+            <div className="rounded-[14px] border bg-white p-4 shadow-sm dark:bg-gray-800">
+              <Label className="text-muted-foreground mb-3 block text-sm font-medium">Horario de la ausencia</Label>
+              <p className="text-muted-foreground mb-3 text-xs">Define el rango de horas para esta ausencia parcial</p>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Hora de inicio */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="start-time" className="text-xs">
+                    Hora de inicio
+                  </Label>
+                  <input
+                    id="start-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    disabled={!hasActiveContract || !selectedType}
+                    className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Hora de fin */}
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="end-time" className="text-xs">
+                    Hora de fin
+                  </Label>
+                  <input
+                    id="end-time"
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    disabled={!hasActiveContract || !selectedType}
+                    className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                  />
+                </div>
+              </div>
+
+              {/* Información de duración y granularidad */}
+              <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-900/50">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Duración total:</span>
+                  <span className="font-semibold">
+                    {Math.floor(calculateDuration(startTime, endTime) / 60)}h{" "}
+                    {calculateDuration(startTime, endTime) % 60}min
+                  </span>
+                </div>
+                <div className="text-muted-foreground mt-1 text-xs">
+                  Granularidad: {selectedType.granularityMinutes} min (
+                  {selectedType.granularityMinutes === 480
+                    ? "día completo"
+                    : selectedType.granularityMinutes === 60
+                      ? "hora"
+                      : selectedType.granularityMinutes === 30
+                        ? "media hora"
+                        : `${selectedType.granularityMinutes} min`}
+                  )
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Sección 4: Motivo (opcional) */}
           <div className="flex flex-col gap-2">

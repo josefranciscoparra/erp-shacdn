@@ -42,6 +42,14 @@ model Organization {
   geolocationMinAccuracy  Int     @default(100)   // Precisión mínima requerida en metros
   geolocationMaxRadius    Int     @default(200)   // Radio máximo permitido por defecto en metros
 
+  // Configuración de Validaciones de Fichajes
+  clockInToleranceMinutes       Int     @default(15)  // Tolerancia para entrada (minutos de retraso aceptables)
+  clockOutToleranceMinutes      Int     @default(15)  // Tolerancia para salida (minutos de retraso aceptables)
+  earlyClockInToleranceMinutes  Int     @default(30)  // Tolerancia para entrada anticipada (minutos antes del horario)
+  lateClockOutToleranceMinutes  Int     @default(30)  // Tolerancia para salida tardía (minutos después del horario)
+  nonWorkdayClockInAllowed      Boolean @default(false) // Permitir fichar en días no laborables
+  nonWorkdayClockInWarning      Boolean @default(true)  // Mostrar warning al fichar en día no laboral
+
   // Configuración de Chat
   chatEnabled             Boolean @default(false) // Activar/desactivar módulo de chat 1:1
 
@@ -372,6 +380,9 @@ model EmploymentContract {
   workingDaysPerWeek Decimal? @default(5) @db.Decimal(3,1) // Días laborables por semana (4, 5, 6, etc.)
   grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
 
+  // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos por jornada laboral
+  workdayMinutes Int? // Jornada estándar en minutos (null = calcular automático: weeklyHours / workingDaysPerWeek * 60)
+
   // NOTA: Los horarios ahora se gestionan en el nuevo Sistema de Horarios V2.0
   // Ver modelos: ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, EmployeeScheduleAssignment
 
@@ -635,6 +646,11 @@ model TimeEntry {
   isManual Boolean @default(false)
   manualRequestId String? // ID de la solicitud que lo creó
 
+  // Validación contra horario (Schedule V2.0)
+  validationWarnings String[] @default([]) // Warnings de validación (ej: "Fichaje tardío: 20 minutos")
+  validationErrors   String[] @default([]) // Errores de validación (ej: "Día no laboral")
+  deviationMinutes   Int?     // Desviación en minutos respecto al horario esperado (+/-)
+
   // Cancelación y auditoría de fichajes
   isCancelled          Boolean @default(false) // Si este fichaje fue cancelado
   cancellationReason   CancellationReason? // Motivo de la cancelación
@@ -728,6 +744,19 @@ model AbsenceType {
   minDaysAdvance  Int      @default(0) // Días de anticipación requeridos
   affectsBalance  Boolean  @default(true) // Si descuenta del balance de PTO
   active          Boolean  @default(true)
+
+  // 🆕 GRANULARIDAD - Para soportar ausencias en minutos/horas (sector privado/público)
+  allowPartialDays       Boolean @default(false) // ¿Permite fracciones de día?
+  granularityMinutes     Int     @default(480)   // Granularidad: 480=día, 60=hora, 30=media, 15=cuarto
+  minimumDurationMinutes Int     @default(480)   // Duración mínima en minutos
+  maxDurationMinutes     Int?                    // Duración máxima (null=sin límite)
+
+  // 🆕 FUTURO - Factor de compensación para nocturnidad/festivos (policía, bomberos)
+  compensationFactor     Decimal @default(1.0) @db.Decimal(3,2) // 1.0=normal, 1.5=nocturno, 1.75=festivo
+
+  // 🆕 SISTEMA DE BALANCE EN MINUTOS - ¿A qué contador de balance afecta?
+  balanceType            String  @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -749,11 +778,25 @@ model PtoBalance {
   id                String   @id @default(cuid())
   year              Int      // Año al que aplica el balance
 
-  // Cálculo de días (con decimales para días medios)
+  // ❌ DEPRECAR (mantener temporalmente para migración y reportes legacy)
   annualAllowance   Decimal  @db.Decimal(5,2) // Días asignados este año (puede ser proporcional)
   daysUsed          Decimal  @default(0) @db.Decimal(5,2) // Días ya usados (solicitudes aprobadas)
   daysPending       Decimal  @default(0) @db.Decimal(5,2) // Días en solicitudes pendientes
   daysAvailable     Decimal  @db.Decimal(5,2) // Disponibles = allowance - used - pending
+
+  // ✅ NUEVOS CAMPOS (en minutos) - PRINCIPAL
+  annualAllowanceMinutes  Int @default(0)  // 22 días × workdayMinutes
+  minutesUsed             Int @default(0)  // Vacaciones usadas
+  minutesPending          Int @default(0)  // Solicitudes pendientes
+  minutesAvailable        Int @default(0)  // Disponibles
+
+  // ✅ NUEVOS: Contadores separados por tipo (Opción Rápida - v1)
+  compensatedMinutes      Int @default(0)  // Días compensados (festivos, nocturnos, guardias)
+  freeDisposalMinutes     Int @default(0)  // Horas de libre disposición (horas extra, etc.)
+  personalMattersMinutes  Int @default(0)  // Asuntos propios (separado de vacaciones)
+
+  // ✅ SNAPSHOT: Minutos de jornada usados para el cálculo (histórico)
+  workdayMinutesSnapshot  Int @default(480) // Jornada en minutos del año calculado
 
   // Metadata para auditoría y cálculo proporcional
   calculationDate   DateTime @default(now())
@@ -788,6 +831,14 @@ model PtoRequest {
   startDate   DateTime         // Fecha de inicio
   endDate     DateTime         // Fecha de fin
   workingDays Decimal          @db.Decimal(5,2) // Días hábiles calculados (excluyendo festivos y fines de semana)
+
+  // 🆕 FRANJAS HORARIAS - Para ausencias parciales (sector privado: "30 min de 14:00 a 14:30")
+  startTime       Int?  // Minutos desde medianoche (540 = 09:00, null = día completo)
+  endTime         Int?  // Minutos desde medianoche (1020 = 17:00, null = día completo)
+  durationMinutes Int?  // Duración en minutos (para cálculos rápidos)
+
+  // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos efectivos descontados del balance
+  effectiveMinutes Int @default(0) // durationMinutes × compensationFactor (o workingDays × workdayMinutes × compensationFactor)
 
   // Estado de la solicitud
   status      PtoRequestStatus @default(PENDING)

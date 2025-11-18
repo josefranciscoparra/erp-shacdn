@@ -10,21 +10,25 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { AbsenceTypesTab } from "./_components/absence-types-tab";
 import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
 import { OrganizationTab } from "./_components/organization-tab";
 import { ShiftsTab } from "./_components/shifts-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
+import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("organization");
 
   const tabs = [
     { value: "organization", label: "Organización" },
+    { value: "absence-types", label: "Tipos de Ausencia" },
     { value: "chat", label: "Chat" },
     { value: "shifts", label: "Turnos" },
     { value: "geolocation", label: "Geolocalización" },
+    { value: "validations", label: "Fichajes" },
     { value: "expenses", label: "Gastos" },
     { value: "system", label: "Sistema" },
   ];
@@ -76,6 +80,10 @@ export default function SettingsPage() {
             <OrganizationTab />
           </TabsContent>
 
+          <TabsContent value="absence-types" className="mt-4 md:mt-6">
+            <AbsenceTypesTab />
+          </TabsContent>
+
           <TabsContent value="chat" className="mt-4 md:mt-6">
             <ChatTab />
           </TabsContent>
@@ -86,6 +94,10 @@ export default function SettingsPage() {
 
           <TabsContent value="geolocation" className="mt-4 md:mt-6">
             <GeolocationTab />
+          </TabsContent>
+
+          <TabsContent value="validations" className="mt-4 md:mt-6">
+            <TimeClockValidationsTab />
           </TabsContent>
 
           <TabsContent value="expenses" className="mt-4 md:mt-6">

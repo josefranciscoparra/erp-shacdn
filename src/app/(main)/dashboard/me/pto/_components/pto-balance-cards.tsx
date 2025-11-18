@@ -6,6 +6,7 @@ import { CalendarDays, Calendar, FileCheck } from "lucide-react";
 
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatMinutes } from "@/lib/pto-helpers";
 import { usePtoStore } from "@/stores/pto-store";
 
 interface PtoBalanceCardsProps {
@@ -57,11 +58,16 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
     );
   }
 
-  // Redondear días hacia abajo
-  const daysAvailable = Math.floor(balance.daysAvailable);
-  const daysUsed = Math.floor(balance.daysUsed);
-  const daysTotal = Math.floor(balance.annualAllowance);
-  const daysPending = Math.floor(balance.daysPending);
+  // ✅ SISTEMA DE BALANCE EN MINUTOS - Usar campos en minutos y formatear
+  const workdayMinutes = balance.workdayMinutesSnapshot ?? 480;
+  const availableFormatted = formatMinutes(balance.minutesAvailable ?? 0, workdayMinutes);
+  const usedFormatted = formatMinutes(balance.minutesUsed ?? 0, workdayMinutes);
+  const totalFormatted = formatMinutes(balance.annualAllowanceMinutes ?? 0, workdayMinutes);
+
+  // Fallback a días legacy (solo mientras migramos datos)
+  const daysAvailable = balance.minutesAvailable
+    ? Math.floor((balance.minutesAvailable ?? 0) / workdayMinutes)
+    : Math.floor(balance.daysAvailable);
 
   // Filtrar próximas vacaciones aprobadas (futuras)
   const today = new Date();
@@ -158,14 +164,14 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         </CardContent>
       </Card>
 
-      {/* Card 3: Días disponibles */}
+      {/* Card 3: Balance disponible */}
       <Card>
         <CardHeader>
           <CardDescription>Vacaciones</CardDescription>
           <div className="flex flex-col gap-2">
-            <h4 className="font-display text-2xl lg:text-3xl">{daysAvailable} días</h4>
+            <h4 className="font-display text-2xl lg:text-3xl">{availableFormatted}</h4>
             <div className="text-muted-foreground text-sm">
-              Te quedan {daysAvailable} {daysAvailable === 1 ? "día" : "días"} de vacaciones
+              Disponibles de {totalFormatted} anuales (usados: {usedFormatted})
             </div>
           </div>
           <CardAction>

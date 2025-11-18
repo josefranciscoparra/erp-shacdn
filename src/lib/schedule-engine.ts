@@ -49,7 +49,9 @@ import type {
 export async function getEffectiveSchedule(employeeId: string, date: Date): Promise<EffectiveSchedule> {
   // 1. PRIORIDAD MÁXIMA: Verificar ausencias (vacaciones, permisos, bajas)
   const absence = await getAbsenceForDate(employeeId, date);
-  if (absence) {
+
+  // Si la ausencia es de DÍA COMPLETO (no parcial), marcar como no laborable
+  if (absence && !absence.isPartial) {
     return {
       date,
       isWorkingDay: false,
@@ -62,6 +64,9 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
       },
     };
   }
+
+  // Si la ausencia es PARCIAL, continuar para obtener el horario y luego ajustarlo
+  // (se procesará al final de la función)
 
   // 2. PRIORIDAD ALTA: Buscar excepciones de día (días específicos con horario especial)
   const exception = await getExceptionForDate(employeeId, date);
@@ -143,9 +148,14 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   }));
 
   // Calcular minutos esperados (suma de slots tipo WORK)
-  const expectedMinutes = effectiveSlots
+  let expectedMinutes = effectiveSlots
     .filter((slot) => slot.slotType === "WORK")
     .reduce((sum, slot) => sum + (slot.endMinutes - slot.startMinutes), 0);
+
+  // 🆕 Si hay ausencia PARCIAL, reducir los minutos esperados
+  if (absence && absence.isPartial && absence.durationMinutes) {
+    expectedMinutes = Math.max(0, expectedMinutes - absence.durationMinutes);
+  }
 
   return {
     date,
@@ -154,6 +164,19 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
     timeSlots: effectiveSlots,
     source: "PERIOD",
     periodName: period.name ?? period.periodType,
+    // 🆕 Si hay ausencia parcial, incluir la información
+    ...(absence && absence.isPartial
+      ? {
+          absence: {
+            type: absence.type,
+            reason: absence.reason,
+            isPartial: true,
+            startTime: absence.startTime,
+            endTime: absence.endTime,
+            durationMinutes: absence.durationMinutes,
+          },
+        }
+      : {}),
   };
 }
 
@@ -163,6 +186,7 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
 
 /**
  * Busca una ausencia (vacación, permiso, baja) para una fecha específica.
+ * Ahora soporta ausencias parciales (con startTime/endTime).
  */
 async function getAbsenceForDate(employeeId: string, date: Date) {
   return await prisma.ptoRequest
@@ -178,9 +202,13 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
         absenceType: {
           select: {
             name: true,
+            allowPartialDays: true,
           },
         },
         reason: true,
+        startTime: true, // 🆕 En minutos desde medianoche
+        endTime: true, // 🆕 En minutos desde medianoche
+        durationMinutes: true, // 🆕 Duración total de la ausencia
       },
     })
     .then((absence) => {
@@ -188,6 +216,14 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
       return {
         type: absence.absenceType.name,
         reason: absence.reason ?? undefined,
+        isPartial:
+          absence.absenceType.allowPartialDays &&
+          absence.startTime !== null &&
+          absence.endTime !== null &&
+          absence.durationMinutes !== null,
+        startTime: absence.startTime ? Number(absence.startTime) : undefined,
+        endTime: absence.endTime ? Number(absence.endTime) : undefined,
+        durationMinutes: absence.durationMinutes ? Number(absence.durationMinutes) : undefined,
       };
     });
 }
@@ -444,13 +480,59 @@ export async function validateTimeEntry(
   timestamp: Date,
   entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END",
 ): Promise<ValidationResult> {
-  const schedule = await getEffectiveSchedule(employeeId, timestamp);
+  // Obtener configuración de validaciones de la organización
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      orgId: true,
+      organization: {
+        select: {
+          clockInToleranceMinutes: true,
+          clockOutToleranceMinutes: true,
+          earlyClockInToleranceMinutes: true,
+          lateClockOutToleranceMinutes: true,
+          nonWorkdayClockInAllowed: true,
+          nonWorkdayClockInWarning: true,
+        },
+      },
+    },
+  });
 
-  if (!schedule.isWorkingDay) {
+  if (!employee) {
     return {
       isValid: false,
       warnings: [],
-      errors: ["Este día no es laboral según el horario asignado"],
+      errors: ["Empleado no encontrado"],
+    };
+  }
+
+  const orgConfig = employee.organization;
+  const schedule = await getEffectiveSchedule(employeeId, timestamp);
+
+  if (!schedule.isWorkingDay) {
+    // Verificar configuración de fichajes en días no laborables
+    if (!orgConfig.nonWorkdayClockInAllowed) {
+      return {
+        isValid: false,
+        warnings: [],
+        errors: ["No está permitido fichar en días no laborables"],
+      };
+    }
+
+    // Si está permitido pero hay warning activado
+    if (orgConfig.nonWorkdayClockInWarning) {
+      return {
+        isValid: true,
+        warnings: ["Fichaje en día no laboral"],
+        errors: [],
+      };
+    }
+
+    // Permitido sin warning
+    return {
+      isValid: true,
+      warnings: [],
+      errors: [],
     };
   }
 
@@ -485,12 +567,24 @@ export async function validateTimeEntry(
 
   const warnings: string[] = [];
 
-  // Tolerancia: ±15 minutos = warning, >15 minutos = error
-  if (Math.abs(deviationMinutes) > 15) {
-    if (deviationMinutes > 0) {
+  // Aplicar tolerancias según configuración de la organización
+  if (entryType === "CLOCK_IN") {
+    // Para fichajes de entrada
+    if (deviationMinutes > orgConfig.clockInToleranceMinutes) {
+      // Fichaje tardío
       warnings.push(`Fichaje tardío: ${deviationMinutes} minutos de retraso`);
-    } else {
-      warnings.push(`Fichaje anticipado: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`);
+    } else if (deviationMinutes < -orgConfig.earlyClockInToleranceMinutes) {
+      // Fichaje muy anticipado
+      warnings.push(`Fichaje muy anticipado: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`);
+    }
+  } else if (entryType === "CLOCK_OUT") {
+    // Para fichajes de salida
+    if (deviationMinutes < -orgConfig.clockOutToleranceMinutes) {
+      // Salida anticipada
+      warnings.push(`Salida anticipada: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`);
+    } else if (deviationMinutes > orgConfig.lateClockOutToleranceMinutes) {
+      // Salida muy tardía
+      warnings.push(`Salida muy tardía: ${deviationMinutes} minutos después de lo esperado`);
     }
   }
 

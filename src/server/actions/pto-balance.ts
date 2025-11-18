@@ -3,6 +3,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
+import { daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 
 /**
  * Calcula los días de vacaciones anuales según el método de cálculo proporcional
@@ -171,6 +172,14 @@ export async function calculateOrUpdatePtoBalance(
   // Días disponibles = allowance - used - pending
   const daysAvailable = allowance - daysUsed - daysPending;
 
+  // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular campos en minutos
+  const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
+
+  const annualAllowanceMinutes = daysToMinutes(allowance, workdayMinutes);
+  const minutesUsed = daysToMinutes(daysUsed, workdayMinutes);
+  const minutesPending = daysToMinutes(daysPending, workdayMinutes);
+  const minutesAvailable = annualAllowanceMinutes - minutesUsed - minutesPending;
+
   // Crear o actualizar el balance
   const balance = await prisma.ptoBalance.upsert({
     where: {
@@ -184,18 +193,32 @@ export async function calculateOrUpdatePtoBalance(
       orgId,
       employeeId,
       year,
+      // ❌ DEPRECADO (mantener temporalmente para migración)
       annualAllowance: new Decimal(allowance),
       daysUsed: new Decimal(daysUsed),
       daysPending: new Decimal(daysPending),
       daysAvailable: new Decimal(daysAvailable),
+      // ✅ NUEVOS CAMPOS (en minutos)
+      annualAllowanceMinutes,
+      minutesUsed,
+      minutesPending,
+      minutesAvailable,
+      workdayMinutesSnapshot: workdayMinutes,
       contractStartDate: activeContract.startDate,
       calculationDate: new Date(),
     },
     update: {
+      // ❌ DEPRECADO (mantener temporalmente para migración)
       annualAllowance: new Decimal(allowance),
       daysUsed: new Decimal(daysUsed),
       daysPending: new Decimal(daysPending),
       daysAvailable: new Decimal(daysAvailable),
+      // ✅ NUEVOS CAMPOS (en minutos)
+      annualAllowanceMinutes,
+      minutesUsed,
+      minutesPending,
+      minutesAvailable,
+      workdayMinutesSnapshot: workdayMinutes,
       calculationDate: new Date(),
     },
   });
@@ -203,10 +226,17 @@ export async function calculateOrUpdatePtoBalance(
   return {
     id: balance.id,
     year: balance.year,
+    // ❌ DEPRECADO - Mantener temporalmente para compatibilidad
     annualAllowance: Number(balance.annualAllowance),
     daysUsed: Number(balance.daysUsed),
     daysPending: Number(balance.daysPending),
     daysAvailable: Number(balance.daysAvailable),
+    // ✅ NUEVOS CAMPOS (en minutos) - USAR ESTOS
+    annualAllowanceMinutes: balance.annualAllowanceMinutes,
+    minutesUsed: balance.minutesUsed,
+    minutesPending: balance.minutesPending,
+    minutesAvailable: balance.minutesAvailable,
+    workdayMinutesSnapshot: balance.workdayMinutesSnapshot,
   };
 }
 

@@ -4,6 +4,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { isSameDay } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
+import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 
 import { createNotification } from "./notifications";
 import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";
@@ -149,10 +150,17 @@ export async function getMyPtoBalance() {
       return {
         id: "NO_CONTRACT",
         year: currentYear,
+        // ❌ DEPRECADO
         annualAllowance: 0,
         daysUsed: 0,
         daysPending: 0,
         daysAvailable: 0,
+        // ✅ NUEVOS CAMPOS
+        annualAllowanceMinutes: 0,
+        minutesUsed: 0,
+        minutesPending: 0,
+        minutesAvailable: 0,
+        workdayMinutesSnapshot: 480, // default 8h
         hasActiveContract: false,
         hasProvisionalContract,
       };
@@ -189,7 +197,11 @@ export async function getAbsenceTypes() {
       },
     });
 
-    return types;
+    // Serializar Decimal a Number para Next.js 15 (no se pueden pasar Decimals al cliente)
+    return types.map((type) => ({
+      ...type,
+      compensationFactor: Number(type.compensationFactor),
+    }));
   } catch (error) {
     console.error("Error al obtener tipos de ausencia:", error);
     throw error;
@@ -238,8 +250,16 @@ export async function getMyPtoRequests() {
       approverComments: r.approverComments,
       rejectionReason: r.rejectionReason,
       cancellationReason: r.cancellationReason,
-      absenceType: r.absenceType,
+      // Serializar compensationFactor de Decimal a Number para Next.js 15
+      absenceType: {
+        ...r.absenceType,
+        compensationFactor: Number(r.absenceType.compensationFactor),
+      },
       approver: r.approver,
+      // 🆕 Campos para ausencias parciales
+      startTime: r.startTime,
+      endTime: r.endTime,
+      durationMinutes: r.durationMinutes,
     }));
   } catch (error) {
     console.error("Error al obtener solicitudes de PTO:", error);
@@ -256,6 +276,10 @@ export async function createPtoRequest(data: {
   endDate: Date;
   reason?: string;
   attachmentUrl?: string;
+  // 🆕 Campos para ausencias parciales (en minutos desde medianoche)
+  startTime?: number; // Ej: 540 = 09:00
+  endTime?: number; // Ej: 1020 = 17:00
+  durationMinutes?: number; // Duración total en minutos
 }) {
   try {
     const { employeeId, orgId, employee } = await getAuthenticatedEmployee({
@@ -276,8 +300,67 @@ export async function createPtoRequest(data: {
       throw new Error("Tipo de ausencia no válido");
     }
 
-    // Calcular días hábiles
-    const { workingDays, holidays } = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId);
+    // 🆕 Validaciones para ausencias parciales
+    if (absenceType.allowPartialDays) {
+      // Si permite fracciones, debe especificar startTime, endTime y durationMinutes
+      if (data.startTime === undefined || data.endTime === undefined || data.durationMinutes === undefined) {
+        throw new Error("Para ausencias parciales debes especificar las horas de inicio y fin");
+      }
+
+      // Validar que solo sea un mismo día
+      if (data.startDate.getTime() !== data.endDate.getTime()) {
+        throw new Error("Las ausencias parciales solo pueden ser para un mismo día");
+      }
+
+      // Validar rango de horas (0-1440 minutos)
+      if (data.startTime < 0 || data.startTime > 1440 || data.endTime < 0 || data.endTime > 1440) {
+        throw new Error("Las horas deben estar entre 00:00 y 24:00");
+      }
+
+      if (data.startTime >= data.endTime) {
+        throw new Error("La hora de inicio debe ser anterior a la hora de fin");
+      }
+
+      // Validar granularidad
+      if (data.durationMinutes % absenceType.granularityMinutes !== 0) {
+        throw new Error(`La duración debe ser múltiplo de ${absenceType.granularityMinutes} minutos`);
+      }
+
+      // Validar duración mínima
+      if (data.durationMinutes < absenceType.minimumDurationMinutes) {
+        throw new Error(
+          `La duración mínima es de ${absenceType.minimumDurationMinutes} minutos (${absenceType.minimumDurationMinutes / 60}h)`,
+        );
+      }
+
+      // Validar duración máxima (si está configurada)
+      if (absenceType.maxDurationMinutes && data.durationMinutes > absenceType.maxDurationMinutes) {
+        throw new Error(
+          `La duración máxima es de ${absenceType.maxDurationMinutes} minutos (${absenceType.maxDurationMinutes / 60}h)`,
+        );
+      }
+    } else {
+      // Si NO permite fracciones, no debe especificar horas
+      if (data.startTime !== undefined || data.endTime !== undefined) {
+        throw new Error("Este tipo de ausencia no permite especificar horas");
+      }
+    }
+
+    // Calcular días hábiles o fracción de día para ausencias parciales
+    let workingDays: number;
+    let holidays: Array<{ date: Date; name: string }> = [];
+
+    if (absenceType.allowPartialDays && data.durationMinutes) {
+      // Para ausencias parciales: convertir minutos a fracción de día
+      // Asumiendo jornada laboral de 8 horas = 480 minutos
+      const MINUTES_PER_WORKDAY = 480;
+      workingDays = data.durationMinutes / MINUTES_PER_WORKDAY;
+    } else {
+      // Para días completos: calcular días hábiles excluyendo festivos
+      const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId);
+      workingDays = result.workingDays;
+      holidays = result.holidays;
+    }
 
     // Validar días de anticipación
     const daysUntilStart = Math.ceil((data.startDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
@@ -324,6 +407,19 @@ export async function createPtoRequest(data: {
     // Obtener aprobador
     const approverId = await getDefaultApprover(employeeId, orgId);
 
+    // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
+    const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
+    let effectiveMinutes: number;
+
+    if (absenceType.allowPartialDays && data.durationMinutes) {
+      // Ausencia parcial: usar durationMinutes directamente
+      effectiveMinutes = applyCompensationFactor(data.durationMinutes, absenceType.compensationFactor);
+    } else {
+      // Ausencia de días completos: convertir workingDays a minutos
+      const baseMinutes = daysToMinutes(workingDays, workdayMinutes);
+      effectiveMinutes = applyCompensationFactor(baseMinutes, absenceType.compensationFactor);
+    }
+
     // Crear la solicitud
     const request = await prisma.ptoRequest.create({
       data: {
@@ -338,6 +434,12 @@ export async function createPtoRequest(data: {
         status: absenceType.requiresApproval ? "PENDING" : "APPROVED",
         approverId: absenceType.requiresApproval ? approverId : undefined,
         approvedAt: absenceType.requiresApproval ? undefined : new Date(),
+        // 🆕 Campos para ausencias parciales
+        startTime: data.startTime,
+        endTime: data.endTime,
+        durationMinutes: data.durationMinutes,
+        // 🆕 SISTEMA DE BALANCE EN MINUTOS
+        effectiveMinutes,
       },
       include: {
         absenceType: true,

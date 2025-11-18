@@ -1,8 +1,17 @@
 # PLAN: Sistema de Horarios Flexible v2.0
 
 **Fecha:** 2025-11-17
-**Estado:** Planificación
+**Estado:** 🟢 En Implementación (Sprint 1-4 completados)
+**Versión:** 1.4
 **Tipo:** Migración Breaking Change
+
+---
+
+## 📚 Documentos Relacionados
+
+Este documento describe el sistema general de horarios. Para subsistemas específicos, consultar:
+
+- **[PLAN_VACACIONES_GRANULARES_V2.md](./PLAN_VACACIONES_GRANULARES_V2.md)** - Sistema de ausencias y vacaciones en minutos (sector público/privado)
 
 ---
 
@@ -16,6 +25,7 @@ Crear un sistema de horarios completamente nuevo, desacoplado y flexible que sop
 - ✅ Horarios con precisión de minutos (ej: 9:12, 12:48)
 - ✅ Franjas fijas + flexibles (sector público)
 - ✅ Total flexibilidad para futuros casos de uso
+- ✅ Ausencias y vacaciones con granularidad en minutos
 
 ---
 
@@ -1059,6 +1069,426 @@ model WorkdaySummary {
 
 ---
 
+## 📋 FASE 6.5: Sistema de Validaciones Configurables (✅ COMPLETADO 2025-11-18)
+
+### 6.5.1 Objetivo
+
+Permitir que cada organización configure sus propias reglas de validación para fichajes, haciendo el sistema flexible y adaptable a diferentes políticas empresariales.
+
+### 6.5.2 Cambios en Base de Datos
+
+#### Modelo `Organization` - Nuevos campos de configuración
+
+```prisma
+model Organization {
+  // ... campos existentes ...
+
+  // ========================================
+  // Configuración de Validaciones de Fichajes
+  // ========================================
+  clockInToleranceMinutes       Int     @default(15)  // Tolerancia para entrada (retraso aceptable)
+  clockOutToleranceMinutes      Int     @default(15)  // Tolerancia para salida (adelanto aceptable)
+  earlyClockInToleranceMinutes  Int     @default(30)  // Tolerancia entrada muy anticipada
+  lateClockOutToleranceMinutes  Int     @default(30)  // Tolerancia salida muy tardía
+  nonWorkdayClockInAllowed      Boolean @default(false) // Permitir fichar en días no laborables
+  nonWorkdayClockInWarning      Boolean @default(true)  // Mostrar warning en día no laboral
+}
+```
+
+**Ejemplos de uso:**
+
+- `clockInToleranceMinutes = 15`: Fichar hasta 15 minutos tarde NO genera warning
+- `clockInToleranceMinutes = 5`: Fichar más de 5 minutos tarde SÍ genera warning
+- `nonWorkdayClockInAllowed = false`: Impide fichar en días no laborables (error)
+- `nonWorkdayClockInWarning = true`: Permite fichar pero muestra warning
+
+#### Modelo `TimeEntry` - Campos de validación
+
+```prisma
+model TimeEntry {
+  // ... campos existentes ...
+
+  // ========================================
+  // Validación contra horario (Schedule V2.0)
+  // ========================================
+  validationWarnings String[] @default([]) // Warnings de validación (tardío, muy anticipado, etc.)
+  validationErrors   String[] @default([]) // Errores de validación (día no laboral, fuera de horario crítico)
+  deviationMinutes   Int?     // Desviación en minutos respecto al horario esperado (+/- valor)
+}
+```
+
+**Ejemplos de warnings:**
+
+- `["Fichaje tardío: 20 minutos de retraso"]`
+- `["Fichaje muy anticipado: 45 minutos antes de lo esperado"]`
+- `["Fichaje en día no laboral"]`
+
+**Ejemplos de errors:**
+
+- `["No está permitido fichar en días no laborables"]`
+
+### 6.5.3 Server Actions Creados
+
+**Archivo:** `/src/server/actions/time-clock-validations.ts`
+
+```typescript
+/**
+ * Obtiene la configuración de validaciones de la organización del usuario autenticado
+ */
+export async function getOrganizationValidationConfig(): Promise<ValidationConfig>
+
+/**
+ * Actualiza la configuración de validaciones de la organización
+ * Valida que los valores sean números positivos
+ */
+export async function updateOrganizationValidationConfig(
+  config: ValidationConfig
+): Promise<{ success: boolean }>
+```
+
+**Interface:**
+
+```typescript
+interface ValidationConfig {
+  clockInToleranceMinutes: number;
+  clockOutToleranceMinutes: number;
+  earlyClockInToleranceMinutes: number;
+  lateClockOutToleranceMinutes: number;
+  nonWorkdayClockInAllowed: boolean;
+  nonWorkdayClockInWarning: boolean;
+}
+```
+
+### 6.5.4 UI de Configuración
+
+**Ubicación:** `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx`
+
+**Características:**
+
+- 4 inputs numéricos para tolerancias en minutos
+- 2 switches para configurar días no laborables
+- Botón "Guardar configuración"
+- Toast notifications para feedback del usuario
+- Loading states durante guardado
+- Valores por defecto: 15 min para tolerancias básicas, 30 min para tolerancias extendidas
+
+**Añadido a página de settings:**
+
+```tsx
+// En /src/app/(main)/dashboard/settings/page.tsx
+const tabs = [
+  { value: "organization", label: "Organización" },
+  { value: "chat", label: "Chat" },
+  { value: "shifts", label: "Turnos" },
+  { value: "geolocation", label: "Geolocalización" },
+  { value: "validations", label: "Fichajes" }, // ← NUEVO
+  { value: "expenses", label: "Gastos" },
+  { value: "system", label: "Sistema" },
+];
+```
+
+### 6.5.5 Integración con Motor de Validación
+
+**Modificaciones en `/src/lib/schedule-engine.ts`:**
+
+La función `validateTimeEntry()` ahora:
+
+1. **Obtiene configuración de la organización:**
+
+```typescript
+const employee = await prisma.employee.findUnique({
+  where: { id: employeeId },
+  select: {
+    orgId: true,
+    organization: {
+      select: {
+        clockInToleranceMinutes: true,
+        clockOutToleranceMinutes: true,
+        earlyClockInToleranceMinutes: true,
+        lateClockOutToleranceMinutes: true,
+        nonWorkdayClockInAllowed: true,
+        nonWorkdayClockInWarning: true,
+      },
+    },
+  },
+});
+
+const orgConfig = employee.organization;
+```
+
+2. **Valida días no laborables según configuración:**
+
+```typescript
+if (!schedule.isWorkingDay) {
+  if (!orgConfig.nonWorkdayClockInAllowed) {
+    return {
+      isValid: false,
+      warnings: [],
+      errors: ["No está permitido fichar en días no laborables"],
+    };
+  }
+  if (orgConfig.nonWorkdayClockInWarning) {
+    return {
+      isValid: true,
+      warnings: ["Fichaje en día no laboral"],
+      errors: [],
+    };
+  }
+}
+```
+
+3. **Aplica tolerancias configurables para CLOCK_IN:**
+
+```typescript
+if (entryType === "CLOCK_IN") {
+  if (deviationMinutes > orgConfig.clockInToleranceMinutes) {
+    warnings.push(`Fichaje tardío: ${deviationMinutes} minutos de retraso`);
+  } else if (deviationMinutes < -orgConfig.earlyClockInToleranceMinutes) {
+    warnings.push(
+      `Fichaje muy anticipado: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`
+    );
+  }
+}
+```
+
+4. **Aplica tolerancias configurables para CLOCK_OUT:**
+
+```typescript
+if (entryType === "CLOCK_OUT") {
+  if (deviationMinutes < -orgConfig.clockOutToleranceMinutes) {
+    warnings.push(
+      `Salida anticipada: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`
+    );
+  } else if (deviationMinutes > orgConfig.lateClockOutToleranceMinutes) {
+    warnings.push(
+      `Salida muy tardía: ${deviationMinutes} minutos después de lo esperado`
+    );
+  }
+}
+```
+
+### 6.5.6 Integración en Flujo de Fichaje
+
+**Modificaciones en `/src/server/actions/time-tracking.ts`:**
+
+**En `clockIn()` (líneas 327-344):**
+
+```typescript
+const now = new Date();
+
+// Validar fichaje según horario y configuraciones de la organización
+const validation = await validateTimeEntry(employeeId, now, "CLOCK_IN");
+
+// Crear el fichaje
+const entry = await prisma.timeEntry.create({
+  data: {
+    orgId,
+    employeeId,
+    entryType: "CLOCK_IN",
+    timestamp: now,
+    validationWarnings: validation.warnings ?? [],
+    validationErrors: validation.errors ?? [],
+    deviationMinutes: validation.deviationMinutes ?? null,
+    ...geoData,
+  },
+});
+```
+
+**En `clockOut()` (líneas 432-447):**
+
+```typescript
+const validation = await validateTimeEntry(employeeId, now, "CLOCK_OUT");
+
+const entry = await prisma.timeEntry.create({
+  data: {
+    orgId,
+    employeeId,
+    entryType: "CLOCK_OUT",
+    timestamp: now,
+    validationWarnings: validation.warnings ?? [],
+    validationErrors: validation.errors ?? [],
+    deviationMinutes: validation.deviationMinutes ?? null,
+    ...geoData,
+  },
+});
+```
+
+### 6.5.7 Visualización de Validaciones en UI
+
+**Modificaciones en `/src/server/actions/employee-schedule.ts`:**
+
+La función `getTodaySummary()` ahora retorna warnings y errors consolidados:
+
+```typescript
+// Obtener todos los fichajes del día para agregar warnings/errors
+const timeEntries = await prisma.timeEntry.findMany({
+  where: {
+    employeeId: employee.id,
+    timestamp: { gte: today, lte: todayEnd },
+  },
+  select: {
+    validationWarnings: true,
+    validationErrors: true,
+  },
+});
+
+// Consolidar todos los warnings y errors únicos
+const allWarnings = new Set<string>();
+const allErrors = new Set<string>();
+
+for (const entry of timeEntries) {
+  entry.validationWarnings.forEach((w) => allWarnings.add(w));
+  entry.validationErrors.forEach((e) => allErrors.add(e));
+}
+
+return {
+  success: true,
+  summary: {
+    // ... otros campos
+    validationWarnings: Array.from(allWarnings),
+    validationErrors: Array.from(allErrors),
+  },
+};
+```
+
+**Modificaciones en `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx`:**
+
+Añadida sección de validaciones al final del componente:
+
+```tsx
+{/* Validaciones */}
+{(summary.validationWarnings.length > 0 || summary.validationErrors.length > 0) && (
+  <>
+    <Separator />
+    <div className="space-y-2">
+      {/* Errores en rojo */}
+      {summary.validationErrors.map((error, index) => (
+        <div
+          key={`error-${index}`}
+          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 p-2.5 dark:border-red-900 dark:bg-red-950/30"
+        >
+          <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+          <span className="text-xs text-red-700 dark:text-red-300">{error}</span>
+        </div>
+      ))}
+
+      {/* Warnings en amarillo/ámbar */}
+      {summary.validationWarnings.map((warning, index) => (
+        <div
+          key={`warning-${index}`}
+          className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900 dark:bg-amber-950/30"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="text-xs text-amber-700 dark:text-amber-300">{warning}</span>
+        </div>
+      ))}
+    </div>
+  </>
+)}
+```
+
+### 6.5.8 Ejemplo Visual
+
+**Card "Resumen del Día" con validaciones:**
+
+```
+┌─────────────────────────────────────────────────┐
+│ 🕐 Resumen del Día                              │
+├─────────────────────────────────────────────────┤
+│ Estado:                        ✅ Completado    │
+│ ─────────────────────────────────────────────── │
+│ Horas esperadas:                8h 0min         │
+│ Horas trabajadas:               8h 20min        │
+│ ─────────────────────────────────────────────── │
+│ Desviación:                     +20min 🟢      │
+│ ─────────────────────────────────────────────── │
+│ ⚠️ Fichaje tardío: 20 minutos de retraso       │
+└─────────────────────────────────────────────────┘
+```
+
+### 6.5.9 Casos de Uso
+
+**Caso 1: Empresa flexible (tolerancia 30 minutos)**
+
+```
+Configuración:
+- clockInToleranceMinutes: 30
+- clockOutToleranceMinutes: 30
+
+Resultado:
+- Empleado entra 09:25 (esperado 09:00) → ✅ Sin warning (dentro de tolerancia)
+- Empleado entra 09:35 (esperado 09:00) → ⚠️ Warning: "Fichaje tardío: 35 minutos"
+```
+
+**Caso 2: Empresa estricta (tolerancia 5 minutos)**
+
+```
+Configuración:
+- clockInToleranceMinutes: 5
+- clockOutToleranceMinutes: 5
+
+Resultado:
+- Empleado entra 09:04 (esperado 09:00) → ✅ Sin warning
+- Empleado entra 09:06 (esperado 09:00) → ⚠️ Warning: "Fichaje tardío: 6 minutos"
+```
+
+**Caso 3: Impedir fichajes en días no laborables**
+
+```
+Configuración:
+- nonWorkdayClockInAllowed: false
+
+Resultado:
+- Empleado intenta fichar un domingo → ❌ Error: "No está permitido fichar en días no laborables"
+- El fichaje NO se crea
+```
+
+**Caso 4: Permitir pero avisar en días no laborables**
+
+```
+Configuración:
+- nonWorkdayClockInAllowed: true
+- nonWorkdayClockInWarning: true
+
+Resultado:
+- Empleado ficha un domingo → ✅ Fichaje creado + ⚠️ Warning: "Fichaje en día no laboral"
+```
+
+### 6.5.10 Archivos Clave Implementados
+
+**Server Actions:**
+
+- `/src/server/actions/time-clock-validations.ts` - Gestión de configuración
+
+**Componentes UI:**
+
+- `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx` - UI de configuración
+- `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Visualización de badges
+
+**Integraciones:**
+
+- `/src/lib/schedule-engine.ts` - `validateTimeEntry()` usa configuraciones
+- `/src/server/actions/time-tracking.ts` - `clockIn()`/`clockOut()` guardan validaciones
+- `/src/server/actions/employee-schedule.ts` - `getTodaySummary()` consolida warnings/errors
+
+### 6.5.11 Migración de Base de Datos
+
+**Ejecutada:**
+
+```bash
+npx prisma db push
+```
+
+**Estado:** Schema sincronizado con base de datos
+
+**NOTA:** Se encontró un problema de caché de Prisma Client en Next.js, resuelto limpiando `.next`:
+
+```bash
+pkill -f "next|node.*3000" && rm -rf .next && npm run dev
+```
+
+---
+
 ## 📋 FASE 7: Métricas y Avisos
 
 ### 7.1 Sistema de Métricas (`schedule-metrics.ts`)
@@ -1683,13 +2113,19 @@ export async function seedSchedulesV2(orgId: string) {
    - Mostrar horario esperado del día
    - Actualizar cálculo de `WorkdaySummary`
 
-### Sprint 4: Métricas y Exportación
+### Sprint 4: Validaciones y Métricas
 
-7. ✅ **FASE 7**: Métricas y avisos
+7. ✅ **FASE 7**: Validaciones de fichajes (COMPLETADO 2025-11-18)
+   - Configuración por organización en `/dashboard/settings`
+   - Parámetros configurables (tolerancias, días no laborables)
+   - Integración con motor de validación
+   - Visualización de warnings/errors en UI
+
+8. ⚠️ **FASE 8**: Métricas y avisos (PENDIENTE)
    - `schedule-metrics.ts`
    - Dashboard de alertas `/dashboard/schedule-alerts`
 
-8. ✅ **FASE 8**: Import/Export
+9. ⚠️ **FASE 9**: Import/Export (PENDIENTE)
    - Importación CSV/Excel
    - Exportación legal (PDF/Excel)
 
@@ -1844,29 +2280,106 @@ Componentes:
 - Funciona con CUALQUIER patrón de rotación
 - Ejemplos: Policía 6x6, Bomberos 24x72, o cualquier combinación
 
-### Sprint 4: Integración con Fichajes - PENDIENTE ❌
+### Sprint 4: Integración con Fichajes y Validaciones - COMPLETADO ✅
 
-**Fase 1: Integración con Wizard de Empleados**
-1. ❌ Crear componente `ScheduleTemplateSelector` para wizard de empleados
-2. ❌ Actualizar `/src/app/(main)/dashboard/employees/new/page.tsx`
-3. ❌ Asignación automática al crear empleado
+**Fase 1: Integración con Página de Fichajes** - ✅ COMPLETADO
+1. ✅ Integrar motor V2.0 en `/dashboard/me/clock` con componentes:
+   - `TodaySchedule` - Muestra horario esperado del día con franjas horarias
+   - `TodaySummary` - Muestra resumen del día con desviaciones (+/- horas)
+2. ✅ Actualizar `time-tracking.ts` para calcular desviaciones automáticamente
+3. ✅ Usar `getEffectiveSchedule()` para obtener `expectedMinutes`
+4. ✅ Añadir campos a `WorkdaySummary`: `expectedMinutes`, `deviationMinutes`
 
-**Fase 2: Aplicación del Horario en Fichajes (CRÍTICO - SIGUIENTE)**
-4. ❌ Implementar validación de horario en fichajes
-5. ❌ Comparar entrada/salida con horario esperado
-6. ❌ Marcar desviaciones (tarde, temprano, horas extra)
-7. ❌ Calcular horas trabajadas vs. horas esperadas
-8. ❌ Crear componente de visualización de horario personal (`/dashboard/me/schedule`)
-9. ❌ Integrar horarios con cálculo de nómina
+**Fase 2: Integración con Calendario Mensual** - ✅ COMPLETADO (2025-11-18)
+5. ✅ Migrar `/dashboard/me/clock/requests` (calendario mensual) a Schedule V2.0
+6. ✅ Actualizar `time-calendar.ts`:
+   - Eliminar lógica antigua basada en `EmploymentContract`
+   - Reemplazar `getExpectedHoursForDay()` para usar `getEffectiveSchedule()`
+   - Calcular expected hours usando motor V2.0 en lugar de campos de contrato
+7. ✅ Unificar cálculo de horas esperadas en toda la aplicación
+8. ✅ Un solo motor de verdad: Schedule V2.0 en fichajes diarios + calendario mensual
+
+**Fase 3: Sistema de Validaciones Configurables** - ✅ COMPLETADO (2025-11-18)
+9. ✅ Añadir campos de configuración a `Organization`:
+   - `clockInToleranceMinutes`, `clockOutToleranceMinutes`
+   - `earlyClockInToleranceMinutes`, `lateClockOutToleranceMinutes`
+   - `nonWorkdayClockInAllowed`, `nonWorkdayClockInWarning`
+10. ✅ Añadir campos de validación a `TimeEntry`:
+    - `validationWarnings`, `validationErrors`, `deviationMinutes`
+11. ✅ Crear server actions (`time-clock-validations.ts`):
+    - `getOrganizationValidationConfig()`
+    - `updateOrganizationValidationConfig()`
+12. ✅ Crear UI de configuración:
+    - Tab "Fichajes" en `/dashboard/settings`
+    - 4 inputs numéricos + 2 switches
+    - Toast notifications y loading states
+13. ✅ Integrar validaciones en motor:
+    - Modificar `validateTimeEntry()` en `schedule-engine.ts`
+    - Usar configuraciones de organización en lugar de valores hardcodeados
+    - Validar días no laborables según configuración
+14. ✅ Integrar en flujo de fichaje:
+    - Modificar `clockIn()`/`clockOut()` en `time-tracking.ts`
+    - Guardar `validationWarnings`, `validationErrors`, `deviationMinutes`
+15. ✅ Visualizar en UI:
+    - Modificar `getTodaySummary()` para consolidar warnings/errors
+    - Mostrar badges en `TodaySummary` (rojo=errores, amarillo=warnings)
+
+**🐛 FIX CRÍTICO: Historial de Horarios** - ✅ RESUELTO (2025-11-18)
+
+**Problema detectado:**
+- Al asignar un nuevo horario a un empleado, el sistema marcaba las asignaciones anteriores como `isActive: false`
+- Esto hacía que las consultas históricas NO encontraran el horario antiguo → resultaba en 0 horas esperadas para días pasados
+- Ejemplo: Si cambias de Horario A (8h) a Horario B (6h) el 16-Nov, los días 1-15 Nov mostraban 0h esperadas
+
+**Solución implementada** (`schedules-v2.ts:840-866`):
+```typescript
+// En lugar de desactivar (isActive: false)
+const dayBeforeNew = new Date(data.validFrom);
+dayBeforeNew.setDate(dayBeforeNew.getDate() - 1);
+dayBeforeNew.setHours(23, 59, 59, 999);
+
+await prisma.employeeScheduleAssignment.updateMany({
+  where: { /* asignaciones que se solapan */ },
+  data: {
+    validTo: dayBeforeNew, // Cierra la fecha del horario anterior
+    // isActive: true (se mantiene) → conserva historial
+  },
+});
+```
+
+**Cómo funciona ahora:**
+1. Usuario asigna Horario A sin fecha fin (`validTo: null`)
+2. Más tarde asigna Horario B desde 16-Nov
+3. Sistema automáticamente:
+   - Cierra Horario A poniendo `validTo: 15-Nov 23:59:59`
+   - Mantiene ambos con `isActive: true` para consultas históricas
+   - `getEffectiveSchedule()` encuentra el horario correcto según fecha consultada
+
+**Testing:**
+- ✅ Script de prueba creado: `/scripts/test-schedule-history.ts`
+- ✅ Test con datos reales: Horario A (1-15 Nov) + Horario B (16-Nov+)
+- ✅ Verificado que días 1-15 muestran 8h, días 16+ muestran 6h
+- ✅ Calendario mensual muestra horas correctas para cada período
+
+**Fase 3: Wizard de Empleados y Otras Integraciones** - PENDIENTE ❌
+9. ❌ Crear componente `ScheduleTemplateSelector` para wizard de empleados
+10. ❌ Actualizar `/src/app/(main)/dashboard/employees/new/page.tsx`
+11. ❌ Asignación automática al crear empleado
+12. ❌ Integrar horarios con cálculo de nómina
 
 ### Próximos Pasos Inmediatos
 
-**🔴 ALTA PRIORIDAD:**
-1. ✅ ~~Implementar motor de cálculo `schedule-engine.ts` con `getEffectiveSchedule()`~~ - **COMPLETADO**
-2. Actualizar `/dashboard/me/clock` para mostrar horario esperado del día
-3. Validar fichajes contra horario asignado (integrar `validateTimeEntry()`)
-4. Actualizar modelo `WorkdaySummary` para añadir campos `expectedMinutes` y `deviationMinutes`
-5. Calcular desviaciones automáticamente en fichajes
+**✅ COMPLETADOS:**
+1. ✅ Implementar motor de cálculo `schedule-engine.ts` con `getEffectiveSchedule()`
+2. ✅ Actualizar `/dashboard/me/clock` para mostrar horario esperado del día (`TodaySchedule`)
+3. ✅ Actualizar modelo `WorkdaySummary` con campos `expectedMinutes` y `deviationMinutes`
+4. ✅ Calcular desviaciones automáticamente en fichajes (`TodaySummary`)
+5. ✅ Migrar calendario mensual (`/dashboard/me/clock/requests`) a Schedule V2.0
+
+**🔴 ALTA PRIORIDAD - SIGUIENTE:**
+1. Validar fichajes contra horario asignado (integrar `validateTimeEntry()`)
+2. Mostrar alertas cuando el fichaje está fuera de horario
+3. Marcar desviaciones importantes (tarde >15min, temprano >15min)
 
 **🟡 MEDIA PRIORIDAD:**
 6. Vista de horario personal para empleados (`/dashboard/me/schedule`)
@@ -1892,6 +2405,18 @@ Componentes:
 - `/src/lib/schedule-helpers.ts` - Utilidades de cálculo
 - `/src/types/schedule.ts` - Definiciones de tipos
 
+**Testing:**
+- `/scripts/test-schedule-history.ts` - Test de historial de horarios (verificación de asignaciones múltiples)
+
+**Integraciones (Sprint 4):**
+- `/src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` - Horario esperado del día
+- `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Resumen con desviaciones + badges de validación
+- `/src/server/actions/employee-schedule.ts` - `getTodaySchedule()`, `getTodaySummary()`
+- `/src/server/actions/time-calendar.ts` - Migrado a Schedule V2.0 (2025-11-18)
+- `/src/server/actions/time-tracking.ts` - Cálculo automático de desviaciones + validaciones
+- `/src/server/actions/time-clock-validations.ts` - Configuración de validaciones (2025-11-18)
+- `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx` - UI configuración validaciones (2025-11-18)
+
 ### Decisiones Técnicas Importantes
 
 1. **Minutos en lugar de HH:mm**: Facilita cálculos (0-1440)
@@ -1916,6 +2441,22 @@ Componentes:
 
 ---
 
-**Versión:** 1.1
-**Última actualización:** 2025-11-18
+**Versión:** 1.3
+**Última actualización:** 2025-11-18 (Sistema de validaciones configurables completado)
 **Autor:** Sistema de Planificación ERP TimeNow
+
+**Cambios en esta versión:**
+- ✅ Sistema de validaciones configurables por organización (FASE 6.5)
+- ✅ Añadidos 6 campos de configuración a `Organization`
+- ✅ Añadidos 3 campos de validación a `TimeEntry`
+- ✅ Creado tab "Fichajes" en `/dashboard/settings` para configuración
+- ✅ Integrado `validateTimeEntry()` con configuraciones de organización
+- ✅ Modificado `clockIn()`/`clockOut()` para guardar warnings/errors
+- ✅ Visualización de badges de validación en `TodaySummary`
+- ✅ Documentación completa del sistema de validaciones
+
+**Cambios versión anterior (1.2 - 2025-11-18):**
+- ✅ Integración completa con calendario mensual (`/dashboard/me/clock/requests`)
+- ✅ Migrado `time-calendar.ts` para usar Schedule V2.0 motor
+- ✅ Unificado cálculo de horas esperadas en toda la aplicación
+- ✅ Un solo sistema de horarios: Schedule V2.0 en fichajes diarios + calendario mensual

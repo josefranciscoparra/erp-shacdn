@@ -39,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatMinutes } from "@/lib/pto-helpers";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
@@ -121,8 +122,26 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
       },
       {
         accessorKey: "workingDays",
-        header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>,
+        header: "Duración",
+        cell: ({ row }) => {
+          const request = row.original;
+
+          // Si tiene durationMinutes, es una ausencia parcial → mostrar horas
+          if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
+            const hours = Math.floor(request.durationMinutes / 60);
+            const minutes = request.durationMinutes % 60;
+
+            return (
+              <span className="font-semibold">
+                {hours > 0 && `${hours}h`}
+                {minutes > 0 && ` ${minutes}m`}
+              </span>
+            );
+          }
+
+          // Ausencia de días completos → mostrar días
+          return <span className="font-semibold">{request.workingDays.toFixed(1)} días</span>;
+        },
       },
       {
         accessorKey: "status",

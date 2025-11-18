@@ -2,7 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule, getWeekSchedule } from "@/lib/schedule-engine";
 import type { EffectiveSchedule } from "@/types/schedule";
 
 /**
@@ -67,6 +67,8 @@ export async function getTodaySummary(): Promise<{
     deviationMinutes: number | null;
     status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE";
     hasFinished: boolean;
+    validationWarnings: string[];
+    validationErrors: string[];
   };
   error?: string;
 }> {
@@ -115,6 +117,33 @@ export async function getTodaySummary(): Promise<{
       },
     });
 
+    // Obtener todos los fichajes del día para agregar warnings/errors
+    const todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const timeEntries = await prisma.timeEntry.findMany({
+      where: {
+        employeeId: employee.id,
+        timestamp: {
+          gte: today,
+          lte: todayEnd,
+        },
+      },
+      select: {
+        validationWarnings: true,
+        validationErrors: true,
+      },
+    });
+
+    // Consolidar todos los warnings y errors únicos
+    const allWarnings = new Set<string>();
+    const allErrors = new Set<string>();
+
+    for (const entry of timeEntries) {
+      entry.validationWarnings.forEach((w) => allWarnings.add(w));
+      entry.validationErrors.forEach((e) => allErrors.add(e));
+    }
+
     if (!workdaySummary) {
       // No hay resumen todavía (no ha fichado)
       return {
@@ -125,6 +154,8 @@ export async function getTodaySummary(): Promise<{
           deviationMinutes: null,
           status: "IN_PROGRESS",
           hasFinished: false,
+          validationWarnings: Array.from(allWarnings),
+          validationErrors: Array.from(allErrors),
         },
       };
     }
@@ -137,10 +168,60 @@ export async function getTodaySummary(): Promise<{
         deviationMinutes: workdaySummary.deviationMinutes ? Number(workdaySummary.deviationMinutes) : null,
         status: workdaySummary.status,
         hasFinished: workdaySummary.clockOut !== null,
+        validationWarnings: Array.from(allWarnings),
+        validationErrors: Array.from(allErrors),
       },
     };
   } catch (error) {
     console.error("Error al obtener resumen del día:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
+}
+
+/**
+ * Obtiene el horario semanal del empleado autenticado
+ */
+export async function getMyWeekSchedule(weekStart: Date): Promise<{
+  success: boolean;
+  days?: EffectiveSchedule[];
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    // Obtener el empleado asociado al usuario
+    const employee = await prisma.employee.findFirst({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!employee) {
+      return {
+        success: false,
+        error: "No se encontró perfil de empleado",
+      };
+    }
+
+    // Obtener horario de la semana
+    const weekSchedule = await getWeekSchedule(employee.id, weekStart);
+
+    return {
+      success: true,
+      days: weekSchedule.days,
+    };
+  } catch (error) {
+    console.error("Error al obtener horario semanal:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error desconocido",

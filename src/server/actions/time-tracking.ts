@@ -4,7 +4,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
 
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
@@ -324,13 +324,21 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
     // Procesar datos de geolocalización
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
+    const now = new Date();
+
+    // Validar fichaje según horario y configuraciones de la organización
+    const validation = await validateTimeEntry(employeeId, now, "CLOCK_IN");
+
     // Crear el fichaje
     const entry = await prisma.timeEntry.create({
       data: {
         orgId,
         employeeId,
         entryType: "CLOCK_IN",
-        timestamp: new Date(),
+        timestamp: now,
+        validationWarnings: validation.warnings ?? [],
+        validationErrors: validation.errors ?? [],
+        deviationMinutes: validation.deviationMinutes ?? null,
         ...geoData,
       },
     });
@@ -421,6 +429,9 @@ export async function clockOut(
       return { success: true, entry: serializeTimeEntry(entry), cancelled: true };
     }
 
+    // Validar fichaje según horario y configuraciones de la organización
+    const validation = await validateTimeEntry(employeeId, now, "CLOCK_OUT");
+
     // Fichaje normal (sin cancelación)
     const entry = await prisma.timeEntry.create({
       data: {
@@ -428,6 +439,9 @@ export async function clockOut(
         employeeId,
         entryType: "CLOCK_OUT",
         timestamp: now,
+        validationWarnings: validation.warnings ?? [],
+        validationErrors: validation.errors ?? [],
+        deviationMinutes: validation.deviationMinutes ?? null,
         ...geoData,
       },
     });

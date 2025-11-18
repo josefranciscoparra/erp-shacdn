@@ -15,10 +15,17 @@ import {
 export interface PtoBalance {
   id: string;
   year: number;
+  // ❌ DEPRECADO - Mantener temporalmente para compatibilidad
   annualAllowance: number;
   daysUsed: number;
   daysPending: number;
   daysAvailable: number;
+  // ✅ NUEVOS CAMPOS (en minutos) - USAR ESTOS
+  annualAllowanceMinutes?: number;
+  minutesUsed?: number;
+  minutesPending?: number;
+  minutesAvailable?: number;
+  workdayMinutesSnapshot?: number;
   hasActiveContract?: boolean;
   hasProvisionalContract?: boolean;
 }
@@ -44,6 +51,10 @@ export interface PtoRequest {
     name: string;
     email: string;
   } | null;
+  // 🆕 Campos para ausencias parciales
+  startTime?: number | null;
+  endTime?: number | null;
+  durationMinutes?: number | null;
 }
 
 interface PtoState {
@@ -75,6 +86,10 @@ interface PtoState {
     endDate: Date;
     reason?: string;
     attachmentUrl?: string;
+    // 🆕 Campos para ausencias parciales
+    startTime?: number;
+    endTime?: number;
+    durationMinutes?: number;
   }) => Promise<{ success: boolean; workingDays?: number; holidays?: Array<{ date: Date; name: string }> }>;
   cancelRequest: (requestId: string, reason?: string) => Promise<void>;
   calculateWorkingDays: (

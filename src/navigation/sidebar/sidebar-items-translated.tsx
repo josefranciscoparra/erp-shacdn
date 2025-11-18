@@ -19,6 +19,7 @@ import {
   CalendarClock,
   Banknote,
   BarChart3,
+  CalendarCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -77,6 +78,11 @@ export function useSidebarItems(): NavGroup[] {
           title: "Fichar",
           url: "/dashboard/me/clock",
           icon: Clock,
+        },
+        {
+          title: "Mi Horario",
+          url: "/dashboard/me/schedule",
+          icon: CalendarCheck,
         },
         {
           title: "Mis Vacaciones",

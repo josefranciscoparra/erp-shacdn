@@ -51,6 +51,11 @@ export interface EffectiveSchedule {
   absence?: {
     type: string;
     reason?: string;
+    // 🆕 Campos para ausencias parciales
+    isPartial?: boolean;
+    startTime?: number; // Minutos desde medianoche
+    endTime?: number; // Minutos desde medianoche
+    durationMinutes?: number;
   };
 }
 
