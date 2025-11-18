@@ -1,13 +1,18 @@
 /**
- * Helpers para el Sistema de Balance de PTO en Minutos
+ * Helpers para el Sistema de Balance de PTO en Minutos (SERVIDOR)
  *
- * Este archivo contiene funciones auxiliares para trabajar con minutos
- * en el sistema de gestión de ausencias y balance de vacaciones.
+ * Este archivo contiene funciones auxiliares que usan Prisma y solo se
+ * pueden ejecutar en el servidor (server actions, API routes, etc).
+ *
+ * Para funciones que se pueden usar en el cliente, ver pto-helpers-client.ts
  */
 
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
+
+// Re-exportar funciones de cliente para compatibilidad con código existente del servidor
+export { formatMinutes, daysToMinutes, minutesToDays, applyCompensationFactor } from "./pto-helpers-client";
 
 /**
  * Obtiene los minutos de jornada laboral de un empleado
@@ -77,71 +82,34 @@ export async function getWorkdayMinutes(employeeId: string, orgId: string): Prom
 }
 
 /**
- * Formatea minutos a formato legible (días, horas, minutos)
- *
- * Ejemplos:
- * - 480 minutos → "1 día"
- * - 240 minutos → "4h"
- * - 540 minutos → "1 día 1h"
- * - 570 minutos → "1 día 1h 30m"
- * - 90 minutos → "1h 30m"
- * - 30 minutos → "30m"
- *
- * @param minutes - Cantidad de minutos
- * @param workdayMinutes - Minutos de una jornada laboral (por defecto 480 = 8h)
- * @returns String formateado
- */
-export function formatMinutes(minutes: number, workdayMinutes: number = 480): string {
-  if (minutes === 0) return "0m";
-
-  const days = Math.floor(minutes / workdayMinutes);
-  const remainingMinutes = minutes % workdayMinutes;
-  const hours = Math.floor(remainingMinutes / 60);
-  const mins = remainingMinutes % 60;
-
-  const parts: string[] = [];
-
-  if (days > 0) {
-    parts.push(days === 1 ? "1 día" : `${days} días`);
-  }
-
-  if (hours > 0) {
-    parts.push(`${hours}h`);
-  }
-
-  if (mins > 0) {
-    parts.push(`${mins}m`);
-  }
-
-  return parts.join(" ");
-}
-
-/**
- * Convierte días (Decimal) a minutos (Int)
+ * Convierte días (Decimal de Prisma) a minutos (Int)
+ * Versión del servidor que acepta Decimal de Prisma
  *
  * @param days - Cantidad de días (puede ser Decimal o number)
  * @param workdayMinutes - Minutos de una jornada laboral (por defecto 480 = 8h)
  * @returns Cantidad de minutos (Int)
  */
-export function daysToMinutes(days: Decimal | number, workdayMinutes: number = 480): number {
+export function daysToMinutesDecimal(days: Decimal | number, workdayMinutes: number = 480): number {
   const daysAsNumber = typeof days === "number" ? days : Number(days);
   return Math.round(daysAsNumber * workdayMinutes);
 }
 
 /**
- * Convierte minutos (Int) a días (Decimal)
+ * Convierte minutos (Int) a días (Decimal de Prisma)
+ * Versión del servidor que retorna Decimal de Prisma
  *
  * @param minutes - Cantidad de minutos
  * @param workdayMinutes - Minutos de una jornada laboral (por defecto 480 = 8h)
  * @returns Cantidad de días (Decimal)
  */
-export function minutesToDays(minutes: number, workdayMinutes: number = 480): Decimal {
+export function minutesToDaysDecimal(minutes: number, workdayMinutes: number = 480): Decimal {
   const days = minutes / workdayMinutes;
   return new Decimal(days);
 }
 
 /**
- * Calcula los minutos efectivos aplicando factor de compensación
+ * Calcula los minutos efectivos aplicando factor de compensación (Decimal de Prisma)
+ * Versión del servidor que acepta Decimal de Prisma
  *
  * Ejemplos:
  * - 480 min × 1.0 = 480 min (vacaciones normales)
@@ -152,7 +120,7 @@ export function minutesToDays(minutes: number, workdayMinutes: number = 480): De
  * @param compensationFactor - Factor de compensación (Decimal o number)
  * @returns Minutos efectivos (Int)
  */
-export function applyCompensationFactor(minutes: number, compensationFactor: Decimal | number): number {
+export function applyCompensationFactorDecimal(minutes: number, compensationFactor: Decimal | number): number {
   const factor = typeof compensationFactor === "number" ? compensationFactor : Number(compensationFactor);
   return Math.round(minutes * factor);
 }

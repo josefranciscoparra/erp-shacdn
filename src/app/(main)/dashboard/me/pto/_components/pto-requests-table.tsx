@@ -39,7 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMinutes } from "@/lib/pto-helpers";
+import { formatMinutes } from "@/lib/pto-helpers-client";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
