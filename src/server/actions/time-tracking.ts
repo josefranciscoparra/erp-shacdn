@@ -153,7 +153,7 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
 }
 
 // Helper para actualizar el resumen del día
-async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date, dailyHours: number = 8) {
+async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
@@ -203,15 +203,21 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
   if (lastExit) {
     // Si fichó salida, evaluar si completó las horas
-    // Usar expectedMinutes si está disponible, sino usar dailyHours como fallback
-    const expectedHours = expectedMinutes ? expectedMinutes / 60 : dailyHours;
-    const workedHours = worked / 60;
-    const compliance = (workedHours / expectedHours) * 100;
+    if (expectedMinutes) {
+      // Sistema V2.0: Usar expectedMinutes del horario asignado
+      const workedHours = worked / 60;
+      const expectedHours = expectedMinutes / 60;
+      const compliance = (workedHours / expectedHours) * 100;
 
-    if (compliance >= 95) {
-      status = "COMPLETED"; // Cumplió >= 95% de las horas esperadas
+      if (compliance >= 95) {
+        status = "COMPLETED"; // Cumplió >= 95% de las horas esperadas
+      } else {
+        status = "INCOMPLETE"; // Fichó salida pero no cumplió las horas
+      }
     } else {
-      status = "INCOMPLETE"; // Fichó salida pero no cumplió las horas
+      // Sin horario asignado: Marcar como COMPLETED por defecto
+      // (en el futuro se requerirá horario asignado obligatoriamente)
+      status = "COMPLETED";
     }
   }
 
@@ -330,7 +336,7 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
+    await updateWorkdaySummary(employeeId, orgId, new Date());
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -410,7 +416,7 @@ export async function clockOut(
       });
 
       // Actualizar resumen del día (sin contar horas canceladas)
-      await updateWorkdaySummary(employeeId, orgId, now, dailyHours);
+      await updateWorkdaySummary(employeeId, orgId, now);
 
       return { success: true, entry: serializeTimeEntry(entry), cancelled: true };
     }
@@ -427,7 +433,7 @@ export async function clockOut(
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, now, dailyHours);
+    await updateWorkdaySummary(employeeId, orgId, now);
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -462,7 +468,7 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
+    await updateWorkdaySummary(employeeId, orgId, new Date());
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -497,7 +503,7 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
     });
 
     // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date(), dailyHours);
+    await updateWorkdaySummary(employeeId, orgId, new Date());
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -1328,22 +1334,21 @@ export async function recalculateWorkdaySummary(date: Date) {
     // 5. Determinar estado
     let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
     if (lastExit) {
-      // Usar expectedMinutes si está disponible, sino fallback a horas por defecto
-      let dailyHours = 8;
       if (expectedMinutes) {
-        dailyHours = expectedMinutes / 60;
+        // Sistema V2.0: Usar expectedMinutes del horario asignado
+        const workedHours = worked / 60;
+        const expectedHours = expectedMinutes / 60;
+        const compliance = (workedHours / expectedHours) * 100;
+
+        if (compliance >= 95) {
+          status = "COMPLETED";
+        } else {
+          status = "INCOMPLETE";
+        }
       } else {
-        const expectedHours = await getExpectedHoursForToday();
-        dailyHours = expectedHours?.dailyHours ?? 8;
-      }
-
-      const workedHours = worked / 60;
-      const compliance = (workedHours / dailyHours) * 100;
-
-      if (compliance >= 95) {
+        // Sin horario asignado: Marcar como COMPLETED por defecto
+        console.log("   ⚠️ Sin horario asignado, marcando como COMPLETED por defecto");
         status = "COMPLETED";
-      } else {
-        status = "INCOMPLETE";
       }
     }
 
