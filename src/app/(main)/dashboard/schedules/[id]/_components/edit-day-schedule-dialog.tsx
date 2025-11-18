@@ -1,0 +1,308 @@
+"use client";
+
+import { useState, useEffect } from "react";
+
+import { useRouter } from "next/navigation";
+
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Clock, Plus, Trash2 } from "lucide-react";
+import { useForm, useFieldArray } from "react-hook-form";
+import { toast } from "sonner";
+import { z } from "zod";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { updateWorkDayPattern } from "@/server/actions/schedules-v2";
+
+function minutesToTimeString(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
+}
+
+function timeStringToMinutes(time: string): number {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+const timeSlotSchema = z
+  .object({
+    startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:MM"),
+    endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato HH:MM"),
+  })
+  .refine(
+    (data) => {
+      const start = timeStringToMinutes(data.startTime);
+      const end = timeStringToMinutes(data.endTime);
+      return end > start;
+    },
+    {
+      message: "La hora de fin debe ser posterior a la de inicio",
+      path: ["endTime"],
+    },
+  );
+
+const formSchema = z
+  .object({
+    isWorkingDay: z.boolean(),
+    timeSlots: z.array(timeSlotSchema).min(0),
+  })
+  .refine(
+    (data) => {
+      if (!data.isWorkingDay || data.timeSlots.length <= 1) return true;
+
+      // Validar que no haya solapamientos
+      const slots = data.timeSlots
+        .map((slot) => ({
+          start: timeStringToMinutes(slot.startTime),
+          end: timeStringToMinutes(slot.endTime),
+        }))
+        .sort((a, b) => a.start - b.start);
+
+      for (let i = 0; i < slots.length - 1; i++) {
+        if (slots[i].end > slots[i + 1].start) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: "Los tramos horarios no pueden solaparse",
+      path: ["timeSlots"],
+    },
+  );
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface EditDayScheduleDialogProps {
+  periodId: string;
+  dayOfWeek: number;
+  dayLabel: string;
+  existingPattern?: {
+    id: string;
+    isWorkingDay: boolean;
+    timeSlots: Array<{
+      id: string;
+      startMinutes: number;
+      endMinutes: number;
+    }>;
+  };
+}
+
+export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingPattern }: EditDayScheduleDialogProps) {
+  const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+
+  const defaultTimeSlots = existingPattern?.timeSlots.map((slot) => ({
+    startTime: minutesToTimeString(slot.startMinutes),
+    endTime: minutesToTimeString(slot.endMinutes),
+  })) ?? [
+    { startTime: "09:00", endTime: "14:00" },
+    { startTime: "15:00", endTime: "18:00" },
+  ];
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      isWorkingDay: existingPattern?.isWorkingDay ?? true,
+      timeSlots: defaultTimeSlots,
+    },
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "timeSlots",
+  });
+
+  const isWorkingDay = form.watch("isWorkingDay");
+
+  // Resetear el formulario cuando se abra el diálogo o cambien los datos
+  useEffect(() => {
+    if (open) {
+      const timeSlots = existingPattern?.timeSlots.map((slot) => ({
+        startTime: minutesToTimeString(slot.startMinutes),
+        endTime: minutesToTimeString(slot.endMinutes),
+      })) ?? [
+        { startTime: "09:00", endTime: "14:00" },
+        { startTime: "15:00", endTime: "18:00" },
+      ];
+
+      form.reset({
+        isWorkingDay: existingPattern?.isWorkingDay ?? true,
+        timeSlots,
+      });
+    }
+  }, [open, existingPattern, form]);
+
+  async function onSubmit(data: FormValues) {
+    setIsLoading(true);
+
+    try {
+      const timeSlots = data.isWorkingDay
+        ? data.timeSlots.map((slot) => ({
+            startTimeMinutes: timeStringToMinutes(slot.startTime),
+            endTimeMinutes: timeStringToMinutes(slot.endTime),
+            slotType: "WORK" as const,
+            presenceType: "MANDATORY" as const,
+          }))
+        : [];
+
+      const result = await updateWorkDayPattern(periodId, dayOfWeek, {
+        isWorkingDay: data.isWorkingDay,
+        timeSlots,
+      });
+
+      if (result.success) {
+        toast.success("Horario actualizado", {
+          description: `El horario de ${dayLabel} se ha guardado correctamente`,
+        });
+        setOpen(false);
+        router.refresh();
+      } else {
+        toast.error("Error al guardar horario", {
+          description: result.error ?? "Ha ocurrido un error desconocido",
+        });
+      }
+    } catch (error) {
+      console.error("Error updating day schedule:", error);
+      toast.error("Error al guardar horario", {
+        description: "Ha ocurrido un error al guardar el horario",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          {existingPattern ? "Editar" : "Configurar"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Configurar {dayLabel}</DialogTitle>
+          <DialogDescription>Define los tramos horarios para este día de la semana</DialogDescription>
+        </DialogHeader>
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="isWorkingDay"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <FormLabel className="text-base">Día laborable</FormLabel>
+                    <FormDescription>¿Se trabaja este día de la semana?</FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            {isWorkingDay && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-medium">Tramos horarios</h4>
+                    <p className="text-muted-foreground text-sm">Define los horarios de entrada y salida</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ startTime: "09:00", endTime: "14:00" })}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Añadir tramo
+                  </Button>
+                </div>
+
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex items-end gap-3 rounded-lg border p-3">
+                    <FormField
+                      control={form.control}
+                      name={`timeSlots.${index}.startTime`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Entrada</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Clock className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                              <Input type="time" className="pl-10" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name={`timeSlots.${index}.endTime`}
+                      render={({ field }) => (
+                        <FormItem className="flex-1">
+                          <FormLabel>Salida</FormLabel>
+                          <FormControl>
+                            <div className="relative">
+                              <Clock className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                              <Input type="time" className="pl-10" {...field} />
+                            </div>
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {fields.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} className="mb-2">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Eliminar tramo</span>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+
+                {fields.length === 0 && (
+                  <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+                    <Clock className="mx-auto mb-2 h-8 w-8 opacity-50" />
+                    <p>Añade al menos un tramo horario</p>
+                  </div>
+                )}
+
+                {form.formState.errors.timeSlots && (
+                  <p className="text-destructive text-sm">{form.formState.errors.timeSlots.message}</p>
+                )}
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isLoading}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Guardando..." : "Guardar Horario"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}

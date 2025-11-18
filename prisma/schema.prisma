@@ -85,6 +85,11 @@ model Organization {
   messages            Message[] // Mensajes de chat
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas
 
+  // NUEVAS relaciones para Sistema de Horarios V2.0
+  scheduleTemplates   ScheduleTemplate[]
+  rotationPatterns    ShiftRotationPattern[]
+  exceptionDays       ExceptionDayOverride[]
+
   @@map("organizations")
 }
 
@@ -345,6 +350,10 @@ model Employee {
   expenseApproverId  String?
   expenseApprover    User?   @relation("EmployeeExpenseApprover", fields: [expenseApproverId], references: [id], onDelete: SetNull)
 
+  // NUEVAS relaciones para Sistema de Horarios V2.0
+  scheduleAssignments EmployeeScheduleAssignment[]
+  exceptionDays       ExceptionDayOverride[]
+
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
   @@index([orgId])
@@ -363,111 +372,8 @@ model EmploymentContract {
   workingDaysPerWeek Decimal? @default(5) @db.Decimal(3,1) // Días laborables por semana (4, 5, 6, etc.)
   grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
 
-  // Jornada intensiva (ej: horario de verano)
-  // Las fechas se guardan como "MM-DD" para aplicar todos los años (ej: "06-15" = 15 de junio)
-  hasIntensiveSchedule    Boolean?  @default(false)
-  intensiveStartDate      String?   // Formato: "MM-DD" (ej: "06-15" para 15 de junio)
-  intensiveEndDate        String?   // Formato: "MM-DD" (ej: "09-15" para 15 de septiembre)
-  intensiveWeeklyHours    Decimal?  @db.Decimal(5,2)
-
-  // Patrón de horario semanal personalizado (ej: tiendas con horarios variables por día)
-  hasCustomWeeklyPattern  Boolean?  @default(false)
-  mondayHours             Decimal?  @db.Decimal(4,2)
-  tuesdayHours            Decimal?  @db.Decimal(4,2)
-  wednesdayHours          Decimal?  @db.Decimal(4,2)
-  thursdayHours           Decimal?  @db.Decimal(4,2)
-  fridayHours             Decimal?  @db.Decimal(4,2)
-  saturdayHours           Decimal?  @db.Decimal(4,2)
-  sundayHours             Decimal?  @db.Decimal(4,2)
-
-  // Patrón de horario semanal para jornada intensiva (ej: distribución en verano)
-  intensiveMondayHours    Decimal?  @db.Decimal(4,2)
-  intensiveTuesdayHours   Decimal?  @db.Decimal(4,2)
-  intensiveWednesdayHours Decimal?  @db.Decimal(4,2)
-  intensiveThursdayHours  Decimal?  @db.Decimal(4,2)
-  intensiveFridayHours    Decimal?  @db.Decimal(4,2)
-  intensiveSaturdayHours  Decimal?  @db.Decimal(4,2)
-  intensiveSundayHours    Decimal?  @db.Decimal(4,2)
-
-  // Tipo de horario (FLEXIBLE, FIXED, SHIFTS)
-  scheduleType ScheduleType @default(FLEXIBLE)
-
-  // Días laborables para horario FIXED (qué días trabaja)
-  workMonday    Boolean? @default(false)
-  workTuesday   Boolean? @default(false)
-  workWednesday Boolean? @default(false)
-  workThursday  Boolean? @default(false)
-  workFriday    Boolean? @default(false)
-  workSaturday  Boolean? @default(false)
-  workSunday    Boolean? @default(false)
-
-  // Franjas horarias para horario FIXED (opcional)
-  hasFixedTimeSlots  Boolean? @default(false)
-  mondayStartTime    String?   // Formato: "09:00"
-  mondayEndTime      String?   // Formato: "17:00"
-  tuesdayStartTime   String?
-  tuesdayEndTime     String?
-  wednesdayStartTime String?
-  wednesdayEndTime   String?
-  thursdayStartTime  String?
-  thursdayEndTime    String?
-  fridayStartTime    String?
-  fridayEndTime      String?
-  saturdayStartTime  String?
-  saturdayEndTime    String?
-  sundayStartTime    String?
-  sundayEndTime      String?
-
-  // Pausas/Breaks para horario FIXED (ej: pausa comida 14:00-15:00)
-  // Solo aplica cuando hasFixedTimeSlots = true
-  mondayBreakStartTime    String?   // Formato: "14:00"
-  mondayBreakEndTime      String?   // Formato: "15:00"
-  tuesdayBreakStartTime   String?
-  tuesdayBreakEndTime     String?
-  wednesdayBreakStartTime String?
-  wednesdayBreakEndTime   String?
-  thursdayBreakStartTime  String?
-  thursdayBreakEndTime    String?
-  fridayBreakStartTime    String?
-  fridayBreakEndTime      String?
-  saturdayBreakStartTime  String?
-  saturdayBreakEndTime    String?
-  sundayBreakStartTime    String?
-  sundayBreakEndTime      String?
-
-  // Franjas horarias para jornada intensiva en horario FIXED
-  // Solo aplica cuando hasIntensiveSchedule = true Y scheduleType = FIXED
-  intensiveMondayStartTime    String?   // Formato: "08:00"
-  intensiveMondayEndTime      String?   // Formato: "15:00"
-  intensiveTuesdayStartTime   String?
-  intensiveTuesdayEndTime     String?
-  intensiveWednesdayStartTime String?
-  intensiveWednesdayEndTime   String?
-  intensiveThursdayStartTime  String?
-  intensiveThursdayEndTime    String?
-  intensiveFridayStartTime    String?
-  intensiveFridayEndTime      String?
-  intensiveSaturdayStartTime  String?
-  intensiveSaturdayEndTime    String?
-  intensiveSundayStartTime    String?
-  intensiveSundayEndTime      String?
-
-  // Pausas durante jornada intensiva en horario FIXED
-  // Solo aplica cuando hasIntensiveSchedule = true Y scheduleType = FIXED Y hasFixedTimeSlots = true
-  intensiveMondayBreakStartTime    String?
-  intensiveMondayBreakEndTime      String?
-  intensiveTuesdayBreakStartTime   String?
-  intensiveTuesdayBreakEndTime     String?
-  intensiveWednesdayBreakStartTime String?
-  intensiveWednesdayBreakEndTime   String?
-  intensiveThursdayBreakStartTime  String?
-  intensiveThursdayBreakEndTime    String?
-  intensiveFridayBreakStartTime    String?
-  intensiveFridayBreakEndTime      String?
-  intensiveSaturdayBreakStartTime  String?
-  intensiveSaturdayBreakEndTime    String?
-  intensiveSundayBreakStartTime    String?
-  intensiveSundayBreakEndTime      String?
+  // NOTA: Los horarios ahora se gestionan en el nuevo Sistema de Horarios V2.0
+  // Ver modelos: ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, EmployeeScheduleAssignment
 
   // Metadatos
   active      Boolean   @default(true)
@@ -552,12 +458,8 @@ enum EmploymentStatus {
   RETIRED          // Jubilado
 }
 
-// Tipos de horario (sistema escalable para 3 modos)
-enum ScheduleType {
-  FLEXIBLE  // Horario flexible (40h/semana, cualquier día/hora)
-  FIXED     // Horario fijo (días y horas específicas, NO cambian)
-  SHIFTS    // Turnos rotativos (asignaciones variables - FUTURO/FASE 2)
-}
+// NOTA: ScheduleType enum eliminado - Ahora se usa Sistema de Horarios V2.0
+// Ver enums: ScheduleTemplateType, SchedulePeriodType, TimeSlotType, PresenceType
 
 // ==================== SISTEMA DE CONTRASEÑAS TEMPORALES ====================
 
@@ -760,6 +662,11 @@ model WorkdaySummary {
   status            WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
   notes             String?  // Notas administrativas
   excessiveTimeNotified Boolean @default(false) // Si se notificó fichaje excesivo (> 150% jornada)
+
+  // NUEVOS campos para Sistema de Horarios V2.0
+  expectedMinutes  Decimal? @db.Decimal(6,2) // Minutos esperados según horario asignado
+  deviationMinutes Decimal? @db.Decimal(6,2) // Desviación (real - esperado)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -1789,6 +1696,237 @@ model DismissedNotification {
   @@index([userId, type])
   @@index([orgId])
   @@map("dismissed_notifications")
+}
+
+// ==================== SISTEMA DE HORARIOS V2.0 - FLEXIBLE ====================
+
+// Plantilla de horario base (Ej: "Horario Oficina", "Turno Noche", "Patrón Policía")
+model ScheduleTemplate {
+  id              String   @id @default(cuid())
+  name            String   // "Horario oficina central", "Turno 24h bomberos"
+  description     String?
+  templateType    ScheduleTemplateType // FIXED, SHIFT, ROTATION, FLEXIBLE
+  isActive        Boolean  @default(true)
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  periods         SchedulePeriod[]
+  employeeAssignments EmployeeScheduleAssignment[]
+  rotationSteps   ShiftRotationStep[]
+  exceptionDays   ExceptionDayOverride[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("schedule_templates")
+}
+
+// Periodo de vigencia (REGULAR, INTENSIVE/verano, SPECIAL/Semana Santa)
+model SchedulePeriod {
+  id              String   @id @default(cuid())
+  scheduleTemplateId String
+  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id], onDelete: Cascade)
+
+  periodType      SchedulePeriodType
+  name            String?  // "Verano 2025", "Semana Santa", "Campaña Navidad"
+
+  // Fechas de vigencia (null = permanente/REGULAR)
+  validFrom       DateTime? // null = desde siempre
+  validTo         DateTime? // null = hasta siempre
+
+  // Patrón de días laborables
+  workDayPatterns WorkDayPattern[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([scheduleTemplateId])
+  @@map("schedule_periods")
+}
+
+// Patrón de día de semana (L-V 9-18h, Sábados 10-14h, etc.)
+model WorkDayPattern {
+  id              String   @id @default(cuid())
+  schedulePeriodId String
+  schedulePeriod  SchedulePeriod @relation(fields: [schedulePeriodId], references: [id], onDelete: Cascade)
+
+  dayOfWeek       Int      // 0=Domingo, 1=Lunes, ..., 6=Sábado (ISO 8601)
+  isWorkingDay    Boolean  @default(true)
+
+  // Tramos horarios de ese día
+  timeSlots       TimeSlot[]
+
+  @@index([schedulePeriodId])
+  @@map("work_day_patterns")
+}
+
+// Tramo horario (09:00-14:00 WORK MANDATORY, 14:00-15:00 BREAK, etc.)
+model TimeSlot {
+  id              String   @id @default(cuid())
+  workDayPatternId String
+  workDayPattern  WorkDayPattern @relation(fields: [workDayPatternId], references: [id], onDelete: Cascade)
+
+  startTimeMinutes Int     // 0-1440 (minutos desde medianoche)
+  endTimeMinutes   Int     // 0-1440
+
+  slotType        TimeSlotType
+  presenceType    PresenceType  // MANDATORY (presencia obligatoria) o FLEXIBLE
+
+  description     String?  // "Pausa comida", "Guardia localizada"
+
+  @@index([workDayPatternId])
+  @@map("time_slots")
+}
+
+// Patrón de rotación (para policía, bomberos, etc.)
+model ShiftRotationPattern {
+  id              String   @id @default(cuid())
+  name            String   // "Policía 6x6", "Bomberos 24x72"
+  description     String?
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Pasos de la rotación
+  steps           ShiftRotationStep[]
+  employeeAssignments EmployeeScheduleAssignment[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("shift_rotation_patterns")
+}
+
+// Paso de rotación (Ej: 6 días Turno Mañana → 6 días Descanso)
+model ShiftRotationStep {
+  id              String   @id @default(cuid())
+  rotationPatternId String
+  rotationPattern ShiftRotationPattern @relation(fields: [rotationPatternId], references: [id], onDelete: Cascade)
+
+  stepOrder       Int      // Orden en la rotación (1, 2, 3...)
+  durationDays    Int      // Duración en días
+
+  scheduleTemplateId String
+  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  @@index([rotationPatternId])
+  @@map("shift_rotation_steps")
+}
+
+// Asignación de horario a empleado
+model EmployeeScheduleAssignment {
+  id              String   @id @default(cuid())
+
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  assignmentType  ScheduleAssignmentType
+
+  // Para FIXED/SHIFT/FLEXIBLE
+  scheduleTemplateId String?
+  scheduleTemplate ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
+
+  // Para ROTATION
+  rotationPatternId String?
+  rotationPattern ShiftRotationPattern? @relation(fields: [rotationPatternId], references: [id])
+  rotationStartDate DateTime? // Fecha inicio de la rotación
+
+  // Vigencia de la asignación
+  validFrom       DateTime  @default(now())
+  validTo         DateTime? // null = indefinido
+
+  isActive        Boolean   @default(true)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@map("employee_schedule_assignments")
+}
+
+// Excepción de día (para días sueltos raros: "Viernes Santo 12:48h")
+model ExceptionDayOverride {
+  id              String   @id @default(cuid())
+
+  // Puede aplicar a un empleado específico o a toda la plantilla
+  employeeId      String?
+  employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  scheduleTemplateId String?
+  scheduleTemplate ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
+
+  date            DateTime  // Día específico
+  reason          String?   // "Viernes Santo", "Cierre excepcional"
+
+  // Slots específicos para ese día
+  overrideSlots   ExceptionTimeSlot[]
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([employeeId])
+  @@index([orgId])
+  @@index([date])
+  @@map("exception_day_overrides")
+}
+
+// Time slot para excepción
+model ExceptionTimeSlot {
+  id              String   @id @default(cuid())
+  exceptionDayId  String
+  exceptionDay    ExceptionDayOverride @relation(fields: [exceptionDayId], references: [id], onDelete: Cascade)
+
+  startTimeMinutes Int
+  endTimeMinutes   Int
+  slotType        TimeSlotType
+  presenceType    PresenceType
+
+  @@index([exceptionDayId])
+  @@map("exception_time_slots")
+}
+
+// ==================== ENUMS PARA HORARIOS V2.0 ====================
+
+enum ScheduleTemplateType {
+  FIXED      // Horario fijo (oficina, tienda)
+  SHIFT      // Turno (mañana, tarde, noche)
+  ROTATION   // Rotación (policía 6x6, bomberos 24x72)
+  FLEXIBLE   // Flexible (teletrabajo, autónomos)
+}
+
+enum SchedulePeriodType {
+  REGULAR     // Horario habitual todo el año
+  INTENSIVE   // Jornada intensiva (verano)
+  SPECIAL     // Especial (Navidad, Semana Santa, campañas)
+}
+
+enum TimeSlotType {
+  WORK       // Tiempo de trabajo
+  BREAK      // Pausa/descanso
+  ON_CALL    // Guardia localizada
+  OTHER      // Otro
+}
+
+enum PresenceType {
+  MANDATORY  // Presencia obligatoria (sector público: 9:00-14:30)
+  FLEXIBLE   // Flexible (sector público: 7:00-9:00 y 14:30-16:00)
+}
+
+enum ScheduleAssignmentType {
+  FIXED      // Horario fijo asignado
+  SHIFT      // Turno asignado
+  ROTATION   // Rotación asignada
+  FLEXIBLE   // Flexible (sin horario fijo)
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

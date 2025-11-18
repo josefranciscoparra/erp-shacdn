@@ -1,62 +1,22 @@
-"use client";
+import { Suspense } from "react";
 
-import { useEffect, useState } from "react";
-
-import { Clock, AlertCircle, ShieldAlert } from "lucide-react";
+import { Calendar, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { type Contract, useContractsStore } from "@/stores/contracts-store";
+import { getScheduleTemplates } from "@/server/actions/schedules-v2";
 
-import { getSchedulesColumns } from "./_components/schedules-columns";
-import { SchedulesDataTable } from "./_components/schedules-data-table";
+import { CreateTemplateDialog } from "./_components/create-template-dialog";
+import { ScheduleTemplatesList } from "./_components/schedules-templates-list";
 
-export default function SchedulesPage() {
-  const [currentTab, setCurrentTab] = useState("active");
-
-  const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
-
-  useEffect(() => {
-    // Cargar todos los contratos activos (que tienen horarios)
-    fetchAllContracts({ status: currentTab === "all" ? "all" : currentTab });
-
-    // Cleanup store on unmount
-    return () => {
-      reset();
-    };
-  }, []);
-
-  // Refetch contracts when tab changes
-  useEffect(() => {
-    const statusParam = currentTab === "all" ? "all" : currentTab;
-    fetchAllContracts({ status: statusParam });
-    setStatus(statusParam as any);
-  }, [currentTab]);
-
-  const activeContracts = contracts.filter((contract) => contract.active);
-  const allContractsWithSchedules = contracts; // Todos los contratos tienen horarios
-
-  const getFilteredContracts = () => {
-    switch (currentTab) {
-      case "active":
-        return activeContracts;
-      default:
-        return allContractsWithSchedules;
-    }
-  };
-
-  const columns = getSchedulesColumns();
-
+export default async function SchedulesPage() {
   return (
     <PermissionGuard
       permission="view_contracts"
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
-          <SectionHeader title="Horarios" subtitle="Gestión de horarios laborales" />
+          <SectionHeader title="Plantillas de Horarios" subtitle="Sistema de Horarios V2.0" />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
             title="Acceso denegado"
@@ -68,82 +28,44 @@ export default function SchedulesPage() {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         {/* Header */}
         <SectionHeader
-          title="Horarios"
-          subtitle="Gestión de horarios laborales de todos los empleados de la organización"
+          title="Plantillas de Horarios"
+          subtitle="Sistema flexible de horarios V2.0 - Soporta horarios fijos, turnos, rotaciones y franjas flexibles"
+          action={<CreateTemplateDialog />}
         />
 
-        {/* Tabs de horarios */}
-        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-          <div className="flex items-center justify-between">
-            {/* Mobile Select */}
-            <div className="@4xl/main:hidden">
-              <Select value={currentTab} onValueChange={setCurrentTab}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">
-                    Activos
-                    {activeContracts.length > 0 && (
-                      <Badge variant="secondary" className="ml-2 text-xs">
-                        {activeContracts.length}
-                      </Badge>
-                    )}
-                  </SelectItem>
-                  <SelectItem value="all">
-                    Todos
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {total}
-                    </Badge>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Desktop Tabs */}
-            <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="active" className="relative">
-                Horarios Activos
-                {activeContracts.length > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {activeContracts.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="all" className="relative">
-                Todos
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {total}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="active">
-            {activeContracts.length === 0 && !isLoading ? (
-              <EmptyState
-                icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
-                title="No hay horarios activos"
-                description="No hay contratos activos con horarios configurados en este momento"
-              />
-            ) : (
-              <SchedulesDataTable columns={columns} data={activeContracts} isLoading={isLoading} />
-            )}
-          </TabsContent>
-
-          <TabsContent value="all">
-            {allContractsWithSchedules.length === 0 && !isLoading ? (
-              <EmptyState
-                icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
-                title="No hay horarios registrados"
-                description="No hay horarios configurados en la organización"
-              />
-            ) : (
-              <SchedulesDataTable columns={columns} data={getFilteredContracts()} isLoading={isLoading} />
-            )}
-          </TabsContent>
-        </Tabs>
+        {/* Content */}
+        <Suspense fallback={<LoadingState />}>
+          <ScheduleTemplatesContent />
+        </Suspense>
       </div>
     </PermissionGuard>
+  );
+}
+
+async function ScheduleTemplatesContent() {
+  const templates = await getScheduleTemplates();
+
+  if (templates.length === 0) {
+    return (
+      <EmptyState
+        icon={<Calendar className="text-muted-foreground mx-auto h-12 w-12" />}
+        title="No hay plantillas de horarios"
+        description="Crea tu primera plantilla para empezar a gestionar los horarios de tu organización"
+        action={<CreateTemplateDialog />}
+      />
+    );
+  }
+
+  return <ScheduleTemplatesList templates={templates} />;
+}
+
+function LoadingState() {
+  return (
+    <div className="flex items-center justify-center py-12">
+      <div className="flex flex-col items-center gap-2">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+        <p className="text-muted-foreground text-sm">Cargando plantillas...</p>
+      </div>
+    </div>
   );
 }
