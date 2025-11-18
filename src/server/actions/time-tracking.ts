@@ -215,9 +215,9 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
         status = "INCOMPLETE"; // Fichó salida pero no cumplió las horas
       }
     } else {
-      // Sin horario asignado: Marcar como COMPLETED por defecto
-      // (en el futuro se requerirá horario asignado obligatoriamente)
-      status = "COMPLETED";
+      // Sin horario asignado: No se puede determinar si completó o no
+      // Dejar como IN_PROGRESS para indicar que falta configuración
+      status = "IN_PROGRESS";
     }
   }
 

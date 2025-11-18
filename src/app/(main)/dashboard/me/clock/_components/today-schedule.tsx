@@ -60,7 +60,7 @@ export function TodaySchedule() {
 
   if (error ?? !schedule) {
     return (
-      <Card className="@container/card">
+      <Card className="@container/card border-orange-200 bg-orange-50/30 dark:border-orange-900 dark:bg-orange-950/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Calendar className="h-4 w-4" />
@@ -68,7 +68,34 @@ export function TodaySchedule() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground text-sm">{error ?? "No se pudo cargar el horario"}</p>
+          <p className="text-sm text-orange-700 dark:text-orange-400">{error ?? "No se pudo cargar el horario"}</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Si no hay asignación de horario
+  if (schedule.source === "NO_ASSIGNMENT") {
+    return (
+      <Card className="@container/card border-orange-200 bg-orange-50/30 dark:border-orange-900 dark:bg-orange-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+            Configuración Requerida
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3">
+            <Badge
+              variant="outline"
+              className="w-fit border-orange-200 bg-orange-50/50 text-orange-700 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-400"
+            >
+              Sin horario asignado
+            </Badge>
+            <p className="text-sm text-orange-700 dark:text-orange-400">
+              No tienes un horario asignado. Contacta con tu administrador para que te asigne un horario de trabajo.
+            </p>
+          </div>
         </CardContent>
       </Card>
     );
