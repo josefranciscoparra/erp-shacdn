@@ -705,7 +705,8 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 **Sistema V2 (OFICIAL - USAR SIEMPRE):**
 - **Ubicación**: `/src/app/(main)/dashboard/schedules/`
 - **Server Actions**: `/src/server/actions/schedules-v2.ts`
-- **Estado**: Implementado parcialmente (Sprint 1-2 completados)
+- **Motor de cálculo**: `/src/lib/schedule-engine.ts` ✅ IMPLEMENTADO
+- **Estado**: Sprint 1-3 completados (motor + integración con fichajes)
 
 **Arquitectura:**
 - `ScheduleTemplate` → Plantilla reutilizable
@@ -719,12 +720,50 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 - Problema: Acoplado, no reutilizable
 - Acción: Migrar a V2
 
-### Próxima Fase Crítica
+### Integración con Fichajes ✅ COMPLETADO
 
-**🔴 ALTA PRIORIDAD:** Implementar motor de cálculo `schedule-engine.ts`
-- Motor de cálculo: `getEffectiveSchedule()` para validar fichajes
-- Integración con `/dashboard/me/clock` para mostrar horario esperado
-- Calcular desviaciones automáticamente en `WorkdaySummary`
+**Motor de cálculo `schedule-engine.ts`:**
+- ✅ `getEffectiveSchedule()` - Calcula horario efectivo para una fecha
+- ✅ Prioridad: Absence > Exception > Period > Template
+- ✅ Maneja todos los tipos de horario (FIXED, SHIFT, ROTATION, FLEXIBLE)
+- ✅ Retorna `EffectiveSchedule` con franjas horarias y minutos esperados
+
+**Integración en página de fichajes (`/dashboard/me/clock`):**
+1. **Visualización de horario esperado** (`today-schedule.tsx`):
+   - Muestra franjas horarias del día (trabajo/pausas)
+   - Horas esperadas según Schedule V2.0
+   - Avisos si no hay horario configurado
+   - Maneja días no laborables y ausencias
+
+2. **Resumen del día con desviaciones** (`today-summary.tsx`):
+   - Aparece automáticamente cuando el usuario ha fichado salida
+   - Muestra estado (COMPLETED/INCOMPLETE/IN_PROGRESS)
+   - Comparativa: horas esperadas vs horas trabajadas
+   - Desviación con colores: verde (+tiempo) o rojo (-tiempo)
+   - Solo visible si hay horario configurado
+
+3. **Cálculo automático de desviaciones** (`time-tracking.ts`):
+   - Al actualizar `WorkdaySummary`, usa `getEffectiveSchedule()`
+   - Calcula `expectedMinutes` y `deviationMinutes` automáticamente
+   - Estado basado en compliance (≥95% = COMPLETED)
+
+**Server Actions:**
+- `/src/server/actions/employee-schedule.ts`:
+  - `getTodaySchedule()` - Obtiene horario efectivo del día actual
+  - `getTodaySummary()` - Obtiene resumen con desviaciones del día
+
+**Archivos clave:**
+- `/src/lib/schedule-engine.ts` - Motor de cálculo
+- `/src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` - Horario esperado
+- `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Resumen con desviaciones
+- `/src/server/actions/time-tracking.ts` - Cálculo automático de desviaciones
+
+### Próximas Fases
+
+**🟡 PRIORIDAD MEDIA:** Historial y reportes
+- Vista semanal/mensual de desviaciones acumuladas
+- Gráficas de cumplimiento de horario
+- Exportación de reportes
 
 **Consultar documento completo para:**
 - Plan completo de migración (10 fases)

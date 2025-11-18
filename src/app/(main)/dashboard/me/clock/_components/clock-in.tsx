@@ -30,6 +30,7 @@ import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
 import { TodaySchedule } from "./today-schedule";
+import { TodaySummary } from "./today-summary";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -864,6 +865,9 @@ export function ClockIn() {
 
         {/* Horario esperado del día */}
         <TodaySchedule />
+
+        {/* Resumen del día con desviaciones */}
+        <TodaySummary />
       </div>
 
       {/* Historial de fichajes del día */}
