@@ -1,8 +1,8 @@
 # PLAN: Sistema de Horarios Flexible v2.0
 
-**Fecha:** 2025-11-17
-**Estado:** 🟢 En Implementación (Sprint 1-4 completados)
-**Versión:** 1.4
+**Fecha:** 2025-11-18
+**Estado:** 🟢 En Implementación (Sprints 1-4 completados, FASE 4 UI completada)
+**Versión:** 1.5
 **Tipo:** Migración Breaking Change
 
 ---
@@ -731,30 +731,85 @@ export async function exportScheduleReport(
 
 ---
 
-## 📋 FASE 4: UI - CRUD de Plantillas
+## ✅ FASE 4: UI - CRUD de Plantillas (COMPLETADA)
 
-### 4.1 Estructura de Archivos
+**Estado**: ✅ **100% Completado** (2025-11-18)
+
+**Ubicación real implementada**: `/src/app/(main)/dashboard/schedules/`
+
+### 4.1 Estructura de Archivos IMPLEMENTADA
 
 ```
-/src/app/(main)/dashboard/schedules-v2/
-├── page.tsx                    # Lista de plantillas (DataTable)
-├── new/
-│   └── page.tsx                # Wizard creación plantilla
+/src/app/(main)/dashboard/schedules/
+├── page.tsx                              ✅ Lista de plantillas (Grid de cards)
 ├── [id]/
-│   ├── page.tsx                # Detalle plantilla
-│   └── edit/
-│       └── page.tsx            # Edición plantilla
+│   ├── page.tsx                          ✅ Detalle plantilla (tabs + editor)
+│   └── _components/
+│       ├── week-schedule-editor.tsx      ✅ Editor semanal de horarios
+│       ├── create-period-dialog.tsx      ✅ Crear períodos
+│       ├── edit-period-dialog.tsx        ✅ Editar períodos
+│       ├── delete-period-dialog.tsx      ✅ Eliminar períodos
+│       ├── edit-day-schedule-dialog.tsx  ✅ Editar horario de día
+│       ├── copy-day-dialog.tsx           ✅ Copiar horario entre días
+│       ├── assign-employees-dialog.tsx   ✅ Asignar empleados
+│       └── assigned-employees-list.tsx   ✅ Lista empleados asignados
 └── _components/
-    ├── schedule-template-form.tsx
-    ├── schedule-template-wizard.tsx
-    ├── period-form.tsx
-    ├── work-day-pattern-form.tsx
-    ├── time-slot-form.tsx
-    ├── rotation-pattern-form.tsx
-    ├── schedule-preview-calendar.tsx
-    ├── schedules-data-table.tsx
-    └── schedules-columns.tsx
+    ├── create-template-dialog.tsx        ✅ Dialog creación rápida
+    └── schedules-templates-list.tsx      ✅ Lista con duplicar/eliminar
 ```
+
+### 4.2 Características Implementadas
+
+✅ **Página Principal** (`/dashboard/schedules`)
+- Lista de plantillas en grid de cards
+- Badges de tipo, estado activo/inactivo, empleados asignados
+- Menú de acciones: Editar, **Duplicar** ✅, **Eliminar** ✅
+- Dialog de creación rápida con validación
+- Estado vacío con call-to-action
+- Protección con PermissionGuard
+
+✅ **Duplicar Plantilla**
+- Crea copia completa con nombre "(Copia)"
+- Toast de confirmación
+- Refresh automático de la lista
+- Loading states durante duplicación
+
+✅ **Eliminar Plantilla**
+- Validación: No permite eliminar si tiene empleados asignados
+- Confirmación con dialog nativo
+- Toast de éxito/error
+- Refresh automático de la lista
+- Loading states durante eliminación
+
+✅ **Página de Detalle** (`/dashboard/schedules/[id]`)
+- Header con navegación
+- 3 cards de resumen (empleados, períodos, tipo)
+- Tabs: "Horarios" y "Empleados"
+- Editor semanal completo
+- Estados vacíos cuando no hay períodos
+
+✅ **Editor de Períodos**
+- CRUD completo de períodos (REGULAR, INTENSIVE, SPECIAL)
+- Validación de fechas
+- Gestión de conflictos
+- Dialogs con formularios validados
+
+✅ **Editor de Horarios por Día**
+- Editar franjas horarias de cada día
+- Copiar horario entre días
+- Editor de time slots con validación
+- Preview de horarios
+
+✅ **Gestión de Empleados**
+- Asignar empleados a plantillas
+- Ver lista de empleados asignados
+- Fechas de inicio/fin de asignación
+- Validaciones de solapamientos
+
+✅ **Navegación**
+- Entrada en sidebar: "Gestión de Personal" → "Horarios"
+- URL: `/dashboard/schedules`
+- Permiso: `view_contracts`
 
 ### 4.2 Página Principal (`/dashboard/schedules-v2/page.tsx`)
 

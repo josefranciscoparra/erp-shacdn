@@ -1,9 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import type { ScheduleTemplate } from "@prisma/client";
 import { Calendar, Clock, Users, MoreVertical, Pencil, Copy, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,6 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { duplicateScheduleTemplate, deleteScheduleTemplate } from "@/server/actions/schedules-v2";
 
 interface TemplateWithCount extends ScheduleTemplate {
   _count: {
@@ -44,8 +49,79 @@ export function ScheduleTemplatesList({ templates }: Props) {
 }
 
 function TemplateCard({ template }: { template: TemplateWithCount }) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const router = useRouter();
   const typeInfo = templateTypeLabels[template.templateType];
   const employeeCount = template._count.employeeAssignments;
+
+  const handleDuplicate = async () => {
+    setIsDuplicating(true);
+
+    try {
+      const result = await duplicateScheduleTemplate(template.id, `${template.name} (Copia)`);
+
+      if (result.success && result.data) {
+        toast.success("Plantilla duplicada", {
+          description: `Se ha creado una copia de "${template.name}"`,
+        });
+        router.refresh();
+      } else {
+        toast.error("Error al duplicar plantilla", {
+          description: result.error ?? "Ha ocurrido un error desconocido",
+        });
+      }
+    } catch (error) {
+      console.error("Error duplicating template:", error);
+      toast.error("Error al duplicar plantilla", {
+        description: "Ha ocurrido un error al duplicar la plantilla",
+      });
+    } finally {
+      setIsDuplicating(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (employeeCount > 0) {
+      toast.error("No se puede eliminar", {
+        description: `Esta plantilla tiene ${employeeCount} empleado${employeeCount > 1 ? "s" : ""} asignado${employeeCount > 1 ? "s" : ""}. Debes reasignarlos antes de eliminarla.`,
+      });
+      return;
+    }
+
+    // Confirmación antes de eliminar
+    if (
+      !confirm(
+        `¿Estás seguro de que quieres eliminar la plantilla "${template.name}"? Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsDeleting(true);
+
+    try {
+      const result = await deleteScheduleTemplate(template.id);
+
+      if (result.success) {
+        toast.success("Plantilla eliminada", {
+          description: `La plantilla "${template.name}" ha sido eliminada correctamente`,
+        });
+        router.refresh();
+      } else {
+        toast.error("Error al eliminar plantilla", {
+          description: result.error ?? "Ha ocurrido un error desconocido",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting template:", error);
+      toast.error("Error al eliminar plantilla", {
+        description: "Ha ocurrido un error al eliminar la plantilla",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Card className="group relative transition-shadow hover:shadow-md">
@@ -63,6 +139,7 @@ function TemplateCard({ template }: { template: TemplateWithCount }) {
               variant="ghost"
               size="icon"
               className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+              disabled={isDeleting || isDuplicating}
             >
               <MoreVertical className="h-4 w-4" />
               <span className="sr-only">Abrir menú</span>
@@ -75,27 +152,14 @@ function TemplateCard({ template }: { template: TemplateWithCount }) {
                 Editar
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Implementar duplicado
-                console.log("Duplicar plantilla:", template.id);
-              }}
-            >
+            <DropdownMenuItem onClick={handleDuplicate} disabled={isDuplicating}>
               <Copy className="mr-2 h-4 w-4" />
-              Duplicar
+              {isDuplicating ? "Duplicando..." : "Duplicar"}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Implementar eliminación con confirmación
-                console.log("Eliminar plantilla:", template.id);
-              }}
-            >
+            <DropdownMenuItem className="text-destructive" onClick={handleDelete} disabled={isDeleting}>
               <Trash2 className="mr-2 h-4 w-4" />
-              Eliminar
+              {isDeleting ? "Eliminando..." : "Eliminar"}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
