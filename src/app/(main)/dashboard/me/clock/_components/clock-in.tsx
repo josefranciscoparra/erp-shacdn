@@ -28,6 +28,7 @@ import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
+import { TodaySchedule } from "./today-schedule";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -846,6 +847,9 @@ export function ClockIn() {
             )}
           </CardFooter>
         </Card>
+
+        {/* Horario esperado del día */}
+        <TodaySchedule />
       </div>
 
       {/* Historial de fichajes del día */}
