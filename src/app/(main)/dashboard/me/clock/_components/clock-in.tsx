@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
+import { getTodaySchedule } from "@/server/actions/employee-schedule";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
@@ -34,6 +35,7 @@ export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [shouldAnimateChart, setShouldAnimateChart] = useState(false);
+  const [scheduleExpectedMinutes, setScheduleExpectedMinutes] = useState<number | null>(null);
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
     breakMinutes: number;
@@ -161,6 +163,17 @@ export function ClockIn() {
     };
     load();
   }, [loadInitialData]);
+
+  // Cargar horario esperado del Schedule V2.0
+  useEffect(() => {
+    async function loadScheduleExpectedHours() {
+      const result = await getTodaySchedule();
+      if (result.success && result.schedule) {
+        setScheduleExpectedMinutes(result.schedule.expectedMinutes);
+      }
+    }
+    loadScheduleExpectedHours();
+  }, []);
 
   const restartChartAnimation = useCallback(() => {
     setShouldAnimateChart(false);
@@ -394,9 +407,10 @@ export function ClockIn() {
     };
   };
 
-  // Calcular tiempo restante
-  const remainingMinutes = Math.max(0, expectedDailyHours * 60 - liveWorkedMinutes);
-  const isCompleted = liveWorkedMinutes >= expectedDailyHours * 60;
+  // Calcular tiempo restante usando Schedule V2.0 si está disponible
+  const effectiveExpectedMinutes = scheduleExpectedMinutes ?? expectedDailyHours * 60;
+  const remainingMinutes = Math.max(0, effectiveExpectedMinutes - liveWorkedMinutes);
+  const isCompleted = liveWorkedMinutes >= effectiveExpectedMinutes;
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
 
