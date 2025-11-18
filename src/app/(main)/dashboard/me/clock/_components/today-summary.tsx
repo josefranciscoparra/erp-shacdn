@@ -28,14 +28,18 @@ function TodaySummaryComponent() {
       setIsLoading(true);
       const result = await getTodaySummary();
 
+      console.log("[TodaySummary] Result:", result);
+
       if (result.success && result.summary) {
+        console.log("[TodaySummary] Summary loaded:", result.summary);
         setSummary(result.summary);
       } else {
+        console.log("[TodaySummary] Error:", result.error);
         setError(result.error ?? "Error al cargar resumen");
       }
     } catch (err) {
       setError("Error al cargar resumen");
-      console.error(err);
+      console.error("[TodaySummary] Exception:", err);
     } finally {
       setIsLoading(false);
     }
@@ -66,23 +70,23 @@ function TodaySummaryComponent() {
   }
 
   if (error ?? !summary) {
+    console.log("[TodaySummary] Hidden - error or no summary:", { error, summary });
     return null; // No mostrar nada si hay error
   }
 
   // Si no ha fichado hoy, no mostrar nada
   if (summary.workedMinutes === 0) {
-    return null;
-  }
-
-  // Si aún no ha terminado, no mostrar desviación
-  if (!summary.hasFinished) {
+    console.log("[TodaySummary] Hidden - no worked minutes");
     return null;
   }
 
   // Si no tiene horario esperado, no mostrar
   if (summary.expectedMinutes === null) {
+    console.log("[TodaySummary] Hidden - no expected minutes");
     return null;
   }
+
+  console.log("[TodaySummary] Showing card with:", summary);
 
   const deviation = summary.deviationMinutes ?? 0;
   const isPositive = deviation > 0;

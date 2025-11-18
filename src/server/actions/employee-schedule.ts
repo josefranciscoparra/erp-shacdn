@@ -100,7 +100,8 @@ export async function getTodaySummary(): Promise<{
 
     const workdaySummary = await prisma.workdaySummary.findUnique({
       where: {
-        employeeId_date: {
+        orgId_employeeId_date: {
+          orgId: session.user.orgId,
           employeeId: employee.id,
           date: today,
         },
@@ -110,7 +111,7 @@ export async function getTodaySummary(): Promise<{
         expectedMinutes: true,
         deviationMinutes: true,
         status: true,
-        lastExit: true,
+        clockOut: true,
       },
     });
 
@@ -131,11 +132,11 @@ export async function getTodaySummary(): Promise<{
     return {
       success: true,
       summary: {
-        expectedMinutes: workdaySummary.expectedMinutes,
-        workedMinutes: workdaySummary.totalWorkedMinutes,
-        deviationMinutes: workdaySummary.deviationMinutes,
+        expectedMinutes: workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : null,
+        workedMinutes: Number(workdaySummary.totalWorkedMinutes),
+        deviationMinutes: workdaySummary.deviationMinutes ? Number(workdaySummary.deviationMinutes) : null,
         status: workdaySummary.status,
-        hasFinished: workdaySummary.lastExit !== null,
+        hasFinished: workdaySummary.clockOut !== null,
       },
     };
   } catch (error) {
