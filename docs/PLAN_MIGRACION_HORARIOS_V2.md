@@ -1771,6 +1771,121 @@ rm -rf .next && npm run dev
 
 ---
 
-**Versión:** 1.0
-**Última actualización:** 2025-11-17
+## ✅ ESTADO DE IMPLEMENTACIÓN (Actualizado: 2025-11-18)
+
+### Sprint 1-2: Fundamentos + UI Básica - COMPLETADO ✅
+
+**Modelos Prisma implementados:**
+- ✅ `ScheduleTemplate`, `SchedulePeriod`, `WorkDayPattern`, `TimeSlot`
+- ✅ `EmployeeScheduleAssignment`
+- ✅ Migración aplicada y base de datos actualizada
+
+**Server Actions completados** (`/src/server/actions/schedules-v2.ts`):
+- ✅ `getScheduleTemplateById()` - Obtener plantilla con períodos
+- ✅ `getAvailableEmployeesForTemplate()` - Empleados NO asignados
+- ✅ `getTemplateAssignedEmployees()` - Empleados asignados
+- ✅ `assignScheduleToEmployee()` - Crear asignación con auto-inferencia de tipo
+- ✅ `endEmployeeAssignment()` - Finalizar asignación
+- ✅ CRUD completo de plantillas, períodos y patrones
+
+**UI Implementada:**
+
+Ruta: `/src/app/(main)/dashboard/schedules/`
+
+Páginas:
+- ✅ `page.tsx` - Listado de plantillas (DataTable)
+- ✅ `[id]/page.tsx` - Detalle y edición de plantilla
+- ✅ `new/page.tsx` - Creación de plantilla
+
+Componentes:
+- ✅ `week-schedule-editor.tsx` - Editor visual semanal con validación 40h
+- ✅ `assign-employees-dialog.tsx` - Dialog multi-select de asignación
+- ✅ `assigned-employees-list.tsx` - Lista de empleados asignados
+- ✅ `create-period-dialog.tsx` - Crear períodos
+- ✅ `delete-period-dialog.tsx` - Eliminar períodos
+- ✅ `edit-day-schedule-dialog.tsx` - Editor de horario por día
+- ✅ `edit-period-dialog.tsx` - Editar periodos
+
+**Funcionalidades V2 verificadas:**
+- [x] Crear/editar plantillas de horario (FIXED, SHIFT, ROTATION, FLEXIBLE)
+- [x] Períodos configurables (REGULAR, INTENSIVE, SPECIAL)
+- [x] Editor de horarios semanales con validación 40h
+- [x] Badge indicador: "Más de 40h", "~40h", "Menos de 40h"
+- [x] Asignación masiva de empleados a plantillas
+- [x] Dialog multi-select con búsqueda y filtros
+- [x] Listado de empleados asignados con fecha de inicio
+- [x] Desasignación de empleados con confirmación
+- [x] Inferencia automática de assignmentType desde templateType
+
+**Correcciones técnicas aplicadas:**
+- ✅ Modelo Employee NO tiene relación directa con Department → Se obtiene desde EmploymentContract
+- ✅ Campos firstName/lastName están en Employee directamente (no en User)
+- ✅ Campo assignmentType se infiere automáticamente desde templateType de la plantilla
+- ✅ Serialización correcta de Decimals de Prisma a componentes cliente
+
+### Sprint 3: Asignación y Fichaje - PENDIENTE ❌
+
+**Fase 1: Integración con Wizard de Empleados**
+1. ❌ Crear componente `ScheduleTemplateSelector` para wizard de empleados
+2. ❌ Actualizar `/src/app/(main)/dashboard/employees/new/page.tsx`
+3. ❌ Asignación automática al crear empleado
+
+**Fase 2: Aplicación del Horario en Fichajes (CRÍTICO - SIGUIENTE)**
+4. ❌ Motor de cálculo: `getEffectiveSchedule()` en `/src/lib/schedule-engine.ts`
+5. ❌ Implementar validación de horario en fichajes
+6. ❌ Comparar entrada/salida con horario esperado
+7. ❌ Marcar desviaciones (tarde, temprano, horas extra)
+8. ❌ Calcular horas trabajadas vs. horas esperadas
+9. ❌ Crear componente de visualización de horario personal (`/dashboard/me/schedule`)
+10. ❌ Integrar horarios con cálculo de nómina
+
+### Próximos Pasos Inmediatos
+
+**🔴 ALTA PRIORIDAD:**
+1. Implementar motor de cálculo `schedule-engine.ts` con `getEffectiveSchedule()`
+2. Validar fichajes contra horario asignado
+3. Calcular desviaciones automáticamente en `WorkdaySummary`
+4. Actualizar `/dashboard/me/clock` para mostrar horario esperado
+
+**🟡 MEDIA PRIORIDAD:**
+5. Vista de horario personal para empleados
+6. Integración con wizard de empleados
+
+**🟢 BAJA PRIORIDAD:**
+7. Plantillas compartidas entre organizaciones
+8. Importar/exportar plantillas
+9. Duplicar plantillas existentes
+
+### Archivos Clave Implementados
+
+**Rutas:**
+- `/src/app/(main)/dashboard/schedules/page.tsx` - Listado
+- `/src/app/(main)/dashboard/schedules/[id]/page.tsx` - Detalle
+- `/src/app/(main)/dashboard/schedules/new/page.tsx` - Creación
+
+**Server Actions:**
+- `/src/server/actions/schedules-v2.ts` - TODAS las operaciones
+
+**Helpers:**
+- `/src/lib/schedule-helpers.ts` - Utilidades de cálculo
+- `/src/types/schedule.ts` - Definiciones de tipos
+
+### Decisiones Técnicas Importantes
+
+1. **Minutos en lugar de HH:mm**: Facilita cálculos (0-1440)
+2. **Serialización de Decimals**: Convertir siempre a `number` antes de pasar a cliente
+3. **Server Actions**: Parámetros primitivos individuales (no objetos complejos)
+4. **Auto-inferencia**: `assignmentType` se deduce de `templateType`
+5. **Filtrado dinámico**: Empleados disponibles excluyen ya asignados
+
+### Commit Actual
+
+**Rama:** `horarios20`
+**Commit:** `69770c9` - "feat: Sistema de Horarios V2.0 - Asignación de empleados completada"
+**Archivos:** 31 archivos modificados (11,025 inserciones, 999 eliminaciones)
+
+---
+
+**Versión:** 1.1
+**Última actualización:** 2025-11-18
 **Autor:** Sistema de Planificación ERP TimeNow

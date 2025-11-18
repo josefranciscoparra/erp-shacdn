@@ -694,291 +694,40 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 - **Calidad**: Aplicación empresarial (Linear, Notion, Monday.com)
 - **Consistencia**: Todos los listados deben verse idénticos
 
-## Sistema de Horarios V2.0 - CRÍTICO ⚠️
+## Sistema de Horarios V2.0
 
-### Estrategia de Migración
+**IMPORTANTE**: Para toda la documentación detallada del Sistema de Horarios V2.0, consultar:
 
-**IMPORTANTE**: Existe un sistema de horarios V1 (legacy) y V2 (actual). **SIEMPRE usar V2**.
+📄 **[/docs/PLAN_MIGRACION_HORARIOS_V2.md](/docs/PLAN_MIGRACION_HORARIOS_V2.md)**
 
-#### Sistema V1 (DEPRECADO - NO USAR)
+### Resumen Rápido
 
-- **Ubicación**: `/src/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule.tsx`
-- **Modelo**: Campos directos en tabla `Employee` (scheduleType, scheduleData JSON)
-- **Problema**: Acoplado al wizard de creación, no reutilizable, difícil de gestionar
-- **Estado**: DEPRECADO - Marcar para migración futura
-
-#### Sistema V2 (OFICIAL - USAR SIEMPRE)
-
+**Sistema V2 (OFICIAL - USAR SIEMPRE):**
 - **Ubicación**: `/src/app/(main)/dashboard/schedules/`
-- **Modelo**: Sistema de plantillas con jerarquía completa
-  - `ScheduleTemplate` → Plantilla reutilizable (40h semanales, turnos rotativos, etc.)
-  - `SchedulePeriod` → Períodos dentro de plantilla (REGULAR, INTENSIVE, SPECIAL)
-  - `WorkDayPattern` → Patrón diario (Lunes a Domingo)
-  - `TimeSlot` → Franjas horarias del día
-  - `EmployeeScheduleAssignment` → Asignación empleado ↔ plantilla
-- **Ventajas**: Reutilizable, histórico, flexible, multi-período
-- **Estado**: SISTEMA OFICIAL ACTIVO
+- **Server Actions**: `/src/server/actions/schedules-v2.ts`
+- **Estado**: Implementado parcialmente (Sprint 1-2 completados)
 
-### Decisión de Migración: Opción 1 (Adoptada)
+**Arquitectura:**
+- `ScheduleTemplate` → Plantilla reutilizable
+- `SchedulePeriod` → Períodos (REGULAR, INTENSIVE, SPECIAL)
+- `WorkDayPattern` → Patrón por día de semana
+- `TimeSlot` → Franjas horarias (en minutos)
+- `EmployeeScheduleAssignment` → Asignación empleado ↔ plantilla
 
-**Estrategia**: Migrar completamente al V2, eliminar wizard V1 Step 3
+**Sistema V1 (DEPRECADO - NO USAR):**
+- Ubicación: `/src/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule.tsx`
+- Problema: Acoplado, no reutilizable
+- Acción: Migrar a V2
 
-**Acciones pendientes**:
+### Próxima Fase Crítica
 
-1. **Actualizar wizard de empleados** (`/src/app/(main)/dashboard/employees/new/`)
-   - Eliminar Step 3 actual (formulario FLEXIBLE/FIXED)
-   - Crear nuevo Step 3: Selector de plantilla V2 existente
-   - Componente: `<ScheduleTemplateSelector />` (dropdown o cards)
+**🔴 ALTA PRIORIDAD:** Implementar motor de cálculo `schedule-engine.ts`
+- Motor de cálculo: `getEffectiveSchedule()` para validar fichajes
+- Integración con `/dashboard/me/clock` para mostrar horario esperado
+- Calcular desviaciones automáticamente en `WorkdaySummary`
 
-2. **Asignación automática al crear empleado**
-   ```typescript
-   // En el submit final del wizard
-   if (selectedTemplateId) {
-     await assignScheduleToEmployee({
-       employeeId: newEmployee.id,
-       scheduleTemplateId: selectedTemplateId,
-       validFrom: new Date(),
-       isActive: true,
-     })
-   }
-   ```
-
-3. **Migración de datos existentes** (si hay empleados con V1)
-   - Script de migración: Convertir `Employee.scheduleData` a `ScheduleTemplate` + assignment
-   - Ejecutar ANTES de eliminar Step 3 del wizard
-
-### Funcionalidades V2 Implementadas
-
-**✅ Gestión de Plantillas** (`/dashboard/schedules`)
-- ✅ Crear/editar plantillas de horario
-- ✅ Tipos: FIXED, SHIFT, ROTATION, FLEXIBLE
-- ✅ Períodos configurables (REGULAR, INTENSIVE, SPECIAL)
-- ✅ Editor de horarios semanales con validación 40h
-- ✅ Badge indicador: "Más de 40h", "~40h", "Menos de 40h"
-- ✅ Listado de plantillas con contador de empleados asignados
-
-**✅ Asignación de Empleados** (`/dashboard/schedules/[id]`)
-- ✅ Dialog multi-select para asignar empleados a plantillas
-- ✅ Lista de empleados asignados con fecha de inicio
-- ✅ Desasignar empleados con confirmación
-- ✅ Búsqueda por nombre, email, número, departamento
-- ✅ Filtrado automático: solo muestra empleados disponibles (no asignados)
-- ✅ Asignación masiva de múltiples empleados
-- ✅ Inferencia automática de assignmentType desde templateType
-
-**✅ Server Actions** (`/src/server/actions/schedules-v2.ts`)
-- ✅ `getScheduleTemplateById()` - Obtener plantilla con períodos
-- ✅ `getAvailableEmployeesForTemplate()` - Empleados NO asignados a la plantilla (con departamento desde contract)
-- ✅ `getTemplateAssignedEmployees()` - Empleados actualmente asignados (con departamento desde contract)
-- ✅ `assignScheduleToEmployee()` - Crear asignación empleado ↔ plantilla (con auto-inferencia de tipo)
-- ✅ `endEmployeeAssignment()` - Finalizar asignación (soft delete)
-
-**✅ Correcciones Técnicas Aplicadas**
-- ✅ Modelo Employee NO tiene relación directa con Department → Se obtiene desde EmploymentContract
-- ✅ Campos firstName/lastName están en Employee directamente (no en User)
-- ✅ Campo assignmentType se infiere automáticamente desde templateType de la plantilla
-
-### Arquitectura de Datos
-
-```prisma
-model ScheduleTemplate {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  templateType TemplateType  // FIXED, SHIFT, ROTATION, FLEXIBLE
-  isActive     Boolean  @default(true)
-
-  periods      SchedulePeriod[]
-  employeeAssignments EmployeeScheduleAssignment[]
-}
-
-model SchedulePeriod {
-  id               String   @id @default(cuid())
-  scheduleTemplateId String
-  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId])
-
-  periodType       PeriodType  // REGULAR, INTENSIVE, SPECIAL
-  startDate        DateTime
-  endDate          DateTime?
-
-  workDayPatterns  WorkDayPattern[]
-}
-
-model WorkDayPattern {
-  id             String   @id @default(cuid())
-  schedulePeriodId String
-  schedulePeriod SchedulePeriod @relation(fields: [schedulePeriodId])
-
-  dayOfWeek      Int  // 0=Domingo, 1=Lunes, ..., 6=Sábado
-  isWorkingDay   Boolean @default(true)
-
-  timeSlots      TimeSlot[]
-}
-
-model TimeSlot {
-  id                String   @id @default(cuid())
-  workDayPatternId  String
-  workDayPattern    WorkDayPattern @relation(fields: [workDayPatternId])
-
-  startTimeMinutes  Int  // Minutos desde medianoche (0-1439)
-  endTimeMinutes    Int
-  slotType          SlotType  // WORK, BREAK, FLEXIBLE
-}
-
-model EmployeeScheduleAssignment {
-  id                  String   @id @default(cuid())
-  employeeId          String
-  scheduleTemplateId  String
-
-  validFrom           DateTime
-  validTo             DateTime?
-  isActive            Boolean  @default(true)
-
-  employee            Employee @relation(fields: [employeeId])
-  scheduleTemplate    ScheduleTemplate @relation(fields: [scheduleTemplateId])
-}
-```
-
-### Patrones Técnicos Importantes
-
-#### 1. Server Actions con 3 parámetros
-```typescript
-export async function updateWorkDayPattern(
-  periodId: string,
-  dayOfWeek: number,
-  data: UpdateWorkDayPatternInput
-) {
-  // Next.js 15 requiere parámetros primitivos individuales
-  // NO pasar objetos complejos como único parámetro
-}
-```
-
-#### 2. Serialización de Prisma Decimal
-```typescript
-// Prisma Decimal NO se puede pasar directamente a componentes cliente
-const serializedPeriods = periods.map(period => ({
-  ...period,
-  workDayPatterns: period.workDayPatterns.map(pattern => ({
-    ...pattern,
-    timeSlots: pattern.timeSlots.map(slot => ({
-      ...slot,
-      startTimeMinutes: Number(slot.startTimeMinutes),  // Decimal → number
-      endTimeMinutes: Number(slot.endTimeMinutes),
-    })),
-  })),
-}))
-```
-
-#### 3. Reset de formularios en diálogos
-```typescript
-// Resetear form cuando cambien los datos del servidor
-useEffect(() => {
-  if (open && data) {
-    form.reset({
-      // Valores del servidor
-    })
-  }
-}, [open, data, form])
-```
-
-#### 4. Filtros condicionales en Prisma
-```typescript
-// Solo aplicar filtro notIn si hay IDs asignados
-const employees = await prisma.employee.findMany({
-  where: {
-    orgId,
-    status: "ACTIVE",
-    ...(assignedIds.length > 0 && {
-      id: { notIn: assignedIds }
-    }),
-  },
-})
-```
-
-### Nombres de campos CRÍTICOS
-
-**⚠️ SIEMPRE usar estos nombres exactos:**
-- `startTimeMinutes` y `endTimeMinutes` (NO `startMinutes`/`endMinutes`)
-- `dayOfWeek` (0=Domingo, 1=Lunes, ..., 6=Sábado)
-- `scheduleTemplateId` (NO `templateId`)
-- `validFrom` y `validTo` (para asignaciones con histórico)
-
-### Rutas y Archivos Clave
-
-**Páginas principales:**
-- `/src/app/(main)/dashboard/schedules/page.tsx` - Listado de plantillas
-- `/src/app/(main)/dashboard/schedules/[id]/page.tsx` - Detalle y edición de plantilla
-- `/src/app/(main)/dashboard/schedules/new/page.tsx` - Crear nueva plantilla
-
-**Componentes importantes:**
-- `/src/app/(main)/dashboard/schedules/[id]/_components/week-schedule-editor.tsx` - Editor visual semanal
-- `/src/app/(main)/dashboard/schedules/[id]/_components/assign-employees-dialog.tsx` - Dialog asignación masiva
-- `/src/app/(main)/dashboard/schedules/[id]/_components/assigned-employees-list.tsx` - Lista de asignados
-- `/src/app/(main)/dashboard/schedules/[id]/_components/create-period-dialog.tsx` - Crear períodos
-
-**Server actions:**
-- `/src/server/actions/schedules-v2.ts` - TODAS las operaciones del sistema V2
-
-### Testing y Validación
-
-**Completado ✅:**
-- [x] Plantilla creada correctamente con al menos 1 período
-- [x] Editor semanal muestra badge correcto (40h → "~40h", 41h → "Más de 40h")
-- [x] Asignación de empleados funciona (multi-select + batch assignment)
-- [x] Empleados asignados se muestran en pestaña "Empleados"
-- [x] Desasignación funciona con confirmación
-- [x] Búsqueda de empleados filtra correctamente
-- [x] Solo aparecen empleados no asignados en dialog de asignación
-
-### Próximos Pasos (Migración V1 → V2)
-
-**Fase 1: Integración con Wizard de Empleados (PENDIENTE)**
-1. ❌ **Crear componente `ScheduleTemplateSelector`** para wizard de empleados
-   - Dropdown o cards para seleccionar plantilla existente
-   - Mostrar descripción y tipo de cada plantilla
-   - Opcional: permitir "sin horario" temporalmente
-
-2. ❌ **Actualizar `/src/app/(main)/dashboard/employees/new/page.tsx`**
-   - Reemplazar Step 3 actual con `ScheduleTemplateSelector`
-   - Integrar con el flujo de creación de empleado
-   - Asignación automática al finalizar wizard
-
-**Fase 2: Aplicación del Horario en Fichajes (CRÍTICO - SIGUIENTE)**
-3. ❌ **Implementar validación de horario en fichajes**
-   - Obtener horario asignado del empleado para la fecha actual
-   - Comparar entrada/salida con horario esperado
-   - Marcar desviaciones (tarde, temprano, horas extra)
-   - Calcular horas trabajadas vs. horas esperadas
-
-4. ❌ **Crear componente de visualización de horario personal**
-   - Vista para que el empleado vea su horario asignado
-   - Calendario semanal con franjas horarias
-   - Ubicación: `/dashboard/me/schedule`
-
-5. ❌ **Integrar horarios con cálculo de nómina**
-   - Calcular horas ordinarias según horario
-   - Identificar horas extras (fuera de horario asignado)
-   - Detectar ausencias (falta de fichaje en horario esperado)
-
-**Fase 3: Limpieza y Optimización**
-6. ❌ **Script de migración** para convertir datos V1 existentes
-7. ❌ **Eliminar Step 3 del wizard V1** una vez migrados todos los datos
-8. ❌ **Actualizar documentación** del wizard para reflejar nuevo flujo
-
-### Funcionalidades Críticas Pendientes
-
-**🔴 ALTA PRIORIDAD - Aplicación de Horarios:**
-- Validar fichajes contra horario asignado
-- Calcular desviaciones (retrasos, salidas anticipadas)
-- Marcar horas extras automáticamente
-- Detectar ausencias por falta de fichaje
-
-**🟡 MEDIA PRIORIDAD - UX Empleado:**
-- Vista de horario personal para empleados
-- Notificaciones de cambios de horario
-- Historial de horarios asignados
-
-**🟢 BAJA PRIORIDAD - Mejoras:**
-- Plantillas compartidas entre organizaciones
-- Importar/exportar plantillas
-- Duplicar plantillas existentes
+**Consultar documento completo para:**
+- Plan completo de migración (10 fases)
+- Decisiones técnicas y patrones
+- Estado de implementación actualizado
+- Ejemplos y casos de uso
