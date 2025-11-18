@@ -1823,7 +1823,28 @@ Componentes:
 - ✅ Campo assignmentType se infiere automáticamente desde templateType de la plantilla
 - ✅ Serialización correcta de Decimals de Prisma a componentes cliente
 
-### Sprint 3: Asignación y Fichaje - PENDIENTE ❌
+### Sprint 3: Motor de Cálculo - COMPLETADO ✅
+
+**Motor de cálculo de horarios** (`/src/lib/schedule-engine.ts`):
+- ✅ `getEffectiveSchedule()` - Función principal con lógica de prioridades
+- ✅ `calculateRotationStep()` - Algoritmo genérico para rotaciones (6x6, 24x72, etc.)
+- ✅ `calculateExpectedHours()` - Horas esperadas en rango de fechas
+- ✅ `getWeekSchedule()` - Horario semanal completo (L-D)
+- ✅ `validateTimeEntry()` - Validación de fichajes contra horario
+- ✅ `getNextPeriodChange()` - Próximos cambios de período
+
+**Lógica de prioridades implementada:**
+1. Ausencias (vacaciones/permisos) - prioridad máxima
+2. Excepciones de día (días específicos)
+3. Período activo (SPECIAL > INTENSIVE > REGULAR)
+4. Plantilla base
+
+**Soporte completo para rotaciones:**
+- Algoritmo 100% genérico usando módulo aritmético
+- Funciona con CUALQUIER patrón de rotación
+- Ejemplos: Policía 6x6, Bomberos 24x72, o cualquier combinación
+
+### Sprint 4: Integración con Fichajes - PENDIENTE ❌
 
 **Fase 1: Integración con Wizard de Empleados**
 1. ❌ Crear componente `ScheduleTemplateSelector` para wizard de empleados
@@ -1831,30 +1852,30 @@ Componentes:
 3. ❌ Asignación automática al crear empleado
 
 **Fase 2: Aplicación del Horario en Fichajes (CRÍTICO - SIGUIENTE)**
-4. ❌ Motor de cálculo: `getEffectiveSchedule()` en `/src/lib/schedule-engine.ts`
-5. ❌ Implementar validación de horario en fichajes
-6. ❌ Comparar entrada/salida con horario esperado
-7. ❌ Marcar desviaciones (tarde, temprano, horas extra)
-8. ❌ Calcular horas trabajadas vs. horas esperadas
-9. ❌ Crear componente de visualización de horario personal (`/dashboard/me/schedule`)
-10. ❌ Integrar horarios con cálculo de nómina
+4. ❌ Implementar validación de horario en fichajes
+5. ❌ Comparar entrada/salida con horario esperado
+6. ❌ Marcar desviaciones (tarde, temprano, horas extra)
+7. ❌ Calcular horas trabajadas vs. horas esperadas
+8. ❌ Crear componente de visualización de horario personal (`/dashboard/me/schedule`)
+9. ❌ Integrar horarios con cálculo de nómina
 
 ### Próximos Pasos Inmediatos
 
 **🔴 ALTA PRIORIDAD:**
-1. Implementar motor de cálculo `schedule-engine.ts` con `getEffectiveSchedule()`
-2. Validar fichajes contra horario asignado
-3. Calcular desviaciones automáticamente en `WorkdaySummary`
-4. Actualizar `/dashboard/me/clock` para mostrar horario esperado
+1. ✅ ~~Implementar motor de cálculo `schedule-engine.ts` con `getEffectiveSchedule()`~~ - **COMPLETADO**
+2. Actualizar `/dashboard/me/clock` para mostrar horario esperado del día
+3. Validar fichajes contra horario asignado (integrar `validateTimeEntry()`)
+4. Actualizar modelo `WorkdaySummary` para añadir campos `expectedMinutes` y `deviationMinutes`
+5. Calcular desviaciones automáticamente en fichajes
 
 **🟡 MEDIA PRIORIDAD:**
-5. Vista de horario personal para empleados
-6. Integración con wizard de empleados
+6. Vista de horario personal para empleados (`/dashboard/me/schedule`)
+7. Integración con wizard de empleados (selector de plantilla en creación)
 
 **🟢 BAJA PRIORIDAD:**
-7. Plantillas compartidas entre organizaciones
-8. Importar/exportar plantillas
-9. Duplicar plantillas existentes
+8. Plantillas compartidas entre organizaciones
+9. Importar/exportar plantillas
+10. Duplicar plantillas existentes
 
 ### Archivos Clave Implementados
 
@@ -1867,6 +1888,7 @@ Componentes:
 - `/src/server/actions/schedules-v2.ts` - TODAS las operaciones
 
 **Helpers:**
+- `/src/lib/schedule-engine.ts` - Motor de cálculo de horarios efectivos
 - `/src/lib/schedule-helpers.ts` - Utilidades de cálculo
 - `/src/types/schedule.ts` - Definiciones de tipos
 
@@ -1878,11 +1900,19 @@ Componentes:
 4. **Auto-inferencia**: `assignmentType` se deduce de `templateType`
 5. **Filtrado dinámico**: Empleados disponibles excluyen ya asignados
 
-### Commit Actual
+### Commits Realizados
 
 **Rama:** `horarios20`
-**Commit:** `69770c9` - "feat: Sistema de Horarios V2.0 - Asignación de empleados completada"
-**Archivos:** 31 archivos modificados (11,025 inserciones, 999 eliminaciones)
+
+**Último commit:** `1aa203c` - "feat: Implementar motor de cálculo de horarios con soporte completo para rotaciones"
+- Archivo creado: `src/lib/schedule-engine.ts` (541 líneas)
+- Implementación completa del motor de cálculo con soporte para rotaciones genéricas
+
+**Commit anterior:** `c08c894` - "docs: Reorganizar documentación del Sistema de Horarios V2.0"
+- Documentación reorganizada en archivo dedicado
+
+**Commit anterior:** `69770c9` - "feat: Sistema de Horarios V2.0 - Asignación de empleados completada"
+- 31 archivos modificados (11,025 inserciones, 999 eliminaciones)
 
 ---
 
