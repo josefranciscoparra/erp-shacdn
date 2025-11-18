@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 
 import { Calendar, Clock } from "lucide-react";
 
@@ -11,12 +11,10 @@ import { minutesToTime, formatDuration } from "@/lib/schedule-helpers";
 import { getTodaySchedule } from "@/server/actions/employee-schedule";
 import type { EffectiveSchedule } from "@/types/schedule";
 
-export function TodaySchedule() {
+function TodayScheduleComponent() {
   const [schedule, setSchedule] = useState<EffectiveSchedule | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  console.log("[TodaySchedule] Component mounted");
 
   const loadSchedule = useCallback(async () => {
     try {
@@ -37,6 +35,7 @@ export function TodaySchedule() {
   }, []);
 
   useEffect(() => {
+    console.log("[TodaySchedule] Component mounted");
     loadSchedule();
   }, [loadSchedule]);
 
@@ -199,3 +198,6 @@ export function TodaySchedule() {
     </Card>
   );
 }
+
+// Memoizar el componente para evitar re-renders innecesarios cuando el padre se actualiza
+export const TodaySchedule = memo(TodayScheduleComponent);
