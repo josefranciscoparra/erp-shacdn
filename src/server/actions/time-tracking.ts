@@ -4,6 +4,7 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth 
 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveSchedule } from "@/lib/schedule-engine";
 
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
@@ -181,12 +182,31 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
   const lastExit = entries.reverse().find((e) => e.entryType === "CLOCK_OUT");
 
+  // Obtener horario efectivo del día usando el motor de cálculo V2.0
+  let expectedMinutes: number | null = null;
+  let deviationMinutes: number | null = null;
+
+  try {
+    const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+    expectedMinutes = effectiveSchedule.expectedMinutes;
+
+    // Calcular desviación: (trabajado - esperado)
+    // Positivo = trabajó más de lo esperado
+    // Negativo = trabajó menos de lo esperado
+    deviationMinutes = worked - expectedMinutes;
+  } catch (error) {
+    console.error("Error al obtener horario efectivo:", error);
+    // Continuar sin expectedMinutes si falla (datos opcionales)
+  }
+
   // Determinar el estado basándose en horas trabajadas vs esperadas
   let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
   if (lastExit) {
     // Si fichó salida, evaluar si completó las horas
+    // Usar expectedMinutes si está disponible, sino usar dailyHours como fallback
+    const expectedHours = expectedMinutes ? expectedMinutes / 60 : dailyHours;
     const workedHours = worked / 60;
-    const compliance = (workedHours / dailyHours) * 100;
+    const compliance = (workedHours / expectedHours) * 100;
 
     if (compliance >= 95) {
       status = "COMPLETED"; // Cumplió >= 95% de las horas esperadas
@@ -212,6 +232,8 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
       clockOut: lastExit?.timestamp,
       totalWorkedMinutes: worked,
       totalBreakMinutes: breakTime,
+      expectedMinutes,
+      deviationMinutes,
       status,
     },
     update: {
@@ -219,6 +241,8 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
       clockOut: lastExit?.timestamp,
       totalWorkedMinutes: worked,
       totalBreakMinutes: breakTime,
+      expectedMinutes,
+      deviationMinutes,
       status,
     },
   });
@@ -1280,15 +1304,39 @@ export async function recalculateWorkdaySummary(date: Date) {
     console.log(`   ✅ Trabajado: ${worked.toFixed(2)} min (${(worked / 60).toFixed(2)} horas)`);
     console.log(`   ☕ Pausas: ${breakTime.toFixed(2)} min (${(breakTime / 60).toFixed(2)} horas)`);
 
-    // 3. Determinar clockIn y clockOut
+    // 3. Obtener horario efectivo usando el motor de cálculo V2.0
+    let expectedMinutes: number | null = null;
+    let deviationMinutes: number | null = null;
+
+    try {
+      const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+      expectedMinutes = effectiveSchedule.expectedMinutes;
+      deviationMinutes = worked - expectedMinutes;
+
+      console.log(`   📅 Esperado: ${expectedMinutes.toFixed(2)} min (${(expectedMinutes / 60).toFixed(2)} horas)`);
+      console.log(
+        `   📊 Desviación: ${deviationMinutes > 0 ? "+" : ""}${deviationMinutes.toFixed(2)} min (${(deviationMinutes / 60).toFixed(2)} horas)`,
+      );
+    } catch (error) {
+      console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
+    }
+
+    // 4. Determinar clockIn y clockOut
     const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
     const lastExit = [...entries].reverse().find((e) => e.entryType === "CLOCK_OUT");
 
-    // 4. Determinar estado
+    // 5. Determinar estado
     let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
     if (lastExit) {
-      const expectedHours = await getExpectedHoursForToday();
-      const dailyHours = expectedHours?.dailyHours ?? 8;
+      // Usar expectedMinutes si está disponible, sino fallback a horas por defecto
+      let dailyHours = 8;
+      if (expectedMinutes) {
+        dailyHours = expectedMinutes / 60;
+      } else {
+        const expectedHours = await getExpectedHoursForToday();
+        dailyHours = expectedHours?.dailyHours ?? 8;
+      }
+
       const workedHours = worked / 60;
       const compliance = (workedHours / dailyHours) * 100;
 
@@ -1301,7 +1349,7 @@ export async function recalculateWorkdaySummary(date: Date) {
 
     console.log(`   📊 Status: ${status}`);
 
-    // 5. Actualizar o crear WorkdaySummary
+    // 6. Actualizar o crear WorkdaySummary
     const summary = await prisma.workdaySummary.upsert({
       where: {
         orgId_employeeId_date: {
@@ -1318,6 +1366,8 @@ export async function recalculateWorkdaySummary(date: Date) {
         clockOut: lastExit?.timestamp ?? null,
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
+        expectedMinutes,
+        deviationMinutes,
         status,
       },
       update: {
@@ -1325,6 +1375,8 @@ export async function recalculateWorkdaySummary(date: Date) {
         clockOut: lastExit?.timestamp ?? null,
         totalWorkedMinutes: worked,
         totalBreakMinutes: breakTime,
+        expectedMinutes,
+        deviationMinutes,
         status,
       },
     });
