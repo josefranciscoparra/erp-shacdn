@@ -41,6 +41,12 @@ export async function getTodaySchedule(): Promise<{
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Normalizar a inicio del día
 
+    console.log("[DEBUG] getTodaySchedule:", {
+      userId: session.user.id,
+      employeeId: employee.id,
+      today: today.toISOString(),
+    });
+
     const schedule = await getEffectiveSchedule(employee.id, today);
 
     return {

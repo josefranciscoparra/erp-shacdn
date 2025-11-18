@@ -16,7 +16,10 @@ export function TodaySchedule() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  console.log("[TodaySchedule] Component mounted");
+
   useEffect(() => {
+    console.log("[TodaySchedule] useEffect triggered");
     loadSchedule();
   }, []);
 

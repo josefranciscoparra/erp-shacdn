@@ -165,7 +165,7 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
  * Busca una ausencia (vacación, permiso, baja) para una fecha específica.
  */
 async function getAbsenceForDate(employeeId: string, date: Date) {
-  return await prisma.absenceRequest
+  return await prisma.ptoRequest
     .findFirst({
       where: {
         employeeId,
@@ -187,7 +187,7 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
       if (!absence) return null;
       return {
         type: absence.absenceType.name,
-        reason: absence.reason,
+        reason: absence.reason ?? undefined,
       };
     });
 }
@@ -220,12 +220,19 @@ function buildScheduleFromException(exception: any, date: Date): EffectiveSchedu
  * Incluye la plantilla, el patrón de rotación (si aplica), etc.
  */
 async function getActiveAssignment(employeeId: string, date: Date) {
-  return await prisma.employeeScheduleAssignment.findFirst({
+  // Normalizar la fecha a medianoche para comparación solo de día (sin horas)
+  const dateStart = new Date(date);
+  dateStart.setHours(0, 0, 0, 0);
+
+  const dateEnd = new Date(date);
+  dateEnd.setHours(23, 59, 59, 999);
+
+  const assignment = await prisma.employeeScheduleAssignment.findFirst({
     where: {
       employeeId,
       isActive: true,
-      validFrom: { lte: date },
-      OR: [{ validTo: null }, { validTo: { gte: date } }],
+      validFrom: { lte: dateEnd }, // Incluye si empezó en cualquier momento del día
+      OR: [{ validTo: null }, { validTo: { gte: dateStart } }], // Incluye si termina en o después del día
     },
     include: {
       scheduleTemplate: {
@@ -267,6 +274,18 @@ async function getActiveAssignment(employeeId: string, date: Date) {
       },
     },
   });
+
+  console.log("[DEBUG] getActiveAssignment:", {
+    employeeId,
+    date: date.toISOString(),
+    found: !!assignment,
+    assignmentId: assignment?.id,
+    isActive: assignment?.isActive,
+    validFrom: assignment?.validFrom,
+    validTo: assignment?.validTo,
+  });
+
+  return assignment;
 }
 
 // ============================================================================
