@@ -16,7 +16,9 @@ import { getScheduleTemplateById } from "@/server/actions/schedules-v2";
 
 import { AssignEmployeesDialog } from "./_components/assign-employees-dialog";
 import { AssignedEmployeesList } from "./_components/assigned-employees-list";
+import { BulkAssignEmployeesDialog } from "./_components/bulk-assign-employees-dialog";
 import { CreatePeriodDialog } from "./_components/create-period-dialog";
+import { ExceptionsTab } from "./_components/exceptions-tab";
 import { WeekScheduleEditor } from "./_components/week-schedule-editor";
 
 interface PageProps {
@@ -94,6 +96,7 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
 
           <div className="flex gap-2">
             <AssignEmployeesDialog templateId={template.id} templateName={template.name} />
+            <BulkAssignEmployeesDialog templateId={template.id} templateName={template.name} />
             <Button variant="outline" size="sm">
               Configuración
             </Button>
@@ -161,6 +164,10 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
             <Users className="mr-2 h-4 w-4" />
             Empleados ({employeeCount})
           </TabsTrigger>
+          <TabsTrigger value="exceptions">
+            <Calendar className="mr-2 h-4 w-4" />
+            Excepciones
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
@@ -181,6 +188,10 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
             <AssignEmployeesDialog templateId={template.id} templateName={template.name} />
           </div>
           <AssignedEmployeesList templateId={template.id} />
+        </TabsContent>
+
+        <TabsContent value="exceptions" className="space-y-4">
+          <ExceptionsTab templateId={template.id} templateName={template.name} />
         </TabsContent>
       </Tabs>
     </>

@@ -1104,3 +1104,838 @@ export async function getAvailableEmployeesForTemplate(templateId: string) {
     return [];
   }
 }
+
+// ============================================================================
+// Asignación Masiva de Horarios
+// ============================================================================
+
+/**
+ * Interfaz para filtros de asignación masiva
+ */
+export interface BulkAssignmentFilters {
+  departmentIds?: string[];
+  costCenterIds?: string[];
+  contractType?: string;
+  hasActiveContract?: boolean;
+}
+
+/**
+ * Obtiene empleados disponibles para asignación masiva según filtros
+ */
+export async function getEmployeesForBulkAssignment(templateId: string, filters?: BulkAssignmentFilters) {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Obtener IDs de empleados ya asignados a esta plantilla
+    const assignedEmployeeIds = await prisma.employeeScheduleAssignment.findMany({
+      where: {
+        scheduleTemplateId: templateId,
+        isActive: true,
+      },
+      select: {
+        employeeId: true,
+      },
+    });
+
+    const assignedIds = assignedEmployeeIds.map((a) => a.employeeId);
+
+    // Construir where clause según filtros
+    const where: any = {
+      orgId,
+      active: true,
+      ...(assignedIds.length > 0 && {
+        id: {
+          notIn: assignedIds,
+        },
+      }),
+    };
+
+    // Filtrar por departamento y/o centro de coste
+    if (
+      (filters?.departmentIds && filters.departmentIds.length > 0) ||
+      (filters?.costCenterIds && filters.costCenterIds.length > 0)
+    ) {
+      const contractFilters: any = {
+        active: true,
+      };
+
+      if (filters?.departmentIds && filters.departmentIds.length > 0) {
+        contractFilters.departmentId = { in: filters.departmentIds };
+      }
+
+      if (filters?.costCenterIds && filters.costCenterIds.length > 0) {
+        contractFilters.costCenterId = { in: filters.costCenterIds };
+      }
+
+      if (filters?.contractType) {
+        contractFilters.contractType = filters.contractType;
+      }
+
+      where.employmentContracts = {
+        some: contractFilters,
+      };
+    } else if (filters?.contractType) {
+      // Si solo hay filtro de tipo de contrato
+      where.employmentContracts = {
+        some: {
+          active: true,
+          contractType: filters.contractType,
+        },
+      };
+    }
+
+    const employees = await prisma.employee.findMany({
+      where,
+      include: {
+        employmentContracts: {
+          where: { active: true },
+          take: 1,
+          select: {
+            department: {
+              select: { id: true, name: true },
+            },
+            contractType: true,
+          },
+          orderBy: { startDate: "desc" },
+        },
+      },
+      orderBy: {
+        employeeNumber: "asc",
+      },
+    });
+
+    return employees.map((employee) => ({
+      id: employee.id,
+      employeeNumber: employee.employeeNumber ?? "Sin número",
+      fullName: `${employee.firstName} ${employee.lastName}`,
+      email: employee.email ?? "",
+      department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
+      departmentId: employee.employmentContracts[0]?.department?.id ?? null,
+      contractType: employee.employmentContracts[0]?.contractType ?? null,
+    }));
+  } catch (error) {
+    console.error("❌ Error getting employees for bulk assignment:");
+    console.error(error);
+    return [];
+  }
+}
+
+/**
+ * Asigna un horario a múltiples empleados de forma masiva
+ *
+ * @param employeeIds Lista de IDs de empleados
+ * @param scheduleTemplateId ID de la plantilla a asignar
+ * @param validFrom Fecha de inicio de vigencia
+ * @param validTo Fecha de fin de vigencia (opcional)
+ * @returns Resultado de la operación con estadísticas
+ */
+export async function bulkAssignScheduleToEmployees(
+  employeeIds: string[],
+  scheduleTemplateId: string,
+  validFrom: Date,
+  validTo?: Date | null,
+): Promise<ActionResponse<{ successCount: number; errorCount: number; errors: string[] }>> {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Validar que la plantilla existe
+    const template = await prisma.scheduleTemplate.findUnique({
+      where: { id: scheduleTemplateId, orgId },
+      select: { id: true, name: true, templateType: true },
+    });
+
+    if (!template) {
+      return { success: false, error: "Plantilla no encontrada" };
+    }
+
+    // Validar que todos los empleados existen y pertenecen a la org
+    const employees = await prisma.employee.findMany({
+      where: {
+        id: { in: employeeIds },
+        orgId,
+      },
+      select: { id: true },
+    });
+
+    if (employees.length !== employeeIds.length) {
+      return {
+        success: false,
+        error: `Solo se encontraron ${employees.length} de ${employeeIds.length} empleados`,
+      };
+    }
+
+    // Asignar horario a cada empleado
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    for (const employeeId of employeeIds) {
+      try {
+        const result = await assignScheduleToEmployee({
+          employeeId,
+          scheduleTemplateId,
+          assignmentType: template.templateType as any, // Usar el tipo de la plantilla
+          validFrom,
+          validTo: validTo ?? undefined,
+        });
+
+        if (result.success) {
+          successCount++;
+        } else {
+          errorCount++;
+          errors.push(`${employeeId}: ${result.error ?? "Error desconocido"}`);
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push(`${employeeId}: ${error instanceof Error ? error.message : "Error desconocido"}`);
+      }
+    }
+
+    return {
+      success: successCount > 0,
+      data: {
+        successCount,
+        errorCount,
+        errors,
+      },
+    };
+  } catch (error) {
+    console.error("Error in bulk assignment:", error);
+    return {
+      success: false,
+      error: "Error al asignar horarios masivamente",
+    };
+  }
+}
+
+/**
+ * Obtiene todos los departamentos de la organización para filtros
+ */
+export async function getDepartmentsForFilters() {
+  try {
+    const { orgId } = await requireOrg();
+
+    const departments = await prisma.department.findMany({
+      where: { orgId },
+      select: {
+        id: true,
+        name: true,
+        _count: {
+          select: {
+            employmentContracts: {
+              where: { active: true },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return departments.map((dept) => ({
+      id: dept.id,
+      name: dept.name,
+      employeeCount: dept._count.employmentContracts,
+    }));
+  } catch (error) {
+    console.error("Error getting departments:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todos los centros de coste de la organización para filtros
+ */
+export async function getCostCentersForFilters() {
+  try {
+    const { orgId } = await requireOrg();
+
+    const costCenters = await prisma.costCenter.findMany({
+      where: { orgId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        _count: {
+          select: {
+            employmentContracts: {
+              where: { active: true },
+            },
+          },
+        },
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return costCenters.map((cc) => ({
+      id: cc.id,
+      name: cc.name,
+      code: cc.code ?? undefined,
+      employeeCount: cc._count.employmentContracts,
+    }));
+  } catch (error) {
+    console.error("Error getting cost centers:", error);
+    return [];
+  }
+}
+
+// ============================================================================
+// SISTEMA DE EXCEPCIONES DE HORARIOS (FASE 7)
+// ============================================================================
+
+/**
+ * Tipos de excepciones disponibles
+ */
+export type ExceptionTypeEnum =
+  | "HOLIDAY"
+  | "REDUCED_HOURS"
+  | "SPECIAL_SCHEDULE"
+  | "TRAINING"
+  | "EARLY_CLOSURE"
+  | "CUSTOM";
+
+/**
+ * Input para crear una excepción de horario
+ */
+export interface CreateExceptionDayInput {
+  // Target (XOR: solo uno de estos puede estar activo)
+  employeeId?: string; // 1. Empleado específico
+  scheduleTemplateId?: string; // 2. Plantilla de horario
+  isGlobal?: boolean; // 3. Toda la organización
+  departmentId?: string; // 4. Por departamento
+  costCenterId?: string; // 5. Por centro de costes
+
+  // Fechas
+  date: Date;
+  endDate?: Date; // Para rangos de fechas
+
+  // Metadata
+  exceptionType: ExceptionTypeEnum;
+  reason?: string;
+  isRecurring?: boolean; // Excepción anual
+
+  // Time slots personalizados
+  timeSlots?: Array<{
+    startTimeMinutes: number;
+    endTimeMinutes: number;
+    slotType: "WORK" | "BREAK" | "ON_CALL" | "OTHER";
+    presenceType: "MANDATORY" | "FLEXIBLE";
+  }>;
+}
+
+/**
+ * Validación de time slots
+ */
+function validateTimeSlots(slots: Array<{ startTimeMinutes: number; endTimeMinutes: number }>): {
+  valid: boolean;
+  error?: string;
+} {
+  if (slots.length === 0) {
+    return { valid: true }; // Día sin slots (festivo completo) es válido
+  }
+
+  // 1. Validar rangos válidos (0-1439)
+  for (const slot of slots) {
+    if (slot.startTimeMinutes < 0 || slot.startTimeMinutes > 1439) {
+      return { valid: false, error: "Hora de inicio debe estar entre 0 y 1439 minutos" };
+    }
+    if (slot.endTimeMinutes < 0 || slot.endTimeMinutes > 1439) {
+      return { valid: false, error: "Hora de fin debe estar entre 0 y 1439 minutos" };
+    }
+    if (slot.startTimeMinutes >= slot.endTimeMinutes) {
+      return { valid: false, error: "Hora de inicio debe ser menor que hora de fin" };
+    }
+  }
+
+  // 2. Validar que no se solapan
+  const sorted = [...slots].sort((a, b) => a.startTimeMinutes - b.startTimeMinutes);
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const current = sorted[i];
+    const next = sorted[i + 1];
+
+    if (current && next && current.endTimeMinutes > next.startTimeMinutes) {
+      return { valid: false, error: "Los horarios no pueden solaparse" };
+    }
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Crea una excepción de horario
+ */
+export async function createExceptionDay(input: CreateExceptionDayInput): Promise<ActionResponse<void>> {
+  try {
+    const { session, orgId } = await requireOrg();
+
+    // Validación XOR: solo uno de los targets puede estar activo
+    const targets = [
+      input.employeeId,
+      input.scheduleTemplateId,
+      input.isGlobal,
+      input.departmentId,
+      input.costCenterId,
+    ].filter(Boolean);
+
+    if (targets.length === 0) {
+      return {
+        success: false,
+        error: "Debe especificar un alcance: empleado, plantilla, global, departamento o centro de costes",
+      };
+    }
+    if (targets.length > 1) {
+      return {
+        success: false,
+        error: "Solo puede especificar un alcance a la vez",
+      };
+    }
+
+    // Validar que el empleado/plantilla/departamento/centro existe y pertenece a la org
+    if (input.employeeId) {
+      const employee = await prisma.employee.findUnique({
+        where: { id: input.employeeId },
+        select: { orgId: true },
+      });
+
+      if (!employee || employee.orgId !== orgId) {
+        return {
+          success: false,
+          error: "Empleado no encontrado o no pertenece a tu organización",
+        };
+      }
+    }
+
+    if (input.scheduleTemplateId) {
+      const template = await prisma.scheduleTemplate.findUnique({
+        where: { id: input.scheduleTemplateId },
+        select: { orgId: true },
+      });
+
+      if (!template || template.orgId !== orgId) {
+        return {
+          success: false,
+          error: "Plantilla no encontrada o no pertenece a tu organización",
+        };
+      }
+    }
+
+    if (input.departmentId) {
+      const department = await prisma.department.findUnique({
+        where: { id: input.departmentId },
+        select: { orgId: true },
+      });
+
+      if (!department || department.orgId !== orgId) {
+        return {
+          success: false,
+          error: "Departamento no encontrado o no pertenece a tu organización",
+        };
+      }
+    }
+
+    if (input.costCenterId) {
+      const costCenter = await prisma.costCenter.findUnique({
+        where: { id: input.costCenterId },
+        select: { orgId: true },
+      });
+
+      if (!costCenter || costCenter.orgId !== orgId) {
+        return {
+          success: false,
+          error: "Centro de costes no encontrado o no pertenece a tu organización",
+        };
+      }
+    }
+
+    // Validar time slots si existen
+    if (input.timeSlots && input.timeSlots.length > 0) {
+      const validation = validateTimeSlots(input.timeSlots);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: validation.error,
+        };
+      }
+    }
+
+    // Validar fechas pasadas (avisar si es fecha pasada)
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const exceptionDate = new Date(input.date);
+    exceptionDate.setHours(0, 0, 0, 0);
+
+    if (exceptionDate < now) {
+      // Permitimos fechas pasadas pero advertimos en logs
+      console.warn(`Creando excepción para fecha pasada: ${exceptionDate.toISOString()}`);
+    }
+
+    // Validar que no exista ya una excepción para la misma fecha y target
+    const existing = await prisma.exceptionDayOverride.findFirst({
+      where: {
+        orgId,
+        employeeId: input.employeeId ?? null,
+        scheduleTemplateId: input.scheduleTemplateId ?? null,
+        isGlobal: input.isGlobal ?? false,
+        departmentId: input.departmentId ?? null,
+        costCenterId: input.costCenterId ?? null,
+        date: {
+          gte: input.date,
+          lte: input.endDate ?? input.date,
+        },
+        deletedAt: null, // Solo activas
+      },
+    });
+
+    if (existing) {
+      return {
+        success: false,
+        error: "Ya existe una excepción para esta fecha y alcance",
+      };
+    }
+
+    // Crear la excepción
+    await prisma.exceptionDayOverride.create({
+      data: {
+        orgId,
+        employeeId: input.employeeId,
+        scheduleTemplateId: input.scheduleTemplateId,
+        isGlobal: input.isGlobal ?? false,
+        departmentId: input.departmentId,
+        costCenterId: input.costCenterId,
+        date: input.date,
+        endDate: input.endDate,
+        reason: input.reason,
+        exceptionType: input.exceptionType,
+        isRecurring: input.isRecurring ?? false,
+        createdBy: session.user.id,
+        overrideSlots: input.timeSlots
+          ? {
+              create: input.timeSlots.map((slot) => ({
+                startTimeMinutes: slot.startTimeMinutes,
+                endTimeMinutes: slot.endTimeMinutes,
+                slotType: slot.slotType,
+                presenceType: slot.presenceType,
+              })),
+            }
+          : undefined,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error creating exception day:", error);
+    return {
+      success: false,
+      error: "Error al crear la excepción de horario",
+    };
+  }
+}
+
+/**
+ * Actualiza una excepción de horario existente
+ */
+export async function updateExceptionDay(
+  input: Omit<CreateExceptionDayInput, "employeeId" | "scheduleTemplateId"> & { id: string },
+): Promise<ActionResponse<void>> {
+  try {
+    const { session, orgId } = await requireOrg();
+
+    // Verificar que la excepción existe y pertenece a la org
+    const exception = await prisma.exceptionDayOverride.findUnique({
+      where: { id: input.id },
+      select: { orgId: true, deletedAt: true },
+    });
+
+    if (!exception || exception.orgId !== orgId) {
+      return {
+        success: false,
+        error: "Excepción no encontrada o no pertenece a tu organización",
+      };
+    }
+
+    if (exception.deletedAt) {
+      return {
+        success: false,
+        error: "No se puede actualizar una excepción eliminada",
+      };
+    }
+
+    // Validar time slots si existen
+    if (input.timeSlots && input.timeSlots.length > 0) {
+      const validation = validateTimeSlots(input.timeSlots);
+      if (!validation.valid) {
+        return {
+          success: false,
+          error: validation.error,
+        };
+      }
+    }
+
+    // Actualizar la excepción
+    await prisma.exceptionDayOverride.update({
+      where: { id: input.id },
+      data: {
+        date: input.date,
+        endDate: input.endDate,
+        reason: input.reason,
+        exceptionType: input.exceptionType,
+        isRecurring: input.isRecurring ?? false,
+        isGlobal: input.isGlobal ?? false,
+        departmentId: input.departmentId ?? null,
+        costCenterId: input.costCenterId ?? null,
+        // Eliminar slots existentes y crear nuevos
+        overrideSlots: {
+          deleteMany: {},
+          create: input.timeSlots?.map((slot) => ({
+            startTimeMinutes: slot.startTimeMinutes,
+            endTimeMinutes: slot.endTimeMinutes,
+            slotType: slot.slotType,
+            presenceType: slot.presenceType,
+          })),
+        },
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating exception day:", error);
+    return {
+      success: false,
+      error: "Error al actualizar la excepción de horario",
+    };
+  }
+}
+
+/**
+ * Elimina (soft delete) una excepción de horario
+ */
+export async function deleteExceptionDay(exceptionId: string): Promise<ActionResponse<void>> {
+  try {
+    const { session, orgId } = await requireOrg();
+
+    // Verificar que la excepción existe y pertenece a la org
+    const exception = await prisma.exceptionDayOverride.findUnique({
+      where: { id: exceptionId },
+      select: { orgId: true, deletedAt: true },
+    });
+
+    if (!exception || exception.orgId !== orgId) {
+      return {
+        success: false,
+        error: "Excepción no encontrada o no pertenece a tu organización",
+      };
+    }
+
+    if (exception.deletedAt) {
+      return {
+        success: false,
+        error: "La excepción ya está eliminada",
+      };
+    }
+
+    // Soft delete
+    await prisma.exceptionDayOverride.update({
+      where: { id: exceptionId },
+      data: {
+        deletedAt: new Date(),
+        deletedBy: session.user.id,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting exception day:", error);
+    return {
+      success: false,
+      error: "Error al eliminar la excepción de horario",
+    };
+  }
+}
+
+/**
+ * Obtiene todas las excepciones de una plantilla de horario
+ */
+export async function getExceptionDaysForTemplate(templateId: string) {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Verificar que la plantilla existe y pertenece a la org
+    const template = await prisma.scheduleTemplate.findUnique({
+      where: { id: templateId },
+      select: { orgId: true },
+    });
+
+    if (!template || template.orgId !== orgId) {
+      return [];
+    }
+
+    const exceptions = await prisma.exceptionDayOverride.findMany({
+      where: {
+        scheduleTemplateId: templateId,
+        deletedAt: null,
+      },
+      include: {
+        overrideSlots: {
+          orderBy: { startTimeMinutes: "asc" },
+        },
+        createdByUser: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return exceptions;
+  } catch (error) {
+    console.error("Error getting exceptions for template:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todas las excepciones de un empleado específico
+ */
+export async function getExceptionDaysForEmployee(employeeId: string) {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Verificar que el empleado existe y pertenece a la org
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { orgId: true },
+    });
+
+    if (!employee || employee.orgId !== orgId) {
+      return [];
+    }
+
+    const exceptions = await prisma.exceptionDayOverride.findMany({
+      where: {
+        employeeId,
+        deletedAt: null,
+      },
+      include: {
+        overrideSlots: {
+          orderBy: { startTimeMinutes: "asc" },
+        },
+        scheduleTemplate: {
+          select: {
+            name: true,
+          },
+        },
+        createdByUser: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return exceptions;
+  } catch (error) {
+    console.error("Error getting exceptions for employee:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todas las excepciones globales (organización, departamentos, centros de costes)
+ */
+export async function getAllGlobalExceptions() {
+  try {
+    const { orgId } = await requireOrg();
+
+    const exceptions = await prisma.exceptionDayOverride.findMany({
+      where: {
+        orgId,
+        deletedAt: null,
+        OR: [{ isGlobal: true }, { departmentId: { not: null } }, { costCenterId: { not: null } }],
+      },
+      include: {
+        overrideSlots: {
+          orderBy: { startTimeMinutes: "asc" },
+        },
+        createdByUser: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        costCenter: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    return exceptions;
+  } catch (error) {
+    console.error("Error getting global exceptions:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todos los departamentos activos de la organización
+ */
+export async function getDepartments() {
+  try {
+    const { orgId } = await requireOrg();
+
+    const departments = await prisma.department.findMany({
+      where: {
+        orgId,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return departments;
+  } catch (error) {
+    console.error("Error getting departments:", error);
+    return [];
+  }
+}
+
+/**
+ * Obtiene todos los centros de costes activos de la organización
+ */
+export async function getCostCenters() {
+  try {
+    const { orgId } = await requireOrg();
+
+    const costCenters = await prisma.costCenter.findMany({
+      where: {
+        orgId,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return costCenters;
+  } catch (error) {
+    console.error("Error getting cost centers:", error);
+    return [];
+  }
+}

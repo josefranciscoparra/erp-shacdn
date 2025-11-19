@@ -230,24 +230,191 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
 
 /**
  * Busca una excepción de día (día con horario especial) para un empleado.
+ *
+ * Prioridad de excepciones (mayor a menor):
+ * 1. Empleado específico (employeeId)
+ * 2. Por plantilla de horario (scheduleTemplateId)
+ * 3. Por departamento (departmentId)
+ * 4. Por centro de costes (costCenterId)
+ * 5. Global (isGlobal = true)
  */
 async function getExceptionForDate(employeeId: string, date: Date) {
-  // TODO: Implementar cuando se añada el modelo ExceptionDayOverride
-  // Por ahora retornar null (no hay excepciones)
-  return null;
+  // Obtener información del empleado (departamento, centro de costes, plantilla actual)
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      orgId: true,
+      departmentId: true,
+      costCenterId: true,
+    },
+  });
+
+  if (!employee) return null;
+
+  // Obtener asignación activa para saber la plantilla
+  const assignment = await getActiveAssignment(employeeId, date);
+  const scheduleTemplateId = assignment?.scheduleTemplate?.id;
+
+  // Normalizar fecha a medianoche
+  const dateStart = new Date(date);
+  dateStart.setHours(0, 0, 0, 0);
+
+  const dateEnd = new Date(date);
+  dateEnd.setHours(23, 59, 59, 999);
+
+  // Buscar excepciones aplicables con prioridad
+  // Buscamos TODAS las excepciones que podrían aplicar y luego seleccionamos por prioridad
+  const exceptions = await prisma.exceptionDayOverride.findMany({
+    where: {
+      orgId: employee.orgId,
+      deletedAt: null,
+      OR: [
+        // 1. Coincide con la fecha exacta
+        {
+          date: {
+            gte: dateStart,
+            lte: dateEnd,
+          },
+        },
+        // 2. Está en un rango de fechas
+        {
+          AND: [
+            { date: { lte: dateEnd } },
+            {
+              OR: [
+                { endDate: null }, // Sin fecha de fin (un solo día)
+                { endDate: { gte: dateStart } }, // Rango que incluye esta fecha
+              ],
+            },
+          ],
+        },
+        // 3. Recurrente anual (mismo mes y día)
+        {
+          isRecurring: true,
+          // Para esto necesitamos filtrar manualmente después
+        },
+      ],
+      // Solo las que aplican a este empleado según scope
+      AND: [
+        {
+          OR: [
+            // 1. Empleado específico
+            { employeeId },
+            // 2. Por plantilla
+            ...(scheduleTemplateId ? [{ scheduleTemplateId }] : []),
+            // 3. Por departamento
+            ...(employee.departmentId ? [{ departmentId: employee.departmentId }] : []),
+            // 4. Por centro de costes
+            ...(employee.costCenterId ? [{ costCenterId: employee.costCenterId }] : []),
+            // 5. Global
+            { isGlobal: true },
+          ],
+        },
+      ],
+    },
+    include: {
+      overrideSlots: {
+        orderBy: { startTimeMinutes: "asc" },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (exceptions.length === 0) return null;
+
+  // Filtrar excepciones recurrentes manualmente (mismo mes y día)
+  const validExceptions = exceptions.filter((exception) => {
+    // Si no es recurrente, validar fechas normalmente
+    if (!exception.isRecurring) {
+      const exceptionDate = new Date(exception.date);
+      exceptionDate.setHours(0, 0, 0, 0);
+
+      // Verificar si la fecha está en el rango
+      if (exception.endDate) {
+        const exceptionEndDate = new Date(exception.endDate);
+        exceptionEndDate.setHours(23, 59, 59, 999);
+        return dateStart >= exceptionDate && dateStart <= exceptionEndDate;
+      } else {
+        return dateStart.getTime() === exceptionDate.getTime();
+      }
+    }
+
+    // Si es recurrente, verificar mes y día
+    const exceptionDate = new Date(exception.date);
+    return date.getMonth() === exceptionDate.getMonth() && date.getDate() === exceptionDate.getDate();
+  });
+
+  if (validExceptions.length === 0) return null;
+
+  // Seleccionar por prioridad (empleado > plantilla > departamento > centro costes > global)
+  const prioritized =
+    validExceptions.find((e) => e.employeeId === employeeId) ??
+    validExceptions.find((e) => e.scheduleTemplateId === scheduleTemplateId) ??
+    validExceptions.find((e) => e.departmentId === employee.departmentId) ??
+    validExceptions.find((e) => e.costCenterId === employee.costCenterId) ??
+    validExceptions.find((e) => e.isGlobal);
+
+  return prioritized ?? null;
 }
 
 /**
  * Construye un horario efectivo desde una excepción de día.
+ *
+ * Existen dos casos principales:
+ * 1. Excepción con slots personalizados (overrideSlots): Usa esos slots
+ * 2. Excepción de tipo HOLIDAY: Marca como día no laboral
+ * 3. Excepción sin slots: Marca como día no laboral por defecto
  */
 function buildScheduleFromException(exception: any, date: Date): EffectiveSchedule {
-  // TODO: Implementar cuando se añada el modelo ExceptionDayOverride
+  // Si tiene slots personalizados, usarlos
+  if (exception.overrideSlots && exception.overrideSlots.length > 0) {
+    const effectiveSlots: EffectiveTimeSlot[] = exception.overrideSlots.map((slot: any) => ({
+      startMinutes: Number(slot.startTimeMinutes),
+      endMinutes: Number(slot.endTimeMinutes),
+      slotType: slot.slotType,
+      presenceType: slot.presenceType,
+      isMandatory: slot.presenceType === "MANDATORY",
+      description: slot.description ?? undefined,
+    }));
+
+    // Calcular minutos esperados (suma de slots tipo WORK)
+    const expectedMinutes = effectiveSlots
+      .filter((slot) => slot.slotType === "WORK")
+      .reduce((sum, slot) => sum + (slot.endMinutes - slot.startMinutes), 0);
+
+    return {
+      date,
+      isWorkingDay: expectedMinutes > 0,
+      expectedMinutes,
+      timeSlots: effectiveSlots,
+      source: "EXCEPTION",
+      exceptionType: exception.exceptionType,
+      exceptionReason: exception.reason ?? undefined,
+    };
+  }
+
+  // Si es un festivo o no tiene slots, marcar como no laboral
+  if (exception.exceptionType === "HOLIDAY" || !exception.overrideSlots || exception.overrideSlots.length === 0) {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "EXCEPTION",
+      exceptionType: exception.exceptionType,
+      exceptionReason: exception.reason ?? undefined,
+    };
+  }
+
+  // Fallback: día no laboral por defecto
   return {
     date,
-    isWorkingDay: true,
+    isWorkingDay: false,
     expectedMinutes: 0,
     timeSlots: [],
     source: "EXCEPTION",
+    exceptionType: exception.exceptionType,
+    exceptionReason: exception.reason ?? undefined,
   };
 }
 

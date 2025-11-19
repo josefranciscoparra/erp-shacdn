@@ -57,6 +57,12 @@ export interface EffectiveSchedule {
     endTime?: number; // Minutos desde medianoche
     durationMinutes?: number;
   };
+
+  /** Tipo de excepción (si aplica) */
+  exceptionType?: string;
+
+  /** Razón de la excepción (si aplica) */
+  exceptionReason?: string;
 }
 
 /**

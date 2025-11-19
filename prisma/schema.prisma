@@ -141,6 +141,8 @@ model User {
   conversationsAsUserB Conversation[] @relation("ConversationUserB") // Conversaciones donde soy UserB
   messagesSent Message[] // Mensajes enviados
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas por el usuario
+  createdExceptions ExceptionDayOverride[] @relation("CreatedExceptions") // Excepciones de horario que he creado
+  deletedExceptions ExceptionDayOverride[] @relation("DeletedExceptions") // Excepciones de horario que he eliminado
 
   @@index([email])
   @@index([orgId])
@@ -203,6 +205,7 @@ model CostCenter {
   calendars          Calendar[]
   timeClockTerminals TimeClockTerminal[]
   expenses           Expense[]
+  exceptionOverrides ExceptionDayOverride[] // Excepciones por centro de costes
 
   @@index([orgId])
   @@map("cost_centers")
@@ -231,6 +234,7 @@ model Department {
 
   // Relaciones
   employmentContracts EmploymentContract[]
+  exceptionOverrides  ExceptionDayOverride[] // Excepciones por departamento
 
   @@index([orgId])
   @@index([managerId])
@@ -1905,18 +1909,46 @@ model EmployeeScheduleAssignment {
 model ExceptionDayOverride {
   id              String   @id @default(cuid())
 
-  // Puede aplicar a un empleado específico o a toda la plantilla
+  // Alcance de la excepción (XOR: solo uno puede estar activo)
+  // 1. Empleado específico
   employeeId      String?
   employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
+  // 2. Plantilla de horario (afecta a todos los empleados asignados)
   scheduleTemplateId String?
   scheduleTemplate ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
 
-  date            DateTime  // Día específico
+  // 3. Excepción global (toda la organización)
+  isGlobal        Boolean  @default(false)
+
+  // 4. Por departamento
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+
+  // 5. Por centro de costes
+  costCenterId    String?
+  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  date            DateTime  @db.Date // Día específico
+  endDate         DateTime? @db.Date // Para rangos de fechas (opcional)
   reason          String?   // "Viernes Santo", "Cierre excepcional"
+
+  // Tipo de excepción
+  exceptionType   ExceptionType
+
+  // Recurrencia anual (para festivos que se repiten cada año)
+  isRecurring     Boolean  @default(false)
 
   // Slots específicos para ese día
   overrideSlots   ExceptionTimeSlot[]
+
+  // Soft delete y auditoría
+  deletedAt       DateTime?
+  deletedBy       String?
+  deletedByUser   User? @relation("DeletedExceptions", fields: [deletedBy], references: [id])
+
+  createdBy       String
+  createdByUser   User @relation("CreatedExceptions", fields: [createdBy], references: [id])
 
   // Multi-tenancy
   orgId           String
@@ -1926,8 +1958,15 @@ model ExceptionDayOverride {
   updatedAt       DateTime  @updatedAt
 
   @@index([employeeId])
+  @@index([scheduleTemplateId])
+  @@index([departmentId])
+  @@index([costCenterId])
   @@index([orgId])
   @@index([date])
+  @@index([isGlobal])
+  @@index([deletedAt])
+  @@index([createdBy])
+  @@index([deletedBy])
   @@map("exception_day_overrides")
 }
 
@@ -1978,6 +2017,15 @@ enum ScheduleAssignmentType {
   SHIFT      // Turno asignado
   ROTATION   // Rotación asignada
   FLEXIBLE   // Flexible (sin horario fijo)
+}
+
+enum ExceptionType {
+  HOLIDAY           // Festivo (día completo sin trabajo)
+  REDUCED_HOURS     // Jornada reducida
+  SPECIAL_SCHEDULE  // Horario especial
+  TRAINING          // Formación/Evento
+  EARLY_CLOSURE     // Cierre anticipado
+  CUSTOM            // Personalizado
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
