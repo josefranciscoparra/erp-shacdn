@@ -1,9 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 📝 EN PLANIFICACIÓN
+**Estado:** 🚧 EN DESARROLLO - Sprint 1 FASE 1 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
+**Última actualización:** 2025-11-20 16:30
 
 ---
 
@@ -254,30 +255,60 @@ model Department {
 
 ## 🚀 Orden de Ejecución Recomendado
 
-### Sprint 1: Fundamentos de Datos ⏳ PENDIENTE
+### Sprint 1: Fundamentos de Datos ✅ COMPLETADO
 
-#### FASE 1: Actualización del Schema Prisma
+#### FASE 1: Actualización del Schema Prisma ✅ COMPLETADO (2025-11-20)
 
-**Archivos a modificar:**
-- `prisma/schema.prisma`
+**Archivos modificados:**
+- ✅ `prisma/schema.prisma`
 
-**Cambios:**
-1. ✅ Añadir `departmentId` opcional a `Team`
-2. ✅ Añadir scope `"DEPARTMENT"` a `AreaResponsible` y `AlertSubscription`
-3. ✅ Añadir `departmentId` a `AreaResponsible` y `AlertSubscription`
-4. ✅ Añadir `departmentId` a `Alert`
-5. ✅ Añadir constraint único a `Alert`: `@@unique([employeeId, date, type])`
-6. ✅ Añadir relaciones en `Department`
+**Cambios implementados:**
+1. ✅ Añadido `departmentId` opcional a `Team`
+   - Relación `department Department? @relation("DepartmentTeams")`
+   - Comentarios documentando validación de costCenterId
+   - Soporte para equipos transversales (sin departamento)
 
-**Migración:**
+2. ✅ Añadido scope `"DEPARTMENT"` a `AreaResponsible`
+   - Campo `departmentId String?`
+   - Relación con Department añadida
+   - Constraint único actualizado: `@@unique([userId, scope, departmentId, costCenterId, teamId])`
+   - Índice `@@index([departmentId])` añadido
+
+3. ✅ Añadido scope `"DEPARTMENT"` a `AlertSubscription`
+   - Campo `departmentId String?`
+   - Relación con Department añadida
+   - Comentario documentando suscripciones ACUMULATIVAS
+   - Constraint único e índices actualizados
+
+4. ✅ Añadido `departmentId` a `Alert`
+   - Campo `departmentId String?` para filtrado por departamento
+   - Relación con Department añadida
+   - Índice `@@index([departmentId])` añadido
+
+5. ✅ Constraint único en `Alert` ya existía
+   - `@@unique([employeeId, date, type])` - Sin cambios necesarios
+
+6. ✅ Relaciones inversas en `Department`
+   - `teams Team[] @relation("DepartmentTeams")`
+   - `areaResponsibles AreaResponsible[] @relation("DepartmentResponsibles")`
+   - `alertSubscriptions AlertSubscription[] @relation("DepartmentAlertSubscriptions")`
+   - `alerts Alert[] @relation("DepartmentAlerts")`
+
+**Migración ejecutada:**
 ```bash
-npx prisma migrate dev --name add_department_scope_and_alert_idempotency
+npx prisma db push --accept-data-loss
+# Base de datos sincronizada exitosamente
+# Prisma Client regenerado
 ```
 
-**Validaciones en Server Actions:**
-- Si `Team.departmentId` existe → validar que `department.costCenterId === team.costCenterId`
-- Si `AreaResponsible.scope === "DEPARTMENT"` → validar que `departmentId` no es null
-- Si `AlertSubscription.scope === "DEPARTMENT"` → validar que `departmentId` no es null
+**Commit:**
+- `db51cc1` - feat(schema): Sprint 1 FASE 1 - Sistema de Alertas y Permisos v2.0
+
+**Pendiente para FASE 2:**
+- Implementar validaciones en Server Actions:
+  - `Team.departmentId` → validar `department.costCenterId === team.costCenterId`
+  - `AreaResponsible.scope === "DEPARTMENT"` → validar `departmentId` no es null
+  - `AlertSubscription.scope === "DEPARTMENT"` → validar `departmentId` no es null
 
 ---
 
