@@ -3,8 +3,9 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { AlertCircle, AlertTriangle, Info, MoreHorizontal } from "lucide-react";
 
+import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,14 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
-import { MoreHorizontal } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // Tipo de incidencia individual
 export type Incident = {
@@ -99,19 +93,12 @@ const alertTypeLabels: Record<string, string> = {
   NON_WORKDAY_CLOCK_IN: "Fichaje Día No Laboral",
 };
 
-// Configuración de estados
-const statusLabels: Record<string, string> = {
-  ACTIVE: "Activa",
-  RESOLVED: "Resuelta",
-  DISMISSED: "Descartada",
-};
-
 export const alertColumns: ColumnDef<AlertRow>[] = [
   {
     accessorKey: "severity",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Sev." />,
     cell: ({ row }) => {
-      const severity = row.getValue("severity") as keyof typeof severityConfig;
+      const severity = row.original.severity as keyof typeof severityConfig;
       const config = severityConfig[severity];
       const Icon = config.icon;
 
@@ -144,20 +131,20 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
       const employee = row.original.employee;
       const costCenter = row.original.costCenter;
       const team = row.original.team;
-      
+
       return (
-        <div className="flex flex-col min-w-[160px]">
-          <span className="font-medium truncate">
+        <div className="flex min-w-[160px] flex-col">
+          <span className="truncate font-medium">
             {employee.firstName} {employee.lastName}
           </span>
-          <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
-             <span>{costCenter ? costCenter.name : "Sin centro"}</span>
-             {team && (
-                <>
-                  <span>•</span>
-                  <span title={team.name}>{team.name}</span>
-                </>
-             )}
+          <div className="text-muted-foreground flex items-center gap-1 truncate text-xs">
+            <span>{costCenter ? costCenter.name : "Sin centro"}</span>
+            {team && (
+              <>
+                <span>•</span>
+                <span title={team.name}>{team.name}</span>
+              </>
+            )}
           </div>
         </div>
       );
@@ -169,13 +156,13 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     accessorKey: "type",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => {
-      const type = row.getValue("type") as string;
-      const label = alertTypeLabels[type] || type;
+      const type = row.original.type;
+      const label = alertTypeLabels[type] ?? type;
       return (
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Badge variant="outline" className="font-normal truncate max-w-[120px]">
+              <Badge variant="outline" className="max-w-[120px] truncate font-normal">
                 {label}
               </Badge>
             </TooltipTrigger>
@@ -211,34 +198,41 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
       // Si es DAILY_SUMMARY y tiene incidencias, mostrar resumen compacto
       if (type === "DAILY_SUMMARY" && incidents && incidents.length > 0) {
         // Contar tipos de incidencias
-        const counts = incidents.reduce((acc, curr) => {
-          if (curr.type.includes("LATE")) acc.late++;
-          else if (curr.type.includes("EARLY")) acc.early++;
-          else acc.other++;
-          return acc;
-        }, { late: 0, early: 0, other: 0 });
+        const counts = incidents.reduce(
+          (acc, curr) => {
+            if (curr.type.includes("LATE")) acc.late++;
+            else if (curr.type.includes("EARLY")) acc.early++;
+            else acc.other++;
+            return acc;
+          },
+          { late: 0, early: 0, other: 0 },
+        );
 
         return (
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="flex flex-col gap-1.5 max-w-[250px] cursor-help">
-                  <span className="font-medium text-sm truncate">
-                    {row.original.title}
-                  </span>
+                <div className="flex max-w-[250px] cursor-help flex-col gap-1.5">
+                  <span className="truncate text-sm font-medium">{row.original.title}</span>
                   <div className="flex flex-wrap gap-1.5">
                     {counts.late > 0 && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900">
+                      <Badge
+                        variant="secondary"
+                        className="h-5 border-orange-200 bg-orange-50 px-1.5 text-[10px] font-normal text-orange-700 dark:border-orange-900 dark:bg-orange-900/30 dark:text-orange-400"
+                      >
                         {counts.late} Tarde
                       </Badge>
                     )}
                     {counts.early > 0 && (
-                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900">
+                      <Badge
+                        variant="secondary"
+                        className="h-5 border-blue-200 bg-blue-50 px-1.5 text-[10px] font-normal text-blue-700 dark:border-blue-900 dark:bg-blue-900/30 dark:text-blue-400"
+                      >
                         {counts.early} Salida
                       </Badge>
                     )}
                     {counts.other > 0 && (
-                       <Badge variant="outline" className="text-[10px] px-1.5 h-5 font-normal">
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
                         {counts.other} Otros
                       </Badge>
                     )}
@@ -247,7 +241,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
                 {tooltipContent}
-                <p className="text-xs text-muted-foreground mt-2 border-t pt-1">Clic para ver detalles completos</p>
+                <p className="text-muted-foreground mt-2 border-t pt-1 text-xs">Clic para ver detalles completos</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -259,18 +253,12 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex flex-col max-w-[250px] cursor-help">
-                <span className="font-medium truncate">{row.original.title}</span>
-                {description && (
-                  <span className="text-xs text-muted-foreground truncate">
-                    {description}
-                  </span>
-                )}
+              <div className="flex max-w-[250px] cursor-help flex-col">
+                <span className="truncate font-medium">{row.original.title}</span>
+                {description && <span className="text-muted-foreground truncate text-xs">{description}</span>}
               </div>
             </TooltipTrigger>
-            <TooltipContent className="max-w-xs">
-              {tooltipContent}
-            </TooltipContent>
+            <TooltipContent className="max-w-xs">{tooltipContent}</TooltipContent>
           </Tooltip>
         </TooltipProvider>
       );
@@ -317,14 +305,17 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     accessorKey: "status",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
-      const status = row.getValue("status") as string;
-      const variant =
-        status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
-      
+      const status = row.original.status;
+      const variant = status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
+
       // Versión compacta del badge
       const label = status === "ACTIVE" ? "Activa" : status === "RESOLVED" ? "Resuelta" : "Desc.";
 
-      return <Badge variant={variant} className="h-5 px-1.5 text-xs">{label}</Badge>;
+      return (
+        <Badge variant={variant} className="h-5 px-1.5 text-xs">
+          {label}
+        </Badge>
+      );
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -337,7 +328,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     id: "actions",
     cell: ({ row, table }) => {
       const alert = row.original;
-      const { onResolve, onDismiss, onViewDetails } = (table.options.meta as any) || {};
+      const { onResolve, onDismiss, onViewDetails } = (table.options.meta as any) ?? {};
 
       return (
         <DropdownMenu>
@@ -349,18 +340,12 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>
-              Ver detalles
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>Ver detalles</DropdownMenuItem>
             {alert.status === "ACTIVE" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onResolve?.(alert)}>
-                  Resolver
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>
-                  Descartar
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onResolve?.(alert)}>Resolver</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>Descartar</DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>

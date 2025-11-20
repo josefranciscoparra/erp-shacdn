@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
 import {
-  flexRender,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
@@ -14,19 +14,19 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
+import { DataTable } from "@/components/data-table/data-table";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
-import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { DataTable } from "@/components/data-table/data-table";
-import { SectionHeader } from "@/components/hr/section-header";
-import { EmptyState } from "@/components/hr/empty-state";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -37,10 +37,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-
-import { alertColumns, type AlertRow } from "./_components/alert-columns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import {
   getActiveAlerts,
   resolveAlert,
@@ -48,8 +48,8 @@ import {
   getAlertStats,
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
+
+import { alertColumns, type AlertRow } from "./_components/alert-columns";
 
 type AlertStats = {
   total: number;
@@ -329,7 +329,7 @@ export default function AlertsPage() {
                   <SelectItem value="all">Todos los centros</SelectItem>
                   {availableFilters.costCenters.map((center) => (
                     <SelectItem key={center.id} value={center.id}>
-                      <span className="truncate block max-w-[200px] md:max-w-[140px] lg:max-w-[180px]">
+                      <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
                         {center.name} {center.code ? `(${center.code})` : ""}
                       </span>
                     </SelectItem>
@@ -346,7 +346,7 @@ export default function AlertsPage() {
                   <SelectItem value="all">Todos los equipos</SelectItem>
                   {availableFilters.teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
-                      <span className="truncate block max-w-[200px] md:max-w-[140px] lg:max-w-[180px]">
+                      <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
                         {team.name} {team.code ? `(${team.code})` : ""}
                       </span>
                     </SelectItem>
@@ -578,7 +578,7 @@ export default function AlertsPage() {
                 </div>
                 <div className="space-y-1">
                   <span className="text-muted-foreground text-xs font-medium uppercase">Centro</span>
-                  <p className="text-sm font-medium">{selectedAlert.costCenter?.name || "N/A"}</p>
+                  <p className="text-sm font-medium">{selectedAlert.costCenter?.name ?? "N/A"}</p>
                 </div>
                 <div className="space-y-1">
                   <span className="text-muted-foreground text-xs font-medium uppercase">Fecha Incidencia</span>
@@ -610,8 +610,8 @@ export default function AlertsPage() {
                       {selectedAlert.incidents.map((incident: any, index: number) => {
                         const isLate = incident.type.includes("LATE_ARRIVAL");
                         const isEarly = incident.type.includes("EARLY_DEPARTURE");
-                        const hours = Math.floor(Math.abs(incident.deviationMinutes || 0) / 60);
-                        const mins = Math.abs(incident.deviationMinutes || 0) % 60;
+                        const hours = Math.floor(Math.abs(incident.deviationMinutes ?? 0) / 60);
+                        const mins = Math.abs(incident.deviationMinutes ?? 0) % 60;
 
                         return (
                           <div key={index} className="bg-muted/30 flex items-start gap-3 rounded-lg border p-3">
@@ -673,7 +673,7 @@ export default function AlertsPage() {
                       </p>
                     )}
                     {selectedAlert.resolutionComment && (
-                      <p className="text-muted-foreground mt-2 italic">"{selectedAlert.resolutionComment}"</p>
+                      <p className="text-muted-foreground mt-2 italic">&quot;{selectedAlert.resolutionComment}&quot;</p>
                     )}
                   </div>
                 </div>
