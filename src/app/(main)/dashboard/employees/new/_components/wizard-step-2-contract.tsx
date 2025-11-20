@@ -2,22 +2,55 @@
 
 import { useEffect, useState } from "react";
 
-import { Info } from "lucide-react";
+import { Check, ChevronsUpDown, Info, Users } from "lucide-react";
 
 import { ContractFormSimplified } from "@/components/contracts/contract-form-simplified";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { getTeams, type TeamListItem } from "@/server/actions/teams";
 import { type CreateContractData } from "@/stores/contracts-store";
 
 interface WizardStep2ContractProps {
-  onSubmit: (data: CreateContractData | null) => Promise<void>;
+  onSubmit: (data: CreateContractData | null, teamId?: string) => Promise<void>;
   isLoading?: boolean;
   initialData?: CreateContractData | null;
+  initialTeamId?: string;
 }
 
-export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }: WizardStep2ContractProps) {
+export function WizardStep2Contract({
+  onSubmit,
+  isLoading = false,
+  initialData,
+  initialTeamId,
+}: WizardStep2ContractProps) {
   const [skipContract, setSkipContract] = useState(false);
+  const [teamId, setTeamId] = useState<string>(initialTeamId ?? "");
+  const [teams, setTeams] = useState<TeamListItem[]>([]);
+  const [isTeamsLoading, setIsTeamsLoading] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+
+  // Cargar equipos al montar el componente
+  useEffect(() => {
+    loadTeams();
+  }, []);
+
+  async function loadTeams() {
+    setIsTeamsLoading(true);
+    try {
+      const { success, teams: data } = await getTeams();
+      if (success && data) {
+        setTeams(data);
+      }
+    } finally {
+      setIsTeamsLoading(false);
+    }
+  }
 
   // Cuando cambia skipContract, si es true, llamar onSubmit con null inmediatamente
   // Esto permite que el wizard avance automáticamente al siguiente paso
@@ -40,10 +73,10 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
         costCenterId: null,
         managerId: null,
       };
-      await onSubmit(defaultContract);
+      await onSubmit(defaultContract, teamId);
     } else {
       // Si no está marcado, usar los datos del formulario
-      await onSubmit(data);
+      await onSubmit(data, teamId);
     }
   };
 
@@ -102,6 +135,76 @@ export function WizardStep2Contract({ onSubmit, isLoading = false, initialData }
           />
         </div>
       )}
+
+      {/* Selector de Equipo - Siempre visible */}
+      <Card className="rounded-lg border shadow-xs">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Equipo de Trabajo
+          </CardTitle>
+          <CardDescription>Asigna el empleado a un equipo (opcional)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            <Label>Equipo (opcional)</Label>
+            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className={cn("w-full justify-between", !teamId && "text-muted-foreground")}
+                >
+                  {teamId ? teams.find((team) => team.id === teamId)?.name : "Seleccionar equipo"}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar equipo..." />
+                  <CommandList>
+                    <CommandEmpty>{isTeamsLoading ? "Cargando equipos..." : "No se encontraron equipos"}</CommandEmpty>
+                    <CommandGroup>
+                      {/* Opción para limpiar selección */}
+                      {teamId && (
+                        <CommandItem
+                          value="__clear__"
+                          onSelect={() => {
+                            setTeamId("");
+                            setComboboxOpen(false);
+                          }}
+                        >
+                          <span className="text-muted-foreground italic">Sin equipo</span>
+                        </CommandItem>
+                      )}
+                      {teams.map((team) => (
+                        <CommandItem
+                          value={team.name}
+                          key={team.id}
+                          onSelect={() => {
+                            setTeamId(team.id);
+                            setComboboxOpen(false);
+                          }}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", team.id === teamId ? "opacity-100" : "opacity-0")} />
+                          <Users className="mr-2 h-4 w-4 opacity-50" />
+                          <div className="flex flex-col">
+                            <span>{team.name}</span>
+                            {team.code && <span className="text-muted-foreground text-xs">{team.code}</span>}
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-muted-foreground text-sm">
+              El equipo ayuda a organizar empleados dentro de un mismo centro de coste
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Formulario oculto para manejar el submit cuando skipContract está true */}
       {skipContract && (

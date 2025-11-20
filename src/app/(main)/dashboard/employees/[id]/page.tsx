@@ -64,7 +64,7 @@ const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
 
 const MAIN_TABS = [
   { value: "information", label: "Información" },
-  { value: "contract", label: "Contrato Actual" },
+  { value: "contract", label: "Laboral" },
   { value: "access", label: "Acceso" },
   { value: "documents", label: "Documentos", requiresDocuments: true },
   { value: "expenses", label: "Gastos" },
