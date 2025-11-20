@@ -33,16 +33,23 @@
 
 ### 📄 Documentación Técnica
 
-- **[Implementación FASE 1 y FASE 2](./IMPLEMENTACION_RESPONSABLES_FASE1_Y_FASE2.md)** - Detalles técnicos completos
+- **[Implementación FASE 1 y FASE 2](./IMPLEMENTACION_RESPONSABLES_FASE1_Y_FASE2.md)** - Modelo de datos + Sistema de visibilidad
+- **[Implementación FASE 3](./IMPLEMENTACION_RESPONSABLES_FASE3.md)** - Server actions genéricas + UI de asignación (EN PROGRESO)
 - **[Reglas de Negocio](./REGLAS_NEGOCIO_RESPONSABLES_ALERTAS.md)** - Especificación completa del sistema
 
 ### ✅ Completado
 
+**FASE 1 - Modelo de Datos:**
 - ✅ Modelo `Team` con relaciones completas
+- ✅ Migración aplicada con `prisma db push`
+- ✅ Extensión de modelos: Employee, CostCenter, Alert
+
+**FASE 2 - Sistema de Visibilidad:**
 - ✅ Helpers de permisos (`scope-helpers.ts`)
   - `buildScopeFilter()` - Filtrado por scope con bypass ADMIN/RRHH
   - `getUserAccessibleCostCenters()` - Centros accesibles
   - `getUserAccessibleTeams()` - Equipos accesibles
+  - `hasPermission()`, `validateScopeOwnership()`, etc.
 - ✅ Server actions con scope filtering
   - `getActiveAlerts()` con filtrado automático
   - `getAlertStats()` con scope
@@ -52,12 +59,28 @@
   - Columnas optimizadas con equipo visible
   - Bypass automático para roles globales
 
+**FASE 3 - Server Actions (parcial):**
+- ✅ Server actions genéricas (`area-responsibilities.ts`)
+  - `assignResponsibility()` - Asignar con suscripción opcional
+  - `removeResponsibility()` - Soft delete
+  - `updateResponsibility()` - Actualizar permisos
+  - `getResponsiblesForArea()` - Listar responsables
+  - `getUserResponsibilities()` - Responsabilidades de usuario
+  - `searchUsersForResponsibility()` - Búsqueda de usuarios
+- ✅ Diseño genérico: Funciona con COST_CENTER, TEAM, ORGANIZATION
+
 ### 🔄 En Progreso
 
-**FASE 3 - Asignación de Responsables (Centros):**
-- Server actions genéricas reutilizables
-- UI: Pestaña "Responsables" en centros
-- Dialog: "Añadir Responsable" con permisos
+**FASE 3 - UI de Asignación (0% completado):**
+- ⏸️ Página detalle centro `/cost-centers/[id]` con tabs
+- ⏸️ Tab "Información": Datos básicos del centro
+- ⏸️ Tab "Responsables": Lista + botón añadir
+- ⏸️ `ResponsiblesList`: DataTable con acciones
+- ⏸️ `AddResponsibleDialog`: Búsqueda usuario + permisos + suscripción
+- ⏸️ `EditPermissionsDialog`: Editar permisos existentes
+- ⏸️ Actualizar listado para enlazar a detalle
+
+**Tiempo estimado restante:** 3.5 horas
 
 ### ⏸️ Pendiente
 
@@ -1139,34 +1162,56 @@ interface UserSession {
 1. ✅ Implementar FASE 1 (Modelo de Datos) - **HECHO**
 2. ✅ Testing de migración - **HECHO**
 3. ✅ Implementar FASE 2 (Visibilidad y Filtrado) - **HECHO**
-4. ✅ Documentación técnica completa - **HECHO**
+4. ✅ Documentación técnica FASE 1-2 - **HECHO**
+5. ✅ Server Actions genéricas para responsabilidades - **HECHO**
+6. ✅ Documentación técnica FASE 3 - **HECHO**
 
-### 🔄 Actual
+### 🔄 Actual - FASE 3 UI (3.5h restantes)
 
-**FASE 3 - Asignación de Responsables (Centros):**
+**Orden de implementación:**
 
-1. **Server Actions Genéricas** (`/src/server/actions/area-responsibilities.ts`):
-   - `assignResponsibility()` - Asignar responsable (genérico para centro/equipo/cualquier scope)
-   - `removeResponsibility()` - Quitar responsabilidad
-   - `updateResponsibility()` - Actualizar permisos
-   - `getResponsiblesForArea()` - Obtener responsables de un ámbito
-   - `getUserResponsibilities()` - Obtener ámbitos de un usuario
+1. ⏸️ **Server Action** `getCostCenterById()` (15 min)
+   - Obtener centro con contador de empleados y responsables
+   - Include relaciones necesarias
 
-2. **UI - Pestaña Responsables en Centros** (`/dashboard/cost-centers/[id]`):
-   - Componente `ResponsiblesList` - Lista de responsables actuales
-   - Componente `AddResponsibleDialog` - Dialog de asignación con permisos
-   - Opción "Crear suscripción automática" (checked por defecto)
+2. ⏸️ **Página detalle** `/cost-centers/[id]/page.tsx` (30 min)
+   - PermissionGuard
+   - Header con navegación
+   - Tarjetas resumen
+   - Tabs (Información, Responsables)
 
-3. **Testing:**
-   - Asignar responsable a centro
-   - Verificar permisos aplicados
-   - Verificar filtrado automático funciona
+3. ⏸️ **Tab Información** (dentro de page.tsx - 15 min)
+   - Datos básicos del centro (readonly)
 
-### ⏸️ Siguiente (FASE 4)
+4. ⏸️ **Lista de responsables** `responsibles-list.tsx` (45 min)
+   - DataTable con TanStack Table
+   - Columnas: Usuario, Permisos, Fecha, Acciones
+   - Estado vacío
 
-- Reutilizar server actions para equipos
-- UI: Pestaña "Responsables" en equipos
-- Componente `TeamCombobox` paginado (para miles de equipos)
+5. ⏸️ **Dialog añadir** `add-responsible-dialog.tsx` (45 min)
+   - Combobox búsqueda usuarios
+   - Checkboxes permisos (grid 2 cols)
+   - Switch suscripción automática
+
+6. ⏸️ **Dialog editar** `edit-permissions-dialog.tsx` (30 min)
+   - Usuario readonly
+   - Permisos precargados
+
+7. ⏸️ **Actualizar listado** de centros (15 min)
+   - Añadir columna "Acciones" con link a detalle
+
+8. ⏸️ **Testing** completo (30 min)
+   - Asignar responsable
+   - Editar permisos
+   - Eliminar responsabilidad
+   - Verificar filtrado funciona
+
+### ⏸️ Siguiente (FASE 4) - 2h estimado
+
+- ✅ Reutilizar server actions sin cambios (ya genéricas)
+- Página `/teams/[id]` con tabs
+- Copiar componentes UI cambiando scope a "TEAM"
+- `TeamCombobox` paginado para selección
 
 ---
 
