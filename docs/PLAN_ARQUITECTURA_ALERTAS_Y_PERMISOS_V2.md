@@ -365,56 +365,58 @@ npm run lint
 - ✅ Sin errores de ESLint
 - ✅ Prisma Client regenerado automáticamente
 
-**Próximos pasos (FASE 2):**
-- Implementar validaciones adicionales en UI (formularios de creación/edición de equipos)
-- Añadir dropdowns de selección de departamento en interfaces de gestión
+**Commit:**
+- `5b6d96d` - feat(alerts): Sprint 1 FASE 1.5 - Actualizar server actions para scope DEPARTMENT
+
+**Próximos pasos (Sprint 2):**
+- Implementar Motor de Alertas con Idempotencia (`/src/lib/alert-engine.ts`)
+- Implementar Server Actions de Alertas (`/src/server/actions/alerts.ts`)
 
 ---
 
-### Sprint 2: Lógica de Negocio ⏳ PENDIENTE
+### Sprint 2: Lógica de Negocio 🚧 EN DESARROLLO
 
-#### FASE 2: Sistema de Alertas con Idempotencia
+#### FASE 2: Sistema de Alertas con Idempotencia ✅ COMPLETADO (2025-11-20)
 
-**Archivo nuevo:**
-- `/src/lib/alert-engine.ts`
+**Archivo creado:**
+- ✅ `/src/lib/alert-engine.ts`
 
-**Funciones:**
+**Funciones implementadas:**
 ```typescript
-// Crear o actualizar alerta (idempotente)
-async function createOrUpdateAlert(params: {
-  employeeId: string;
-  date: Date;
-  type: AlertType;
-  severity: AlertSeverity;
-  title: string;
-  description?: string;
-  timeEntryId?: string;
-  departmentId?: string;
-  costCenterId?: string;
-  teamId?: string;
-}): Promise<Alert>
+// ✅ Crear o actualizar alerta (idempotente con UPSERT)
+export async function createOrUpdateAlert(params: CreateOrUpdateAlertParams)
 
-// Obtener suscriptores de una alerta (acumulativo)
-async function getAlertSubscribers(alert: Alert): Promise<User[]>
+// ✅ Obtener suscriptores de una alerta (acumulativo con DISTINCT)
+export async function getAlertSubscribers(alert: {...})
 
-// Resolver alerta
-async function resolveAlert(alertId: string, userId: string, resolution: string): Promise<Alert>
+// ✅ Resolver alerta
+export async function resolveAlert(alertId: string, userId: string, resolution?: string)
+
+// ✅ Descartar alerta (falso positivo)
+export async function dismissAlert(alertId: string, userId: string, comment?: string)
 ```
 
-**Reglas de idempotencia:**
-- Clave única: `(employeeId, date, type)`
-- Si existe → `UPDATE` (no `INSERT`)
-- Campos actualizables: `severity`, `description`, `timeEntryId`, `resolved`, `resolvedAt`, `resolution`
-- Si se corrige un fichaje → alerta pasa a `resolved=true` automáticamente
+**Implementación:**
+1. ✅ Idempotencia mediante `prisma.alert.upsert()` con constraint `@@unique([employeeId, date, type])`
+2. ✅ Suscripciones acumulativas con `OR[]` query y Map para usuarios únicos
+3. ✅ Filtrado por severidad y tipo de alerta en `getAlertSubscribers()`
+4. ✅ Estados de alerta: `ACTIVE`, `RESOLVED`, `DISMISSED`
 
-**Prioridad de suscripciones (ACUMULATIVO):**
-- Un usuario con varias suscripciones ve TODAS las alertas sumadas
-- Ejemplo: `scope=ORG + scope=TEAM` → ve todas las alertas de la org + las específicas del equipo (sin duplicar)
-- La query usa `DISTINCT` para evitar duplicados
+**Reglas implementadas:**
+- Clave única: `(employeeId, date, type)`
+- Si existe → `UPDATE` (severity, description, timeEntryId, updatedAt)
+- Si no existe → `CREATE` (status="ACTIVE")
+- Resolución: `status="RESOLVED"`, `resolvedAt`, `resolvedBy`, `resolutionComment`
+
+**Validación:**
+```bash
+npx eslint src/lib/alert-engine.ts --fix
+# ✅ Sin errores, solo warning de formato (auto-corregido)
+```
 
 ---
 
-#### FASE 3: Server Actions de Alertas
+#### FASE 3: Server Actions de Alertas ⏳ EN DESARROLLO
 
 **Archivo:**
 - `/src/server/actions/alerts.ts`
