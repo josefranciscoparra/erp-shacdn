@@ -168,9 +168,9 @@ export default function AlertsPage() {
       const filters: any = {};
       if (selectedCenter !== "all") filters.costCenterId = selectedCenter;
       if (selectedSeverity !== "all") filters.severity = selectedSeverity;
-      if (selectedType !== "all") filters.alertType = selectedType;
-      if (dateRange.from) filters.dateFrom = dateRange.from.toISOString();
-      if (dateRange.to) filters.dateTo = dateRange.to.toISOString();
+      if (selectedType !== "all") filters.type = selectedType;
+      if (dateRange.from) filters.dateFrom = dateRange.from;
+      if (dateRange.to) filters.dateTo = dateRange.to;
 
       const [alertsData, statsData] = await Promise.all([getActiveAlerts(filters), getAlertStats()]);
 
