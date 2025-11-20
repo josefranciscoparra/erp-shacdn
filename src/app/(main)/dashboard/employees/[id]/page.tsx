@@ -24,6 +24,7 @@ import {
   Filter,
   Loader2,
   CreditCard,
+  Users,
 } from "lucide-react";
 
 import { DocumentListTable } from "@/components/employees/document-list-table";
@@ -114,6 +115,11 @@ interface Employee {
         name: string;
       };
     }>;
+  } | null;
+  team: {
+    id: string;
+    name: string;
+    code: string | null;
   } | null;
   employmentContracts: Array<{
     id: string;
@@ -676,6 +682,30 @@ export default function EmployeeProfilePage() {
               title="Sin contrato activo"
               description="Este empleado no tiene un contrato laboral activo"
             />
+          )}
+
+          {/* Equipo de Trabajo */}
+          {employee.team && (
+            <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+              <CardHeader className="pb-4">
+                <CardTitle className="text-lg">
+                  <Users className="mr-2 inline h-5 w-5" />
+                  Equipo de Trabajo
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground text-sm">Equipo:</span>
+                  <span className="text-sm font-medium">{employee.team.name}</span>
+                </div>
+                {employee.team.code && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground text-sm">Código:</span>
+                    <Badge variant="outline">{employee.team.code}</Badge>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 

@@ -99,6 +99,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             },
           },
         },
+        team: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+          },
+        },
         employmentContracts: {
           include: {
             position: {
