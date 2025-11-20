@@ -250,6 +250,11 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/cost-centers",
               permission: "manage_organization",
             },
+            {
+              title: "Equipos",
+              url: "/dashboard/teams",
+              permission: "view_teams",
+            },
           ],
         },
         {
