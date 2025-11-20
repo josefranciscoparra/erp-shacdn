@@ -203,6 +203,7 @@ export async function POST(request: NextRequest) {
           emergencyContactPhone: data.emergencyContactPhone,
           emergencyRelationship: data.emergencyRelationship,
           notes: data.notes,
+          teamId: data.teamId,
         },
       });
 

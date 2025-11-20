@@ -3,17 +3,31 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, ChevronUp, Mail, Phone, User, CreditCard, Calendar as CalendarIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Phone,
+  User,
+  CreditCard,
+  Calendar as CalendarIcon,
+  Check,
+  ChevronsUpDown,
+  Users,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
+import { getTeams, type TeamListItem } from "@/server/actions/teams";
 
 interface WizardStep1EmployeeProps {
   onSubmit: (data: CreateEmployeeInput) => Promise<void>;
@@ -29,6 +43,9 @@ export function WizardStep1Employee({
   initialData,
 }: WizardStep1EmployeeProps) {
   const [showMoreFields, setShowMoreFields] = useState(false);
+  const [teams, setTeams] = useState<TeamListItem[]>([]);
+  const [isTeamsLoading, setIsTeamsLoading] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const form = useForm<CreateEmployeeInput>({
     resolver: zodResolver(createEmployeeSchema),
@@ -53,8 +70,26 @@ export function WizardStep1Employee({
       emergencyContactPhone: "",
       emergencyRelationship: "",
       notes: "",
+      teamId: "",
     },
   });
+
+  // Cargar equipos al montar el componente
+  useEffect(() => {
+    loadTeams();
+  }, []);
+
+  async function loadTeams() {
+    setIsTeamsLoading(true);
+    try {
+      const { success, teams: data } = await getTeams();
+      if (success && data) {
+        setTeams(data);
+      }
+    } finally {
+      setIsTeamsLoading(false);
+    }
+  }
 
   // Auto-focus en el primer campo
   useEffect(() => {
@@ -324,6 +359,83 @@ export function WizardStep1Employee({
                       <FormControl>
                         <Input {...field} placeholder="Española" className={getInputClasses(fieldState)} />
                       </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                {/* Selector de Equipo */}
+                <FormField
+                  control={form.control}
+                  name="teamId"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel>Equipo (opcional)</FormLabel>
+                      <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant="outline"
+                              role="combobox"
+                              className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                            >
+                              {field.value ? teams.find((team) => team.id === field.value)?.name : "Seleccionar equipo"}
+                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[400px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Buscar equipo..." />
+                            <CommandList>
+                              <CommandEmpty>
+                                {isTeamsLoading ? "Cargando equipos..." : "No se encontraron equipos"}
+                              </CommandEmpty>
+                              <CommandGroup>
+                                {/* Opción para limpiar selección */}
+                                {field.value && (
+                                  <CommandItem
+                                    value="__clear__"
+                                    onSelect={() => {
+                                      form.setValue("teamId", "");
+                                      setComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check className={cn("mr-2 h-4 w-4", !field.value ? "opacity-100" : "opacity-0")} />
+                                    <span className="text-muted-foreground italic">Sin equipo</span>
+                                  </CommandItem>
+                                )}
+                                {teams.map((team) => (
+                                  <CommandItem
+                                    value={team.name}
+                                    key={team.id}
+                                    onSelect={() => {
+                                      form.setValue("teamId", team.id);
+                                      setComboboxOpen(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        team.id === field.value ? "opacity-100" : "opacity-0",
+                                      )}
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <Users className="text-muted-foreground h-4 w-4" />
+                                      <div className="flex flex-col">
+                                        <span>{team.name}</span>
+                                        {team.code && (
+                                          <span className="text-muted-foreground text-xs">{team.code}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      <FormDescription>Asigna el empleado a un equipo de trabajo</FormDescription>
                     </FormItem>
                   )}
                 />

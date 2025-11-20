@@ -83,6 +83,9 @@ export const createEmployeeSchema = z.object({
 
   // Notas
   notes: z.string().max(1000, "Las notas son demasiado largas (máximo 1000 caracteres).").optional(),
+
+  // Equipo (opcional)
+  teamId: z.string().optional(),
 });
 
 export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
