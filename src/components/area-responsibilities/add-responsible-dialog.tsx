@@ -24,6 +24,7 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import type { Scope } from "@/lib/permissions/scope-helpers";
 import { cn } from "@/lib/utils";
 import {
   assignResponsibility,
@@ -32,7 +33,9 @@ import {
 } from "@/server/actions/area-responsibilities";
 
 interface AddResponsibleDialogProps {
-  costCenterId: string;
+  scope: Scope;
+  scopeId: string;
+  scopeName?: string; // Nombre del ámbito (ej: "Centro Madrid", "Equipo A")
 }
 
 // Labels de roles en español
@@ -42,6 +45,13 @@ const roleLabels: Record<string, string> = {
   HR_ADMIN: "RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
+};
+
+// Labels de scopes en español
+const scopeLabels: Record<Scope, string> = {
+  ORGANIZATION: "organización",
+  COST_CENTER: "centro de coste",
+  TEAM: "equipo",
 };
 
 // Permisos disponibles
@@ -66,7 +76,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps) {
+export function AddResponsibleDialog({ scope, scopeId, scopeName }: AddResponsibleDialogProps) {
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [userSearchOpen, setUserSearchOpen] = useState(false);
@@ -109,8 +119,8 @@ export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps
     try {
       const { success, error } = await assignResponsibility({
         userId: data.userId,
-        scope: "COST_CENTER",
-        scopeId: costCenterId,
+        scope,
+        scopeId,
         permissions: data.permissions as Permission[],
         createSubscription: data.createSubscription,
       });
@@ -130,6 +140,7 @@ export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps
   }
 
   const selectedUser = searchResults.find((u) => u.id === form.watch("userId"));
+  const scopeLabel = scopeLabels[scope];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -143,7 +154,10 @@ export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Añadir Responsable</DialogTitle>
-          <DialogDescription>Asigna un usuario como responsable de este centro de coste</DialogDescription>
+          <DialogDescription>
+            Asigna un usuario como responsable de este {scopeLabel}
+            {scopeName ? `: ${scopeName}` : ""}
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -238,7 +252,9 @@ export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps
                 <FormItem>
                   <div className="mb-4">
                     <FormLabel className="text-base">Permisos</FormLabel>
-                    <FormDescription>Selecciona los permisos que tendrá el responsable en este centro</FormDescription>
+                    <FormDescription>
+                      Selecciona los permisos que tendrá el responsable en este {scopeLabel}
+                    </FormDescription>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     {availablePermissions.map((perm) => (
@@ -281,7 +297,7 @@ export function AddResponsibleDialog({ costCenterId }: AddResponsibleDialogProps
                   <div className="space-y-0.5">
                     <FormLabel className="text-base">Suscripción automática a alertas</FormLabel>
                     <FormDescription>
-                      El usuario recibirá notificaciones de alertas de este centro (solo WARNING y CRITICAL)
+                      El usuario recibirá notificaciones de alertas de este {scopeLabel} (solo WARNING y CRITICAL)
                     </FormDescription>
                   </div>
                   <FormControl>

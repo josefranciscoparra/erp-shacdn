@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import type { Scope } from "@/lib/permissions/scope-helpers";
 import {
   getResponsiblesForArea,
   removeResponsibility,
@@ -29,10 +30,19 @@ import { EditPermissionsDialog } from "./edit-permissions-dialog";
 import { responsiblesColumns } from "./responsibles-columns";
 
 interface ResponsiblesListProps {
-  costCenterId: string;
+  scope: Scope;
+  scopeId: string;
+  scopeName?: string; // Nombre del ámbito (ej: "Centro Madrid", "Equipo A")
 }
 
-export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
+// Labels de scopes en español
+const scopeLabels: Record<Scope, string> = {
+  ORGANIZATION: "organización",
+  COST_CENTER: "centro de coste",
+  TEAM: "equipo",
+};
+
+export function ResponsiblesList({ scope, scopeId, scopeName }: ResponsiblesListProps) {
   const [loading, setLoading] = useState(true);
   const [responsibles, setResponsibles] = useState<AreaResponsibilityData[]>([]);
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -45,12 +55,13 @@ export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
   // Cargar responsables
   useEffect(() => {
     loadResponsibles();
-  }, [costCenterId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope, scopeId]);
 
   async function loadResponsibles() {
     setLoading(true);
     try {
-      const { success, responsibles: data, error } = await getResponsiblesForArea("COST_CENTER", costCenterId);
+      const { success, responsibles: data, error } = await getResponsiblesForArea(scope, scopeId);
 
       if (success && data) {
         setResponsibles(data);
@@ -101,6 +112,8 @@ export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
     },
   });
 
+  const scopeLabel = scopeLabels[scope];
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -114,8 +127,8 @@ export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
       <EmptyState
         icon={<UserCog className="text-muted-foreground mx-auto h-12 w-12" />}
         title="Sin responsables asignados"
-        description="Añade el primer responsable para este centro de coste"
-        action={<AddResponsibleDialog costCenterId={costCenterId} />}
+        description={`Añade el primer responsable para este ${scopeLabel}`}
+        action={<AddResponsibleDialog scope={scope} scopeId={scopeId} scopeName={scopeName} />}
       />
     );
   }
@@ -133,6 +146,7 @@ export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
           open={!!editingResponsibility}
           onClose={() => setEditingResponsibility(null)}
           onSuccess={loadResponsibles}
+          scope={scope}
         />
       )}
 
@@ -142,8 +156,8 @@ export function ResponsiblesList({ costCenterId }: ResponsiblesListProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar responsable?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta acción quitará a <strong>{deletingResponsibility?.user.name}</strong> como responsable de este
-              centro. El usuario perderá acceso a gestionar este ámbito.
+              Esta acción quitará a <strong>{deletingResponsibility?.user.name}</strong> como responsable de este{" "}
+              {scopeLabel}. El usuario perderá acceso a gestionar este ámbito.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

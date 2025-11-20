@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import type { Scope } from "@/lib/permissions/scope-helpers";
 import {
   updateResponsibility,
   type AreaResponsibilityData,
@@ -29,7 +30,15 @@ interface EditPermissionsDialogProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  scope?: Scope; // Opcional, para mostrar texto contextual
 }
+
+// Labels de scopes en español
+const scopeLabels: Record<Scope, string> = {
+  ORGANIZATION: "organización",
+  COST_CENTER: "centro de coste",
+  TEAM: "equipo",
+};
 
 // Permisos disponibles
 const availablePermissions = [
@@ -51,7 +60,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function EditPermissionsDialog({ responsibility, open, onClose, onSuccess }: EditPermissionsDialogProps) {
+export function EditPermissionsDialog({ responsibility, open, onClose, onSuccess, scope }: EditPermissionsDialogProps) {
   const [submitting, setSubmitting] = useState(false);
 
   const form = useForm<FormData>({
@@ -87,13 +96,15 @@ export function EditPermissionsDialog({ responsibility, open, onClose, onSuccess
     }
   }
 
+  const scopeLabel = scope ? scopeLabels[scope] : "ámbito";
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Editar Permisos</DialogTitle>
           <DialogDescription>
-            Actualiza los permisos de <strong>{responsibility.user.name}</strong> en este centro
+            Actualiza los permisos de <strong>{responsibility.user.name}</strong> en este {scopeLabel}
           </DialogDescription>
         </DialogHeader>
 
