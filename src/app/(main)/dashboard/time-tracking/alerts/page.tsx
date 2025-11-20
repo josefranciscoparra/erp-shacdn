@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw, Target } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTable } from "@/components/data-table/data-table";
@@ -27,6 +27,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,8 @@ import {
   getAlertStats,
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
+import { getMySubscriptions } from "@/server/actions/alerts";
+import { getActiveContext, getAvailableScopes } from "@/server/actions/user-context";
 
 import { alertColumns, type AlertRow } from "./_components/alert-columns";
 
@@ -66,7 +69,30 @@ type AvailableFilters = {
   severities: readonly ["INFO", "WARNING", "CRITICAL"];
 };
 
+type DateRange = {
+  from: Date | undefined;
+  to: Date | undefined;
+};
+
+const ALERT_TYPES = [
+  { value: "LATE_ARRIVAL", label: "Entrada tardía" },
+  { value: "CRITICAL_LATE_ARRIVAL", label: "Entrada crítica" },
+  { value: "EARLY_DEPARTURE", label: "Salida temprana" },
+  { value: "CRITICAL_EARLY_DEPARTURE", label: "Salida crítica" },
+  { value: "MISSING_CLOCK_IN", label: "Falta entrada" },
+  { value: "MISSING_CLOCK_OUT", label: "Falta salida" },
+  { value: "NON_WORKDAY_CLOCK_IN", label: "Fichaje día no laboral" },
+  { value: "EXCESSIVE_HOURS", label: "Horas excesivas" },
+];
+
 export default function AlertsPage() {
+  // ========== SCOPE MODE: "mine" (mis suscripciones) | "all" (según contexto activo) ==========
+  const [scopeMode, setScopeMode] = useState<"mine" | "all">("mine");
+
+  // ========== CONTEXT SELECTOR ==========
+  const [activeContext, setActiveContext] = useState<any>(null);
+  const [hasSubscriptions, setHasSubscriptions] = useState(false);
+
   const [activeTab, setActiveTab] = useState<"active" | "resolved" | "dismissed">("active");
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [stats, setStats] = useState<AlertStats | null>(null);
@@ -87,12 +113,38 @@ export default function AlertsPage() {
   const [selectedCenter, setSelectedCenter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("all");
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+  // Cargar contexto activo y scopes disponibles al montar
+  useEffect(() => {
+    const loadContext = async () => {
+      try {
+        const [context, , subscriptions] = await Promise.all([
+          getActiveContext(),
+          getAvailableScopes(),
+          getMySubscriptions(),
+        ]);
+
+        setActiveContext(context);
+        setHasSubscriptions(subscriptions.length > 0);
+
+        // Si no tiene suscripciones, mostrar "all" por defecto
+        if (subscriptions.length === 0) {
+          setScopeMode("all");
+        }
+      } catch (error) {
+        console.error("Error al cargar contexto:", error);
+      }
+    };
+    loadContext();
+  }, []);
 
   // Cargar filtros disponibles al montar
   useEffect(() => {
@@ -116,6 +168,9 @@ export default function AlertsPage() {
       const filters: any = {};
       if (selectedCenter !== "all") filters.costCenterId = selectedCenter;
       if (selectedSeverity !== "all") filters.severity = selectedSeverity;
+      if (selectedType !== "all") filters.alertType = selectedType;
+      if (dateRange.from) filters.dateFrom = dateRange.from.toISOString();
+      if (dateRange.to) filters.dateTo = dateRange.to.toISOString();
 
       const [alertsData, statsData] = await Promise.all([getActiveAlerts(filters), getAlertStats()]);
 
@@ -127,7 +182,7 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCenter, selectedSeverity]);
+  }, [selectedCenter, selectedSeverity, selectedType, dateRange]);
 
   useEffect(() => {
     loadData();
@@ -248,17 +303,64 @@ export default function AlertsPage() {
     CRITICAL: { icon: AlertCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" },
   };
 
+  // Obtener label del contexto activo
+  const getContextLabel = () => {
+    if (!activeContext) return "Todo";
+    if (activeContext.activeScope === "ALL") return "Todo";
+    if (activeContext.activeScope === "ORGANIZATION") return "Organización";
+    if (activeContext.activeScope === "DEPARTMENT" && activeContext.department) return activeContext.department.name;
+    if (activeContext.activeScope === "COST_CENTER" && activeContext.costCenter) return activeContext.costCenter.name;
+    if (activeContext.activeScope === "TEAM" && activeContext.team) return activeContext.team.name;
+    return "Todo";
+  };
+
   return (
     <div className="animate-in fade-in mx-auto flex max-w-screen-2xl flex-col gap-6 p-6 duration-500 md:p-8">
       {/* Header con acciones */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <SectionHeader title="Panel de Alertas" description="Gestiona las incidencias de fichajes y control horario." />
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </Button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <SectionHeader
+            title="Panel de Alertas"
+            description="Gestiona las incidencias de fichajes y control horario."
+          />
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button>
+          </div>
         </div>
+
+        {/* Tabs superiores: Mis Alertas | Todas las Alertas */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              {/* Selector de modo */}
+              <Tabs value={scopeMode} onValueChange={(value: any) => setScopeMode(value)} className="w-full sm:w-auto">
+                <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+                  <TabsTrigger value="mine" disabled={!hasSubscriptions}>
+                    Mis Alertas
+                    {!hasSubscriptions && (
+                      <Badge variant="outline" className="ml-2 h-5 text-xs">
+                        Sin suscripciones
+                      </Badge>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="all">Todas las Alertas</TabsTrigger>
+                </TabsList>
+              </Tabs>
+
+              {/* Indicador de contexto activo (solo en modo "all") */}
+              {scopeMode === "all" && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Target className="text-primary h-4 w-4" />
+                  <span className="text-muted-foreground">Mostrando:</span>
+                  <Badge variant="secondary">{getContextLabel()}</Badge>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Estadísticas mejoradas */}
@@ -313,13 +415,14 @@ export default function AlertsPage() {
       {/* Filtros Globales Dinámicos */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-4">
             <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
               <Filter className="h-4 w-4" />
               Filtrar por:
             </div>
 
-            <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {/* Fila 1: Filtros principales */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {/* Filtro por Centro */}
               <Select value={selectedCenter} onValueChange={setSelectedCenter}>
                 <SelectTrigger className="w-full">
@@ -382,15 +485,41 @@ export default function AlertsPage() {
                 </SelectContent>
               </Select>
 
+              {/* Filtro por Tipo de Alerta */}
+              <Select value={selectedType} onValueChange={setSelectedType}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos los tipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  {ALERT_TYPES.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Fila 2: Búsqueda y fecha */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Búsqueda por empleado */}
               <div className="relative">
                 <Input
                   placeholder="Buscar empleado..."
                   className="w-full"
-                  value={(table.getColumn("employee")?.getFilterValue() as string) ?? ""}
+                  value={(table.getColumn("employee")?.getFilterValue() as string) || ""}
                   onChange={(event) => table.getColumn("employee")?.setFilterValue(event.target.value)}
                 />
               </div>
+
+              {/* Filtro por rango de fechas */}
+              <DateRangePicker
+                date={dateRange}
+                onDateChange={(newRange) => {
+                  setDateRange(newRange ?? { from: undefined, to: undefined });
+                }}
+              />
             </div>
           </div>
         </CardContent>
