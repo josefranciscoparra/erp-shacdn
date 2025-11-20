@@ -1,4 +1,3 @@
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -68,11 +67,19 @@ export async function buildScopeFilter(userId: string) {
       return {};
     }
     if (r.scope === "COST_CENTER" && r.costCenterId) {
-      // Scope COST_CENTER: filtra por centro
-      return { costCenterId: r.costCenterId };
+      // Scope COST_CENTER: filtra por centro de trabajo
+      // NOTA: Employee NO tiene costCenterId directo, se filtra por employmentContracts
+      return {
+        employmentContracts: {
+          some: {
+            costCenterId: r.costCenterId,
+            active: true,
+          },
+        },
+      };
     }
     if (r.scope === "TEAM" && r.teamId) {
-      // Scope TEAM: filtra por equipo
+      // Scope TEAM: filtra por equipo (campo directo en Employee)
       return { teamId: r.teamId };
     }
     return {};
@@ -127,11 +134,7 @@ export async function getUserScopes(userId: string) {
  * const canResolve = await hasPermission(userId, "RESOLVE_ALERTS");
  * const canResolveAlert = await hasPermission(userId, "RESOLVE_ALERTS", alertId);
  */
-export async function hasPermission(
-  userId: string,
-  permission: Permission,
-  resourceId?: string
-): Promise<boolean> {
+export async function hasPermission(userId: string, permission: Permission, resourceId?: string): Promise<boolean> {
   const responsibilities = await prisma.areaResponsible.findMany({
     where: {
       userId,
@@ -195,11 +198,7 @@ export async function getUserAlertSubscriptions(userId: string) {
  * const isValid = await validateScopeOwnership(orgId, "COST_CENTER", centerId);
  * if (!isValid) throw new Error("Centro no pertenece a la organización");
  */
-export async function validateScopeOwnership(
-  orgId: string,
-  scope: Scope,
-  scopeId: string | null
-): Promise<boolean> {
+export async function validateScopeOwnership(orgId: string, scope: Scope, scopeId: string | null): Promise<boolean> {
   // Scope ORGANIZATION siempre es válido (no tiene scopeId)
   if (scope === "ORGANIZATION") {
     return true;
@@ -238,10 +237,7 @@ export async function validateScopeOwnership(
  * const centers = await getUserAccessibleCostCenters(userId, orgId);
  * // Usar en Select de filtro: "Todos los centros" | "Madrid" | "Barcelona"
  */
-export async function getUserAccessibleCostCenters(
-  userId: string,
-  orgId: string
-) {
+export async function getUserAccessibleCostCenters(userId: string, orgId: string) {
   // Obtener usuario con rol
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -362,9 +358,7 @@ export async function getUserAccessibleTeams(userId: string, orgId: string) {
   }
 
   // Si tiene scope TEAM, retornar solo esos equipos específicos
-  const teamIds = responsibilities
-    .filter((r) => r.scope === "TEAM" && r.teamId)
-    .map((r) => r.teamId as string);
+  const teamIds = responsibilities.filter((r) => r.scope === "TEAM" && r.teamId).map((r) => r.teamId as string);
 
   if (teamIds.length === 0) {
     return [];
@@ -404,7 +398,7 @@ export async function shouldReceiveAlertNotification(
     severity: string;
     costCenterId: string | null;
     teamId: string | null;
-  }
+  },
 ): Promise<boolean> {
   const subscriptions = await prisma.alertSubscription.findMany({
     where: {

@@ -201,14 +201,15 @@ enum Role {
 
 // Centro de coste - Ubicaciones físicas donde trabajar
 model CostCenter {
-  id        String   @id @default(cuid())
-  name      String
-  code      String?  // Código interno del centro
-  address   String?
-  timezone  String   @default("Europe/Madrid")
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  code        String?  // Código interno del centro
+  description String?  // Descripción del centro
+  address     String?
+  timezone    String   @default("Europe/Madrid")
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Geolocalización (opcional - para validar fichajes)
   latitude             Decimal? @db.Decimal(10, 8) // Latitud del centro de trabajo

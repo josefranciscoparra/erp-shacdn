@@ -1,8 +1,8 @@
 # Sistema de Responsables y Alertas - Plan de Implementación
 
 **Fecha:** 2025-11-20
-**Versión:** 1.1
-**Estado:** 🚧 EN PROGRESO - Fases 1-2 COMPLETADAS, FASE 3 siguiente
+**Versión:** 1.3
+**Estado:** 🚧 EN PROGRESO - FASE 3 COMPLETADA ✅, FASE 4 siguiente
 
 ---
 
@@ -27,14 +27,15 @@
 |------|--------|-------------|--------|
 | **FASE 1** | ✅ **COMPLETADO** | Modelo de datos (Team, relaciones, migración) | 3h |
 | **FASE 2** | ✅ **COMPLETADO** | Sistema de visibilidad y filtrado (scope helpers, UI) | 5h |
-| **FASE 3** | 🔄 **SIGUIENTE** | Asignación de Responsables - Centros | 4h est. |
-| **FASE 4** | ⏸️ PENDIENTE | Asignación de Responsables - Equipos | 4h est. |
+| **FASE 3** | ✅ **COMPLETADO** | Asignación de Responsables - Centros (server + UI) | 4h |
+| **FASE 4** | 🔄 **SIGUIENTE** | Asignación de Responsables - Equipos | 2h est. |
 | **FASE 5** | ⏸️ PENDIENTE | Notificaciones In-App | 3h est. |
 
 ### 📄 Documentación Técnica
 
 - **[Implementación FASE 1 y FASE 2](./IMPLEMENTACION_RESPONSABLES_FASE1_Y_FASE2.md)** - Modelo de datos + Sistema de visibilidad
-- **[Implementación FASE 3](./IMPLEMENTACION_RESPONSABLES_FASE3.md)** - Server actions genéricas + UI de asignación (EN PROGRESO)
+- **[Implementación FASE 3 Server](./IMPLEMENTACION_RESPONSABLES_FASE3.md)** - Server actions genéricas
+- **[Implementación FASE 3 UI](./IMPLEMENTACION_RESPONSABLES_FASE3_UI.md)** - UI completa de asignación de responsables
 - **[Reglas de Negocio](./REGLAS_NEGOCIO_RESPONSABLES_ALERTAS.md)** - Especificación completa del sistema
 
 ### ✅ Completado
@@ -59,33 +60,53 @@
   - Columnas optimizadas con equipo visible
   - Bypass automático para roles globales
 
-**FASE 3 - Server Actions (parcial):**
+**FASE 3 - Asignación de Responsables (Centros) ✅ COMPLETADA:**
 - ✅ Server actions genéricas (`area-responsibilities.ts`)
   - `assignResponsibility()` - Asignar con suscripción opcional
   - `removeResponsibility()` - Soft delete
   - `updateResponsibility()` - Actualizar permisos
   - `getResponsiblesForArea()` - Listar responsables
   - `getUserResponsibilities()` - Responsabilidades de usuario
-  - `searchUsersForResponsibility()` - Búsqueda de usuarios
+  - `searchUsersForResponsibility()` - Búsqueda de usuarios con filtro de roles
 - ✅ Diseño genérico: Funciona con COST_CENTER, TEAM, ORGANIZATION
+- ✅ UI completa en `/cost-centers/[id]`
+  - Página detalle con tabs (Información, Responsables)
+  - Tab Información: Datos readonly del centro
+  - Tab Responsables: DataTable con gestión completa
+  - `AddResponsibleDialog`: Búsqueda usuario + badges de rol + permisos (grid 2 cols) + suscripción
+  - `EditPermissionsDialog`: Editar permisos existentes
+  - AlertDialog de confirmación de eliminación
+  - Navegación desde lista con "Ver Detalle"
+- ✅ **Validaciones implementadas**:
+  - No permitir duplicados (mismo usuario + mismo centro)
+  - Solo MANAGER y superiores pueden ser responsables
+  - Validación multi-tenant (solo usuarios de misma org)
+- ✅ **Correcciones de filtros de scope**:
+  - Filtro por `employmentContracts` (relación correcta)
+  - Funciona con usuarios EMPLOYEE que tienen responsabilidades
+- ✅ **Total: 9 archivos** (2 server actions, 6 componentes, 1 modificado)
+- ✅ **~1,350 líneas** de código TypeScript/React
+- ✅ **Testing manual completado**: Añadir, editar, eliminar responsables funciona correctamente
 
-### 🔄 En Progreso
+### 🔄 Siguiente
 
-**FASE 3 - UI de Asignación (0% completado):**
-- ⏸️ Página detalle centro `/cost-centers/[id]` con tabs
-- ⏸️ Tab "Información": Datos básicos del centro
-- ⏸️ Tab "Responsables": Lista + botón añadir
-- ⏸️ `ResponsiblesList`: DataTable con acciones
-- ⏸️ `AddResponsibleDialog`: Búsqueda usuario + permisos + suscripción
-- ⏸️ `EditPermissionsDialog`: Editar permisos existentes
-- ⏸️ Actualizar listado para enlazar a detalle
-
-**Tiempo estimado restante:** 3.5 horas
+**FASE 4 - Responsables de Equipos (~2h)**
 
 ### ⏸️ Pendiente
 
-- FASE 4: Responsables de Equipos
-- FASE 5: Notificaciones In-App
+**FASE 4: Responsables de Equipos (~2h)**
+- Reutilizar server actions (sin cambios necesarios)
+- Crear página `/teams/[id]` con tabs
+- Crear componentes similares a cost-centers
+- Testing completo
+
+**FASE 5: Notificaciones In-App (~3h)**
+- Sistema de notificaciones para responsables
+- Bell icon con badge de conteo
+- Dropdown de notificaciones
+- Marcar como leído
+
+**Otras tareas:**
 - CRUD de Equipos (prioridad media)
 
 ---

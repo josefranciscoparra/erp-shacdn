@@ -142,6 +142,32 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
       }
     }
 
+    // Validar que no existe ya una responsabilidad activa para este usuario en este scope
+    const whereClause: any = {
+      userId: data.userId,
+      orgId: session.user.orgId,
+      scope: data.scope,
+      isActive: true,
+    };
+
+    if (data.scope === "COST_CENTER") {
+      whereClause.costCenterId = data.scopeId;
+    } else if (data.scope === "TEAM") {
+      whereClause.teamId = data.scopeId;
+    }
+
+    const existingResponsibility = await prisma.areaResponsible.findFirst({
+      where: whereClause,
+    });
+
+    if (existingResponsibility) {
+      return {
+        success: false,
+        error:
+          "Este usuario ya es responsable de este ámbito. Edita los permisos existentes en lugar de crear uno nuevo.",
+      };
+    }
+
     // Preparar datos según el scope (genérico)
     const scopeData: any = {
       userId: data.userId,
@@ -182,7 +208,7 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
         orgId: session.user.orgId,
         scope: data.scope,
         notifyInApp: true,
-        notifyEmail: false, // Por ahora solo in-app
+        notifyByEmail: false, // Por ahora solo in-app
         severityLevels: ["WARNING", "CRITICAL"], // Solo alertas importantes
         alertTypes: [], // Todos los tipos
         isActive: true,
@@ -500,6 +526,11 @@ export async function getUserResponsibilities(userId?: string): Promise<{
 /**
  * Busca usuarios disponibles para asignar como responsables
  *
+ * ⚠️ IMPORTANTE: Solo se pueden asignar como responsables usuarios con rol MANAGER o superior.
+ * Esto garantiza que tengan los permisos necesarios para ver las secciones relevantes (ej: Alertas).
+ *
+ * 📝 FUTURO: Si se añaden nuevos roles (ej: TEAM_LEAD), añádelos al array de roles permitidos.
+ *
  * @param searchTerm Término de búsqueda (nombre o email)
  * @returns Lista de usuarios que coinciden
  */
@@ -527,10 +558,15 @@ export async function searchUsersForResponsibility(searchTerm: string): Promise<
       };
     }
 
+    // 🎯 FILTRO DE ROLES: Solo MANAGER y superiores pueden ser responsables
+    // Para añadir nuevos roles en el futuro (ej: "TEAM_LEAD"), añádelos aquí:
+    const allowedRoles = ["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
+
     const users = await prisma.user.findMany({
       where: {
         orgId: session.user.orgId,
         active: true,
+        role: { in: allowedRoles }, // ⭐ Filtro por rol
         OR: [
           { name: { contains: searchTerm, mode: "insensitive" } },
           { email: { contains: searchTerm, mode: "insensitive" } },

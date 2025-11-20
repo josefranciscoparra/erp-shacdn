@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 import { ColumnDef } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { MoreHorizontal, Pencil, Trash2, MapPin, Clock } from "lucide-react";
+import { MoreHorizontal, Pencil, Trash2, MapPin, Clock, Eye } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,8 +117,14 @@ export const createCostCentersColumns = ({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(costCenter.id)}>Copiar ID</DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={`/dashboard/cost-centers/${costCenter.id}`}>
+                <Eye className="mr-2 h-4 w-4" />
+                Ver Detalle
+              </Link>
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(costCenter.id)}>Copiar ID</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onEdit?.(costCenter)}>
               <Pencil className="mr-2 h-4 w-4" />
               Editar centro de coste
