@@ -81,3 +81,56 @@ export async function getCostCenterById(id: string): Promise<{
     };
   }
 }
+
+export type CostCenterListItem = {
+  id: string;
+  name: string;
+  code: string | null;
+  active: boolean;
+};
+
+/**
+ * Obtiene todos los centros de coste activos de la organización
+ * (función ligera para selectores y listas)
+ *
+ * @returns Lista de centros de coste activos
+ */
+export async function getCostCenters(): Promise<{
+  success: boolean;
+  costCenters?: CostCenterListItem[];
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    const costCenters = await prisma.costCenter.findMany({
+      where: {
+        orgId: session.user.orgId,
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        active: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+    return {
+      success: true,
+      costCenters,
+    };
+  } catch (error) {
+    console.error("Error al obtener centros de coste:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
+}

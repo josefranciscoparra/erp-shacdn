@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { getTeams, type TeamListItem } from "@/server/actions/teams";
 
+import { CreateTeamDialog } from "./_components/create-team-dialog";
 import { teamsColumns } from "./_components/teams-columns";
 
 export default function TeamsPage() {
@@ -89,7 +90,11 @@ export default function TeamsPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Equipos" subtitle="Gestiona los equipos de tu organización" />
+        <SectionHeader
+          title="Equipos"
+          subtitle="Gestiona los equipos de tu organización"
+          action={<CreateTeamDialog onTeamCreated={loadTeams} />}
+        />
 
         {hasTeams ? (
           <div className="space-y-4">
@@ -101,7 +106,7 @@ export default function TeamsPage() {
           <EmptyState
             icon={<Users className="mx-auto h-12 w-12" />}
             title="No hay equipos registrados"
-            description="Los equipos se crean desde la configuración de centros de coste"
+            description='Crea tu primer equipo usando el botón "Nuevo Equipo"'
           />
         )}
       </div>
