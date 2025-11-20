@@ -113,6 +113,9 @@ model Organization {
   // NUEVO: Equipos de la organización
   teams               Team[]
 
+  // NUEVO: Contextos activos de usuarios
+  userActiveContexts  UserActiveContext[]
+
   @@map("organizations")
 }
 
@@ -163,6 +166,7 @@ model User {
   areaResponsibilities AreaResponsible[] @relation("UserAreaResponsibilities") // Áreas de las que es responsable
   alertSubscriptions   AlertSubscription[] @relation("UserAlertSubscriptions") // Suscripciones a alertas
   resolvedAlerts       Alert[] @relation("AlertResolver") // Alertas que ha resuelto
+  activeContext        UserActiveContext? // Contexto activo seleccionado por el usuario
 
   @@index([email])
   @@index([orgId])
@@ -237,6 +241,9 @@ model CostCenter {
   // NUEVO: Equipos del centro
   teams              Team[]
 
+  // NUEVO: Contextos activos con este centro
+  activeContexts     UserActiveContext[] @relation("UserActiveCostCenter")
+
   @@index([orgId])
   @@map("cost_centers")
 }
@@ -271,6 +278,7 @@ model Department {
   areaResponsibles   AreaResponsible[]   @relation("DepartmentResponsibles") // Responsables del departamento
   alertSubscriptions AlertSubscription[] @relation("DepartmentAlertSubscriptions") // Suscripciones a alertas
   alerts             Alert[]             @relation("DepartmentAlerts") // Alertas del departamento
+  activeContexts     UserActiveContext[] @relation("UserActiveDepartment") // Contextos activos con este departamento
 
   @@index([orgId])
   @@index([managerId])
@@ -2070,6 +2078,7 @@ model Team {
   areaResponsibles   AreaResponsible[]   @relation("TeamResponsibles")
   alertSubscriptions AlertSubscription[] @relation("TeamAlertSubscriptions")
   alerts             Alert[]             @relation("TeamAlerts")
+  activeContexts     UserActiveContext[] @relation("UserActiveTeam")
 
   @@unique([orgId, code])
   @@index([orgId])
@@ -2322,6 +2331,42 @@ model Alert {
   @@index([employeeId, date, type]) // Deduplicación
 
   @@map("alerts")
+}
+
+// Contexto activo del usuario para filtrado de vistas
+// Permite a usuarios con múltiples responsabilidades elegir qué ámbito ver
+model UserActiveContext {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Usuario (uno a uno)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Contexto activo seleccionado por el usuario
+  activeScope String @default("ALL") // "ALL" | "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"
+
+  // ID del ámbito activo (solo si activeScope != "ALL" y != "ORGANIZATION")
+  activeDepartmentId String?
+  activeDepartment   Department? @relation("UserActiveDepartment", fields: [activeDepartmentId], references: [id])
+
+  activeCostCenterId String?
+  activeCostCenter   CostCenter? @relation("UserActiveCostCenter", fields: [activeCostCenterId], references: [id])
+
+  activeTeamId String?
+  activeTeam   Team?   @relation("UserActiveTeam", fields: [activeTeamId], references: [id])
+
+  // Índices para rendimiento
+  @@index([userId])
+  @@index([orgId])
+  @@index([activeScope])
+
+  @@map("user_active_contexts")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================
