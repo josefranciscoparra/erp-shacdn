@@ -5,7 +5,19 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Save, User, Briefcase, Phone, AlertCircle, Shield, Loader2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  User,
+  Briefcase,
+  Phone,
+  AlertCircle,
+  Shield,
+  Loader2,
+  Check,
+  ChevronsUpDown,
+  Users,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -15,11 +27,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { getTeams, type TeamListItem } from "@/server/actions/teams";
 
 const editEmployeeSchema = z.object({
   // Datos personales
@@ -41,6 +57,7 @@ const editEmployeeSchema = z.object({
     "TERMINATED",
     "RETIRED",
   ]),
+  teamId: z.string().optional(),
 
   // Contacto
   email: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -96,6 +113,7 @@ interface Employee {
   iban: string | null;
   notes: string | null;
   active: boolean;
+  teamId: string | null;
   user: {
     id: string;
     email: string;
@@ -111,6 +129,9 @@ export default function EditEmployeePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [teams, setTeams] = useState<TeamListItem[]>([]);
+  const [isTeamsLoading, setIsTeamsLoading] = useState(false);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
 
   const form = useForm<EditEmployeeForm>({
     resolver: zodResolver(editEmployeeSchema),
@@ -135,6 +156,7 @@ export default function EditEmployeePage() {
       emergencyContactPhone: "",
       emergencyRelationship: "",
       iban: "",
+      teamId: "",
       createUser: false,
       userRole: "EMPLOYEE",
       notes: "",
@@ -172,6 +194,7 @@ export default function EditEmployeePage() {
         emergencyContactPhone: data.emergencyContactPhone ?? "",
         emergencyRelationship: data.emergencyRelationship ?? "",
         iban: data.iban ?? "",
+        teamId: data.teamId ?? "",
         createUser: false,
         userRole: data.user?.role ?? "EMPLOYEE",
         notes: data.notes ?? "",
@@ -183,9 +206,22 @@ export default function EditEmployeePage() {
     }
   };
 
+  const loadTeams = async () => {
+    setIsTeamsLoading(true);
+    try {
+      const { success, teams: data } = await getTeams();
+      if (success && data) {
+        setTeams(data);
+      }
+    } finally {
+      setIsTeamsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (params.id) {
       fetchEmployee();
+      loadTeams();
     }
   }, [params.id]);
 
@@ -599,6 +635,80 @@ export default function EditEmployeePage() {
                       )}
                     />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="teamId"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Equipo (opcional)</FormLabel>
+                        <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                              >
+                                {field.value
+                                  ? teams.find((team) => team.id === field.value)?.name
+                                  : "Seleccionar equipo"}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[400px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Buscar equipo..." />
+                              <CommandList>
+                                <CommandEmpty>
+                                  {isTeamsLoading ? "Cargando..." : "No se encontraron equipos"}
+                                </CommandEmpty>
+                                <CommandGroup>
+                                  {field.value && (
+                                    <CommandItem
+                                      onSelect={() => {
+                                        form.setValue("teamId", "");
+                                        setComboboxOpen(false);
+                                      }}
+                                    >
+                                      <span className="text-muted-foreground italic">Sin equipo</span>
+                                    </CommandItem>
+                                  )}
+                                  {teams.map((team) => (
+                                    <CommandItem
+                                      value={team.name}
+                                      key={team.id}
+                                      onSelect={() => {
+                                        form.setValue("teamId", team.id);
+                                        setComboboxOpen(false);
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "mr-2 h-4 w-4",
+                                          team.id === field.value ? "opacity-100" : "opacity-0",
+                                        )}
+                                      />
+                                      <Users className="mr-2 h-4 w-4 opacity-50" />
+                                      <div className="flex flex-col">
+                                        <span>{team.name}</span>
+                                        {team.code && (
+                                          <span className="text-muted-foreground text-xs">{team.code}</span>
+                                        )}
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                        <FormDescription>Asigna el empleado a un equipo de trabajo</FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}

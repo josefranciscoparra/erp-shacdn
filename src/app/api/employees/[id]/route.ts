@@ -29,6 +29,7 @@ const updateEmployeeSchema = z.object({
     "RETIRED",
   ]),
   employeeNumber: z.string().optional(),
+  teamId: z.string().optional(),
 
   // Datos de contacto
   email: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -234,6 +235,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       nationality: data.nationality ?? null,
       employmentStatus: data.employmentStatus,
       employeeNumber: data.employeeNumber ?? null,
+      teamId: data.teamId ?? null,
       email: data.email ?? null,
       phone: data.phone ?? null,
       mobilePhone: data.mobilePhone ?? null,
