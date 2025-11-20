@@ -1,10 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 🚧 EN DESARROLLO - Sprint 1 FASE 1.5 Completada
+**Estado:** 🚧 EN DESARROLLO - Sprint 2 FASE 3 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
-**Última actualización:** 2025-11-20 21:00
+**Última actualización:** 2025-11-20 22:30
 
 ---
 
@@ -416,28 +416,95 @@ npx eslint src/lib/alert-engine.ts --fix
 
 ---
 
-#### FASE 3: Server Actions de Alertas ⏳ EN DESARROLLO
+#### FASE 3: Server Actions de Alertas ✅ COMPLETADO (2025-11-20)
 
-**Archivo:**
-- `/src/server/actions/alerts.ts`
+**Archivo creado:**
+- ✅ `/src/server/actions/alerts.ts` (501 líneas)
 
-**Actions:**
+**Server Actions implementadas:**
 ```typescript
-// Obtener alertas del usuario (según sus suscripciones)
-export async function getMyAlerts(filters?: AlertFilters): Promise<Alert[]>
+// ✅ Obtener alertas del usuario según suscripciones acumulativas
+export async function getMyAlerts(filters?: AlertFilters)
 
-// Crear suscripción a alertas
-export async function subscribeToAlerts(scope: Scope, scopeId?: string): Promise<void>
+// ✅ Obtener estadísticas agregadas (reutiliza getMyAlerts)
+export async function getMyAlertStats(dateFrom?: Date, dateTo?: Date): Promise<AlertStats>
 
-// Eliminar suscripción
-export async function unsubscribeFromAlerts(subscriptionId: string): Promise<void>
+// ✅ Crear suscripción a alertas con opciones personalizadas
+export async function subscribeToAlerts(
+  scope: "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM",
+  scopeId: string | null,
+  options?: { severityLevels?: string[]; alertTypes?: string[]; notifyByEmail?: boolean; }
+)
 
-// Resolver alerta
-export async function resolveAlert(alertId: string, resolution: string): Promise<void>
+// ✅ Eliminar suscripción (soft delete)
+export async function unsubscribeFromAlerts(subscriptionId: string)
 
-// Obtener estadísticas de alertas
-export async function getAlertStats(): Promise<AlertStats>
+// ✅ Obtener suscripciones activas del usuario con relaciones
+export async function getMySubscriptions()
+
+// ✅ Resolver alerta (llama a motor de alertas)
+export async function resolveAlertAction(alertId: string, resolution?: string)
+
+// ✅ Descartar alerta (falso positivo)
+export async function dismissAlertAction(alertId: string, comment?: string)
 ```
+
+**Funcionalidades implementadas:**
+
+1. ✅ **Sistema acumulativo de suscripciones**
+   - Query con `OR[]` de todos los scopes del usuario
+   - Usuario con múltiples suscripciones (ORG + TEAM) ve TODAS las alertas
+   - Deduplicación automática de resultados
+
+2. ✅ **Filtrado completo**
+   - Por severidad (`INFO`, `WARNING`, `CRITICAL`)
+   - Por tipo de alerta (array de tipos)
+   - Por estado (`ACTIVE`, `RESOLVED`, `DISMISSED`)
+   - Por fechas (dateFrom, dateTo)
+   - Por entidades (employeeId, costCenterId, departmentId, teamId)
+
+3. ✅ **Validación multi-tenant**
+   - Todos los actions validan `session.user.id` y `session.user.orgId`
+   - Verificación de pertenencia a organización en todos los queries
+   - Protección contra acceso cruzado entre organizaciones
+
+4. ✅ **Gestión de suscripciones**
+   - Prevención de duplicados (valida antes de crear)
+   - Soft delete en `unsubscribeFromAlerts()`
+   - Opciones personalizadas: severityLevels, alertTypes, notifyByEmail
+
+5. ✅ **Integración con motor de alertas**
+   - `resolveAlertAction()` usa `resolveAlertEngine()` de `/src/lib/alert-engine.ts`
+   - `dismissAlertAction()` usa `dismissAlertEngine()`
+   - Serialización correcta de fechas para Next.js (`.toISOString()`)
+
+6. ✅ **Estadísticas agregadas**
+   - `getMyAlertStats()` reutiliza lógica de `getMyAlerts()`
+   - Agrupación por severidad y tipo
+   - Contadores por estado (active, resolved, dismissed)
+
+**Relaciones incluidas:**
+- ✅ `employee` (firstName, lastName, email)
+- ✅ `costCenter` (name)
+- ✅ `department` (name) - **Nuevo con scope DEPARTMENT**
+- ✅ `team` (name)
+- ✅ `resolver` (name)
+
+**Validación:**
+```bash
+npx eslint src/server/actions/alerts.ts --fix
+# ✅ 0 errores, 24 warnings (complexity, max-lines, unnecessary optional chain)
+# ✅ Todos los errores críticos corregidos
+# ✅ Pre-commit hooks pasaron exitosamente
+```
+
+**Commit:**
+- `aa091be` - feat(alerts): Sprint 2 FASE 3 - Server Actions de Alertas
+
+**Próximos pasos (Sprint 2 FASE 4):**
+- Implementar Sistema de Contexto Activo
+- Crear modelo `UserActiveContext`
+- Implementar `setActiveContext()` y `getActiveContext()`
 
 ---
 
