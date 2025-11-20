@@ -13,6 +13,11 @@ export type TeamDetail = {
   code: string | null;
   description: string | null;
   isActive: boolean;
+  departmentId: string | null;
+  department: {
+    id: string;
+    name: string;
+  } | null;
   costCenterId: string | null;
   costCenter: {
     id: string;
@@ -55,6 +60,13 @@ export async function getTeamById(id: string): Promise<{
         code: true,
         description: true,
         isActive: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         costCenterId: true,
         costCenter: {
           select: {
@@ -171,6 +183,7 @@ export type CreateTeamInput = {
   name: string;
   code?: string | null;
   description?: string | null;
+  departmentId?: string | null;
   costCenterId: string;
   isActive?: boolean;
 };
@@ -212,6 +225,35 @@ export async function createTeam(data: CreateTeamInput): Promise<{
       };
     }
 
+    // Si se proporciona departmentId, validar que existe, pertenece a la org y su costCenterId coincide
+    if (data.departmentId) {
+      const department = await prisma.department.findFirst({
+        where: {
+          id: data.departmentId,
+          orgId: session.user.orgId,
+        },
+        select: {
+          id: true,
+          costCenterId: true,
+        },
+      });
+
+      if (!department) {
+        return {
+          success: false,
+          error: "Departamento no encontrado",
+        };
+      }
+
+      // VALIDACIÓN: department.costCenterId debe coincidir con team.costCenterId
+      if (department.costCenterId !== data.costCenterId) {
+        return {
+          success: false,
+          error: "El departamento no pertenece al centro de coste seleccionado",
+        };
+      }
+    }
+
     // Si se proporciona código, verificar que no exista
     if (data.code?.trim()) {
       const existingTeam = await prisma.team.findFirst({
@@ -235,6 +277,7 @@ export async function createTeam(data: CreateTeamInput): Promise<{
         name: data.name.trim(),
         code: data.code?.trim() ?? null,
         description: data.description?.trim() ?? null,
+        departmentId: data.departmentId ?? null,
         costCenterId: data.costCenterId,
         orgId: session.user.orgId,
         isActive: data.isActive ?? true,
@@ -245,6 +288,13 @@ export async function createTeam(data: CreateTeamInput): Promise<{
         code: true,
         description: true,
         isActive: true,
+        departmentId: true,
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         costCenterId: true,
         costCenter: {
           select: {

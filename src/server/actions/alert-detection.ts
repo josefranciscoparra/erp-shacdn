@@ -1,13 +1,13 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
 import {
   buildScopeFilter,
   getUserAccessibleCostCenters,
   getUserAccessibleTeams,
 } from "@/lib/permissions/scope-helpers";
+import { prisma } from "@/lib/prisma";
+import { getEffectiveSchedule } from "@/lib/schedule-engine";
 
 import { getOrganizationValidationConfig } from "./time-clock-validations";
 
@@ -384,46 +384,51 @@ export async function detectAlertsForDate(employeeId: string, date: Date): Promi
       }
 
       // Validar desviación si hay horario configurado
-      if (
+      const shouldValidateDeviation =
         effectiveSchedule.type !== "NON_WORKDAY" &&
         workdaySummary.expectedMinutes &&
-        workdaySummary.deviationMinutes !== null
-      ) {
-        const deviation = workdaySummary.deviationMinutes;
+        workdaySummary.deviationMinutes !== null;
 
-        // Llegada tarde
-        if (deviation < 0) {
-          const lateMinutes = Math.abs(deviation);
+      if (!shouldValidateDeviation) {
+        // Guardar alertas y retornar
+        await saveDetectedAlerts(employeeId, date, alerts);
+        return alerts;
+      }
 
-          if (lateMinutes > config.criticalLateArrivalMinutes) {
-            alerts.push({
-              type: "CRITICAL_LATE_ARRIVAL",
-              severity: "CRITICAL",
-              title: "Entrada tardía crítica",
-              description: `El empleado trabajó ${formatMinutes(lateMinutes)} menos de lo esperado (umbral crítico: ${formatMinutes(config.criticalLateArrivalMinutes)}).`,
-              deviationMinutes: lateMinutes,
-            });
-          } else if (lateMinutes > config.clockInToleranceMinutes) {
-            alerts.push({
-              type: "LATE_ARRIVAL",
-              severity: "WARNING",
-              title: "Entrada tardía",
-              description: `El empleado trabajó ${formatMinutes(lateMinutes)} menos de lo esperado (tolerancia: ${formatMinutes(config.clockInToleranceMinutes)}).`,
-              deviationMinutes: lateMinutes,
-            });
-          }
-        }
+      const deviation = workdaySummary.deviationMinutes;
 
-        // Horas excesivas
-        if (workdaySummary.totalWorkedMinutes && workdaySummary.totalWorkedMinutes > 12 * 60) {
+      // Llegada tarde (early return pattern)
+      if (deviation < 0) {
+        const lateMinutes = Math.abs(deviation);
+
+        if (lateMinutes > config.criticalLateArrivalMinutes) {
           alerts.push({
-            type: "EXCESSIVE_HOURS",
+            type: "CRITICAL_LATE_ARRIVAL",
+            severity: "CRITICAL",
+            title: "Entrada tardía crítica",
+            description: `El empleado trabajó ${formatMinutes(lateMinutes)} menos de lo esperado (umbral crítico: ${formatMinutes(config.criticalLateArrivalMinutes)}).`,
+            deviationMinutes: lateMinutes,
+          });
+        } else if (lateMinutes > config.clockInToleranceMinutes) {
+          alerts.push({
+            type: "LATE_ARRIVAL",
             severity: "WARNING",
-            title: "Horas excesivas trabajadas",
-            description: `El empleado trabajó ${Math.round(workdaySummary.totalWorkedMinutes / 60)} horas en un día (más de 12 horas).`,
-            deviationMinutes: workdaySummary.totalWorkedMinutes - 12 * 60,
+            title: "Entrada tardía",
+            description: `El empleado trabajó ${formatMinutes(lateMinutes)} menos de lo esperado (tolerancia: ${formatMinutes(config.clockInToleranceMinutes)}).`,
+            deviationMinutes: lateMinutes,
           });
         }
+      }
+
+      // Horas excesivas
+      if (workdaySummary.totalWorkedMinutes && workdaySummary.totalWorkedMinutes > 12 * 60) {
+        alerts.push({
+          type: "EXCESSIVE_HOURS",
+          severity: "WARNING",
+          title: "Horas excesivas trabajadas",
+          description: `El empleado trabajó ${Math.round(workdaySummary.totalWorkedMinutes / 60)} horas en un día (más de 12 horas).`,
+          deviationMinutes: workdaySummary.totalWorkedMinutes - 12 * 60,
+        });
       }
     }
 
@@ -457,7 +462,7 @@ async function saveDetectedAlerts(
 
     if (alerts.length === 0) return; // Sin incidencias, no hacer nada
 
-    // Obtener employee con costCenter desde su contrato activo
+    // Obtener employee con costCenter y department desde su contrato activo
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
       select: {
@@ -465,6 +470,7 @@ async function saveDetectedAlerts(
           where: { active: true },
           select: {
             costCenterId: true,
+            departmentId: true,
           },
           take: 1,
           orderBy: { startDate: "desc" },
@@ -477,6 +483,7 @@ async function saveDetectedAlerts(
     }
 
     const costCenterId = employee.employmentContracts[0]?.costCenterId ?? null;
+    const departmentId = employee.employmentContracts[0]?.departmentId ?? null;
     const normalizedDate = new Date(date);
     normalizedDate.setHours(0, 0, 0, 0);
 
@@ -549,6 +556,7 @@ async function saveDetectedAlerts(
         title,
         description,
         date: normalizedDate,
+        departmentId,
         costCenterId,
         originalCostCenterId: costCenterId,
         status: "ACTIVE",

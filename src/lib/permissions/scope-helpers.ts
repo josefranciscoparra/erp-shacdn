@@ -18,7 +18,7 @@ export type Permission =
 /**
  * Tipos de scope disponibles
  */
-export type Scope = "ORGANIZATION" | "COST_CENTER" | "TEAM";
+export type Scope = "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM";
 
 /**
  * Construye filtro de Prisma basado en los scopes del usuario
@@ -52,7 +52,7 @@ export async function buildScopeFilter(userId: string) {
   // Para otros roles, validar AreaResponsible
   const responsibilities = await prisma.areaResponsible.findMany({
     where: { userId, isActive: true },
-    select: { scope: true, costCenterId: true, teamId: true },
+    select: { scope: true, departmentId: true, costCenterId: true, teamId: true },
   });
 
   if (responsibilities.length === 0) {
@@ -65,6 +65,18 @@ export async function buildScopeFilter(userId: string) {
     if (r.scope === "ORGANIZATION") {
       // Scope ORGANIZATION: ve todo (retornar objeto vacío = sin restricción)
       return {};
+    }
+    if (r.scope === "DEPARTMENT" && r.departmentId) {
+      // Scope DEPARTMENT: filtra por departamento
+      // NOTA: Employee NO tiene departmentId directo, se filtra por employmentContracts.department
+      return {
+        employmentContracts: {
+          some: {
+            departmentId: r.departmentId,
+            active: true,
+          },
+        },
+      };
     }
     if (r.scope === "COST_CENTER" && r.costCenterId) {
       // Scope COST_CENTER: filtra por centro de trabajo
@@ -109,6 +121,9 @@ export async function getUserScopes(userId: string) {
   return await prisma.areaResponsible.findMany({
     where: { userId, isActive: true },
     include: {
+      department: {
+        select: { id: true, name: true },
+      },
       costCenter: {
         select: { id: true, name: true, code: true },
       },
@@ -173,6 +188,9 @@ export async function getUserAlertSubscriptions(userId: string) {
   return await prisma.alertSubscription.findMany({
     where: { userId, isActive: true },
     include: {
+      department: {
+        select: { id: true, name: true },
+      },
       costCenter: {
         select: { id: true, name: true, code: true },
       },
@@ -202,6 +220,15 @@ export async function validateScopeOwnership(orgId: string, scope: Scope, scopeI
   // Scope ORGANIZATION siempre es válido (no tiene scopeId)
   if (scope === "ORGANIZATION") {
     return true;
+  }
+
+  // Para DEPARTMENT, validar que el departamento pertenece a la org
+  if (scope === "DEPARTMENT" && scopeId) {
+    const department = await prisma.department.findUnique({
+      where: { id: scopeId },
+      select: { orgId: true },
+    });
+    return department?.orgId === orgId;
   }
 
   // Para COST_CENTER, validar que el centro pertenece a la org
@@ -377,6 +404,64 @@ export async function getUserAccessibleTeams(userId: string, orgId: string) {
 }
 
 /**
+ * Obtiene los departamentos a los que el usuario tiene acceso
+ *
+ * Útil para poblar dropdowns de filtros en UI.
+ *
+ * **ROLES GLOBALES**: ADMIN y RRHH ven todos los departamentos.
+ *
+ * @example
+ * const departments = await getUserAccessibleDepartments(userId, orgId);
+ * // Usar en Select de filtro: "Todos los departamentos" | "Tecnología" | "Ventas"
+ */
+export async function getUserAccessibleDepartments(userId: string, orgId: string) {
+  // Obtener usuario con rol
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  // BYPASS para roles globales (ADMIN, RRHH) - ven todos los departamentos
+  if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "HR_ADMIN") {
+    return await prisma.department.findMany({
+      where: { orgId, active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  // Para otros roles, validar AreaResponsible
+  const responsibilities = await prisma.areaResponsible.findMany({
+    where: { userId, isActive: true },
+    select: { scope: true, departmentId: true },
+  });
+
+  // Si tiene scope ORGANIZATION, retornar TODOS los departamentos
+  if (responsibilities.some((r) => r.scope === "ORGANIZATION")) {
+    return await prisma.department.findMany({
+      where: { orgId, active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+  }
+
+  // Filtrar por departamentos específicos
+  const departmentIds = responsibilities
+    .filter((r) => r.scope === "DEPARTMENT" && r.departmentId)
+    .map((r) => r.departmentId as string);
+
+  if (departmentIds.length === 0) {
+    return [];
+  }
+
+  return await prisma.department.findMany({
+    where: { id: { in: departmentIds }, active: true },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+/**
  * Verifica si el usuario debería recibir notificación de una alerta
  *
  * Chequea las suscripciones activas del usuario para determinar si debe
@@ -396,6 +481,7 @@ export async function shouldReceiveAlertNotification(
   alert: {
     type: string;
     severity: string;
+    departmentId: string | null;
     costCenterId: string | null;
     teamId: string | null;
   },
@@ -419,6 +505,8 @@ export async function shouldReceiveAlertNotification(
 
     if (sub.scope === "ORGANIZATION") {
       scopeMatches = true; // Recibe todas las alertas
+    } else if (sub.scope === "DEPARTMENT" && sub.departmentId === alert.departmentId) {
+      scopeMatches = true;
     } else if (sub.scope === "COST_CENTER" && sub.costCenterId === alert.costCenterId) {
       scopeMatches = true;
     } else if (sub.scope === "TEAM" && sub.teamId === alert.teamId) {

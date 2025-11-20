@@ -21,6 +21,7 @@ export type AreaResponsibilityData = {
   id: string;
   userId: string;
   scope: Scope;
+  departmentId: string | null;
   costCenterId: string | null;
   teamId: string | null;
   permissions: Permission[];
@@ -32,6 +33,10 @@ export type AreaResponsibilityData = {
     name: string;
     email: string;
   };
+  department?: {
+    id: string;
+    name: string;
+  } | null;
   costCenter?: {
     id: string;
     name: string;
@@ -65,6 +70,16 @@ export type UpdateResponsibilityInput = {
  *
  * @param data Datos de la responsabilidad
  * @returns Responsabilidad creada
+ *
+ * @example
+ * // Asignar responsable de departamento
+ * await assignResponsibility({
+ *   userId: "user123",
+ *   scope: "DEPARTMENT",
+ *   scopeId: "dept456",
+ *   permissions: ["VIEW_ALERTS", "RESOLVE_ALERTS"],
+ *   createSubscription: true
+ * });
  *
  * @example
  * // Asignar responsable de centro
@@ -135,9 +150,11 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
       const isValid = await validateScopeOwnership(session.user.orgId, data.scope, data.scopeId);
 
       if (!isValid) {
+        const scopeName =
+          data.scope === "DEPARTMENT" ? "departamento" : data.scope === "COST_CENTER" ? "centro" : "equipo";
         return {
           success: false,
-          error: `El ${data.scope === "COST_CENTER" ? "centro" : "equipo"} no pertenece a la organización`,
+          error: `El ${scopeName} no pertenece a la organización`,
         };
       }
     }
@@ -150,7 +167,9 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
       isActive: true,
     };
 
-    if (data.scope === "COST_CENTER") {
+    if (data.scope === "DEPARTMENT") {
+      whereClause.departmentId = data.scopeId;
+    } else if (data.scope === "COST_CENTER") {
       whereClause.costCenterId = data.scopeId;
     } else if (data.scope === "TEAM") {
       whereClause.teamId = data.scopeId;
@@ -178,7 +197,9 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
     };
 
     // Asignar scopeId según el tipo de scope
-    if (data.scope === "COST_CENTER") {
+    if (data.scope === "DEPARTMENT") {
+      scopeData.departmentId = data.scopeId;
+    } else if (data.scope === "COST_CENTER") {
       scopeData.costCenterId = data.scopeId;
     } else if (data.scope === "TEAM") {
       scopeData.teamId = data.scopeId;
@@ -191,6 +212,9 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
       include: {
         user: {
           select: { id: true, name: true, email: true },
+        },
+        department: {
+          select: { id: true, name: true },
         },
         costCenter: {
           select: { id: true, name: true, code: true },
@@ -215,7 +239,9 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
       };
 
       // Asignar scopeId según el tipo de scope
-      if (data.scope === "COST_CENTER") {
+      if (data.scope === "DEPARTMENT") {
+        subscriptionData.departmentId = data.scopeId;
+      } else if (data.scope === "COST_CENTER") {
         subscriptionData.costCenterId = data.scopeId;
       } else if (data.scope === "TEAM") {
         subscriptionData.teamId = data.scopeId;
@@ -355,6 +381,9 @@ export async function updateResponsibility(
         user: {
           select: { id: true, name: true, email: true },
         },
+        department: {
+          select: { id: true, name: true },
+        },
         costCenter: {
           select: { id: true, name: true, code: true },
         },
@@ -413,7 +442,9 @@ export async function getResponsiblesForArea(
       isActive: true,
     };
 
-    if (scope === "COST_CENTER") {
+    if (scope === "DEPARTMENT") {
+      where.departmentId = scopeId;
+    } else if (scope === "COST_CENTER") {
       where.costCenterId = scopeId;
     } else if (scope === "TEAM") {
       where.teamId = scopeId;
@@ -425,6 +456,9 @@ export async function getResponsiblesForArea(
       include: {
         user: {
           select: { id: true, name: true, email: true },
+        },
+        department: {
+          select: { id: true, name: true },
         },
         costCenter: {
           select: { id: true, name: true, code: true },
@@ -499,6 +533,9 @@ export async function getUserResponsibilities(userId?: string): Promise<{
       include: {
         user: {
           select: { id: true, name: true, email: true },
+        },
+        department: {
+          select: { id: true, name: true },
         },
         costCenter: {
           select: { id: true, name: true, code: true },

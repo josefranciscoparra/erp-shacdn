@@ -1,10 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 🚧 EN DESARROLLO - Sprint 1 FASE 1 Completada
+**Estado:** 🚧 EN DESARROLLO - Sprint 1 FASE 1.5 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
-**Última actualización:** 2025-11-20 16:30
+**Última actualización:** 2025-11-20 21:00
 
 ---
 
@@ -304,11 +304,70 @@ npx prisma db push --accept-data-loss
 **Commit:**
 - `db51cc1` - feat(schema): Sprint 1 FASE 1 - Sistema de Alertas y Permisos v2.0
 
-**Pendiente para FASE 2:**
-- Implementar validaciones en Server Actions:
-  - `Team.departmentId` → validar `department.costCenterId === team.costCenterId`
-  - `AreaResponsible.scope === "DEPARTMENT"` → validar `departmentId` no es null
-  - `AlertSubscription.scope === "DEPARTMENT"` → validar `departmentId` no es null
+---
+
+#### FASE 1.5: Actualización de Server Actions Existentes ✅ COMPLETADO (2025-11-20)
+
+**Archivos modificados:**
+- ✅ `/src/lib/permissions/scope-helpers.ts`
+- ✅ `/src/server/actions/area-responsibilities.ts`
+- ✅ `/src/server/actions/teams.ts`
+- ✅ `/src/server/actions/alert-detection.ts`
+
+**Cambios implementados:**
+
+1. ✅ **`scope-helpers.ts`**: Soporte completo para scope DEPARTMENT
+   - Tipo `Scope` actualizado: `"ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"`
+   - `buildScopeFilter()`: añadida lógica para filtrar por `employmentContracts.departmentId`
+   - `getUserScopes()`: incluye relación `department`
+   - `getUserAlertSubscriptions()`: incluye relación `department`
+   - `validateScopeOwnership()`: validación de ownership para DEPARTMENT
+   - `shouldReceiveAlertNotification()`: soporte para `alert.departmentId`
+   - 🆕 Nueva función `getUserAccessibleDepartments()`: obtiene departamentos accesibles por el usuario
+
+2. ✅ **`area-responsibilities.ts`**: Gestión de responsabilidades con scope DEPARTMENT
+   - Tipo `AreaResponsibilityData`: añadido `departmentId` y relación `department`
+   - `assignResponsibility()`:
+     - Valida ownership de departamento
+     - Maneja whereClause con `departmentId`
+     - Crea suscripciones automáticas con `departmentId`
+     - Ejemplos actualizados con caso DEPARTMENT
+   - `updateResponsibility()`: incluye `department` en select
+   - `getResponsiblesForArea()`: whereClause con soporte DEPARTMENT
+   - `getUserResponsibilities()`: incluye relación `department`
+
+3. ✅ **`teams.ts`**: Validación y soporte para `departmentId` opcional
+   - Tipo `TeamDetail`: añadido `departmentId` y relación `department`
+   - Tipo `CreateTeamInput`: añadido `departmentId?: string | null`
+   - `getTeamById()`: incluye relación `department` en select
+   - `createTeam()`:
+     - ✅ Validación CRÍTICA: Si `departmentId` existe, verifica que `department.costCenterId === team.costCenterId`
+     - Incluye `departmentId` en data y `department` en select
+     - Mensaje de error específico por tipo de scope
+
+4. ✅ **`alert-detection.ts`**: Alertas con departmentId
+   - `saveDetectedAlerts()`:
+     - Query de employee incluye `departmentId` del contrato activo
+     - Extrae `departmentId` del contrato
+     - Pasa `departmentId` al crear/actualizar Alert
+
+**Validación:**
+```bash
+npm run lint
+# ✅ Exit code: 0 (sin errores)
+# Solo warnings pre-existentes en otros archivos
+```
+
+**Resultado:**
+- ✅ Todo funcionando correctamente
+- ✅ Backwards compatible (campos opcionales)
+- ✅ Sin errores de TypeScript
+- ✅ Sin errores de ESLint
+- ✅ Prisma Client regenerado automáticamente
+
+**Próximos pasos (FASE 2):**
+- Implementar validaciones adicionales en UI (formularios de creación/edición de equipos)
+- Añadir dropdowns de selección de departamento en interfaces de gestión
 
 ---
 
