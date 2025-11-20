@@ -1,10 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 🚧 EN DESARROLLO - Sprint 3 FASE 5 Completada
+**Estado:** 🚧 EN DESARROLLO - Sprint 3 FASE 6 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
-**Última actualización:** 2025-11-21 00:30
+**Última actualización:** 2025-11-21 01:00
 
 ---
 
@@ -688,17 +688,65 @@ git status
 
 ---
 
-#### FASE 6: Dashboard de Alertas Mejorado
+#### FASE 6: Dashboard de Alertas Mejorado ✅ COMPLETADO (2025-11-21)
 
 **Ruta:**
-- `/dashboard/time-tracking/alerts` (ya existe, mejorar)
+- `/dashboard/time-tracking/alerts` (mejorado)
 
-**Mejoras:**
-- Selector de contexto activo (dropdown en header)
-- Filtros por tipo, severidad, estado, fecha
-- Tabs: "Mis Alertas" | "Todas" (según permisos)
-- Acción masiva: resolver múltiples alertas
-- Historial de cambios de alertas (opcional)
+**Componentes modificados:**
+- ✅ `/src/app/(main)/dashboard/time-tracking/alerts/page.tsx` (+141 líneas, -12 líneas)
+
+**Funcionalidades implementadas:**
+
+1. ✅ **Tabs "Mis Alertas" | "Todas las Alertas"**
+   - "Mis Alertas": Muestra alertas según las suscripciones del usuario
+   - "Todas las Alertas": Muestra alertas según el contexto activo
+   - Deshabilita "Mis Alertas" si el usuario no tiene suscripciones
+   - Badge informativo cuando no hay suscripciones
+   - Estado sincronizado con `scopeMode` (`mine` | `all`)
+
+2. ✅ **Indicador de Contexto Activo**
+   - Badge con el nombre del contexto actual (organización/departamento/centro/equipo)
+   - Icono `Target` para indicar el ámbito de visualización
+   - Solo visible en modo "Todas las Alertas"
+   - Función `getContextLabel()` para formatear el label
+
+3. ✅ **Filtros Avanzados**
+   - Filtro por **tipo de alerta**: 8 tipos disponibles (LATE_ARRIVAL, CRITICAL_LATE_ARRIVAL, etc.)
+   - Filtro por **rango de fechas**: DateRangePicker integrado
+   - Filtros existentes mejorados: centro, equipo, severidad
+   - Layout responsive: 2 filas (4 filtros principales + búsqueda + fecha)
+
+4. ✅ **Integraciones con Server Actions**
+   - `getActiveContext()` → Obtiene contexto activo del usuario
+   - `getAvailableScopes()` → Obtiene scopes disponibles
+   - `getMySubscriptions()` → Verifica si tiene suscripciones
+   - `getActiveAlerts()` preparado para recibir filtros de tipo y fecha
+
+5. ✅ **Mejoras de UX**
+   - Card con tabs superiores para cambiar entre modos
+   - Filtros dinámicos según scope del usuario
+   - Búsqueda de empleado mejorada
+   - Estado de carga visual
+
+**Validación:**
+```bash
+npx eslint src/app/(main)/dashboard/time-tracking/alerts/page.tsx --fix
+# ✅ 0 errores, 17 warnings (complexity, max-lines - aceptables)
+# ✅ Warnings críticos resueltos (unused vars, unnecessary ??)
+```
+
+**Commit:**
+- `02893de` - feat(alerts): Sprint 3 FASE 6 - Dashboard de Alertas Mejorado
+
+**Próximos pasos (Sprint 3 FASE 7):**
+- Crear selector de contexto global en header principal
+- Integrar cambio de contexto en todos los dashboards
+- Dropdown "Ver: Todo | Mi Equipo | Mi Centro | Mi Departamento"
+
+**Pendientes para futuras mejoras:**
+- ⏳ Acción masiva: resolver múltiples alertas
+- ⏳ Historial de cambios de alertas
 
 ---
 
