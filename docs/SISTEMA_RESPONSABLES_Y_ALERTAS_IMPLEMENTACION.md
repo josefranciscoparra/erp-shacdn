@@ -1,20 +1,69 @@
 # Sistema de Responsables y Alertas - Plan de Implementación
 
 **Fecha:** 2025-11-20
-**Versión:** 1.0
-**Estado:** 📐 Diseño Completo - Listo para Implementar
+**Versión:** 1.1
+**Estado:** 🚧 EN PROGRESO - Fases 1-2 COMPLETADAS, FASE 3 siguiente
 
 ---
 
 ## 📚 Índice
 
-1. [Objetivo y Alcance](#objetivo-y-alcance)
-2. [Requisitos del Cliente](#requisitos-del-cliente)
-3. [Arquitectura del Sistema](#arquitectura-del-sistema)
-4. [Modelo de Datos](#modelo-de-datos)
-5. [Plan de Implementación](#plan-de-implementación)
-6. [Casos de Uso](#casos-de-uso)
-7. [UI/UX Mockups](#uiux-mockups)
+1. [Estado de Implementación](#-estado-de-implementación)
+2. [Objetivo y Alcance](#objetivo-y-alcance)
+3. [Requisitos del Cliente](#requisitos-del-cliente)
+4. [Arquitectura del Sistema](#arquitectura-del-sistema)
+5. [Modelo de Datos](#modelo-de-datos)
+6. [Plan de Implementación](#plan-de-implementación)
+7. [Casos de Uso](#casos-de-uso)
+8. [UI/UX Mockups](#uiux-mockups)
+
+---
+
+## 📊 Estado de Implementación
+
+**Última actualización:** 2025-11-20
+
+| Fase | Estado | Descripción | Tiempo |
+|------|--------|-------------|--------|
+| **FASE 1** | ✅ **COMPLETADO** | Modelo de datos (Team, relaciones, migración) | 3h |
+| **FASE 2** | ✅ **COMPLETADO** | Sistema de visibilidad y filtrado (scope helpers, UI) | 5h |
+| **FASE 3** | 🔄 **SIGUIENTE** | Asignación de Responsables - Centros | 4h est. |
+| **FASE 4** | ⏸️ PENDIENTE | Asignación de Responsables - Equipos | 4h est. |
+| **FASE 5** | ⏸️ PENDIENTE | Notificaciones In-App | 3h est. |
+
+### 📄 Documentación Técnica
+
+- **[Implementación FASE 1 y FASE 2](./IMPLEMENTACION_RESPONSABLES_FASE1_Y_FASE2.md)** - Detalles técnicos completos
+- **[Reglas de Negocio](./REGLAS_NEGOCIO_RESPONSABLES_ALERTAS.md)** - Especificación completa del sistema
+
+### ✅ Completado
+
+- ✅ Modelo `Team` con relaciones completas
+- ✅ Helpers de permisos (`scope-helpers.ts`)
+  - `buildScopeFilter()` - Filtrado por scope con bypass ADMIN/RRHH
+  - `getUserAccessibleCostCenters()` - Centros accesibles
+  - `getUserAccessibleTeams()` - Equipos accesibles
+- ✅ Server actions con scope filtering
+  - `getActiveAlerts()` con filtrado automático
+  - `getAlertStats()` con scope
+  - `getAvailableAlertFilters()` para UI dinámica
+- ✅ UI Dashboard de alertas
+  - Filtros dinámicos (centro, equipo, severidad, empleado)
+  - Columnas optimizadas con equipo visible
+  - Bypass automático para roles globales
+
+### 🔄 En Progreso
+
+**FASE 3 - Asignación de Responsables (Centros):**
+- Server actions genéricas reutilizables
+- UI: Pestaña "Responsables" en centros
+- Dialog: "Añadir Responsable" con permisos
+
+### ⏸️ Pendiente
+
+- FASE 4: Responsables de Equipos
+- FASE 5: Notificaciones In-App
+- CRUD de Equipos (prioridad media)
 
 ---
 
@@ -1083,16 +1132,45 @@ interface UserSession {
 
 ---
 
-**Próximos Pasos:**
+## 🎯 Próximos Pasos
 
-1. Commit de este documento
-2. Implementar FASE 1 (Modelo de Datos)
-3. Testing de migración
-4. Continuar con FASE 2
+### ✅ Completado
+
+1. ✅ Implementar FASE 1 (Modelo de Datos) - **HECHO**
+2. ✅ Testing de migración - **HECHO**
+3. ✅ Implementar FASE 2 (Visibilidad y Filtrado) - **HECHO**
+4. ✅ Documentación técnica completa - **HECHO**
+
+### 🔄 Actual
+
+**FASE 3 - Asignación de Responsables (Centros):**
+
+1. **Server Actions Genéricas** (`/src/server/actions/area-responsibilities.ts`):
+   - `assignResponsibility()` - Asignar responsable (genérico para centro/equipo/cualquier scope)
+   - `removeResponsibility()` - Quitar responsabilidad
+   - `updateResponsibility()` - Actualizar permisos
+   - `getResponsiblesForArea()` - Obtener responsables de un ámbito
+   - `getUserResponsibilities()` - Obtener ámbitos de un usuario
+
+2. **UI - Pestaña Responsables en Centros** (`/dashboard/cost-centers/[id]`):
+   - Componente `ResponsiblesList` - Lista de responsables actuales
+   - Componente `AddResponsibleDialog` - Dialog de asignación con permisos
+   - Opción "Crear suscripción automática" (checked por defecto)
+
+3. **Testing:**
+   - Asignar responsable a centro
+   - Verificar permisos aplicados
+   - Verificar filtrado automático funciona
+
+### ⏸️ Siguiente (FASE 4)
+
+- Reutilizar server actions para equipos
+- UI: Pestaña "Responsables" en equipos
+- Componente `TeamCombobox` paginado (para miles de equipos)
 
 ---
 
-**Versión:** 1.0
+**Versión:** 1.1
 **Última actualización:** 2025-11-20
 **Autor:** Sistema de Planificación ERP TimeNow
-**Estado:** 📐 Diseño Completo - LISTO PARA IMPLEMENTAR 🚀
+**Estado:** 🚧 EN PROGRESO - Fases 1-2 COMPLETADAS, FASE 3 en curso
