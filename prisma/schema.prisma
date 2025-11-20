@@ -50,6 +50,13 @@ model Organization {
   nonWorkdayClockInAllowed      Boolean @default(false) // Permitir fichar en días no laborables
   nonWorkdayClockInWarning      Boolean @default(true)  // Mostrar warning al fichar en día no laboral
 
+  // Configuración de Alertas de Fichajes (Sistema Avanzado)
+  criticalLateArrivalMinutes    Int     @default(30)  // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)
+  criticalEarlyDepartureMinutes Int     @default(30)  // Minutos de salida temprana para alerta CRÍTICA
+  alertsEnabled                 Boolean @default(true) // Activar/desactivar sistema de alertas de fichajes
+  alertNotificationsEnabled     Boolean @default(false) // Enviar notificaciones a RRHH/managers sobre alertas
+  alertNotificationRoles        String[] @default(["RRHH"]) // Roles que reciben notificaciones de alertas
+
   // Configuración de Chat
   chatEnabled             Boolean @default(false) // Activar/desactivar módulo de chat 1:1
 
@@ -98,6 +105,11 @@ model Organization {
   rotationPatterns    ShiftRotationPattern[]
   exceptionDays       ExceptionDayOverride[]
 
+  // Sistema de permisos y alertas
+  areaResponsibles    AreaResponsible[]
+  alertSubscriptions  AlertSubscription[]
+  alerts              Alert[]
+
   @@map("organizations")
 }
 
@@ -143,6 +155,11 @@ model User {
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas por el usuario
   createdExceptions ExceptionDayOverride[] @relation("CreatedExceptions") // Excepciones de horario que he creado
   deletedExceptions ExceptionDayOverride[] @relation("DeletedExceptions") // Excepciones de horario que he eliminado
+
+  // Sistema de permisos y alertas
+  areaResponsibilities AreaResponsible[] @relation("UserAreaResponsibilities") // Áreas de las que es responsable
+  alertSubscriptions   AlertSubscription[] @relation("UserAlertSubscriptions") // Suscripciones a alertas
+  resolvedAlerts       Alert[] @relation("AlertResolver") // Alertas que ha resuelto
 
   @@index([email])
   @@index([orgId])
@@ -206,6 +223,12 @@ model CostCenter {
   timeClockTerminals TimeClockTerminal[]
   expenses           Expense[]
   exceptionOverrides ExceptionDayOverride[] // Excepciones por centro de costes
+
+  // Sistema de permisos y alertas
+  areaResponsibles   AreaResponsible[] @relation("CostCenterResponsibles") // Responsables de este centro
+  alertSubscriptions AlertSubscription[] @relation("CostCenterAlertSubscriptions") // Suscripciones a alertas de este centro
+  alerts             Alert[] @relation("AlertCostCenter") // Alertas del centro (actuales)
+  originalAlerts     Alert[] @relation("AlertOriginalCostCenter") // Alertas históricas generadas cuando el empleado estaba aquí
 
   @@index([orgId])
   @@map("cost_centers")
@@ -365,6 +388,9 @@ model Employee {
   // NUEVAS relaciones para Sistema de Horarios V2.0
   scheduleAssignments EmployeeScheduleAssignment[]
   exceptionDays       ExceptionDayOverride[]
+
+  // Sistema de permisos y alertas
+  alerts              Alert[] @relation("EmployeeAlerts") // Alertas generadas para este empleado
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
@@ -662,6 +688,9 @@ model TimeEntry {
   originalDurationHours Decimal? @db.Decimal(6,2) // Duración original si fue cancelado por larga duración
   cancellationNotes    String? // Notas adicionales sobre la cancelación
 
+  // Sistema de permisos y alertas
+  alerts               Alert[] @relation("TimeEntryAlerts") // Alertas generadas por este fichaje
+
   @@index([orgId])
   @@index([employeeId])
   @@index([timestamp])
@@ -700,6 +729,9 @@ model WorkdaySummary {
 
   // Relaciones
   timeEntries TimeEntry[]
+
+  // Sistema de permisos y alertas
+  alerts      Alert[] @relation("WorkdayAlerts") // Alertas generadas por este día laboral
 
   @@unique([orgId, employeeId, date]) // Un resumen por empleado por día
   @@index([orgId])
@@ -2026,6 +2058,177 @@ enum ExceptionType {
   TRAINING          // Formación/Evento
   EARLY_CLOSURE     // Cierre anticipado
   CUSTOM            // Personalizado
+}
+
+// ==================== SISTEMA DE PERMISOS POR ÁMBITO Y ALERTAS ====================
+
+// Responsabilidades de usuario por ámbito (manager de centro, departamento, etc.)
+model AreaResponsible {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Usuario responsable
+  userId String
+  user   User   @relation("UserAreaResponsibilities", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Ámbito de responsabilidad (MVP V1: solo ORGANIZATION y COST_CENTER)
+  scope String // "ORGANIZATION" | "COST_CENTER" (futuro: "DEPARTMENT" | "TEAM")
+
+  // Relación con centro de coste (solo si scope = COST_CENTER)
+  costCenterId String?
+  costCenter   CostCenter? @relation("CostCenterResponsibles", fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Permisos específicos para este ámbito (array de strings)
+  // Ej: ["VIEW_EMPLOYEES", "MANAGE_SCHEDULES", "RESOLVE_ALERTS", "VIEW_ALERTS"]
+  permissions String[]
+
+  // Estado
+  isActive Boolean @default(true)
+
+  @@unique([userId, scope, costCenterId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([isActive])
+  @@map("area_responsibles")
+}
+
+// Suscripciones a notificaciones de alertas (flexible: responsables o personas individuales)
+model AlertSubscription {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Usuario suscrito
+  userId String
+  user   User   @relation("UserAlertSubscriptions", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Ámbito de suscripción (recibe alertas de...)
+  scope String // "ORGANIZATION" | "COST_CENTER" (futuro: "DEPARTMENT" | "TEAM")
+
+  // Relación con centro de coste (solo si scope = COST_CENTER)
+  costCenterId String?
+  costCenter   CostCenter? @relation("CostCenterAlertSubscriptions", fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Configuración de notificaciones (MVP V1: predefinidas, no configurables)
+  // Tipos de alertas que quiere recibir (vacío = todas)
+  alertTypes String[] @default([]) // ["LATE_ARRIVAL", "EARLY_DEPARTURE", "ABSENCE", etc.]
+
+  // Severidades que quiere recibir (vacío = todas)
+  severityLevels String[] @default([]) // ["WARNING", "CRITICAL"]
+
+  // Canales de notificación
+  notifyInApp   Boolean @default(true)  // Notificación en navbar
+  notifyByEmail Boolean @default(false) // Email automático (futuro)
+
+  // Control de volumen (futuro V2/V3)
+  maxAlertsPerDay Int? // Límite diario
+  digestMode Boolean @default(false) // Agrupar en resumen diario
+  digestTime String? // "09:00" - Hora del resumen
+  onlyFirstOccurrence Boolean @default(false) // Solo notificar la primera vez
+
+  // Sobrescritura de usuario (futuro)
+  isUserOverride Boolean @default(false) // True si el usuario la modificó manualmente
+  isDisabled Boolean @default(false) // True si el usuario la desactivó explícitamente
+
+  // Estado
+  isActive Boolean @default(true)
+
+  @@unique([userId, scope, costCenterId])
+  @@index([userId])
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([isActive])
+  @@map("alert_subscriptions")
+}
+
+// Alertas de fichajes detectadas automáticamente
+model Alert {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Empleado afectado
+  employeeId String
+  employee   Employee @relation("EmployeeAlerts", fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Tipo de alerta
+  type     String // "LATE_ARRIVAL" | "CRITICAL_LATE_ARRIVAL" | "EARLY_DEPARTURE" | "CRITICAL_EARLY_DEPARTURE" | "ABSENCE_NO_JUSTIFY" | etc.
+  severity String // "INFO" | "WARNING" | "CRITICAL"
+
+  // Detalles
+  title       String  // "Entrada tarde: 35 minutos de retraso"
+  description String? // Descripción detallada
+  date        DateTime // Fecha del evento (día sin hora)
+
+  // Contexto (fichaje relacionado)
+  timeEntryId String?
+  timeEntry   TimeEntry? @relation("TimeEntryAlerts", fields: [timeEntryId], references: [id])
+
+  workdaySummaryId String?
+  workdaySummary   WorkdaySummary? @relation("WorkdayAlerts", fields: [workdaySummaryId], references: [id])
+
+  // Datos de desviación
+  deviationMinutes Int? // Minutos de desviación (si aplica)
+
+  // Detalles de incidencias diarias (para alertas tipo DAILY_SUMMARY)
+  // Estructura JSON con todas las incidencias del día
+  incidents Json? // { lateArrivals: [{time, deviation, severity}], earlyDepartures: [], etc. }
+
+  // Ámbito de la alerta (para filtrado) - Centro/Depto en el MOMENTO de crear la alerta
+  costCenterId String? // Centro ACTUAL del empleado
+  originalCostCenterId String? // Centro en el momento de la alerta (histórico, inmutable)
+
+  costCenter   CostCenter? @relation("AlertCostCenter", fields: [costCenterId], references: [id])
+  originalCostCenter CostCenter? @relation("AlertOriginalCostCenter", fields: [originalCostCenterId], references: [id])
+
+  // Estado
+  status String @default("ACTIVE") // "ACTIVE" | "RESOLVED" | "DISMISSED"
+
+  resolvedAt DateTime?
+  resolvedBy String?
+  resolver   User?     @relation("AlertResolver", fields: [resolvedBy], references: [id])
+
+  resolutionComment String? // Justificación al resolver
+
+  // Notificaciones enviadas
+  notifiedUsers String[] @default([]) // IDs de usuarios notificados
+
+  // Constraint único para alertas resumen diarias
+  // Solo puede haber UNA alerta DAILY_SUMMARY por empleado por día
+  @@unique([employeeId, date, type])
+
+  // Índices para rendimiento
+  @@index([orgId])
+  @@index([employeeId])
+  @@index([costCenterId])
+  @@index([originalCostCenterId])
+  @@index([status])
+  @@index([date])
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt])
+  @@index([timeEntryId])
+
+  // Índices compuestos para queries comunes
+  @@index([orgId, status, severity]) // Dashboard principal
+  @@index([costCenterId, status, date]) // Dashboard de centro
+  @@index([employeeId, date, type]) // Deduplicación
+
+  @@map("alerts")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

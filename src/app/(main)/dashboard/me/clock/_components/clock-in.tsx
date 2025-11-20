@@ -230,13 +230,12 @@ export function ClockIn() {
   }, [isLoading, updateChartSnapshot]);
 
   // Helper para ejecutar fichaje con geolocalización
-  const executeWithGeolocation = async (
-    action: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>,
-  ) => {
+  const executeWithGeolocation = async <T,>(
+    action: (latitude?: number, longitude?: number, accuracy?: number) => Promise<T>,
+  ): Promise<T | undefined> => {
     // Si la org no tiene geolocalización habilitada, fichar sin GPS
     if (!geolocationEnabled) {
-      await action();
-      return;
+      return await action();
     }
 
     // Verificar consentimiento
@@ -271,8 +270,7 @@ export function ClockIn() {
           });
         }
 
-        await action();
-        return;
+        return await action();
       }
 
       // Verificar precisión GPS
@@ -285,19 +283,43 @@ export function ClockIn() {
       }
 
       // Fichar con geolocalización - pasar parámetros individuales
-      await action(locationData.latitude, locationData.longitude, locationData.accuracy);
+      return await action(locationData.latitude, locationData.longitude, locationData.accuracy);
     } catch (error) {
       console.error("Error en proceso de geolocalización:", error);
       toast.error("Error al capturar GPS", {
         description: "Se guardará el fichaje sin ubicación GPS.",
         duration: 5000,
       });
-      await action();
+      return await action();
     }
   };
 
   const handleClockIn = async () => {
-    await executeWithGeolocation(clockInAction);
+    try {
+      const result = await executeWithGeolocation(clockInAction);
+
+      console.log("📊 [FRONTEND] Resultado de clockIn:", result);
+
+      // Si hay alertas, mostrarlas al usuario
+      if (result?.alerts && result.alerts.length > 0) {
+        console.log("🚨 [FRONTEND] Mostrando alertas:", result.alerts);
+        result.alerts.forEach((alert: any) => {
+          // Determinar el tipo de toast según la severidad
+          const toastFn = alert.severity === "CRITICAL" ? toast.error :
+                         alert.severity === "WARNING" ? toast.warning :
+                         toast.info;
+
+          toastFn(alert.title, {
+            description: alert.description,
+            duration: 8000,
+          });
+        });
+      } else {
+        console.log("ℹ️ [FRONTEND] No se detectaron alertas o result no tiene alerts:", result);
+      }
+    } catch (error) {
+      console.error("❌ [FRONTEND] Error en handleClockIn:", error);
+    }
   };
 
   const handleClockOut = async () => {

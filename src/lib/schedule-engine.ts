@@ -76,7 +76,13 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
 
   // 3. PRIORIDAD MEDIA: Obtener asignación activa del empleado
   const assignment = await getActiveAssignment(employeeId, date);
+  console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
+    hasAssignment: !!assignment,
+    assignmentType: assignment?.assignmentType
+  });
+
   if (!assignment) {
+    console.log("❌ [GET_EFFECTIVE_SCHEDULE] No hay asignación activa");
     return {
       date,
       isWorkingDay: false,
@@ -123,9 +129,23 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
 
   // 6. OBTENER PATRÓN DEL DÍA DE LA SEMANA (0=Domingo, 1=Lunes, ..., 6=Sábado)
   const dayOfWeek = date.getDay();
+  console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Buscando patrón del día:", {
+    date: date.toISOString(),
+    dayOfWeek,
+    dayName: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][dayOfWeek],
+    availablePatterns: period.workDayPatterns.map(p => ({ dayOfWeek: p.dayOfWeek, isWorkingDay: p.isWorkingDay, slots: p.timeSlots.length }))
+  });
+
   const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === dayOfWeek);
 
+  console.log("📋 [GET_EFFECTIVE_SCHEDULE] Pattern encontrado:", {
+    found: !!pattern,
+    isWorkingDay: pattern?.isWorkingDay,
+    slotsCount: pattern?.timeSlots.length
+  });
+
   if (!pattern || !pattern.isWorkingDay) {
+    console.log("❌ [GET_EFFECTIVE_SCHEDULE] Sin patrón o día no laborable, retornando schedule vacío");
     // Día no laboral (fin de semana, etc.)
     return {
       date,
@@ -239,17 +259,29 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
  * 5. Global (isGlobal = true)
  */
 async function getExceptionForDate(employeeId: string, date: Date) {
-  // Obtener información del empleado (departamento, centro de costes, plantilla actual)
+  // Obtener información del empleado con su contrato activo (departamento, centro de costes)
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
       orgId: true,
-      departmentId: true,
-      costCenterId: true,
+      employmentContracts: {
+        where: { active: true },
+        select: {
+          departmentId: true,
+          costCenterId: true,
+        },
+        take: 1,
+        orderBy: { startDate: "desc" },
+      },
     },
   });
 
   if (!employee) return null;
+
+  // Obtener departmentId y costCenterId del contrato activo
+  const activeContract = employee.employmentContracts[0];
+  const departmentId = activeContract?.departmentId ?? null;
+  const costCenterId = activeContract?.costCenterId ?? null;
 
   // Obtener asignación activa para saber la plantilla
   const assignment = await getActiveAssignment(employeeId, date);
@@ -303,9 +335,9 @@ async function getExceptionForDate(employeeId: string, date: Date) {
             // 2. Por plantilla
             ...(scheduleTemplateId ? [{ scheduleTemplateId }] : []),
             // 3. Por departamento
-            ...(employee.departmentId ? [{ departmentId: employee.departmentId }] : []),
+            ...(departmentId ? [{ departmentId }] : []),
             // 4. Por centro de costes
-            ...(employee.costCenterId ? [{ costCenterId: employee.costCenterId }] : []),
+            ...(costCenterId ? [{ costCenterId }] : []),
             // 5. Global
             { isGlobal: true },
           ],
@@ -430,6 +462,13 @@ async function getActiveAssignment(employeeId: string, date: Date) {
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
 
+  console.log("🔍 [GET_ASSIGNMENT] Buscando asignación:", {
+    employeeId,
+    date: date.toISOString(),
+    dateStart: dateStart.toISOString(),
+    dateEnd: dateEnd.toISOString()
+  });
+
   const assignment = await prisma.employeeScheduleAssignment.findFirst({
     where: {
       employeeId,
@@ -477,6 +516,19 @@ async function getActiveAssignment(employeeId: string, date: Date) {
       },
     },
   });
+
+  if (assignment?.scheduleTemplate) {
+    console.log("📋 [GET_ASSIGNMENT] Template encontrado:", {
+      templateId: assignment.scheduleTemplate.id,
+      templateName: assignment.scheduleTemplate.name,
+      templateType: assignment.scheduleTemplate.templateType,
+      periodsArray: assignment.scheduleTemplate.periods,
+      periodsCount: assignment.scheduleTemplate.periods?.length,
+      firstPeriod: assignment.scheduleTemplate.periods?.[0]
+    });
+  } else {
+    console.log("❌ [GET_ASSIGNMENT] Template NO cargado a pesar de tener scheduleTemplateId");
+  }
 
   return assignment;
 }
@@ -552,6 +604,20 @@ async function getActivePeriod(
   },
   date: Date,
 ) {
+  console.log("🔍 [GET_ACTIVE_PERIOD] Buscando período activo:", {
+    templateId: template.id,
+    templateName: template.name,
+    date: date.toISOString(),
+    periodsCount: template.periods.length,
+    periods: template.periods.map(p => ({
+      id: p.id,
+      type: p.periodType,
+      validFrom: p.validFrom?.toISOString(),
+      validTo: p.validTo?.toISOString(),
+      patternsCount: p.workDayPatterns.length
+    }))
+  });
+
   // Filtrar períodos cuyas fechas incluyan la fecha solicitada
   const applicablePeriods = template.periods.filter((period) => {
     const startDate = period.validFrom;
@@ -566,7 +632,12 @@ async function getActivePeriod(
     return true;
   });
 
-  if (applicablePeriods.length === 0) return null;
+  console.log("📋 [GET_ACTIVE_PERIOD] Períodos aplicables:", applicablePeriods.length);
+
+  if (applicablePeriods.length === 0) {
+    console.log("❌ [GET_ACTIVE_PERIOD] No se encontraron períodos aplicables");
+    return null;
+  }
 
   // Ordenar por prioridad: SPECIAL > INTENSIVE > REGULAR
   const priorityOrder = { SPECIAL: 3, INTENSIVE: 2, REGULAR: 1 };

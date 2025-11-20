@@ -29,6 +29,7 @@ import {
   getEmployeeYearlySummary,
   getEmployeeDailyDetail,
 } from "@/server/actions/admin-time-tracking";
+import { getEmployeeAlertsByDateRange } from "@/server/actions/alert-detection";
 
 import { CalendarDateRangePicker } from "../_components/calendar-date-range-picker";
 import { DayCard } from "../_components/day-card";
@@ -74,6 +75,11 @@ interface DayDetailData {
     isWithinAllowedArea?: boolean | null;
     requiresReview?: boolean;
   }[];
+  // Alertas
+  alerts?: {
+    total: number;
+    bySeverity: Record<string, number>;
+  };
 }
 
 export default function EmployeeTimeTrackingPage() {
@@ -141,7 +147,28 @@ export default function EmployeeTimeTrackingPage() {
       // Cargar datos según el tab
       if (tab === "detail") {
         const data = await getEmployeeDailyDetail(employeeId, dateFrom, dateTo);
-        setDailyDetailRecords(data.days);
+
+        // Obtener alertas para el rango de fechas
+        let alertsByDate: Record<string, { total: number; bySeverity: Record<string, number> }> = {};
+        if (dateFrom && dateTo) {
+          try {
+            alertsByDate = await getEmployeeAlertsByDateRange(employeeId, dateFrom, dateTo);
+          } catch (error) {
+            console.error("Error al cargar alertas:", error);
+            // Continuar sin alertas si falla
+          }
+        }
+
+        // Enriquecer los días con información de alertas
+        const daysWithAlerts = data.days.map((day) => {
+          const dateKey = new Date(day.date).toISOString().split("T")[0];
+          return {
+            ...day,
+            alerts: alertsByDate[dateKey],
+          };
+        });
+
+        setDailyDetailRecords(daysWithAlerts);
 
         // Actualizar información del empleado
         setEmployeeName(data.employee.name);

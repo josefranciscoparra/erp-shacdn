@@ -1,8 +1,8 @@
-# Sistema de Validaciones Configurables
+# Sistema de Validaciones Configurables y Alertas Avanzadas
 
 **Fecha:** 2025-11-19
-**Versión:** 1.0
-**Estado:** Implementado ✅ (2025-11-18)
+**Versión:** 2.0
+**Estado:** Sistema de Alertas Avanzadas Implementado ✅ (2025-11-19)
 
 ---
 
@@ -536,6 +536,310 @@ pkill -f "next|node.*3000" && rm -rf .next && npm run dev
 
 ---
 
+## 🚨 Sistema de Alertas Avanzadas (V2.0)
+
+### Descripción General
+
+Sistema de tres niveles de alertas que extiende las validaciones básicas con umbrales críticos y notificaciones automáticas para RRHH y managers.
+
+### 📊 Niveles de Alertas
+
+El sistema implementa 3 niveles graduales de severidad:
+
+1. **✅ OK (Sin alerta)**
+   - Fichaje dentro de la tolerancia normal
+   - No se genera ningún aviso
+   - Ejemplo: Llega 10 min tarde con tolerancia de 15 min
+
+2. **⚠️ WARNING (Alerta de advertencia)**
+   - Fichaje excede tolerancia pero no alcanza umbral crítico
+   - Se muestra badge amarillo/ámbar
+   - Ejemplo: Llega 20 min tarde (tolerancia 15 min, umbral crítico 30 min)
+
+3. **🔴 CRITICAL (Alerta crítica)**
+   - Fichaje supera el umbral crítico configurado
+   - Se muestra badge rojo
+   - Puede generar notificación automática a RRHH/managers (si está activado)
+   - Ejemplo: Llega 35 min tarde (umbral crítico 30 min)
+
+### 🗄️ Cambios en Base de Datos (Sistema de Alertas)
+
+**Nuevos campos en `Organization` model:**
+
+```prisma
+model Organization {
+  // ... campos existentes ...
+
+  // ========================================
+  // Sistema de Alertas Avanzadas (V2.0)
+  // ========================================
+  criticalLateArrivalMinutes    Int     @default(30)  // Minutos de retraso para considerar alerta CRÍTICA
+  criticalEarlyDepartureMinutes Int     @default(30)  // Minutos de salida temprana para alerta CRÍTICA
+  alertsEnabled                 Boolean @default(true) // Activar/desactivar sistema de alertas
+  alertNotificationsEnabled     Boolean @default(false) // Enviar notificaciones automáticas
+  alertNotificationRoles        String[] @default(["RRHH"]) // Roles que reciben notificaciones
+}
+```
+
+**Valores por defecto:**
+- `criticalLateArrivalMinutes`: **30 minutos**
+- `criticalEarlyDepartureMinutes`: **30 minutos**
+- `alertsEnabled`: **true** (sistema activado)
+- `alertNotificationsEnabled`: **false** (notificaciones desactivadas por defecto)
+- `alertNotificationRoles`: **["RRHH"]** (extensible a "MANAGER", etc.)
+
+---
+
+### 🔧 Server Actions Actualizados
+
+**Archivo:** `/src/server/actions/time-clock-validations.ts`
+
+**Interface `ValidationConfig` ampliada:**
+
+```typescript
+interface ValidationConfig {
+  // Validaciones básicas (V1.0)
+  clockInToleranceMinutes: number;
+  clockOutToleranceMinutes: number;
+  earlyClockInToleranceMinutes: number;
+  lateClockOutToleranceMinutes: number;
+  nonWorkdayClockInAllowed: boolean;
+  nonWorkdayClockInWarning: boolean;
+
+  // Sistema de Alertas Avanzadas (V2.0)
+  criticalLateArrivalMinutes: number;
+  criticalEarlyDepartureMinutes: number;
+  alertsEnabled: boolean;
+  alertNotificationsEnabled: boolean;
+  alertNotificationRoles: string[];
+}
+```
+
+**Validaciones adicionales en `updateOrganizationValidationConfig()`:**
+
+```typescript
+// Validar que los umbrales críticos sean mayores o iguales a las tolerancias
+if (config.criticalLateArrivalMinutes < config.clockInToleranceMinutes) {
+  throw new Error("El umbral crítico de entrada debe ser mayor o igual a la tolerancia de entrada");
+}
+
+if (config.criticalEarlyDepartureMinutes < config.clockOutToleranceMinutes) {
+  throw new Error("El umbral crítico de salida debe ser mayor o igual a la tolerancia de salida");
+}
+```
+
+**Estas validaciones garantizan:**
+- Tolerancia ≤ Umbral crítico (coherencia lógica)
+- Imposible configurar alertas críticas antes que las warnings
+
+---
+
+### 🎨 UI de Configuración de Alertas
+
+**Ubicación:** `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx`
+
+**Nueva sección añadida:** "Sistema de Alertas Avanzadas"
+
+**Componentes UI:**
+
+1. **2 Inputs numéricos** para umbrales críticos:
+   - `criticalLateArrivalMinutes` (min: 0, max: 120)
+   - `criticalEarlyDepartureMinutes` (min: 0, max: 120)
+
+2. **2 Switches** para activación:
+   - `alertsEnabled` - Activar/desactivar sistema de alertas
+   - `alertNotificationsEnabled` - Enviar notificaciones automáticas
+     - Solo habilitado si `alertsEnabled = true`
+
+**Ejemplo Visual:**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│ ⚙️ Sistema de Alertas Avanzadas                               │
+├───────────────────────────────────────────────────────────────┤
+│                                                               │
+│ Umbrales Críticos                                            │
+│ ┌─────────────────────────────────────────────────────────┐  │
+│ │ Umbral Crítico - Entrada Tarde (minutos)      [30]    │  │
+│ │ A partir de estos minutos, la alerta es CRÍTICA        │  │
+│ │                                                         │  │
+│ │ Umbral Crítico - Salida Temprana (minutos)    [30]    │  │
+│ │ A partir de estos minutos, la alerta es CRÍTICA        │  │
+│ └─────────────────────────────────────────────────────────┘  │
+│                                                               │
+│ Configuración de Notificaciones                              │
+│ ┌─────────────────────────────────────────────────────────┐  │
+│ │ 🟢 Activar Sistema de Alertas                          │  │
+│ │    Detectar entradas tarde, salidas temprano, etc.     │  │
+│ │                                                         │  │
+│ │ ⚪ Enviar Notificaciones Automáticas                   │  │
+│ │    Notificar a RRHH/managers cuando haya alertas      │  │
+│ └─────────────────────────────────────────────────────────┘  │
+│                                                               │
+│ [Guardar Configuración]                                      │
+└───────────────────────────────────────────────────────────────┘
+```
+
+**Card informativo añadido:**
+
+Explica el funcionamiento del sistema de 3 niveles con ejemplos prácticos:
+
+```
+Ejemplo: Tolerancia entrada 15min, Umbral crítico 30min
+→ 0-15min = OK (sin alerta)
+→ 16-30min = WARNING (badge amarillo)
+→ +30min = CRÍTICO (badge rojo + notificación)
+```
+
+---
+
+### 🎯 Funcionamiento del Sistema de 3 Niveles
+
+#### Entrada Tarde (Late Arrival)
+
+**Configuración ejemplo:**
+- `clockInToleranceMinutes = 15`
+- `criticalLateArrivalMinutes = 30`
+
+**Comportamiento:**
+
+| Retraso | Nivel | Indicador | Acción |
+|---------|-------|-----------|--------|
+| 0-15 min | ✅ OK | Sin badge | Ninguna |
+| 16-30 min | ⚠️ WARNING | Badge amarillo | Warning en fichaje |
+| 31+ min | 🔴 CRITICAL | Badge rojo | Warning + Notificación (si activado) |
+
+#### Salida Temprana (Early Departure)
+
+**Configuración ejemplo:**
+- `clockOutToleranceMinutes = 15`
+- `criticalEarlyDepartureMinutes = 30`
+
+**Comportamiento:**
+
+| Adelanto | Nivel | Indicador | Acción |
+|----------|-------|-----------|--------|
+| 0-15 min | ✅ OK | Sin badge | Ninguna |
+| 16-30 min | ⚠️ WARNING | Badge amarillo | Warning en fichaje |
+| 31+ min | 🔴 CRITICAL | Badge rojo | Warning + Notificación (si activado) |
+
+---
+
+### 📋 Casos de Uso - Sistema de Alertas
+
+#### Caso 1: Empresa con alertas estrictas
+
+**Configuración:**
+```typescript
+clockInToleranceMinutes: 10,
+criticalLateArrivalMinutes: 20,
+alertsEnabled: true,
+alertNotificationsEnabled: true
+```
+
+**Escenarios:**
+```
+Horario: 09:00
+- 09:08 → ✅ OK (dentro de tolerancia 10 min)
+- 09:15 → ⚠️ WARNING (excede tolerancia, no crítico)
+- 09:25 → 🔴 CRITICAL (supera umbral 20 min) + Notificación a RRHH
+```
+
+---
+
+#### Caso 2: Empresa flexible sin notificaciones
+
+**Configuración:**
+```typescript
+clockInToleranceMinutes: 30,
+criticalLateArrivalMinutes: 60,
+alertsEnabled: true,
+alertNotificationsEnabled: false
+```
+
+**Escenarios:**
+```
+Horario: 09:00
+- 09:25 → ✅ OK (dentro de tolerancia 30 min)
+- 09:45 → ⚠️ WARNING (excede tolerancia)
+- 10:10 → 🔴 CRITICAL (supera 60 min) - SIN notificación
+```
+
+---
+
+#### Caso 3: Sistema de alertas desactivado
+
+**Configuración:**
+```typescript
+alertsEnabled: false
+```
+
+**Resultado:**
+```
+- Validaciones básicas siguen funcionando (warnings en fichajes)
+- NO se generan alertas críticas
+- NO se envían notificaciones
+- Sistema funciona como V1.0
+```
+
+---
+
+### 🔮 Próximas Implementaciones
+
+**Fase 2: Detección de Alertas**
+- Server action para analizar fichajes y generar alertas
+- Detección automática de patrones (3 retrasos consecutivos = alerta)
+- Clasificación de alertas por severidad
+
+**Fase 3: Dashboard de Alertas**
+- Página `/dashboard/time-tracking/alerts`
+- Vista de todas las alertas activas
+- Filtros por empleado, tipo, severidad
+- Acciones: resolver, comentar, justificar
+
+**Fase 4: Notificaciones**
+- Sistema de notificaciones en navbar (contador)
+- Notificaciones por email (opcional)
+- Configuración de destinatarios por rol
+
+**Fase 5: Visualización en Componentes**
+- Badges de alertas en `DayCard`
+- Columna de alertas en tabla de empleados
+- Indicadores visuales en tiempo real
+
+---
+
+### 🔧 Migración de Base de Datos
+
+**Comandos ejecutados:**
+
+```bash
+# 1. Añadir nuevos campos al schema
+npx prisma db push
+
+# 2. Regenerar Prisma Client (después de limpiar caché)
+rm -rf .next
+npx prisma generate
+
+# 3. Reiniciar servidor Next.js
+npm run dev
+```
+
+**IMPORTANTE - Problema de Caché Resuelto:**
+
+Al añadir nuevos campos a Prisma schema, Next.js puede cachear el Prisma Client antiguo, causando errores como:
+
+```
+PrismaClientValidationError: Unknown field `criticalLateArrivalMinutes`
+```
+
+**Solución:**
+```bash
+pkill -f "next|node.*3000" && rm -rf .next && npx prisma generate && npm run dev
+```
+
+---
+
 ## 📚 Documentos Relacionados
 
 - [Plan Principal](./PLAN_MIGRACION_HORARIOS_V2.md) - Documentación completa del sistema
@@ -544,6 +848,6 @@ pkill -f "next|node.*3000" && rm -rf .next && npm run dev
 
 ---
 
-**Versión:** 1.0
+**Versión:** 2.0
 **Última actualización:** 2025-11-19
 **Autor:** Sistema de Planificación ERP TimeNow

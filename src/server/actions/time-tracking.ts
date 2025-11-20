@@ -6,6 +6,7 @@ import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
 
+import { detectAlertsForTimeEntry } from "./alert-detection";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 /**
@@ -346,7 +347,18 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, new Date());
 
-    return { success: true, entry: serializeTimeEntry(entry) };
+    // Detectar alertas en tiempo real
+    console.log("🚨 [CLOCK_IN] Iniciando detección de alertas para entry:", entry.id);
+    let alerts: any[] = [];
+    try {
+      alerts = await detectAlertsForTimeEntry(entry.id);
+      console.log("🚨 [CLOCK_IN] Alertas detectadas:", alerts.length, alerts);
+    } catch (alertError) {
+      console.error("🚨 [CLOCK_IN] Error al detectar alertas (no crítico):", alertError);
+      // No fallar el fichaje si falla la detección de alertas
+    }
+
+    return { success: true, entry: serializeTimeEntry(entry), alerts };
   } catch (error) {
     console.error("Error al fichar entrada:", error);
     throw error;
@@ -426,7 +438,15 @@ export async function clockOut(
       // Actualizar resumen del día (sin contar horas canceladas)
       await updateWorkdaySummary(employeeId, orgId, now);
 
-      return { success: true, entry: serializeTimeEntry(entry), cancelled: true };
+      // Detectar alertas en tiempo real (incluso para fichajes cancelados)
+      let alerts: any[] = [];
+      try {
+        alerts = await detectAlertsForTimeEntry(entry.id);
+      } catch (alertError) {
+        console.error("Error al detectar alertas (no crítico):", alertError);
+      }
+
+      return { success: true, entry: serializeTimeEntry(entry), cancelled: true, alerts };
     }
 
     // Validar fichaje según horario y configuraciones de la organización
@@ -449,7 +469,16 @@ export async function clockOut(
     // Actualizar el resumen del día
     await updateWorkdaySummary(employeeId, orgId, now);
 
-    return { success: true, entry: serializeTimeEntry(entry) };
+    // Detectar alertas en tiempo real
+    let alerts: any[] = [];
+    try {
+      alerts = await detectAlertsForTimeEntry(entry.id);
+    } catch (alertError) {
+      console.error("Error al detectar alertas (no crítico):", alertError);
+      // No fallar el fichaje si falla la detección de alertas
+    }
+
+    return { success: true, entry: serializeTimeEntry(entry), alerts };
   } catch (error) {
     console.error("Error al fichar salida:", error);
     throw error;

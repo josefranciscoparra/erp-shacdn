@@ -90,7 +90,7 @@ interface TimeTrackingState {
   setLiveWorkedMinutes: (minutes: number) => void;
 
   // Acciones de fichaje (se conectarán a server actions)
-  clockIn: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  clockIn: (latitude?: number, longitude?: number, accuracy?: number) => Promise<any>;
   clockOut: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
   startBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
   endBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
@@ -139,7 +139,7 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   clockIn: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await clockInAction(latitude, longitude, accuracy);
+      const result = await clockInAction(latitude, longitude, accuracy);
 
       set({
         currentStatus: "CLOCKED_IN",
@@ -148,11 +148,14 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       // Recargar resumen del día
       await get().loadTodaySummary();
+
+      return result;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al fichar entrada",
         isClocking: false,
       });
+      throw error;
     }
   },
 

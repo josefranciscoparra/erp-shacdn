@@ -10,6 +10,11 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
+  criticalLateArrivalMinutes: number;
+  criticalEarlyDepartureMinutes: number;
+  alertsEnabled: boolean;
+  alertNotificationsEnabled: boolean;
+  alertNotificationRoles: string[];
 }
 
 /**
@@ -32,6 +37,11 @@ export async function getOrganizationValidationConfig(): Promise<ValidationConfi
         lateClockOutToleranceMinutes: true,
         nonWorkdayClockInAllowed: true,
         nonWorkdayClockInWarning: true,
+        criticalLateArrivalMinutes: true,
+        criticalEarlyDepartureMinutes: true,
+        alertsEnabled: true,
+        alertNotificationsEnabled: true,
+        alertNotificationRoles: true,
       },
     });
 
@@ -63,9 +73,20 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
       config.clockInToleranceMinutes < 0 ||
       config.clockOutToleranceMinutes < 0 ||
       config.earlyClockInToleranceMinutes < 0 ||
-      config.lateClockOutToleranceMinutes < 0
+      config.lateClockOutToleranceMinutes < 0 ||
+      config.criticalLateArrivalMinutes < 0 ||
+      config.criticalEarlyDepartureMinutes < 0
     ) {
       throw new Error("Los valores de tolerancia deben ser números positivos");
+    }
+
+    // Validar que los umbrales críticos sean mayores que las tolerancias
+    if (config.criticalLateArrivalMinutes < config.clockInToleranceMinutes) {
+      throw new Error("El umbral crítico de entrada debe ser mayor o igual a la tolerancia de entrada");
+    }
+
+    if (config.criticalEarlyDepartureMinutes < config.clockOutToleranceMinutes) {
+      throw new Error("El umbral crítico de salida debe ser mayor o igual a la tolerancia de salida");
     }
 
     await prisma.organization.update({
@@ -77,6 +98,11 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
         lateClockOutToleranceMinutes: config.lateClockOutToleranceMinutes,
         nonWorkdayClockInAllowed: config.nonWorkdayClockInAllowed,
         nonWorkdayClockInWarning: config.nonWorkdayClockInWarning,
+        criticalLateArrivalMinutes: config.criticalLateArrivalMinutes,
+        criticalEarlyDepartureMinutes: config.criticalEarlyDepartureMinutes,
+        alertsEnabled: config.alertsEnabled,
+        alertNotificationsEnabled: config.alertNotificationsEnabled,
+        alertNotificationRoles: config.alertNotificationRoles,
       },
     });
 

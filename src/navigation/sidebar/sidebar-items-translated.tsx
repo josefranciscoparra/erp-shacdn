@@ -20,6 +20,7 @@ import {
   Banknote,
   BarChart3,
   CalendarCheck,
+  AlertCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -285,6 +286,13 @@ export function useSidebarItems(): NavGroup[] {
               title: "Monitor en Vivo",
               url: "/dashboard/time-tracking/live",
               permission: "view_time_tracking",
+            },
+            {
+              title: "Alertas",
+              url: "/dashboard/time-tracking/alerts",
+              icon: AlertCircle,
+              permission: "view_time_tracking",
+              isNew: true,
             },
           ],
         },

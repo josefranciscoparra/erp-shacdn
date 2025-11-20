@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Plus, Trash2, Edit } from "lucide-react";
+import { Calendar, Plus, Trash2, Edit, List, CalendarDays } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -21,9 +21,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getExceptionDaysForTemplate, deleteExceptionDay } from "@/server/actions/schedules-v2";
 
 import { CreateExceptionDialog } from "./create-exception-dialog";
+import { ExceptionsCalendar, type ExceptionForCalendar } from "../../_components/exceptions-calendar";
 
 interface ExceptionsTabProps {
   templateId: string;
@@ -53,6 +55,7 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
   const [exceptionToEdit, setExceptionToEdit] = useState<
     Awaited<ReturnType<typeof getExceptionDaysForTemplate>>[0] | null
   >(null);
+  const [currentView, setCurrentView] = useState<"table" | "calendar">("table");
 
   async function loadExceptions() {
     setIsLoading(true);
@@ -113,6 +116,16 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
     setExceptionToEdit(null);
   }
 
+  // Convertir excepciones al formato del calendario
+  const exceptionsForCalendar: ExceptionForCalendar[] = exceptions.map((exception) => ({
+    id: exception.id,
+    date: new Date(exception.date),
+    endDate: exception.endDate ? new Date(exception.endDate) : null,
+    exceptionType: exception.exceptionType,
+    reason: exception.reason,
+    isRecurring: exception.isRecurring,
+  }));
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -134,32 +147,62 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
             Gestiona días especiales, festivos y horarios excepcionales para esta plantilla
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nueva Excepción
-        </Button>
+        <div className="flex gap-2">
+          {/* Toggle de vistas */}
+          <Tabs value={currentView} onValueChange={(value) => setCurrentView(value as "table" | "calendar")}>
+            <TabsList>
+              <TabsTrigger value="table" className="gap-2">
+                <List className="h-4 w-4" />
+                Lista
+              </TabsTrigger>
+              <TabsTrigger value="calendar" className="gap-2">
+                <CalendarDays className="h-4 w-4" />
+                Calendario
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nueva Excepción
+          </Button>
+        </div>
       </div>
 
-      {/* Tabla de excepciones */}
-      {exceptions.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="text-muted-foreground mb-4 h-12 w-12" />
-            <CardTitle className="mb-2">Sin excepciones configuradas</CardTitle>
-            <CardDescription className="text-center">
-              No hay días excepcionales configurados para esta plantilla.
-              <br />
-              Crea excepciones para gestionar festivos, horarios especiales y más.
-            </CardDescription>
-            <Button onClick={() => setCreateDialogOpen(true)} className="mt-4">
-              <Plus className="mr-2 h-4 w-4" />
-              Crear Primera Excepción
-            </Button>
-          </CardContent>
-        </Card>
+      {/* Vista condicional: tabla o calendario */}
+      {currentView === "calendar" ? (
+        /* Vista de calendario */
+        <ExceptionsCalendar
+          exceptions={exceptionsForCalendar}
+          onExceptionClick={(exception) => {
+            const fullException = exceptions.find((e) => e.id === exception.id);
+            if (fullException) {
+              handleEditClick(fullException);
+            }
+          }}
+          onCreateException={() => setCreateDialogOpen(true)}
+        />
       ) : (
-        <Card>
-          <Table>
+        /* Vista de tabla */
+        <>
+          {exceptions.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Calendar className="text-muted-foreground mb-4 h-12 w-12" />
+                <CardTitle className="mb-2">Sin excepciones configuradas</CardTitle>
+                <CardDescription className="text-center">
+                  No hay días excepcionales configurados para esta plantilla.
+                  <br />
+                  Crea excepciones para gestionar festivos, horarios especiales y más.
+                </CardDescription>
+                <Button onClick={() => setCreateDialogOpen(true)} className="mt-4">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Crear Primera Excepción
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Fecha</TableHead>
@@ -226,6 +269,8 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
             </TableBody>
           </Table>
         </Card>
+          )}
+        </>
       )}
 
       {/* Dialog de creación */}

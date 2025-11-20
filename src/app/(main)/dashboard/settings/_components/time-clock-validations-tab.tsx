@@ -23,6 +23,12 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
+  // Nuevos campos de alertas
+  criticalLateArrivalMinutes: number;
+  criticalEarlyDepartureMinutes: number;
+  alertsEnabled: boolean;
+  alertNotificationsEnabled: boolean;
+  alertNotificationRoles: string[];
 }
 
 export function TimeClockValidationsTab() {
@@ -35,6 +41,11 @@ export function TimeClockValidationsTab() {
     lateClockOutToleranceMinutes: 30,
     nonWorkdayClockInAllowed: false,
     nonWorkdayClockInWarning: true,
+    criticalLateArrivalMinutes: 30,
+    criticalEarlyDepartureMinutes: 30,
+    alertsEnabled: true,
+    alertNotificationsEnabled: false,
+    alertNotificationRoles: ["RRHH"],
   });
 
   useEffect(() => {
@@ -197,6 +208,90 @@ export function TimeClockValidationsTab() {
             </div>
           </div>
 
+          {/* Sección de Alertas Avanzadas */}
+          <div className="border-t pt-6">
+            <div className="mb-4 flex items-center gap-2">
+              <Settings2Icon className="h-5 w-5" />
+              <div>
+                <h3 className="font-semibold">Sistema de Alertas Avanzadas</h3>
+                <p className="text-muted-foreground text-sm">
+                  Configura umbrales críticos y notificaciones automáticas para RRHH
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 @xl/main:grid-cols-2">
+              {/* Umbral crítico entrada tarde */}
+              <div className="space-y-2">
+                <Label htmlFor="criticalLateArrival">Umbral Crítico - Entrada Tarde (minutos)</Label>
+                <Input
+                  id="criticalLateArrival"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={config.criticalLateArrivalMinutes}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, criticalLateArrivalMinutes: parseInt(e.target.value) || 0 }))
+                  }
+                />
+                <p className="text-muted-foreground text-xs">
+                  A partir de estos minutos de retraso, la alerta es CRÍTICA (por defecto: 30 min)
+                </p>
+              </div>
+
+              {/* Umbral crítico salida temprana */}
+              <div className="space-y-2">
+                <Label htmlFor="criticalEarlyDeparture">Umbral Crítico - Salida Temprana (minutos)</Label>
+                <Input
+                  id="criticalEarlyDeparture"
+                  type="number"
+                  min="0"
+                  max="120"
+                  value={config.criticalEarlyDepartureMinutes}
+                  onChange={(e) =>
+                    setConfig((prev) => ({ ...prev, criticalEarlyDepartureMinutes: parseInt(e.target.value) || 0 }))
+                  }
+                />
+                <p className="text-muted-foreground text-xs">
+                  A partir de estos minutos de salida anticipada, la alerta es CRÍTICA (por defecto: 30 min)
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 space-y-4">
+              {/* Activar sistema de alertas */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="alertsEnabled">Activar Sistema de Alertas</Label>
+                  <p className="text-muted-foreground text-sm">
+                    Detectar automáticamente entradas tarde, salidas temprano y ausencias sin justificar
+                  </p>
+                </div>
+                <Switch
+                  id="alertsEnabled"
+                  checked={config.alertsEnabled}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertsEnabled: checked }))}
+                />
+              </div>
+
+              {/* Notificaciones automáticas */}
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="alertNotifications">Enviar Notificaciones Automáticas</Label>
+                  <p className="text-muted-foreground text-sm">
+                    Notificar a RRHH/managers cuando se detecten alertas críticas
+                  </p>
+                </div>
+                <Switch
+                  id="alertNotifications"
+                  checked={config.alertNotificationsEnabled}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertNotificationsEnabled: checked }))}
+                  disabled={!config.alertsEnabled}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end">
             <Button onClick={handleSave} disabled={isSaving}>
               {isSaving ? "Guardando..." : "Guardar Configuración"}
@@ -210,7 +305,7 @@ export function TimeClockValidationsTab() {
         <div className="flex gap-3">
           <ClockIcon className="text-primary mt-0.5 h-5 w-5 flex-shrink-0" />
           <div className="space-y-1">
-            <p className="text-sm font-medium">¿Cómo funcionan las validaciones?</p>
+            <p className="text-sm font-medium">¿Cómo funcionan las validaciones y alertas?</p>
             <ul className="text-muted-foreground list-inside list-disc space-y-1 text-xs">
               <li>
                 <strong>Tolerancia Entrada:</strong> Fichajes dentro de esta tolerancia no generan warning de retraso
@@ -223,6 +318,14 @@ export function TimeClockValidationsTab() {
               </li>
               <li>
                 <strong>Salida Tardía:</strong> Cuánto después puede fichar salida sin generar alerta
+              </li>
+              <li>
+                <strong>Alertas (3 niveles):</strong> INFO (informativo), WARNING (dentro de tolerancia), CRÍTICO
+                (supera umbral crítico)
+              </li>
+              <li>
+                <strong>Ejemplo:</strong> Tolerancia entrada 15min, Umbral crítico 30min → 0-15min = OK, 16-30min =
+                WARNING, +30min = CRÍTICO
               </li>
             </ul>
           </div>

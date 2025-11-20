@@ -1,8 +1,8 @@
 # PLAN: Sistema de Excepciones de Horarios
 
 **Fecha:** 2025-11-19
-**Estado:** ✅ Sistema de Edición Implementado
-**Versión:** 1.1
+**Estado:** ✅ Sistema Completo - Edición + Vista de Calendario
+**Versión:** 1.2
 **Parte de:** [PLAN_MIGRACION_HORARIOS_V2.md](./PLAN_MIGRACION_HORARIOS_V2.md) - FASE 7
 
 ---
@@ -1181,7 +1181,6 @@ async function handleSubmit() {
 ### 8. Próximas Mejoras Potenciales
 
 ⚠️ **Pendientes (NO implementadas aún):**
-- Vista de calendario visual de excepciones
 - Edición inline en la tabla (sin abrir dialog)
 - Histórico de cambios de excepciones (auditoría)
 - Confirmación antes de cambiar el alcance de una excepción
@@ -1190,3 +1189,223 @@ async function handleSubmit() {
 ---
 
 **Estado:** ✅ Sistema de Edición COMPLETADO Y FUNCIONAL
+
+---
+
+## ✅ Vista de Calendario Visual de Excepciones (2025-11-19)
+
+### 1. Objetivo
+
+Proporcionar una **visualización gráfica e intuitiva** de las excepciones de horarios mediante un calendario mensual, facilitando:
+- Identificar rápidamente los días con excepciones configuradas
+- Visualizar patrones y distribución temporal de excepciones
+- Crear y editar excepciones de forma más natural mediante clicks en el calendario
+
+### 2. Componente Principal
+
+**Archivo:** `/src/app/(main)/dashboard/schedules/_components/exceptions-calendar.tsx`
+
+**Características:**
+- ✅ Calendario mensual completo con navegación entre meses
+- ✅ Indicadores visuales de excepciones por día (puntos de colores)
+- ✅ Código de colores por tipo de excepción
+- ✅ Resaltado del día actual
+- ✅ Lista de excepciones del mes debajo del calendario
+- ✅ Leyenda de tipos de excepciones
+- ✅ Click en excepciones para abrir el dialog de edición
+- ✅ Botón para crear nuevas excepciones
+- ✅ Completamente reutilizable (globales y plantillas)
+
+**Tipos de Excepción y Colores:**
+```typescript
+const exceptionTypeColors: Record<string, string> = {
+  HOLIDAY: "bg-red-500",           // Festivo - Rojo
+  REDUCED_HOURS: "bg-yellow-500",  // Jornada Reducida - Amarillo
+  SPECIAL_SCHEDULE: "bg-blue-500", // Horario Especial - Azul
+  TRAINING: "bg-purple-500",       // Formación - Morado
+  EARLY_CLOSURE: "bg-orange-500",  // Cierre Anticipado - Naranja
+  CUSTOM: "bg-gray-500",           // Personalizado - Gris
+};
+```
+
+**Interface:**
+```typescript
+export interface ExceptionForCalendar {
+  id: string;
+  date: Date;
+  endDate?: Date | null;
+  exceptionType: string;
+  reason?: string | null;
+  isRecurring: boolean;
+}
+
+interface ExceptionsCalendarProps {
+  exceptions: ExceptionForCalendar[];
+  onDayClick?: (date: Date) => void;
+  onExceptionClick?: (exception: ExceptionForCalendar) => void;
+  onCreateException?: () => void;
+  className?: string;
+}
+```
+
+### 3. Integración en Excepciones Globales
+
+**Archivo:** `/src/app/(main)/dashboard/schedules/_components/global-exceptions-content.tsx`
+
+**Cambios Implementados:**
+- ✅ Añadido toggle de vistas (Lista/Calendario) usando Tabs de shadcn/ui
+- ✅ Estado `currentView` para controlar la vista activa
+- ✅ Conversión de datos al formato `ExceptionForCalendar`
+- ✅ Renderizado condicional: tabla o calendario según vista seleccionada
+- ✅ Click en excepciones del calendario abre dialog de edición
+
+**Código del Toggle:**
+```tsx
+<Tabs value={currentView} onValueChange={(value) => setCurrentView(value as "table" | "calendar")}>
+  <TabsList>
+    <TabsTrigger value="table" className="gap-2">
+      <List className="h-4 w-4" />
+      Lista
+    </TabsTrigger>
+    <TabsTrigger value="calendar" className="gap-2">
+      <CalendarDays className="h-4 w-4" />
+      Calendario
+    </TabsTrigger>
+  </TabsList>
+</Tabs>
+```
+
+**Uso del Calendario:**
+```tsx
+<ExceptionsCalendar
+  exceptions={exceptionsForCalendar}
+  onExceptionClick={(exception) => {
+    const fullException = exceptions.find((e) => e.id === exception.id);
+    if (fullException) {
+      handleEditClick(fullException);
+    }
+  }}
+  onCreateException={() => setCreateDialogOpen(true)}
+/>
+```
+
+### 4. Integración en Excepciones de Plantilla
+
+**Archivo:** `/src/app/(main)/dashboard/schedules/[id]/_components/exceptions-tab.tsx`
+
+**Cambios Implementados:**
+- ✅ Idéntica implementación que excepciones globales
+- ✅ Toggle Lista/Calendario con Tabs
+- ✅ Estado y conversión de datos
+- ✅ Mismo comportamiento: click para editar, botón para crear
+
+### 5. Funcionalidades del Calendario
+
+**Navegación:**
+- ✅ Botones "◀" y "▶" para navegar entre meses
+- ✅ Botón "Hoy" para volver al mes actual
+- ✅ Título dinámico mostrando "Mes Año" actual
+
+**Visualización:**
+- ✅ Días de la semana (L, M, X, J, V, S, D)
+- ✅ Grid de 7 columnas con todos los días del mes
+- ✅ Día actual resaltado con borde azul
+- ✅ Indicadores de excepciones (hasta 3 puntos visibles + indicador de "más")
+- ✅ Hover states en días clickeables
+
+**Interactividad:**
+- ✅ Click en día con excepción → Abre dialog de edición con datos pre-cargados
+- ✅ Click en día vacío → Puede crear nueva excepción (si se implementa `onDayClick`)
+- ✅ Botón "Nueva" en header → Crea nueva excepción
+
+**Lista de Excepciones del Mes:**
+- ✅ Card debajo del calendario con todas las excepciones
+- ✅ Ordenadas por fecha (más cercanas primero)
+- ✅ Badge "Anual" para excepciones recurrentes
+- ✅ Click en cualquier excepción abre dialog de edición
+
+### 6. Archivos Creados/Modificados
+
+**Nuevo Componente:**
+- `/src/app/(main)/dashboard/schedules/_components/exceptions-calendar.tsx` (Nuevo)
+
+**Excepciones Globales:**
+- `/src/app/(main)/dashboard/schedules/_components/global-exceptions-content.tsx`
+  - ✅ Imports: `List`, `CalendarDays`, `Tabs`, `TabsList`, `TabsTrigger`, `ExceptionsCalendar`
+  - ✅ Estado: `currentView`
+  - ✅ Conversión: `exceptionsForCalendar`
+  - ✅ JSX: Toggle de vistas + renderizado condicional
+
+**Excepciones de Plantilla:**
+- `/src/app/(main)/dashboard/schedules/[id]/_components/exceptions-tab.tsx`
+  - ✅ Imports: `List`, `CalendarDays`, `Tabs`, `TabsList`, `TabsTrigger`, `ExceptionsCalendar`
+  - ✅ Estado: `currentView`
+  - ✅ Conversión: `exceptionsForCalendar`
+  - ✅ JSX: Toggle de vistas + renderizado condicional
+
+### 7. Flujo de Usuario
+
+**Escenario 1: Visualizar Excepciones en Calendario**
+1. Usuario navega a `/dashboard/schedules` (excepciones globales) o `/dashboard/schedules/[id]` (excepciones de plantilla)
+2. Click en tab "Calendario" en el toggle superior
+3. Se muestra el calendario mensual con todas las excepciones del mes
+4. Puntos de colores indican días con excepciones
+5. Lista debajo del calendario muestra detalles de cada excepción
+
+**Escenario 2: Editar Excepción desde Calendario**
+1. Usuario está en vista de calendario
+2. Click en un día que tiene excepciones (marcado con puntos de colores)
+3. Se abre automáticamente el dialog de edición con todos los datos pre-cargados
+4. Usuario modifica los campos necesarios
+5. Click en "Actualizar Excepción"
+6. El calendario se recarga mostrando los cambios actualizados
+
+**Escenario 3: Crear Nueva Excepción desde Calendario**
+1. Usuario está en vista de calendario
+2. Click en botón "Nueva" en el header del calendario
+3. Se abre el dialog de creación de excepción
+4. Usuario completa los datos
+5. Click en "Crear Excepción"
+6. El calendario se actualiza mostrando la nueva excepción
+
+**Escenario 4: Navegar entre Meses**
+1. Usuario está en vista de calendario
+2. Click en botones "◀" o "▶" para cambiar de mes
+3. El calendario actualiza mostrando las excepciones del nuevo mes
+4. Click en "Hoy" para volver al mes actual
+
+### 8. Responsive y UX
+
+**Desktop:**
+- ✅ Calendario ocupa ancho completo con buen espaciado
+- ✅ Grid de 7 columnas visible completo
+- ✅ Lista de excepciones muestra todas las columnas
+
+**Mobile:**
+- ✅ Calendario responsive con células que ajustan su tamaño
+- ✅ Días de la semana abreviados (L, M, X, J, V, S, D)
+- ✅ Lista de excepciones se adapta verticalmente
+
+**Accesibilidad:**
+- ✅ Botones con labels descriptivos
+- ✅ Colores con suficiente contraste
+- ✅ Tooltips en indicadores de excepciones
+- ✅ Estados hover claramente visibles
+
+### 9. Ventajas de la Vista de Calendario
+
+**Para Administradores:**
+- 📅 **Visión global**: Ver todas las excepciones del mes de un vistazo
+- 🎨 **Identificación rápida**: Colores diferenciados por tipo de excepción
+- 📊 **Patrones**: Detectar fácilmente patrones (ej: muchos festivos en diciembre)
+- ⚡ **Edición rápida**: Click directo en excepciones para editarlas
+
+**Para Planificación:**
+- 🗓️ **Context temporal**: Ver excepciones en contexto de días de la semana
+- 📌 **Conflictos**: Identificar días con múltiples excepciones
+- 🔄 **Recurrencia**: Excepciones anuales claramente marcadas
+- 📈 **Tendencias**: Análisis visual de distribución de excepciones
+
+---
+
+**Estado:** ✅ Vista de Calendario Visual COMPLETADA Y FUNCIONAL
