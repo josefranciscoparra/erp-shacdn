@@ -266,6 +266,12 @@ model Department {
   employmentContracts EmploymentContract[]
   exceptionOverrides  ExceptionDayOverride[] // Excepciones por departamento
 
+  // Relaciones inversas (añadidas para sistema de alertas y permisos v2.0)
+  teams              Team[]              @relation("DepartmentTeams") // Equipos del departamento
+  areaResponsibles   AreaResponsible[]   @relation("DepartmentResponsibles") // Responsables del departamento
+  alertSubscriptions AlertSubscription[] @relation("DepartmentAlertSubscriptions") // Suscripciones a alertas
+  alerts             Alert[]             @relation("DepartmentAlerts") // Alertas del departamento
+
   @@index([orgId])
   @@index([managerId])
   @@map("departments")
@@ -2046,7 +2052,13 @@ model Team {
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  // Centro al que pertenece
+  // Departamento al que pertenece (OPCIONAL - para jerarquía completa)
+  // Si es null, el equipo es transversal (sin departamento)
+  // VALIDACIÓN: Si existe, department.costCenterId DEBE ser igual a costCenterId
+  departmentId String?
+  department   Department? @relation("DepartmentTeams", fields: [departmentId], references: [id], onDelete: SetNull)
+
+  // Centro al que pertenece (OBLIGATORIO - siempre debe tener un centro)
   costCenterId String
   costCenter   CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
 
@@ -2126,13 +2138,17 @@ model AreaResponsible {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Ámbito de responsabilidad (solo uno debe estar presente)
-  scope String // "ORGANIZATION" | "COST_CENTER" | "TEAM"
+  scope String // "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"
+
+  // Relación con departamento (solo si scope = DEPARTMENT)
+  departmentId String?
+  department   Department? @relation("DepartmentResponsibles", fields: [departmentId], references: [id], onDelete: Cascade)
 
   // Relación con centro de coste (solo si scope = COST_CENTER)
   costCenterId String?
   costCenter   CostCenter? @relation("CostCenterResponsibles", fields: [costCenterId], references: [id], onDelete: Cascade)
 
-  // NUEVO: Relación con equipo (solo si scope = TEAM)
+  // Relación con equipo (solo si scope = TEAM)
   teamId String?
   team   Team?   @relation("TeamResponsibles", fields: [teamId], references: [id], onDelete: Cascade)
 
@@ -2143,9 +2159,10 @@ model AreaResponsible {
   // Estado
   isActive Boolean @default(true)
 
-  @@unique([userId, scope, costCenterId, teamId])
+  @@unique([userId, scope, departmentId, costCenterId, teamId])
   @@index([userId])
   @@index([orgId])
+  @@index([departmentId])
   @@index([costCenterId])
   @@index([teamId])
   @@index([isActive])
@@ -2167,13 +2184,18 @@ model AlertSubscription {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Ámbito de suscripción (recibe alertas de...)
-  scope String // "ORGANIZATION" | "COST_CENTER" | "TEAM"
+  // NOTA: Las suscripciones son ACUMULATIVAS - un usuario con múltiples suscripciones ve TODAS las alertas de todas ellas (sin duplicar)
+  scope String // "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"
+
+  // Relación con departamento (solo si scope = DEPARTMENT)
+  departmentId String?
+  department   Department? @relation("DepartmentAlertSubscriptions", fields: [departmentId], references: [id], onDelete: Cascade)
 
   // Relación con centro de coste (solo si scope = COST_CENTER)
   costCenterId String?
   costCenter   CostCenter? @relation("CostCenterAlertSubscriptions", fields: [costCenterId], references: [id], onDelete: Cascade)
 
-  // NUEVO: Relación con equipo (solo si scope = TEAM)
+  // Relación con equipo (solo si scope = TEAM)
   teamId String?
   team   Team?   @relation("TeamAlertSubscriptions", fields: [teamId], references: [id], onDelete: Cascade)
 
@@ -2201,9 +2223,10 @@ model AlertSubscription {
   // Estado
   isActive Boolean @default(true)
 
-  @@unique([userId, scope, costCenterId, teamId])
+  @@unique([userId, scope, departmentId, costCenterId, teamId])
   @@index([userId])
   @@index([orgId])
+  @@index([departmentId])
   @@index([costCenterId])
   @@index([teamId])
   @@index([isActive])
@@ -2254,7 +2277,11 @@ model Alert {
   costCenter   CostCenter? @relation("AlertCostCenter", fields: [costCenterId], references: [id])
   originalCostCenter CostCenter? @relation("AlertOriginalCostCenter", fields: [originalCostCenterId], references: [id])
 
-  // NUEVO: Relación con equipo (para filtrado por equipo)
+  // Relación con departamento (para filtrado y suscripciones por departamento)
+  departmentId String?
+  department   Department? @relation("DepartmentAlerts", fields: [departmentId], references: [id])
+
+  // Relación con equipo (para filtrado por equipo)
   teamId String?
   team   Team?   @relation("TeamAlerts", fields: [teamId], references: [id])
 
@@ -2277,6 +2304,7 @@ model Alert {
   // Índices para rendimiento
   @@index([orgId])
   @@index([employeeId])
+  @@index([departmentId])
   @@index([costCenterId])
   @@index([originalCostCenterId])
   @@index([teamId])
