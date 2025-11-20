@@ -41,7 +41,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 
 import { alertColumns, type AlertRow } from "./_components/alert-columns";
-import { getActiveAlerts, resolveAlert, dismissAlert, getAlertStats } from "@/server/actions/alert-detection";
+import {
+  getActiveAlerts,
+  resolveAlert,
+  dismissAlert,
+  getAlertStats,
+  getAvailableAlertFilters,
+} from "@/server/actions/alert-detection";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -54,6 +60,12 @@ type AlertStats = {
   byType: { type: string; count: number }[];
 };
 
+type AvailableFilters = {
+  costCenters: { id: string; name: string; code: string | null }[];
+  teams: { id: string; name: string; code: string | null; costCenter: { name: string } }[];
+  severities: readonly ["INFO", "WARNING", "CRITICAL"];
+};
+
 export default function AlertsPage() {
   const [activeTab, setActiveTab] = useState<"active" | "resolved" | "dismissed">("active");
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
@@ -64,9 +76,17 @@ export default function AlertsPage() {
   const [comment, setComment] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  // UI Filter States (Mocked for now as per requirement)
+  // Filtros disponibles según scope del usuario
+  const [availableFilters, setAvailableFilters] = useState<AvailableFilters>({
+    costCenters: [],
+    teams: [],
+    severities: ["INFO", "WARNING", "CRITICAL"],
+  });
+
+  // UI Filter States
   const [selectedCenter, setSelectedCenter] = useState<string>("all");
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
+  const [selectedSeverity, setSelectedSeverity] = useState<string>("all");
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -74,11 +94,30 @@ export default function AlertsPage() {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
-  // Cargar alertas y estadísticas
+  // Cargar filtros disponibles al montar
+  useEffect(() => {
+    const loadFilters = async () => {
+      try {
+        const filters = await getAvailableAlertFilters();
+        setAvailableFilters(filters);
+      } catch (error) {
+        console.error("Error al cargar filtros:", error);
+      }
+    };
+    loadFilters();
+  }, []);
+
+  // Cargar alertas y estadísticas con filtros aplicados
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [alertsData, statsData] = await Promise.all([getActiveAlerts(), getAlertStats()]);
+
+      // Construir filtros dinámicos
+      const filters: any = {};
+      if (selectedCenter !== "all") filters.costCenterId = selectedCenter;
+      if (selectedSeverity !== "all") filters.severity = selectedSeverity;
+
+      const [alertsData, statsData] = await Promise.all([getActiveAlerts(filters), getAlertStats()]);
 
       setAlerts(alertsData);
       setStats(statsData);
@@ -88,27 +127,27 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCenter, selectedSeverity]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Filtrar alertas por tab activo
+  // Filtrar alertas por tab activo y equipo (cliente-side)
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
-      // Basic Tab Filter
+      // Tab Filter
       let matchesTab = false;
       if (activeTab === "active") matchesTab = alert.status === "ACTIVE";
       else if (activeTab === "resolved") matchesTab = alert.status === "RESOLVED";
       else if (activeTab === "dismissed") matchesTab = alert.status === "DISMISSED";
 
-      // Mock Center Filter (Needs backend support for real filtering or complete data)
-      // const matchesCenter = selectedCenter === "all" || (alert.costCenter?.name === selectedCenter);
+      // Team Filter (cliente-side porque ya tenemos las alertas filtradas por scope)
+      const matchesTeam = selectedTeam === "all" || alert.teamId === selectedTeam;
 
-      return matchesTab;
+      return matchesTab && matchesTeam;
     });
-  }, [alerts, activeTab, selectedCenter]);
+  }, [alerts, activeTab, selectedTeam]);
 
   // Memoizar meta functions para evitar recrear la tabla
   const tableMeta = useMemo(
@@ -271,7 +310,7 @@ export default function AlertsPage() {
         </div>
       )}
 
-      {/* Filtros Globales (Visuales por ahora) */}
+      {/* Filtros Globales Dinámicos */}
       <Card>
         <CardContent className="p-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -280,29 +319,70 @@ export default function AlertsPage() {
               Filtrar por:
             </div>
 
-            <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {/* Filtro por Centro */}
               <Select value={selectedCenter} onValueChange={setSelectedCenter}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Todos los centros" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los centros</SelectItem>
-                  <SelectItem value="madrid">Madrid Norte</SelectItem>
-                  <SelectItem value="bcn">Barcelona Central</SelectItem>
+                  {availableFilters.costCenters.map((center) => (
+                    <SelectItem key={center.id} value={center.id}>
+                      <span className="truncate block max-w-[200px] md:max-w-[140px] lg:max-w-[180px]">
+                        {center.name} {center.code ? `(${center.code})` : ""}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
+              {/* Filtro por Equipo */}
               <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Todos los equipos" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los equipos</SelectItem>
-                  <SelectItem value="dev">Desarrollo</SelectItem>
-                  <SelectItem value="hr">Recursos Humanos</SelectItem>
+                  {availableFilters.teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <span className="truncate block max-w-[200px] md:max-w-[140px] lg:max-w-[180px]">
+                        {team.name} {team.code ? `(${team.code})` : ""}
+                      </span>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
+              {/* Filtro por Severidad */}
+              <Select value={selectedSeverity} onValueChange={setSelectedSeverity}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todas las severidades" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las severidades</SelectItem>
+                  <SelectItem value="CRITICAL">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-red-500" />
+                      Críticas
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="WARNING">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                      Advertencias
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="INFO">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-blue-500" />
+                      Informativas
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Búsqueda por empleado */}
               <div className="relative">
                 <Input
                   placeholder="Buscar empleado..."

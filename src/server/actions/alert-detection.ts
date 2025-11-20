@@ -3,6 +3,11 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import {
+  buildScopeFilter,
+  getUserAccessibleCostCenters,
+  getUserAccessibleTeams,
+} from "@/lib/permissions/scope-helpers";
 
 import { getOrganizationValidationConfig } from "./time-clock-validations";
 
@@ -567,6 +572,7 @@ async function saveDetectedAlerts(
 
 /**
  * Obtiene alertas activas de la organización con filtros opcionales
+ * APLICA FILTRADO POR SCOPE: solo retorna alertas del ámbito del usuario
  */
 export async function getActiveAlerts(filters?: {
   employeeId?: string;
@@ -581,20 +587,31 @@ export async function getActiveAlerts(filters?: {
   try {
     const session = await auth();
 
-    if (!session?.user?.orgId) {
+    if (!session?.user?.orgId || !session?.user?.id) {
       throw new Error("Usuario no autenticado o sin organización");
     }
 
+    // Obtener filtro de scope del usuario
+    const scopeFilter = await buildScopeFilter(session.user.id);
+
+    // Construir where clause
+    const whereClause: any = {
+      orgId: session.user.orgId,
+      ...(filters?.employeeId && { employeeId: filters.employeeId }),
+      ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+      ...(filters?.severity && { severity: filters.severity }),
+      ...(filters?.type && { type: filters.type }),
+      ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
+      ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
+    };
+
+    // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
+    if (Object.keys(scopeFilter).length > 0) {
+      whereClause.employee = scopeFilter;
+    }
+
     const alerts = await prisma.alert.findMany({
-      where: {
-        orgId: session.user.orgId,
-        ...(filters?.employeeId && { employeeId: filters.employeeId }),
-        ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
-        ...(filters?.severity && { severity: filters.severity }),
-        ...(filters?.type && { type: filters.type }),
-        ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
-        ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
-      },
+      where: whereClause,
       include: {
         employee: {
           select: {
@@ -606,6 +623,12 @@ export async function getActiveAlerts(filters?: {
         costCenter: {
           select: {
             name: true,
+          },
+        },
+        team: {
+          select: {
+            name: true,
+            code: true,
           },
         },
         resolver: {
@@ -711,6 +734,7 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
 
 /**
  * Obtiene estadísticas de alertas para un período
+ * APLICA FILTRADO POR SCOPE: solo cuenta alertas del ámbito del usuario
  */
 export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
   "use server";
@@ -718,15 +742,23 @@ export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
   try {
     const session = await auth();
 
-    if (!session?.user?.orgId) {
+    if (!session?.user?.orgId || !session?.user?.id) {
       throw new Error("Usuario no autenticado o sin organización");
     }
 
-    const where = {
+    // Obtener filtro de scope del usuario
+    const scopeFilter = await buildScopeFilter(session.user.id);
+
+    const where: any = {
       orgId: session.user.orgId,
       ...(dateFrom && { date: { gte: dateFrom } }),
       ...(dateTo && { date: { lte: dateTo } }),
     };
+
+    // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
+    if (Object.keys(scopeFilter).length > 0) {
+      where.employee = scopeFilter;
+    }
 
     const [total, active, resolved, dismissed, bySeverity, byType] = await Promise.all([
       prisma.alert.count({ where }),
@@ -825,26 +857,73 @@ export async function getEmployeeAlertsByDateRange(
 
 /**
  * Obtiene el conteo de alertas activas (para mostrar en navbar)
+ * APLICA FILTRADO POR SCOPE: solo cuenta alertas del ámbito del usuario
  */
 export async function getActiveAlertsCount(): Promise<number> {
   "use server";
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId) {
+    if (!session?.user?.orgId || !session?.user?.id) {
       return 0;
     }
 
-    const count = await prisma.alert.count({
-      where: {
-        orgId: session.user.orgId,
-        status: "ACTIVE",
-      },
-    });
+    // Obtener filtro de scope del usuario
+    const scopeFilter = await buildScopeFilter(session.user.id);
+
+    const where: any = {
+      orgId: session.user.orgId,
+      status: "ACTIVE",
+    };
+
+    // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
+    if (Object.keys(scopeFilter).length > 0) {
+      where.employee = scopeFilter;
+    }
+
+    const count = await prisma.alert.count({ where });
 
     return count;
   } catch (error) {
     console.error("Error al obtener conteo de alertas activas:", error);
     return 0;
+  }
+}
+
+/**
+ * Obtiene los filtros disponibles para el usuario (centros y equipos)
+ * según sus responsabilidades de área.
+ * Útil para poblar dropdowns de filtros en la UI.
+ */
+export async function getAvailableAlertFilters() {
+  "use server";
+
+  try {
+    const session = await auth();
+    if (!session?.user?.orgId || !session?.user?.id) {
+      return {
+        costCenters: [],
+        teams: [],
+        severities: ["INFO", "WARNING", "CRITICAL"] as const,
+      };
+    }
+
+    const [costCenters, teams] = await Promise.all([
+      getUserAccessibleCostCenters(session.user.id, session.user.orgId),
+      getUserAccessibleTeams(session.user.id, session.user.orgId),
+    ]);
+
+    return {
+      costCenters,
+      teams,
+      severities: ["INFO", "WARNING", "CRITICAL"] as const,
+    };
+  } catch (error) {
+    console.error("Error al obtener filtros disponibles:", error);
+    return {
+      costCenters: [],
+      teams: [],
+      severities: ["INFO", "WARNING", "CRITICAL"] as const,
+    };
   }
 }

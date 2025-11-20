@@ -15,6 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { MoreHorizontal } from "lucide-react";
 
@@ -43,6 +49,7 @@ export type AlertRow = {
   resolvedAt: string | null; // ISO string o null
   resolutionComment: string | null;
   incidents: Incident[] | null; // Array de incidencias detalladas
+  teamId: string | null; // ID del equipo (para filtrado)
   employee: {
     firstName: string;
     lastName: string;
@@ -50,6 +57,10 @@ export type AlertRow = {
   };
   costCenter: {
     name: string;
+  } | null;
+  team: {
+    name: string;
+    code: string | null;
   } | null;
   resolver?: {
     name: string;
@@ -98,69 +109,85 @@ const statusLabels: Record<string, string> = {
 export const alertColumns: ColumnDef<AlertRow>[] = [
   {
     accessorKey: "severity",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Severidad" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Sev." />,
     cell: ({ row }) => {
       const severity = row.getValue("severity") as keyof typeof severityConfig;
       const config = severityConfig[severity];
       const Icon = config.icon;
 
       return (
-        <div className="flex items-center gap-2">
-          <Icon className={`h-4 w-4 ${config.color}`} />
-          <Badge variant={config.variant}>{severity}</Badge>
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center justify-center">
+                <Icon className={`h-5 w-5 ${config.color}`} />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>{severity}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
     enableSorting: true,
-    enableHiding: true,
+    enableHiding: false,
+    size: 50,
+  },
+  {
+    accessorKey: "employee",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado / Centro" />,
+    cell: ({ row }) => {
+      const employee = row.original.employee;
+      const costCenter = row.original.costCenter;
+      const team = row.original.team;
+      
+      return (
+        <div className="flex flex-col min-w-[160px]">
+          <span className="font-medium truncate">
+            {employee.firstName} {employee.lastName}
+          </span>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+             <span>{costCenter ? costCenter.name : "Sin centro"}</span>
+             {team && (
+                <>
+                  <span>•</span>
+                  <span title={team.name}>{team.name}</span>
+                </>
+             )}
+          </div>
+        </div>
+      );
+    },
+    enableSorting: true,
+    enableHiding: false,
   },
   {
     accessorKey: "type",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
     cell: ({ row }) => {
       const type = row.getValue("type") as string;
+      const label = alertTypeLabels[type] || type;
       return (
-        <Badge variant="outline" className="font-normal">
-          {alertTypeLabels[type] || type}
-        </Badge>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Badge variant="outline" className="font-normal truncate max-w-[120px]">
+                {label}
+              </Badge>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{label}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
-    },
-    enableSorting: true,
-    enableHiding: true,
-  },
-  {
-    accessorKey: "employee",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Empleado" />,
-    cell: ({ row }) => {
-      const employee = row.original.employee;
-      return (
-        <div className="flex flex-col">
-          <span className="font-medium">
-            {employee.firstName} {employee.lastName}
-          </span>
-          <span className="text-muted-foreground text-xs">{employee.email}</span>
-        </div>
-      );
-    },
-    enableSorting: true,
-    enableHiding: true,
-  },
-  {
-    accessorKey: "costCenter",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Centro" />,
-    cell: ({ row }) => {
-      const costCenter = row.original.costCenter;
-      return (
-        <span className="text-sm">
-          {costCenter ? costCenter.name : <span className="text-muted-foreground">Sin centro</span>}
-        </span>
-      );
     },
     enableSorting: true,
     enableHiding: true,
@@ -171,76 +198,92 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     cell: ({ row }) => {
       const incidents = row.original.incidents;
       const type = row.original.type;
+      const description = row.original.description;
+
+      // Contenido para el tooltip
+      const tooltipContent = (
+        <div className="space-y-1">
+          <p className="font-semibold">{row.original.title}</p>
+          {description && <p className="text-sm">{description}</p>}
+        </div>
+      );
 
       // Si es DAILY_SUMMARY y tiene incidencias, mostrar resumen compacto
       if (type === "DAILY_SUMMARY" && incidents && incidents.length > 0) {
         // Contar tipos de incidencias
-        const counts = incidents.reduce(
-          (acc, curr) => {
-            if (curr.type.includes("LATE")) acc.late++;
-            else if (curr.type.includes("EARLY")) acc.early++;
-            else acc.other++;
-            return acc;
-          },
-          { late: 0, early: 0, other: 0 },
-        );
+        const counts = incidents.reduce((acc, curr) => {
+          if (curr.type.includes("LATE")) acc.late++;
+          else if (curr.type.includes("EARLY")) acc.early++;
+          else acc.other++;
+          return acc;
+        }, { late: 0, early: 0, other: 0 });
 
         return (
-          <div className="flex max-w-[350px] flex-col gap-1.5">
-            <span className="truncate text-sm font-medium" title={row.original.title}>
-              {row.original.title}
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {counts.late > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="h-5 border-orange-200 bg-orange-50 px-1.5 text-[10px] font-normal text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-900/30 dark:text-orange-400"
-                >
-                  {counts.late} Tarde
-                </Badge>
-              )}
-              {counts.early > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="h-5 border-blue-200 bg-blue-50 px-1.5 text-[10px] font-normal text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-900/30 dark:text-blue-400"
-                >
-                  {counts.early} Salida Temp.
-                </Badge>
-              )}
-              {counts.other > 0 && (
-                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                  {counts.other} Otros
-                </Badge>
-              )}
-            </div>
-            <span className="text-muted-foreground text-[10px]">Ver detalles completos &rarr;</span>
-          </div>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="flex flex-col gap-1.5 max-w-[250px] cursor-help">
+                  <span className="font-medium text-sm truncate">
+                    {row.original.title}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {counts.late > 0 && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal border-orange-200 bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-900">
+                        {counts.late} Tarde
+                      </Badge>
+                    )}
+                    {counts.early > 0 && (
+                      <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-900">
+                        {counts.early} Salida
+                      </Badge>
+                    )}
+                    {counts.other > 0 && (
+                       <Badge variant="outline" className="text-[10px] px-1.5 h-5 font-normal">
+                        {counts.other} Otros
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs">
+                {tooltipContent}
+                <p className="text-xs text-muted-foreground mt-2 border-t pt-1">Clic para ver detalles completos</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       }
 
       // Alertas normales (no DAILY_SUMMARY)
       return (
-        <div className="flex max-w-[300px] flex-col">
-          <span className="truncate font-medium" title={row.original.title}>
-            {row.original.title}
-          </span>
-          {row.original.description && (
-            <span className="text-muted-foreground line-clamp-2 text-xs" title={row.original.description}>
-              {row.original.description}
-            </span>
-          )}
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex flex-col max-w-[250px] cursor-help">
+                <span className="font-medium truncate">{row.original.title}</span>
+                {description && (
+                  <span className="text-xs text-muted-foreground truncate">
+                    {description}
+                  </span>
+                )}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              {tooltipContent}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     },
     enableSorting: false,
-    enableHiding: true,
+    enableHiding: false,
   },
   {
     accessorKey: "deviationMinutes",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Desviación" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Desvío" />,
     cell: ({ row }) => {
       const deviation = row.original.deviationMinutes;
-      if (deviation === null) return <span className="text-muted-foreground">-</span>;
+      if (deviation === null) return <span className="text-muted-foreground text-xs">-</span>;
 
       const hours = Math.floor(Math.abs(deviation) / 60);
       const minutes = Math.abs(deviation) % 60;
@@ -248,55 +291,47 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
       return (
         <span className="font-mono text-sm">
           {hours > 0 ? `${hours}h ` : ""}
-          {minutes}min
+          {minutes}m
         </span>
       );
     },
     enableSorting: true,
     enableHiding: true,
+    size: 80,
   },
   {
     accessorKey: "date",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
-      return <span className="text-sm">{format(new Date(row.original.date), "PPP", { locale: es })}</span>;
+      return (
+        <span className="text-sm whitespace-nowrap">
+          {format(new Date(row.original.date), "d MMM", { locale: es })}
+        </span>
+      );
     },
     enableSorting: true,
     enableHiding: true,
+    size: 100,
   },
   {
     accessorKey: "status",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant = status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
+      const variant =
+        status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
+      
+      // Versión compacta del badge
+      const label = status === "ACTIVE" ? "Activa" : status === "RESOLVED" ? "Resuelta" : "Desc.";
 
-      return <Badge variant={variant}>{statusLabels[status] || status}</Badge>;
+      return <Badge variant={variant} className="h-5 px-1.5 text-xs">{label}</Badge>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
     },
     enableSorting: true,
     enableHiding: true,
-  },
-  {
-    accessorKey: "resolvedAt",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Resuelta" />,
-    cell: ({ row }) => {
-      const resolvedAt = row.original.resolvedAt;
-      if (!resolvedAt) return <span className="text-muted-foreground">-</span>;
-
-      return (
-        <div className="flex flex-col">
-          <span className="text-sm">{format(new Date(resolvedAt), "PPP", { locale: es })}</span>
-          {row.original.resolver && (
-            <span className="text-muted-foreground text-xs">por {row.original.resolver.name}</span>
-          )}
-        </div>
-      );
-    },
-    enableSorting: true,
-    enableHiding: true,
+    size: 90,
   },
   {
     id: "actions",
@@ -314,17 +349,24 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>Ver detalles</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>
+              Ver detalles
+            </DropdownMenuItem>
             {alert.status === "ACTIVE" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onResolve?.(alert)}>Resolver</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>Descartar</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onResolve?.(alert)}>
+                  Resolver
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>
+                  Descartar
+                </DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
       );
     },
+    size: 50,
   },
 ];

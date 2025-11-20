@@ -110,6 +110,9 @@ model Organization {
   alertSubscriptions  AlertSubscription[]
   alerts              Alert[]
 
+  // NUEVO: Equipos de la organización
+  teams               Team[]
+
   @@map("organizations")
 }
 
@@ -229,6 +232,9 @@ model CostCenter {
   alertSubscriptions AlertSubscription[] @relation("CostCenterAlertSubscriptions") // Suscripciones a alertas de este centro
   alerts             Alert[] @relation("AlertCostCenter") // Alertas del centro (actuales)
   originalAlerts     Alert[] @relation("AlertOriginalCostCenter") // Alertas históricas generadas cuando el empleado estaba aquí
+
+  // NUEVO: Equipos del centro
+  teams              Team[]
 
   @@index([orgId])
   @@map("cost_centers")
@@ -392,11 +398,16 @@ model Employee {
   // Sistema de permisos y alertas
   alerts              Alert[] @relation("EmployeeAlerts") // Alertas generadas para este empleado
 
+  // NUEVO: Equipo al que pertenece (opcional)
+  teamId String?
+  team   Team?   @relation("EmployeeTeam", fields: [teamId], references: [id])
+
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie])         // NIF único por organización
   @@index([orgId])
   @@index([email])
   @@index([expenseApproverId])
+  @@index([teamId])
   @@map("employees")
 }
 
@@ -2017,6 +2028,43 @@ model ExceptionTimeSlot {
   @@map("exception_time_slots")
 }
 
+// ==================== SISTEMA DE EQUIPOS ====================
+
+// Equipo - División de trabajo dentro de un centro de coste
+model Team {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Información básica
+  name        String
+  description String?
+  code        String? // Código único (ej: "VEN-A", "LOG-001")
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Centro al que pertenece
+  costCenterId String
+  costCenter   CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Estado
+  isActive Boolean @default(true)
+
+  // Relaciones
+  employees          Employee[]          @relation("EmployeeTeam")
+  areaResponsibles   AreaResponsible[]   @relation("TeamResponsibles")
+  alertSubscriptions AlertSubscription[] @relation("TeamAlertSubscriptions")
+  alerts             Alert[]             @relation("TeamAlerts")
+
+  @@unique([orgId, code])
+  @@index([orgId])
+  @@index([costCenterId])
+  @@index([isActive])
+  @@map("teams")
+}
+
 // ==================== ENUMS PARA HORARIOS V2.0 ====================
 
 enum ScheduleTemplateType {
@@ -2076,12 +2124,16 @@ model AreaResponsible {
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  // Ámbito de responsabilidad (MVP V1: solo ORGANIZATION y COST_CENTER)
-  scope String // "ORGANIZATION" | "COST_CENTER" (futuro: "DEPARTMENT" | "TEAM")
+  // Ámbito de responsabilidad (solo uno debe estar presente)
+  scope String // "ORGANIZATION" | "COST_CENTER" | "TEAM"
 
   // Relación con centro de coste (solo si scope = COST_CENTER)
   costCenterId String?
   costCenter   CostCenter? @relation("CostCenterResponsibles", fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // NUEVO: Relación con equipo (solo si scope = TEAM)
+  teamId String?
+  team   Team?   @relation("TeamResponsibles", fields: [teamId], references: [id], onDelete: Cascade)
 
   // Permisos específicos para este ámbito (array de strings)
   // Ej: ["VIEW_EMPLOYEES", "MANAGE_SCHEDULES", "RESOLVE_ALERTS", "VIEW_ALERTS"]
@@ -2090,10 +2142,11 @@ model AreaResponsible {
   // Estado
   isActive Boolean @default(true)
 
-  @@unique([userId, scope, costCenterId])
+  @@unique([userId, scope, costCenterId, teamId])
   @@index([userId])
   @@index([orgId])
   @@index([costCenterId])
+  @@index([teamId])
   @@index([isActive])
   @@map("area_responsibles")
 }
@@ -2113,11 +2166,15 @@ model AlertSubscription {
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Ámbito de suscripción (recibe alertas de...)
-  scope String // "ORGANIZATION" | "COST_CENTER" (futuro: "DEPARTMENT" | "TEAM")
+  scope String // "ORGANIZATION" | "COST_CENTER" | "TEAM"
 
   // Relación con centro de coste (solo si scope = COST_CENTER)
   costCenterId String?
   costCenter   CostCenter? @relation("CostCenterAlertSubscriptions", fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // NUEVO: Relación con equipo (solo si scope = TEAM)
+  teamId String?
+  team   Team?   @relation("TeamAlertSubscriptions", fields: [teamId], references: [id], onDelete: Cascade)
 
   // Configuración de notificaciones (MVP V1: predefinidas, no configurables)
   // Tipos de alertas que quiere recibir (vacío = todas)
@@ -2143,10 +2200,11 @@ model AlertSubscription {
   // Estado
   isActive Boolean @default(true)
 
-  @@unique([userId, scope, costCenterId])
+  @@unique([userId, scope, costCenterId, teamId])
   @@index([userId])
   @@index([orgId])
   @@index([costCenterId])
+  @@index([teamId])
   @@index([isActive])
   @@map("alert_subscriptions")
 }
@@ -2195,6 +2253,10 @@ model Alert {
   costCenter   CostCenter? @relation("AlertCostCenter", fields: [costCenterId], references: [id])
   originalCostCenter CostCenter? @relation("AlertOriginalCostCenter", fields: [originalCostCenterId], references: [id])
 
+  // NUEVO: Relación con equipo (para filtrado por equipo)
+  teamId String?
+  team   Team?   @relation("TeamAlerts", fields: [teamId], references: [id])
+
   // Estado
   status String @default("ACTIVE") // "ACTIVE" | "RESOLVED" | "DISMISSED"
 
@@ -2216,6 +2278,7 @@ model Alert {
   @@index([employeeId])
   @@index([costCenterId])
   @@index([originalCostCenterId])
+  @@index([teamId])
   @@index([status])
   @@index([date])
   @@index([type])
@@ -2226,6 +2289,7 @@ model Alert {
   // Índices compuestos para queries comunes
   @@index([orgId, status, severity]) // Dashboard principal
   @@index([costCenterId, status, date]) // Dashboard de centro
+  @@index([teamId, status, date]) // Dashboard de equipo
   @@index([employeeId, date, type]) // Deduplicación
 
   @@map("alerts")
