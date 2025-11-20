@@ -326,6 +326,13 @@ export async function getAvailableScopes() {
       }
     });
 
+    // ✅ Usuarios ADMIN y RRHH siempre tienen acceso a nivel ORGANIZATION
+    // Esto permite que puedan suscribirse a alertas de toda la organización
+    // sin necesidad de configurar AreaResponsible explícitamente
+    if (session.user.role === "ADMIN" || session.user.role === "RRHH") {
+      hasOrganizationScope = true;
+    }
+
     return {
       hasOrganizationScope,
       departments: Array.from(departments.values()),
