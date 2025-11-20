@@ -61,16 +61,19 @@ Crear un calendario de turnos con:
 ## 🎨 Paleta de colores
 
 ### Colores principales
+
 - **Primary**: `#7B3EFF` (TimeNow purple)
 - **Primary Light**: `#F5E8FF` (fondo turnos)
 - **Grises**: slate-50, slate-100, slate-200, slate-300
 
 ### Colores semánticos
+
 - **Success**: emerald-500 (cobertura completa)
 - **Warning**: amber-500 (cobertura media)
 - **Error**: red-500 (conflictos, cobertura baja)
 
 ### Fondos y bordes
+
 - **Card background**: white / dark:slate-900
 - **Border**: slate-200 / dark:slate-700
 - **Shadow**: shadow-sm, hover:shadow-md
@@ -80,13 +83,14 @@ Crear un calendario de turnos con:
 ## 📦 Componentes
 
 ### 1. CalendarHeaderV2
+
 **Ubicación**: `_components/cuadrante/calendar-header-v2.tsx`
 
 ```tsx
 <div className="flex items-center justify-between">
   <div>
     <h1 className="text-2xl font-bold">Cuadrante de Turnos</h1>
-    <p className="text-sm text-muted-foreground">Visualiza y gestiona turnos</p>
+    <p className="text-muted-foreground text-sm">Visualiza y gestiona turnos</p>
   </div>
   <Button>
     <Plus /> Nuevo Turno
@@ -95,6 +99,7 @@ Crear un calendario de turnos con:
 ```
 
 **Características**:
+
 - Título grande (text-2xl)
 - Subtítulo pequeño
 - Botón alineado a la derecha
@@ -103,6 +108,7 @@ Crear un calendario de turnos con:
 ---
 
 ### 2. FilterBarV2
+
 **Ubicación**: `_components/cuadrante/filter-bar-v2.tsx`
 
 ```tsx
@@ -113,12 +119,10 @@ Crear un calendario de turnos con:
     <Select /> {/* Zona */}
     <Select /> {/* Rol */}
     <Select /> {/* Estado */}
-
     {/* Botón "Más filtros" */}
     <Button variant="outline" size="sm">
       <SlidersHorizontal /> Más filtros
     </Button>
-
     {/* Agrupar por */}
     <div className="ml-auto">
       <ToggleGroup type="single">
@@ -131,6 +135,7 @@ Crear un calendario de turnos con:
 ```
 
 **Características**:
+
 - Padding compacto (p-3)
 - Selects pequeños (h-9)
 - Agrupar por alineado a la derecha
@@ -139,10 +144,11 @@ Crear un calendario de turnos con:
 ---
 
 ### 3. WeekNavigatorV2
+
 **Ubicación**: `_components/cuadrante/week-navigator-v2.tsx`
 
 ```tsx
-<div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+<div className="bg-background/95 supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 border-b backdrop-blur">
   <div className="flex items-center justify-center gap-4 py-3">
     <Button variant="ghost" size="icon">
       <ChevronLeft />
@@ -162,6 +168,7 @@ Crear un calendario de turnos con:
 ```
 
 **Características**:
+
 - **Sticky**: `sticky top-0 z-10`
 - Backdrop blur para efecto glassmorphism
 - Sin caja, solo border-b
@@ -171,26 +178,23 @@ Crear un calendario de turnos con:
 ---
 
 ### 4. WeekDaysHeaderV2
+
 **Ubicación**: `_components/cuadrante/week-days-header-v2.tsx`
 
 ```tsx
 <div className="grid grid-cols-[200px_repeat(7,1fr)] border-b">
   <div /> {/* Espacio empleados */}
-
-  {weekDays.map(day => (
-    <div key={day.date} className="text-center py-3">
-      <div className="text-xs font-medium text-muted-foreground uppercase">
-        {day.dayName}
-      </div>
-      <div className="text-2xl font-bold mt-1">
-        {day.dayNumber}
-      </div>
+  {weekDays.map((day) => (
+    <div key={day.date} className="py-3 text-center">
+      <div className="text-muted-foreground text-xs font-medium uppercase">{day.dayName}</div>
+      <div className="mt-1 text-2xl font-bold">{day.dayNumber}</div>
     </div>
   ))}
 </div>
 ```
 
 **Características**:
+
 - Grid con columna fija de 200px para empleados
 - Día pequeño uppercase (LUN)
 - Número grande (10)
@@ -199,31 +203,30 @@ Crear un calendario de turnos con:
 ---
 
 ### 5. EmployeeRowV2
+
 **Ubicación**: `_components/cuadrante/employee-row-v2.tsx`
 
 ```tsx
-<div className="grid grid-cols-[200px_repeat(7,1fr)] border-b min-h-[80px]">
+<div className="grid min-h-[80px] grid-cols-[200px_repeat(7,1fr)] border-b">
   {/* Columna empleado */}
-  <div className="flex items-center gap-3 p-4 border-r bg-slate-50">
+  <div className="flex items-center gap-3 border-r bg-slate-50 p-4">
     {/* Avatar */}
     <Avatar className="size-10">
-      <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-        F
-      </AvatarFallback>
+      <AvatarFallback className="bg-primary/10 text-primary font-semibold">F</AvatarFallback>
     </Avatar>
 
     {/* Info */}
     <div className="flex-1">
-      <p className="font-semibold text-sm">Francesc</p>
-      <Badge variant="outline" className="text-xs mt-1">
+      <p className="text-sm font-semibold">Francesc</p>
+      <Badge variant="outline" className="mt-1 text-xs">
         40h/40h
       </Badge>
     </div>
   </div>
 
   {/* Columnas de días */}
-  {weekDays.map(day => (
-    <div key={day.date} className="p-2 border-r">
+  {weekDays.map((day) => (
+    <div key={day.date} className="border-r p-2">
       {/* Aquí van las ShiftCards */}
     </div>
   ))}
@@ -231,6 +234,7 @@ Crear un calendario de turnos con:
 ```
 
 **Características**:
+
 - Columna empleado: fondo slate-50, border-r
 - Avatar con inicial
 - Nombre + badge de horas
@@ -240,6 +244,7 @@ Crear un calendario de turnos con:
 ---
 
 ### 6. ShiftCardV2
+
 **Ubicación**: `_components/cuadrante/shift-card-v2.tsx`
 
 ```tsx
@@ -249,16 +254,16 @@ Crear un calendario de turnos con:
     <div className="text-sm font-semibold">10:00 – 18:00</div>
 
     {/* Duración */}
-    <div className="text-xs text-muted-foreground mt-0.5">8h</div>
+    <div className="text-muted-foreground mt-0.5 text-xs">8h</div>
 
     {/* Lugar */}
-    <div className="text-xs text-muted-foreground mt-1">Planta Baja</div>
+    <div className="text-muted-foreground mt-1 text-xs">Planta Baja</div>
 
     {/* Barra de duración */}
     <DurationBar percentage={80} className="mt-2" />
 
     {/* Acciones (solo hover) */}
-    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+    <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100">
       <div className="flex gap-1">
         <Button size="icon" variant="ghost" className="size-6">
           <Pencil className="size-3" />
@@ -276,6 +281,7 @@ Crear un calendario de turnos con:
 ```
 
 **Características**:
+
 - **Fondo**: `#F5E8FF` (morado muy suave)
 - **Border radius**: rounded-xl (12px)
 - **Padding**: p-3
@@ -286,18 +292,20 @@ Crear un calendario de turnos con:
 ---
 
 ### 7. DurationBar
+
 **Ubicación**: `_components/cuadrante/duration-bar.tsx`
 
 ```tsx
-<div className="relative h-1 bg-slate-200 rounded-full overflow-hidden">
+<div className="relative h-1 overflow-hidden rounded-full bg-slate-200">
   <div
-    className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all"
+    className="bg-primary absolute inset-y-0 left-0 rounded-full transition-all"
     style={{ width: `${percentage}%` }}
   />
 </div>
 ```
 
 **Características**:
+
 - Altura 1 (4px)
 - Fondo slate-200
 - Barra primary con ancho proporcional
@@ -306,19 +314,18 @@ Crear un calendario de turnos con:
 ---
 
 ### 8. CompactModeToggle
+
 **Ubicación**: `_components/cuadrante/compact-mode-toggle.tsx`
 
 ```tsx
 <div className="flex items-center gap-2">
   <Label className="text-xs">Modo compacto</Label>
-  <Switch
-    checked={isCompact}
-    onCheckedChange={setIsCompact}
-  />
+  <Switch checked={isCompact} onCheckedChange={setIsCompact} />
 </div>
 ```
 
 **Características**:
+
 - Solo UI, no afecta lógica
 - Switch de shadcn/ui
 - Label pequeño
@@ -363,17 +370,19 @@ const MOCK_EMPLOYEES: MockEmployeeRow[] = [
     assignedHours: 40,
     contractHours: 40,
     shifts: {
-      "2025-11-10": [{
-        id: "s101",
-        startTime: "10:00",
-        endTime: "18:00",
-        duration: 8,
-        zone: "Planta Baja",
-        costCenter: "cc1",
-        status: "published",
-      }],
+      "2025-11-10": [
+        {
+          id: "s101",
+          startTime: "10:00",
+          endTime: "18:00",
+          duration: 8,
+          zone: "Planta Baja",
+          costCenter: "cc1",
+          status: "published",
+        },
+      ],
       // ... más días
-    }
+    },
   },
   // ... más empleados
 ];
@@ -386,16 +395,19 @@ const MOCK_EMPLOYEES: MockEmployeeRow[] = [
 ### ShiftCard estados
 
 #### Draft (borrador)
+
 ```tsx
 bg-[#F5E8FF] border-primary/20
 ```
 
 #### Published (publicado)
+
 ```tsx
 bg-[#F5E8FF] border-primary/40
 ```
 
 #### Conflict (conflicto)
+
 ```tsx
 bg-red-50 border-red-300
 ```
@@ -403,6 +415,7 @@ bg-red-50 border-red-300
 ### Modo compacto
 
 Cuando `isCompact === true`:
+
 - Altura mínima row: 60px (en lugar de 80px)
 - Font size shift card: text-xs (en lugar de text-sm)
 - Padding shift card: p-2 (en lugar de p-3)
@@ -413,14 +426,17 @@ Cuando `isCompact === true`:
 ## 🚀 Responsive
 
 ### Desktop (>1024px)
+
 - Grid completo con 7 días
 - Columna empleado 200px
 
 ### Tablet (768px - 1024px)
+
 - Grid con 5 días (scroll horizontal)
 - Columna empleado 160px
 
 ### Mobile (<768px)
+
 - Vista diferente (no implementar, fuera de scope)
 
 ---

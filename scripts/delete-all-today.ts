@@ -7,9 +7,9 @@ async function main() {
   const employee = await prisma.employee.findFirst({
     where: {
       user: {
-        email: "hr@demo.com"
-      }
-    }
+        email: "hr@demo.com",
+      },
+    },
   });
 
   if (!employee) {
@@ -33,9 +33,9 @@ async function main() {
       employeeId: employee.id,
       timestamp: {
         gte: today,
-        lt: tomorrow
-      }
-    }
+        lt: tomorrow,
+      },
+    },
   });
 
   console.log(`🗑️  Eliminados ${deletedEntries.count} fichajes de hoy`);
@@ -44,8 +44,8 @@ async function main() {
   const deletedSummaries = await prisma.workdaySummary.deleteMany({
     where: {
       employeeId: employee.id,
-      date: today
-    }
+      date: today,
+    },
   });
 
   console.log(`🗑️  Eliminados ${deletedSummaries.count} resúmenes de hoy`);
@@ -54,8 +54,8 @@ async function main() {
   const deletedAlerts = await prisma.alert.deleteMany({
     where: {
       employeeId: employee.id,
-      date: today
-    }
+      date: today,
+    },
   });
 
   console.log(`🗑️  Eliminadas ${deletedAlerts.count} alertas de hoy`);

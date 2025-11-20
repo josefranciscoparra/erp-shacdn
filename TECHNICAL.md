@@ -4643,13 +4643,13 @@ const [count, setCount] = useState(0); // ✅ Observer pattern nativo de React
 // Middleware de NextAuth
 export default auth((req) => {
   // Decora la request con información de autenticación
-  if (!req.auth) return NextResponse.redirect('/login');
+  if (!req.auth) return NextResponse.redirect("/login");
   return NextResponse.next();
 });
 
 // React Hook Form
 const form = useForm({
-  resolver: zodResolver(schema) // Decora validación
+  resolver: zodResolver(schema), // Decora validación
 });
 ```
 
@@ -5086,14 +5086,14 @@ TIEMPO          ACCIÓN
 
 ```typescript
 export async function createNotification(
-  userId: string,              // ← A quién se le envía
-  orgId: string,               // ← De qué organización
-  type: PtoNotificationType,   // ← Tipo: "PTO_APPROVED", "PTO_REJECTED", etc.
-  title: string,               // ← Título: "Solicitud aprobada"
-  message: string,             // ← Mensaje: "Tu solicitud de vacaciones ha sido aprobada"
-  ptoRequestId?: string,       // ← (Opcional) ID de la solicitud de vacaciones
-  manualTimeEntryRequestId?: string,  // ← (Opcional) ID de ajuste de fichaje
-  expenseId?: string,          // ← (Opcional) ID de gasto
+  userId: string, // ← A quién se le envía
+  orgId: string, // ← De qué organización
+  type: PtoNotificationType, // ← Tipo: "PTO_APPROVED", "PTO_REJECTED", etc.
+  title: string, // ← Título: "Solicitud aprobada"
+  message: string, // ← Mensaje: "Tu solicitud de vacaciones ha sido aprobada"
+  ptoRequestId?: string, // ← (Opcional) ID de la solicitud de vacaciones
+  manualTimeEntryRequestId?: string, // ← (Opcional) ID de ajuste de fichaje
+  expenseId?: string, // ← (Opcional) ID de gasto
 ) {
   const notification = await prisma.ptoNotification.create({
     data: {
@@ -5105,7 +5105,7 @@ export async function createNotification(
       ptoRequestId,
       manualTimeEntryRequestId,
       expenseId,
-      isRead: false,  // ← Por defecto, no leída
+      isRead: false, // ← Por defecto, no leída
     },
   });
 
@@ -5136,12 +5136,12 @@ await prisma.ptoRequest.update({
 // 2. Crea la notificación para el empleado
 if (request.employee.user) {
   await createNotification(
-    request.employee.user.id,        // ← ID del empleado
-    request.orgId,                   // ← ID de la organización
-    "PTO_APPROVED",                  // ← Tipo de notificación
-    "Solicitud aprobada",            // ← Título
-    `Tu solicitud de ${request.absenceType.name} ha sido aprobada`,  // ← Mensaje
-    requestId,                       // ← ID de la solicitud
+    request.employee.user.id, // ← ID del empleado
+    request.orgId, // ← ID de la organización
+    "PTO_APPROVED", // ← Tipo de notificación
+    "Solicitud aprobada", // ← Título
+    `Tu solicitud de ${request.absenceType.name} ha sido aprobada`, // ← Mensaje
+    requestId, // ← ID de la solicitud
   );
 }
 ```
@@ -5179,17 +5179,17 @@ if (request.employee.user) {
 
 ```typescript
 // Vacaciones (PTO)
-"PTO_SUBMITTED"   // → "Tu solicitud ha sido enviada"
-"PTO_APPROVED"    // → "Tu solicitud ha sido aprobada"
-"PTO_REJECTED"    // → "Tu solicitud ha sido rechazada"
+"PTO_SUBMITTED"; // → "Tu solicitud ha sido enviada"
+"PTO_APPROVED"; // → "Tu solicitud ha sido aprobada"
+"PTO_REJECTED"; // → "Tu solicitud ha sido rechazada"
 
 // Fichajes manuales
-"MANUAL_TIME_ENTRY_APPROVED"
-"MANUAL_TIME_ENTRY_REJECTED"
+"MANUAL_TIME_ENTRY_APPROVED";
+"MANUAL_TIME_ENTRY_REJECTED";
 
 // Gastos
-"EXPENSE_APPROVED"
-"EXPENSE_REJECTED"
+"EXPENSE_APPROVED";
+"EXPENSE_REJECTED";
 ```
 
 ---
@@ -5374,15 +5374,15 @@ public CompletableFuture<Result> approveRequest() {
 
 #### Tabla de equivalencias JavaScript ↔ Java
 
-| JavaScript/TypeScript      | Java                       | Explicación                   |
-| -------------------------- | -------------------------- | ----------------------------- |
-| `export function`          | `public static`            | Función pública               |
-| `async function`           | `CompletableFuture<T>`     | Operación asíncrona           |
-| `await promise`            | `future.get()`             | Esperar resultado             |
-| `Promise<T>`               | `CompletableFuture<T>`     | Valor futuro                  |
-| `try/catch`                | `try/catch`                | Manejo de errores (igual)     |
-| `async () => { ... }`      | `() -> { ... }`            | Lambda/Arrow function (igual) |
-| `const result = await ...` | `Result result = ....get()` | Asignar resultado            |
+| JavaScript/TypeScript      | Java                        | Explicación                   |
+| -------------------------- | --------------------------- | ----------------------------- |
+| `export function`          | `public static`             | Función pública               |
+| `async function`           | `CompletableFuture<T>`      | Operación asíncrona           |
+| `await promise`            | `future.get()`              | Esperar resultado             |
+| `Promise<T>`               | `CompletableFuture<T>`      | Valor futuro                  |
+| `try/catch`                | `try/catch`                 | Manejo de errores (igual)     |
+| `async () => { ... }`      | `() -> { ... }`             | Lambda/Arrow function (igual) |
+| `const result = await ...` | `Result result = ....get()` | Asignar resultado             |
 
 #### Ejemplo completo comentado
 
@@ -5471,11 +5471,11 @@ El store usa **Zustand** (alternativa ligera a Redux) con un patrón de **accion
 ```typescript
 interface ExpensesState {
   // Estado
-  expenses: Expense[];              // Array completo de gastos
-  selectedExpense: Expense | null;  // Gasto seleccionado (detalle)
-  filters: ExpenseFilters;          // Filtros aplicados
-  isLoading: boolean;               // Estado de carga
-  error: string | null;             // Error actual
+  expenses: Expense[]; // Array completo de gastos
+  selectedExpense: Expense | null; // Gasto seleccionado (detalle)
+  filters: ExpenseFilters; // Filtros aplicados
+  isLoading: boolean; // Estado de carga
+  error: string | null; // Error actual
 
   // Acciones síncronas (mutación directa del estado)
   setExpenses: (expenses: Expense[]) => void;
@@ -5524,12 +5524,12 @@ removeExpense: (id) =>
 
 **Comparación con Redux:**
 
-| Redux                             | Zustand                |
-| --------------------------------- | ---------------------- |
-| `dispatch(addExpense(expense))`   | `addExpense(expense)`  |
-| Reducers separados                | Actions en el store    |
-| Boilerplate: actions, reducers    | Un solo archivo        |
-| DevTools por defecto              | DevTools opcional      |
+| Redux                           | Zustand               |
+| ------------------------------- | --------------------- |
+| `dispatch(addExpense(expense))` | `addExpense(expense)` |
+| Reducers separados              | Actions en el store   |
+| Boilerplate: actions, reducers  | Un solo archivo       |
+| DevTools por defecto            | DevTools opcional     |
 
 #### Acciones Asíncronas (Fetch + State Management)
 
@@ -5545,10 +5545,10 @@ createExpense: async (data) => {
     const response = await fetch("/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      credentials: "include",  // ← Enviar cookies (sesión)
+      credentials: "include", // ← Enviar cookies (sesión)
       body: JSON.stringify({
         ...data,
-        date: data.date.toISOString(),  // ← Serializar Date a ISO string
+        date: data.date.toISOString(), // ← Serializar Date a ISO string
       }),
     });
 
@@ -5563,9 +5563,9 @@ createExpense: async (data) => {
     // 4. Normalizar datos (conversiones de tipos)
     const parsedExpense = {
       ...newExpense,
-      date: new Date(newExpense.date),       // String → Date
+      date: new Date(newExpense.date), // String → Date
       createdAt: new Date(newExpense.createdAt),
-      amount: Number(newExpense.amount),     // Decimal → Number
+      amount: Number(newExpense.amount), // Decimal → Number
       vatPercent: newExpense.vatPercent ? Number(newExpense.vatPercent) : null,
       totalAmount: Number(newExpense.totalAmount),
     };
@@ -5575,7 +5575,6 @@ createExpense: async (data) => {
     set({ isLoading: false });
 
     return parsedExpense;
-
   } catch (error) {
     // 6. Manejo de errores
     set({
@@ -5584,7 +5583,7 @@ createExpense: async (data) => {
     });
     return null;
   }
-}
+};
 ```
 
 **Flujo técnico:**
@@ -5717,7 +5716,8 @@ export async function POST(request: NextRequest, { params }) {
     const file = formData.get("file") as File;
 
     // 5. Validaciones
-    if (file.size > 10 * 1024 * 1024) {  // Max 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      // Max 10MB
       return NextResponse.json({ error: "Archivo muy grande" }, { status: 400 });
     }
 
@@ -5731,7 +5731,7 @@ export async function POST(request: NextRequest, { params }) {
     const extension = file.name.split(".").pop();
     const sanitizedName = file.name
       .replace(`.${extension}`, "")
-      .replace(/[^a-zA-Z0-9.-]/g, "_")  // ← Sanitización (prevenir path traversal)
+      .replace(/[^a-zA-Z0-9.-]/g, "_") // ← Sanitización (prevenir path traversal)
       .toLowerCase();
 
     const finalFileName = `${timestamp}-${sanitizedName}.${extension}`;
@@ -5777,10 +5777,10 @@ export abstract class StorageProvider {
 }
 
 // Implementaciones concretas:
-class LocalStorageProvider extends StorageProvider { }    // Filesystem local
-class AzureStorageProvider extends StorageProvider { }    // Azure Blob Storage
-class R2StorageProvider extends StorageProvider { }       // Cloudflare R2
-class S3StorageProvider extends StorageProvider { }       // AWS S3 (futuro)
+class LocalStorageProvider extends StorageProvider {} // Filesystem local
+class AzureStorageProvider extends StorageProvider {} // Azure Blob Storage
+class R2StorageProvider extends StorageProvider {} // Cloudflare R2
+class S3StorageProvider extends StorageProvider {} // AWS S3 (futuro)
 ```
 
 **Factory pattern:**
@@ -5820,7 +5820,7 @@ uploadAttachment: async (expenseId, file) => {
     const response = await fetch(`/api/expenses/${expenseId}/attachments`, {
       method: "POST",
       credentials: "include",
-      body: formData,  // ← FormData automáticamente setea Content-Type: multipart/form-data
+      body: formData, // ← FormData automáticamente setea Content-Type: multipart/form-data
     });
 
     if (!response.ok) throw new Error("Error al subir archivo");
@@ -5840,7 +5840,7 @@ uploadAttachment: async (expenseId, file) => {
     set({ error: error.message, isLoading: false });
     throw error;
   }
-}
+};
 ```
 
 ---
@@ -5920,7 +5920,8 @@ const processReceipt = async (file: File) => {
     // rois = { header: HTMLCanvasElement, totals: HTMLCanvasElement }
 
     // PASO 4: Inicializar Tesseract Worker
-    worker = await createWorker("spa", 1, {  // ← "spa" = español
+    worker = await createWorker("spa", 1, {
+      // ← "spa" = español
       logger: (m) => {
         if (m.status === "recognizing text") {
           const ocrProgress = Math.round(20 + m.progress * 60);
@@ -5934,7 +5935,7 @@ const processReceipt = async (file: File) => {
 
     await worker.setParameters({
       tessedit_char_whitelist: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .-",
-      tessedit_pageseg_mode: "6",  // PSM 6 = single uniform block
+      tessedit_pageseg_mode: "6", // PSM 6 = single uniform block
     });
 
     const headerResult = await worker.recognize(headerFile);
@@ -5998,7 +5999,6 @@ const processReceipt = async (file: File) => {
     // PASO 12: Completado
     setState({ isProcessing: false, progress: 100, error: null, result: parsedData });
     return parsedData;
-
   } catch (error) {
     if (worker) await worker.terminate();
     setState({ isProcessing: false, progress: 0, error: error.message, result: null });
@@ -6034,19 +6034,19 @@ export function parseReceiptText(text: string): ParsedReceiptData {
     const match = normalizedText.match(pattern);
     if (match) {
       result.totalAmount = parseFloat(match[2].replace(",", "."));
-      result.confidence.totalAmount = 0.9;  // ← Alta confidence
+      result.confidence.totalAmount = 0.9; // ← Alta confidence
       break;
     }
   }
 
   // 2. Extraer fecha
   const datePatterns = [
-    /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/,  // DD/MM/YYYY
+    /\b(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\b/, // DD/MM/YYYY
   ];
 
   // 3. Extraer comercio con normalización
   const merchantResult = extractMerchantNameImproved(text);
-  result.merchantName = normalizeBrand(merchantResult.value);  // ← Diccionario
+  result.merchantName = normalizeBrand(merchantResult.value); // ← Diccionario
   result.confidence.merchantName = merchantResult.confidence;
 
   // 4. Extraer CIF/NIF (España)
@@ -6058,10 +6058,7 @@ export function parseReceiptText(text: string): ParsedReceiptData {
   }
 
   // 5. Extraer % IVA
-  const vatPercentPatterns = [
-    /IVA\s*(\d{1,2})[%\s]/i,
-    /(\d{1,2})%\s*IVA/i,
-  ];
+  const vatPercentPatterns = [/IVA\s*(\d{1,2})[%\s]/i, /(\d{1,2})%\s*IVA/i];
 
   return result;
 }
@@ -6134,17 +6131,17 @@ export function applyOcrFilters(canvas: HTMLCanvasElement): HTMLCanvasElement {
 
 ```typescript
 interface ParsedReceiptData {
-  totalAmount: number | null;      // 60.50
-  date: Date | null;               // 2025-01-05
-  merchantName: string | null;     // "Repsol" (normalizado)
-  merchantVat: string | null;      // "B12345678"
-  vatPercent: number | null;       // 21
+  totalAmount: number | null; // 60.50
+  date: Date | null; // 2025-01-05
+  merchantName: string | null; // "Repsol" (normalizado)
+  merchantVat: string | null; // "B12345678"
+  vatPercent: number | null; // 21
   confidence: {
-    totalAmount: number;           // 0.9 (90% confianza)
-    date: number;                  // 0.8
-    merchantName: number;          // 0.75
-    merchantVat: number;           // 0.6
-    vatPercent: number;            // 0.85
+    totalAmount: number; // 0.9 (90% confianza)
+    date: number; // 0.8
+    merchantName: number; // 0.75
+    merchantVat: number; // 0.6
+    vatPercent: number; // 0.85
   };
 }
 ```
@@ -6156,44 +6153,50 @@ interface ParsedReceiptData {
 Si quieres entender el sistema de gastos explorando el código, estas son las rutas principales:
 
 #### Backend / Server Actions
+
 - `src/server/actions/expenses.ts` - CRUD de gastos
 - `src/server/actions/expense-approvals.ts` - Lógica de aprobación
 - `src/app/api/expenses/[id]/attachments/route.ts` - Upload de adjuntos
 
 #### Frontend / UI
+
 - `src/app/(main)/dashboard/me/expenses/page.tsx` - Listado de mis gastos
 - `src/app/(main)/dashboard/me/expenses/new/page.tsx` - Crear gasto con OCR
 - `src/app/(main)/dashboard/approvals/expenses/page.tsx` - Aprobar gastos
 
 #### Store
+
 - `src/stores/expenses-store.ts` - Estado global (Zustand)
 
 #### OCR
+
 - `src/hooks/use-receipt-ocr.ts` - Hook principal OCR
 - `src/lib/ocr/receipt-parser.ts` - Parsing de texto
 - `src/lib/ocr/image-preprocessor.ts` - Filtros de imagen
 - `src/lib/ocr/roi-extractor.ts` - Extracción de regiones
 
 #### Storage
+
 - `src/lib/storage/index.ts` - Factory de providers
 - `src/lib/storage/providers/local.ts` - Provider filesystem
 - `src/lib/storage/providers/azure.ts` - Provider Azure
 - `src/lib/storage/providers/r2.ts` - Provider Cloudflare R2
 
 #### Base de Datos
+
 - `prisma/schema.prisma` - Modelos Expense, ExpenseAttachment, ExpenseApproval
 
 ---
 
 ### Resumen Técnico
 
-| Componente       | Tecnología              | Patrón              | Analogía Java                        |
-| ---------------- | ----------------------- | ------------------- | ------------------------------------ |
-| **Store**        | Zustand                 | State machine       | Redux (simplificado)                 |
-| **Adjuntos**     | FormData + Storage      | Strategy pattern    | Spring MultipartFile + Cloud SDK     |
-| **OCR**          | Tesseract.js (WASM)     | Pipeline pattern    | Apache Tika + OpenCV                 |
-| **Parsing**      | Regex + Scoring         | NLP básico          | Stanford NLP                         |
-| **Normalización**| Type conversion         | Data transformation | DTO Mappers (ModelMapper, MapStruct) |
+| Componente        | Tecnología          | Patrón              | Analogía Java                        |
+| ----------------- | ------------------- | ------------------- | ------------------------------------ |
+| **Store**         | Zustand             | State machine       | Redux (simplificado)                 |
+| **Adjuntos**      | FormData + Storage  | Strategy pattern    | Spring MultipartFile + Cloud SDK     |
+| **OCR**           | Tesseract.js (WASM) | Pipeline pattern    | Apache Tika + OpenCV                 |
+| **Parsing**       | Regex + Scoring     | NLP básico          | Stanford NLP                         |
+| **Normalización** | Type conversion     | Data transformation | DTO Mappers (ModelMapper, MapStruct) |
 
 ---
 
@@ -6210,6 +6213,7 @@ Si quieres entender el sistema de gastos explorando el código, estas son las ru
 El login está implementado con **NextAuth v5** usando el provider de **Credentials** para autenticación con email y contraseña. Las contraseñas se hashean con **bcrypt** antes de comparar, la sesión se maneja con **JWT** (válido 30 días), y la validación de formularios se hace con **Zod**. Al hacer login, se verifica que el usuario esté activo, que su organización esté activa (multi-tenancy), se compara la contraseña hasheada con bcrypt, y si todo es válido, se crea un JWT con datos del usuario (id, role, orgId, employeeId) que se almacena en una cookie HttpOnly.
 
 **Archivos clave para entenderlo:**
+
 - **`/src/lib/auth.ts`** (líneas 122-199): Provider de Credentials con authorize(), verificación de contraseña con bcrypt, creación del JWT
 - **`/src/app/(main)/auth/_components/login-form.tsx`** (líneas 39-70): Formulario React con React Hook Form, llama a `signIn("credentials")` de NextAuth
 - **Callbacks JWT** en auth.ts (líneas 46-119): Callback `jwt()` para añadir datos custom al token (role, orgId, employeeId), callback `session()` para exponer estos datos al cliente
@@ -6223,6 +6227,7 @@ El login está implementado con **NextAuth v5** usando el provider de **Credenti
 El escaneo de tickets usa **Tesseract.js** (OCR en WebAssembly) con un pipeline de 12 pasos que incluye **preprocesamiento de imagen** (ROI extraction, sharpening, binarización), **ejecución de OCR** con modo PSM 6 y whitelist de caracteres, **parsing con regex** para extraer fecha/importe/comercio/IVA, y **scoring de confianza**. Si la confianza es baja (<70%), reintenta con inversión de color. El resultado parseado se normaliza (fecha a ISO, importe a número) y se pre-rellena automáticamente en el formulario de gastos.
 
 **Archivos clave para entenderlo:**
+
 - **`/src/hooks/use-receipt-ocr.ts`**: Hook principal con el pipeline completo de 12 pasos (líneas 59-207), manejo de errores, retry con inversión de color
 - **`/src/lib/ocr/receipt-parser.ts`**: Regex patterns para extraer datos (líneas 1-100), confidence scoring, normalización de comercios
 - **`/src/lib/ocr/image-preprocessor.ts`**: ROI extraction, sharpening, binarization filters para mejorar calidad antes del OCR
@@ -6237,6 +6242,7 @@ El escaneo de tickets usa **Tesseract.js** (OCR en WebAssembly) con un pipeline 
 **React Hook Form** es una librería de gestión de formularios en React que usa **hooks** (`useForm`) para manejar el estado del formulario, validación con **Zod**, y optimiza el rendimiento evitando re-renders innecesarios. En lugar de manejar cada input manualmente con `useState`, React Hook Form centraliza todo el estado del formulario (valores, errores, validación) en un solo hook, y se integra con componentes de UI usando el patrón `render prop` con `FormField` y `FormControl`.
 
 **Archivos clave para entenderlo:**
+
 - **`/src/app/(main)/dashboard/me/expenses/_components/expense-form.tsx`** (líneas 44-56): Ejemplo de uso de `useForm` con `zodResolver` para validación, define defaultValues y schema con Zod
 - **`/src/app/(main)/auth/_components/login-form.tsx`** (líneas 30-37): Otro ejemplo, formulario de login con React Hook Form
 - **Líneas 123-150 de expense-form.tsx**: Uso de `FormField` con `control={form.control}` para conectar inputs al estado del formulario
@@ -6250,6 +6256,7 @@ El escaneo de tickets usa **Tesseract.js** (OCR en WebAssembly) con un pipeline 
 Los **hooks** son funciones que empiezan por `use` y se invocan **dentro de componentes React** (archivos `.tsx` que exportan componentes). Los hooks **custom** (como `useReceiptOcr`) se invocan desde **páginas** o **componentes**, nunca desde archivos de servidor o utilidades normales. Por ejemplo, `useReceiptOcr` se invoca en la página `/dashboard/me/expenses/new/page.tsx` (línea 24), que es un **Client Component** marcado con `"use client"`, y ese hook internamente usa otros hooks de React como `useState` y `useCallback`.
 
 **Ejemplo concreto con OCR:**
+
 - **Hook custom OCR**: `/src/hooks/use-receipt-ocr.ts` - Define la lógica de OCR, exporta `useReceiptOcr`
 - **Invocación desde página**: `/src/app/(main)/dashboard/me/expenses/new/page.tsx` (línea 24) - Llama a `const { isProcessing, progress, result, processReceipt } = useReceiptOcr()`
 - **Uso en componente**: Línea 53 - `await processReceipt(file)` ejecuta el pipeline OCR
@@ -6301,6 +6308,7 @@ La estructura del OCR sigue el patrón de **Next.js App Router** con separación
 ```
 
 **Flujo completo (New Expense):**
+
 1. **Usuario entra**: `/dashboard/me/expenses/new/page.tsx` (página)
 2. **Captura foto**: Componente `<CameraCapture />` (línea 175)
 3. **Procesa OCR**: `processReceipt(file)` del hook `useReceiptOcr` (línea 53)
@@ -6375,6 +6383,7 @@ El sistema usa el **patrón Strategy** con una **Factory** para abstraer el alma
 10. **Store actualiza**: Zustand añade attachment al expense en memoria
 
 **Ventajas del patrón:**
+
 - ✅ **Cambiar provider sin tocar código**: Solo cambiar env var
 - ✅ **Testing fácil**: Mock del provider en tests
 - ✅ **Multi-cloud**: Migrar de Azure a R2 sin downtime
@@ -6424,6 +6433,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
 
 1. **Manager aprueba gasto**: Frontend llama a `approveExpense(expenseId)`
 2. **Server Action ejecuta**:
+
    ```typescript
    // src/server/actions/expense-approvals.ts (líneas 170-202)
    await prisma.$transaction(async (tx) => {
@@ -6446,6 +6456,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
      );
    });
    ```
+
 3. **createNotification() guarda en BD**:
    ```typescript
    // src/server/actions/notifications.ts (líneas 22-34)
@@ -6458,7 +6469,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
        message: "Tu gasto de 60.50€ ha sido aprobado",
        expenseId,
        isRead: false,
-     }
+     },
    });
    ```
 4. **Auto-refresh en el cliente** (4 mecanismos):
@@ -6472,7 +6483,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
    loadNotifications: async () => {
      const notifications = await getMyNotifications(10);
      set({ notifications });
-   }
+   };
    ```
 6. **UI actualiza**:
    - Badge muestra contador: `<Badge>3</Badge>`
@@ -6486,6 +6497,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
    ```
 
 **Tipos de notificaciones soportadas:**
+
 - `PTO_SUBMITTED` - Empleado envió solicitud PTO
 - `PTO_APPROVED` - PTO aprobado
 - `PTO_REJECTED` - PTO rechazado
@@ -6497,6 +6509,7 @@ El sistema de notificaciones usa **polling inteligente** (no WebSockets) con **4
 - `MANUAL_TIME_ENTRY_REJECTED` - Entrada manual rechazada
 
 **¿Por qué polling y no WebSockets?**
+
 - ✅ **Simplicidad**: No requiere servidor WebSocket separado
 - ✅ **Escalabilidad**: Funciona en serverless (Vercel, Cloudflare Workers)
 - ✅ **Menor carga**: Polling inteligente solo cuando se necesita
@@ -6571,6 +6584,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 **Flujo completo (Firma de Contrato de Trabajo):**
 
 1. **HR crea solicitud**:
+
    ```typescript
    // Frontend: <CreateSignatureDialog />
    const formData = new FormData();
@@ -6583,6 +6597,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
    ```
 
 2. **Backend procesa solicitud** (líneas 1-150 en `create/route.ts`):
+
    ```typescript
    // 1. Validar archivo (PDF, max 10MB)
    // 2. Calcular hash SHA-256 del PDF original
@@ -6593,7 +6608,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 
    // 4. Crear registro en BD
    const document = await prisma.signableDocument.create({
-     data: { title, originalHash, originalFileUrl, fileSize }
+     data: { title, originalHash, originalFileUrl, fileSize },
    });
 
    // 5. Crear SignatureRequest
@@ -6602,8 +6617,8 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
        documentId: document.id,
        status: "PENDING",
        policy: "SES",
-       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 días
-     }
+       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 días
+     },
    });
 
    // 6. Crear Signers con tokens únicos
@@ -6615,8 +6630,8 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
          employeeId,
          signToken, // Token único para acceso
          status: "PENDING",
-         order: 1 // Firma secuencial o paralela
-       }
+         order: 1, // Firma secuencial o paralela
+       },
      });
    }
 
@@ -6629,6 +6644,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
    - Click en link → Autenticación NextAuth → Redirige a `/dashboard/me/signatures/[token]/page.tsx`
 
 4. **Página de firma carga sesión**:
+
    ```typescript
    // Frontend: page.tsx (líneas 49-55)
    useEffect(() => {
@@ -6640,12 +6656,13 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
    ```
 
 5. **Empleado ve PDF y da consentimiento**:
+
    ```typescript
    // Frontend: Modal de consentimiento (líneas 64-74)
    const handleGiveConsent = async () => {
      await giveConsent(token, {
        ipAddress: undefined,
-       userAgent: navigator.userAgent
+       userAgent: navigator.userAgent,
      });
      setConsentChecked(true);
    };
@@ -6656,12 +6673,13 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
      data: {
        consentGivenAt: new Date(),
        consentIp: ipAddress,
-       consentUserAgent: userAgent
-     }
+       consentUserAgent: userAgent,
+     },
    });
    ```
 
 6. **Empleado confirma firma** (líneas 83-96):
+
    ```typescript
    // Frontend: Modal de confirmación
    const handleConfirmSignature = async () => {
@@ -6673,6 +6691,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
    ```
 
 7. **Backend ejecuta firma** (líneas 102-230 en `confirm/route.ts`):
+
    ```typescript
    // 1. Descargar PDF original del storage
    const originalDocBuffer = await fetch(originalDocUrl);
@@ -6691,29 +6710,21 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
      ipAddress: "192.168.1.1",
      userAgent: "Mozilla/5.0...",
      signaturePolicy: "SES",
-     documentHash: preSignHash
+     documentHash: preSignHash,
    };
 
    // 4. "Firmar" documento (por ahora mantiene original)
-   const { signedFileBuffer, signedFileHash } = await signPdfDocument(
-     originalDocBuffer,
-     metadata
-   );
+   const { signedFileBuffer, signedFileHash } = await signPdfDocument(originalDocBuffer, metadata);
 
    // 5. Subir PDF firmado a storage
-   const signedDocUrl = await storage.uploadSignedDocument(
-     orgId,
-     documentId,
-     signerId,
-     signedFileBuffer
-   );
+   const signedDocUrl = await storage.uploadSignedDocument(orgId, documentId, signerId, signedFileBuffer);
 
    // 6. Crear timeline de evidencia
    const timeline = [
      { event: "DOCUMENT_CREATED", timestamp: "2025-01-05T10:00:00Z" },
      { event: "SIGNATURE_REQUESTED", actor: "HR", timestamp: "..." },
      { event: "CONSENT_GIVEN", actor: "Juan Pérez", timestamp: "..." },
-     { event: "DOCUMENT_SIGNED", actor: "Juan Pérez", timestamp: "..." }
+     { event: "DOCUMENT_SIGNED", actor: "Juan Pérez", timestamp: "..." },
    ];
 
    // 7. Construir evidencia completa
@@ -6725,15 +6736,11 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
      ipAddress: "192.168.1.1",
      userAgent: "Mozilla/5.0...",
      policy: "SES",
-     result: "SIGNED"
+     result: "SIGNED",
    });
 
    // 8. Subir evidencia JSON a storage
-   const evidenceUrl = await storage.uploadEvidence(
-     orgId,
-     signerId,
-     JSON.stringify(evidence, null, 2)
-   );
+   const evidenceUrl = await storage.uploadEvidence(orgId, signerId, JSON.stringify(evidence, null, 2));
 
    // 9. Actualizar BD
    await prisma.$transaction([
@@ -6744,15 +6751,15 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
          status: "SIGNED",
          signedAt: new Date(),
          signedFileUrl: signedDocUrl,
-         evidenceUrl
-       }
+         evidenceUrl,
+       },
      }),
 
      // Si todos firmaron → Request COMPLETED
      prisma.signatureRequest.update({
        where: { id: requestId },
-       data: { status: "COMPLETED", completedAt: new Date() }
-     })
+       data: { status: "COMPLETED", completedAt: new Date() },
+     }),
    ]);
 
    // 10. Notificar a HR que se completó
@@ -6761,11 +6768,12 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
      orgId,
      "SIGNATURE_COMPLETED",
      "Documento firmado",
-     `Juan Pérez ha firmado el contrato`
+     `Juan Pérez ha firmado el contrato`,
    );
    ```
 
 8. **Resultado final en BD**:
+
    ```sql
    -- SignableDocument
    id: "doc-123"
@@ -6799,6 +6807,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
    - Click "Descargar evidencia" → `GET /api/signatures/evidence/[id]/download`
 
 **Características clave:**
+
 - ✅ **Tokens únicos**: Cada firmante tiene token UUID, no se puede acceder sin token
 - ✅ **Integridad**: Hash SHA-256 verifica que PDF no fue modificado
 - ✅ **Evidencia auditable**: Timeline JSON con todos los eventos
@@ -6809,11 +6818,13 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 - ✅ **Notificaciones**: HR recibe notificación cuando todos firman
 
 **Normativa cumplida:**
+
 - 📜 **eIDAS (UE)**: Simple Electronic Signature (SES) - Nivel básico
 - 📜 **RGPD**: Consentimiento explícito, IP, metadatos, derecho a rechazar
 - 📜 **Evidencia**: Timeline auditable con timestamps RFC3339
 
 **Futuras mejoras (roadmap):**
+
 - 🔮 **PAdES**: Firma digital incrustada en PDF (requiere certificado digital)
 - 🔮 **QES**: Qualified Electronic Signature con certificado cualificado
 - 🔮 **SMS OTP**: Verificación 2FA para firma crítica
@@ -6849,6 +6860,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 ```
 
 **Estado**:
+
 - ✅ **API endpoint existe**: `GET /api/signatures/evidence/[id]/download`
 - ❌ **Botón en UI NO existe**: Falta añadir en el dropdown menu
 - 📋 **Prioridad**: Baja (no crítico para MVP)
@@ -6865,15 +6877,15 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 export async function signPdfDocument(pdfBuffer: Buffer, metadata: SignatureMetadata) {
   // ⚠️ IMPORTANTE: El PDF firmado es el mismo que el original
   // NO se modifica el PDF en absoluto
-  const signedFileBuffer = pdfBuffer;  // ← Es el MISMO buffer original
+  const signedFileBuffer = pdfBuffer; // ← Es el MISMO buffer original
 
   // Solo calculamos el hash
   const signedFileHash = calculateHash(signedFileBuffer);
 
   return {
-    signedFileBuffer,  // ← PDF idéntico al original
+    signedFileBuffer, // ← PDF idéntico al original
     signedFileHash,
-    metadata  // ← Metadatos NO van en el PDF, van a BD separado
+    metadata, // ← Metadatos NO van en el PDF, van a BD separado
   };
 }
 ```
@@ -6893,18 +6905,18 @@ export async function signPdfDocument(pdfBuffer: Buffer, metadata: SignatureMeta
 
 **Comparación técnica completa:**
 
-| Característica | SES (Actual) | PAdES (Futuro) |
-|---|---|---|
-| **Modifica PDF** | ❌ NO | ✅ SÍ |
-| **PDF original == firmado** | ✅ Idéntico | ❌ Diferente |
-| **Firma incrustada en PDF** | ❌ NO | ✅ SÍ |
-| **Requiere certificado digital** | ❌ NO | ✅ SÍ (X.509) |
-| **Verificable en Adobe Reader** | ❌ NO | ✅ SÍ |
-| **Validez legal (eIDAS)** | ✅ Válido (nivel bajo) | ✅ Válido (nivel alto) |
-| **Evidencia externa** | ✅ JSON separado | ⚠️ Opcional |
-| **Complejidad** | 🟢 Baja | 🔴 Alta |
-| **Coste** | 💰 Gratis | 💰💰 Certificados caros |
-| **Uso recomendado** | Contratos internos | Contratos con clientes |
+| Característica                   | SES (Actual)           | PAdES (Futuro)          |
+| -------------------------------- | ---------------------- | ----------------------- |
+| **Modifica PDF**                 | ❌ NO                  | ✅ SÍ                   |
+| **PDF original == firmado**      | ✅ Idéntico            | ❌ Diferente            |
+| **Firma incrustada en PDF**      | ❌ NO                  | ✅ SÍ                   |
+| **Requiere certificado digital** | ❌ NO                  | ✅ SÍ (X.509)           |
+| **Verificable en Adobe Reader**  | ❌ NO                  | ✅ SÍ                   |
+| **Validez legal (eIDAS)**        | ✅ Válido (nivel bajo) | ✅ Válido (nivel alto)  |
+| **Evidencia externa**            | ✅ JSON separado       | ⚠️ Opcional             |
+| **Complejidad**                  | 🟢 Baja                | 🔴 Alta                 |
+| **Coste**                        | 💰 Gratis              | 💰💰 Certificados caros |
+| **Uso recomendado**              | Contratos internos     | Contratos con clientes  |
 
 **Diagrama SES (implementación actual):**
 
@@ -6957,26 +6969,26 @@ PDF Firmado (105KB) ← DIFERENTE al original
 // Código FUTURO con node-signpdf (ejemplo)
 export async function signPdfDocument(pdfBuffer: Buffer, metadata: SignatureMetadata) {
   // 1. Cargar certificado digital (.p12 o .pfx)
-  const certificate = fs.readFileSync('cert.p12');
-  const password = 'password123';
+  const certificate = fs.readFileSync("cert.p12");
+  const password = "password123";
 
   // 2. Modificar el PDF insertando firma digital
   const signer = new PDFSigner(certificate, password);
   const signedFileBuffer = await signer.sign(pdfBuffer, {
     name: metadata.signerName,
-    location: 'Madrid, Spain',
-    reason: 'Firma de contrato',
+    location: "Madrid, Spain",
+    reason: "Firma de contrato",
     contactInfo: metadata.signerEmail,
-    signatureTime: new Date()
+    signatureTime: new Date(),
   });
 
   // 3. El PDF ahora es DIFERENTE (tiene firma incrustada)
   const signedFileHash = calculateHash(signedFileBuffer);
 
   return {
-    signedFileBuffer,  // ← PDF MODIFICADO (mayor tamaño)
+    signedFileBuffer, // ← PDF MODIFICADO (mayor tamaño)
     signedFileHash,
-    metadata
+    metadata,
   };
 }
 ```

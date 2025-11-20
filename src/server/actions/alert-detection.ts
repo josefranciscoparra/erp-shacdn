@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule } from "@/lib/schedule-engine";
+
 import { getOrganizationValidationConfig } from "./time-clock-validations";
 
 // Tipos de incidencias individuales (para detectar)
@@ -54,9 +55,7 @@ function formatMinutes(minutes: number): string {
  * Detecta alertas para un fichaje específico (entrada/salida) en tiempo real
  * Se ejecuta al hacer clockIn() o clockOut()
  */
-export async function detectAlertsForTimeEntry(
-  timeEntryId: string
-): Promise<DetectedAlert[]> {
+export async function detectAlertsForTimeEntry(timeEntryId: string): Promise<DetectedAlert[]> {
   console.log("🔍 [DETECT_ALERTS] Función llamada con timeEntryId:", timeEntryId);
   try {
     const session = await auth();
@@ -70,7 +69,11 @@ export async function detectAlertsForTimeEntry(
 
     // Obtener configuración de validaciones
     const config = await getOrganizationValidationConfig();
-    console.log("⚙️ [DETECT_ALERTS] Config cargada:", { alertsEnabled: config.alertsEnabled, clockInToleranceMinutes: config.clockInToleranceMinutes, criticalLateArrivalMinutes: config.criticalLateArrivalMinutes });
+    console.log("⚙️ [DETECT_ALERTS] Config cargada:", {
+      alertsEnabled: config.alertsEnabled,
+      clockInToleranceMinutes: config.clockInToleranceMinutes,
+      criticalLateArrivalMinutes: config.criticalLateArrivalMinutes,
+    });
 
     if (!config.alertsEnabled) {
       console.log("⏹️ [DETECT_ALERTS] Alertas desactivadas en configuración");
@@ -103,7 +106,7 @@ export async function detectAlertsForTimeEntry(
     // Obtener horario efectivo del día
     const effectiveSchedule = await getEffectiveSchedule(
       timeEntry.employeeId,
-      timeEntry.timestamp // ✅ CORREGIDO: timestamp es el campo correcto
+      timeEntry.timestamp, // ✅ CORREGIDO: timestamp es el campo correcto
     );
 
     console.log("🔍 [ANALYZE] EffectiveSchedule RETORNADO:", {
@@ -112,7 +115,7 @@ export async function detectAlertsForTimeEntry(
       isWorkingDay: effectiveSchedule.isWorkingDay,
       expectedMinutes: effectiveSchedule.expectedMinutes,
       timeSlots: effectiveSchedule.timeSlots,
-      timeSlotsCount: effectiveSchedule.timeSlots?.length
+      timeSlotsCount: effectiveSchedule.timeSlots?.length,
     });
 
     const alerts: DetectedAlert[] = [];
@@ -137,10 +140,14 @@ export async function detectAlertsForTimeEntry(
     console.log("🔍 [ANALYZE] Verificando horario efectivo:", {
       hasTimeSlots: !!effectiveSchedule.timeSlots && effectiveSchedule.timeSlots.length > 0,
       expectedMinutes: effectiveSchedule.expectedMinutes,
-      source: effectiveSchedule.source
+      source: effectiveSchedule.source,
     });
 
-    if (!effectiveSchedule.timeSlots || effectiveSchedule.timeSlots.length === 0 || effectiveSchedule.expectedMinutes === 0) {
+    if (
+      !effectiveSchedule.timeSlots ||
+      effectiveSchedule.timeSlots.length === 0 ||
+      effectiveSchedule.expectedMinutes === 0
+    ) {
       console.log("❌ [ANALYZE] Sin franjas horarias o expectedMinutes === 0, retornando sin alertas");
       return alerts;
     }
@@ -148,19 +155,17 @@ export async function detectAlertsForTimeEntry(
 
     console.log("📝 [ANALYZE] Tipo de fichaje:", {
       entryType: timeEntry.entryType,
-      timestamp: timeEntry.timestamp.toISOString()
+      timestamp: timeEntry.timestamp.toISOString(),
     });
 
     // VALIDACIÓN 1: Entrada tardía (solo para CLOCK_IN)
     if (timeEntry.entryType === "CLOCK_IN") {
-      const firstWorkSlot = effectiveSchedule.timeSlots?.find(
-        (slot) => slot.slotType === "WORK"
-      );
+      const firstWorkSlot = effectiveSchedule.timeSlots?.find((slot) => slot.slotType === "WORK");
 
       console.log("🔍 [ANALYZE] Validando CLOCK_IN - Primera franja de trabajo:", {
         hasTimeSlots: !!effectiveSchedule.timeSlots,
         timeSlotsCount: effectiveSchedule.timeSlots?.length,
-        firstWorkSlot: firstWorkSlot
+        firstWorkSlot: firstWorkSlot,
       });
 
       if (!firstWorkSlot) {
@@ -170,30 +175,23 @@ export async function detectAlertsForTimeEntry(
 
       // Crear fecha con la hora programada de inicio
       const scheduledStartTime = new Date(timeEntry.timestamp);
-      scheduledStartTime.setHours(
-        Math.floor(firstWorkSlot.startMinutes / 60),
-        firstWorkSlot.startMinutes % 60,
-        0,
-        0
-      );
+      scheduledStartTime.setHours(Math.floor(firstWorkSlot.startMinutes / 60), firstWorkSlot.startMinutes % 60, 0, 0);
 
       console.log("⏰ [ANALYZE] Comparación CLOCK_IN:", {
         actualTime: timeEntry.timestamp.toISOString(),
         scheduledTime: scheduledStartTime.toISOString(),
         firstWorkSlotStartMinutes: firstWorkSlot.startMinutes,
-        isLate: timeEntry.timestamp > scheduledStartTime
+        isLate: timeEntry.timestamp > scheduledStartTime,
       });
 
       if (timeEntry.timestamp > scheduledStartTime) {
-        const lateMinutes = Math.round(
-          (timeEntry.timestamp.getTime() - scheduledStartTime.getTime()) / (1000 * 60)
-        );
+        const lateMinutes = Math.round((timeEntry.timestamp.getTime() - scheduledStartTime.getTime()) / (1000 * 60));
 
         console.log("🚨 [ANALYZE] LLEGADA TARDÍA DETECTADA:", {
           lateMinutes,
           criticalThreshold: config.criticalLateArrivalMinutes,
           warningThreshold: config.clockInToleranceMinutes,
-          isCritical: lateMinutes > config.criticalLateArrivalMinutes
+          isCritical: lateMinutes > config.criticalLateArrivalMinutes,
         });
 
         if (lateMinutes > config.criticalLateArrivalMinutes) {
@@ -218,40 +216,31 @@ export async function detectAlertsForTimeEntry(
 
     // VALIDACIÓN 2: Salida temprana (solo para CLOCK_OUT)
     if (timeEntry.entryType === "CLOCK_OUT") {
-      const lastWorkSlot = effectiveSchedule.timeSlots
-        ?.filter((slot) => slot.slotType === "WORK")
-        .pop();
+      const lastWorkSlot = effectiveSchedule.timeSlots?.filter((slot) => slot.slotType === "WORK").pop();
 
       console.log("🔍 [ANALYZE] Validando CLOCK_OUT - Última franja de trabajo:", {
-        lastWorkSlot: lastWorkSlot
+        lastWorkSlot: lastWorkSlot,
       });
 
       if (lastWorkSlot) {
         // Crear fecha con la hora programada de fin
         const scheduledEndTime = new Date(timeEntry.timestamp);
-        scheduledEndTime.setHours(
-          Math.floor(lastWorkSlot.endMinutes / 60),
-          lastWorkSlot.endMinutes % 60,
-          0,
-          0
-        );
+        scheduledEndTime.setHours(Math.floor(lastWorkSlot.endMinutes / 60), lastWorkSlot.endMinutes % 60, 0, 0);
 
         console.log("⏰ [ANALYZE] Comparación CLOCK_OUT:", {
           actualTime: timeEntry.timestamp.toISOString(),
           scheduledTime: scheduledEndTime.toISOString(),
           lastWorkSlotEndMinutes: lastWorkSlot.endMinutes,
-          isEarly: timeEntry.timestamp < scheduledEndTime
+          isEarly: timeEntry.timestamp < scheduledEndTime,
         });
 
         if (timeEntry.timestamp < scheduledEndTime) {
-          const earlyMinutes = Math.round(
-            (scheduledEndTime.getTime() - timeEntry.timestamp.getTime()) / (1000 * 60)
-          );
+          const earlyMinutes = Math.round((scheduledEndTime.getTime() - timeEntry.timestamp.getTime()) / (1000 * 60));
 
           console.log("🚨 [ANALYZE] SALIDA TEMPRANA DETECTADA:", {
             earlyMinutes,
             criticalThreshold: config.criticalEarlyDepartureMinutes,
-            warningThreshold: config.clockOutToleranceMinutes
+            warningThreshold: config.clockOutToleranceMinutes,
           });
 
           if (earlyMinutes > config.criticalEarlyDepartureMinutes) {
@@ -291,10 +280,7 @@ export async function detectAlertsForTimeEntry(
  * Detecta alertas para un día completo de un empleado (batch processing)
  * Se ejecuta en el cron job diario a las 23:00
  */
-export async function detectAlertsForDate(
-  employeeId: string,
-  date: Date
-): Promise<DetectedAlert[]> {
+export async function detectAlertsForDate(employeeId: string, date: Date): Promise<DetectedAlert[]> {
   try {
     const session = await auth();
 
@@ -424,10 +410,7 @@ export async function detectAlertsForDate(
         }
 
         // Horas excesivas
-        if (
-          workdaySummary.totalWorkedMinutes &&
-          workdaySummary.totalWorkedMinutes > 12 * 60
-        ) {
+        if (workdaySummary.totalWorkedMinutes && workdaySummary.totalWorkedMinutes > 12 * 60) {
           alerts.push({
             type: "EXCESSIVE_HOURS",
             severity: "WARNING",
@@ -458,7 +441,7 @@ async function saveDetectedAlerts(
   employeeId: string,
   date: Date,
   alerts: DetectedAlert[],
-  timeEntryId?: string
+  timeEntryId?: string,
 ): Promise<void> {
   try {
     const session = await auth();
@@ -532,17 +515,14 @@ async function saveDetectedAlerts(
         if (incident.type === "NON_WORKDAY_CLOCK_IN") acc.nonWorkdayClockIns++;
         return acc;
       },
-      { lateArrivals: 0, earlyDepartures: 0, nonWorkdayClockIns: 0 }
+      { lateArrivals: 0, earlyDepartures: 0, nonWorkdayClockIns: 0 },
     );
 
     // Construir descripción resumen
     const parts: string[] = [];
-    if (counts.lateArrivals > 0)
-      parts.push(`Llegadas tarde: ${counts.lateArrivals}`);
-    if (counts.earlyDepartures > 0)
-      parts.push(`Salidas tempranas: ${counts.earlyDepartures}`);
-    if (counts.nonWorkdayClockIns > 0)
-      parts.push(`Fichajes en día no laborable: ${counts.nonWorkdayClockIns}`);
+    if (counts.lateArrivals > 0) parts.push(`Llegadas tarde: ${counts.lateArrivals}`);
+    if (counts.earlyDepartures > 0) parts.push(`Salidas tempranas: ${counts.earlyDepartures}`);
+    if (counts.nonWorkdayClockIns > 0) parts.push(`Fichajes en día no laborable: ${counts.nonWorkdayClockIns}`);
 
     const description = parts.join(", ");
     const title = `Resumen del día: ${allIncidents.length} incidencia${allIncidents.length > 1 ? "s" : ""}`;
@@ -654,10 +634,7 @@ export async function getActiveAlerts(filters?: {
 /**
  * Resuelve una alerta
  */
-export async function resolveAlert(
-  alertId: string,
-  comment?: string
-): Promise<{ success: boolean }> {
+export async function resolveAlert(alertId: string, comment?: string): Promise<{ success: boolean }> {
   "use server";
 
   try {
@@ -696,10 +673,7 @@ export async function resolveAlert(
 /**
  * Descarta una alerta
  */
-export async function dismissAlert(
-  alertId: string,
-  comment?: string
-): Promise<{ success: boolean }> {
+export async function dismissAlert(alertId: string, comment?: string): Promise<{ success: boolean }> {
   "use server";
 
   try {
@@ -754,23 +728,22 @@ export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
       ...(dateTo && { date: { lte: dateTo } }),
     };
 
-    const [total, active, resolved, dismissed, bySeverity, byType] =
-      await Promise.all([
-        prisma.alert.count({ where }),
-        prisma.alert.count({ where: { ...where, status: "ACTIVE" } }),
-        prisma.alert.count({ where: { ...where, status: "RESOLVED" } }),
-        prisma.alert.count({ where: { ...where, status: "DISMISSED" } }),
-        prisma.alert.groupBy({
-          by: ["severity"],
-          where,
-          _count: true,
-        }),
-        prisma.alert.groupBy({
-          by: ["type"],
-          where,
-          _count: true,
-        }),
-      ]);
+    const [total, active, resolved, dismissed, bySeverity, byType] = await Promise.all([
+      prisma.alert.count({ where }),
+      prisma.alert.count({ where: { ...where, status: "ACTIVE" } }),
+      prisma.alert.count({ where: { ...where, status: "RESOLVED" } }),
+      prisma.alert.count({ where: { ...where, status: "DISMISSED" } }),
+      prisma.alert.groupBy({
+        by: ["severity"],
+        where,
+        _count: true,
+      }),
+      prisma.alert.groupBy({
+        by: ["type"],
+        where,
+        _count: true,
+      }),
+    ]);
 
     return {
       total,
@@ -799,12 +772,12 @@ export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
 export async function getEmployeeAlertsByDateRange(
   employeeId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
 ): Promise<Record<string, { total: number; bySeverity: Record<string, number> }>> {
   "use server";
 
   try {
-    const session = await getServerSession(authOptions);
+    const session = await auth();
     if (!session?.user?.orgId) {
       throw new Error("Usuario no autenticado o sin organización");
     }
@@ -840,8 +813,7 @@ export async function getEmployeeAlertsByDateRange(
       }
 
       result[dateKey].total++;
-      result[dateKey].bySeverity[alert.severity] =
-        (result[dateKey].bySeverity[alert.severity] || 0) + 1;
+      result[dateKey].bySeverity[alert.severity] = (result[dateKey].bySeverity[alert.severity] || 0) + 1;
     }
 
     return result;

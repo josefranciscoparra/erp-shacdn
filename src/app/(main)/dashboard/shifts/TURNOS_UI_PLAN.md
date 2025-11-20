@@ -3,13 +3,16 @@
 ## 📋 Resumen Ejecutivo
 
 ### Objetivo
+
 Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de Turnos Rotativos** de TimeNow, orientado a sectores de retail y hospitality (tiendas, hoteles, restaurantes, gimnasios). Esta implementación incluye únicamente la capa de presentación con datos mock desacoplados, lista para integrar con backend real posteriormente.
 
 ### Alcance
+
 - ✅ **SÍ incluye**: UI completa, interacciones (drag & drop), validaciones visuales, datos mock en memoria
 - ❌ **NO incluye**: Base de datos, migraciones Prisma, API real, persistencia, lógica de negocio real
 
 ### Sectores Objetivo
+
 - **Retail**: Tiendas con horarios cambiantes, turnos de mañana/tarde/noche
 - **Hospitality**: Hoteles (recepción, limpieza), restaurantes (cocina, barra, sala), gimnasios
 - **Estructura genérica**: Lugares → Zonas → Empleados asignados a turnos
@@ -21,6 +24,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### 1. Integración con Sistema Existente
 
 #### Campo de Activación de Turnos
+
 - **Decisión**: Añadir campo `usesShiftSystem: boolean` al modelo `Employee`
 - **Razón**: Permite que empleados individuales elijan entre:
   - Jornada fija tradicional (sistema actual)
@@ -28,6 +32,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 - **Implementación**: Solo en tipos TypeScript mock, NO migración Prisma aún
 
 #### Lugares de Trabajo
+
 - **Decisión**: Reutilizar modelo `CostCenter` existente como "Lugares"
 - **Razón**: Evita duplicación, CostCenter ya tiene nombre, dirección, timezone
 - **Mapeo**:
@@ -37,6 +42,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### 2. Desacoplamiento de Mocks
 
 #### Arquitectura en Capas
+
 ```
 ┌─────────────────────────────────────┐
 │  Componentes UI (React)             │ ← NO tocan mocks directamente
@@ -50,6 +56,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ```
 
 #### Ventajas
+
 - Componentes UI no conocen el mock
 - Cambiar a API real: modificar 1 línea en el store
 - Tests: inyectar mock diferente sin tocar UI
@@ -58,6 +65,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### 3. Validaciones
 
 #### Estrategia: Solo Warnings Visuales
+
 - **Decisión**: Validaciones NO bloquean guardado, solo advierten
 - **Razón**: Flexibilidad operativa (situaciones especiales, urgencias)
 - **Implementación**:
@@ -75,6 +83,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ## 🗺️ Mapa de Pantallas y Flujos
 
 ### Navegación Principal
+
 ```
 /dashboard/shifts (Cuadrante) ─┬─ Vista: Semana por Empleado (default)
                                ├─ Vista: Mes por Empleado
@@ -88,6 +97,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### Pantalla 1: Cuadrante - Vista Semana por Empleado
 
 **Layout**:
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │ [Filtros: Lugar | Zona | Rol | Estado] [Semana: ◀ Nov 11-17 ▶] │
@@ -104,6 +114,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ```
 
 **Funcionalidades**:
+
 - ✅ Grid responsive con scroll horizontal/vertical
 - ✅ Cada celda vacía muestra botón `+` al hover
 - ✅ Turnos son bloques visuales (drag & drop con dnd-kit)
@@ -118,6 +129,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### Pantalla 2: Cuadrante - Vista Mes por Empleado
 
 **Layout**: Similar a vista semanal pero más compacto
+
 - Columnas: 30 días (scroll horizontal)
 - Celdas: Resumen `8-16h` en lugar de bloques grandes
 - Contadores: Total mensual de horas por empleado
@@ -125,6 +137,7 @@ Crear interfaz de usuario completa y funcional para el **Módulo de Gestión de 
 ### Pantalla 3: Cuadrante - Vista Semana por Áreas
 
 **Layout**:
+
 ```
 ┌────────────────────────────────────────────────────────────┐
 │                Lun 11      Mar 12      Mié 13    ...       │
@@ -138,6 +151,7 @@ Leyenda: [Asignados/Requeridos]
 ```
 
 **Funcionalidades**:
+
 - ✅ Heatmap visual: color de fondo según ratio asignados/requeridos
   - 🟢 Verde: >= requeridos
   - 🟡 Ámbar: 70-99% de requeridos
@@ -148,6 +162,7 @@ Leyenda: [Asignados/Requeridos]
 ### Pantalla 4: Modal Crear/Editar Turno
 
 **Campos**:
+
 ```
 ┌─────────────────────────────────────┐
 │ Crear Turno                     [X] │
@@ -170,12 +185,14 @@ Leyenda: [Asignados/Requeridos]
 ```
 
 **Validaciones Visuales** (warnings, no bloquean):
+
 - ⚠️ **Ausencia**: "Empleado en vacaciones del 20-25 Nov"
 - ⚠️ **Solapamiento**: "Ya tiene turno 09:00-17:00 este día"
 - ⚠️ **Descanso mínimo**: "Menos de 12h desde último turno"
 - ⚠️ **Horas semanales**: "Excede 150% de jornada semanal"
 
 **Estados del Turno**:
+
 - `draft`: Borrador (gris)
 - `published`: Publicado (azul)
 - `conflict`: Con conflicto (rojo con ⚠️)
@@ -183,6 +200,7 @@ Leyenda: [Asignados/Requeridos]
 ### Pantalla 5: Plantillas
 
 **Tabla de Plantillas**:
+
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ Nombre                Patrón           Duración  Acciones│
@@ -195,6 +213,7 @@ Leyenda: [Asignados/Requeridos]
 ```
 
 **Modal Aplicar Plantilla**:
+
 ```
 ┌─────────────────────────────────────┐
 │ Aplicar Plantilla               [X] │
@@ -218,6 +237,7 @@ Leyenda: [Asignados/Requeridos]
 ### Pantalla 6: Configuración - Zonas de Trabajo
 
 **CRUD de Zonas**:
+
 ```
 ┌──────────────────────────────────────────────────────────┐
 │ Zonas de Trabajo                                         │
@@ -233,6 +253,7 @@ Leyenda: [Asignados/Requeridos]
 ```
 
 **Modal Crear/Editar Zona**:
+
 - Nombre, Lugar (CostCenter), Activo
 - Cobertura requerida (JSON mock): `{ morning: 2, afternoon: 3, night: 1 }`
 
@@ -241,12 +262,14 @@ Leyenda: [Asignados/Requeridos]
 ## 🎨 Decisiones de UX/UI
 
 ### Principios de Diseño
+
 1. **Consistencia**: Seguir patrón establecido en `/dashboard/default`
 2. **Feedback inmediato**: Toasts, badges, colores semánticos
 3. **Accesibilidad**: Navegación por teclado, ARIA labels, contraste WCAG AA
 4. **Responsive**: Móvil (stack vertical), Tablet (grid 2 cols), Desktop (grid completo)
 
 ### Paleta de Colores (Variables CSS existentes)
+
 - **Estados turnos**:
   - Draft: `bg-muted` (gris)
   - Published: `bg-primary/10 border-primary` (azul)
@@ -261,12 +284,14 @@ Leyenda: [Asignados/Requeridos]
   - 🔴 Rojo: `text-red-600`
 
 ### Componentes shadcn/ui Utilizados
+
 - `DataTable`, `Tabs`, `Select`, `Calendar`, `Badge`
 - `Dialog`, `Form`, `Input`, `Button`, `Card`
 - `Tooltip`, `DropdownMenu`, `Switch`, `Toast`
 - `Alert`, `Skeleton` (loading states)
 
 ### Interacciones Drag & Drop
+
 - **Librería**: `@dnd-kit/core` (ya instalada en proyecto)
 - **Drag**: Turno completo se arrastra a otra celda (empleado/día)
 - **Resize**: Esquinas del bloque de turno para cambiar duración
@@ -276,7 +301,9 @@ Leyenda: [Asignados/Requeridos]
   - Celda destino inválida: `border-2 border-dashed border-destructive`
 
 ### Estados Vacíos
+
 Cada vista sin datos muestra:
+
 - Icono ilustrativo (Lucide React)
 - Mensaje claro: "No hay turnos para esta semana"
 - CTA: "Crear primer turno" o "Aplicar plantilla"
@@ -286,64 +313,74 @@ Cada vista sin datos muestra:
 ## 🧩 Componentes Clave y Responsabilidades
 
 ### 1. `shifts-view-selector.tsx`
+
 **Responsabilidad**: Toggle vista (Semana/Mes) + Modo (Empleado/Área)
 **Props**:
+
 ```typescript
 interface ShiftsViewSelectorProps {
-  view: 'week' | 'month'
-  mode: 'employee' | 'area'
-  onViewChange: (view: 'week' | 'month') => void
-  onModeChange: (mode: 'employee' | 'area') => void
+  view: "week" | "month";
+  mode: "employee" | "area";
+  onViewChange: (view: "week" | "month") => void;
+  onModeChange: (mode: "employee" | "area") => void;
 }
 ```
 
 ### 2. `shifts-filters-bar.tsx`
+
 **Responsabilidad**: Filtros (Lugar, Zona, Rol, Estado) + Navegación semana
 **Props**:
+
 ```typescript
 interface ShiftsFiltersBarProps {
-  filters: ShiftFilters
-  onFiltersChange: (filters: Partial<ShiftFilters>) => void
-  currentWeek: Date
-  onWeekChange: (date: Date) => void
+  filters: ShiftFilters;
+  onFiltersChange: (filters: Partial<ShiftFilters>) => void;
+  currentWeek: Date;
+  onWeekChange: (date: Date) => void;
 }
 ```
 
 ### 3. `calendar-week-employee.tsx`
+
 **Responsabilidad**: Grid semanal, drag & drop, mostrar turnos por empleado
 **Props**:
+
 ```typescript
 interface CalendarWeekEmployeeProps {
-  shifts: Shift[]
-  employees: Employee[]
-  weekStart: Date
-  onShiftMove: (shiftId: string, newEmployeeId: string, newDate: Date) => void
-  onShiftResize: (shiftId: string, newStart: string, newEnd: string) => void
-  onShiftClick: (shift: Shift) => void
-  onCreateShift: (employeeId: string, date: Date) => void
+  shifts: Shift[];
+  employees: Employee[];
+  weekStart: Date;
+  onShiftMove: (shiftId: string, newEmployeeId: string, newDate: Date) => void;
+  onShiftResize: (shiftId: string, newStart: string, newEnd: string) => void;
+  onShiftClick: (shift: Shift) => void;
+  onCreateShift: (employeeId: string, date: Date) => void;
 }
 ```
 
 ### 4. `shift-block.tsx`
+
 **Responsabilidad**: Bloque visual de turno (draggable, resizable)
 **Props**:
+
 ```typescript
 interface ShiftBlockProps {
-  shift: Shift
-  onClick: () => void
-  isDragging?: boolean
+  shift: Shift;
+  onClick: () => void;
+  isDragging?: boolean;
 }
 ```
 
 ### 5. `shift-dialog.tsx`
+
 **Responsabilidad**: Modal crear/editar turno con validaciones visuales
 **Props**:
+
 ```typescript
 interface ShiftDialogProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  shift?: Shift // undefined = crear, definido = editar
-  onSave: (data: ShiftInput) => Promise<void>
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  shift?: Shift; // undefined = crear, definido = editar
+  onSave: (data: ShiftInput) => Promise<void>;
 }
 ```
 
@@ -392,31 +429,34 @@ src/app/(main)/dashboard/shifts/
 ### Cambio de Mock a API Real (3 pasos)
 
 #### Paso 1: Crear implementación real
+
 ```typescript
 // shift-service.api.ts
 export class ShiftServiceAPI implements IShiftService {
   async getShifts(filters: ShiftFilters): Promise<Shift[]> {
-    const response = await fetch('/api/shifts', {
-      method: 'POST',
+    const response = await fetch("/api/shifts", {
+      method: "POST",
       body: JSON.stringify(filters),
-      credentials: 'include',
-    })
-    return response.json()
+      credentials: "include",
+    });
+    return response.json();
   }
   // ... resto de métodos
 }
 ```
 
 #### Paso 2: Cambiar import en store (1 línea)
+
 ```typescript
 // shifts-store.tsx
 // ANTES:
-import { shiftService } from '@/lib/shift-service.mock'
+import { shiftService } from "@/lib/shift-service.mock";
 // DESPUÉS:
-import { shiftService } from '@/lib/shift-service.api'
+import { shiftService } from "@/lib/shift-service.api";
 ```
 
 #### Paso 3: Listo ✅
+
 - Los componentes NO se tocan
 - La UI sigue funcionando igual
 - Ahora con datos reales
@@ -426,6 +466,7 @@ import { shiftService } from '@/lib/shift-service.api'
 ## ✅ Criterios de Aceptación (Checklist)
 
 ### Funcionalidad Core
+
 - [ ] Puedo crear un turno desde celda vacía (click +)
 - [ ] Puedo editar un turno existente (click en bloque)
 - [ ] Puedo eliminar un turno (botón en modal)
@@ -436,6 +477,7 @@ import { shiftService } from '@/lib/shift-service.api'
 - [ ] Navegación semana anterior/siguiente funciona
 
 ### Vistas
+
 - [ ] Vista Semana por Empleado muestra grid correctamente
 - [ ] Vista Mes por Empleado muestra resúmenes compactos
 - [ ] Vista Semana por Área muestra heatmap asignados/requeridos
@@ -444,34 +486,40 @@ import { shiftService } from '@/lib/shift-service.api'
 - [ ] Estados vacíos con iconos y CTAs en todas vistas
 
 ### Validaciones y Conflictos
+
 - [ ] Turnos conflictivos muestran badge ⚠️ rojo
 - [ ] Click en badge muestra tooltip con detalle del conflicto
 - [ ] Warnings por: solapamiento, descanso mínimo, ausencia, horas excedidas
 - [ ] Validaciones NO bloquean guardado (solo advierten)
 
 ### Plantillas
+
 - [ ] Puedo listar plantillas en tabla
 - [ ] Puedo aplicar plantilla a múltiples empleados
 - [ ] Modal aplicar plantilla muestra vista previa
 - [ ] Aplicar plantilla crea turnos mock correctamente
 
 ### Publicación
+
 - [ ] Botón Publicar cambia turnos de draft → published
 - [ ] Toast de confirmación "X turnos publicados"
 - [ ] Badge visual diferencia draft vs published
 
 ### Configuración
+
 - [ ] Puedo crear/editar/eliminar zonas de trabajo
 - [ ] Zonas se vinculan a lugares (CostCenters)
 - [ ] Cambios en zonas reflejan en selectores
 
 ### Desacoplamiento
+
 - [ ] Componentes NO importan shift-service.mock directamente
 - [ ] Store usa interfaz IShiftService
 - [ ] Puedo cambiar a API real modificando 1 línea
 - [ ] Código limpio, sin lógica mock en componentes
 
 ### UX y Accesibilidad
+
 - [ ] Navegación por teclado funciona (Tab, Enter, Esc)
 - [ ] Roles ARIA correctos en grids y modales
 - [ ] Contraste de colores WCAG AA
@@ -485,152 +533,157 @@ import { shiftService } from '@/lib/shift-service.api'
 ## 📊 Datos Mock - Semilla Inicial
 
 ### CostCenters (Lugares) - Reutilizar existentes
+
 ```typescript
 const MOCK_COST_CENTERS = [
-  { id: 'cc1', name: 'Hotel Centro Madrid', timezone: 'Europe/Madrid' },
-  { id: 'cc2', name: 'Restaurante Plaza Mayor', timezone: 'Europe/Madrid' },
-  { id: 'cc3', name: 'Tienda Gran Vía', timezone: 'Europe/Madrid' },
-]
+  { id: "cc1", name: "Hotel Centro Madrid", timezone: "Europe/Madrid" },
+  { id: "cc2", name: "Restaurante Plaza Mayor", timezone: "Europe/Madrid" },
+  { id: "cc3", name: "Tienda Gran Vía", timezone: "Europe/Madrid" },
+];
 ```
 
 ### Zonas de Trabajo
+
 ```typescript
 const MOCK_ZONES = [
   {
-    id: 'z1',
-    name: 'Recepción',
-    costCenterId: 'cc1',
+    id: "z1",
+    name: "Recepción",
+    costCenterId: "cc1",
     requiredCoverage: { morning: 2, afternoon: 2, night: 1 },
-    active: true
+    active: true,
   },
   {
-    id: 'z2',
-    name: 'Limpieza',
-    costCenterId: 'cc1',
+    id: "z2",
+    name: "Limpieza",
+    costCenterId: "cc1",
     requiredCoverage: { morning: 3, afternoon: 1, night: 0 },
-    active: true
+    active: true,
   },
   {
-    id: 'z3',
-    name: 'Cocina',
-    costCenterId: 'cc2',
+    id: "z3",
+    name: "Cocina",
+    costCenterId: "cc2",
     requiredCoverage: { morning: 3, afternoon: 4, night: 2 },
-    active: true
+    active: true,
   },
   {
-    id: 'z4',
-    name: 'Barra',
-    costCenterId: 'cc2',
+    id: "z4",
+    name: "Barra",
+    costCenterId: "cc2",
     requiredCoverage: { morning: 2, afternoon: 3, night: 2 },
-    active: true
+    active: true,
   },
   {
-    id: 'z5',
-    name: 'Sala',
-    costCenterId: 'cc2',
+    id: "z5",
+    name: "Sala",
+    costCenterId: "cc2",
     requiredCoverage: { morning: 2, afternoon: 4, night: 3 },
-    active: true
+    active: true,
   },
   {
-    id: 'z6',
-    name: 'Caja',
-    costCenterId: 'cc3',
+    id: "z6",
+    name: "Caja",
+    costCenterId: "cc3",
     requiredCoverage: { morning: 2, afternoon: 2, night: 1 },
-    active: true
+    active: true,
   },
   {
-    id: 'z7',
-    name: 'Almacén',
-    costCenterId: 'cc3',
+    id: "z7",
+    name: "Almacén",
+    costCenterId: "cc3",
     requiredCoverage: { morning: 1, afternoon: 1, night: 0 },
-    active: true
+    active: true,
   },
-]
+];
 ```
 
 ### Empleados
+
 ```typescript
 const MOCK_EMPLOYEES = [
   {
-    id: 'e1',
-    firstName: 'Juan',
-    lastName: 'Pérez',
+    id: "e1",
+    firstName: "Juan",
+    lastName: "Pérez",
     contractHours: 40,
     usesShiftSystem: true,
-    costCenterId: 'cc1',
-    absences: [{ start: '2025-11-20', end: '2025-11-25', reason: 'Vacaciones' }]
+    costCenterId: "cc1",
+    absences: [{ start: "2025-11-20", end: "2025-11-25", reason: "Vacaciones" }],
   },
   {
-    id: 'e2',
-    firstName: 'María',
-    lastName: 'García',
+    id: "e2",
+    firstName: "María",
+    lastName: "García",
     contractHours: 40,
     usesShiftSystem: true,
-    costCenterId: 'cc1',
-    absences: []
+    costCenterId: "cc1",
+    absences: [],
   },
   {
-    id: 'e3',
-    firstName: 'Carlos',
-    lastName: 'López',
+    id: "e3",
+    firstName: "Carlos",
+    lastName: "López",
     contractHours: 30,
     usesShiftSystem: true,
-    costCenterId: 'cc2',
-    absences: []
+    costCenterId: "cc2",
+    absences: [],
   },
   // ... 10-15 empleados totales
-]
+];
 ```
 
 ### Turnos (Semana Actual)
+
 ```typescript
 const MOCK_SHIFTS = [
   {
-    id: 's1',
-    employeeId: 'e1',
-    date: '2025-11-18',
-    startTime: '08:00',
-    endTime: '16:00',
-    costCenterId: 'cc1',
-    zoneId: 'z1',
-    role: 'Turno mañana',
-    status: 'published',
-    notes: '',
+    id: "s1",
+    employeeId: "e1",
+    date: "2025-11-18",
+    startTime: "08:00",
+    endTime: "16:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Turno mañana",
+    status: "published",
+    notes: "",
   },
   {
-    id: 's2',
-    employeeId: 'e1',
-    date: '2025-11-19',
-    startTime: '09:00',
-    endTime: '17:00',
-    costCenterId: 'cc1',
-    zoneId: 'z1',
-    role: 'Turno mañana',
-    status: 'published',
-    notes: '',
+    id: "s2",
+    employeeId: "e1",
+    date: "2025-11-19",
+    startTime: "09:00",
+    endTime: "17:00",
+    costCenterId: "cc1",
+    zoneId: "z1",
+    role: "Turno mañana",
+    status: "published",
+    notes: "",
   },
   // ... 30-50 turnos para semana actual
-]
+];
 ```
 
 ### Plantillas
+
 ```typescript
 const MOCK_TEMPLATES = [
   {
-    id: 't1',
-    name: 'Rotativo Mañana-Tarde-Noche-Descanso',
-    pattern: ['morning', 'afternoon', 'night', 'off'],
+    id: "t1",
+    name: "Rotativo Mañana-Tarde-Noche-Descanso",
+    pattern: ["morning", "afternoon", "night", "off"],
     shiftDuration: 8, // horas
-    description: 'Rotación clásica 4 días: M→T→N→D',
+    description: "Rotación clásica 4 días: M→T→N→D",
   },
   {
-    id: 't2',
-    name: 'Fines de Semana',
-    pattern: ['saturday', 'sunday', 'off', 'off'],
+    id: "t2",
+    name: "Fines de Semana",
+    pattern: ["saturday", "sunday", "off", "off"],
     shiftDuration: 10, // horas
-    description: 'Solo sábados y domingos',
+    description: "Solo sábados y domingos",
   },
-]
+];
 ```
 
 ---
@@ -638,6 +691,7 @@ const MOCK_TEMPLATES = [
 ## 🎨 Guía de Estilos y Componentes
 
 ### Colores Semánticos (Variables CSS)
+
 ```css
 /* Estados turnos */
 --shift-draft: hsl(var(--muted));
@@ -645,17 +699,18 @@ const MOCK_TEMPLATES = [
 --shift-conflict: hsl(var(--destructive) / 0.1);
 
 /* Heatmap */
---heatmap-ok: hsl(142 76% 90%);        /* Emerald 100 */
---heatmap-warning: hsl(43 96% 90%);    /* Amber 100 */
---heatmap-danger: hsl(0 93% 94%);      /* Red 100 */
+--heatmap-ok: hsl(142 76% 90%); /* Emerald 100 */
+--heatmap-warning: hsl(43 96% 90%); /* Amber 100 */
+--heatmap-danger: hsl(0 93% 94%); /* Red 100 */
 
 /* Semáforo horas */
---traffic-green: hsl(142 71% 45%);     /* Emerald 600 */
---traffic-amber: hsl(32 95% 44%);      /* Amber 600 */
---traffic-red: hsl(0 72% 51%);         /* Red 600 */
+--traffic-green: hsl(142 71% 45%); /* Emerald 600 */
+--traffic-amber: hsl(32 95% 44%); /* Amber 600 */
+--traffic-red: hsl(0 72% 51%); /* Red 600 */
 ```
 
 ### Componentes Reutilizables (ya existentes)
+
 - **SectionHeader**: Título + botón acción (de `/components/hr/section-header.tsx`)
 - **EmptyState**: Estado vacío con icono (de `/components/hr/empty-state.tsx`)
 - **DataTable**: Tabla profesional (de `/components/data-table/`)
@@ -667,6 +722,7 @@ const MOCK_TEMPLATES = [
 ## ♿ Notas de Accesibilidad
 
 ### Navegación por Teclado
+
 - **Tab**: Navegar entre filtros, turnos, botones
 - **Enter**: Abrir modal editar turno
 - **Escape**: Cerrar modales
@@ -674,6 +730,7 @@ const MOCK_TEMPLATES = [
 - **Space**: Seleccionar opciones en combos
 
 ### ARIA Labels
+
 ```tsx
 // Ejemplo grid calendario
 <div
@@ -701,6 +758,7 @@ const MOCK_TEMPLATES = [
 ```
 
 ### Contraste y Legibilidad
+
 - Texto sobre fondos: ratio mínimo 4.5:1 (WCAG AA)
 - Iconos informativos + texto alternativo
 - Estados visuales NO solo por color (usar iconos + texto)
@@ -710,16 +768,18 @@ const MOCK_TEMPLATES = [
 ## ⚡ Notas de Rendimiento
 
 ### Optimizaciones
+
 - **Virtualización**: Si > 50 empleados, usar `@tanstack/react-virtual`
 - **Memoización**: `useMemo` para cálculos pesados (validaciones, totales)
 - **React.memo**: Componentes `ShiftBlock`, `CalendarCell`
 - **Debounce**: Filtros con delay 300ms para evitar renders innecesarios
 
 ### Lazy Loading
+
 ```tsx
 // Cargar vistas solo cuando se activan
-const CalendarWeekArea = lazy(() => import('./calendar-week-area'))
-const TemplatesTable = lazy(() => import('./templates-table'))
+const CalendarWeekArea = lazy(() => import("./calendar-week-area"));
+const TemplatesTable = lazy(() => import("./templates-table"));
 ```
 
 ---
@@ -727,12 +787,14 @@ const TemplatesTable = lazy(() => import('./templates-table'))
 ## 🚀 Próximos Pasos (Fuera de Alcance)
 
 ### Sprint 2: Backend Real
+
 1. Migraciones Prisma: `Shift`, `Zone`, `ShiftTemplate`, `usesShiftSystem` en Employee
 2. Server Actions: CRUD turnos, validaciones reales
 3. Integración con absencias (PtoRequest)
 4. Sistema de notificaciones (publicación de turnos)
 
 ### Sprint 3: Funcionalidades Avanzadas
+
 1. Aprobación de turnos (workflow)
 2. Solicitudes de cambio de turno entre empleados
 3. Exportación de cuadrantes (PDF, Excel)
@@ -744,6 +806,7 @@ const TemplatesTable = lazy(() => import('./templates-table'))
 ## 📝 Changelog y Versiones
 
 ### v0.1.0 - UI Mock Inicial (Actual)
+
 - ✅ Documento de plan completo
 - ⏳ Implementación de UI con mocks desacoplados
 - ⏳ Vistas: Semana/Mes por Empleado, Semana por Área
@@ -753,12 +816,14 @@ const TemplatesTable = lazy(() => import('./templates-table'))
 - ⏳ Configuración de zonas
 
 ### v0.2.0 - Backend Real (Futuro)
+
 - [ ] Migraciones Prisma
 - [ ] API real con Server Actions
 - [ ] Persistencia en base de datos
 - [ ] Integración con ausencias
 
 ### v1.0.0 - Producción (Futuro)
+
 - [ ] Sistema de aprobación
 - [ ] Notificaciones push
 - [ ] Reportes avanzados

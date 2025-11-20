@@ -187,16 +187,16 @@ alertNotificationRoles        String[] @default(["RRHH"]) // Roles notificados
 
 ### 2.1 Tipos de Alertas
 
-| Tipo | Severidad | Descripción |
-|------|-----------|-------------|
-| `LATE_ARRIVAL` | WARNING | Llegada tarde dentro de tolerancia (15-30min) |
-| `CRITICAL_LATE_ARRIVAL` | CRITICAL | Llegada tarde fuera de tolerancia (>30min) |
-| `EARLY_DEPARTURE` | WARNING | Salida temprana dentro de tolerancia (15-30min) |
-| `CRITICAL_EARLY_DEPARTURE` | CRITICAL | Salida temprana fuera de tolerancia (>30min) |
-| `MISSING_CLOCK_IN` | CRITICAL | Falta fichaje de entrada en día laborable |
-| `MISSING_CLOCK_OUT` | WARNING | Falta fichaje de salida |
-| `EXCESSIVE_HOURS` | WARNING | Más de 12 horas trabajadas en un día |
-| `NON_WORKDAY_CLOCK_IN` | WARNING | Fichaje en día no laborable |
+| Tipo                       | Severidad | Descripción                                     |
+| -------------------------- | --------- | ----------------------------------------------- |
+| `LATE_ARRIVAL`             | WARNING   | Llegada tarde dentro de tolerancia (15-30min)   |
+| `CRITICAL_LATE_ARRIVAL`    | CRITICAL  | Llegada tarde fuera de tolerancia (>30min)      |
+| `EARLY_DEPARTURE`          | WARNING   | Salida temprana dentro de tolerancia (15-30min) |
+| `CRITICAL_EARLY_DEPARTURE` | CRITICAL  | Salida temprana fuera de tolerancia (>30min)    |
+| `MISSING_CLOCK_IN`         | CRITICAL  | Falta fichaje de entrada en día laborable       |
+| `MISSING_CLOCK_OUT`        | WARNING   | Falta fichaje de salida                         |
+| `EXCESSIVE_HOURS`          | WARNING   | Más de 12 horas trabajadas en un día            |
+| `NON_WORKDAY_CLOCK_IN`     | WARNING   | Fichaje en día no laborable                     |
 
 ### 2.2 Detección en Tiempo Real
 
@@ -222,6 +222,7 @@ Se ejecuta automáticamente al hacer clockIn/clockOut:
 ```
 
 **Ejemplo de uso:**
+
 ```typescript
 // En clockOut() después de guardar fichaje
 const alerts = await detectAlertsForTimeEntry(timeEntry.id);
@@ -271,6 +272,7 @@ await prisma.alert.upsert({
 ```
 
 **Ventajas:**
+
 - Evita alertas duplicadas si se ejecuta detección múltiples veces
 - Permite actualizar alertas existentes con nueva información
 - Mantiene historial limpio y consistente
@@ -283,12 +285,12 @@ await prisma.alert.upsert({
 
 ```typescript
 const alerts = await getActiveAlerts({
-  employeeId: "...",       // Filtrar por empleado
-  costCenterId: "...",     // Filtrar por centro de coste
-  severity: "CRITICAL",    // Filtrar por severidad
-  type: "LATE_ARRIVAL",    // Filtrar por tipo
-  dateFrom: new Date(),    // Desde fecha
-  dateTo: new Date(),      // Hasta fecha
+  employeeId: "...", // Filtrar por empleado
+  costCenterId: "...", // Filtrar por centro de coste
+  severity: "CRITICAL", // Filtrar por severidad
+  type: "LATE_ARRIVAL", // Filtrar por tipo
+  dateFrom: new Date(), // Desde fecha
+  dateTo: new Date(), // Hasta fecha
 });
 
 // Retorna: Alert[] con employee y costCenter incluidos
@@ -397,7 +399,7 @@ const handleClockIn = async () => {
 
   if (result.alerts && result.alerts.length > 0) {
     // Mostrar toast con alertas generadas
-    result.alerts.forEach(alert => {
+    result.alerts.forEach((alert) => {
       toast({
         title: alert.title,
         description: alert.description,
@@ -418,9 +420,9 @@ const handleClockIn = async () => {
 // /src/app/api/cron/detect-alerts/route.ts
 export async function GET(request: Request) {
   // Verificar API key para seguridad
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response('Unauthorized', { status: 401 });
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Obtener todos los empleados activos
@@ -437,7 +439,7 @@ export async function GET(request: Request) {
     await detectAlertsForDate(employee.id, yesterday);
   }
 
-  return new Response('OK', { status: 200 });
+  return new Response("OK", { status: 200 });
 }
 ```
 
@@ -446,10 +448,12 @@ export async function GET(request: Request) {
 ```json
 // vercel.json
 {
-  "crons": [{
-    "path": "/api/cron/detect-alerts",
-    "schedule": "0 23 * * *"  // 23:00 todos los días
-  }]
+  "crons": [
+    {
+      "path": "/api/cron/detect-alerts",
+      "schedule": "0 23 * * *" // 23:00 todos los días
+    }
+  ]
 }
 ```
 
@@ -460,6 +464,7 @@ export async function GET(request: Request) {
 ### 6.1 Contexto Activo para Usuarios Multi-Ámbito
 
 Un usuario puede tener múltiples responsabilidades:
+
 - RRHH → Ámbito ORGANIZATION (ve todo)
 - Manager Centro A → Ámbito COST_CENTER (ve solo su centro)
 - Manager Centro B → Ámbito COST_CENTER (ve solo su centro)
@@ -469,8 +474,8 @@ Un usuario puede tener múltiples responsabilidades:
 ```typescript
 // Estado en cliente
 const [activeContext, setActiveContext] = useState({
-  scope: "ORGANIZATION",  // o "COST_CENTER"
-  costCenterId: null,     // o "cuid123" si es COST_CENTER
+  scope: "ORGANIZATION", // o "COST_CENTER"
+  costCenterId: null, // o "cuid123" si es COST_CENTER
 });
 
 // Al cambiar contexto, recargar datos del dashboard
@@ -545,7 +550,7 @@ async function notifySubscribers(alert: Alert) {
 
       // Filtrar por tipo y severidad
       OR: [
-        { alertTypes: { isEmpty: true } },  // Sin filtro = todas
+        { alertTypes: { isEmpty: true } }, // Sin filtro = todas
         { alertTypes: { has: alert.type } },
       ],
     },
@@ -562,7 +567,7 @@ async function notifySubscribers(alert: Alert) {
   }
 
   // 4. Enviar emails si configurado
-  const emailSubscriptions = subscriptions.filter(s => s.notifyByEmail);
+  const emailSubscriptions = subscriptions.filter((s) => s.notifyByEmail);
   for (const sub of emailSubscriptions) {
     await sendAlertEmail(sub.user.email, alert);
   }
@@ -682,23 +687,23 @@ Ya implementados en schema:
 
 ```typescript
 // test/alert-detection.test.ts
-describe('detectAlertsForTimeEntry', () => {
-  it('debe detectar LATE_ARRIVAL cuando llegada >15min tarde', async () => {
+describe("detectAlertsForTimeEntry", () => {
+  it("debe detectar LATE_ARRIVAL cuando llegada >15min tarde", async () => {
     // Crear horario: entrada a 09:00
     // Crear fichaje: entrada a 09:20
     // Ejecutar detección
     const alerts = await detectAlertsForTimeEntry(timeEntryId);
 
     expect(alerts).toHaveLength(1);
-    expect(alerts[0].type).toBe('LATE_ARRIVAL');
-    expect(alerts[0].severity).toBe('WARNING');
+    expect(alerts[0].type).toBe("LATE_ARRIVAL");
+    expect(alerts[0].severity).toBe("WARNING");
     expect(alerts[0].deviationMinutes).toBe(20);
   });
 
-  it('debe detectar CRITICAL_LATE_ARRIVAL cuando >30min tarde', async () => {
+  it("debe detectar CRITICAL_LATE_ARRIVAL cuando >30min tarde", async () => {
     // Similar pero con 35min de retraso
-    expect(alerts[0].type).toBe('CRITICAL_LATE_ARRIVAL');
-    expect(alerts[0].severity).toBe('CRITICAL');
+    expect(alerts[0].type).toBe("CRITICAL_LATE_ARRIVAL");
+    expect(alerts[0].severity).toBe("CRITICAL");
   });
 });
 ```
@@ -706,7 +711,7 @@ describe('detectAlertsForTimeEntry', () => {
 ### 10.2 Test de Deduplicación
 
 ```typescript
-it('no debe crear alerta duplicada en segunda ejecución', async () => {
+it("no debe crear alerta duplicada en segunda ejecución", async () => {
   // Primera ejecución
   await detectAlertsForTimeEntry(timeEntryId);
   const count1 = await prisma.alert.count();
@@ -724,12 +729,14 @@ it('no debe crear alerta duplicada en segunda ejecución', async () => {
 ## 11. Próximos Pasos
 
 ### Fase 3: Integración con Fichajes
+
 - [ ] Modificar `clockIn()` para llamar `detectAlertsForTimeEntry()`
 - [ ] Modificar `clockOut()` para llamar `detectAlertsForTimeEntry()`
 - [ ] Retornar alertas al cliente en respuesta
 - [ ] Mostrar toasts con alertas generadas
 
 ### Fase 4: Dashboard de Alertas
+
 - [ ] Crear página `/dashboard/time-tracking/alerts`
 - [ ] DataTable con TanStack Table
 - [ ] Tabs: Activas, Resueltas, Descartadas
@@ -738,22 +745,26 @@ it('no debe crear alerta duplicada en segunda ejecución', async () => {
 - [ ] Modal de detalle de alerta
 
 ### Fase 5: Indicadores Visuales
+
 - [ ] Badge de alerta en DayCard del calendario
 - [ ] Columna de alertas en tabla de empleados
 - [ ] Iconos de severidad con colores
 
 ### Fase 6: Notificaciones
+
 - [ ] Contador en navbar
 - [ ] Lista desplegable de alertas no leídas
 - [ ] Marcar como leída
 - [ ] Opcional: emails
 
 ### Fase 7: Permisos y Ámbitos
+
 - [ ] Middleware de permisos para dashboard
 - [ ] Dropdown selector de contexto activo
 - [ ] Filtrado automático por ámbito
 
 ### Fase 8: Cron Job
+
 - [ ] Endpoint `/api/cron/detect-alerts`
 - [ ] Configurar Vercel Cron
 - [ ] Logging y monitoreo

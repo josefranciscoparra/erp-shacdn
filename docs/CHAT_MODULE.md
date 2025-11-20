@@ -57,15 +57,15 @@ enum MessageStatus {
 
 ### Endpoints API
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `POST` | `/api/chat/conversations` | Crear o obtener conversación 1:1 |
-| `GET` | `/api/chat/conversations` | Listar conversaciones del usuario |
-| `GET` | `/api/chat/conversations/[id]/messages` | Obtener mensajes con paginación |
-| `POST` | `/api/chat/messages` | Enviar mensaje |
-| `POST` | `/api/chat/messages/read` | Marcar mensajes como leídos |
-| `GET` | `/api/chat/stream` | Stream SSE para tiempo real |
-| `GET` | `/api/chat/users/search` | Buscar usuarios para chat |
+| Método | Endpoint                                | Descripción                       |
+| ------ | --------------------------------------- | --------------------------------- |
+| `POST` | `/api/chat/conversations`               | Crear o obtener conversación 1:1  |
+| `GET`  | `/api/chat/conversations`               | Listar conversaciones del usuario |
+| `GET`  | `/api/chat/conversations/[id]/messages` | Obtener mensajes con paginación   |
+| `POST` | `/api/chat/messages`                    | Enviar mensaje                    |
+| `POST` | `/api/chat/messages/read`               | Marcar mensajes como leídos       |
+| `GET`  | `/api/chat/stream`                      | Stream SSE para tiempo real       |
+| `GET`  | `/api/chat/users/search`                | Buscar usuarios para chat         |
 
 ### Server Actions
 
@@ -120,6 +120,7 @@ const chatEnabled = features.chat === true;
 ```
 
 Si está desactivado:
+
 - Endpoints retornan `403 Forbidden`
 - UI no se muestra en el sidebar
 - SSE stream no se conecta
@@ -135,13 +136,20 @@ Hook para conectarse al stream SSE con fallback a polling.
 ```typescript
 const { isConnected, transport, reconnectAttempts } = useChatStream({
   enabled: true,
-  onMessage: (message) => { /* ... */ },
-  onRead: (data) => { /* ... */ },
-  onError: (error) => { /* ... */ },
+  onMessage: (message) => {
+    /* ... */
+  },
+  onRead: (data) => {
+    /* ... */
+  },
+  onError: (error) => {
+    /* ... */
+  },
 });
 ```
 
 **Características**:
+
 - Reintentos exponenciales (1s, 2s, 4s, 8s, 16s, 30s max)
 - Máximo 5 intentos antes de caer a polling
 - Polling cada 10 segundos como fallback
@@ -152,6 +160,7 @@ const { isConnected, transport, reconnectAttempts } = useChatStream({
 #### `ChatContainer` (principal)
 
 Contenedor principal que maneja:
+
 - Lista de conversaciones (sidebar)
 - Vista de conversación (área principal)
 - Conexión SSE global
@@ -160,6 +169,7 @@ Contenedor principal que maneja:
 #### `ConversationsList`
 
 Lista de conversaciones con:
+
 - Avatar del otro usuario
 - Último mensaje enviado
 - Timestamp relativo (ej: "2h", "3d")
@@ -168,6 +178,7 @@ Lista de conversaciones con:
 #### `ConversationView`
 
 Vista de mensajes con:
+
 - Header con info del usuario
 - ScrollArea con mensajes
 - Input para enviar nuevos mensajes
@@ -177,6 +188,7 @@ Vista de mensajes con:
 #### `NewChatDialog`
 
 Dialog para iniciar nuevo chat:
+
 - Búsqueda de usuarios por nombre/email
 - Resultados en tiempo real
 - Creación de conversación al seleccionar usuario
@@ -201,7 +213,7 @@ Añadida al sidebar en "Mi día a día" → "Mensajes".
 
 ```typescript
 // 10 mensajes por 10 segundos
-chatRateLimiter.check(userId)
+chatRateLimiter.check(userId);
 ```
 
 ### Validación de Mensajes
@@ -339,11 +351,11 @@ npx prisma migrate dev --name add_chat_module
 
 ```typescript
 // Conexiones SSE activas
-sseManager.getStats()
+sseManager.getStats();
 // { totalConnections: 10, connectionsByOrg: { "org1": 5, "org2": 5 } }
 
 // Rate limiter
-chatRateLimiter.getStats()
+chatRateLimiter.getStats();
 // { totalUsers: 8, maxRequests: 10, windowMs: 10000 }
 ```
 
@@ -420,6 +432,7 @@ src/
 ## Créditos
 
 Desarrollado siguiendo las mejores prácticas de:
+
 - Next.js 15 App Router
 - React Server Components
 - Server-Sent Events (SSE)

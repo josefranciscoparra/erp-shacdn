@@ -45,11 +45,13 @@ En una organización con múltiples centros de trabajo, departamentos y equipos,
 **"Permisos basados en ámbito organizacional, no en roles genéricos"**
 
 En lugar de:
+
 ```
 ❌ Role: "MANAGER" → ¿Manager de qué? ¿Ve todo?
 ```
 
 Hacemos:
+
 ```
 ✅ User: "Ana García"
    └─ Responsable de: CostCenter "Madrid Norte"
@@ -486,11 +488,11 @@ async function getUserResponsibilities(userId: string) {
   });
 
   return {
-    hasOrganizationScope: responsibilities.some(r => r.scope === "ORGANIZATION"),
-    costCenters: responsibilities.filter(r => r.scope === "COST_CENTER").map(r => r.costCenter),
-    departments: responsibilities.filter(r => r.scope === "DEPARTMENT").map(r => r.department),
-    teams: responsibilities.filter(r => r.scope === "TEAM").map(r => r.team),
-    permissions: [...new Set(responsibilities.flatMap(r => r.permissions))],
+    hasOrganizationScope: responsibilities.some((r) => r.scope === "ORGANIZATION"),
+    costCenters: responsibilities.filter((r) => r.scope === "COST_CENTER").map((r) => r.costCenter),
+    departments: responsibilities.filter((r) => r.scope === "DEPARTMENT").map((r) => r.department),
+    teams: responsibilities.filter((r) => r.scope === "TEAM").map((r) => r.team),
+    permissions: [...new Set(responsibilities.flatMap((r) => r.permissions))],
   };
 }
 ```
@@ -625,10 +627,7 @@ model Alert {
 /**
  * Analiza fichajes y genera alertas según configuración
  */
-export async function detectAlerts(
-  employeeId: string,
-  date: Date
-): Promise<Alert[]> {
+export async function detectAlerts(employeeId: string, date: Date): Promise<Alert[]> {
   // 1. Obtener empleado con contexto organizacional
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
@@ -662,7 +661,7 @@ export async function detectAlerts(
   const alerts: Alert[] = [];
 
   // Analizar entrada tarde
-  const clockIn = timeEntries.find(e => e.entryType === "CLOCK_IN");
+  const clockIn = timeEntries.find((e) => e.entryType === "CLOCK_IN");
   if (clockIn && schedule.isWorkingDay && schedule.expectedStart) {
     const deviation = calculateMinutesDifference(clockIn.timestamp, schedule.expectedStart);
 
@@ -758,7 +757,7 @@ async function notifyAlertSubscribers(alert: Alert) {
   });
 
   // 2. Filtrar por tipo de alerta y severidad
-  const relevantSubscriptions = subscriptions.filter(sub => {
+  const relevantSubscriptions = subscriptions.filter((sub) => {
     // Si no especifica tipos, recibe todos
     const matchesType = sub.alertTypes.length === 0 || sub.alertTypes.includes(alert.type);
 
@@ -863,7 +862,7 @@ async function buildScopeFilter(userId: string): Promise<Prisma.EmployeeWhereInp
   if (responsibilities.costCenters.length > 0) {
     filters.push({
       costCenterId: {
-        in: responsibilities.costCenters.map(cc => cc.id),
+        in: responsibilities.costCenters.map((cc) => cc.id),
       },
     });
   }
@@ -872,7 +871,7 @@ async function buildScopeFilter(userId: string): Promise<Prisma.EmployeeWhereInp
   if (responsibilities.departments.length > 0) {
     filters.push({
       departmentId: {
-        in: responsibilities.departments.map(d => d.id),
+        in: responsibilities.departments.map((d) => d.id),
       },
     });
   }
@@ -881,7 +880,7 @@ async function buildScopeFilter(userId: string): Promise<Prisma.EmployeeWhereInp
   if (responsibilities.teams.length > 0) {
     filters.push({
       teamId: {
-        in: responsibilities.teams.map(t => t.id),
+        in: responsibilities.teams.map((t) => t.id),
       },
     });
   }
@@ -1072,8 +1071,9 @@ export async function getAlerts(filters?: {
 
 **Usuario:** Lucía Martín
 **Responsabilidades:**
-  - CostCenter "Madrid Norte"
-  - Department "IT" (distribuido en varios centros)
+
+- CostCenter "Madrid Norte"
+- Department "IT" (distribuido en varios centros)
 
 **Flujo:**
 
@@ -1096,6 +1096,7 @@ export async function getAlerts(filters?: {
 ### Fase 1: Modelo de Datos (Prioritaria)
 
 **Tareas:**
+
 - [ ] Crear modelo `AreaResponsible`
 - [ ] Crear modelo `AlertSubscription`
 - [ ] Crear modelo `Team`
@@ -1110,6 +1111,7 @@ export async function getAlerts(filters?: {
 ### Fase 2: Sistema de Responsabilidades
 
 **Tareas:**
+
 - [ ] Server actions para gestionar `AreaResponsible`
   - `assignResponsibility()` - Asignar usuario como responsable
   - `removeResponsibility()` - Quitar responsabilidad
@@ -1125,6 +1127,7 @@ export async function getAlerts(filters?: {
 ### Fase 3: Sistema de Detección de Alertas
 
 **Tareas:**
+
 - [ ] Server action `detectAlerts()` - Analizar fichajes y generar alertas
 - [ ] Integración automática en `clockIn()` / `clockOut()` para detectar alertas en tiempo real
 - [ ] Detección de patrones (retrasos consecutivos)
@@ -1137,6 +1140,7 @@ export async function getAlerts(filters?: {
 ### Fase 4: Dashboard de Alertas
 
 **Tareas:**
+
 - [ ] Página `/dashboard/time-tracking/alerts`
 - [ ] DataTable con filtros (estado, severidad, tipo, empleado, fecha)
 - [ ] Filtrado automático según ámbito del usuario (usa `buildScopeFilter`)
@@ -1150,6 +1154,7 @@ export async function getAlerts(filters?: {
 ### Fase 5: Sistema de Notificaciones
 
 **Tareas:**
+
 - [ ] Modelo `Notification` (notificaciones in-app)
 - [ ] Server action `notifyAlertSubscribers()` - Enviar notificaciones
 - [ ] Componente en navbar con contador de notificaciones
@@ -1164,6 +1169,7 @@ export async function getAlerts(filters?: {
 ### Fase 6: Configuración de Suscripciones
 
 **Tareas:**
+
 - [ ] Página `/dashboard/settings/notifications`
 - [ ] CRUD de `AlertSubscription`
 - [ ] UI para configurar tipos de alertas, severidades, canales
@@ -1176,6 +1182,7 @@ export async function getAlerts(filters?: {
 ### Fase 7: Indicadores Visuales
 
 **Tareas:**
+
 - [ ] Badges de alertas en `DayCard`
 - [ ] Columna de alertas en tabla de empleados (contador)
 - [ ] Link directo a filtro de alertas del empleado
@@ -1188,6 +1195,7 @@ export async function getAlerts(filters?: {
 ### Fase 8: Gestión de Equipos (opcional)
 
 **Tareas:**
+
 - [ ] CRUD de equipos
 - [ ] Asignación de empleados a equipos
 - [ ] Asignación de líderes de equipo
@@ -1348,6 +1356,7 @@ model AuditLog {
 ```
 
 **Consecuencias:**
+
 - ✅ Puede acceder al dashboard del centro
 - ✅ Puede ver empleados del centro
 - ✅ Puede gestionar según permisos
@@ -1373,6 +1382,7 @@ model AuditLog {
 ```
 
 **Consecuencias:**
+
 - ✅ Recibe notificaciones de alertas CRITICAL del centro
 - ❌ NO puede acceder al dashboard de alertas
 - ❌ NO puede ver empleados del centro
@@ -1758,8 +1768,8 @@ async function sendDailyDigest(userId: string) {
 
   // Agrupar por tipo y severidad
   const summary = {
-    critical: alerts.filter(a => a.severity === "CRITICAL").length,
-    warning: alerts.filter(a => a.severity === "WARNING").length,
+    critical: alerts.filter((a) => a.severity === "CRITICAL").length,
+    warning: alerts.filter((a) => a.severity === "WARNING").length,
     byType: groupBy(alerts, "type"),
   };
 
@@ -1822,10 +1832,12 @@ export async function clockIn(...) {
 ```
 
 **Ventajas:**
+
 - ✅ Notificaciones instantáneas
 - ✅ Managers ven alertas en tiempo real
 
 **Desventajas:**
+
 - ⚠️ Solo detecta alertas de fichajes (LATE_ARRIVAL, EARLY_DEPARTURE)
 - ❌ NO detecta ausencias sin justificar (empleado no fichó)
 
@@ -1857,6 +1869,7 @@ export async function detectDailyAlerts() {
 ```
 
 **Ventajas:**
+
 - ✅ Detecta ausencias (empleado no fichó en todo el día)
 - ✅ Detecta patrones (analiza últimos 7 días)
 - ✅ Cierre automático de alertas (si se corrigió)
@@ -1969,7 +1982,7 @@ async function detectPatternAlerts(employeeId: string, date: Date) {
   // Detectar si hay 3 o más retrasos
   if (lateArrivals.length >= 3) {
     // Verificar si son consecutivos (días consecutivos)
-    const dates = lateArrivals.map(a => a.date.toISOString().split("T")[0]);
+    const dates = lateArrivals.map((a) => a.date.toISOString().split("T")[0]);
     const areConsecutive = checkConsecutiveDates(dates);
 
     if (areConsecutive) {
@@ -2063,7 +2076,7 @@ async function detectAlerts(employeeId: string, date: Date) {
   const entries = await getTimeEntriesForDate(employeeId, date);
 
   // Si ahora tiene presencia completa, cerrar alerta de ausencia
-  if (entries.some(e => e.entryType === "CLOCK_IN")) {
+  if (entries.some((e) => e.entryType === "CLOCK_IN")) {
     await prisma.alert.updateMany({
       where: {
         employeeId,
@@ -2137,10 +2150,10 @@ async function getEffectiveSubscription(userId: string, alert: Alert) {
   });
 
   // Devolver la más específica
-  if (subscriptions.find(s => s.scope === "TEAM")) return subscriptions.find(s => s.scope === "TEAM");
-  if (subscriptions.find(s => s.scope === "DEPARTMENT")) return subscriptions.find(s => s.scope === "DEPARTMENT");
-  if (subscriptions.find(s => s.scope === "COST_CENTER")) return subscriptions.find(s => s.scope === "COST_CENTER");
-  return subscriptions.find(s => s.scope === "ORGANIZATION");
+  if (subscriptions.find((s) => s.scope === "TEAM")) return subscriptions.find((s) => s.scope === "TEAM");
+  if (subscriptions.find((s) => s.scope === "DEPARTMENT")) return subscriptions.find((s) => s.scope === "DEPARTMENT");
+  if (subscriptions.find((s) => s.scope === "COST_CENTER")) return subscriptions.find((s) => s.scope === "COST_CENTER");
+  return subscriptions.find((s) => s.scope === "ORGANIZATION");
 }
 ```
 
@@ -2448,7 +2461,7 @@ async function archiveOldAlerts() {
 
   // Copiar a tabla de archivo
   await prisma.alertArchive.createMany({
-    data: oldAlerts.map(alert => ({
+    data: oldAlerts.map((alert) => ({
       ...alert,
       archivedAt: new Date(),
     })),
@@ -2457,7 +2470,7 @@ async function archiveOldAlerts() {
   // Eliminar de tabla principal
   await prisma.alert.deleteMany({
     where: {
-      id: { in: oldAlerts.map(a => a.id) },
+      id: { in: oldAlerts.map((a) => a.id) },
     },
   });
 
@@ -2472,10 +2485,7 @@ async function archiveOldAlerts() {
 **Pattern 1: withScopeFilter() wrapper**
 
 ```typescript
-async function withScopeFilter<T>(
-  query: Prisma.AlertFindManyArgs,
-  userId: string
-): Promise<T[]> {
+async function withScopeFilter<T>(query: Prisma.AlertFindManyArgs, userId: string): Promise<T[]> {
   const session = await auth();
   const scopeFilter = await buildScopeFilter(userId, session.user.activeContext);
 
@@ -2496,7 +2506,7 @@ const alerts = await withScopeFilter<Alert>(
     orderBy: { date: "desc" },
     take: 50,
   },
-  userId
+  userId,
 );
 ```
 
@@ -2507,6 +2517,7 @@ const alerts = await withScopeFilter<Alert>(
 #### Versión 1 (MVP) - Semanas 1-2
 
 **Alcance:**
+
 - ✅ Solo managers de centro + RRHH Global
 - ✅ Sin equipos (Team model opcional)
 - ✅ Suscripciones predefinidas (no configurables por usuario)
@@ -2528,6 +2539,7 @@ model AreaResponsible {
 ```
 
 **UI mínima:**
+
 - Configuración de centros: Asignar responsables (sin permisos granulares)
 - Dashboard de alertas: Lista con filtros básicos (estado, severidad)
 - Notificaciones: Solo in-app (sin email)
@@ -2537,6 +2549,7 @@ model AreaResponsible {
 #### Versión 2 - Semanas 3-4
 
 **Alcance:**
+
 - ✅ Añadir departamentos y equipos
 - ✅ Configuración básica de suscripciones (por centro/depto)
 - ✅ Permisos granulares (VIEW, MANAGE, RESOLVE)
@@ -2559,6 +2572,7 @@ model AlertSubscription {
 ```
 
 **UI mejorada:**
+
 - Configuración de suscripciones (por ámbito, severidad)
 - Dashboard avanzado (filtros por tipo, empleado, fecha)
 - Gestión de equipos
@@ -2568,6 +2582,7 @@ model AlertSubscription {
 #### Versión 3 - Semanas 5-6
 
 **Alcance:**
+
 - ✅ Filtrado avanzado por usuario (alertTypes, severityLevels)
 - ✅ Digest mode (resúmenes diarios)
 - ✅ Contexto activo (cambio de scope)
@@ -2589,6 +2604,7 @@ model UserSession {
 ```
 
 **UI completa:**
+
 - Selector de contexto en navbar
 - Configuración avanzada de suscripciones
 - Dashboard con estadísticas y métricas

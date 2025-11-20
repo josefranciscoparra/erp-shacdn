@@ -90,9 +90,12 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
 
   return (
     <div data-slot="month-view" className="contents">
-      <div className="border-border/40 grid grid-cols-7 border-b bg-muted/30">
+      <div className="border-border/40 bg-muted/30 grid grid-cols-7 border-b">
         {weekdays.map((day) => (
-          <div key={day} className="text-muted-foreground py-1.5 text-center text-[10px] font-semibold uppercase tracking-wide">
+          <div
+            key={day}
+            className="text-muted-foreground py-1.5 text-center text-[10px] font-semibold tracking-wide uppercase"
+          >
             {day}
           </div>
         ))}
@@ -118,7 +121,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
               return (
                 <div
                   key={day.toString()}
-                  className="group border-border/40 data-outside-cell:bg-muted/20 data-outside-cell:text-muted-foreground/60 border-r border-b p-1 transition-colors last:border-r-0 hover:bg-accent/5"
+                  className="group border-border/40 data-outside-cell:bg-muted/20 data-outside-cell:text-muted-foreground/60 hover:bg-accent/5 border-r border-b p-1 transition-colors last:border-r-0"
                   data-today={isToday(day) || undefined}
                   data-outside-cell={!isCurrentMonth || undefined}
                 >
@@ -131,7 +134,7 @@ export function MonthView({ currentDate, events, onEventSelect, onEventCreate }:
                       onEventCreate(startTime);
                     }}
                   >
-                    <div className="group-data-today:bg-primary group-data-today:text-primary-foreground group-data-today:ring-2 group-data-today:ring-primary/30 group-data-today:ring-offset-1 mb-1 inline-flex size-6 items-center justify-center rounded-full text-xs font-medium transition-all">
+                    <div className="group-data-today:bg-primary group-data-today:text-primary-foreground group-data-today:ring-primary/30 mb-1 inline-flex size-6 items-center justify-center rounded-full text-xs font-medium transition-all group-data-today:ring-2 group-data-today:ring-offset-1">
                       {format(day, "d")}
                     </div>
                     <div

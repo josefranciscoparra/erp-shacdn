@@ -42,6 +42,7 @@ Sistema de captura y validación de geolocalización para fichajes laborales. Pe
 ### 🎯 Objetivo General
 
 Implementar un sistema de geolocalización de fichajes que permita:
+
 1. Capturar la ubicación del empleado al fichar
 2. Validar si está dentro del área permitida del centro de trabajo
 3. Visualizar fichajes en un mapa interactivo
@@ -51,12 +52,14 @@ Implementar un sistema de geolocalización de fichajes que permita:
 ### 🔹 Objetivos Específicos
 
 #### Para el Empleado
+
 - Fichar con geolocalización de forma transparente
 - Ver indicadores de precisión GPS antes de confirmar
 - Recibir avisos si está fuera del área permitida
 - Gestionar su consentimiento de geolocalización
 
 #### Para RRHH/Admin
+
 - Activar/desactivar geolocalización por organización
 - Configurar ubicaciones de centros de trabajo
 - Ver fichajes en mapa interactivo con filtros
@@ -64,6 +67,7 @@ Implementar un sistema de geolocalización de fichajes que permita:
 - Exportar datos de fichajes con ubicación
 
 #### Para Super Admin
+
 - Activar funcionalidad de geolocalización para organizaciones
 - Ver estadísticas de uso de la funcionalidad
 - Gestionar configuración global
@@ -112,6 +116,7 @@ Geolocalización:
 ### Modelos de Base de Datos
 
 #### 1. Organization (Extendido)
+
 ```prisma
 // Configuración de Geolocalización
 geolocationEnabled      Boolean @default(false) // Activar/desactivar
@@ -121,6 +126,7 @@ geolocationMaxRadius    Int     @default(200)   // Radio máximo por defecto
 ```
 
 #### 2. CostCenter (Extendido)
+
 ```prisma
 // Geolocalización del centro
 latitude             Decimal? @db.Decimal(10, 8) // Latitud
@@ -129,6 +135,7 @@ allowedRadiusMeters  Int?     @default(100)      // Radio permitido
 ```
 
 #### 3. TimeEntry (Extendido)
+
 ```prisma
 // Datos de geolocalización del fichaje
 latitude              Decimal? @db.Decimal(10, 8) // Latitud del fichaje
@@ -141,6 +148,7 @@ requiresReview        Boolean  @default(false)    // Si requiere revisión RRHH
 ```
 
 #### 4. GeolocationConsent (Nuevo)
+
 ```prisma
 model GeolocationConsent {
   id               String   @id @default(cuid())
@@ -191,6 +199,7 @@ model GeolocationConsent {
 - [x] Backup del schema original creado
 
 **Archivos modificados:**
+
 - `prisma/schema.prisma`
 - `prisma/schema.prisma.backup-pre-geolocation` (backup)
 
@@ -202,12 +211,14 @@ model GeolocationConsent {
 - [x] Definir textos de consentimiento RGPD versión 1.0
 
 **Archivos creados:**
+
 - `src/lib/geolocation/haversine.ts`
 - `src/lib/geolocation/validators.ts`
 - `src/lib/geolocation/consent.ts`
 - `src/lib/geolocation/index.ts`
 
 **Funciones principales:**
+
 ```typescript
 // haversine.ts
 calculateDistance(point1, point2) → distancia en metros
@@ -230,10 +241,12 @@ getAccuracyMessage(accuracy) → string mensaje descriptivo
 - [x] Modificar actions de time-tracking para aceptar geolocalización
 
 **Archivos creados/modificados:**
+
 - `src/server/actions/geolocation.ts` (NUEVO)
 - `src/server/actions/time-tracking.ts` (MODIFICADO)
 
 **Server Actions implementadas:**
+
 ```typescript
 // geolocation.ts
 checkGeolocationConsent() → { hasConsent, consent }
@@ -260,6 +273,7 @@ endBreak(geolocationData?) → { success, entry }
 - [x] Crear hook useGeolocation para capturar GPS
 
 **Dependencias instaladas:**
+
 ```json
 {
   "leaflet": "^1.9.4",
@@ -270,16 +284,19 @@ endBreak(geolocationData?) → { success, entry }
 ```
 
 **Archivos creados:**
+
 - `src/components/geolocation/geolocation-consent-dialog.tsx`
 - `src/hooks/use-geolocation.ts`
 
 **Componente GeolocationConsentDialog:**
+
 - Dialog modal con texto de consentimiento RGPD
 - Checkbox de aceptación obligatoria
 - Manejo de estados de carga y error
 - Callbacks para consentimiento dado/denegado
 
 **Hook useGeolocation:**
+
 ```typescript
 const {
   data,           // { latitude, longitude, accuracy } | null
@@ -299,6 +316,7 @@ const {
 - [ ] Añadir feedback visual de validación de ubicación
 
 **Archivos a modificar:**
+
 - `src/stores/time-tracking-store.tsx`
 - `src/components/time-tracking/quick-clock-widget.tsx`
 
@@ -310,6 +328,7 @@ const {
 - [ ] Añadir mapa en página de fichajes
 
 **Archivos a crear:**
+
 - `src/components/geolocation/map-display.tsx`
 - `src/components/geolocation/time-entry-map.tsx`
 - `src/components/geolocation/location-picker.tsx`
@@ -322,6 +341,7 @@ const {
 - [ ] Crear página de gestión de privacidad del usuario
 
 **Rutas a crear/modificar:**
+
 - `/dashboard/admin/organizations/[id]` (modificar)
 - `/dashboard/settings/cost-centers/[id]` (modificar)
 - `/dashboard/hr/geolocation-review` (nueva)
@@ -444,12 +464,14 @@ const {
 ### Para Empleados
 
 **Primera vez:**
+
 1. Al intentar fichar, aparecerá dialog de consentimiento RGPD
 2. Leer el texto de consentimiento
 3. Marcar checkbox de aceptación
 4. Hacer clic en "Aceptar"
 
 **Fichar con geolocalización:**
+
 1. Clic en botón "Fichar Entrada" (o Salida/Pausa)
 2. El navegador pedirá permiso para acceder a ubicación
 3. Permitir acceso
@@ -462,6 +484,7 @@ const {
 6. Se mostrará mensaje si está fuera del área permitida
 
 **Gestionar privacidad:**
+
 1. Ir a Configuración → Privacidad
 2. Ver consentimiento de geolocalización dado
 3. Si desea revocar: clic en "Revocar consentimiento"
@@ -525,6 +548,7 @@ const {
 ### Pantallas Principales
 
 #### 1. Dialog de Consentimiento RGPD
+
 ```
 ┌─────────────────────────────────────┐
 │ Consentimiento de Geolocalización   │
@@ -540,6 +564,7 @@ const {
 ```
 
 #### 2. Indicador de Precisión GPS
+
 ```
 ┌─────────────────────────────────────┐
 │ 🟢 Precisión excelente (12m)        │
@@ -554,6 +579,7 @@ const {
 ```
 
 #### 3. Mapa de Fichajes (Vista Empleado)
+
 ```
 ┌─────────────────────────────────────┐
 │ Fichajes de hoy                     │
@@ -566,6 +592,7 @@ const {
 ```
 
 #### 4. Panel de Revisión RRHH
+
 ```
 ┌─────────────────────────────────────┐
 │ Fichajes para revisión              │
@@ -619,10 +646,12 @@ de ubicación conforme a lo descrito.
 ### Gestión de Consentimientos
 
 **Versiones de consentimiento:**
+
 - v1.0: Versión inicial (actual)
 - Si se actualiza el texto, crear v2.0 y solicitar nuevo consentimiento
 
 **Base de datos:**
+
 - Tabla `GeolocationConsent` guarda cada consentimiento
 - Campo `consentVersion` permite trazabilidad
 - Campo `active` permite revocación sin borrar histórico
@@ -635,12 +664,14 @@ de ubicación conforme a lo descrito.
 ### Casos de Prueba
 
 #### ✅ Flujo Normal
+
 - [ ] Usuario sin consentimiento → Muestra dialog → Acepta → Ficha correctamente
 - [ ] Usuario con consentimiento → Ficha directamente
 - [ ] Fichaje dentro de área → `isWithinAllowedArea = true`
 - [ ] Fichaje fuera de área → `requiresReview = true`
 
 #### ⚠️ Casos Edge
+
 - [ ] Usuario deniega permiso GPS → Mostrar error claro
 - [ ] GPS no disponible (interiores) → Permitir fichar con warning
 - [ ] Precisión muy baja (>200m) → Mostrar opción de reintentar
@@ -649,6 +680,7 @@ de ubicación conforme a lo descrito.
 - [ ] Revocar consentimiento → No puede fichar si es obligatorio
 
 #### 🔧 Validación Técnica
+
 - [ ] Cálculo Haversine correcto (comparar con Google Maps)
 - [ ] Precisión del cálculo de distancias (<5m de error)
 - [ ] Performance con 1000+ fichajes en mapa
@@ -665,12 +697,14 @@ de ubicación conforme a lo descrito.
 **Síntomas:** Error "No se pudo obtener ubicación"
 
 **Causas posibles:**
+
 1. Usuario denegó permiso GPS en navegador
 2. GPS desactivado en el dispositivo
 3. Navegador no soporta Geolocation API
 4. Conexión HTTPS requerida
 
 **Solución:**
+
 ```
 1. Verificar permisos del sitio en configuración del navegador
 2. Activar GPS/ubicación en el dispositivo
@@ -685,6 +719,7 @@ de ubicación conforme a lo descrito.
 **Causas:** Señal GPS débil en interiores
 
 **Solución:**
+
 ```
 - Salir al exterior o acercarse a una ventana
 - Esperar 30 segundos para que GPS se estabilice
@@ -697,11 +732,13 @@ de ubicación conforme a lo descrito.
 **Síntomas:** Todos los fichajes requieren revisión
 
 **Causas:**
+
 1. Coordenadas del centro mal configuradas
 2. Radio permitido muy pequeño
 3. GPS del dispositivo descalibrado
 
 **Solución:**
+
 ```
 1. Admin: Verificar ubicación del centro en mapa
 2. Admin: Aumentar radio permitido (100m → 200m)
@@ -713,11 +750,13 @@ de ubicación conforme a lo descrito.
 **Síntomas:** Pantalla en blanco donde debería estar el mapa
 
 **Causas:**
+
 1. OpenStreetMap tiles no cargan
 2. Error en configuración de Leaflet
 3. Bloqueador de ads/scripts
 
 **Solución:**
+
 ```
 1. Verificar conexión a internet
 2. Deshabilitar bloqueadores temporalmente
@@ -768,15 +807,18 @@ de ubicación conforme a lo descrito.
 ### [En desarrollo] - 2025-01-04
 
 #### Añadido
+
 - Schema de base de datos extendido con geolocalización
 - Modelos: Organization, CostCenter, TimeEntry, GeolocationConsent
 - Utilidades: Haversine, validadores, textos RGPD
 - Documentación completa de la funcionalidad
 
 #### Cambiado
+
 - TimeEntry ahora soporta datos de ubicación estructurados
 
 #### Próximo
+
 - Server actions de geolocalización
 - Componentes de UI y mapas
 - Panel de administración

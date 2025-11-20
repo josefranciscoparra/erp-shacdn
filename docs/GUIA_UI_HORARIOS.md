@@ -51,6 +51,7 @@
 ### Características Implementadas
 
 ✅ **Página Principal** (`/dashboard/schedules`)
+
 - Lista de plantillas en grid de cards
 - Badges de tipo, estado activo/inactivo, empleados asignados
 - Menú de acciones: Editar, **Duplicar** ✅, **Eliminar** ✅
@@ -59,12 +60,14 @@
 - Protección con PermissionGuard
 
 ✅ **Duplicar Plantilla**
+
 - Crea copia completa con nombre "(Copia)"
 - Toast de confirmación
 - Refresh automático de la lista
 - Loading states durante duplicación
 
 ✅ **Eliminar Plantilla**
+
 - Validación: No permite eliminar si tiene empleados asignados
 - Confirmación con dialog nativo
 - Toast de éxito/error
@@ -72,6 +75,7 @@
 - Loading states durante eliminación
 
 ✅ **Página de Detalle** (`/dashboard/schedules/[id]`)
+
 - Header con navegación
 - 3 cards de resumen (empleados, períodos, tipo)
 - Tabs: "Horarios" y "Empleados"
@@ -79,24 +83,28 @@
 - Estados vacíos cuando no hay períodos
 
 ✅ **Editor de Períodos**
+
 - CRUD completo de períodos (REGULAR, INTENSIVE, SPECIAL)
 - Validación de fechas
 - Gestión de conflictos
 - Dialogs con formularios validados
 
 ✅ **Editor de Horarios por Día**
+
 - Editar franjas horarias de cada día
 - Copiar horario entre días
 - Editor de time slots con validación
 - Preview de horarios
 
 ✅ **Gestión de Empleados**
+
 - Asignar empleados a plantillas
 - Ver lista de empleados asignados
 - Fechas de inicio/fin de asignación
 - Validaciones de solapamientos
 
 ✅ **Navegación**
+
 - Entrada en sidebar: "Gestión de Personal" → "Horarios"
 - URL: `/dashboard/schedules`
 - Permiso: `view_contracts`
@@ -202,10 +210,7 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
 
 ```tsx
 <div className="@container/main flex flex-col gap-4 md:gap-6">
-  <SectionHeader
-    title="Horario del Empleado"
-    actionLabel="Asignar Horario"
-  />
+  <SectionHeader title="Horario del Empleado" actionLabel="Asignar Horario" />
 
   {/* Horario Actual */}
   <Card>
@@ -218,29 +223,20 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
           <div className="flex items-center justify-between">
             <div>
               <h3>{currentAssignment.scheduleTemplate.name}</h3>
-              <p className="text-sm text-muted-foreground">
-                Desde {formatDate(currentAssignment.validFrom)}
-              </p>
+              <p className="text-muted-foreground text-sm">Desde {formatDate(currentAssignment.validFrom)}</p>
             </div>
             <Badge>{currentAssignment.assignmentType}</Badge>
           </div>
 
           {/* Preview del horario de esta semana */}
-          <SchedulePreviewCalendar
-            employeeId={employeeId}
-            weekStart={startOfWeek(new Date())}
-          />
+          <SchedulePreviewCalendar employeeId={employeeId} weekStart={startOfWeek(new Date())} />
         </>
       ) : (
         <EmptyState
           icon={CalendarIcon}
           title="Sin horario asignado"
           description="Este empleado no tiene un horario asignado todavía."
-          action={
-            <Button onClick={() => setShowAssignDialog(true)}>
-              Asignar Horario
-            </Button>
-          }
+          action={<Button onClick={() => setShowAssignDialog(true)}>Asignar Horario</Button>}
         />
       )}
     </CardContent>
@@ -253,12 +249,12 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
     </CardHeader>
     <CardContent>
       <Timeline>
-        {history.map(assignment => (
+        {history.map((assignment) => (
           <TimelineItem key={assignment.id}>
             <div>
               <h4>{assignment.scheduleTemplate.name}</h4>
-              <p className="text-sm text-muted-foreground">
-                {formatDate(assignment.validFrom)} - {assignment.validTo ? formatDate(assignment.validTo) : 'Actual'}
+              <p className="text-muted-foreground text-sm">
+                {formatDate(assignment.validFrom)} - {assignment.validTo ? formatDate(assignment.validTo) : "Actual"}
               </p>
             </div>
           </TimelineItem>
@@ -299,7 +295,9 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
 **Añadir sección "Tu Horario Hoy":**
 
 ```tsx
-{/* Nuevo componente */}
+{
+  /* Nuevo componente */
+}
 <Card>
   <CardHeader>
     <CardTitle>Tu Horario Hoy</CardTitle>
@@ -308,22 +306,16 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
     {effectiveSchedule ? (
       <>
         <div className="space-y-2">
-          {effectiveSchedule.timeSlots.map(slot => (
+          {effectiveSchedule.timeSlots.map((slot) => (
             <div key={slot.startMinutes} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Badge variant={slot.slotType === 'WORK' ? 'default' : 'secondary'}>
-                  {slot.slotType}
-                </Badge>
+                <Badge variant={slot.slotType === "WORK" ? "default" : "secondary"}>{slot.slotType}</Badge>
                 <span>
                   {minutesToTime(slot.startMinutes)} - {minutesToTime(slot.endMinutes)}
                 </span>
               </div>
-              {slot.presenceType === 'MANDATORY' && (
-                <Badge variant="outline">Obligatorio</Badge>
-              )}
-              {slot.presenceType === 'FLEXIBLE' && (
-                <Badge variant="outline">Flexible</Badge>
-              )}
+              {slot.presenceType === "MANDATORY" && <Badge variant="outline">Obligatorio</Badge>}
+              {slot.presenceType === "FLEXIBLE" && <Badge variant="outline">Flexible</Badge>}
             </div>
           ))}
         </div>
@@ -332,24 +324,18 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
 
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Horas esperadas:</span>
-          <span className="font-medium">
-            {formatDuration(effectiveSchedule.expectedMinutes)}
-          </span>
+          <span className="font-medium">{formatDuration(effectiveSchedule.expectedMinutes)}</span>
         </div>
 
-        {effectiveSchedule.source === 'PERIOD' && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Periodo: {effectiveSchedule.periodName}
-          </p>
+        {effectiveSchedule.source === "PERIOD" && (
+          <p className="text-muted-foreground mt-2 text-xs">Periodo: {effectiveSchedule.periodName}</p>
         )}
       </>
     ) : (
-      <p className="text-sm text-muted-foreground">
-        No tienes horario asignado para hoy
-      </p>
+      <p className="text-muted-foreground text-sm">No tienes horario asignado para hoy</p>
     )}
   </CardContent>
-</Card>
+</Card>;
 ```
 
 ---
@@ -357,29 +343,25 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
 **Indicador de tramo actual:**
 
 ```tsx
-{/* Mostrar en qué tramo estamos AHORA */}
+{
+  /* Mostrar en qué tramo estamos AHORA */
+}
 <Alert>
   <ClockIcon className="h-4 w-4" />
   <AlertTitle>Tramo Actual</AlertTitle>
   <AlertDescription>
     {currentSlot ? (
       <>
-        {currentSlot.slotType === 'WORK' && (
-          <span>Tiempo de trabajo ({currentSlot.presenceType})</span>
-        )}
-        {currentSlot.slotType === 'BREAK' && (
-          <span>Descanso</span>
-        )}
+        {currentSlot.slotType === "WORK" && <span>Tiempo de trabajo ({currentSlot.presenceType})</span>}
+        {currentSlot.slotType === "BREAK" && <span>Descanso</span>}
         <br />
-        <span className="text-xs text-muted-foreground">
-          Hasta {minutesToTime(currentSlot.endMinutes)}
-        </span>
+        <span className="text-muted-foreground text-xs">Hasta {minutesToTime(currentSlot.endMinutes)}</span>
       </>
     ) : (
       <span>Fuera de horario</span>
     )}
   </AlertDescription>
-</Alert>
+</Alert>;
 ```
 
 ---
@@ -390,18 +372,18 @@ Septiembre - Diciembre: REGULAR (L-V 09:00-18:00, 40h)
 
 ```typescript
 // En EmploymentContract
-const expectedHours = contract.mondayHours // campo fijo por día
+const expectedHours = contract.mondayHours; // campo fijo por día
 ```
 
 **Ahora (sistema nuevo):**
 
 ```typescript
-import { getEffectiveSchedule } from '@/lib/schedule-engine'
+import { getEffectiveSchedule } from "@/lib/schedule-engine";
 
-const effective = await getEffectiveSchedule(employeeId, today)
-const expectedMinutes = effective.expectedMinutes
-const actualMinutes = workday.totalWorkedMinutes
-const deviation = actualMinutes - expectedMinutes
+const effective = await getEffectiveSchedule(employeeId, today);
+const expectedMinutes = effective.expectedMinutes;
+const actualMinutes = workday.totalWorkedMinutes;
+const deviation = actualMinutes - expectedMinutes;
 
 // Guardar en WorkdaySummary (NUEVO CAMPO)
 await prisma.workdaySummary.update({
@@ -409,9 +391,9 @@ await prisma.workdaySummary.update({
   data: {
     expectedMinutes, // NUEVO campo Decimal
     deviationMinutes: deviation, // NUEVO campo Decimal
-    status: determineStatus(actualMinutes, expectedMinutes, absence)
-  }
-})
+    status: determineStatus(actualMinutes, expectedMinutes, absence),
+  },
+});
 ```
 
 **Añadir campos a `WorkdaySummary`:**
@@ -433,11 +415,13 @@ model WorkdaySummary {
 ### Archivos Clave
 
 **Rutas:**
+
 - `/src/app/(main)/dashboard/schedules/page.tsx` - Listado de plantillas
 - `/src/app/(main)/dashboard/schedules/[id]/page.tsx` - Detalle y edición
 - `/src/app/(main)/dashboard/schedules/new/page.tsx` - Creación
 
 **Componentes de Página de Detalle:**
+
 - `week-schedule-editor.tsx` - Editor visual semanal con validación 40h
 - `assign-employees-dialog.tsx` - Dialog multi-select de asignación
 - `assigned-employees-list.tsx` - Lista de empleados asignados
@@ -448,10 +432,12 @@ model WorkdaySummary {
 - `copy-day-dialog.tsx` - Copiar horario entre días
 
 **Componentes de Listado:**
+
 - `create-template-dialog.tsx` - Dialog creación rápida
 - `schedules-templates-list.tsx` - Lista con duplicar/eliminar
 
 **Integraciones con Fichaje:**
+
 - `/src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` - Horario esperado del día
 - `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Resumen con desviaciones
 

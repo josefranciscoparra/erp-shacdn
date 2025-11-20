@@ -305,9 +305,8 @@ export function ClockIn() {
         console.log("🚨 [FRONTEND] Mostrando alertas:", result.alerts);
         result.alerts.forEach((alert: any) => {
           // Determinar el tipo de toast según la severidad
-          const toastFn = alert.severity === "CRITICAL" ? toast.error :
-                         alert.severity === "WARNING" ? toast.warning :
-                         toast.info;
+          const toastFn =
+            alert.severity === "CRITICAL" ? toast.error : alert.severity === "WARNING" ? toast.warning : toast.info;
 
           toastFn(alert.title, {
             description: alert.description,

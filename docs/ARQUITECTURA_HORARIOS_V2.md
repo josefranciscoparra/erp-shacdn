@@ -11,6 +11,7 @@
 ← [Volver al Plan Principal](./PLAN_MIGRACION_HORARIOS_V2.md)
 
 **Documentos relacionados:**
+
 - [Motor de Cálculo](./MOTOR_CALCULO_HORARIOS.md)
 - [Server Actions](./SERVER_ACTIONS_HORARIOS.md)
 - [Guía de UI](./GUIA_UI_HORARIOS.md)
@@ -96,6 +97,7 @@ enum ScheduleTemplateType {
 ```
 
 **Ejemplos:**
+
 - "Horario Oficina 40h L-V" (FIXED)
 - "Turno Noche" (SHIFT)
 - "Rotación Policía 6x6" (ROTATION)
@@ -138,6 +140,7 @@ enum SchedulePeriodType {
 ```
 
 **Ejemplos:**
+
 - **REGULAR**: `validFrom=null, validTo=null` → Todo el año
 - **INTENSIVE (verano)**: `validFrom=2025-06-15, validTo=2025-09-01`
 - **SPECIAL (Semana Santa)**: `validFrom=2025-04-14, validTo=2025-04-20`
@@ -166,6 +169,7 @@ model WorkDayPattern {
 ```
 
 **Ejemplos:**
+
 - Lunes (1): `isWorkingDay=true`, con TimeSlots de 9:00-18:00
 - Sábado (6): `isWorkingDay=false`, sin TimeSlots
 - Domingo (0): `isWorkingDay=false`, sin TimeSlots
@@ -208,16 +212,19 @@ enum PresenceType {
 ```
 
 **Ejemplos (Sector Público con Flex):**
+
 - 07:00-09:00 → `WORK FLEXIBLE` (puede entrar en esta franja)
 - 09:00-14:30 → `WORK MANDATORY` (presencia obligatoria)
 - 14:30-16:00 → `WORK FLEXIBLE` (puede salir en esta franja)
 
 **Ejemplos (Oficina Normal):**
+
 - 09:00-14:00 → `WORK MANDATORY`
 - 14:00-15:00 → `BREAK MANDATORY`
 - 15:00-18:00 → `WORK MANDATORY`
 
 **Ejemplos (Bomberos 24h):**
+
 - 00:00-24:00 → `WORK MANDATORY` (un solo slot de 1440 minutos)
 
 ---
@@ -324,6 +331,7 @@ enum ScheduleAssignmentType {
 ```
 
 **Ejemplos:**
+
 - Juan Pérez: `FIXED`, "Horario Oficina", desde 2025-01-01, indefinido
 - Pedro García: `ROTATION`, "Policía 6x6", desde 2025-01-15, rotationStartDate=2025-01-15
 - Ana López: `FLEXIBLE`, null, teletrabajo sin horario fijo
@@ -380,6 +388,7 @@ model ExceptionTimeSlot {
 ```
 
 **Ejemplos:**
+
 - Viernes Santo: `date=2025-04-18, reason="Viernes Santo"`, slot 09:00-12:48 (minutos: 540-768)
 - Cierre excepcional: `date=2025-12-24, reason="Nochebuena"`, slot 09:00-14:00
 
@@ -421,11 +430,13 @@ model Organization {
 **Decisión:** Usar minutos desde medianoche (0-1440) en lugar de formato HH:mm.
 
 **Razón:** Facilita enormemente los cálculos:
+
 - Suma de horas: `suma(slot.endTimeMinutes - slot.startTimeMinutes)`
 - Comparaciones: `if (currentMinutes >= slot.startTimeMinutes)`
 - Conversión simple: `hours = minutes / 60`
 
 **Ejemplo:**
+
 ```typescript
 // 09:00 → 540 minutos
 // 18:00 → 1080 minutos
@@ -439,11 +450,13 @@ model Organization {
 **Decisión:** Periodo REGULAR tiene `validFrom=null, validTo=null`.
 
 **Razón:**
+
 - Indica que es permanente (siempre activo)
 - Periodos SPECIAL/INTENSIVE tienen vigencia temporal
 - Simplifica consultas: "si no hay periodo temporal activo, usar REGULAR"
 
 **Ejemplo:**
+
 ```typescript
 // REGULAR (todo el año)
 { periodType: 'REGULAR', validFrom: null, validTo: null }
@@ -459,11 +472,13 @@ model Organization {
 **Decisión:** 4 niveles de jerarquía en lugar de modelo plano.
 
 **Razón:**
+
 - **Máxima reutilización**: Una plantilla puede tener múltiples periodos
 - **Flexibilidad**: Cambiar solo lo necesario sin duplicar todo
 - **Mantenibilidad**: Editar verano sin tocar el horario regular
 
 **Jerarquía:**
+
 ```
 ScheduleTemplate (Plantilla reutilizable)
   └── SchedulePeriod (Periodo temporal)
@@ -478,24 +493,26 @@ ScheduleTemplate (Plantilla reutilizable)
 **Decisión:** `ShiftRotationPattern` con múltiples `ShiftRotationStep`.
 
 **Razón:**
+
 - Soporta patrones complejos (no solo 2 turnos)
 - Ejemplo: Policía podría tener Mañana → Tarde → Noche → Descanso (4 pasos)
 - Cada paso referencia una plantilla existente (reutilización)
 
 **Algoritmo:**
+
 ```typescript
 // Calcular qué step toca en una fecha
-const daysSinceStart = Math.floor((date - rotationStartDate) / MS_PER_DAY)
-const cycleDuration = sum(steps.map(s => s.durationDays))
-const dayInCycle = daysSinceStart % cycleDuration
+const daysSinceStart = Math.floor((date - rotationStartDate) / MS_PER_DAY);
+const cycleDuration = sum(steps.map((s) => s.durationDays));
+const dayInCycle = daysSinceStart % cycleDuration;
 
 // Recorrer steps hasta encontrar el que toca
-let accumulated = 0
+let accumulated = 0;
 for (const step of steps) {
   if (dayInCycle < accumulated + step.durationDays) {
-    return step.scheduleTemplate
+    return step.scheduleTemplate;
   }
-  accumulated += step.durationDays
+  accumulated += step.durationDays;
 }
 ```
 
@@ -506,11 +523,13 @@ for (const step of steps) {
 **Decisión:** `ExceptionDayOverride` separado del modelo base.
 
 **Razón:**
+
 - Casos raros no contaminan el modelo principal
 - Fácil de añadir/quitar sin tocar la plantilla
 - Prioridad máxima en el motor de cálculo
 
 **Ejemplos de uso:**
+
 - Viernes Santo con horario reducido (12:48h)
 - Cierre excepcional de empresa
 - Cambio puntual para un empleado específico
@@ -522,6 +541,7 @@ for (const step of steps) {
 Ver detalles completos en: [Motor de Cálculo de Horarios](./MOTOR_CALCULO_HORARIOS.md)
 
 **Lógica de prioridades:**
+
 1. **Ausencias** (vacaciones/permisos) → Mayor prioridad
 2. **Excepciones** (días específicos) → Sobrescribe todo
 3. **Periodo activo** (SPECIAL > INTENSIVE > REGULAR) → Por fechas

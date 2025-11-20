@@ -28,37 +28,37 @@
 
 ```typescript
 export interface ScheduleMetrics {
-  employeeId: string
-  period: { from: Date; to: Date }
+  employeeId: string;
+  period: { from: Date; to: Date };
 
   // Horas
-  expectedHours: number
-  actualHours: number
-  deviationHours: number
-  deviationPercentage: number
+  expectedHours: number;
+  actualHours: number;
+  deviationHours: number;
+  deviationPercentage: number;
 
   // Cumplimiento de presencia obligatoria (sector público)
-  mandatoryPresenceDays: number
-  mandatoryPresenceComplied: number
-  mandatoryPresenceComplianceRate: number
+  mandatoryPresenceDays: number;
+  mandatoryPresenceComplied: number;
+  mandatoryPresenceComplianceRate: number;
 
   // Excesos
-  overtimeDays: number // Días con +150% de jornada
-  overtimeHours: number
+  overtimeDays: number; // Días con +150% de jornada
+  overtimeHours: number;
 
   // Descansos
-  insufficientRestDays: number // Días con <11h descanso
+  insufficientRestDays: number; // Días con <11h descanso
 
   // Alertas
-  alerts: ScheduleAlert[]
+  alerts: ScheduleAlert[];
 }
 
 export interface ScheduleAlert {
-  type: 'OVERTIME' | 'MANDATORY_PRESENCE_MISSED' | 'INSUFFICIENT_REST' | 'SCHEDULE_CHANGE_REQUIRED'
-  severity: 'INFO' | 'WARNING' | 'CRITICAL'
-  date: Date
-  message: string
-  metadata?: Record<string, any>
+  type: "OVERTIME" | "MANDATORY_PRESENCE_MISSED" | "INSUFFICIENT_REST" | "SCHEDULE_CHANGE_REQUIRED";
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  date: Date;
+  message: string;
+  metadata?: Record<string, any>;
 }
 ```
 
@@ -69,12 +69,9 @@ export interface ScheduleAlert {
 #### `calculateScheduleMetrics()`
 
 **Firma:**
+
 ```typescript
-export async function calculateScheduleMetrics(
-  employeeId: string,
-  from: Date,
-  to: Date
-): Promise<ScheduleMetrics>
+export async function calculateScheduleMetrics(employeeId: string, from: Date, to: Date): Promise<ScheduleMetrics>;
 ```
 
 **Descripción:**
@@ -95,14 +92,11 @@ Calcula métricas completas de cumplimiento de horario para un empleado en un pe
 4. Generar alertas según umbrales
 
 **Ejemplo:**
-```typescript
-const metrics = await calculateScheduleMetrics(
-  'emp_123',
-  new Date('2025-11-01'),
-  new Date('2025-11-30')
-)
 
-console.log(metrics)
+```typescript
+const metrics = await calculateScheduleMetrics("emp_123", new Date("2025-11-01"), new Date("2025-11-30"));
+
+console.log(metrics);
 // {
 //   employeeId: 'emp_123',
 //   period: { from: ..., to: ... },
@@ -132,12 +126,9 @@ console.log(metrics)
 #### `getScheduleAlerts()`
 
 **Firma:**
+
 ```typescript
-export async function getScheduleAlerts(
-  employeeId: string,
-  from: Date,
-  to: Date
-): Promise<ScheduleAlert[]>
+export async function getScheduleAlerts(employeeId: string, from: Date, to: Date): Promise<ScheduleAlert[]>;
 ```
 
 **Descripción:**
@@ -148,22 +139,26 @@ Obtiene solo las alertas de un empleado en un período (sin calcular todas las m
 #### `getOrganizationAlerts()`
 
 **Firma:**
+
 ```typescript
-export async function getOrganizationAlerts(
-  filters?: { severity?: string; type?: string; employeeId?: string }
-): Promise<ScheduleAlert[]>
+export async function getOrganizationAlerts(filters?: {
+  severity?: string;
+  type?: string;
+  employeeId?: string;
+}): Promise<ScheduleAlert[]>;
 ```
 
 **Descripción:**
 Obtiene todas las alertas de la organización con filtros opcionales.
 
 **Ejemplo:**
+
 ```typescript
 // Alertas críticas de toda la organización
-const criticalAlerts = await getOrganizationAlerts({ severity: 'CRITICAL' })
+const criticalAlerts = await getOrganizationAlerts({ severity: "CRITICAL" });
 
 // Alertas de exceso de horas
-const overtimeAlerts = await getOrganizationAlerts({ type: 'OVERTIME' })
+const overtimeAlerts = await getOrganizationAlerts({ type: "OVERTIME" });
 ```
 
 ---
@@ -187,11 +182,13 @@ const overtimeAlerts = await getOrganizationAlerts({ type: 'OVERTIME' })
 Día con >150% de jornada esperada
 
 **Ejemplo:**
+
 ```
 Empleado trabajó 12h cuando se esperaban 8h (150% = 12h)
 ```
 
 **Acciones posibles:**
+
 - Aprobar como extra (guardar en extras_aprobadas)
 - Marcar como error de fichaje (revisar entradas)
 - Compensar con día libre
@@ -204,11 +201,13 @@ Empleado trabajó 12h cuando se esperaban 8h (150% = 12h)
 Falta en tramo MANDATORY sin ausencia justificada
 
 **Ejemplo (sector público):**
+
 ```
 Empleado fichó entrada 10:00 (esperado: presencia obligatoria desde 09:00)
 ```
 
 **Acciones posibles:**
+
 - Solicitar justificación al empleado
 - Marcar como incidencia en historial
 - Descontar de nómina (según convenio)
@@ -221,6 +220,7 @@ Empleado fichó entrada 10:00 (esperado: presencia obligatoria desde 09:00)
 Menos de 11h entre salida y entrada siguiente (legal en España)
 
 **Ejemplo:**
+
 ```
 Salida: 2025-11-15 22:00
 Entrada: 2025-11-16 07:00
@@ -228,6 +228,7 @@ Descanso: 9h (INSUFICIENTE, legal = 11h)
 ```
 
 **Acciones posibles:**
+
 - Alerta al manager (notificación)
 - Verificar cumplimiento legal
 - Ajustar siguiente turno
@@ -240,12 +241,14 @@ Descanso: 9h (INSUFICIENTE, legal = 11h)
 Empleado sin horario asignado para periodo nuevo (verano, Semana Santa)
 
 **Ejemplo:**
+
 ```
 Periodo INTENSIVE "Verano 2025" inicia 15-Jun
 Empleado 'emp_123' no tiene horario asignado para ese período
 ```
 
 **Acciones posibles:**
+
 - Asignar horario de verano automáticamente
 - Notificar al empleado del cambio
 - Clonar horario regular con ajustes
@@ -331,6 +334,7 @@ TMNW00003,teletrabajo-flexible,FLEXIBLE,2025-01-01,,
 #### Paso 2: Preview y validación
 
 **Detectar:**
+
 - Empleados que no existen
 - Plantillas que no existen
 - Fechas inválidas
@@ -413,12 +417,9 @@ Si las columnas del CSV no coinciden:
 #### Reporte Mensual de Horario (PDF)
 
 **Server Action:**
+
 ```typescript
-await exportScheduleReport(
-  'emp_123',
-  new Date('2025-10-01'),
-  'PDF'
-)
+await exportScheduleReport("emp_123", new Date("2025-10-01"), "PDF");
 ```
 
 **Formato del PDF:**
@@ -464,10 +465,11 @@ Este documento es legal y vinculante según RD 1561/1995
 #### Export Masivo (Excel)
 
 **Server Action:**
+
 ```typescript
 await exportSchedulesToExcel({
-  employeeIds: ['emp_1', 'emp_2', 'emp_3']
-})
+  employeeIds: ["emp_1", "emp_2", "emp_3"],
+});
 ```
 
 **Hojas del Excel:**

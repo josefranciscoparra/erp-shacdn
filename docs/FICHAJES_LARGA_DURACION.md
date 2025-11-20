@@ -77,6 +77,7 @@ model WorkdaySummary {
 **Propósito**: Detectar fichajes abiertos y calcular si son excesivos
 
 **Retorno**:
+
 ```typescript
 {
   hasIncompleteEntry: boolean,
@@ -93,6 +94,7 @@ model WorkdaySummary {
 ```
 
 **Lógica**:
+
 1. Buscar último `CLOCK_IN` sin `CLOCK_OUT` correspondiente
 2. Calcular duración: `now - clockIn.timestamp`
 3. Obtener jornada del empleado: `dailyHours` (de contrato)
@@ -105,6 +107,7 @@ model WorkdaySummary {
 **Ubicación**: `src/server/actions/time-tracking.ts`
 
 **Firma**:
+
 ```typescript
 export async function clockOut(
   latitude?: number,
@@ -112,17 +115,19 @@ export async function clockOut(
   accuracy?: number,
   cancelAsClosed?: boolean, // Si viene de modal, cancelar el fichaje
   cancellationInfo?: {
-    reason: "EXCESSIVE_DURATION",
-    originalDurationHours: number,
-    notes?: string
-  }
-)
+    reason: "EXCESSIVE_DURATION";
+    originalDurationHours: number;
+    notes?: string;
+  },
+);
 ```
 
 **Lógica**:
 
 **Si `cancelAsClosed === true`**:
+
 1. Crear `TimeEntry` CLOCK_OUT con datos de cancelación:
+
    ```typescript
    {
      entryType: "CLOCK_OUT",
@@ -136,20 +141,22 @@ export async function clockOut(
    ```
 
 2. Marcar CLOCK_IN correspondiente como cancelado:
+
    ```typescript
    await prisma.timeEntry.update({
      where: { id: clockInId },
      data: {
        isCancelled: true,
        cancellationReason: "EXCESSIVE_DURATION",
-       cancelledAt: new Date()
-     }
-   })
+       cancelledAt: new Date(),
+     },
+   });
    ```
 
 3. WorkdaySummary NO suma estas horas (excluir `isCancelled: true`)
 
 **Si `cancelAsClosed === false` (fichaje normal)**:
+
 - Lógica original sin cambios
 
 ### 3. Exclusión de Fichajes Cancelados en Cómputo
@@ -158,13 +165,14 @@ export async function clockOut(
 **Ubicación**: `src/server/actions/time-tracking.ts`
 
 **Cambio crítico**:
+
 ```typescript
 const timeEntries = await prisma.timeEntry.findMany({
   where: {
     workdayId: workday.id,
-    isCancelled: false  // ⚠️ SOLO contar fichajes NO cancelados
+    isCancelled: false, // ⚠️ SOLO contar fichajes NO cancelados
   },
-  orderBy: { timestamp: "asc" }
+  orderBy: { timestamp: "asc" },
 });
 
 // Calcular horas trabajadas SOLO de fichajes válidos
@@ -179,6 +187,7 @@ const { worked, break: breakMinutes } = calculateWorkedMinutes(timeEntries);
 **Cambio crítico**: CANCELAR en lugar de ELIMINAR fichajes automáticos
 
 **ANTES (❌ ELIMINAR - pérdida de auditoría)**:
+
 ```typescript
 // Eliminar las entradas automáticas incompletas
 await prisma.timeEntry.deleteMany({
@@ -189,6 +198,7 @@ await prisma.timeEntry.deleteMany({
 ```
 
 **DESPUÉS (✅ CANCELAR - auditoría completa)**:
+
 ```typescript
 // CANCELAR (no eliminar) las entradas automáticas
 if (request.replacesIncompleteEntry && request.replacedEntryIds.length > 0) {
@@ -207,6 +217,7 @@ if (request.replacesIncompleteEntry && request.replacedEntryIds.length > 0) {
 ```
 
 **Beneficios**:
+
 - ✅ Fichajes automáticos permanecen en base de datos
 - ✅ Trazabilidad completa en auditorías
 - ✅ Visibles en `/dashboard/time-tracking` con estado "Cancelado"
@@ -223,10 +234,7 @@ if (request.replacesIncompleteEntry && request.replacedEntryIds.length > 0) {
 /**
  * Marcar una notificación como descartada
  */
-export async function dismissNotification(
-  type: string,
-  referenceId: string
-): Promise<void> {
+export async function dismissNotification(type: string, referenceId: string): Promise<void> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("No autenticado");
 
@@ -260,10 +268,7 @@ export async function dismissNotification(
 /**
  * Verificar si una notificación está descartada
  */
-export async function isNotificationDismissed(
-  type: string,
-  referenceId: string
-): Promise<boolean> {
+export async function isNotificationDismissed(type: string, referenceId: string): Promise<boolean> {
   const session = await auth();
   if (!session?.user?.id) return false;
 
@@ -282,6 +287,7 @@ export async function isNotificationDismissed(
 ```
 
 **Tipos de notificaciones**:
+
 - `"INCOMPLETE_ENTRY"`: Badge "Fichaje abierto"
 - `"EXCESSIVE_TIME"`: Notificaciones de fichajes > 150% (futuro)
 
@@ -295,14 +301,12 @@ export async function isNotificationDismissed(
 **Comportamiento mejorado**:
 
 1. **Detectar fichaje incompleto**:
+
    ```typescript
    const incompleteData = await detectIncompleteEntries();
    if (incompleteData?.hasIncompleteEntry) {
      // Verificar si ya fue descartado
-     const isDismissed = await isNotificationDismissed(
-       "INCOMPLETE_ENTRY",
-       incompleteData.clockInId
-     );
+     const isDismissed = await isNotificationDismissed("INCOMPLETE_ENTRY", incompleteData.clockInId);
 
      if (!isDismissed) {
        setHasIncompleteEntry(true);
@@ -321,6 +325,7 @@ export async function isNotificationDismissed(
      - Aplicar `border-2 border-orange-500 ring-2 ring-orange-200`
 
 **Flujo de descarte**:
+
 ```
 Usuario ve badge → Click → Redirige a /requests
                          ↓
@@ -335,6 +340,7 @@ Usuario ve badge → Click → Redirige a /requests
 **Ubicación**: `src/app/(main)/dashboard/me/clock/_components/clock-in.tsx`
 
 **Comportamiento**:
+
 1. Detectar fichaje excesivo igual que widget
 2. Aplicar mismo borde naranja al botón
 3. **Interceptar click** en "Fichar Salida":
@@ -355,6 +361,7 @@ Usuario ve badge → Click → Redirige a /requests
 **Ubicación**: `src/components/time-tracking/excessive-time-dialog.tsx`
 
 **Props**:
+
 ```typescript
 interface ExcessiveTimeDialogProps {
   open: boolean;
@@ -425,6 +432,7 @@ interface ExcessiveTimeDialogProps {
 **Nuevas Columnas en Tabla**:
 
 #### Columna "Estado"
+
 ```tsx
 {
   id: "status",
@@ -449,6 +457,7 @@ interface ExcessiveTimeDialogProps {
 ```
 
 #### Columna "Motivo Cancelación"
+
 ```tsx
 {
   id: "cancellationReason",
@@ -478,6 +487,7 @@ interface ExcessiveTimeDialogProps {
 ```
 
 **Nuevo Tab**: "Fichajes Cancelados"
+
 ```tsx
 <Tabs defaultValue="all">
   <TabsList>
@@ -491,19 +501,14 @@ interface ExcessiveTimeDialogProps {
     </TabsTrigger>
   </TabsList>
 
-  <TabsContent value="cancelled">
-    {/* Tabla filtrada: isCancelled === true */}
-  </TabsContent>
+  <TabsContent value="cancelled">{/* Tabla filtrada: isCancelled === true */}</TabsContent>
 </Tabs>
 ```
 
 **Estilo Visual**:
+
 ```tsx
-<TableRow
-  className={cn(
-    entry.isCancelled && "bg-red-50 opacity-60 line-through decoration-red-500"
-  )}
->
+<TableRow className={cn(entry.isCancelled && "bg-red-50 line-through decoration-red-500 opacity-60")}>
   {/* ... celdas ... */}
 </TableRow>
 ```
@@ -511,6 +516,7 @@ interface ExcessiveTimeDialogProps {
 ### 2. Export a Excel
 
 **Columnas Adicionales**:
+
 - "Estado": VÁLIDO / CANCELADO
 - "Motivo Cancelación": Descripción del motivo
 - "Duración Original (h)": Horas del fichaje cancelado
@@ -518,6 +524,7 @@ interface ExcessiveTimeDialogProps {
 - "Notas": Observaciones adicionales
 
 **Formato Condicional**:
+
 - Fila con fondo rojo claro (`FFFFEBEE`) si `isCancelled === true`
 
 ### 3. Widget de Estadísticas
@@ -525,6 +532,7 @@ interface ExcessiveTimeDialogProps {
 **Ubicación**: Dashboard admin (`/dashboard/admin`)
 
 **Card de Métricas**:
+
 ```
 ┌─────────────────────────────────────────┐
 │  ⚠️ Fichajes Cancelados (Este Mes)     │
@@ -555,11 +563,11 @@ useEffect(() => {
 
   const checkExistingEntries = async () => {
     const entries = await getTimeEntriesForDate(selectedDate);
-    const automaticEntries = entries.filter(e => !e.isManual && !e.isCancelled);
+    const automaticEntries = entries.filter((e) => !e.isManual && !e.isCancelled);
 
     if (automaticEntries.length > 0) {
-      const hasClockIn = automaticEntries.some(e => e.entryType === "CLOCK_IN");
-      const hasClockOut = automaticEntries.some(e => e.entryType === "CLOCK_OUT");
+      const hasClockIn = automaticEntries.some((e) => e.entryType === "CLOCK_IN");
+      const hasClockOut = automaticEntries.some((e) => e.entryType === "CLOCK_OUT");
 
       setHasExistingEntries(true);
       setExistingEntriesComplete(hasClockIn && hasClockOut);
@@ -574,46 +582,38 @@ useEffect(() => {
 **Interfaz de advertencia**:
 
 ```tsx
-{hasExistingEntries && (
-  <Alert variant="warning" className="mb-4">
-    <AlertTriangle className="h-4 w-4" />
-    <AlertTitle>Ya tienes fichajes para este día</AlertTitle>
-    <AlertDescription className="space-y-2">
-      <p>
-        Hay fichajes automáticos registrados para el {selectedDate.toLocaleDateString()}
-        {existingEntriesComplete
-          ? ` (${existingWorkedHours} horas trabajadas)`
-          : " (fichaje incompleto)"
-        }
-      </p>
-      <p className="font-medium">
-        Si continúas, los fichajes automáticos se cancelarán y reemplazarán
-        por los datos de esta solicitud.
-      </p>
+{
+  hasExistingEntries && (
+    <Alert variant="warning" className="mb-4">
+      <AlertTriangle className="h-4 w-4" />
+      <AlertTitle>Ya tienes fichajes para este día</AlertTitle>
+      <AlertDescription className="space-y-2">
+        <p>
+          Hay fichajes automáticos registrados para el {selectedDate.toLocaleDateString()}
+          {existingEntriesComplete ? ` (${existingWorkedHours} horas trabajadas)` : " (fichaje incompleto)"}
+        </p>
+        <p className="font-medium">
+          Si continúas, los fichajes automáticos se cancelarán y reemplazarán por los datos de esta solicitud.
+        </p>
 
-      <div className="flex items-center gap-2 mt-3">
-        <Checkbox
-          id="confirm-replacement"
-          checked={confirmReplacement}
-          onCheckedChange={setConfirmReplacement}
-        />
-        <label htmlFor="confirm-replacement" className="text-sm cursor-pointer">
-          Entiendo que los fichajes automáticos se cancelarán
-        </label>
-      </div>
-    </AlertDescription>
-  </Alert>
-)}
+        <div className="mt-3 flex items-center gap-2">
+          <Checkbox id="confirm-replacement" checked={confirmReplacement} onCheckedChange={setConfirmReplacement} />
+          <label htmlFor="confirm-replacement" className="cursor-pointer text-sm">
+            Entiendo que los fichajes automáticos se cancelarán
+          </label>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
 
-<Button
-  type="submit"
-  disabled={hasExistingEntries && !confirmReplacement}
->
+<Button type="submit" disabled={hasExistingEntries && !confirmReplacement}>
   Enviar Solicitud
-</Button>
+</Button>;
 ```
 
 **Estados del botón submit**:
+
 - Sin fichajes previos → Habilitado
 - Con fichajes previos + checkbox SIN marcar → Deshabilitado
 - Con fichajes previos + checkbox marcado → Habilitado
@@ -738,6 +738,7 @@ useEffect(() => {
 **Valor**: 150% de la jornada laboral del empleado
 
 **Cálculo**:
+
 ```typescript
 const dailyHours = employee.dailyHours; // De contrato (ej: 8h)
 const thresholdHours = dailyHours * 1.5; // 12h para jornada de 8h
@@ -748,6 +749,7 @@ if (durationHours > thresholdHours) {
 ```
 
 **Ejemplos**:
+
 - Jornada 8h → Umbral 12h
 - Jornada 6h → Umbral 9h
 - Jornada 4h → Umbral 6h
@@ -757,6 +759,7 @@ if (durationHours > thresholdHours) {
 **Límite**: 1 día después del fichaje
 
 **Validación**: En formulario de solicitud manual, verificar:
+
 ```typescript
 const maxDaysAgo = 1;
 const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo;
@@ -765,6 +768,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 ## 🔐 Seguridad y Permisos
 
 ### Empleados
+
 - ✅ Pueden ver sus propios fichajes (válidos y cancelados)
 - ✅ Pueden cancelar sus propios fichajes excesivos
 - ✅ Pueden crear solicitudes manuales de regularización
@@ -772,6 +776,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 - ❌ NO pueden ver fichajes de otros empleados
 
 ### Administradores
+
 - ✅ Pueden ver todos los fichajes de todos los empleados
 - ✅ Pueden filtrar y exportar fichajes cancelados
 - ✅ Pueden aprobar/rechazar solicitudes manuales
@@ -781,12 +786,14 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 ## 📈 Métricas y KPIs
 
 ### Indicadores Clave
+
 - **Tasa de fichajes cancelados**: `(Fichajes cancelados / Total fichajes) * 100`
 - **Promedio duración fichajes cancelados**: Media de `originalDurationHours`
 - **Empleados con más fichajes cancelados**: Top 5 ranking
 - **Motivo más común**: Distribución de `CancellationReason`
 
 ### Alertas Admin
+
 - ⚠️ Alerta si empleado tiene > 3 fichajes cancelados en 1 mes
 - ⚠️ Alerta si tasa de cancelación > 10% en la organización
 - ⚠️ Alerta si duración promedio > 24 horas
@@ -796,12 +803,14 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 ### Casos de Prueba
 
 #### Test 1: Detección de Fichaje Excesivo
+
 1. Crear CLOCK_IN de ayer a las 09:00
 2. Esperar que pase umbral (simular con timestamp mock)
 3. Verificar que `detectIncompleteEntries()` retorna `isExcessive: true`
 4. Verificar que botón muestra borde naranja
 
 #### Test 2: Cancelación Manual
+
 1. Crear fichaje excesivo (26h)
 2. Click "Fichar Salida" → Modal aparece
 3. Click "Cerrar y Cancelar Fichaje"
@@ -809,6 +818,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 5. Verificar que WorkdaySummary NO suma esas horas
 
 #### Test 3: Regularización
+
 1. Crear fichaje excesivo
 2. Click "Ir a Regularizar"
 3. Crear solicitud manual (8h)
@@ -817,6 +827,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 6. Verificar que WorkdaySummary suma solo fichaje manual (8h)
 
 #### Test 4: Auditoría
+
 1. Crear varios fichajes (válidos y cancelados)
 2. Ir a `/dashboard/time-tracking`
 3. Verificar columna "Estado" muestra badges correctos
@@ -825,30 +836,36 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 6. Verificar formato condicional (fondo rojo)
 
 ### Usuario de Prueba
+
 - Email: `deejaymacro@hotmail.es`
 - Fichaje de prueba: Ya existe CLOCK_IN de ayer a las 09:00 (IN_PROGRESS)
 
 ## 🐛 Troubleshooting
 
 ### Problema: Botón no muestra borde naranja
+
 **Causa**: `detectIncompleteEntries()` no se está ejecutando
 **Solución**: Verificar que `useEffect` en widget/página llama correctamente la función
 
 ### Problema: Modal no aparece al hacer click
+
 **Causa**: Interceptación de click no funciona
 **Solución**: Verificar que `handleClockOut` verifica `excessiveInfo?.isExcessive`
 
 ### Problema: Fichaje cancelado cuenta para cómputo
+
 **Causa**: `updateWorkdaySummary()` no filtra `isCancelled`
 **Solución**: Añadir `where: { isCancelled: false }` en query de TimeEntry
 
 ### Problema: Export Excel no muestra fichajes cancelados
+
 **Causa**: Query no incluye `isCancelled: true`
 **Solución**: Remover filtro o hacer query sin filtro + filtrar en cliente
 
 ## 📚 Referencias
 
 ### Archivos Clave
+
 - `src/server/actions/time-tracking.ts` - Lógica de fichajes
 - `src/server/actions/manual-time-entry.ts` - Solicitudes manuales
 - `src/components/time-tracking/quick-clock-widget.tsx` - Widget superior
@@ -858,6 +875,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 - `prisma/schema.prisma` - Definición de base de datos
 
 ### Documentos Relacionados
+
 - `CLAUDE.md` - Guía general del proyecto
 - `README.md` - Documentación del ERP
 
@@ -870,6 +888,7 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 ## 📝 Historial de Cambios
 
 ### v2.0 - 2025-01-11
+
 - ✅ Añadida tabla `DismissedNotification` para descarte de notificaciones
 - ✅ Nuevo `CancellationReason`: `REPLACED_BY_MANUAL_REQUEST`
 - ✅ Sistema de descarte para badge "Fichaje abierto"
@@ -879,4 +898,5 @@ const isWithinDeadline = differenceInDays(new Date(), requestDate) <= maxDaysAgo
 - ✅ Nuevos escenarios: Corregir fichajes completos y Descartar badge
 
 ### v1.0 - 2025-01-10
+
 - Versión inicial del sistema de fichajes de larga duración

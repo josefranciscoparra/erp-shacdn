@@ -144,7 +144,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           <span className="font-medium">
             {employee.firstName} {employee.lastName}
           </span>
-          <span className="text-xs text-muted-foreground">{employee.email}</span>
+          <span className="text-muted-foreground text-xs">{employee.email}</span>
         </div>
       );
     },
@@ -170,65 +170,64 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Detalles" />,
     cell: ({ row }) => {
       const incidents = row.original.incidents;
+      const type = row.original.type;
 
-      // Función helper para formatear la desviación
-      const formatDeviation = (minutes?: number) => {
-        if (!minutes) return null;
-        const hours = Math.floor(Math.abs(minutes) / 60);
-        const mins = Math.abs(minutes) % 60;
-        return hours > 0 ? `${hours}h ${mins}min` : `${mins}min`;
-      };
+      // Si es DAILY_SUMMARY y tiene incidencias, mostrar resumen compacto
+      if (type === "DAILY_SUMMARY" && incidents && incidents.length > 0) {
+        // Contar tipos de incidencias
+        const counts = incidents.reduce(
+          (acc, curr) => {
+            if (curr.type.includes("LATE")) acc.late++;
+            else if (curr.type.includes("EARLY")) acc.early++;
+            else acc.other++;
+            return acc;
+          },
+          { late: 0, early: 0, other: 0 },
+        );
 
-      // Si es DAILY_SUMMARY y tiene incidencias, mostrarlas en detalle
-      if (row.original.type === "DAILY_SUMMARY" && incidents && incidents.length > 0) {
         return (
-          <div className="flex flex-col gap-2 max-w-[450px]">
-            <span className="font-medium text-sm">{row.original.title}</span>
-            <div className="flex flex-col gap-2">
-              {incidents.map((incident, index) => {
-                const isLate = incident.type.includes("LATE_ARRIVAL");
-                const isEarly = incident.type.includes("EARLY_DEPARTURE");
-                const deviation = formatDeviation(incident.deviationMinutes);
-
-                return (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between gap-3 rounded-md border bg-card p-2.5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-1 flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
-                          className="text-xs"
-                        >
-                          {isLate ? "Tarde" : isEarly ? "Temprano" : "Info"}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground font-mono">
-                          {format(new Date(incident.time), "HH:mm", { locale: es })}
-                        </span>
-                      </div>
-                      {deviation && (
-                        <p className="text-sm font-semibold">
-                          {isLate ? "↓ " : isEarly ? "↑ " : ""}
-                          {deviation}
-                          {isLate ? " tarde" : isEarly ? " antes" : ""}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+          <div className="flex max-w-[350px] flex-col gap-1.5">
+            <span className="truncate text-sm font-medium" title={row.original.title}>
+              {row.original.title}
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {counts.late > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 border-orange-200 bg-orange-50 px-1.5 text-[10px] font-normal text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-900/30 dark:text-orange-400"
+                >
+                  {counts.late} Tarde
+                </Badge>
+              )}
+              {counts.early > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 border-blue-200 bg-blue-50 px-1.5 text-[10px] font-normal text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-900/30 dark:text-blue-400"
+                >
+                  {counts.early} Salida Temp.
+                </Badge>
+              )}
+              {counts.other > 0 && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                  {counts.other} Otros
+                </Badge>
+              )}
             </div>
+            <span className="text-muted-foreground text-[10px]">Ver detalles completos &rarr;</span>
           </div>
         );
       }
 
       // Alertas normales (no DAILY_SUMMARY)
       return (
-        <div className="flex flex-col max-w-[300px]">
-          <span className="font-medium truncate">{row.original.title}</span>
+        <div className="flex max-w-[300px] flex-col">
+          <span className="truncate font-medium" title={row.original.title}>
+            {row.original.title}
+          </span>
           {row.original.description && (
-            <span className="text-xs text-muted-foreground line-clamp-2">{row.original.description}</span>
+            <span className="text-muted-foreground line-clamp-2 text-xs" title={row.original.description}>
+              {row.original.description}
+            </span>
           )}
         </div>
       );
@@ -260,11 +259,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     accessorKey: "date",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Fecha" />,
     cell: ({ row }) => {
-      return (
-        <span className="text-sm">
-          {format(new Date(row.original.date), "PPP", { locale: es })}
-        </span>
-      );
+      return <span className="text-sm">{format(new Date(row.original.date), "PPP", { locale: es })}</span>;
     },
     enableSorting: true,
     enableHiding: true,
@@ -274,8 +269,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
-      const variant =
-        status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
+      const variant = status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
 
       return <Badge variant={variant}>{statusLabels[status] || status}</Badge>;
     },
@@ -296,7 +290,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
         <div className="flex flex-col">
           <span className="text-sm">{format(new Date(resolvedAt), "PPP", { locale: es })}</span>
           {row.original.resolver && (
-            <span className="text-xs text-muted-foreground">por {row.original.resolver.name}</span>
+            <span className="text-muted-foreground text-xs">por {row.original.resolver.name}</span>
           )}
         </div>
       );
@@ -320,18 +314,12 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>
-              Ver detalles
-            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>Ver detalles</DropdownMenuItem>
             {alert.status === "ACTIVE" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onResolve?.(alert)}>
-                  Resolver
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>
-                  Descartar
-                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onResolve?.(alert)}>Resolver</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDismiss?.(alert)}>Descartar</DropdownMenuItem>
               </>
             )}
           </DropdownMenuContent>

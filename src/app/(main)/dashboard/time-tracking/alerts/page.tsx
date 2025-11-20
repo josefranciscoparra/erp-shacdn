@@ -14,17 +14,13 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -42,6 +38,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Separator } from "@/components/ui/separator";
 
 import { alertColumns, type AlertRow } from "./_components/alert-columns";
 import { getActiveAlerts, resolveAlert, dismissAlert, getAlertStats } from "@/server/actions/alert-detection";
@@ -67,6 +64,10 @@ export default function AlertsPage() {
   const [comment, setComment] = useState("");
   const [processing, setProcessing] = useState(false);
 
+  // UI Filter States (Mocked for now as per requirement)
+  const [selectedCenter, setSelectedCenter] = useState<string>("all");
+  const [selectedTeam, setSelectedTeam] = useState<string>("all");
+
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -77,16 +78,13 @@ export default function AlertsPage() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [alertsData, statsData] = await Promise.all([
-        getActiveAlerts(),
-        getAlertStats(),
-      ]);
+      const [alertsData, statsData] = await Promise.all([getActiveAlerts(), getAlertStats()]);
 
       setAlerts(alertsData);
       setStats(statsData);
     } catch (error) {
       console.error("Error al cargar alertas:", error);
-      alert("Error: No se pudieron cargar las alertas");
+      toast.error("Error al cargar las alertas");
     } finally {
       setLoading(false);
     }
@@ -99,30 +97,39 @@ export default function AlertsPage() {
   // Filtrar alertas por tab activo
   const filteredAlerts = useMemo(() => {
     return alerts.filter((alert) => {
-      if (activeTab === "active") return alert.status === "ACTIVE";
-      if (activeTab === "resolved") return alert.status === "RESOLVED";
-      if (activeTab === "dismissed") return alert.status === "DISMISSED";
-      return true;
+      // Basic Tab Filter
+      let matchesTab = false;
+      if (activeTab === "active") matchesTab = alert.status === "ACTIVE";
+      else if (activeTab === "resolved") matchesTab = alert.status === "RESOLVED";
+      else if (activeTab === "dismissed") matchesTab = alert.status === "DISMISSED";
+
+      // Mock Center Filter (Needs backend support for real filtering or complete data)
+      // const matchesCenter = selectedCenter === "all" || (alert.costCenter?.name === selectedCenter);
+
+      return matchesTab;
     });
-  }, [alerts, activeTab]);
+  }, [alerts, activeTab, selectedCenter]);
 
   // Memoizar meta functions para evitar recrear la tabla
-  const tableMeta = useMemo(() => ({
-    onResolve: (alert: AlertRow) => {
-      setSelectedAlert(alert);
-      setActionDialog("resolve");
-      setComment("");
-    },
-    onDismiss: (alert: AlertRow) => {
-      setSelectedAlert(alert);
-      setActionDialog("dismiss");
-      setComment("");
-    },
-    onViewDetails: (alert: AlertRow) => {
-      setSelectedAlert(alert);
-      setActionDialog("details");
-    },
-  }), []);
+  const tableMeta = useMemo(
+    () => ({
+      onResolve: (alert: AlertRow) => {
+        setSelectedAlert(alert);
+        setActionDialog("resolve");
+        setComment("");
+      },
+      onDismiss: (alert: AlertRow) => {
+        setSelectedAlert(alert);
+        setActionDialog("dismiss");
+        setComment("");
+      },
+      onViewDetails: (alert: AlertRow) => {
+        setSelectedAlert(alert);
+        setActionDialog("details");
+      },
+    }),
+    [],
+  );
 
   // Configurar tabla
   const table = useReactTable({
@@ -155,7 +162,7 @@ export default function AlertsPage() {
       setProcessing(true);
       await resolveAlert(selectedAlert.id, comment);
 
-      alert("Alerta resuelta correctamente");
+      toast.success("Alerta resuelta correctamente");
 
       setActionDialog(null);
       setSelectedAlert(null);
@@ -163,7 +170,7 @@ export default function AlertsPage() {
       loadData();
     } catch (error) {
       console.error("Error al resolver alerta:", error);
-      alert("Error: No se pudo resolver la alerta");
+      toast.error("No se pudo resolver la alerta");
     } finally {
       setProcessing(false);
     }
@@ -177,7 +184,7 @@ export default function AlertsPage() {
       setProcessing(true);
       await dismissAlert(selectedAlert.id, comment);
 
-      alert("Alerta descartada correctamente");
+      toast.success("Alerta descartada correctamente");
 
       setActionDialog(null);
       setSelectedAlert(null);
@@ -185,7 +192,7 @@ export default function AlertsPage() {
       loadData();
     } catch (error) {
       console.error("Error al descartar alerta:", error);
-      alert("Error: No se pudo descartar la alerta");
+      toast.error("No se pudo descartar la alerta");
     } finally {
       setProcessing(false);
     }
@@ -193,175 +200,218 @@ export default function AlertsPage() {
 
   // Configuración de severidad para el modal de detalles
   const severityConfig = {
-    INFO: { icon: Info, color: "text-blue-600 dark:text-blue-400" },
-    WARNING: { icon: AlertTriangle, color: "text-yellow-600 dark:text-yellow-400" },
-    CRITICAL: { icon: AlertCircle, color: "text-red-600 dark:text-red-400" },
+    INFO: { icon: Info, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/30" },
+    WARNING: {
+      icon: AlertTriangle,
+      color: "text-yellow-600 dark:text-yellow-400",
+      bg: "bg-yellow-50 dark:bg-yellow-950/30",
+    },
+    CRITICAL: { icon: AlertCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/30" },
   };
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <SectionHeader title="Sistema de Alertas de Fichajes" />
+    <div className="animate-in fade-in mx-auto flex max-w-screen-2xl flex-col gap-6 p-6 duration-500 md:p-8">
+      {/* Header con acciones */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <SectionHeader title="Panel de Alertas" description="Gestiona las incidencias de fichajes y control horario." />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
+      </div>
 
-      {/* Estadísticas */}
+      {/* Estadísticas mejoradas */}
       {stats && (
-        <div className="grid grid-cols-1 gap-4 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-          <div className="rounded-lg border bg-gradient-to-t from-primary/5 to-card p-6 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Alertas Activas</p>
-                <h3 className="mt-2 text-3xl font-bold">{stats.active}</h3>
-              </div>
-              <AlertCircle className="h-8 w-8 text-red-500" />
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="border-l-4 border-l-red-500 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-muted-foreground text-sm font-medium">Alertas Activas</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.active}</div>
+              <p className="text-muted-foreground text-xs">Requieren atención inmediata</p>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-lg border bg-gradient-to-t from-primary/5 to-card p-6 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Resueltas</p>
-                <h3 className="mt-2 text-3xl font-bold">{stats.resolved}</h3>
-              </div>
-              <Info className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
+          <Card className="border-l-4 border-l-green-500 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-muted-foreground text-sm font-medium">Resueltas</CardTitle>
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.resolved}</div>
+              <p className="text-muted-foreground text-xs">Incidencias solucionadas</p>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-lg border bg-gradient-to-t from-primary/5 to-card p-6 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Descartadas</p>
-                <h3 className="mt-2 text-3xl font-bold">{stats.dismissed}</h3>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-gray-500" />
-            </div>
-          </div>
+          <Card className="border-l-4 border-l-gray-500 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-muted-foreground text-sm font-medium">Descartadas</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-gray-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.dismissed}</div>
+              <p className="text-muted-foreground text-xs">Falsos positivos o irrelevantes</p>
+            </CardContent>
+          </Card>
 
-          <div className="rounded-lg border bg-gradient-to-t from-primary/5 to-card p-6 shadow-xs">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total</p>
-                <h3 className="mt-2 text-3xl font-bold">{stats.total}</h3>
-              </div>
-              <Info className="h-8 w-8 text-primary" />
-            </div>
-          </div>
+          <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-muted-foreground text-sm font-medium">Total Histórico</CardTitle>
+              <Info className="text-primary h-4 w-4" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats.total}</div>
+              <p className="text-muted-foreground text-xs">Registradas en el sistema</p>
+            </CardContent>
+          </Card>
         </div>
       )}
 
-      {/* Tabs con DataTable */}
-      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
-        <div className="flex items-center justify-between">
-          {/* Select para móvil */}
-          <Select value={activeTab} onValueChange={(value: any) => setActiveTab(value)}>
-            <SelectTrigger className="w-[200px] @4xl/main:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">
-                Activas <Badge variant="default">{stats?.active ?? 0}</Badge>
-              </SelectItem>
-              <SelectItem value="resolved">
-                Resueltas <Badge variant="secondary">{stats?.resolved ?? 0}</Badge>
-              </SelectItem>
-              <SelectItem value="dismissed">
-                Descartadas <Badge variant="outline">{stats?.dismissed ?? 0}</Badge>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+      {/* Filtros Globales (Visuales por ahora) */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+              <Filter className="h-4 w-4" />
+              Filtrar por:
+            </div>
 
-          {/* Tabs para desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="active">
-              Activas <Badge className="ml-2" variant="default">{stats?.active ?? 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="resolved">
-              Resueltas <Badge className="ml-2" variant="secondary">{stats?.resolved ?? 0}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="dismissed">
-              Descartadas <Badge className="ml-2" variant="outline">{stats?.dismissed ?? 0}</Badge>
-            </TabsTrigger>
+            <div className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-3">
+              <Select value={selectedCenter} onValueChange={setSelectedCenter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los centros" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los centros</SelectItem>
+                  <SelectItem value="madrid">Madrid Norte</SelectItem>
+                  <SelectItem value="bcn">Barcelona Central</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los equipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los equipos</SelectItem>
+                  <SelectItem value="dev">Desarrollo</SelectItem>
+                  <SelectItem value="hr">Recursos Humanos</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <div className="relative">
+                <Input
+                  placeholder="Buscar empleado..."
+                  className="w-full"
+                  value={(table.getColumn("employee")?.getFilterValue() as string) ?? ""}
+                  onChange={(event) => table.getColumn("employee")?.setFilterValue(event.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Tabs con DataTable */}
+      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="w-full">
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+            <TabsTrigger value="active">Activas</TabsTrigger>
+            <TabsTrigger value="resolved">Resueltas</TabsTrigger>
+            <TabsTrigger value="dismissed">Descartadas</TabsTrigger>
           </TabsList>
 
-          {/* Opciones de columnas */}
           <div className="flex gap-2">
             <DataTableViewOptions table={table} />
           </div>
         </div>
 
-        <TabsContent value={activeTab} className="space-y-4">
+        <TabsContent value={activeTab} className="mt-0">
           {loading ? (
-            <div className="flex h-64 items-center justify-center">
-              <div className="text-center">
-                <p className="text-muted-foreground">Cargando alertas...</p>
+            <div className="bg-card flex h-64 items-center justify-center rounded-md border">
+              <div className="flex flex-col items-center gap-2">
+                <RefreshCw className="text-primary h-8 w-8 animate-spin" />
+                <p className="text-muted-foreground text-sm">Cargando alertas...</p>
               </div>
             </div>
           ) : filteredAlerts.length === 0 ? (
-            <EmptyState
-              icon={<AlertCircle className="h-10 w-10" />}
-              title="No hay alertas"
-              description={`No hay alertas ${
-                activeTab === "active"
-                  ? "activas"
-                  : activeTab === "resolved"
-                    ? "resueltas"
-                    : "descartadas"
-              } en este momento.`}
-            />
+            <div className="bg-card rounded-md border p-8">
+              <EmptyState
+                icon={<AlertCircle className="text-muted-foreground h-10 w-10" />}
+                title="No hay alertas"
+                description={`No se encontraron alertas ${
+                  activeTab === "active" ? "activas" : activeTab === "resolved" ? "resueltas" : "descartadas"
+                } con los filtros actuales.`}
+              />
+            </div>
           ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
+            <div className="space-y-4">
+              <div className="bg-card rounded-md border">
                 <DataTable table={table} columns={alertColumns} />
               </div>
               <DataTablePagination table={table} />
-            </>
+            </div>
           )}
         </TabsContent>
       </Tabs>
 
+      {/* Dialogs - Keeping functionality but cleaning up UI structure */}
+
       {/* Dialog para resolver alerta */}
       <Dialog open={actionDialog === "resolve"} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Resolver Alerta</DialogTitle>
             <DialogDescription>
-              Marcar esta alerta como resuelta. Puedes añadir un comentario explicando la solución.
+              Justifica la resolución de esta incidencia. Esta acción quedará registrada.
             </DialogDescription>
           </DialogHeader>
 
           {selectedAlert && (
-            <div className="space-y-4">
-              <div className="rounded-lg border p-4">
-                <p className="font-medium">{selectedAlert.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedAlert.description}</p>
-                <p className="mt-2 text-sm">
-                  <span className="font-medium">Empleado:</span> {selectedAlert.employee.firstName}{" "}
-                  {selectedAlert.employee.lastName}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Fecha:</span>{" "}
-                  {format(new Date(selectedAlert.date), "PPP", { locale: es })}
-                </p>
+            <div className="space-y-4 py-2">
+              <div className="bg-muted space-y-2 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{selectedAlert.title}</span>
+                  <Badge variant={selectedAlert.severity as any}>{selectedAlert.severity}</Badge>
+                </div>
+                <Separator />
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Empleado:</span>
+                    <p className="font-medium">
+                      {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Fecha:</span>
+                    <p className="font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <Label htmlFor="comment">Comentario (opcional)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="comment">Comentario de resolución</Label>
                 <Textarea
                   id="comment"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Añade un comentario sobre cómo se resolvió..."
-                  rows={3}
+                  placeholder="Ej: El empleado ha justificado el retraso por transporte..."
+                  className="min-h-[100px]"
                 />
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionDialog(null)} disabled={processing}>
+            <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
               Cancelar
             </Button>
-            <Button onClick={handleResolve} disabled={processing}>
-              {processing ? "Resolviendo..." : "Resolver"}
+            <Button onClick={handleResolve} disabled={processing || !comment.trim()}>
+              {processing ? "Procesando..." : "Marcar como Resuelta"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -369,48 +419,40 @@ export default function AlertsPage() {
 
       {/* Dialog para descartar alerta */}
       <Dialog open={actionDialog === "dismiss"} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Descartar Alerta</DialogTitle>
-            <DialogDescription>
-              Descartar esta alerta. Puedes añadir un comentario explicando el motivo.
-            </DialogDescription>
+            <DialogTitle className="text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Descartar Alerta
+            </DialogTitle>
+            <DialogDescription>Esta alerta será marcada como descartada/falso positivo.</DialogDescription>
           </DialogHeader>
 
           {selectedAlert && (
-            <div className="space-y-4">
-              <div className="rounded-lg border p-4">
-                <p className="font-medium">{selectedAlert.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedAlert.description}</p>
-                <p className="mt-2 text-sm">
-                  <span className="font-medium">Empleado:</span> {selectedAlert.employee.firstName}{" "}
-                  {selectedAlert.employee.lastName}
-                </p>
-                <p className="text-sm">
-                  <span className="font-medium">Fecha:</span>{" "}
-                  {format(new Date(selectedAlert.date), "PPP", { locale: es })}
-                </p>
+            <div className="space-y-4 py-2">
+              <div className="bg-muted rounded-lg p-4">
+                <p className="text-sm font-medium">{selectedAlert.title}</p>
+                <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
               </div>
 
-              <div>
-                <Label htmlFor="comment-dismiss">Comentario (opcional)</Label>
+              <div className="space-y-2">
+                <Label htmlFor="comment-dismiss">Motivo del descarte (Opcional)</Label>
                 <Textarea
                   id="comment-dismiss"
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Añade un comentario sobre por qué se descarta..."
-                  rows={3}
+                  placeholder="Ej: Error del sistema, fichaje duplicado..."
                 />
               </div>
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setActionDialog(null)} disabled={processing}>
+            <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
               Cancelar
             </Button>
             <Button variant="destructive" onClick={handleDismiss} disabled={processing}>
-              {processing ? "Descartando..." : "Descartar"}
+              {processing ? "Descartando..." : "Descartar Alerta"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -418,170 +460,142 @@ export default function AlertsPage() {
 
       {/* Dialog para ver detalles */}
       <Dialog open={actionDialog === "details"} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Detalles de la Alerta</DialogTitle>
+            <DialogTitle>Detalle de Incidencia</DialogTitle>
+            <DialogDescription>Información completa de la alerta registrada.</DialogDescription>
           </DialogHeader>
 
           {selectedAlert && (
-            <div className="space-y-4">
-              {/* Información del empleado y fecha */}
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Empleado</p>
-                    <p className="text-base font-semibold mt-1">
-                      {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
-                    </p>
-                    <p className="text-xs text-muted-foreground">{selectedAlert.employee.email}</p>
+            <div className="space-y-6">
+              {/* Header Card */}
+              <div className="bg-card flex items-start gap-4 rounded-lg border p-4">
+                <div
+                  className={`shrink-0 rounded-full p-2 ${severityConfig[selectedAlert.severity as keyof typeof severityConfig]?.bg || "bg-gray-100"}`}
+                >
+                  {(() => {
+                    const config = severityConfig[selectedAlert.severity as keyof typeof severityConfig];
+                    const Icon = config?.icon || Info;
+                    return <Icon className={`h-6 w-6 ${config?.color}`} />;
+                  })()}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">{selectedAlert.title}</h3>
+                    <Badge variant="outline">{selectedAlert.type.replace(/_/g, " ")}</Badge>
                   </div>
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fecha</p>
-                    <p className="text-base font-semibold mt-1">
-                      {format(new Date(selectedAlert.date), "PPP", { locale: es })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {selectedAlert.costCenter?.name ?? "Sin centro de coste"}
-                    </p>
-                  </div>
+                  <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
                 </div>
               </div>
 
-              {/* Incidencias detalladas si es DAILY_SUMMARY */}
-              {selectedAlert.type === "DAILY_SUMMARY" && selectedAlert.incidents && selectedAlert.incidents.length > 0 ? (
-                <div className="space-y-3">
-                  <h3 className="text-sm font-semibold">Incidencias del día ({selectedAlert.incidents.length})</h3>
-                  <div className="space-y-3">
-                    {selectedAlert.incidents.map((incident: any, index: number) => {
-                      const isLate = incident.type.includes("LATE_ARRIVAL");
-                      const isEarly = incident.type.includes("EARLY_DEPARTURE");
-                      const hours = Math.floor(Math.abs(incident.deviationMinutes || 0) / 60);
-                      const mins = Math.abs(incident.deviationMinutes || 0) % 60;
+              {/* Meta Info Grid */}
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs font-medium uppercase">Empleado</span>
+                  <p className="text-sm font-medium">
+                    {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs font-medium uppercase">Centro</span>
+                  <p className="text-sm font-medium">{selectedAlert.costCenter?.name || "N/A"}</p>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-muted-foreground text-xs font-medium uppercase">Fecha Incidencia</span>
+                  <p className="text-sm font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
+                </div>
+                {selectedAlert.deviationMinutes !== null && (
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground text-xs font-medium uppercase">Desviación Total</span>
+                    <p className="text-primary font-mono text-sm font-bold">
+                      {Math.floor(Math.abs(selectedAlert.deviationMinutes) / 60)}h{" "}
+                      {Math.abs(selectedAlert.deviationMinutes) % 60}min
+                    </p>
+                  </div>
+                )}
+              </div>
 
-                      return (
-                        <div
-                          key={index}
-                          className={`rounded-lg border-2 p-4 ${
-                            incident.severity === "CRITICAL"
-                              ? "border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30"
-                              : "border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/30"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Badge
-                                  variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
-                                >
-                                  {incident.severity}
-                                </Badge>
-                                <span className="text-sm font-medium">
+              <Separator />
+
+              {/* Incidencias detalladas si es DAILY_SUMMARY */}
+              {selectedAlert.type === "DAILY_SUMMARY" &&
+                selectedAlert.incidents &&
+                selectedAlert.incidents.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="flex items-center gap-2 text-sm font-semibold">
+                      <AlertCircle className="h-4 w-4" />
+                      Desglose de Incidencias ({selectedAlert.incidents.length})
+                    </h4>
+                    <div className="space-y-3">
+                      {selectedAlert.incidents.map((incident: any, index: number) => {
+                        const isLate = incident.type.includes("LATE_ARRIVAL");
+                        const isEarly = incident.type.includes("EARLY_DEPARTURE");
+                        const hours = Math.floor(Math.abs(incident.deviationMinutes || 0) / 60);
+                        const mins = Math.abs(incident.deviationMinutes || 0) % 60;
+
+                        return (
+                          <div key={index} className="bg-muted/30 flex items-start gap-3 rounded-lg border p-3">
+                            <div className="mt-1">
+                              <Badge
+                                variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
+                                className="h-5 px-1.5 text-[10px]"
+                              >
+                                {incident.severity}
+                              </Badge>
+                            </div>
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm leading-none font-medium">
                                   {isLate ? "Llegada Tarde" : isEarly ? "Salida Temprana" : "Incidencia"}
+                                </p>
+                                <span className="text-muted-foreground font-mono text-xs">
+                                  {format(new Date(incident.time), "HH:mm", { locale: es })}
                                 </span>
                               </div>
-
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <p className="text-xs text-muted-foreground font-medium">Hora del fichaje</p>
-                                  <p className="text-xl font-bold font-mono">
-                                    {format(new Date(incident.time), "HH:mm:ss", { locale: es })}
-                                  </p>
-                                </div>
-                                {incident.deviationMinutes && (
-                                  <div>
-                                    <p className="text-xs text-muted-foreground font-medium">
-                                      {isLate ? "Tiempo de retraso" : isEarly ? "Tiempo de adelanto" : "Desviación"}
-                                    </p>
-                                    <p className={`text-2xl font-bold ${
-                                      incident.severity === "CRITICAL" ? "text-red-600 dark:text-red-400" : "text-yellow-600 dark:text-yellow-400"
-                                    }`}>
-                                      {isLate ? "↓ " : isEarly ? "↑ " : ""}
-                                      {hours > 0 ? `${hours}h ` : ""}{mins}min
-                                    </p>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="pt-2 border-t">
-                                <p className="text-sm text-muted-foreground">{incident.description}</p>
-                              </div>
+                              {incident.deviationMinutes && (
+                                <p className="text-sm font-bold">
+                                  {isLate ? "Retraso: " : "Adelanto: "}
+                                  <span
+                                    className={
+                                      incident.severity === "CRITICAL" ? "text-destructive" : "text-yellow-600"
+                                    }
+                                  >
+                                    {hours > 0 ? `${hours}h ` : ""}
+                                    {mins}min
+                                  </span>
+                                </p>
+                              )}
+                              <p className="text-muted-foreground text-xs">{incident.description}</p>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ) : (
-                /* Alerta normal (no DAILY_SUMMARY) */
-                <div className="space-y-3 rounded-lg border p-4">
-                  <div className="flex items-center gap-2">
-                    {(() => {
-                      const config = severityConfig[selectedAlert.severity as keyof typeof severityConfig];
-                      const Icon = config.icon;
-                      return <Icon className={`h-5 w-5 ${config.color}`} />;
-                    })()}
-                    <Badge
-                      variant={
-                        selectedAlert.severity === "CRITICAL"
-                          ? "destructive"
-                          : selectedAlert.severity === "WARNING"
-                            ? "warning"
-                            : "default"
-                      }
-                    >
-                      {selectedAlert.severity}
-                    </Badge>
-                    <Badge variant="outline">{selectedAlert.type.replace(/_/g, " ")}</Badge>
-                  </div>
+                )}
 
-                  <div>
-                    <p className="text-base font-semibold">{selectedAlert.title}</p>
-                    {selectedAlert.description && (
-                      <p className="text-sm text-muted-foreground mt-1">{selectedAlert.description}</p>
+              {/* Información de resolución si existe */}
+              {selectedAlert.status !== "ACTIVE" && (
+                <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-900/30 dark:bg-green-950/20">
+                  <div className="mb-2 flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium">Resolución</span>
+                  </div>
+                  <div className="space-y-1 text-sm">
+                    <p>
+                      <span className="text-muted-foreground">Estado:</span>{" "}
+                      {selectedAlert.status === "RESOLVED" ? "Resuelta" : "Descartada"}
+                    </p>
+                    {selectedAlert.resolvedAt && (
+                      <p>
+                        <span className="text-muted-foreground">Fecha:</span>{" "}
+                        {format(new Date(selectedAlert.resolvedAt), "PPP p", { locale: es })}
+                      </p>
+                    )}
+                    {selectedAlert.resolutionComment && (
+                      <p className="text-muted-foreground mt-2 italic">"{selectedAlert.resolutionComment}"</p>
                     )}
                   </div>
-
-                  {selectedAlert.deviationMinutes !== null && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Desviación</p>
-                      <p className="text-xl font-mono font-bold">
-                        {Math.floor(Math.abs(selectedAlert.deviationMinutes) / 60)}h{" "}
-                        {Math.abs(selectedAlert.deviationMinutes) % 60}min
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Información de resolución */}
-              {selectedAlert.status !== "ACTIVE" && (
-                <div className="space-y-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Estado</p>
-                    <Badge variant={selectedAlert.status === "RESOLVED" ? "secondary" : "outline"}>
-                      {selectedAlert.status === "RESOLVED" ? "Resuelta" : "Descartada"}
-                    </Badge>
-                  </div>
-                  {selectedAlert.resolvedAt && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">
-                        {selectedAlert.status === "RESOLVED" ? "Resuelta el" : "Descartada el"}
-                      </p>
-                      <p className="text-sm">
-                        {format(new Date(selectedAlert.resolvedAt), "PPP", { locale: es })}
-                      </p>
-                      {selectedAlert.resolver && (
-                        <p className="text-xs text-muted-foreground">por {selectedAlert.resolver.name}</p>
-                      )}
-                    </div>
-                  )}
-                  {selectedAlert.resolutionComment && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Comentario</p>
-                      <p className="text-sm">{selectedAlert.resolutionComment}</p>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

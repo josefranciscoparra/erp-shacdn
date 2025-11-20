@@ -79,12 +79,7 @@ export interface IShiftService {
    * @param newZoneId - Nueva zona (opcional)
    * @returns Resultado con turno actualizado y conflictos
    */
-  moveShift(
-    shiftId: string,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<DragResult>;
+  moveShift(shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string): Promise<DragResult>;
 
   /**
    * Copiar turno a otro empleado/fecha/zona (drag & drop con Control)
@@ -94,12 +89,7 @@ export interface IShiftService {
    * @param newZoneId - Nueva zona (opcional)
    * @returns Resultado con turno copiado y conflictos
    */
-  copyShift(
-    shiftId: string,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<DragResult>;
+  copyShift(shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string): Promise<DragResult>;
 
   /**
    * Redimensionar turno (cambiar duración)

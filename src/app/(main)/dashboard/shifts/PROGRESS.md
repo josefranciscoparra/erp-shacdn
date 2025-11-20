@@ -111,6 +111,7 @@
 ### Prioridad 1: Vistas de Calendario (esencial para validar UX)
 
 1. Instalar @dnd-kit:
+
    ```bash
    npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities
    ```
@@ -162,9 +163,9 @@ ShiftServiceMock ← Cambiar a ShiftServiceAPI en futuro
 2. Cambiar import en `shifts-store.tsx`:
    ```typescript
    // ANTES:
-   import { shiftService } from '../_lib/shift-service.mock'
+   import { shiftService } from "../_lib/shift-service.mock";
    // DESPUÉS:
-   import { shiftService } from '../_lib/shift-service.api'
+   import { shiftService } from "../_lib/shift-service.api";
    ```
 3. ✅ Listo, componentes NO se tocan
 
@@ -172,17 +173,17 @@ ShiftServiceMock ← Cambiar a ShiftServiceAPI en futuro
 
 ## 🎯 Métricas de Completitud
 
-| Categoría | Completado | Total | % |
-|-----------|------------|-------|---|
-| Documentación | 2 | 2 | 100% |
-| Core (_lib) | 5 | 5 | 100% |
-| Store | 1 | 1 | 100% |
-| Componentes base | 4 | 4 | 100% |
-| Vistas calendario | 0 | 3 | 0% |
-| Modales | 0 | 3 | 0% |
-| Otros componentes | 0 | 3 | 0% |
-| Páginas | 1 | 2 | 50% |
-| **TOTAL** | **13** | **23** | **57%** |
+| Categoría         | Completado | Total  | %       |
+| ----------------- | ---------- | ------ | ------- |
+| Documentación     | 2          | 2      | 100%    |
+| Core (\_lib)      | 5          | 5      | 100%    |
+| Store             | 1          | 1      | 100%    |
+| Componentes base  | 4          | 4      | 100%    |
+| Vistas calendario | 0          | 3      | 0%      |
+| Modales           | 0          | 3      | 0%      |
+| Otros componentes | 0          | 3      | 0%      |
+| Páginas           | 1          | 2      | 50%     |
+| **TOTAL**         | **13**     | **23** | **57%** |
 
 ---
 
@@ -208,20 +209,20 @@ ShiftServiceMock ← Cambiar a ShiftServiceAPI en futuro
 
 ```typescript
 // Ver estado del store en consola
-console.log(useShiftsStore.getState())
+console.log(useShiftsStore.getState());
 
 // Ver turnos actuales
-console.log(useShiftsStore.getState().shifts)
+console.log(useShiftsStore.getState().shifts);
 ```
 
 ### Testing mock service
 
 ```typescript
-import { shiftService } from './_lib/shift-service.mock'
+import { shiftService } from "./_lib/shift-service.mock";
 
 // Probar obtener turnos
-const shifts = await shiftService.getShifts({})
-console.log(shifts)
+const shifts = await shiftService.getShifts({});
+console.log(shifts);
 ```
 
 ---

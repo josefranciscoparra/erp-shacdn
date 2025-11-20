@@ -44,10 +44,13 @@ export function EventViewDialog({ event, isOpen, onClose }: EventViewDialogProps
           <div className="flex items-start gap-3">
             <div className="text-primary mt-1">{getEventIcon()}</div>
             <div className="flex-1 space-y-2">
-              <DialogTitle className="text-2xl font-bold leading-tight">{event.title}</DialogTitle>
+              <DialogTitle className="text-2xl leading-tight font-bold">{event.title}</DialogTitle>
               {/* Badge pill suave en lugar de header con color */}
               {event.color && (
-                <Badge variant="secondary" className={`w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeColor}`}>
+                <Badge
+                  variant="secondary"
+                  className={`w-fit rounded-full px-2.5 py-0.5 text-xs font-medium ${badgeColor}`}
+                >
                   Evento
                 </Badge>
               )}

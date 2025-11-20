@@ -7,6 +7,7 @@ Este documento resume los cambios de estilo aplicados al dashboard "Mi Espacio" 
 ## 🎨 Principios de Diseño
 
 ### 1. **Adaptable al Tema**
+
 - ❌ **NUNCA** usar colores hardcodeados (`text-blue-700`, `bg-green-50`, etc.)
 - ✅ **SIEMPRE** usar variables CSS del tema:
   - `text-primary` - Color principal del tema
@@ -16,12 +17,14 @@ Este documento resume los cambios de estilo aplicados al dashboard "Mi Espacio" 
   - `border` - Bordes estándar
 
 ### 2. **Minimalismo y Limpieza**
+
 - Sin gradientes de colores
 - Cards blancas/oscuras simples
 - Iconos pequeños y discretos
 - Espaciado generoso pero no excesivo
 
 ### 3. **Consistencia Visual**
+
 - Todos los componentes deben seguir el mismo patrón
 - Estructura CardHeader + CardContent
 - Iconos circulares con `bg-muted`
@@ -57,11 +60,13 @@ Este documento resume los cambios de estilo aplicados al dashboard "Mi Espacio" 
 ```
 
 #### Tipografía
+
 - **Número principal**: `font-display text-2xl lg:text-3xl`
 - **Descripción**: `text-muted-foreground text-sm`
 - **Etiqueta**: `CardDescription` (texto pequeño superior)
 
 #### Colores de Progreso
+
 - Verde (`text-green-600`) para valores positivos/completados
 - Naranja (`text-orange-500` o `text-orange-600`) para valores en progreso/incompletos
 - Sin colores para neutral
@@ -77,21 +82,13 @@ Este documento resume los cambios de estilo aplicados al dashboard "Mi Espacio" 
 ```tsx
 <Card className="gap-2">
   <CardHeader>
-    <CardTitle className="font-display text-xl">
-      Título dinámico según estado
-    </CardTitle>
+    <CardTitle className="font-display text-xl">Título dinámico según estado</CardTitle>
   </CardHeader>
   <CardContent>
     <div className="flex items-center gap-2">
       <div>
         <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[60px]">
-          <RadialBarChart
-            data={chartData}
-            startAngle={0}
-            endAngle={250}
-            innerRadius={25}
-            outerRadius={20}
-          >
+          <RadialBarChart data={chartData} startAngle={0} endAngle={250} innerRadius={25} outerRadius={20}>
             {/* Configuración estándar */}
           </RadialBarChart>
         </ChartContainer>
@@ -105,6 +102,7 @@ Este documento resume los cambios de estilo aplicados al dashboard "Mi Espacio" 
 ```
 
 #### Chart Config
+
 ```tsx
 const chartConfig = {
   keyName: {
@@ -129,10 +127,7 @@ const chartConfig = {
   </CardHeader>
   <CardContent>
     <div className="grid gap-2 md:grid-cols-2">
-      <Link
-        href="/ruta"
-        className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors"
-      >
+      <Link href="/ruta" className="hover:bg-accent flex items-center gap-3 rounded-lg border p-4 transition-colors">
         <div className="bg-muted flex size-10 items-center justify-center rounded-full border">
           <IconComponent className="text-primary size-4" />
         </div>
@@ -148,6 +143,7 @@ const chartConfig = {
 ```
 
 #### Características
+
 - **Icono circular**: `bg-muted` con `text-primary`
 - **Hover**: `hover:bg-accent`
 - **Grid responsivo**: 1 col móvil, 2 cols desktop
@@ -189,6 +185,7 @@ const chartConfig = {
 ```
 
 #### Características
+
 - **Línea vertical**: `border-s` en el `<ol>`
 - **Círculos con iconos**: `bg-muted` con icono `text-primary`
 - **Espaciado**: `mb-8` entre items (excepto último)
@@ -231,6 +228,7 @@ const chartConfig = {
 ```
 
 #### Características
+
 - **Cards individuales**: Cada item es un link con border
 - **Spacing compacto**: `space-y-2` entre items
 - **Padding**: `p-3` en cada card
@@ -241,24 +239,21 @@ const chartConfig = {
 ## 🎨 Grid y Layout
 
 ### Grid de Métricas
+
 ```tsx
-<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-  {/* Cards de métricas */}
-</div>
+<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{/* Cards de métricas */}</div>
 ```
 
 ### Grid de Secciones
+
 ```tsx
-<div className="grid gap-3 md:gap-4 lg:grid-cols-2">
-  {/* Eventos y Notificaciones lado a lado */}
-</div>
+<div className="grid gap-3 md:gap-4 lg:grid-cols-2">{/* Eventos y Notificaciones lado a lado */}</div>
 ```
 
 ### Spacing Global
+
 ```tsx
-<div className="space-y-4">
-  {/* Secciones con espacio consistente */}
-</div>
+<div className="space-y-4">{/* Secciones con espacio consistente */}</div>
 ```
 
 ---
@@ -266,17 +261,20 @@ const chartConfig = {
 ## 🔤 Tipografía
 
 ### Títulos
+
 - **Page Title**: `text-xl font-bold tracking-tight lg:text-2xl`
 - **CardTitle**: Por defecto con componente `<CardTitle>`
 - **Section Header**: `font-display text-xl`
 - **Números grandes**: `font-display text-2xl lg:text-3xl`
 
 ### Texto
+
 - **Normal**: Default sin clase adicional
 - **Secundario**: `text-muted-foreground`
 - **Pequeño**: `text-sm` o `text-xs`
 
 ### Font Display
+
 Usar `font-display` para números y títulos destacados (requiere configuración en tailwind)
 
 ---
@@ -284,6 +282,7 @@ Usar `font-display` para números y títulos destacados (requiere configuración
 ## 🎯 Estados y Badges
 
 ### Badges Estándar
+
 ```tsx
 <Badge variant="default">Nueva</Badge>
 <Badge variant="success">Completado</Badge>
@@ -292,6 +291,7 @@ Usar `font-display` para números y títulos destacados (requiere configuración
 ```
 
 ### Empty States
+
 ```tsx
 <EmptyState
   icon={<IconComponent className="text-muted-foreground/60 h-10 w-10" />}
@@ -305,6 +305,7 @@ Usar `font-display` para números y títulos destacados (requiere configuración
 ## ⚠️ Reglas IMPORTANTES
 
 ### ❌ NUNCA Hacer:
+
 1. Usar colores hardcodeados (`bg-blue-50`, `text-green-700`, etc.)
 2. Crear componentes Table cuando hay pocos items
 3. Usar gradientes de colores
@@ -312,6 +313,7 @@ Usar `font-display` para números y títulos destacados (requiere configuración
 5. Ignorar el modo oscuro
 
 ### ✅ SIEMPRE Hacer:
+
 1. Usar variables CSS del tema (`text-primary`, `bg-muted`, etc.)
 2. Iconos con `text-primary` dentro de círculos `bg-muted`
 3. Estructura CardHeader + CardContent
@@ -325,14 +327,16 @@ Usar `font-display` para números y títulos destacados (requiere configuración
 ## 📱 Responsive
 
 ### Breakpoints Estándar
+
 - **Móvil**: 1 columna por defecto
 - **Tablet** (`md:`): 2 columnas
 - **Desktop** (`lg:` / `xl:`): 3-4 columnas
 
 ### Container Queries (Opcional)
+
 ```tsx
-className="@container/main"
-className="@xl/main:grid-cols-2"
+className = "@container/main";
+className = "@xl/main:grid-cols-2";
 ```
 
 ---

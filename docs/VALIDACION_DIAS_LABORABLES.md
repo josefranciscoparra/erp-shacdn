@@ -27,10 +27,11 @@ Antes de esta implementación, la página de fichajes (`/dashboard/me/clock`) SI
 
 ```typescript
 // ❌ ANTES: Cálculo promedio (NO específico del día)
-const dailyHours = weeklyHours / workingDaysPerWeek;  // Ej: 40h / 5 = 8h
+const dailyHours = weeklyHours / workingDaysPerWeek; // Ej: 40h / 5 = 8h
 ```
 
 **Problemas:**
+
 - Si hoy es **sábado** y el empleado NO trabaja sábados → Mostraba "Tiempo restante: 8h"
 - Si el empleado tiene **horario personalizado** (ej: lunes 6h, viernes 10h) → Mostraba siempre 8h
 - Si estamos en **jornada intensiva** (verano) → NO detectaba las horas reducidas
@@ -39,6 +40,7 @@ const dailyHours = weeklyHours / workingDaysPerWeek;  // Ej: 40h / 5 = 8h
 ### Solución Implementada
 
 Nueva función `getExpectedHoursForToday()` que:
+
 - ✅ Detecta el **día de la semana actual** (0=domingo, 1=lunes, ..., 6=sábado)
 - ✅ Verifica si estamos en **periodo de jornada intensiva** (ej: 15 junio - 15 septiembre)
 - ✅ Calcula las **horas esperadas HOY** según el tipo de horario del contrato
@@ -113,10 +115,10 @@ Nueva función `getExpectedHoursForToday()` que:
 
 ```typescript
 export async function getExpectedHoursForToday(): Promise<{
-  hoursToday: number;        // Horas esperadas HOY (0 si no trabaja)
-  isWorkingDay: boolean;     // true si hoy es día laborable
+  hoursToday: number; // Horas esperadas HOY (0 si no trabaja)
+  isWorkingDay: boolean; // true si hoy es día laborable
   hasActiveContract: boolean;
-}>
+}>;
 ```
 
 ### Lógica Detallada
@@ -138,7 +140,7 @@ const contract = await prisma.employmentContract.findFirst({
 
 ```typescript
 const today = new Date();
-const dayOfWeek = today.getDay();  // 0 = domingo, 1 = lunes, ..., 6 = sábado
+const dayOfWeek = today.getDay(); // 0 = domingo, 1 = lunes, ..., 6 = sábado
 ```
 
 #### 3. Verificar Periodo de Jornada Intensiva
@@ -148,8 +150,8 @@ let isIntensivePeriod = false;
 
 if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.intensiveEndDate) {
   const currentMonthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const startMonthDay = contract.intensiveStartDate;  // "06-15"
-  const endMonthDay = contract.intensiveEndDate;      // "09-15"
+  const startMonthDay = contract.intensiveStartDate; // "06-15"
+  const endMonthDay = contract.intensiveEndDate; // "09-15"
 
   // Comparar fechas MM-DD
   if (startMonthDay <= endMonthDay) {
@@ -169,13 +171,13 @@ if (contract.hasIntensiveSchedule && contract.intensiveStartDate && contract.int
 ```typescript
 if (contract.scheduleType === "FLEXIBLE" && contract.hasCustomWeeklyPattern) {
   const regularHoursByDay = [
-    contract.sundayHours,    // 0
-    contract.mondayHours,    // 1
-    contract.tuesdayHours,   // 2
+    contract.sundayHours, // 0
+    contract.mondayHours, // 1
+    contract.tuesdayHours, // 2
     contract.wednesdayHours, // 3
-    contract.thursdayHours,  // 4
-    contract.fridayHours,    // 5
-    contract.saturdayHours,  // 6
+    contract.thursdayHours, // 4
+    contract.fridayHours, // 5
+    contract.saturdayHours, // 6
   ];
 
   const intensiveHoursByDay = [
@@ -184,9 +186,7 @@ if (contract.scheduleType === "FLEXIBLE" && contract.hasCustomWeeklyPattern) {
     // ... resto de días
   ];
 
-  const todayHours = isIntensivePeriod
-    ? intensiveHoursByDay[dayOfWeek]
-    : regularHoursByDay[dayOfWeek];
+  const todayHours = isIntensivePeriod ? intensiveHoursByDay[dayOfWeek] : regularHoursByDay[dayOfWeek];
 
   if (todayHours !== null && todayHours !== undefined) {
     hoursToday = Number(todayHours);
@@ -200,6 +200,7 @@ if (contract.scheduleType === "FLEXIBLE" && contract.hasCustomWeeklyPattern) {
 ```
 
 **Ejemplo:**
+
 ```typescript
 // Contrato:
 hasCustomWeeklyPattern = true
@@ -263,6 +264,7 @@ if (contract.scheduleType === "FIXED") {
 ```
 
 **Ejemplo:**
+
 ```typescript
 // Contrato:
 scheduleType = "FIXED"
@@ -295,13 +297,14 @@ hoursToday = (480 - 60) / 60 = 7h
 ```typescript
 if (contract.scheduleType === "FLEXIBLE" && !contract.hasCustomWeeklyPattern) {
   // Comportamiento anterior (promedio)
-  const weeklyHours = isIntensivePeriod && contract.intensiveWeeklyHours
-    ? Number(contract.intensiveWeeklyHours)
-    : Number(contract.weeklyHours);
+  const weeklyHours =
+    isIntensivePeriod && contract.intensiveWeeklyHours
+      ? Number(contract.intensiveWeeklyHours)
+      : Number(contract.weeklyHours);
   const workingDaysPerWeek = Number(contract.workingDaysPerWeek ?? 5);
 
   hoursToday = weeklyHours / workingDaysPerWeek;
-  isWorkingDay = true;  // Asumimos que trabaja
+  isWorkingDay = true; // Asumimos que trabaja
 }
 ```
 
@@ -312,7 +315,7 @@ if (!contract) {
   return {
     hoursToday: 8,
     isWorkingDay: true,
-    hasActiveContract: false
+    hasActiveContract: false,
   };
 }
 ```
@@ -355,22 +358,22 @@ import {
 ```typescript
 // ❌ ANTES:
 loadExpectedDailyHours: async () => {
-  const hoursInfo = await getExpectedDailyHoursAction();  // Promedio
+  const hoursInfo = await getExpectedDailyHoursAction(); // Promedio
   set({
     expectedDailyHours: hoursInfo.dailyHours,
     hasActiveContract: hoursInfo.hasActiveContract,
   });
-}
+};
 
 // ✅ AHORA:
 loadExpectedDailyHours: async () => {
-  const hoursInfo = await getExpectedHoursForTodayAction();  // Específico HOY
+  const hoursInfo = await getExpectedHoursForTodayAction(); // Específico HOY
   set({
-    expectedDailyHours: hoursInfo.hoursToday,  // Horas de HOY
+    expectedDailyHours: hoursInfo.hoursToday, // Horas de HOY
     hasActiveContract: hoursInfo.hasActiveContract,
-    isWorkingDay: hoursInfo.isWorkingDay,  // ✅ NUEVO
+    isWorkingDay: hoursInfo.isWorkingDay, // ✅ NUEVO
   });
-}
+};
 ```
 
 #### 4. Actualización de `loadInitialData()`
@@ -380,19 +383,19 @@ loadInitialData: async () => {
   const [status, summary, hoursInfo] = await Promise.all([
     getCurrentStatusAction(),
     getTodaySummaryAction(),
-    getExpectedHoursForTodayAction(),  // ✅ CAMBIADO de getExpectedDailyHoursAction
+    getExpectedHoursForTodayAction(), // ✅ CAMBIADO de getExpectedDailyHoursAction
   ]);
 
   set({
     currentStatus: status?.status ?? "CLOCKED_OUT",
     todaySummary: summary as any,
     liveWorkedMinutes: initialMinutes,
-    expectedDailyHours: hoursInfo.hoursToday,        // ✅ Horas específicas de HOY
+    expectedDailyHours: hoursInfo.hoursToday, // ✅ Horas específicas de HOY
     hasActiveContract: hoursInfo.hasActiveContract,
-    isWorkingDay: hoursInfo.isWorkingDay,            // ✅ NUEVO
+    isWorkingDay: hoursInfo.isWorkingDay, // ✅ NUEVO
     isLoading: false,
   });
-}
+};
 ```
 
 ---
@@ -411,7 +414,7 @@ const {
   todaySummary,
   expectedDailyHours,
   hasActiveContract,
-  isWorkingDay,  // ✅ NUEVO
+  isWorkingDay, // ✅ NUEVO
   // ... resto
 } = useTimeTrackingStore();
 ```
@@ -419,8 +422,8 @@ const {
 ### 2. Nuevos Imports
 
 ```typescript
-import { Info } from "lucide-react";  // ✅ Icono para Alert
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";  // ✅ Tooltip
+import { Info } from "lucide-react"; // ✅ Icono para Alert
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"; // ✅ Tooltip
 ```
 
 ### 3. Alert para Días No Laborables
@@ -498,6 +501,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 ```
 
 **Comportamiento:**
+
 - El tooltip **solo aparece** cuando `!isWorkingDay`
 - Al pasar el ratón sobre "Fichar Entrada" en día no laborable → Muestra aviso
 - El empleado **puede fichar igualmente** (no está bloqueado)
@@ -509,6 +513,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 ### 1. FLEXIBLE con Patrón Personalizado
 
 **Características:**
+
 - `scheduleType = "FLEXIBLE"`
 - `hasCustomWeeklyPattern = true`
 - Define horas específicas por día: `mondayHours`, `tuesdayHours`, etc.
@@ -548,14 +553,15 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 **Validación:**
 
-| Día       | Regular | Intensivo | Hoy (regular) | Hoy (intensivo) |
-|-----------|---------|-----------|---------------|-----------------|
-| Lunes     | 6h      | 6h        | `hoursToday=6`, `isWorkingDay=true` | `hoursToday=6`, `isWorkingDay=true` |
-| Sábado    | null    | null      | `hoursToday=0`, `isWorkingDay=false` | `hoursToday=0`, `isWorkingDay=false` |
+| Día    | Regular | Intensivo | Hoy (regular)                        | Hoy (intensivo)                      |
+| ------ | ------- | --------- | ------------------------------------ | ------------------------------------ |
+| Lunes  | 6h      | 6h        | `hoursToday=6`, `isWorkingDay=true`  | `hoursToday=6`, `isWorkingDay=true`  |
+| Sábado | null    | null      | `hoursToday=0`, `isWorkingDay=false` | `hoursToday=0`, `isWorkingDay=false` |
 
 ### 2. FIXED (Horario Fijo)
 
 **Características:**
+
 - `scheduleType = "FIXED"`
 - Define días laborables: `workMonday`, `workTuesday`, etc.
 - Opcionalmente franjas horarias: `mondayStartTime`, `mondayEndTime`, etc.
@@ -603,14 +609,15 @@ Horas trabajadas = 8h - 1h = 7h
 
 **Validación:**
 
-| Día       | workDay | Franjas | Resultado |
-|-----------|---------|---------|-----------|
-| Lunes     | true    | 09:00-17:00 (pausa 14:00-15:00) | `hoursToday=7`, `isWorkingDay=true` |
-| Sábado    | false   | N/A     | `hoursToday=0`, `isWorkingDay=false` |
+| Día    | workDay | Franjas                         | Resultado                            |
+| ------ | ------- | ------------------------------- | ------------------------------------ |
+| Lunes  | true    | 09:00-17:00 (pausa 14:00-15:00) | `hoursToday=7`, `isWorkingDay=true`  |
+| Sábado | false   | N/A                             | `hoursToday=0`, `isWorkingDay=false` |
 
 ### 3. FLEXIBLE sin Patrón (Legacy)
 
 **Características:**
+
 - `scheduleType = "FLEXIBLE"`
 - `hasCustomWeeklyPattern = false` (o null)
 - Usa cálculo promedio (comportamiento anterior)
@@ -638,6 +645,7 @@ isWorkingDay = true  // Siempre asume que trabaja
 ### 4. SHIFTS (Turnos) - Futuro
 
 **Características:**
+
 - `scheduleType = "SHIFTS"`
 - Sistema de turnos rotativos (no implementado aún)
 - Por ahora usa comportamiento promedio
@@ -665,6 +673,7 @@ isWorkingDay = true
 ### Caso 1: Empleado con Horario Regular L-V
 
 **Contrato:**
+
 ```javascript
 {
   scheduleType: "FIXED",
@@ -684,14 +693,15 @@ isWorkingDay = true
 
 **Validación:**
 
-| Día        | UI Mostrada |
-|------------|-------------|
-| Lunes      | "Tiempo restante: 8:00:00" (contador normal) |
-| Sábado     | Alert: "Hoy no tienes que trabajar" + Tooltip en botón |
+| Día    | UI Mostrada                                            |
+| ------ | ------------------------------------------------------ |
+| Lunes  | "Tiempo restante: 8:00:00" (contador normal)           |
+| Sábado | Alert: "Hoy no tienes que trabajar" + Tooltip en botón |
 
 ### Caso 2: Empleado con Jornada Intensiva (Verano)
 
 **Contrato:**
+
 ```javascript
 {
   scheduleType: "FLEXIBLE",
@@ -718,15 +728,16 @@ isWorkingDay = true
 
 **Validación:**
 
-| Fecha         | Periodo      | Lunes              |
-|---------------|--------------|---------------------|
-| 10 mayo       | Regular      | `hoursToday=8h` |
-| 20 julio      | Intensivo    | `hoursToday=7h` |
-| 20 octubre    | Regular      | `hoursToday=8h` |
+| Fecha      | Periodo   | Lunes           |
+| ---------- | --------- | --------------- |
+| 10 mayo    | Regular   | `hoursToday=8h` |
+| 20 julio   | Intensivo | `hoursToday=7h` |
+| 20 octubre | Regular   | `hoursToday=8h` |
 
 ### Caso 3: Empleado con Horario Personalizado por Día
 
 **Contrato:**
+
 ```javascript
 {
   scheduleType: "FLEXIBLE",
@@ -744,11 +755,11 @@ isWorkingDay = true
 
 **Validación:**
 
-| Día        | UI Mostrada |
-|------------|-------------|
-| Lunes      | "Tiempo restante: 6:00:00" |
-| Viernes    | "Tiempo restante: 10:00:00" |
-| Sábado     | Alert: "Hoy no tienes que trabajar" |
+| Día     | UI Mostrada                         |
+| ------- | ----------------------------------- |
+| Lunes   | "Tiempo restante: 6:00:00"          |
+| Viernes | "Tiempo restante: 10:00:00"         |
+| Sábado  | Alert: "Hoy no tienes que trabajar" |
 
 ### Caso 4: Empleado Sin Contrato Activo
 
@@ -757,9 +768,9 @@ isWorkingDay = true
 **Validación:**
 
 ```typescript
-hoursToday = 8  // Valor por defecto
-isWorkingDay = true
-hasActiveContract = false
+hoursToday = 8; // Valor por defecto
+isWorkingDay = true;
+hasActiveContract = false;
 ```
 
 **UI Mostrada:**
@@ -790,10 +801,11 @@ loadExpectedDailyHours: async () => {
     hasActiveContract: hoursInfo.hasActiveContract,
     isWorkingDay: hoursInfo.isWorkingDay,
   });
-}
+};
 ```
 
 **Cuándo se llama:**
+
 - Cuando el usuario carga la página `/dashboard/me/clock`
 - Al refrescar datos del store
 
@@ -806,7 +818,7 @@ loadInitialData: async () => {
   const [status, summary, hoursInfo] = await Promise.all([
     getCurrentStatusAction(),
     getTodaySummaryAction(),
-    getExpectedHoursForTodayAction(),  // ✅ Usa nueva función
+    getExpectedHoursForTodayAction(), // ✅ Usa nueva función
   ]);
 
   set({
@@ -814,10 +826,11 @@ loadInitialData: async () => {
     isWorkingDay: hoursInfo.isWorkingDay,
     // ...
   });
-}
+};
 ```
 
 **Cuándo se llama:**
+
 - Al montar el componente `ClockIn`
 - Primera carga de la página de fichajes
 
@@ -838,6 +851,7 @@ loadInitialData: async () => {
 **Uso actual:** Actualiza el resumen del día con horas trabajadas
 
 **Mejora potencial:**
+
 ```typescript
 // Podría marcar días no laborables de forma especial
 if (!isWorkingDay && totalWorkedMinutes > 0) {
@@ -853,6 +867,7 @@ if (!isWorkingDay && totalWorkedMinutes > 0) {
 **Uso actual:** Detecta fichajes de larga duración (> 150% jornada)
 
 **Mejora potencial:**
+
 ```typescript
 // Obtener horas esperadas del día específico
 const { hoursToday, isWorkingDay } = await getExpectedHoursForToday();
@@ -881,6 +896,7 @@ export async function getExpectedDailyHours() {
 ```
 
 **Cuándo usar:**
+
 - Cuando necesitas un promedio mensual/semanal
 - Reportes agregados
 - NO usar para validaciones de día específico
@@ -944,11 +960,13 @@ model EmploymentContract {
 #### Test 1: Día Laborable
 
 **Pasos:**
+
 1. Abrir `/dashboard/me/clock` en día laborable (ej: lunes L-V)
 2. Verificar que muestra "Tiempo restante: X:XX:XX"
 3. Verificar que NO muestra Alert ni Tooltip
 
 **Resultado esperado:**
+
 ```
 ✅ Contador de tiempo restante visible
 ✅ NO muestra "Hoy no tienes que trabajar"
@@ -958,6 +976,7 @@ model EmploymentContract {
 #### Test 2: Día No Laborable
 
 **Pasos:**
+
 1. Modificar contrato para que HOY no sea laborable
    - Si hoy es lunes, poner `workMonday = false` (FIXED)
    - O poner `mondayHours = null` (FLEXIBLE patrón)
@@ -965,6 +984,7 @@ model EmploymentContract {
 3. Verificar UI
 
 **Resultado esperado:**
+
 ```
 ✅ Alert azul: "Hoy no tienes que trabajar"
 ✅ NO muestra contador de tiempo restante
@@ -975,18 +995,20 @@ model EmploymentContract {
 #### Test 3: Jornada Intensiva
 
 **Pasos:**
+
 1. Configurar contrato con jornada intensiva
    ```javascript
-   hasIntensiveSchedule = true
-   intensiveStartDate = "06-15"
-   intensiveEndDate = "09-15"
-   mondayHours = 8
-   intensiveMondayHours = 7
+   hasIntensiveSchedule = true;
+   intensiveStartDate = "06-15";
+   intensiveEndDate = "09-15";
+   mondayHours = 8;
+   intensiveMondayHours = 7;
    ```
 2. Cambiar fecha del sistema a 20 julio (periodo intensivo)
 3. Verificar que muestra 7h (no 8h)
 
 **Resultado esperado:**
+
 ```
 ✅ Tiempo restante calculado con 7h (intensivo)
 ✅ NO usa 8h (regular)
@@ -1021,7 +1043,7 @@ describe("getExpectedHoursForToday", () => {
   it("detecta jornada intensiva correctamente", async () => {
     // Mock: 20 julio, periodo intensivo
     const result = await getExpectedHoursForToday();
-    expect(result.hoursToday).toBe(7);  // intensiveMondayHours
+    expect(result.hoursToday).toBe(7); // intensiveMondayHours
   });
 
   it("usa valores por defecto sin contrato", async () => {
@@ -1041,19 +1063,21 @@ describe("getExpectedHoursForToday", () => {
 **Escenario:** Usuario tiene la página abierta y pasa de 23:59 a 00:00
 
 **Comportamiento actual:**
+
 - El store NO se actualiza automáticamente
 - Contador sigue usando las horas del día anterior
 
 **Mejora recomendada (futuro):**
+
 ```typescript
 // Detectar cambio de día cada minuto
 useEffect(() => {
   const checkDayChange = setInterval(() => {
     const newDay = new Date().getDate();
     if (newDay !== currentDay) {
-      loadInitialData();  // Recargar datos del nuevo día
+      loadInitialData(); // Recargar datos del nuevo día
     }
-  }, 60000);  // Cada minuto
+  }, 60000); // Cada minuto
 }, [currentDay]);
 ```
 
@@ -1062,6 +1086,7 @@ useEffect(() => {
 **Escenario:** `intensiveStartDate = "12-15"`, `intensiveEndDate = "02-15"`
 
 **Validación actual:**
+
 ```typescript
 if (startMonthDay > endMonthDay) {
   // Cruza año
@@ -1070,6 +1095,7 @@ if (startMonthDay > endMonthDay) {
 ```
 
 **Ejemplos:**
+
 - 20 diciembre → `"12-20" >= "12-15"` → ✅ intensivo
 - 10 enero → `"01-10" <= "02-15"` → ✅ intensivo
 - 20 marzo → `"03-20" >= "12-15"` → ❌ NO intensivo (correcto)
@@ -1079,6 +1105,7 @@ if (startMonthDay > endMonthDay) {
 **Escenario:** FLEXIBLE con patrón, pero `mondayHours = null`
 
 **Comportamiento:**
+
 ```typescript
 if (todayHours === null || todayHours === undefined) {
   hoursToday = 0;

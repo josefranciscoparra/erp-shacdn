@@ -12,6 +12,7 @@
 ← [Ver Arquitectura](./ARQUITECTURA_HORARIOS_V2.md)
 
 **Documentos relacionados:**
+
 - [Server Actions](./SERVER_ACTIONS_HORARIOS.md)
 - [Guía de UI](./GUIA_UI_HORARIOS.md)
 - [Validaciones](./VALIDACIONES_Y_CONFIGURACION.md)
@@ -48,17 +49,16 @@ El motor de cálculo es el **corazón del sistema de horarios V2.0**. Implementa
 ### `getEffectiveSchedule()`
 
 **Firma:**
+
 ```typescript
-export async function getEffectiveSchedule(
-  employeeId: string,
-  date: Date
-): Promise<EffectiveSchedule>
+export async function getEffectiveSchedule(employeeId: string, date: Date): Promise<EffectiveSchedule>;
 ```
 
 **Descripción:**
 Obtiene el horario efectivo para un empleado en una fecha específica, aplicando toda la lógica de prioridades.
 
 **Retorna:**
+
 ```typescript
 {
   date: Date
@@ -74,12 +74,13 @@ Obtiene el horario efectivo para un empleado en una fecha específica, aplicando
 ```
 
 **Ejemplo de uso:**
-```typescript
-const schedule = await getEffectiveSchedule('emp_123', new Date('2025-11-19'))
 
-console.log(schedule.isWorkingDay) // true
-console.log(schedule.expectedMinutes) // 480 (8 horas)
-console.log(schedule.timeSlots) // [{ startMinutes: 540, endMinutes: 1020, ... }]
+```typescript
+const schedule = await getEffectiveSchedule("emp_123", new Date("2025-11-19"));
+
+console.log(schedule.isWorkingDay); // true
+console.log(schedule.expectedMinutes); // 480 (8 horas)
+console.log(schedule.timeSlots); // [{ startMinutes: 540, endMinutes: 1020, ... }]
 ```
 
 ---
@@ -87,26 +88,20 @@ console.log(schedule.timeSlots) // [{ startMinutes: 540, endMinutes: 1020, ... }
 ### `calculateExpectedHours()`
 
 **Firma:**
+
 ```typescript
-export async function calculateExpectedHours(
-  employeeId: string,
-  from: Date,
-  to: Date
-): Promise<number>
+export async function calculateExpectedHours(employeeId: string, from: Date, to: Date): Promise<number>;
 ```
 
 **Descripción:**
 Calcula las horas totales esperadas en un rango de fechas (útil para reportes mensuales).
 
 **Ejemplo:**
+
 ```typescript
 // Horas esperadas en noviembre 2025
-const hours = await calculateExpectedHours(
-  'emp_123',
-  new Date('2025-11-01'),
-  new Date('2025-11-30')
-)
-console.log(hours) // 160 (aproximadamente 20 días laborables × 8h)
+const hours = await calculateExpectedHours("emp_123", new Date("2025-11-01"), new Date("2025-11-30"));
+console.log(hours); // 160 (aproximadamente 20 días laborables × 8h)
 ```
 
 ---
@@ -114,18 +109,20 @@ console.log(hours) // 160 (aproximadamente 20 días laborables × 8h)
 ### `validateTimeEntry()`
 
 **Firma:**
+
 ```typescript
 export async function validateTimeEntry(
   employeeId: string,
   timestamp: Date,
-  entryType: 'CLOCK_IN' | 'CLOCK_OUT' | 'BREAK_START' | 'BREAK_END'
-): Promise<ValidationResult>
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END",
+): Promise<ValidationResult>;
 ```
 
 **Descripción:**
 Valida si un fichaje cumple el horario esperado, aplicando tolerancias configurables.
 
 **Retorna:**
+
 ```typescript
 {
   isValid: boolean
@@ -140,20 +137,18 @@ Valida si un fichaje cumple el horario esperado, aplicando tolerancias configura
 **Integración con configuraciones:**
 
 Usa los parámetros configurables de la organización:
+
 - `clockInToleranceMinutes` - Tolerancia para entrada
 - `clockOutToleranceMinutes` - Tolerancia para salida
 - `nonWorkdayClockInAllowed` - Permitir fichajes en días no laborables
 
 **Ejemplo:**
-```typescript
-const validation = await validateTimeEntry(
-  'emp_123',
-  new Date('2025-11-19 09:20:00'),
-  'CLOCK_IN'
-)
 
-console.log(validation.warnings) // ["Fichaje tardío: 20 minutos de retraso"]
-console.log(validation.deviationMinutes) // 20
+```typescript
+const validation = await validateTimeEntry("emp_123", new Date("2025-11-19 09:20:00"), "CLOCK_IN");
+
+console.log(validation.warnings); // ["Fichaje tardío: 20 minutos de retraso"]
+console.log(validation.deviationMinutes); // 20
 ```
 
 ---
@@ -161,17 +156,16 @@ console.log(validation.deviationMinutes) // 20
 ### `getNextPeriodChange()`
 
 **Firma:**
+
 ```typescript
-export async function getNextPeriodChange(
-  employeeId: string,
-  fromDate: Date
-): Promise<PeriodChange | null>
+export async function getNextPeriodChange(employeeId: string, fromDate: Date): Promise<PeriodChange | null>;
 ```
 
 **Descripción:**
 Obtiene el próximo cambio de periodo (ej: cambio a jornada intensiva de verano).
 
 **Retorna:**
+
 ```typescript
 {
   fromPeriod: {
@@ -188,11 +182,12 @@ Obtiene el próximo cambio de periodo (ej: cambio a jornada intensiva de verano)
 ```
 
 **Ejemplo:**
+
 ```typescript
 // En marzo 2025, obtener próximo cambio
-const change = await getNextPeriodChange('emp_123', new Date('2025-03-15'))
+const change = await getNextPeriodChange("emp_123", new Date("2025-03-15"));
 
-console.log(change)
+console.log(change);
 // {
 //   fromPeriod: { type: 'REGULAR', endDate: '2025-06-14' },
 //   toPeriod: { type: 'INTENSIVE', name: 'Verano', startDate: '2025-06-15' }
@@ -204,17 +199,16 @@ console.log(change)
 ### `getWeekSchedule()`
 
 **Firma:**
+
 ```typescript
-export async function getWeekSchedule(
-  employeeId: string,
-  weekStart: Date
-): Promise<WeekSchedule>
+export async function getWeekSchedule(employeeId: string, weekStart: Date): Promise<WeekSchedule>;
 ```
 
 **Descripción:**
 Obtiene el horario completo de una semana (L-D) para mostrar en calendario.
 
 **Retorna:**
+
 ```typescript
 {
   weekStart: Date
@@ -225,12 +219,13 @@ Obtiene el horario completo de una semana (L-D) para mostrar en calendario.
 ```
 
 **Ejemplo de uso en UI:**
-```typescript
-const week = await getWeekSchedule('emp_123', startOfWeek(new Date()))
 
-week.days.forEach(day => {
-  console.log(`${format(day.date, 'EEEE')}: ${day.expectedMinutes / 60}h`)
-})
+```typescript
+const week = await getWeekSchedule("emp_123", startOfWeek(new Date()));
+
+week.days.forEach((day) => {
+  console.log(`${format(day.date, "EEEE")}: ${day.expectedMinutes / 60}h`);
+});
 // Lunes: 8h
 // Martes: 8h
 // Miércoles: 8h
@@ -239,7 +234,7 @@ week.days.forEach(day => {
 // Sábado: 0h
 // Domingo: 0h
 
-console.log(`Total semana: ${week.totalExpectedMinutes / 60}h`) // 40h
+console.log(`Total semana: ${week.totalExpectedMinutes / 60}h`); // 40h
 ```
 
 ---
@@ -268,52 +263,52 @@ console.log(`Total semana: ${week.totalExpectedMinutes / 60}h`) // 40h
 ```typescript
 function getEffectiveSchedule(employeeId, date) {
   // 1. Verificar ausencias (vacaciones, permisos)
-  const absence = await getAbsenceForDate(employeeId, date)
+  const absence = await getAbsenceForDate(employeeId, date);
   if (absence) {
-    return { isWorkingDay: false, source: 'ABSENCE', absence }
+    return { isWorkingDay: false, source: "ABSENCE", absence };
   }
 
   // 2. Buscar excepción de día (con prioridades)
-  const exception = await getExceptionForDate(employeeId, date)
+  const exception = await getExceptionForDate(employeeId, date);
   if (exception) {
-    return buildScheduleFromException(exception, 'EXCEPTION')
+    return buildScheduleFromException(exception, "EXCEPTION");
   }
 
   // 3. Obtener asignación activa del empleado
-  const assignment = await getActiveAssignment(employeeId, date)
+  const assignment = await getActiveAssignment(employeeId, date);
   if (!assignment) {
-    return { isWorkingDay: false, source: 'NO_ASSIGNMENT' }
+    return { isWorkingDay: false, source: "NO_ASSIGNMENT" };
   }
 
   // 4. Si es rotación, calcular qué step toca
-  if (assignment.assignmentType === 'ROTATION') {
-    const step = calculateRotationStep(assignment, date)
-    const template = step.scheduleTemplate
+  if (assignment.assignmentType === "ROTATION") {
+    const step = calculateRotationStep(assignment, date);
+    const template = step.scheduleTemplate;
   } else {
-    const template = assignment.scheduleTemplate
+    const template = assignment.scheduleTemplate;
   }
 
   // 5. Buscar periodo activo (SPECIAL > INTENSIVE > REGULAR)
-  const period = await getActivePeriod(template, date)
+  const period = await getActivePeriod(template, date);
 
   // 6. Obtener patrón del día de semana
-  const dayOfWeek = date.getDay()
-  const pattern = await getWorkDayPattern(period, dayOfWeek)
+  const dayOfWeek = date.getDay();
+  const pattern = await getWorkDayPattern(period, dayOfWeek);
 
   if (!pattern.isWorkingDay) {
-    return { isWorkingDay: false, source: 'PERIOD' }
+    return { isWorkingDay: false, source: "PERIOD" };
   }
 
   // 7. Obtener time slots
-  const slots = await getTimeSlots(pattern)
+  const slots = await getTimeSlots(pattern);
 
   return {
     isWorkingDay: true,
     expectedMinutes: calculateTotalMinutes(slots),
     timeSlots: slots,
-    source: 'PERIOD',
-    periodName: period.name ?? period.periodType
-  }
+    source: "PERIOD",
+    periodName: period.name ?? period.periodType,
+  };
 }
 ```
 
@@ -327,40 +322,40 @@ function getEffectiveSchedule(employeeId, date) {
 Algoritmo 100% genérico que funciona con CUALQUIER patrón de rotación usando módulo aritmético.
 
 **Pseudocódigo:**
+
 ```typescript
 function calculateRotationStep(assignment, targetDate) {
-  const rotationPattern = assignment.rotationPattern
-  const rotationStartDate = assignment.rotationStartDate
-  const steps = rotationPattern.steps.sort((a, b) => a.stepOrder - b.stepOrder)
+  const rotationPattern = assignment.rotationPattern;
+  const rotationStartDate = assignment.rotationStartDate;
+  const steps = rotationPattern.steps.sort((a, b) => a.stepOrder - b.stepOrder);
 
   // Días transcurridos desde inicio de rotación
-  const daysSinceStart = Math.floor(
-    (targetDate - rotationStartDate) / MS_PER_DAY
-  )
+  const daysSinceStart = Math.floor((targetDate - rotationStartDate) / MS_PER_DAY);
 
   // Duración total del ciclo completo
-  const cycleDuration = steps.reduce((sum, step) => sum + step.durationDays, 0)
+  const cycleDuration = steps.reduce((sum, step) => sum + step.durationDays, 0);
 
   // Día dentro del ciclo actual (módulo)
-  const dayInCycle = daysSinceStart % cycleDuration
+  const dayInCycle = daysSinceStart % cycleDuration;
 
   // Encontrar qué step corresponde
-  let accumulated = 0
+  let accumulated = 0;
   for (const step of steps) {
     if (dayInCycle < accumulated + step.durationDays) {
-      return step
+      return step;
     }
-    accumulated += step.durationDays
+    accumulated += step.durationDays;
   }
 
   // Nunca debería llegar aquí si los datos son válidos
-  return steps[0]
+  return steps[0];
 }
 ```
 
 **Ejemplos:**
 
 ### Policía 6x6
+
 ```
 Rotación:
   Step 1: 6 días → Turno Mañana
@@ -376,6 +371,7 @@ Si rotationStartDate = 2025-01-01:
 ```
 
 ### Bomberos 24x72
+
 ```
 Rotación:
   Step 1: 1 día → Turno 24h
@@ -403,6 +399,7 @@ Si rotationStartDate = 2025-01-01:
 Busca excepciones aplicables a un empleado en una fecha, con prioridad de scope.
 
 **Prioridad de excepciones (específico → general):**
+
 1. Empleado específico (`employeeId`)
 2. Plantilla (`scheduleTemplateId`)
 3. Departamento (`departmentId`)
@@ -410,15 +407,17 @@ Busca excepciones aplicables a un empleado en una fecha, con prioridad de scope.
 5. Global (`isGlobal=true`)
 
 **Soporte para:**
+
 - Excepciones de fecha única (`date`)
 - Excepciones recurrentes anuales (`recurringDate`)
 - Rangos de fechas (`dateRangeStart`, `dateRangeEnd`)
 
 **Pseudocódigo:**
+
 ```typescript
 async function getExceptionForDate(employeeId, date) {
-  const employee = await getEmployee(employeeId)
-  const assignment = await getActiveAssignment(employeeId, date)
+  const employee = await getEmployee(employeeId);
+  const assignment = await getActiveAssignment(employeeId, date);
 
   // Buscar excepciones en orden de prioridad
   const exceptions = await prisma.exceptionDayOverride.findMany({
@@ -439,7 +438,7 @@ async function getExceptionForDate(employeeId, date) {
       // Validar fechas
       OR: [
         { date: startOfDay(date) },
-        { recurringDate: format(date, 'MM-dd') },
+        { recurringDate: format(date, "MM-dd") },
         {
           dateRangeStart: { lte: date },
           dateRangeEnd: { gte: date },
@@ -448,16 +447,16 @@ async function getExceptionForDate(employeeId, date) {
     },
     orderBy: [
       // Orden de prioridad en la query
-      { employeeId: { sort: 'desc', nulls: 'last' } },
-      { scheduleTemplateId: { sort: 'desc', nulls: 'last' } },
-      { departmentId: { sort: 'desc', nulls: 'last' } },
-      { costCenterId: { sort: 'desc', nulls: 'last' } },
-      { isGlobal: 'desc' },
+      { employeeId: { sort: "desc", nulls: "last" } },
+      { scheduleTemplateId: { sort: "desc", nulls: "last" } },
+      { departmentId: { sort: "desc", nulls: "last" } },
+      { costCenterId: { sort: "desc", nulls: "last" } },
+      { isGlobal: "desc" },
     ],
-  })
+  });
 
   // Retornar la primera (más específica)
-  return exceptions[0] ?? null
+  return exceptions[0] ?? null;
 }
 ```
 
@@ -467,14 +466,16 @@ async function getExceptionForDate(employeeId, date) {
 Construye un horario efectivo desde una excepción.
 
 **Soporta:**
+
 - Excepciones tipo `HOLIDAY` (día no laboral completo)
 - Excepciones con slots personalizados (horario reducido)
 
 **Pseudocódigo:**
+
 ```typescript
 function buildScheduleFromException(exception, source) {
   // Si es festivo/día no laboral
-  if (exception.exceptionType === 'HOLIDAY') {
+  if (exception.exceptionType === "HOLIDAY") {
     return {
       isWorkingDay: false,
       expectedMinutes: 0,
@@ -482,22 +483,19 @@ function buildScheduleFromException(exception, source) {
       source,
       exceptionType: exception.exceptionType,
       exceptionReason: exception.reason,
-    }
+    };
   }
 
   // Si tiene slots personalizados
   if (exception.overrideSlots.length > 0) {
-    const slots = exception.overrideSlots.map(slot => ({
+    const slots = exception.overrideSlots.map((slot) => ({
       startMinutes: slot.startTimeMinutes,
       endMinutes: slot.endTimeMinutes,
       slotType: slot.slotType,
       presenceType: slot.presenceType,
-    }))
+    }));
 
-    const expectedMinutes = slots.reduce(
-      (sum, slot) => sum + (slot.endMinutes - slot.startMinutes),
-      0
-    )
+    const expectedMinutes = slots.reduce((sum, slot) => sum + (slot.endMinutes - slot.startMinutes), 0);
 
     return {
       isWorkingDay: true,
@@ -506,7 +504,7 @@ function buildScheduleFromException(exception, source) {
       source,
       exceptionType: exception.exceptionType,
       exceptionReason: exception.reason,
-    }
+    };
   }
 
   // Sin slots = día no laboral
@@ -515,7 +513,7 @@ function buildScheduleFromException(exception, source) {
     expectedMinutes: 0,
     timeSlots: [],
     source,
-  }
+  };
 }
 ```
 
@@ -529,18 +527,18 @@ function buildScheduleFromException(exception, source) {
 
 ```typescript
 export interface EffectiveSchedule {
-  date: Date
-  isWorkingDay: boolean
-  expectedMinutes: number
-  timeSlots: EffectiveTimeSlot[]
-  source: 'EXCEPTION' | 'PERIOD' | 'TEMPLATE' | 'ABSENCE' | 'NO_ASSIGNMENT'
-  periodName?: string
+  date: Date;
+  isWorkingDay: boolean;
+  expectedMinutes: number;
+  timeSlots: EffectiveTimeSlot[];
+  source: "EXCEPTION" | "PERIOD" | "TEMPLATE" | "ABSENCE" | "NO_ASSIGNMENT";
+  periodName?: string;
   absence?: {
-    type: string
-    reason?: string
-  }
-  exceptionType?: string    // ✅ Añadido para excepciones
-  exceptionReason?: string  // ✅ Añadido para excepciones
+    type: string;
+    reason?: string;
+  };
+  exceptionType?: string; // ✅ Añadido para excepciones
+  exceptionReason?: string; // ✅ Añadido para excepciones
 }
 ```
 
@@ -548,12 +546,12 @@ export interface EffectiveSchedule {
 
 ```typescript
 export interface EffectiveTimeSlot {
-  startMinutes: number // 0-1440
-  endMinutes: number   // 0-1440
-  slotType: 'WORK' | 'BREAK' | 'ON_CALL' | 'OTHER'
-  presenceType: 'MANDATORY' | 'FLEXIBLE'
-  isMandatory: boolean
-  description?: string
+  startMinutes: number; // 0-1440
+  endMinutes: number; // 0-1440
+  slotType: "WORK" | "BREAK" | "ON_CALL" | "OTHER";
+  presenceType: "MANDATORY" | "FLEXIBLE";
+  isMandatory: boolean;
+  description?: string;
 }
 ```
 
@@ -561,15 +559,15 @@ export interface EffectiveTimeSlot {
 
 ```typescript
 export interface ValidationResult {
-  isValid: boolean
-  warnings: string[]
-  errors: string[]
-  expectedSlot?: EffectiveTimeSlot
+  isValid: boolean;
+  warnings: string[];
+  errors: string[];
+  expectedSlot?: EffectiveTimeSlot;
   actualSlot?: {
-    startMinutes: number
-    endMinutes: number
-  }
-  deviationMinutes?: number
+    startMinutes: number;
+    endMinutes: number;
+  };
+  deviationMinutes?: number;
 }
 ```
 
@@ -578,15 +576,15 @@ export interface ValidationResult {
 ```typescript
 export interface PeriodChange {
   fromPeriod: {
-    type: string
-    name?: string
-    endDate: Date
-  }
+    type: string;
+    name?: string;
+    endDate: Date;
+  };
   toPeriod: {
-    type: string
-    name?: string
-    startDate: Date
-  }
+    type: string;
+    name?: string;
+    startDate: Date;
+  };
 }
 ```
 
@@ -594,10 +592,10 @@ export interface PeriodChange {
 
 ```typescript
 export interface WeekSchedule {
-  weekStart: Date
-  weekEnd: Date
-  days: EffectiveSchedule[]  // 7 elementos
-  totalExpectedMinutes: number
+  weekStart: Date;
+  weekEnd: Date;
+  days: EffectiveSchedule[]; // 7 elementos
+  totalExpectedMinutes: number;
 }
 ```
 

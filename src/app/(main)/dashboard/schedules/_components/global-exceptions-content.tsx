@@ -198,90 +198,90 @@ export function GlobalExceptionsContent() {
           ) : (
             <Card>
               <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Fecha</TableHead>
-                <TableHead>Alcance</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Motivo</TableHead>
-                <TableHead>Horarios</TableHead>
-                <TableHead>Opciones</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {exceptions.map((exception) => {
-                const typeInfo = exceptionTypeLabels[exception.exceptionType] ?? {
-                  label: exception.exceptionType,
-                  color: "default" as const,
-                };
-
-                // Determinar alcance
-                let scopeIcon = <Globe className="h-4 w-4" />;
-                let scopeLabel = "Global";
-                if (exception.departmentId && exception.department) {
-                  scopeIcon = <Briefcase className="h-4 w-4" />;
-                  scopeLabel = exception.department.name;
-                } else if (exception.costCenterId && exception.costCenter) {
-                  scopeIcon = <Building2 className="h-4 w-4" />;
-                  scopeLabel = exception.costCenter.name;
-                }
-
-                return (
-                  <TableRow key={exception.id}>
-                    <TableCell className="font-medium">
-                      {format(new Date(exception.date), "dd MMM yyyy", { locale: es })}
-                      {exception.endDate && (
-                        <>
-                          {" - "}
-                          {format(new Date(exception.endDate), "dd MMM yyyy", { locale: es })}
-                        </>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {scopeIcon}
-                        <span className="text-sm">{scopeLabel}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={typeInfo.color}>{typeInfo.label}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">{exception.reason ?? "-"}</TableCell>
-                    <TableCell>
-                      {exception.overrideSlots.length === 0 ? (
-                        <span className="text-muted-foreground text-sm">Sin horario (día completo)</span>
-                      ) : (
-                        <span className="text-sm">
-                          {exception.overrideSlots.length} franja{exception.overrideSlots.length > 1 ? "s" : ""}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {exception.isRecurring && (
-                          <Badge variant="outline" className="text-xs">
-                            Anual
-                          </Badge>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="sm" onClick={() => handleEditClick(exception)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(exception.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Alcance</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Motivo</TableHead>
+                    <TableHead>Horarios</TableHead>
+                    <TableHead>Opciones</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {exceptions.map((exception) => {
+                    const typeInfo = exceptionTypeLabels[exception.exceptionType] ?? {
+                      label: exception.exceptionType,
+                      color: "default" as const,
+                    };
+
+                    // Determinar alcance
+                    let scopeIcon = <Globe className="h-4 w-4" />;
+                    let scopeLabel = "Global";
+                    if (exception.departmentId && exception.department) {
+                      scopeIcon = <Briefcase className="h-4 w-4" />;
+                      scopeLabel = exception.department.name;
+                    } else if (exception.costCenterId && exception.costCenter) {
+                      scopeIcon = <Building2 className="h-4 w-4" />;
+                      scopeLabel = exception.costCenter.name;
+                    }
+
+                    return (
+                      <TableRow key={exception.id}>
+                        <TableCell className="font-medium">
+                          {format(new Date(exception.date), "dd MMM yyyy", { locale: es })}
+                          {exception.endDate && (
+                            <>
+                              {" - "}
+                              {format(new Date(exception.endDate), "dd MMM yyyy", { locale: es })}
+                            </>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {scopeIcon}
+                            <span className="text-sm">{scopeLabel}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={typeInfo.color}>{typeInfo.label}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate">{exception.reason ?? "-"}</TableCell>
+                        <TableCell>
+                          {exception.overrideSlots.length === 0 ? (
+                            <span className="text-muted-foreground text-sm">Sin horario (día completo)</span>
+                          ) : (
+                            <span className="text-sm">
+                              {exception.overrideSlots.length} franja{exception.overrideSlots.length > 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {exception.isRecurring && (
+                              <Badge variant="outline" className="text-xs">
+                                Anual
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button variant="ghost" size="sm" onClick={() => handleEditClick(exception)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(exception.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </Card>
           )}
         </>
       )}

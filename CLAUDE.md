@@ -133,11 +133,13 @@ Safari requiere atención especial en varios aspectos. **Ver documentación comp
 ### Reglas Obligatorias para Safari
 
 #### 1. Backdrop Filter / Blur
+
 - ❌ **NUNCA** confiar en que `backdrop-filter` funcione en Safari
 - ✅ **SIEMPRE** tener fallback con fondo sólido usando `@supports`
 - ✅ **SIEMPRE** aceptar que Safari puede tener fondo sólido
 
 **Patrón recomendado**:
+
 ```css
 .elemento-con-blur {
   backdrop-filter: blur(16px);
@@ -160,6 +162,7 @@ Safari requiere atención especial en varios aspectos. **Ver documentación comp
 ```
 
 #### 2. Elementos Visuales Pequeños (líneas, bordes, separadores)
+
 - ❌ **NUNCA** usar Tailwind con opacidades para elementos críticos (`bg-gray-300/30`)
 - ❌ **NUNCA** usar `hsl()` con opacidades en elementos pequeños
 - ❌ **NUNCA** confiar en que Safari renderice elementos con `h-0.5` o `h-1`
@@ -167,46 +170,51 @@ Safari requiere atención especial en varios aspectos. **Ver documentación comp
 - ✅ **SIEMPRE** usar `height: "2px"` o más (mínimo 2px)
 
 **Patrón recomendado**:
-```tsx
-{/* ❌ NO hacer esto - invisible en Safari */}
-<div className="h-0.5 w-full bg-gray-300/30" />
 
-{/* ✅ SÍ hacer esto - visible en Safari y Chrome */}
+```tsx
+{
+  /* ❌ NO hacer esto - invisible en Safari */
+}
+<div className="h-0.5 w-full bg-gray-300/30" />;
+
+{
+  /* ✅ SÍ hacer esto - visible en Safari y Chrome */
+}
 <div
   style={{
     width: "100%",
     height: "2px",
     backgroundColor: "#d1d5db", // hex sólido, sin opacidad
   }}
-/>
+/>;
 ```
 
 #### 3. Layout con Viewport (h-screen, footers sticky/fixed)
+
 - ❌ **NUNCA** usar `h-screen` + `position: fixed` para footers
 - ❌ **NUNCA** usar `overflow-hidden` en contenedores con sticky/fixed
 - ✅ **SIEMPRE** usar `min-h-screen` + flexbox + `position: sticky`
 - ✅ **SIEMPRE** usar `flex-1` en contenido y `mt-auto` en footer
 
 **Patrón recomendado**:
+
 ```tsx
 <div className="flex min-h-screen flex-col gap-4">
   {/* Header */}
   <div>...</div>
 
   {/* Contenido - flex-1 empuja footer al final */}
-  <div className="flex-1">
-    {/* Contenido con scroll */}
-  </div>
+  <div className="flex-1">{/* Contenido con scroll */}</div>
 
   {/* Footer - sticky en lugar de fixed */}
-  <div className="sticky bottom-0 z-50 mt-auto">
-    {/* Acciones */}
-  </div>
+  <div className="sticky bottom-0 z-50 mt-auto">{/* Acciones */}</div>
 </div>
 ```
 
 #### 4. Testing Obligatorio
+
 **SIEMPRE** probar en Safari cuando el código incluya:
+
 - `backdrop-filter` o efectos blur
 - Elementos visuales pequeños (`< 3px`)
 - Opacidades en Tailwind (`/30`, `/50`, etc.) para elementos críticos
@@ -216,6 +224,7 @@ Safari requiere atención especial en varios aspectos. **Ver documentación comp
 ### Checklist Pre-Commit
 
 Si modificas alguno de estos elementos, verificar en Safari:
+
 - [ ] Footer sticky/fixed visible y accesible
 - [ ] Efectos blur tienen fallback sólido
 - [ ] Líneas divisoras/bordes visibles
@@ -495,16 +504,19 @@ Sistema completo de captura y visualización de ubicación GPS en fichajes, con 
 ### Funcionalidades
 
 **✅ Captura Automática:**
+
 - Al fichar (entrada/salida/pausas), captura GPS automáticamente si está activado
 - Solo pide permisos la primera vez (dialog de consentimiento RGPD)
 - Funciona en Chrome/Firefox (Safari en localhost NO permite GPS por seguridad)
 
 **✅ Validación de Ubicación:**
+
 - Calcula distancia al centro de trabajo más cercano usando fórmula Haversine
 - Marca fichajes fuera de área como "Requiere revisión"
 - Permite fichaje incluso si GPS falla (graceful degradation)
 
 **✅ Visualización:**
+
 - Vista Lista: Badges GPS mostrando precisión, estado dentro/fuera de área
 - Vista Mapa: Mapa interactivo con Leaflet mostrando todos los fichajes con GPS
 - Toggle entre lista/mapa disponible cuando hay fichajes con GPS
@@ -512,6 +524,7 @@ Sistema completo de captura y visualización de ubicación GPS en fichajes, con 
 ### Configuración
 
 **Base de Datos (Prisma):**
+
 ```typescript
 // TimeEntry - Almacena coordenadas GPS
 latitude: Decimal?
@@ -555,26 +568,29 @@ Next.js 15 NO permite acceder a propiedades de objetos pasados desde cliente a s
 
 ```typescript
 // ❌ INCORRECTO
-export async function clockIn(geoData: { latitude: number, longitude: number, accuracy: number })
+export async function clockIn(geoData: { latitude: number; longitude: number; accuracy: number });
 
 // ✅ CORRECTO
-export async function clockIn(latitude?: number, longitude?: number, accuracy?: number)
+export async function clockIn(latitude?: number, longitude?: number, accuracy?: number);
 ```
 
 ### Uso
 
 **Activación:**
+
 1. Ir a `/dashboard/settings` → Pestaña "Geolocalización"
 2. Activar toggle de geolocalización
 3. Los fichajes ahora capturarán GPS automáticamente
 
 **Visualización de Fichajes con GPS:**
+
 1. Ir a `/dashboard/me/clock`
 2. En "Fichajes de hoy", verás badges GPS en cada entrada
 3. Si hay fichajes con GPS, aparece botón toggle "Lista/Mapa"
 4. Click en "Mapa" para ver todos los fichajes en mapa interactivo con Leaflet
 
 **Configurar Centros de Trabajo:**
+
 1. Ir a `/dashboard/cost-centers`
 2. Editar centro → Configurar `latitude`, `longitude`, `allowedRadiusMeters`
 3. Los fichajes se validarán contra estos centros
@@ -703,12 +719,14 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 ### Resumen Rápido
 
 **Sistema V2 (OFICIAL - USAR SIEMPRE):**
+
 - **Ubicación**: `/src/app/(main)/dashboard/schedules/`
 - **Server Actions**: `/src/server/actions/schedules-v2.ts`
 - **Motor de cálculo**: `/src/lib/schedule-engine.ts` ✅ IMPLEMENTADO
 - **Estado**: Sprint 1-3 completados (motor + integración con fichajes)
 
 **Arquitectura:**
+
 - `ScheduleTemplate` → Plantilla reutilizable
 - `SchedulePeriod` → Períodos (REGULAR, INTENSIVE, SPECIAL)
 - `WorkDayPattern` → Patrón por día de semana
@@ -716,6 +734,7 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 - `EmployeeScheduleAssignment` → Asignación empleado ↔ plantilla
 
 **Sistema V1 (DEPRECADO - NO USAR):**
+
 - Ubicación: `/src/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule.tsx`
 - Problema: Acoplado, no reutilizable
 - Acción: Migrar a V2
@@ -723,12 +742,14 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 ### Integración con Fichajes ✅ COMPLETADO
 
 **Motor de cálculo `schedule-engine.ts`:**
+
 - ✅ `getEffectiveSchedule()` - Calcula horario efectivo para una fecha
 - ✅ Prioridad: Absence > Exception > Period > Template
 - ✅ Maneja todos los tipos de horario (FIXED, SHIFT, ROTATION, FLEXIBLE)
 - ✅ Retorna `EffectiveSchedule` con franjas horarias y minutos esperados
 
 **Integración en página de fichajes (`/dashboard/me/clock`):**
+
 1. **Visualización de horario esperado** (`today-schedule.tsx`):
    - Muestra franjas horarias del día (trabajo/pausas)
    - Horas esperadas según Schedule V2.0
@@ -748,11 +769,13 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
    - Estado basado en compliance (≥95% = COMPLETED)
 
 **Server Actions:**
+
 - `/src/server/actions/employee-schedule.ts`:
   - `getTodaySchedule()` - Obtiene horario efectivo del día actual
   - `getTodaySummary()` - Obtiene resumen con desviaciones del día
 
 **Archivos clave:**
+
 - `/src/lib/schedule-engine.ts` - Motor de cálculo
 - `/src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` - Horario esperado
 - `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Resumen con desviaciones
@@ -761,11 +784,13 @@ Ya incluido en `time-entries-map.tsx` con `import 'leaflet/dist/leaflet.css'`
 ### Próximas Fases
 
 **🟡 PRIORIDAD MEDIA:** Historial y reportes
+
 - Vista semanal/mensual de desviaciones acumuladas
 - Gráficas de cumplimiento de horario
 - Exportación de reportes
 
 **Consultar documento completo para:**
+
 - Plan completo de migración (10 fases)
 - Decisiones técnicas y patrones
 - Estado de implementación actualizado

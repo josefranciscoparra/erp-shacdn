@@ -53,24 +53,24 @@
 
 ```css
 /* Marca TimeNow */
---primary: #7B3EFF;          /* Morado corporativo */
---primary-hover: #6929E8;    /* Hover state */
---primary-light: #F5F3FF;    /* Backgrounds */
+--primary: #7b3eff; /* Morado corporativo */
+--primary-hover: #6929e8; /* Hover state */
+--primary-light: #f5f3ff; /* Backgrounds */
 
 /* Grises (Base slate) */
---background: #FFFFFF;
---card: #FFFFFF;
---muted: #F8FAFC;           /* slate-50 */
---border: #E2E8F0;          /* slate-200 */
---muted-foreground: #64748B; /* slate-500 */
---foreground: #0F172A;      /* slate-900 */
+--background: #ffffff;
+--card: #ffffff;
+--muted: #f8fafc; /* slate-50 */
+--border: #e2e8f0; /* slate-200 */
+--muted-foreground: #64748b; /* slate-500 */
+--foreground: #0f172a; /* slate-900 */
 
 /* Estados */
---error: #FEF2F2;           /* red-50 bg */
---error-foreground: #DC2626; /* red-600 */
---warning: #FFF7ED;         /* amber-50 bg */
---warning-foreground: #EA580C; /* amber-600 */
---success: #ECFDF5;         /* emerald-50 bg */
+--error: #fef2f2; /* red-50 bg */
+--error-foreground: #dc2626; /* red-600 */
+--warning: #fff7ed; /* amber-50 bg */
+--warning-foreground: #ea580c; /* amber-600 */
+--success: #ecfdf5; /* emerald-50 bg */
 --success-foreground: #059669; /* emerald-600 */
 ```
 
@@ -166,11 +166,13 @@
 **Props**: Ninguna (usa estado global del store)
 
 **Responsabilidad**:
+
 - Renderizar título y subtítulo
 - Segmented control para tabs
 - Botón de acción principal
 
 **Estilo**:
+
 ```tsx
 <div className="flex items-center justify-between">
   <div>
@@ -200,6 +202,7 @@
 ### 2. `dashboard-filter-bar.tsx`
 
 **Props**:
+
 ```typescript
 interface FilterBarProps {
   selectedCenter: string;
@@ -210,15 +213,14 @@ interface FilterBarProps {
 ```
 
 **Estilo**:
+
 ```tsx
 <Card className="rounded-xl border-slate-200 shadow-sm">
   <CardContent className="p-3">
     <div className="flex flex-wrap items-center gap-4">
       {/* Centro */}
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-muted-foreground">
-          Centro:
-        </label>
+        <label className="text-muted-foreground text-sm font-medium">Centro:</label>
         <Select value={selectedCenter} onValueChange={onCenterChange}>
           <SelectTrigger className="w-[200px]">
             <SelectValue />
@@ -228,9 +230,7 @@ interface FilterBarProps {
 
       {/* Período */}
       <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-muted-foreground">
-          Período:
-        </label>
+        <label className="text-muted-foreground text-sm font-medium">Período:</label>
         <ToggleGroup type="single" value={periodType}>
           <ToggleGroupItem value="week">Semana actual</ToggleGroupItem>
           <ToggleGroupItem value="month">Mes actual</ToggleGroupItem>
@@ -246,6 +246,7 @@ interface FilterBarProps {
 ### 3. `dashboard-stats-cards.tsx`
 
 **Props**:
+
 ```typescript
 interface StatsCardsProps {
   stats: {
@@ -260,19 +261,21 @@ interface StatsCardsProps {
 ```
 
 **4 Cards**:
+
 1. **Estado de Turnos** - Total + badge de estado
 2. **Cobertura** - Porcentaje + gráfico circular
 3. **Sin Asignar** - Empleados sin turno + indicador
 4. **Horas** - Progreso de horas asignadas
 
 **Diseño Individual**:
+
 ```tsx
-<Card className="rounded-xl border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+<Card className="rounded-xl border-slate-200 shadow-sm transition-shadow hover:shadow-md">
   <CardContent className="p-5">
     <div className="flex items-start justify-between">
       {/* Icono */}
-      <div className="rounded-full bg-primary/10 p-3">
-        <Calendar className="size-6 text-primary" />
+      <div className="bg-primary/10 rounded-full p-3">
+        <Calendar className="text-primary size-6" />
       </div>
 
       {/* Mini chart opcional */}
@@ -283,14 +286,12 @@ interface StatsCardsProps {
 
     {/* KPI */}
     <div className="mt-4">
-      <p className="text-4xl font-display font-bold">34</p>
-      <p className="text-sm text-muted-foreground mt-1">
-        Turnos asignados
-      </p>
+      <p className="font-display text-4xl font-bold">34</p>
+      <p className="text-muted-foreground mt-1 text-sm">Turnos asignados</p>
     </div>
 
     {/* Badges opcionales */}
-    <div className="flex gap-2 mt-3">
+    <div className="mt-3 flex gap-2">
       <Badge variant="outline" className="text-xs">
         3 borradores
       </Badge>
@@ -304,6 +305,7 @@ interface StatsCardsProps {
 ### 4. `dashboard-critical-alerts.tsx`
 
 **Props**:
+
 ```typescript
 interface CriticalAlertsProps {
   alerts: Array<{
@@ -320,18 +322,17 @@ interface CriticalAlertsProps {
 ```
 
 **Diseño**:
+
 ```tsx
 <Card className="rounded-xl border-slate-200 shadow-sm">
   <CardHeader className="p-5 pb-3">
     <div className="flex items-center justify-between">
       <div>
-        <CardTitle className="text-xl font-semibold flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-xl font-semibold">
           <AlertTriangle className="size-5 text-red-600" />
           Requieren Atención
         </CardTitle>
-        <CardDescription className="text-sm text-muted-foreground mt-1">
-          3 avisos críticos detectados
-        </CardDescription>
+        <CardDescription className="text-muted-foreground mt-1 text-sm">3 avisos críticos detectados</CardDescription>
       </div>
       <Badge variant="destructive" className="text-xs">
         3 críticos
@@ -341,37 +342,33 @@ interface CriticalAlertsProps {
 
   <CardContent className="p-5 pt-0">
     <div className="space-y-3">
-      {alerts.map(alert => (
+      {alerts.map((alert) => (
         <Card className="rounded-lg border-red-200 bg-red-50 shadow-none">
           <CardContent className="p-4">
             <div className="flex gap-3">
-              <div className="rounded-full bg-red-100 p-2 shrink-0">
+              <div className="shrink-0 rounded-full bg-red-100 p-2">
                 <AlertCircle className="size-4 text-red-600" />
               </div>
               <div className="flex-1 space-y-2">
                 <div>
                   <p className="text-sm font-semibold">{alert.title}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {alert.description}
-                  </p>
+                  <p className="text-muted-foreground text-xs">{alert.description}</p>
                 </div>
 
                 {/* Week display prominente */}
-                <div className="flex items-center gap-2 bg-white/50 rounded-md px-3 py-1.5 border border-red-100">
-                  <Calendar className="size-3 text-primary" />
-                  <span className="text-xs font-medium">
-                    {alert.weekDisplay}
-                  </span>
+                <div className="flex items-center gap-2 rounded-md border border-red-100 bg-white/50 px-3 py-1.5">
+                  <Calendar className="text-primary size-3" />
+                  <span className="text-xs font-medium">{alert.weekDisplay}</span>
                 </div>
 
                 {/* Empleados afectados */}
                 <Collapsible>
-                  <CollapsibleTrigger className="text-xs text-muted-foreground hover:text-foreground">
+                  <CollapsibleTrigger className="text-muted-foreground hover:text-foreground text-xs">
                     {alert.affectedEmployees.length} empleados afectados ▼
                   </CollapsibleTrigger>
                   <CollapsibleContent>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {alert.affectedEmployees.map(name => (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {alert.affectedEmployees.map((name) => (
                         <Badge variant="outline" className="text-xs">
                           {name}
                         </Badge>
@@ -401,6 +398,7 @@ interface CriticalAlertsProps {
 ### 5. `dashboard-center-summary.tsx`
 
 **Props**:
+
 ```typescript
 interface CenterSummaryProps {
   centers: Array<{
@@ -419,33 +417,30 @@ interface CenterSummaryProps {
 ```
 
 **Diseño**:
+
 ```tsx
 <Card className="rounded-xl border-slate-200 shadow-sm">
   <CardHeader className="p-5 pb-3">
-    <CardTitle className="text-xl font-semibold">
-      📊 Resumen por Centro
-    </CardTitle>
-    <CardDescription className="text-sm text-muted-foreground mt-1">
+    <CardTitle className="text-xl font-semibold">📊 Resumen por Centro</CardTitle>
+    <CardDescription className="text-muted-foreground mt-1 text-sm">
       Estadísticas de cada lugar de trabajo
     </CardDescription>
   </CardHeader>
 
   <CardContent className="p-5 pt-0">
     <Accordion type="multiple" className="space-y-2">
-      {centers.map(center => (
-        <AccordionItem value={center.id} className="border rounded-lg">
-          <AccordionTrigger className="hover:no-underline px-4 py-3">
-            <div className="flex items-center justify-between w-full pr-4">
+      {centers.map((center) => (
+        <AccordionItem value={center.id} className="rounded-lg border">
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            <div className="flex w-full items-center justify-between pr-4">
               {/* Info */}
               <div className="flex items-center gap-3">
-                <div className="rounded-full bg-primary/10 p-2">
-                  <Building2 className="size-4 text-primary" />
+                <div className="bg-primary/10 rounded-full p-2">
+                  <Building2 className="text-primary size-4" />
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-semibold">{center.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {center.totalShifts} turnos
-                  </p>
+                  <p className="text-muted-foreground text-xs">{center.totalShifts} turnos</p>
                 </div>
               </div>
 
@@ -453,15 +448,10 @@ interface CenterSummaryProps {
               <div className="flex items-center gap-2">
                 {/* Barra de cobertura */}
                 <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: `${center.coverage}%` }}
-                    />
+                  <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
+                    <div className="bg-primary h-full rounded-full" style={{ width: `${center.coverage}%` }} />
                   </div>
-                  <span className="text-xs font-medium">
-                    {center.coverage}%
-                  </span>
+                  <span className="text-xs font-medium">{center.coverage}%</span>
                 </div>
 
                 {/* Alertas */}
@@ -475,20 +465,15 @@ interface CenterSummaryProps {
           </AccordionTrigger>
 
           <AccordionContent className="px-4 pb-3">
-            <div className="space-y-2 mt-2">
-              {center.zones.map(zone => (
-                <div className="flex items-center justify-between p-2 rounded-md bg-muted">
+            <div className="mt-2 space-y-2">
+              {center.zones.map((zone) => (
+                <div className="bg-muted flex items-center justify-between rounded-md p-2">
                   <span className="text-xs font-medium">{zone.name}</span>
                   <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full"
-                        style={{ width: `${zone.coverage}%` }}
-                      />
+                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-200">
+                      <div className="bg-primary h-full rounded-full" style={{ width: `${zone.coverage}%` }} />
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {zone.coverage}%
-                    </span>
+                    <span className="text-muted-foreground text-xs">{zone.coverage}%</span>
                   </div>
                 </div>
               ))}
@@ -541,7 +526,7 @@ export const MOCK_STATS = {
   employeesWithoutShifts: 12,
   totalEmployees: 45,
   hoursAssigned: 240,
-  hoursContracted: 320
+  hoursContracted: 320,
 };
 
 export const MOCK_ALERTS = [
@@ -552,7 +537,7 @@ export const MOCK_ALERTS = [
     title: "3 conflictos de horario",
     description: "Empleados con turnos superpuestos",
     affectedEmployees: ["Ana García", "Carlos López", "María Sánchez"],
-    weekDisplay: "Semana 10-16 Nov 2025"
+    weekDisplay: "Semana 10-16 Nov 2025",
   },
   // ... más alertas
 ];
@@ -567,8 +552,8 @@ export const MOCK_CENTERS = [
     zones: [
       { name: "Recepción", coverage: 45 },
       { name: "Planta Baja", coverage: 80 },
-      { name: "Piso 1", coverage: 75 }
-    ]
+      { name: "Piso 1", coverage: 75 },
+    ],
   },
   // ... más centros
 ];

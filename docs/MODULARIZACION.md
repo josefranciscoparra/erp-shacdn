@@ -26,6 +26,7 @@ const { documentsEnabled } = useDocumentsEnabled(); // Otro fetch
 ```
 
 Esto causaba:
+
 - **Delay visual** en el sidebar (items aparecían progresivamente)
 - **Múltiples API calls** (uno por feature)
 - **No escalable** para modelo de venta por módulos
@@ -33,6 +34,7 @@ Esto causaba:
 ### Solución implementada
 
 Sistema centralizado que:
+
 - ✅ **Carga features server-side** (cero delay en cliente)
 - ✅ **Inicialización síncrona** (antes del primer render)
 - ✅ **Un solo store Zustand** para todos los módulos
@@ -82,13 +84,13 @@ Sistema centralizado que:
 
 ### Archivos clave
 
-| Archivo | Propósito |
-|---------|-----------|
-| `src/stores/organization-features-store.ts` | Store Zustand con todos los features |
-| `src/app/(main)/dashboard/layout.tsx` | Fetch server-side de features |
-| `src/app/(main)/dashboard/_components/features-initializer.tsx` | Inicialización síncrona del store |
-| `src/app/api/organization/features/route.ts` | Endpoint API (opcional, para revalidación) |
-| `src/hooks/use-init-features.ts` | Hook de inicialización (no usado actualmente) |
+| Archivo                                                         | Propósito                                     |
+| --------------------------------------------------------------- | --------------------------------------------- |
+| `src/stores/organization-features-store.ts`                     | Store Zustand con todos los features          |
+| `src/app/(main)/dashboard/layout.tsx`                           | Fetch server-side de features                 |
+| `src/app/(main)/dashboard/_components/features-initializer.tsx` | Inicialización síncrona del store             |
+| `src/app/api/organization/features/route.ts`                    | Endpoint API (opcional, para revalidación)    |
+| `src/hooks/use-init-features.ts`                                | Hook de inicialización (no usado actualmente) |
 
 ---
 
@@ -135,6 +137,7 @@ if (!initialized.current) {
 ```
 
 **Resultado:**
+
 - El sidebar lee `chatEnabled: true` desde el primer render
 - Sin "salto visual" ni delay
 
@@ -165,19 +168,19 @@ npx prisma migrate dev --name add_signatures_module
 ```typescript
 export interface OrganizationFeatures {
   chatEnabled: boolean;
-  signaturesEnabled: boolean;  // ← NUEVO
+  signaturesEnabled: boolean; // ← NUEVO
 }
 
 const initialFeatures: OrganizationFeatures = {
   chatEnabled: false,
-  signaturesEnabled: false,  // ← NUEVO
+  signaturesEnabled: false, // ← NUEVO
 };
 
 // En fetchFeatures:
 set({
   features: {
     chatEnabled: data.chatEnabled ?? false,
-    signaturesEnabled: data.signaturesEnabled ?? false,  // ← NUEVO
+    signaturesEnabled: data.signaturesEnabled ?? false, // ← NUEVO
   },
   // ...
 });
@@ -193,13 +196,13 @@ const org = await prisma.organization.findUnique({
   where: { id: session.user.orgId },
   select: {
     chatEnabled: true,
-    signaturesEnabled: true,  // ← NUEVO
+    signaturesEnabled: true, // ← NUEVO
   },
 });
 
 const orgFeatures = {
   chatEnabled: org?.chatEnabled ?? false,
-  signaturesEnabled: org?.signaturesEnabled ?? false,  // ← NUEVO
+  signaturesEnabled: org?.signaturesEnabled ?? false, // ← NUEVO
 };
 ```
 
@@ -212,13 +215,13 @@ const org = await prisma.organization.findUnique({
   where: { id: session.user.orgId },
   select: {
     chatEnabled: true,
-    signaturesEnabled: true,  // ← NUEVO
+    signaturesEnabled: true, // ← NUEVO
   },
 });
 
 return NextResponse.json({
   chatEnabled: org.chatEnabled ?? false,
-  signaturesEnabled: org.signaturesEnabled ?? false,  // ← NUEVO
+  signaturesEnabled: org.signaturesEnabled ?? false, // ← NUEVO
 });
 ```
 
@@ -228,11 +231,9 @@ return NextResponse.json({
 
 ```tsx
 export function useSidebarItems(): NavGroup[] {
-  const chatEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.chatEnabled
-  );
+  const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const signaturesEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.signaturesEnabled  // ← NUEVO
+    (state) => state.features.signaturesEnabled, // ← NUEVO
   );
 
   const allItems = [
@@ -254,9 +255,7 @@ export function useSidebarItems(): NavGroup[] {
 
 ```tsx
 export function SignaturesSettings() {
-  const signaturesEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.signaturesEnabled
-  );
+  const signaturesEnabled = useOrganizationFeaturesStore((state) => state.features.signaturesEnabled);
 
   if (!signaturesEnabled) {
     return <div>Módulo no disponible</div>;
@@ -275,11 +274,13 @@ export function SignaturesSettings() {
 **Síntomas:** Items del sidebar aparecen 1-2 segundos después de cargar la página.
 
 **Causas posibles:**
+
 1. Inicialización async (useEffect) en lugar de sync
 2. Fetch desde cliente en lugar de server-side
 3. Store no se inicializa antes del primer render
 
 **Solución:**
+
 - Verificar que `FeaturesInitializer` use `useRef` + render directo
 - Verificar que `layout.tsx` haga fetch server-side
 - No usar `useEffect` para inicialización
@@ -293,6 +294,7 @@ export function SignaturesSettings() {
 **Soluciones:**
 
 1. **Requerir relogin** (más seguro):
+
    ```tsx
    // En admin settings después de cambiar feature
    toast.success("Cambios guardados. Los usuarios verán los cambios al volver a iniciar sesión.");
@@ -310,11 +312,13 @@ export function SignaturesSettings() {
 **Síntomas:** `chatEnabled` siempre es `false` aunque en DB es `true`.
 
 **Causas posibles:**
+
 1. `FeaturesInitializer` no se montó
 2. Inicialización no se ejecutó
 3. Fetch server-side falló
 
 **Debug:**
+
 ```tsx
 // En layout.tsx, añadir log temporal
 console.log("Features cargados:", orgFeatures);
@@ -367,10 +371,7 @@ export async function POST(req: Request) {
   });
 
   if (!org?.chatEnabled) {
-    return NextResponse.json(
-      { error: "Chat module not enabled" },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: "Chat module not enabled" }, { status: 403 });
   }
 
   // ... lógica del endpoint
@@ -382,9 +383,7 @@ export async function POST(req: Request) {
 ```tsx
 // ✅ CORRECTO: Mensaje claro cuando módulo no está disponible
 export function ChatPage() {
-  const chatEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.chatEnabled
-  );
+  const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
 
   if (!chatEnabled) {
     return (
@@ -416,17 +415,20 @@ function MyComponent(props: { features: OrganizationFeatures }) {
 ## Ventajas del sistema
 
 ### Para desarrollo
+
 - ✅ **Escalable**: Añadir módulos = modificar 4 archivos
 - ✅ **Type-safe**: TypeScript garantiza consistencia
 - ✅ **Centralizado**: Una sola fuente de verdad
 - ✅ **Testeable**: Fácil mockear features en tests
 
 ### Para ventas
+
 - ✅ **Control granular**: Activar/desactivar módulos por organización
 - ✅ **Migración sencilla**: Cambiar plan = UPDATE en DB
 - ✅ **Sin código duplicado**: Misma base de código para todos
 
 ### Para usuarios
+
 - ✅ **Performance**: Cero delay en UI
 - ✅ **Consistencia**: UI siempre coherente
 - ✅ **Experiencia fluida**: Sin "saltos" visuales
@@ -488,9 +490,7 @@ const orgFeatures = {
 import { Package } from "lucide-react";
 
 export function useSidebarItems() {
-  const inventoryEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.inventoryEnabled
-  );
+  const inventoryEnabled = useOrganizationFeaturesStore((state) => state.features.inventoryEnabled);
 
   const items = [
     // ...
@@ -542,12 +542,8 @@ import { Switch } from "@/components/ui/switch";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 export function InventoryTab() {
-  const inventoryEnabled = useOrganizationFeaturesStore(
-    (state) => state.features.inventoryEnabled
-  );
-  const fetchFeatures = useOrganizationFeaturesStore(
-    (state) => state.fetchFeatures
-  );
+  const inventoryEnabled = useOrganizationFeaturesStore((state) => state.features.inventoryEnabled);
+  const fetchFeatures = useOrganizationFeaturesStore((state) => state.fetchFeatures);
 
   const handleToggle = async (enabled: boolean) => {
     await fetch("/api/admin/organization", {
@@ -582,6 +578,7 @@ Este sistema de modularización permite:
 5. **Mantenibilidad** - código centralizado y type-safe
 
 **Para añadir un nuevo módulo solo necesitas:**
+
 - Añadir campo boolean en `Organization` (Prisma)
 - Actualizar `OrganizationFeatures` interface
 - Añadir en 3 sitios: store, layout, API endpoint

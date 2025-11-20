@@ -23,14 +23,17 @@ Extender el sistema de ausencias (`PtoRequest` + `AbsenceType`) para soportar **
 ### Sector Público - EBEP (Estatuto Básico del Empleado Público)
 
 **Vacaciones:**
+
 - 22 días hábiles mínimos al año (ampliables por antigüedad)
 - Se gestionan en **días completos**
 
 **Asuntos propios:**
+
 - Mínimo 6 días al año (ampliables)
 - Algunos ayuntamientos permiten **fraccionar en horas**
 
 **Otros permisos (Art. 48 EBEP):**
+
 - Fallecimiento, hospitalización → **días completos**
 - Lactancia, reducción de jornada → **horas/minutos**
 - Mudanza, deber inexcusable → **días completos**
@@ -39,11 +42,13 @@ Extender el sistema de ausencias (`PtoRequest` + `AbsenceType`) para soportar **
 ### Colectivos Especiales
 
 **Bomberos:**
+
 - Jornada anual: 1.600-1.700 horas
 - Turnos de 24h con libranzas (1-4, 1-5)
 - Vacaciones se "gastan" en bloques de 24h (1 día = 1.440 minutos)
 
 **Policía Local/Autonómica:**
+
 - Jornada anual específica (ej: 1.664h)
 - Guardias que "valen más" por nocturnidad/festivos (factor 1.5x, 1.75x)
 - Permisos en horas/días según convenio
@@ -51,10 +56,12 @@ Extender el sistema de ausencias (`PtoRequest` + `AbsenceType`) para soportar **
 ### Sector Privado
 
 **Vacaciones:**
+
 - Pueden fraccionarse en **horas, medias horas, cuartos de hora**
 - Ejemplo: "Salir 2h antes el viernes" = 120 minutos de vacaciones
 
 **Permisos retribuidos:**
+
 - Médico: fracciones de hora (ej: 1h 15min)
 - Trámites: minutos exactos
 
@@ -73,6 +80,7 @@ model PtoRequest {
 ```
 
 **Limitaciones:**
+
 - ❌ No se pueden solicitar "30 minutos de vacaciones"
 - ❌ No hay campos para hora de inicio/fin
 - ❌ Imposible gestionar ausencias parciales de un día
@@ -89,6 +97,7 @@ model AbsenceType {
 ```
 
 **Problemas:**
+
 - Todos los tipos se comportan igual
 - No se puede configurar "Vacaciones solo en días completos" vs "Permisos médicos en horas"
 
@@ -169,18 +178,19 @@ model PtoRequest {
 
 #### Tabla de Tipos de Ausencia
 
-| Tipo | allowPartialDays | granularityMinutes | minimumDurationMinutes | maxDurationMinutes | Uso |
-|------|------------------|-------------------|------------------------|-------------------|-----|
-| **Vacaciones (público)** | `false` | 480 (día) | 480 | null | Solo días completos |
-| **Vacaciones (privado)** | `true` | 60 (hora) | 30 | null | Por horas (mín 30 min) |
-| **Asuntos propios** | `true` | 30 (media) | 60 | null | Por medias horas (mín 1h) |
-| **Baja médica** | `false` | 480 (día) | 480 | null | Solo días completos |
-| **Permiso médico** | `true` | 15 (cuarto) | 15 | 240 | Por cuartos (máx 4h) |
-| **Lactancia** | `true` | 60 (hora) | 60 | 60 | 1 hora fija |
+| Tipo                     | allowPartialDays | granularityMinutes | minimumDurationMinutes | maxDurationMinutes | Uso                       |
+| ------------------------ | ---------------- | ------------------ | ---------------------- | ------------------ | ------------------------- |
+| **Vacaciones (público)** | `false`          | 480 (día)          | 480                    | null               | Solo días completos       |
+| **Vacaciones (privado)** | `true`           | 60 (hora)          | 30                     | null               | Por horas (mín 30 min)    |
+| **Asuntos propios**      | `true`           | 30 (media)         | 60                     | null               | Por medias horas (mín 1h) |
+| **Baja médica**          | `false`          | 480 (día)          | 480                    | null               | Solo días completos       |
+| **Permiso médico**       | `true`           | 15 (cuarto)        | 15                     | 240                | Por cuartos (máx 4h)      |
+| **Lactancia**            | `true`           | 60 (hora)          | 60                     | 60                 | 1 hora fija               |
 
 #### Ejemplos de Solicitudes
 
 **Caso A: Vacaciones días completos** (sector público)
+
 ```typescript
 {
   absenceTypeId: "vacation_public",
@@ -194,6 +204,7 @@ model PtoRequest {
 ```
 
 **Caso B: Vacaciones por horas** (sector privado)
+
 ```typescript
 {
   absenceTypeId: "vacation_private",
@@ -207,6 +218,7 @@ model PtoRequest {
 ```
 
 **Caso C: Medio día**
+
 ```typescript
 {
   absenceTypeId: "vacation_private",
@@ -220,6 +232,7 @@ model PtoRequest {
 ```
 
 **Caso D: Bomberos - Guardia completa**
+
 ```typescript
 {
   absenceTypeId: "vacation_firefighter",
@@ -345,6 +358,7 @@ if (absence) {
 **Objetivo:** Extender schema de Prisma
 
 **Tareas:**
+
 1. ✅ Añadir campos a `AbsenceType`:
    - `allowPartialDays`
    - `granularityMinutes`
@@ -360,6 +374,7 @@ if (absence) {
 3. ✅ Sincronizar con `npx prisma db push`
 
 **Archivos afectados:**
+
 - `/prisma/schema.prisma`
 
 ---
@@ -369,6 +384,7 @@ if (absence) {
 **Objetivo:** Permitir configurar tipos de ausencia desde `/dashboard/settings`
 
 **Tareas:**
+
 1. ✅ Nueva pestaña "Tipos de Ausencia" en Settings
 2. ✅ Tabla de tipos con:
    - Nombre, código, color
@@ -383,11 +399,13 @@ if (absence) {
    - `deleteAbsenceType()`
 
 **Archivos creados:**
+
 - ✅ `/src/app/(main)/dashboard/settings/_components/absence-types-tab.tsx`
 - ✅ `/src/app/(main)/dashboard/settings/_components/absence-type-dialog.tsx`
 - ✅ `/src/server/actions/absence-types.ts`
 
 **Script de migración:**
+
 - ✅ `/scripts/fix-absence-types-defaults.ts` - Actualiza valores por defecto en tipos existentes
 
 ---
@@ -397,6 +415,7 @@ if (absence) {
 **Objetivo:** Modificar dialog de solicitud para soportar granularidad
 
 **Tareas:**
+
 1. ✅ Modificar `NewPtoRequestDialog`:
    - Cargar configuración del tipo seleccionado
    - Si `allowPartialDays = true`:
@@ -411,6 +430,7 @@ if (absence) {
 3. ✅ Cálculo automático de balance consumido
 
 **Archivos modificados:**
+
 - ✅ `/src/app/(main)/dashboard/me/pto/_components/new-pto-request-dialog.tsx` - UI con selectores de hora
 - ✅ `/src/server/actions/employee-pto.ts` - Validaciones de ausencias parciales
 - ✅ `/src/stores/pto-store.tsx` - Interfaces actualizadas
@@ -422,6 +442,7 @@ if (absence) {
 **Objetivo:** Hacer que el motor de horarios respete ausencias parciales
 
 **Tareas:**
+
 1. ✅ Modificar `getAbsenceForDate()`:
    - Retornar `isPartial`, `startTime`, `endTime`, `durationMinutes`
 2. ✅ Modificar `getEffectiveSchedule()`:
@@ -433,6 +454,7 @@ if (absence) {
    - Si hay ausencia parcial, el empleado no puede fichar en ese rango
 
 **Archivos modificados:**
+
 - ✅ `/src/lib/schedule-engine.ts` - Lógica de ausencias parciales
 - ✅ `/src/types/schedule.ts` - Tipos actualizados
 - ⏳ `/src/server/actions/time-tracking.ts` - Validaciones (pendiente)
@@ -444,6 +466,7 @@ if (absence) {
 **Objetivo:** Implementar gestión de `ExceptionDayOverride`
 
 **Tareas:**
+
 1. Implementar `getExceptionForDate()` en schedule-engine
 2. UI Manager: `/dashboard/schedules/exceptions`
    - Tabla de excepciones
@@ -452,6 +475,7 @@ if (absence) {
 4. Badge en `/dashboard/me/schedule` mostrando excepciones
 
 **Archivos a crear:**
+
 - `/src/app/(main)/dashboard/schedules/exceptions/page.tsx`
 - `/src/server/actions/schedule-exceptions.ts`
 
@@ -462,10 +486,12 @@ if (absence) {
 ### Caso 1: Empleado Privado - Vacaciones por Horas
 
 **Setup:**
+
 - Tipo: "Vacaciones" con `allowPartialDays=true`, `granularityMinutes=60`
 - Empleado con horario 09:00-17:00
 
 **Test:**
+
 1. Solicitar 2h de vacaciones (14:00-16:00) el viernes
 2. Verificar que se calculan `0.25 días` (2h / 8h)
 3. Verificar que el horario del viernes muestra:
@@ -477,9 +503,11 @@ if (absence) {
 ### Caso 2: Funcionario - Vacaciones por Días
 
 **Setup:**
+
 - Tipo: "Vacaciones" con `allowPartialDays=false`, `granularityMinutes=480`
 
 **Test:**
+
 1. Solicitar vacaciones del 1 al 5 de julio
 2. Verificar que se calculan 5 días completos
 3. Verificar que los 5 días aparecen como no laborables
@@ -488,10 +516,12 @@ if (absence) {
 ### Caso 3: Bomberos - Guardia de 24h
 
 **Setup:**
+
 - Tipo: "Vacaciones Bomberos" con `allowPartialDays=true`, `granularityMinutes=1440`
 - Empleado con turno 08:00-08:00 (24h)
 
 **Test:**
+
 1. Solicitar 1 guardia de vacaciones (24h)
 2. Verificar que se calcula como 1 día
 3. Verificar que `durationMinutes=1440`
@@ -500,9 +530,11 @@ if (absence) {
 ### Caso 4: Varios Tramos en un Día
 
 **Setup:**
+
 - Tipo: "Permiso médico" con `allowPartialDays=true`, `granularityMinutes=15`
 
 **Test:**
+
 1. Solicitar 1h por la mañana (10:00-11:00)
 2. Solicitar 45min por la tarde (15:00-15:45)
 3. Verificar que se permiten ambas solicitudes para el mismo día
@@ -518,11 +550,13 @@ if (absence) {
 ## 📚 Referencias
 
 ### Normativa
+
 - **EBEP (Estatuto Básico del Empleado Público)**: [BOE-A-2015-11719](https://www.boe.es/buscar/act.php?id=BOE-A-2015-11719)
 - **Art. 48 EBEP - Permisos de los funcionarios**: Fallecimiento, hospitalización, mudanza, etc.
 - **Convenios específicos**: Bomberos, Policía Local (varían por CC.AA. y ayuntamiento)
 
 ### Fuentes
+
 - Iberley - "Vacaciones funcionarios públicos"
 - Pluxee - "Días de asuntos propios"
 - BOE - "Permisos retribuidos sector público"
@@ -536,16 +570,19 @@ if (absence) {
 ### Decisiones de Diseño
 
 **¿Por qué `startTime`/`endTime` en minutos?**
+
 - Consistencia con `TimeSlot` (también usa minutos)
 - Permite cálculos precisos sin conversiones
 - Formato: 540 = 09:00, 1020 = 17:00
 
 **¿Por qué permitir múltiples PtoRequest para el mismo día?**
+
 - Simplicidad: No requiere tabla adicional `AbsenceSegment`
 - Flexibilidad: Permite casos como "2 visitas médicas en un día"
 - Validación: Se puede validar que no se solapen
 
 **¿Cuándo usar `compensationFactor`?**
+
 - En el futuro, para nocturnidad/festivos
 - Ejemplo: 1h nocturna = 1.5h a efectos de cómputo
 - Por ahora: campo añadido pero no usado en lógica
@@ -553,22 +590,26 @@ if (absence) {
 ### Consideraciones de Performance
 
 **Índices en Prisma:**
+
 ```prisma
 @@index([employeeId, startDate, endDate]) // Para getAbsenceForDate()
 @@index([status])                          // Para filtrar aprobadas
 ```
 
 **Consultas optimizadas:**
+
 - `getAbsenceForDate()` solo trae 1 resultado (`findFirst`)
 - Incluir `absenceType` en el query inicial (no query adicional)
 
 ### Retrocompatibilidad
 
 **Solicitudes existentes sin `startTime`/`endTime`:**
+
 - Se interpretan como días completos (comportamiento actual)
 - No requieren migración de datos
 
 **Tipos de ausencia existentes:**
+
 - Migración automática: `allowPartialDays=false`, `granularityMinutes=480`
 - Mantienen comportamiento actual (solo días completos)
 
@@ -591,10 +632,10 @@ La feature estará **completa** cuando:
 
 ## 🔄 Historial de Cambios
 
-| Fecha | Versión | Cambios |
-|-------|---------|---------|
-| 2025-11-18 | 1.0 | Documento inicial. Planificación completa antes de implementación. |
-| 2025-11-18 | 1.1 | ✅ Fases 1-4 completadas. Sistema funcional con ausencias granulares y integración con motor de horarios. Pendiente: Fase 5 (ExceptionDayOverride) y validaciones de fichaje. |
+| Fecha      | Versión | Cambios                                                                                                                                                                       |
+| ---------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2025-11-18 | 1.0     | Documento inicial. Planificación completa antes de implementación.                                                                                                            |
+| 2025-11-18 | 1.1     | ✅ Fases 1-4 completadas. Sistema funcional con ausencias granulares y integración con motor de horarios. Pendiente: Fase 5 (ExceptionDayOverride) y validaciones de fichaje. |
 
 ---
 

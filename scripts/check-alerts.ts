@@ -6,8 +6,8 @@ async function main() {
   const alerts = await prisma.alert.findMany({
     where: {
       date: {
-        gte: new Date(new Date().setHours(0, 0, 0, 0))
-      }
+        gte: new Date(new Date().setHours(0, 0, 0, 0)),
+      },
     },
     select: {
       id: true,
@@ -21,13 +21,13 @@ async function main() {
       employee: {
         select: {
           firstName: true,
-          lastName: true
-        }
-      }
+          lastName: true,
+        },
+      },
     },
     orderBy: {
-      createdAt: 'desc'
-    }
+      createdAt: "desc",
+    },
   });
 
   console.log(`\n📊 Alertas de hoy encontradas: ${alerts.length}\n`);
@@ -42,7 +42,7 @@ async function main() {
     console.log(`  Estado: ${alert.status}`);
     console.log(`  Empleado: ${alert.employee.firstName} ${alert.employee.lastName}`);
     console.log(`  Incidencias: ${JSON.stringify(alert.incidents, null, 2)}`);
-    console.log('');
+    console.log("");
   });
 }
 

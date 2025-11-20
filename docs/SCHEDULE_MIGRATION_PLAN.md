@@ -46,18 +46,22 @@ intensiveMondayBreakStartTime, intensiveMondayBreakEndTime, ..., intensiveSunday
 ### Problemas Identificados
 
 #### 1. Duplicación Masiva
+
 - Cada nuevo "tipo de periodo" (verano, navidad, turnos especiales) requiere +28 campos más
 - Prefijos infinitos: `intensive*`, `summer*`, `holiday*`, `project1*`, etc.
 - Imposible de mantener a largo plazo
 
 #### 2. Null Pollution
+
 - Sábados y domingos llenos de `null` para oficinas de lunes-viernes
 - Campos intensivos `null` cuando `hasIntensiveSchedule: false`
 - Campos FLEXIBLE `null` en contratos FIXED y viceversa
 - Dificulta consultas y validaciones
 
 #### 3. Lógica de Negocio Compleja y Repetida
+
 Para responder "¿A qué hora debe fichar hoy?":
+
 ```typescript
 // Código actual (simplificado)
 const isIntensivePeriod = isDateInRange(date, contract.intensiveStartDate, contract.intensiveEndDate);
@@ -76,6 +80,7 @@ if (isIntensivePeriod) {
 ```
 
 Esta lógica se repite en:
+
 - `getExpectedHoursForDay()` (admin-time-tracking.ts:263-452)
 - `getEmployeeEntryTime()` (admin-time-tracking.ts:462-549)
 - `getCurrentlyWorkingEmployees()` (admin-time-tracking.ts:1266-1416)
@@ -95,6 +100,7 @@ Esta lógica se repite en:
 #### 5. Impacto en TimeNow
 
 TimeNow necesitará:
+
 - Avisos de "no ha fichado" → requiere saber hora de entrada esperada
 - Alertas de "trabajando fuera de horario" → requiere ventanas permitidas
 - Cálculo de horas extras → requiere horas esperadas vs. trabajadas
@@ -248,13 +254,62 @@ enum DayOfWeek {
         "weeklyHours": 40,
         "workingDaysPerWeek": 5,
         "days": [
-          { "dayOfWeek": "MONDAY", "isWorkingDay": true, "startTime": "09:00", "endTime": "18:00", "breakStartTime": "14:00", "breakEndTime": "15:00" },
-          { "dayOfWeek": "TUESDAY", "isWorkingDay": true, "startTime": "09:00", "endTime": "18:00", "breakStartTime": "14:00", "breakEndTime": "15:00" },
-          { "dayOfWeek": "WEDNESDAY", "isWorkingDay": true, "startTime": "09:00", "endTime": "18:00", "breakStartTime": "14:00", "breakEndTime": "15:00" },
-          { "dayOfWeek": "THURSDAY", "isWorkingDay": true, "startTime": "09:00", "endTime": "18:00", "breakStartTime": "14:00", "breakEndTime": "15:00" },
-          { "dayOfWeek": "FRIDAY", "isWorkingDay": true, "startTime": "09:00", "endTime": "14:00", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "SATURDAY", "isWorkingDay": false, "startTime": null, "endTime": null, "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "SUNDAY", "isWorkingDay": false, "startTime": null, "endTime": null, "breakStartTime": null, "breakEndTime": null }
+          {
+            "dayOfWeek": "MONDAY",
+            "isWorkingDay": true,
+            "startTime": "09:00",
+            "endTime": "18:00",
+            "breakStartTime": "14:00",
+            "breakEndTime": "15:00"
+          },
+          {
+            "dayOfWeek": "TUESDAY",
+            "isWorkingDay": true,
+            "startTime": "09:00",
+            "endTime": "18:00",
+            "breakStartTime": "14:00",
+            "breakEndTime": "15:00"
+          },
+          {
+            "dayOfWeek": "WEDNESDAY",
+            "isWorkingDay": true,
+            "startTime": "09:00",
+            "endTime": "18:00",
+            "breakStartTime": "14:00",
+            "breakEndTime": "15:00"
+          },
+          {
+            "dayOfWeek": "THURSDAY",
+            "isWorkingDay": true,
+            "startTime": "09:00",
+            "endTime": "18:00",
+            "breakStartTime": "14:00",
+            "breakEndTime": "15:00"
+          },
+          {
+            "dayOfWeek": "FRIDAY",
+            "isWorkingDay": true,
+            "startTime": "09:00",
+            "endTime": "14:00",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "SATURDAY",
+            "isWorkingDay": false,
+            "startTime": null,
+            "endTime": null,
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "SUNDAY",
+            "isWorkingDay": false,
+            "startTime": null,
+            "endTime": null,
+            "breakStartTime": null,
+            "breakEndTime": null
+          }
         ]
       },
       {
@@ -264,13 +319,62 @@ enum DayOfWeek {
         "weeklyHours": 32.5,
         "workingDaysPerWeek": 5,
         "days": [
-          { "dayOfWeek": "MONDAY", "isWorkingDay": true, "startTime": "08:00", "endTime": "15:00", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "TUESDAY", "isWorkingDay": true, "startTime": "08:00", "endTime": "15:00", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "WEDNESDAY", "isWorkingDay": true, "startTime": "08:00", "endTime": "15:00", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "THURSDAY", "isWorkingDay": true, "startTime": "08:00", "endTime": "15:00", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "FRIDAY", "isWorkingDay": true, "startTime": "08:00", "endTime": "14:30", "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "SATURDAY", "isWorkingDay": false, "startTime": null, "endTime": null, "breakStartTime": null, "breakEndTime": null },
-          { "dayOfWeek": "SUNDAY", "isWorkingDay": false, "startTime": null, "endTime": null, "breakStartTime": null, "breakEndTime": null }
+          {
+            "dayOfWeek": "MONDAY",
+            "isWorkingDay": true,
+            "startTime": "08:00",
+            "endTime": "15:00",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "TUESDAY",
+            "isWorkingDay": true,
+            "startTime": "08:00",
+            "endTime": "15:00",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "WEDNESDAY",
+            "isWorkingDay": true,
+            "startTime": "08:00",
+            "endTime": "15:00",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "THURSDAY",
+            "isWorkingDay": true,
+            "startTime": "08:00",
+            "endTime": "15:00",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "FRIDAY",
+            "isWorkingDay": true,
+            "startTime": "08:00",
+            "endTime": "14:30",
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "SATURDAY",
+            "isWorkingDay": false,
+            "startTime": null,
+            "endTime": null,
+            "breakStartTime": null,
+            "breakEndTime": null
+          },
+          {
+            "dayOfWeek": "SUNDAY",
+            "isWorkingDay": false,
+            "startTime": null,
+            "endTime": null,
+            "breakStartTime": null,
+            "breakEndTime": null
+          }
         ]
       }
     ]
@@ -341,10 +445,10 @@ const schedule = await prisma.schedule.findUnique({
   include: {
     periods: {
       include: {
-        days: true
-      }
-    }
-  }
+        days: true,
+      },
+    },
+  },
 });
 
 // O solo el periodo activo para hoy
@@ -370,6 +474,7 @@ model SchedulePeriodHistory {
 ✅ **Soporta casos complejos sin cambios de schema:**
 
 1. **Turnos rotativos:**
+
 ```prisma
 model Schedule {
   rotationPattern String? // "WEEK_A|WEEK_B"
@@ -378,6 +483,7 @@ model Schedule {
 ```
 
 2. **Horarios por proyecto:**
+
 ```prisma
 model Schedule {
   projectAllocations ProjectAllocation[] // Múltiples proyectos
@@ -391,6 +497,7 @@ model ProjectAllocation {
 ```
 
 3. **Días excepcionales:**
+
 ```prisma
 model ExceptionalDay {
   scheduleId String
@@ -418,17 +525,20 @@ model ExceptionalDay {
 **Tareas:**
 
 1. Añadir nuevos modelos al schema:
+
 ```bash
 # Editar prisma/schema.prisma
 # Añadir: Schedule, SchedulePeriod, DaySchedule
 ```
 
 2. Crear migración:
+
 ```bash
 npx prisma migrate dev --name add_normalized_schedule_model
 ```
 
 3. Mantener campos viejos como `@deprecated` temporalmente:
+
 ```prisma
 model EmploymentContract {
   // ... campos existentes marcados como deprecated
@@ -451,8 +561,8 @@ async function migrateContractSchedules() {
   const contracts = await prisma.employmentContract.findMany({
     where: {
       active: true,
-      scheduleType: { not: null }
-    }
+      scheduleType: { not: null },
+    },
   });
 
   for (const contract of contracts) {
@@ -462,7 +572,7 @@ async function migrateContractSchedules() {
         contractId: contract.id,
         scheduleType: contract.scheduleType ?? "FLEXIBLE",
         weeklyHours: contract.weeklyHours ?? 40,
-      }
+      },
     });
 
     // Crear periodo REGULAR
@@ -474,7 +584,7 @@ async function migrateContractSchedules() {
         endDate: null,
         weeklyHours: contract.weeklyHours ?? 40,
         workingDaysPerWeek: contract.workingDaysPerWeek ?? 5,
-      }
+      },
     });
 
     // Crear días del periodo REGULAR
@@ -490,7 +600,7 @@ async function migrateContractSchedules() {
           endDate: contract.intensiveEndDate,
           weeklyHours: contract.intensiveWeeklyHours ?? contract.weeklyHours ?? 40,
           workingDaysPerWeek: contract.workingDaysPerWeek ?? 5,
-        }
+        },
       });
 
       const intensiveDays = await createDaysFromContract(intensivePeriod.id, contract, true);
@@ -500,8 +610,22 @@ async function migrateContractSchedules() {
 
 async function createDaysFromContract(periodId: string, contract: any, isIntensive: boolean) {
   const dayMapping = [
-    { day: "MONDAY", work: contract.workMonday, start: contract.mondayStartTime, end: contract.mondayEndTime, breakStart: contract.mondayBreakStartTime, breakEnd: contract.mondayBreakEndTime },
-    { day: "TUESDAY", work: contract.workTuesday, start: contract.tuesdayStartTime, end: contract.tuesdayEndTime, breakStart: contract.tuesdayBreakStartTime, breakEnd: contract.tuesdayBreakEndTime },
+    {
+      day: "MONDAY",
+      work: contract.workMonday,
+      start: contract.mondayStartTime,
+      end: contract.mondayEndTime,
+      breakStart: contract.mondayBreakStartTime,
+      breakEnd: contract.mondayBreakEndTime,
+    },
+    {
+      day: "TUESDAY",
+      work: contract.workTuesday,
+      start: contract.tuesdayStartTime,
+      end: contract.tuesdayEndTime,
+      breakStart: contract.tuesdayBreakStartTime,
+      breakEnd: contract.tuesdayBreakEndTime,
+    },
     // ... resto de días
   ];
 
@@ -521,7 +645,7 @@ async function createDaysFromContract(periodId: string, contract: any, isIntensi
         endTime: end,
         breakStartTime: breakStart,
         breakEndTime: breakEnd,
-      }
+      },
     });
   }
 }
@@ -534,6 +658,7 @@ migrateContractSchedules()
 ```
 
 **Ejecutar:**
+
 ```bash
 npx tsx scripts/migrate-schedules.ts
 ```
@@ -567,10 +692,7 @@ export class ScheduleService {
           // Periodo que cruza año (ej: 12-15 a 02-15)
           {
             startDate: { gt: prisma.schedulePeriod.fields.endDate },
-            OR: [
-              { startDate: { lte: currentMonthDay } },
-              { endDate: { gte: currentMonthDay } },
-            ],
+            OR: [{ startDate: { lte: currentMonthDay } }, { endDate: { gte: currentMonthDay } }],
           },
         ],
       },
@@ -619,7 +741,7 @@ export class ScheduleService {
         daySchedule.startTime,
         daySchedule.endTime,
         daySchedule.breakStartTime,
-        daySchedule.breakEndTime
+        daySchedule.breakEndTime,
       );
     }
 
@@ -643,7 +765,7 @@ export class ScheduleService {
     startTime: string,
     endTime: string,
     breakStart: string | null,
-    breakEnd: string | null
+    breakEnd: string | null,
   ): number {
     const [startHour, startMin] = startTime.split(":").map(Number);
     const [endHour, endMin] = endTime.split(":").map(Number);
@@ -676,8 +798,8 @@ export async function getExpectedHoursForDay(employeeId: string, targetDate: Dat
       employmentContracts: {
         where: { active: true },
         select: { id: true },
-        take: 1
-      }
+        take: 1,
+      },
     },
   });
 
@@ -748,11 +870,13 @@ async function handleSubmit(data: ScheduleFormData) {
 **Eliminar código legacy:**
 
 1. Eliminar campos deprecated del schema:
+
 ```bash
 npx prisma migrate dev --name remove_legacy_schedule_fields
 ```
 
 2. Eliminar código viejo de `admin-time-tracking.ts`:
+
 ```typescript
 // Eliminar:
 // - calculateFixedScheduleHours()
@@ -770,6 +894,7 @@ npx prisma migrate dev --name remove_legacy_schedule_fields
 Ver código completo en Fase 2 arriba.
 
 **Ejecución:**
+
 ```bash
 # Backup de base de datos ANTES de ejecutar
 pg_dump -U erp_user erp_dev > backup_pre_migration.sql
@@ -810,12 +935,14 @@ Durante toda la migración, los campos viejos se mantienen con `@deprecated` per
 ## 7. Checklist de Ejecución
 
 ### Pre-migración
+
 - [ ] Backup completo de base de datos
 - [ ] Código en rama separada (`schedule-migration`)
 - [ ] Tests existentes pasan 100%
 - [ ] Coordinar con equipo (nadie más trabajando en horarios)
 
 ### Durante migración
+
 - [ ] Ejecutar migración Prisma (nuevos modelos)
 - [ ] Ejecutar script de datos
 - [ ] Verificar que TODOS los contratos se migraron
@@ -825,6 +952,7 @@ Durante toda la migración, los campos viejos se mantienen con `@deprecated` per
 - [ ] Ejecutar tests
 
 ### Post-migración
+
 - [ ] Verificar `/time-tracking` funciona
 - [ ] Verificar `/live` funciona
 - [ ] Verificar detección de ausencias funciona
@@ -838,34 +966,37 @@ Durante toda la migración, los campos viejos se mantienen con `@deprecated` per
 
 ## 8. Estimación de Tiempo
 
-| Fase | Tarea | Tiempo |
-|------|-------|--------|
-| 1 | Nuevos modelos Prisma | 1 día |
-| 2 | Script migración datos | 1 día |
-| 3 | Servicio abstracción | 2 días |
-| 4 | Server actions | 1 día |
-| 5 | Frontend (wizard) | 1 día |
-| 6 | Testing completo | 1 día |
-| 7 | Limpieza y docs | 0.5 días |
-| **TOTAL** | | **~1 semana (7.5 días)** |
+| Fase      | Tarea                  | Tiempo                   |
+| --------- | ---------------------- | ------------------------ |
+| 1         | Nuevos modelos Prisma  | 1 día                    |
+| 2         | Script migración datos | 1 día                    |
+| 3         | Servicio abstracción   | 2 días                   |
+| 4         | Server actions         | 1 día                    |
+| 5         | Frontend (wizard)      | 1 día                    |
+| 6         | Testing completo       | 1 día                    |
+| 7         | Limpieza y docs        | 0.5 días                 |
+| **TOTAL** |                        | **~1 semana (7.5 días)** |
 
 ---
 
 ## 9. Beneficios Post-Migración
 
 ### Inmediatos
+
 - ✅ Código más limpio y mantenible
 - ✅ Lógica centralizada en ScheduleService
 - ✅ Sin duplicación de lógica condicional
 - ✅ Queries más eficientes (3 tablas relacionadas vs. 1 tabla con 60 campos)
 
 ### A Medio Plazo (3-6 meses)
+
 - ✅ Fácil añadir turnos rotativos
 - ✅ Fácil añadir más periodos especiales (verano, navidad)
 - ✅ Fácil implementar historial de cambios
 - ✅ Fácil añadir horarios por proyecto
 
 ### A Largo Plazo (1+ años)
+
 - ✅ TimeNow integración simple (API consistente)
 - ✅ Reportes avanzados (compliance, ausencias, extras)
 - ✅ Escalabilidad probada (100+ empleados con horarios complejos)

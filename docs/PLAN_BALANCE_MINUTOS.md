@@ -9,6 +9,7 @@
 ## 📊 Estado de Implementación
 
 ### ✅ COMPLETADO
+
 - **Sprint 1**: Base de Datos (Schema + Sincronización) - 100%
 - **Sprint 2**: Lógica Backend (Helpers + Balance + Requests) - 100%
 - **Sprint 3**: UI del balance y stores actualizados - 100%
@@ -16,9 +17,11 @@
 - **Sprint 5**: Testing y validación - 100% (enfoque pragmático: validación durante uso real)
 
 ### ✅ SISTEMA LISTO PARA USO
+
 El sistema de balance en minutos está **completamente funcional** y listo para ser usado en producción.
 
 ### 📝 VALIDACIÓN CONTINUA
+
 - ✅ La validación se realizará durante el uso real de la aplicación
 - ✅ Bugs y ajustes se corregirán conforme se detecten
 - ✅ Tests automatizados se añadirán en el futuro si es necesario
@@ -35,6 +38,7 @@ El sistema de balance en minutos está **completamente funcional** y listo para 
 4. ✅ **CUARTO**: Marcar campos en schema como `@deprecated` o eliminarlos directamente
 
 **Ejemplo:**
+
 - Si implementamos `effectiveMinutes`, debemos eliminar referencias a `workingDays` en la lógica que las use
 - Si implementamos `minutesAvailable`, debemos eliminar referencias a `daysAvailable` en UI
 - NO mantener código que calcule ambas versiones (legacy + nuevo) indefinidamente
@@ -410,10 +414,7 @@ WHERE active = true
  * 2. Si no, calcular desde ScheduleTemplate (Sprint 5 - futuro)
  * 3. Fallback: weeklyHours / 5 × 60
  */
-async function getWorkdayMinutes(
-  employeeId: string,
-  orgId: string
-): Promise<number> {
+async function getWorkdayMinutes(employeeId: string, orgId: string): Promise<number> {
   const contract = await prisma.employmentContract.findFirst({
     where: {
       employeeId,
@@ -470,7 +471,7 @@ async function getWorkdayMinutes(
 export function formatMinutes(
   minutes: number,
   workdayMinutes: number = 480,
-  mode: "auto" | "days" | "hours" = "auto"
+  mode: "auto" | "days" | "hours" = "auto",
 ): string {
   // Modo días: mostrar solo días (con decimales)
   if (mode === "days") {
@@ -532,7 +533,7 @@ export function formatMinutes(
 export async function calculateOrUpdatePtoBalance(
   employeeId: string,
   orgId: string,
-  year: number
+  year: number,
 ): Promise<{
   id: string;
   year: number;
@@ -573,11 +574,7 @@ export async function calculateOrUpdatePtoBalance(
   }
 
   // Calcular días permitidos según fecha de inicio de contrato
-  const allowanceDays = await calculateAnnualAllowance(
-    activeContract.startDate,
-    year,
-    org.annualPtoDays
-  );
+  const allowanceDays = await calculateAnnualAllowance(activeContract.startDate, year, org.annualPtoDays);
 
   // Convertir días a minutos usando jornada del empleado
   let annualAllowanceMinutes = Math.round(allowanceDays * workdayMinutes);
@@ -607,7 +604,7 @@ export async function calculateOrUpdatePtoBalance(
 
   const manualAdjustmentMinutes = manualAdjustments.reduce(
     (total, adj) => total + Math.round(Number(adj.daysAdjusted) * workdayMinutes),
-    0
+    0,
   );
 
   annualAllowanceMinutes += manualAdjustmentMinutes;
@@ -796,12 +793,7 @@ export async function createPtoRequest(data: {
     workingDays = data.durationMinutes / workdayMinutes;
   } else {
     // Días completos: calcular días hábiles excluyendo festivos
-    const result = await calculateWorkingDays(
-      data.startDate,
-      data.endDate,
-      employeeId,
-      orgId
-    );
+    const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId);
     workingDays = result.workingDays;
     holidays = result.holidays;
     effectiveMinutes = Math.round(workingDays * workdayMinutes);
@@ -809,9 +801,7 @@ export async function createPtoRequest(data: {
 
   // Aplicar factor de compensación (1.5x nocturno, 1.75x festivo, etc.)
   if (absenceType.compensationFactor && Number(absenceType.compensationFactor) > 1.0) {
-    effectiveMinutes = Math.round(
-      effectiveMinutes * Number(absenceType.compensationFactor)
-    );
+    effectiveMinutes = Math.round(effectiveMinutes * Number(absenceType.compensationFactor));
   }
 
   // Validar días disponibles según tipo de balance
@@ -840,7 +830,7 @@ export async function createPtoRequest(data: {
 
     if (availableMinutes < effectiveMinutes) {
       throw new Error(
-        `No tienes suficientes minutos disponibles (te faltan ${formatMinutes(effectiveMinutes - availableMinutes, workdayMinutes)})`
+        `No tienes suficientes minutos disponibles (te faltan ${formatMinutes(effectiveMinutes - availableMinutes, workdayMinutes)})`,
       );
     }
   }
@@ -1070,16 +1060,16 @@ export function PtoBalanceCards() {
 
 ## ✅ Beneficios del Sistema en Minutos
 
-| Aspecto | Sistema Actual (Días) | Sistema Nuevo (Minutos) |
-|---------|----------------------|------------------------|
-| **Precisión** | 0.03 días (redondeo) | 15 minutos (exacto) |
-| **Jornadas variables** | ❌ Asume 8h fijas | ✅ Adapta a 4h, 6h, 7h, 8h, 12h, 24h |
-| **Compensaciones** | ❌ Cálculo manual | ✅ Factor automático (1.5x, 1.75x) |
-| **Tipos mixtos** | ❌ Todo en días | ✅ 4 contadores separados |
-| **Cambio de jornada** | ❌ Rompe históricos | ✅ workdayMinutesSnapshot |
-| **Errores de redondeo** | ❌ Acumulativos | ✅ Ninguno |
-| **Colectivos especiales** | ❌ Limitado | ✅ Bomberos, policía, turnos 24h |
-| **Horas extra/libre** | ❌ No soportado | ✅ freeDisposalMinutes |
+| Aspecto                   | Sistema Actual (Días) | Sistema Nuevo (Minutos)              |
+| ------------------------- | --------------------- | ------------------------------------ |
+| **Precisión**             | 0.03 días (redondeo)  | 15 minutos (exacto)                  |
+| **Jornadas variables**    | ❌ Asume 8h fijas     | ✅ Adapta a 4h, 6h, 7h, 8h, 12h, 24h |
+| **Compensaciones**        | ❌ Cálculo manual     | ✅ Factor automático (1.5x, 1.75x)   |
+| **Tipos mixtos**          | ❌ Todo en días       | ✅ 4 contadores separados            |
+| **Cambio de jornada**     | ❌ Rompe históricos   | ✅ workdayMinutesSnapshot            |
+| **Errores de redondeo**   | ❌ Acumulativos       | ✅ Ninguno                           |
+| **Colectivos especiales** | ❌ Limitado           | ✅ Bomberos, policía, turnos 24h     |
+| **Horas extra/libre**     | ❌ No soportado       | ✅ freeDisposalMinutes               |
 
 ---
 
@@ -1088,6 +1078,7 @@ export function PtoBalanceCards() {
 ### **Sprint 1: Base de Datos** (2-3 días) 🔴 Prioridad Alta
 
 **Tareas:**
+
 1. ✅ Añadir campos nuevos a `PtoBalance`, `EmploymentContract`, `PtoRequest`, `AbsenceType`
 2. ✅ Crear migración SQL para convertir datos existentes
 3. ✅ Ejecutar migración en desarrollo y verificar integridad
@@ -1095,6 +1086,7 @@ export function PtoBalanceCards() {
 5. ✅ Regenerar Prisma Client (`npx prisma generate`)
 
 **Entregables:**
+
 - Schema actualizado en `schema.prisma`
 - Migración ejecutada sin errores
 - Datos legacy preservados en campos deprecados
@@ -1104,6 +1096,7 @@ export function PtoBalanceCards() {
 ### **Sprint 2: Lógica Backend** (3-4 días) 🔴 Prioridad Alta
 
 **Tareas:**
+
 1. ✅ Implementar `getWorkdayMinutes()` con fallbacks inteligentes
 2. ✅ Implementar `formatMinutes()` para conversiones UI
 3. ✅ Actualizar `calculateOrUpdatePtoBalance()` para usar minutos
@@ -1112,6 +1105,7 @@ export function PtoBalanceCards() {
 6. ✅ Tests unitarios para conversiones y cálculos
 
 **Entregables:**
+
 - Funciones helper documentadas
 - Balance calculado en minutos correctamente
 - Tests pasando al 100%
@@ -1121,6 +1115,7 @@ export function PtoBalanceCards() {
 ### **Sprint 3: UI y Experiencia** (2-3 días) 🟡 Prioridad Media
 
 **Tareas:**
+
 1. ✅ Actualizar `PtoBalanceCards` para mostrar conversiones (días Y horas)
 2. ✅ Actualizar `PtoRequestsTable` para usar `effectiveMinutes`
 3. ✅ Añadir toggle "Ver en días / Ver en horas" (opcional)
@@ -1128,6 +1123,7 @@ export function PtoBalanceCards() {
 5. ✅ Mostrar `workdayMinutes` en perfil del empleado
 
 **Entregables:**
+
 - Balance visible en días Y horas
 - Tabla de solicitudes con formato correcto
 - UI adaptativa según contexto
@@ -1137,6 +1133,7 @@ export function PtoBalanceCards() {
 ### **Sprint 4: Contadores Separados (UI)** (2-3 días) 🟢 Prioridad Baja
 
 **Tareas:**
+
 1. ⏳ Configuración en `Organization` para habilitar/deshabilitar bolsas
 2. ⏳ UI para mostrar múltiples balances (tabs o cards adicionales)
 3. ⏳ Crear ajustes manuales para añadir compensados/libre disposición
@@ -1144,6 +1141,7 @@ export function PtoBalanceCards() {
 5. ⏳ (Opcional) Migrar a `PtoBalanceBucket` si se necesita más flexibilidad
 
 **Entregables:**
+
 - Dashboard con 4 balances visibles (vacaciones, compensados, libre, asuntos)
 - Configuración por tipo de ausencia
 - Reportes separados
@@ -1153,12 +1151,14 @@ export function PtoBalanceCards() {
 ### **Sprint 5: Integración con Horarios V2.0** 🔵 Backlog (Futuro)
 
 **Tareas:**
+
 1. ⏳ Calcular `workdayMinutes` desde `ScheduleTemplate` (en lugar de weeklyHours / 5)
 2. ⏳ Factor de compensación dinámico según franjas horarias (nocturno/festivo real)
 3. ⏳ Validar ausencias contra horario efectivo del día
 4. ⏳ Registrar horas extra automáticamente en `freeDisposalMinutes`
 
 **Entregables:**
+
 - workdayMinutes calculado desde Schedule V2.0
 - Factores dinámicos por horario (1.5x si slot nocturno, 1.75x si festivo)
 - Integración completa con sistema de horarios
@@ -1176,6 +1176,7 @@ export function PtoBalanceCards() {
 ### **2. ¿Por qué workdayMinutesSnapshot?**
 
 **Escenario:**
+
 ```
 2024: Empleado trabaja 8h/día (480 min)
   - Usó 10 días = 4,800 minutos
@@ -1190,11 +1191,13 @@ export function PtoBalanceCards() {
 ### **3. ¿Por qué NO usar PtoBalanceBucket (v2) todavía?**
 
 **Ventajas de la opción rápida (campos fijos):**
+
 - Más simple de implementar (Sprint 1-3)
 - Queries más rápidas (sin joins)
 - Cubre 90% de casos (4 bolsas: vacaciones, compensados, libre, asuntos)
 
 **Cuándo migrar a Buckets:**
+
 - Organizaciones necesitan >4 tipos de bolsas
 - Configuración dinámica por cliente (multi-tenant avanzado)
 - Producto con alta variabilidad (ej: 10+ tipos de ausencias diferentes)
@@ -1254,12 +1257,14 @@ Antes de desplegar a producción, verificar:
 ## Resumen de Estado
 
 ### ✅ **Sprints Completados:**
+
 - **Sprint 1**: Base de Datos (Schema + Sincronización) - 100%
 - **Sprint 2**: Lógica Backend (Helpers + Balance + Requests) - 100%
 - **Sprint 3**: UI del balance y stores actualizados - 100%
 - **Sprint 4**: Tabla de solicitudes actualizada - 100%
 
 ### 🔄 **Sprint Pendiente:**
+
 - **Sprint 5**: Testing y validación completa - 0%
 
 ---
@@ -1273,24 +1278,28 @@ Antes de desplegar a producción, verificar:
 **Cambios realizados:**
 
 1. **Modelo `EmploymentContract`** (línea ~384):
+
 ```prisma
 // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos por jornada laboral
 workdayMinutes Int? // Jornada estándar en minutos (null = calcular automático: weeklyHours / workingDaysPerWeek * 60)
 ```
 
 2. **Modelo `AbsenceType`** (línea ~758):
+
 ```prisma
 // 🆕 SISTEMA DE BALANCE EN MINUTOS - ¿A qué contador de balance afecta?
 balanceType String @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
 ```
 
 3. **Modelo `PtoRequest`** (línea ~827):
+
 ```prisma
 // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos efectivos descontados del balance
 effectiveMinutes Int @default(0) // durationMinutes × compensationFactor (o workingDays × workdayMinutes × compensationFactor)
 ```
 
 4. **Modelo `PtoBalance`** (líneas 777-799) - Campos agregados:
+
 ```prisma
 // ❌ DEPRECADO (mantener temporalmente para migración y reportes legacy)
 annualAllowance   Decimal  @db.Decimal(5,2)
@@ -1314,12 +1323,14 @@ workdayMinutesSnapshot  Int @default(480) // Jornada en minutos del año calcula
 ```
 
 **Comandos ejecutados:**
+
 ```bash
 npx prisma db push
 # ✅ Sincronización exitosa en 97ms sin pérdida de datos
 ```
 
 **Resultado:**
+
 - ✅ Schema actualizado sin errores
 - ✅ Base de datos sincronizada
 - ✅ Nuevos campos disponibles en Prisma Client
@@ -1420,16 +1431,14 @@ export function minutesToDays(minutes: number, workdayMinutes: number = 480): De
   return new Decimal(days);
 }
 
-export function applyCompensationFactor(
-  minutes: number,
-  compensationFactor: Decimal | number,
-): number {
+export function applyCompensationFactor(minutes: number, compensationFactor: Decimal | number): number {
   const factor = typeof compensationFactor === "number" ? compensationFactor : Number(compensationFactor);
   return Math.round(minutes * factor);
 }
 ```
 
 **Funciones implementadas:**
+
 - ✅ `getWorkdayMinutes()` - Obtiene minutos de jornada con fallbacks inteligentes
 - ✅ `formatMinutes()` - Convierte minutos a formato legible (días, horas, minutos)
 - ✅ `daysToMinutes()` - Convierte días a minutos
@@ -1443,6 +1452,7 @@ export function applyCompensationFactor(
 **Cambios realizados:**
 
 1. **Imports agregados** (línea 6):
+
 ```typescript
 import { daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 ```
@@ -1450,6 +1460,7 @@ import { daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 2. **Actualización de `calculateOrUpdatePtoBalance()`** (líneas 175-240):
 
 **Código agregado:**
+
 ```typescript
 // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular campos en minutos
 const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
@@ -1505,6 +1516,7 @@ return {
 ```
 
 **Resultado:**
+
 - ✅ Balance ahora se calcula en minutos
 - ✅ Se mantienen campos legacy para compatibilidad
 - ✅ workdayMinutesSnapshot guarda minutos de jornada del año
@@ -1516,11 +1528,13 @@ return {
 **Cambios realizados:**
 
 1. **Imports agregados** (línea 7):
+
 ```typescript
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 ```
 
 2. **Actualización de `getMyPtoBalance()`** (líneas 149-167) - Caso sin contrato:
+
 ```typescript
 if (!hasActiveContract || !activeContract) {
   return {
@@ -1544,6 +1558,7 @@ if (!hasActiveContract || !activeContract) {
 ```
 
 3. **Actualización de `createPtoRequest()`** (líneas 410-443) - Cálculo de effectiveMinutes:
+
 ```typescript
 // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
 const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
@@ -1570,6 +1585,7 @@ const request = await prisma.ptoRequest.create({
 ```
 
 **Resultado:**
+
 - ✅ Solicitudes ahora calculan effectiveMinutes
 - ✅ Se aplican factores de compensación correctamente
 - ✅ Soporta ausencias parciales (horas) y completas (días)
@@ -1603,6 +1619,7 @@ export interface PtoBalance {
 ```
 
 **Resultado:**
+
 - ✅ Interface actualizada con campos en minutos
 - ✅ Compatibilidad con campos legacy mantenida
 
@@ -1613,11 +1630,13 @@ export interface PtoBalance {
 **Cambios realizados:**
 
 1. **Import agregado** (línea 9):
+
 ```typescript
 import { formatMinutes } from "@/lib/pto-helpers";
 ```
 
 2. **Cálculo de datos** (líneas 61-70):
+
 ```typescript
 // ✅ SISTEMA DE BALANCE EN MINUTOS - Usar campos en minutos y formatear
 const workdayMinutes = balance.workdayMinutesSnapshot ?? 480;
@@ -1632,6 +1651,7 @@ const daysAvailable = balance.minutesAvailable
 ```
 
 3. **Actualización de Card de Balance** (líneas 167-185):
+
 ```typescript
 <Card>
   <CardHeader>
@@ -1654,6 +1674,7 @@ const daysAvailable = balance.minutesAvailable
 ```
 
 **Resultado:**
+
 - ✅ Balance ahora se muestra en formato legible (días, horas, minutos)
 - ✅ Usa `formatMinutes()` para conversiones automáticas
 - ✅ Mantiene fallback a días legacy durante migración
@@ -1667,11 +1688,13 @@ const daysAvailable = balance.minutesAvailable
 **Cambios realizados:**
 
 1. **Import agregado** (línea 42):
+
 ```typescript
 import { formatMinutes } from "@/lib/pto-helpers";
 ```
 
 2. **Columna "Duración" actualizada** (líneas 123-144):
+
 ```typescript
 {
   accessorKey: "workingDays",
@@ -1699,6 +1722,7 @@ import { formatMinutes } from "@/lib/pto-helpers";
 ```
 
 **Resultado:**
+
 - ✅ Tabla muestra correctamente ausencias parciales (horas/minutos)
 - ✅ Tabla muestra correctamente ausencias de días completos
 - ✅ Formato consistente con el resto del sistema
@@ -1708,9 +1732,11 @@ import { formatMinutes } from "@/lib/pto-helpers";
 ## 📊 Resumen de Archivos Modificados/Creados
 
 ### Nuevos Archivos (1):
+
 - ✅ `/src/lib/pto-helpers.ts` - Funciones helper para sistema de minutos
 
 ### Archivos Modificados (5):
+
 - ✅ `/prisma/schema.prisma` - 4 modelos actualizados
 - ✅ `/src/server/actions/pto-balance.ts` - Cálculo en minutos
 - ✅ `/src/server/actions/employee-pto.ts` - effectiveMinutes + casos edge
@@ -1719,6 +1745,7 @@ import { formatMinutes } from "@/lib/pto-helpers";
 - ✅ `/src/app/(main)/dashboard/me/pto/_components/pto-requests-table.tsx` - Tabla actualizada
 
 ### Líneas de Código Agregadas: ~350 líneas
+
 ### Tests Unitarios: Pendiente (Sprint 5)
 
 ---
@@ -1737,6 +1764,7 @@ import { formatMinutes } from "@/lib/pto-helpers";
 ### 🔄 **Migraciones Pendientes:**
 
 Si existen datos legacy en la base de datos:
+
 1. Ejecutar SQL de migración (Fase 2 del plan)
 2. Verificar integridad de datos
 3. Validar que todos los balances tienen workdayMinutesSnapshot > 0
@@ -1777,6 +1805,7 @@ Si existen datos legacy en la base de datos:
 ✅ **Sprint 4**: Tabla de solicitudes actualizada - 100%
 
 **Sistema funcionando:**
+
 - Base de datos sincronizada con nuevos campos en minutos
 - Helpers de conversión implementados y funcionando
 - Balance se calcula en minutos con snapshot histórico
@@ -1785,6 +1814,7 @@ Si existen datos legacy en la base de datos:
 - Tabla soporta ausencias parciales y completas
 
 **Falta por hacer (Sprint 5):**
+
 - Testing completo del flujo end-to-end
 - Migración de datos existentes (si los hay)
 - Validación en entorno de pruebas

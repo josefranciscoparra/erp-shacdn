@@ -313,11 +313,11 @@ export function EventCalendar({
             </Button>
 
             {/* Navegación mes centrada con flechas redondeadas - estilo Factorial/Linear */}
-            <div className="flex items-center gap-2 rounded-lg border border-border/40 bg-background/50 px-2 py-1.5 sm:px-3">
+            <div className="border-border/40 bg-background/50 flex items-center gap-2 rounded-lg border px-2 py-1.5 sm:px-3">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full hover:bg-accent"
+                className="hover:bg-accent h-7 w-7 rounded-full"
                 onClick={handlePrevious}
                 aria-label="Mes anterior"
               >
@@ -329,7 +329,7 @@ export function EventCalendar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 rounded-full hover:bg-accent"
+                className="hover:bg-accent h-7 w-7 rounded-full"
                 onClick={handleNext}
                 aria-label="Mes siguiente"
               >

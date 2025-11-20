@@ -16,11 +16,13 @@
 ### Niveles de Configuración
 
 #### 1. Aprobadores Organizacionales (General)
+
 - La organización puede tener **múltiples aprobadores**
 - Uno de ellos puede ser marcado como **"Primario"** (opcional)
 - Todos los empleados SIN aprobador específico usan estos aprobadores
 
 #### 2. Aprobador Específico por Empleado (Sobrescribe)
+
 - Cada empleado puede tener un **aprobador asignado directamente**
 - Si existe, este aprobador **sobrescribe** los aprobadores organizacionales
 - Útil para equipos con managers dedicados
@@ -28,6 +30,7 @@
 ### Flujo de Aprobación
 
 1. **Configuración:**
+
    ```
    Organización → Aprobadores: [User A (primario), User B, User C]
    Empleado 1 → Aprobador específico: User D (sobrescribe org)
@@ -35,6 +38,7 @@
    ```
 
 2. **Envío de Gasto:**
+
    ```javascript
    // Lógica de resolución de aprobadores
    function getApproversForEmployee(employeeId) {
@@ -192,12 +196,12 @@ model User {
 
 ### Permisos y Visibilidad
 
-| Acción | Lógica de Permiso |
-|--------|-------------------|
-| Ver `/dashboard/expenses` | `isExpenseApprover(userId, orgId)` OR `isAdmin(userId)` |
-| Aprobar gasto | `isAssignedApprover(userId, expenseId)` OR `isAdmin(userId)` |
-| Ver analytics | `isAdmin(userId)` |
-| Configurar aprobadores org | `isAdmin(userId)` |
+| Acción                       | Lógica de Permiso                                            |
+| ---------------------------- | ------------------------------------------------------------ |
+| Ver `/dashboard/expenses`    | `isExpenseApprover(userId, orgId)` OR `isAdmin(userId)`      |
+| Aprobar gasto                | `isAssignedApprover(userId, expenseId)` OR `isAdmin(userId)` |
+| Ver analytics                | `isAdmin(userId)`                                            |
+| Configurar aprobadores org   | `isAdmin(userId)`                                            |
 | Asignar aprobador a empleado | `isAdmin(userId)` OR `canManageEmployee(userId, employeeId)` |
 
 ### Ventajas de esta Arquitectura
@@ -212,6 +216,7 @@ model User {
 ### Casos de Uso
 
 #### Caso 1: Empresa pequeña
+
 ```
 Organización → Aprobador: CEO
 Todos los empleados → Sin aprobador específico
@@ -219,6 +224,7 @@ Resultado: CEO aprueba todos los gastos
 ```
 
 #### Caso 2: Empresa con departamentos
+
 ```
 Organización → Aprobadores: [CFO (primario), Controller]
 Empleado Marketing → Aprobador: Marketing Manager
@@ -228,6 +234,7 @@ Resultado: Cada manager aprueba su equipo, CFO aprueba IT
 ```
 
 #### Caso 3: Multi-aprobador
+
 ```
 Organización → Aprobadores: [CFO, CEO, Controller]
 Empleado 1 → Sin específico
@@ -257,12 +264,14 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 ### ✅ Lo que está FUNCIONANDO ahora mismo:
 
 #### 1. **Sistema de Aprobadores Multi-nivel (100% funcional)**
+
 - ✅ Tabla `ExpenseApprover` en base de datos
 - ✅ Múltiples aprobadores organizacionales (con primario opcional)
 - ✅ Aprobadores específicos por empleado (sobrescribe org)
 - ✅ Lógica de resolución: específico → org → error si no hay
 
 #### 2. **Server Actions Completos (100%)**
+
 - ✅ `expense-approvers.ts` - 7 funciones para gestionar aprobadores
   - `getOrganizationApprovers()`
   - `addOrganizationApprover()`
@@ -281,6 +290,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Incluye corrección crítica: `getApproverBaseData()` (no requiere employee profile)
 
 #### 3. **UI de Aprobación (100%)**
+
 - ✅ Página `/dashboard/approvals/expenses`
   - 3 Tabs: Pendientes, Aprobados, Rechazados
   - TanStack Table con columnas: empleado, fecha, categoría, comercio, importe
@@ -289,6 +299,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Integración con server actions
 
 #### 4. **UI de Configuración (100%)**
+
 - ✅ Settings: Configurar aprobadores organizacionales
   - Lista de aprobadores con cards
   - Dialog para agregar/eliminar aprobadores
@@ -303,12 +314,14 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Integración con `setEmployeeApprover()`
 
 #### 5. **Navegación (Parcial - solo aprobaciones)**
+
 - ✅ Sidebar con "Gastos" en sección "Aprobaciones"
 - ✅ Visible solo con permiso `approve_requests`
 
 ### ❌ Lo que FALTA implementar:
 
 #### 1. **Área de Empleado (Fase 3 - 0%)**
+
 - ❌ Página `/dashboard/me/expenses` (mis gastos)
 - ❌ Crear/editar gasto
 - ❌ Subir adjuntos
@@ -316,6 +329,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 - ❌ Store de expenses
 
 #### 2. **Modelos de Base de Datos (Fase 1 - 80% pendiente)**
+
 - ❌ Modelo `Expense`
 - ❌ Modelo `ExpenseAttachment`
 - ❌ Modelo `ExpenseApproval`
@@ -326,31 +340,37 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 - ❌ Migraciones y seed
 
 #### 3. **Server Actions Básicos (Fase 2 - 70% pendiente)**
+
 - ❌ `expenses.ts` - CRUD de gastos (`createExpense`, `updateExpense`, `submitExpense`, etc.)
 - ❌ `expense-policies.ts` - Gestión de políticas
 - ❌ `expense-analytics.ts` - Estadísticas y métricas
 
 #### 4. **OCR y Procesamiento (Fase 5 - 0%)**
+
 - ❌ Tesseract.js
 - ❌ Preprocesamiento de imágenes
 - ❌ Parser de tickets
 - ❌ Hook `useReceiptOcr()`
 
 #### 5. **Analytics y Reportes (Fase 4 - 0%)**
+
 - ❌ Página `/dashboard/expenses/analytics`
 - ❌ Gráficos (categorías, tendencia, top spenders)
 - ❌ Exportación CSV
 
 #### 6. **Políticas (Fase 4 - 0%)**
+
 - ❌ Página `/dashboard/admin/expenses/policy`
 - ❌ Configurar tarifas, límites, requisitos
 
 #### 7. **Validaciones y Notificaciones (Fase 6 - 0%)**
+
 - ❌ Schemas Zod
 - ❌ Validaciones contra políticas
 - ❌ Notificaciones de aprobación/rechazo
 
 #### 8. **Documentación (Fase 8 - 0%)**
+
 - ❌ README del módulo
 - ❌ FAQs
 - ❌ Troubleshooting
@@ -358,17 +378,20 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 ### 🚧 PRÓXIMOS PASOS RECOMENDADOS:
 
 **Opción A: Completar flujo básico de empleado (MVP mínimo)**
+
 1. Fase 1: Añadir modelos `Expense`, `ExpenseAttachment`, `ExpenseApproval`
 2. Fase 2: Implementar `expenses.ts` básico
 3. Fase 3: Crear página `/dashboard/me/expenses` (listado + crear gasto simple)
 4. Permitir a empleado crear gasto manual y enviarlo a aprobación
 
 **Opción B: Completar sistema de aprobación existente**
+
 1. Añadir página `/dashboard/expenses` (gestión completa para admins)
 2. Implementar analytics básico
 3. Mejorar UI de aprobaciones con filtros avanzados
 
 **Opción C: Enfoque OCR (valor añadido)**
+
 1. Implementar OCR primero (Fase 5)
 2. Integrar en formulario de crear gasto
 3. Diferenciador clave del módulo
@@ -382,6 +405,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Archivo:** `prisma/schema.prisma`
 
 - [ ] **1.1.1** Añadir enums al final del archivo:
+
   ```prisma
   enum ExpenseStatus {
     DRAFT          // Borrador (no enviado)
@@ -409,6 +433,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.2** Añadir modelo `Expense`:
+
   ```prisma
   model Expense {
     id              String          @id @default(cuid())
@@ -473,6 +498,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.3** Añadir modelo `ExpenseAttachment`:
+
   ```prisma
   model ExpenseAttachment {
     id          String   @id @default(cuid())
@@ -491,6 +517,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.4** Añadir modelo `ExpenseApproval`:
+
   ```prisma
   model ExpenseApproval {
     id              String            @id @default(cuid())
@@ -513,6 +540,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.5** Añadir modelo `ExpenseReport`:
+
   ```prisma
   model ExpenseReport {
     id          String   @id @default(cuid())
@@ -545,6 +573,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.6** Añadir modelo `PolicySnapshot`:
+
   ```prisma
   model PolicySnapshot {
     id                      String   @id @default(cuid())
@@ -562,6 +591,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.7** Añadir modelo `ExpensePolicy`:
+
   ```prisma
   model ExpensePolicy {
     id                      String   @id @default(cuid())
@@ -595,6 +625,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [x] **1.1.8** Añadir tabla `ExpenseApprover` (NUEVA - Multi-aprobador): ✅
+
   ```prisma
   model ExpenseApprover {
     id        String   @id @default(cuid())
@@ -618,6 +649,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [x] **1.1.9** Actualizar modelo `Organization` (añadir relaciones): ✅
+
   ```prisma
   // En model Organization, añadir:
   expenses          Expense[]
@@ -629,6 +661,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [x] **1.1.10** Actualizar modelo `Employee` (añadir relaciones y aprobador específico): ✅
+
   ```prisma
   // En model Employee, añadir:
   expenses          Expense[]
@@ -643,6 +676,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [x] **1.1.11** Actualizar modelo `User` (añadir relaciones): ✅
+
   ```prisma
   // En model User, añadir:
   createdExpenses   Expense[]         @relation("ExpenseCreator")
@@ -656,12 +690,14 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.12** Actualizar modelo `CostCenter` (añadir relación):
+
   ```prisma
   // En model CostCenter, añadir:
   expenses          Expense[]
   ```
 
 - [ ] **1.1.13** Actualizar enum `PtoNotificationType` (añadir tipos):
+
   ```prisma
   // En enum PtoNotificationType, añadir:
   EXPENSE_SUBMITTED        // Nueva solicitud de gasto
@@ -671,6 +707,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.1.14** Actualizar modelo `PtoNotification` (añadir relación con gastos):
+
   ```prisma
   // En model PtoNotification, añadir:
   expenseId   String?
@@ -689,6 +726,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 ### 1.2 Crear Migración
 
 - [ ] **1.2.1** Ejecutar comando de migración:
+
   ```bash
   npx prisma migrate dev --name add_expense_management_module
   ```
@@ -700,6 +738,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 ### 1.3 Seed de Políticas por Defecto
 
 - [ ] **1.3.1** Añadir al final de `prisma/seed.ts`:
+
   ```typescript
   console.log("🏢 Creando políticas de gastos por defecto...");
 
@@ -712,8 +751,8 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
       create: {
         orgId: org.id,
         mileageRateEurPerKm: 0.26,
-        mealDailyLimit: 30.00,
-        lodgingDailyLimit: 100.00,
+        mealDailyLimit: 30.0,
+        lodgingDailyLimit: 100.0,
         categoryRequirements: {
           FUEL: { requiresReceipt: true, vatAllowed: true },
           MILEAGE: { requiresReceipt: false, vatAllowed: false },
@@ -735,6 +774,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **1.3.2** Ejecutar seed:
+
   ```bash
   npx prisma db seed
   ```
@@ -781,6 +821,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Validar que tenga attachments (si policy requiere)
   - Cambiar status a SUBMITTED
   - **IMPORTANTE:** Resolver aprobadores con lógica de jerarquía:
+
     ```typescript
     // 1. Buscar aprobador específico del empleado
     const employee = await prisma.employee.findUnique({
@@ -799,19 +840,18 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
         where: { orgId: expense.orgId },
         include: { user: true },
         orderBy: [
-          { isPrimary: 'desc' }, // Primario primero
-          { order: 'asc' },      // Luego por orden
+          { isPrimary: "desc" }, // Primario primero
+          { order: "asc" }, // Luego por orden
         ],
       });
 
       if (orgApprovers.length === 0) {
         throw new Error(
-          "No hay aprobadores configurados. " +
-          "Contacta con administración para configurar aprobadores de gastos."
+          "No hay aprobadores configurados. " + "Contacta con administración para configurar aprobadores de gastos.",
         );
       }
 
-      approvers = orgApprovers.map(a => a.user);
+      approvers = orgApprovers.map((a) => a.user);
     }
 
     // 2. Crear ExpenseApproval para cada aprobador
@@ -829,8 +869,8 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
       await createNotification(
         approver.id,
         expense.orgId,
-        'EXPENSE_SUBMITTED',
-        'Nueva solicitud de gasto',
+        "EXPENSE_SUBMITTED",
+        "Nueva solicitud de gasto",
         `${employee.firstName} ${employee.lastName} ha enviado un gasto de ${expense.totalAmount}€`,
         undefined,
         undefined,
@@ -1583,6 +1623,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Descripción: "Configura quién aprobará los gastos de este empleado"
 
   - **Caso A: Sin aprobador específico (usa org):**
+
     ```tsx
     <Badge variant="outline">Usando aprobadores de la organización</Badge>
     <List de aprobadores org (solo lectura)>
@@ -1618,11 +1659,13 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 ### 5.1 Instalación de Dependencias
 
 - [ ] **5.1.1** Instalar tesseract.js:
+
   ```bash
   npm install tesseract.js
   ```
 
 - [ ] **5.1.2** Instalar browser-image-compression:
+
   ```bash
   npm install browser-image-compression
   ```
@@ -1672,6 +1715,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Retornar worker
 
 - [ ] **5.3.3** Crear función `processReceipt(imageFile: File)`:
+
   ```typescript
   async function processReceipt(imageFile: File) {
     // 1. Preprocesar
@@ -1698,6 +1742,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `src/lib/ocr/receipt-parser.ts`
 
 - [ ] **5.4.1** Definir tipos:
+
   ```typescript
   interface ParsedReceipt {
     total?: number;
@@ -1716,6 +1761,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **5.4.2** Crear regex patterns:
+
   ```typescript
   const patterns = {
     total: /(?:TOTAL|IMPORTE\s*TOTAL|A\s*PAGAR)[\s:]*(\d+[\.,]\d{2})/gi,
@@ -1792,6 +1838,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `src/hooks/use-receipt-ocr.ts`
 
 - [ ] **5.5.1** Crear estructura del hook:
+
   ```typescript
   export function useReceiptOcr() {
     const [isProcessing, setIsProcessing] = useState(false);
@@ -1801,6 +1848,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **5.5.2** Implementar `processFile`:
+
   ```typescript
   const processFile = async (file: File) => {
     setIsProcessing(true);
@@ -1809,15 +1857,15 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 
     try {
       // 1. Validar tipo de archivo
-      if (!file.type.startsWith('image/') && file.type !== 'application/pdf') {
-        throw new Error('Solo se permiten imágenes o PDFs');
+      if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+        throw new Error("Solo se permiten imágenes o PDFs");
       }
 
       setProgress(20);
 
       // 2. Si es PDF, convertir primera página a imagen
       let imageFile = file;
-      if (file.type === 'application/pdf') {
+      if (file.type === "application/pdf") {
         imageFile = await convertPdfToImage(file);
       }
 
@@ -1838,8 +1886,8 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
         rawText: ocrResult.text, // Para debugging
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error procesando ticket');
-      console.error('Error en OCR:', err);
+      setError(err instanceof Error ? err.message : "Error procesando ticket");
+      console.error("Error en OCR:", err);
     } finally {
       setIsProcessing(false);
     }
@@ -1847,6 +1895,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **5.5.3** Implementar `reset`:
+
   ```typescript
   const reset = () => {
     setSuggestions(null);
@@ -1872,6 +1921,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `src/lib/ocr/pdf-converter.ts`
 
 - [ ] **5.6.1** Instalar pdfjs-dist:
+
   ```bash
   npm install pdfjs-dist
   ```
@@ -1887,6 +1937,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - Retornar File
 
 - [ ] **5.6.4** Implementar `convertPdfToImage(file: File)`:
+
   ```typescript
   export async function convertPdfToImage(file: File): Promise<File> {
     // 1. Intentar extraer texto
@@ -1908,6 +1959,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `src/lib/ocr/merchant-templates.json`
 
 - [ ] **5.7.1** Definir estructura JSON:
+
   ```json
   {
     "REPSOL": {
@@ -1946,12 +1998,14 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `src/lib/validations/expense.ts`
 
 - [ ] **6.1.1** Crear schema base:
+
   ```typescript
-  import { z } from 'zod';
-  import { ExpenseCategory } from '@prisma/client';
+  import { z } from "zod";
+  import { ExpenseCategory } from "@prisma/client";
 
   export const expenseBaseSchema = z.object({
-    date: z.date()
+    date: z
+      .date()
       .max(new Date(), "La fecha no puede ser futura")
       .refine((date) => {
         const sixtyDaysAgo = new Date();
@@ -1961,29 +2015,18 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 
     category: z.nativeEnum(ExpenseCategory),
 
-    amount: z.number()
-      .positive("El importe debe ser mayor a 0")
-      .max(10000, "El importe no puede superar 10.000€"),
+    amount: z.number().positive("El importe debe ser mayor a 0").max(10000, "El importe no puede superar 10.000€"),
 
-    vatPercent: z.number()
-      .min(0)
-      .max(100)
-      .optional()
-      .nullable(),
+    vatPercent: z.number().min(0).max(100).optional().nullable(),
 
     costCenterId: z.string().optional().nullable(),
 
-    notes: z.string()
-      .max(500, "Las notas no pueden superar 500 caracteres")
-      .optional()
-      .nullable(),
+    notes: z.string().max(500, "Las notas no pueden superar 500 caracteres").optional().nullable(),
 
-    merchantName: z.string()
-      .max(200)
-      .optional()
-      .nullable(),
+    merchantName: z.string().max(200).optional().nullable(),
 
-    merchantVat: z.string()
+    merchantVat: z
+      .string()
       .regex(/^[A-Z]\d{7}[0-9A-J]$|^\d{8}[A-Z]$/, "CIF/NIF inválido")
       .optional()
       .nullable(),
@@ -1991,20 +2034,21 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **6.1.2** Crear schema para MILEAGE:
+
   ```typescript
   export const mileageExpenseSchema = expenseBaseSchema.extend({
     category: z.literal(ExpenseCategory.MILEAGE),
-    mileageKm: z.number()
+    mileageKm: z
+      .number()
       .positive("Los kilómetros deben ser mayores a 0")
       .max(1000, "Los kilómetros no pueden superar 1000"),
-    mileageRate: z.number()
-      .positive()
-      .optional(),
+    mileageRate: z.number().positive().optional(),
     vatPercent: z.literal(null).optional(), // Sin IVA en kilometraje
   });
   ```
 
 - [ ] **6.1.3** Crear schema discriminado:
+
   ```typescript
   export const expenseSchema = z.discriminatedUnion("category", [
     mileageExpenseSchema,
@@ -2022,10 +2066,11 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **6.1.4** Crear validador de política:
+
   ```typescript
   export async function validateExpenseAgainstPolicy(
     expense: z.infer<typeof expenseSchema>,
-    policy: ExpensePolicy
+    policy: ExpensePolicy,
   ): Promise<{ valid: boolean; warnings: string[] }> {
     const warnings: string[] = [];
 
@@ -2042,12 +2087,12 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
     // Validar requisitos por categoría
     const catRequirements = policy.categoryRequirements[expense.category];
     if (catRequirements?.requiresReceipt && !expense.attachments?.length) {
-      return { valid: false, warnings: ['Esta categoría requiere adjuntar ticket'] };
+      return { valid: false, warnings: ["Esta categoría requiere adjuntar ticket"] };
     }
 
     // Validar centro de coste
     if (policy.costCenterRequired && !expense.costCenterId) {
-      return { valid: false, warnings: ['El centro de coste es obligatorio'] };
+      return { valid: false, warnings: ["El centro de coste es obligatorio"] };
     }
 
     return { valid: true, warnings };
@@ -2059,6 +2104,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En:** `src/server/actions/expenses.ts`
 
 - [ ] **6.2.1** Añadir validación en `createExpense`:
+
   ```typescript
   // Validar datos
   const validated = expenseSchema.parse(data);
@@ -2075,6 +2121,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **6.2.2** Añadir validación en `submitExpense`:
+
   ```typescript
   // Validar que tenga attachments si required
   if (policy.attachmentRequired && expense.attachments.length === 0) {
@@ -2092,11 +2139,13 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En:** `src/server/actions/expenses.ts`
 
 - [ ] **6.3.1** Importar función de notificaciones:
+
   ```typescript
-  import { createNotification } from './notifications';
+  import { createNotification } from "./notifications";
   ```
 
 - [ ] **6.3.2** En `submitExpense`, añadir notificaciones a aprobadores (multi-nivel):
+
   ```typescript
   // IMPORTANTE: Resolver aprobadores con jerarquía (específico o org)
   // Lógica ya implementada en 2.1.7 - aquí solo referenciar
@@ -2110,12 +2159,13 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En:** `src/server/actions/expense-approvals.ts`
 
 - [ ] **6.3.3** En `approveExpense`, notificar al empleado:
+
   ```typescript
   await createNotification(
     expense.creator.id,
     expense.orgId,
-    'EXPENSE_APPROVED',
-    'Gasto aprobado',
+    "EXPENSE_APPROVED",
+    "Gasto aprobado",
     `Tu gasto de ${expense.totalAmount}€ ha sido aprobado por ${approver.name}`,
     undefined,
     undefined,
@@ -2128,8 +2178,8 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   await createNotification(
     expense.creator.id,
     expense.orgId,
-    'EXPENSE_REJECTED',
-    'Gasto rechazado',
+    "EXPENSE_REJECTED",
+    "Gasto rechazado",
     `Tu gasto de ${expense.totalAmount}€ ha sido rechazado. Motivo: ${reason}`,
     undefined,
     undefined,
@@ -2142,6 +2192,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En:** `src/server/actions/notifications.ts`
 
 - [ ] **6.4.1** Modificar firma de `createNotification`:
+
   ```typescript
   export async function createNotification(
     userId: string,
@@ -2213,6 +2264,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Buscar archivo de navegación del sidebar** ✅
 
 - [x] **7.1.1** Ejecutar: ✅
+
   ```bash
   find src -name "*nav*.tsx" -o -name "*sidebar*.tsx"
   ```
@@ -2220,11 +2272,13 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 - [x] **7.1.2** Identificar archivo correcto: ✅ `src/navigation/sidebar/sidebar-items-translated.tsx`
 
 - [x] **7.1.3** Importar iconos necesarios: ✅
+
   ```typescript
-  import { Receipt } from 'lucide-react';
+  import { Receipt } from "lucide-react";
   ```
 
 - [ ] **7.1.4** Añadir sección para empleados (en área "Mi Espacio" o similar):
+
   ```typescript
   {
     title: "Gastos",
@@ -2245,6 +2299,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [x] **7.1.5** Añadir en sección "Equipo" (para aprobador + admins): ✅
+
   ```typescript
   // Dentro de "Aprobaciones" subItems:
   {
@@ -2255,6 +2310,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **7.1.6** Añadir en sección de administración:
+
   ```typescript
   {
     title: "Organización",
@@ -2287,19 +2343,22 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear o actualizar:** `src/config/features.ts`
 
 - [ ] **7.2.1** Si el archivo no existe, crearlo:
+
   ```typescript
   export const features = {
-    expenses: process.env.NEXT_PUBLIC_FEATURE_EXPENSES === 'true',
+    expenses: process.env.NEXT_PUBLIC_FEATURE_EXPENSES === "true",
     // Otros features existentes...
   };
   ```
 
 - [ ] **7.2.2** Si ya existe, añadir:
+
   ```typescript
   expenses: process.env.NEXT_PUBLIC_FEATURE_EXPENSES === 'true',
   ```
 
 - [ ] **7.2.3** Actualizar `.env.local`:
+
   ```bash
   # Gestión de Gastos
   NEXT_PUBLIC_FEATURE_EXPENSES="true"
@@ -2316,9 +2375,10 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En todas las páginas del módulo**
 
 - [ ] **7.3.1** Añadir al inicio de cada página:
+
   ```typescript
-  import { features } from '@/config/features';
-  import { notFound } from 'next/navigation';
+  import { features } from "@/config/features";
+  import { notFound } from "next/navigation";
 
   export default async function ExpensesPage() {
     if (!features.expenses) {
@@ -2358,6 +2418,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear:** `docs/EXPENSES.md`
 
 - [ ] **8.1.1** Crear estructura del documento:
+
   ```markdown
   # Módulo de Gestión de Gastos
 
@@ -2401,15 +2462,18 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   - ✅ Notificaciones en tiempo real
 
 - [ ] **8.1.5** Sección: OCR - Cómo Funciona
+
   ```markdown
   ## OCR: Cómo Funciona
 
   ### Tecnología
+
   - **Motor:** Tesseract.js (JavaScript OCR engine)
   - **Idioma:** Español (spa)
   - **Ejecución:** Cliente-side (navegador)
 
   ### Proceso
+
   1. **Preprocesamiento:**
      - Compresión de imagen (<1 MB)
      - Conversión a escala de grises
@@ -2430,17 +2494,20 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
      - Heurísticas para comercio y datos de combustible
 
   ### Precisión Esperada
+
   - ✅ **70-85%** en tickets impresos limpios
   - ✅ **50-70%** en tickets arrugados o con mala iluminación
   - ❌ **<30%** en tickets manuscritos
 
   ### Limitaciones
+
   - Requiere buena iluminación
   - No funciona con escritura a mano
   - Puede fallar con fonts muy pequeños
   - Performance: 3-8 segundos por imagen
 
   ### Mejoras Futuras
+
   - Plantillas por comercio conocido (REPSOL, BP, etc.)
   - ML para mejor extracción de campos
   - Soporte multi-idioma
@@ -2448,16 +2515,20 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **8.1.6** Sección: Configuración
+
   ```markdown
   ## Configuración
 
   ### Variables de Entorno
 
   \`\`\`bash
+
   # Feature flag
+
   NEXT_PUBLIC_FEATURE_EXPENSES="true"
 
   # Storage (usa el ya configurado)
+
   STORAGE_PROVIDER="r2|azure|local"
   \`\`\`
 
@@ -2470,6 +2541,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **8.1.7** Sección: Políticas de Gastos
+
   ```markdown
   ## Políticas de Gastos
 
@@ -2499,6 +2571,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **8.1.8** Sección: Exportación de Datos
+
   ```markdown
   ## Exportación de Datos
 
@@ -2532,6 +2605,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ### Formato
 
   El archivo CSV usa:
+
   - Separador: `,` (coma)
   - Encoding: UTF-8 BOM (compatible con Excel)
   - Formato de fecha: `DD/MM/YYYY`
@@ -2539,58 +2613,69 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **8.1.9** Sección: Roles y Permisos
+
   ```markdown
   ## Roles y Permisos
 
-  | Acción | EMPLOYEE | MANAGER | HR_ADMIN | ORG_ADMIN |
-  |--------|----------|---------|----------|-----------|
-  | Ver mis gastos | ✅ | ✅ | ✅ | ✅ |
-  | Crear gasto | ✅ | ✅ | ✅ | ✅ |
-  | Editar gasto (DRAFT) | ✅ (propios) | ✅ (propios) | ✅ (propios) | ✅ (propios) |
-  | Eliminar gasto (DRAFT) | ✅ (propios) | ✅ (propios) | ✅ (propios) | ✅ (propios) |
-  | Enviar a aprobación | ✅ | ✅ | ✅ | ✅ |
-  | Ver gastos de equipo | ❌ | ✅ (su equipo) | ✅ (todos) | ✅ (todos) |
-  | Aprobar/Rechazar | ❌ | ✅ (su equipo) | ✅ (todos) | ✅ (todos) |
-  | Ver analytics | ❌ | ❌ | ✅ | ✅ |
-  | Editar políticas | ❌ | ❌ | ✅ | ✅ |
-  | Exportar CSV | ❌ | ❌ | ✅ | ✅ |
+  | Acción                 | EMPLOYEE     | MANAGER        | HR_ADMIN     | ORG_ADMIN    |
+  | ---------------------- | ------------ | -------------- | ------------ | ------------ |
+  | Ver mis gastos         | ✅           | ✅             | ✅           | ✅           |
+  | Crear gasto            | ✅           | ✅             | ✅           | ✅           |
+  | Editar gasto (DRAFT)   | ✅ (propios) | ✅ (propios)   | ✅ (propios) | ✅ (propios) |
+  | Eliminar gasto (DRAFT) | ✅ (propios) | ✅ (propios)   | ✅ (propios) | ✅ (propios) |
+  | Enviar a aprobación    | ✅           | ✅             | ✅           | ✅           |
+  | Ver gastos de equipo   | ❌           | ✅ (su equipo) | ✅ (todos)   | ✅ (todos)   |
+  | Aprobar/Rechazar       | ❌           | ✅ (su equipo) | ✅ (todos)   | ✅ (todos)   |
+  | Ver analytics          | ❌           | ❌             | ✅           | ✅           |
+  | Editar políticas       | ❌           | ❌             | ✅           | ✅           |
+  | Exportar CSV           | ❌           | ❌             | ✅           | ✅           |
   ```
 
 - [ ] **8.1.10** Sección: FAQs
+
   ```markdown
   ## FAQs
 
   ### ¿Puedo editar un gasto después de enviarlo?
+
   No. Una vez enviado a aprobación, solo el manager puede aprobarlo o rechazarlo. Si fue rechazado, vuelve a DRAFT y puedes editarlo.
 
   ### ¿Cuántos adjuntos puedo subir?
+
   No hay límite, pero cada archivo debe ser menor a 10MB.
 
   ### ¿El OCR funciona con tickets en papel térmico desgastado?
+
   La precisión baja considerablemente. Recomendamos tomar la foto inmediatamente después de recibir el ticket.
 
   ### ¿Puedo usar gastos de hace 3 meses?
+
   Por defecto, solo se permiten gastos de los últimos 60 días. Contacta con RRHH si necesitas una excepción.
 
   ### ¿Qué pasa si mi manager no aprueba en X días?
+
   Actualmente no hay auto-aprobación. Recibirás recordatorios automáticos.
 
   ### ¿Puedo agrupar varios gastos en un informe?
+
   Sí, desde "Informes de Gastos" puedes crear informes agrupando gastos aprobados por período o viaje.
   ```
 
 - [ ] **8.1.11** Sección: Troubleshooting
+
   ```markdown
   ## Troubleshooting
 
   ### El OCR no detecta ningún dato
 
   **Causas:**
+
   - Imagen borrosa o con poca luz
   - Ticket manuscrito
   - Formato no estándar
 
   **Soluciones:**
+
   1. Retomar foto con mejor iluminación
   2. Asegurar que el ticket esté plano
   3. Rellenar campos manualmente
@@ -2606,6 +2691,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ### El total calculado no coincide con el ticket
 
   Verifica:
+
   - Importe base correcto
   - % IVA correcto
   - Fórmula: Total = Base + (Base × IVA%)
@@ -2613,6 +2699,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ### No puedo ver el botón "Aprobar"
 
   Solo puedes aprobar gastos de tu equipo directo. Verifica:
+
   - Eres manager del empleado
   - El gasto está en estado SUBMITTED
   - Tienes permisos de MANAGER o superior
@@ -2623,6 +2710,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Actualizar:** `README.md` (si existe en raíz)
 
 - [ ] **8.2.1** Añadir sección de módulos:
+
   ```markdown
   ## 📦 Módulos
 
@@ -2640,10 +2728,12 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **Crear o actualizar:** `CHANGELOG.md`
 
 - [ ] **8.3.1** Añadir entrada:
+
   ```markdown
   ## [Unreleased]
 
   ### Added
+
   - 🎉 Nuevo módulo: Gestión de Gastos
     - Captura de tickets desde cámara móvil
     - OCR automático con Tesseract.js (gratuito)
@@ -2655,6 +2745,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
     - Notificaciones integradas
 
   ### Technical
+
   - Added 8 new database tables for expense management
   - Added 11 API endpoints
   - Added 4 server actions modules
@@ -2667,6 +2758,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
 **En archivos clave, añadir JSDoc:**
 
 - [ ] **8.4.1** En `src/lib/ocr/receipt-parser.ts`:
+
   ```typescript
   /**
    * Parsea el texto extraído de un ticket por OCR.
@@ -2693,6 +2785,7 @@ Cualquiera de los 3 puede aprobar → El primero que actúe gana
   ```
 
 - [ ] **8.4.2** En `src/hooks/use-receipt-ocr.ts`:
+
   ```typescript
   /**
    * Hook para procesar tickets con OCR.

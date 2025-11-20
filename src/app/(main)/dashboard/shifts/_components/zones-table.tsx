@@ -131,15 +131,15 @@ export function ZonesTable() {
           ) : (
             <>
               {/* Agrupar zonas por centro de coste */}
-              {Array.from(new Set(displayedZones.map(z => z.costCenterId))).map((costCenterId) => {
-                const zonesInCenter = displayedZones.filter(z => z.costCenterId === costCenterId)
-                const centerName = getCostCenterName(costCenterId)
+              {Array.from(new Set(displayedZones.map((z) => z.costCenterId))).map((costCenterId) => {
+                const zonesInCenter = displayedZones.filter((z) => z.costCenterId === costCenterId);
+                const centerName = getCostCenterName(costCenterId);
 
                 return (
                   <div key={costCenterId} className="space-y-3">
                     {/* Header del centro */}
-                    <div className="flex items-center gap-3 rounded-lg bg-muted/50 px-4 py-3">
-                      <Users className="h-5 w-5 text-muted-foreground" />
+                    <div className="bg-muted/50 flex items-center gap-3 rounded-lg px-4 py-3">
+                      <Users className="text-muted-foreground h-5 w-5" />
                       <div className="flex-1">
                         <h3 className="font-semibold">{centerName}</h3>
                         <p className="text-muted-foreground text-sm">
@@ -223,7 +223,7 @@ export function ZonesTable() {
                       </Table>
                     </div>
                   </div>
-                )
+                );
               })}
             </>
           )}

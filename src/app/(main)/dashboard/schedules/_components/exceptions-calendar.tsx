@@ -176,7 +176,7 @@ export function ExceptionsCalendar({
                     }}
                     className={cn(
                       "relative flex aspect-square flex-col items-center justify-center rounded-md border p-2 text-sm transition-colors",
-                      isToday && "border-primary ring-1 ring-primary",
+                      isToday && "border-primary ring-primary ring-1",
                       hasExceptions
                         ? "border-primary/50 bg-primary/5 hover:bg-primary/10"
                         : "hover:bg-accent hover:text-accent-foreground",

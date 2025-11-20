@@ -86,7 +86,7 @@ export function QuickAddEmployeePopover({ date, costCenterId, zoneId, children }
 
             {/* Selector de empleado (Combobox) */}
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Empleado</label>
+              <label className="text-muted-foreground text-xs">Empleado</label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -114,10 +114,12 @@ export function QuickAddEmployeePopover({ date, costCenterId, zoneId, children }
                               setEmployeeId(employee.id);
                             }}
                           >
-                            <Check className={cn("mr-2 h-4 w-4", employeeId === employee.id ? "opacity-100" : "opacity-0")} />
+                            <Check
+                              className={cn("mr-2 h-4 w-4", employeeId === employee.id ? "opacity-100" : "opacity-0")}
+                            />
                             {employee.firstName} {employee.lastName}
                             {employee.contractHours && (
-                              <span className="ml-auto text-xs text-muted-foreground">
+                              <span className="text-muted-foreground ml-auto text-xs">
                                 {employee.contractHours}h/sem
                               </span>
                             )}
@@ -132,7 +134,7 @@ export function QuickAddEmployeePopover({ date, costCenterId, zoneId, children }
 
             {/* Selector de horario */}
             <div className="mt-3 space-y-2">
-              <label className="text-xs text-muted-foreground">Horario</label>
+              <label className="text-muted-foreground text-xs">Horario</label>
               <Select value={schedule} onValueChange={setSchedule}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar horario" />

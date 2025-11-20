@@ -64,7 +64,7 @@ SET features = jsonb_set(
 Crea un archivo `scripts/enable-chat.ts`:
 
 ```typescript
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -149,8 +149,8 @@ Para modificar, edita `/src/lib/chat/rate-limiter.ts`:
 
 ```typescript
 export const chatRateLimiter = new RateLimiter(
-  20,    // Máximo de mensajes
-  15000  // Ventana en milisegundos (15 segundos)
+  20, // Máximo de mensajes
+  15000, // Ventana en milisegundos (15 segundos)
 );
 ```
 
@@ -212,6 +212,7 @@ WHERE id = 'tu_org_id_aqui';
 ```
 
 **Efecto**:
+
 - UI del chat NO aparece en el sidebar
 - Endpoints retornan `403 Forbidden`
 - SSE stream no se conecta
@@ -236,6 +237,7 @@ WHERE id = 'tu_org_id_aqui';
 **Causa**: Puede ser un problema de red, proxy, o navegador.
 
 **Solución**:
+
 1. Revisar consola del navegador por errores
 2. Verificar que el servidor está corriendo en puerto 3000
 3. Si hay proxy (nginx/apache), configurar para permitir SSE (ver docs/CHAT_MODULE.md)
@@ -246,6 +248,7 @@ WHERE id = 'tu_org_id_aqui';
 **Causa**: SSE desconectado o en modo polling.
 
 **Solución**:
+
 1. Verificar indicador de conexión en la UI
 2. Si está en polling, los mensajes llegarán cada 10 segundos
 3. Revisar logs del servidor: `[SSE] Nueva conexión: ...`
@@ -255,6 +258,7 @@ WHERE id = 'tu_org_id_aqui';
 **Causa**: Envío masivo de mensajes.
 
 **Solución**:
+
 1. Esperar 10 segundos antes de reintentar
 2. Ajustar límites en rate-limiter.ts si es necesario
 3. Considerar Redis para rate limiting en producción

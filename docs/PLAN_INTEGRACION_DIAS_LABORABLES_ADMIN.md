@@ -21,6 +21,7 @@
 ### Estado Actual
 
 Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time-tracking.ts` que:
+
 - ✅ Valida tipo de contrato (FLEXIBLE, FIXED, SHIFTS)
 - ✅ Considera patrón semanal personalizado
 - ✅ Detecta jornada intensiva
@@ -30,6 +31,7 @@ Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time
 ### Problemas Identificados
 
 #### Página `/dashboard/time-tracking/live`
+
 1. **Contador "Sin fichar" incorrecto:**
    - Cuenta como "sin fichar" a empleados en festivos
    - Cuenta como "sin fichar" a empleados en fines de semana
@@ -42,12 +44,13 @@ Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time
    - No alerta cuando un empleado DEBERÍA estar trabajando pero no fichó
 
 #### Página `/dashboard/time-tracking/[employeeId]`
+
 1. **Cálculo de días laborables obsoleto:**
    - `calculateWorkableDays()` solo excluye fines de semana
    - **NO considera festivos**
    - **NO considera tipo de contrato**
    - **NO considera patrón semanal**
-   - Línea 21 tiene un TODO: *"TODO: En el futuro, excluir también festivos y vacaciones"*
+   - Línea 21 tiene un TODO: _"TODO: En el futuro, excluir también festivos y vacaciones"_
 
 2. **Muestra ausencias incorrectamente:**
    - Genera días "virtuales" para TODOS los días del rango
@@ -67,18 +70,22 @@ Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time
 ## Páginas Afectadas
 
 ### 1. `/dashboard/time-tracking` (Lista de empleados)
+
 **Archivo:** `/src/app/(main)/dashboard/time-tracking/page.tsx`
 **Problema:** Estadísticas generales pueden ser incorrectas
 **Acción:** Verificar y ajustar si es necesario
 
 ### 2. `/dashboard/time-tracking/live` (Monitor en vivo)
+
 **Archivo:** `/src/app/(main)/dashboard/time-tracking/live/page.tsx`
 **Problemas críticos:**
+
 - Contador "Sin fichar" incluye no laborables
 - NO detecta ausencias con margen horario
 - NO diferencia "aún no entra" vs "ausente"
 
 **Cambios requeridos:**
+
 - Añadir validación `shouldBeWorking` por empleado
 - Calcular si pasó hora de entrada + margen
 - Nuevos contadores: `absentCount`, `onHolidayCount`
@@ -86,13 +93,16 @@ Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time
 - Nueva card de estadísticas
 
 ### 3. `/dashboard/time-tracking/[employeeId]` (Detalle de empleado)
+
 **Archivo:** `/src/app/(main)/dashboard/time-tracking/[employeeId]/page.tsx`
 **Problemas críticos:**
+
 - Días festivos marcados como "ABSENT"
 - Fines de semana marcados como "ABSENT"
 - Horas esperadas calculadas de forma simplificada
 
 **Cambios requeridos:**
+
 - Usar `getExpectedHoursForDay()` para cada día
 - Nuevos status: `HOLIDAY`, `NON_WORKDAY`
 - Incluir `isHoliday`, `holidayName` en respuesta
@@ -157,10 +167,11 @@ Ya existe una función `getExpectedHoursForToday()` en `/src/server/actions/time
 **Ubicación:** `/src/server/actions/admin-time-tracking.ts`
 
 **Firma:**
+
 ```typescript
 export async function getExpectedHoursForDay(
   employeeId: string,
-  date: Date
+  date: Date,
 ): Promise<{
   hoursExpected: number;
   isWorkingDay: boolean;
@@ -174,6 +185,7 @@ export async function getExpectedHoursForDay(
 ```
 
 **Implementación:**
+
 ```typescript
 export async function getExpectedHoursForDay(employeeId: string, targetDate: Date) {
   try {
@@ -257,17 +269,16 @@ export async function getExpectedHoursForDay(employeeId: string, targetDate: Dat
 **Ubicación:** `/src/server/actions/admin-time-tracking.ts`
 
 **Firma:**
+
 ```typescript
-export async function getEmployeeEntryTime(
-  employeeId: string,
-  date: Date
-): Promise<string | null> {
+export async function getEmployeeEntryTime(employeeId: string, date: Date): Promise<string | null> {
   // Retorna hora de entrada en formato "HH:mm" (ej: "09:00")
   // o null si no aplica
 }
 ```
 
 **Lógica:**
+
 ```typescript
 export async function getEmployeeEntryTime(employeeId: string, targetDate: Date): Promise<string | null> {
   const employee = await prisma.employee.findUnique({
@@ -323,6 +334,7 @@ export async function getEmployeeEntryTime(employeeId: string, targetDate: Date)
 **Ubicación:** `/src/server/actions/admin-time-tracking.ts`
 
 **Cambios:**
+
 ```typescript
 export async function getCurrentlyWorkingEmployees() {
   try {
@@ -387,10 +399,7 @@ export async function getCurrentlyWorkingEmployees() {
         }
 
         // NUEVO: Validar si debería estar trabajando
-        const { isWorkingDay, isHoliday, holidayName } = await getExpectedHoursForDay(
-          employee.id,
-          today
-        );
+        const { isWorkingDay, isHoliday, holidayName } = await getExpectedHoursForDay(employee.id, today);
 
         // NUEVO: Calcular si está ausente (pasó su hora de entrada + margen)
         let isAbsent = false;
@@ -431,7 +440,7 @@ export async function getCurrentlyWorkingEmployees() {
           shouldBeWorking,
           isAbsent,
         };
-      })
+      }),
     );
 
     return employeesWithStatus;
@@ -449,6 +458,7 @@ export async function getCurrentlyWorkingEmployees() {
 **Archivo:** `/src/app/(main)/dashboard/time-tracking/live/page.tsx`
 
 **Cambios en interfaz:**
+
 ```typescript
 interface EmployeeStatus {
   id: string;
@@ -473,6 +483,7 @@ interface EmployeeStatus {
 ```
 
 **Nuevos contadores:**
+
 ```typescript
 const workingCount = employees.filter((e) => e.status === "CLOCKED_IN").length;
 const breakCount = employees.filter((e) => e.status === "ON_BREAK").length;
@@ -484,16 +495,19 @@ const absentCount = employees.filter((e) => e.isAbsent).length;
 const nonWorkingCount = employees.filter((e) => !e.isWorkingDay).length;
 
 // NUEVO: Empleados que aún no han llegado (pero llegarán)
-const notYetCount = employees.filter(
-  (e) => e.isWorkingDay && !e.shouldBeWorking && e.status === "CLOCKED_OUT"
-).length;
+const notYetCount = employees.filter((e) => e.isWorkingDay && !e.shouldBeWorking && e.status === "CLOCKED_OUT").length;
 ```
 
 **Nueva card de estadísticas:**
-```tsx
-{/* Reemplazar card "Sin fichar" por estas 2: */}
 
-{/* Ausentes (solo los que DEBERÍAN estar trabajando) */}
+```tsx
+{
+  /* Reemplazar card "Sin fichar" por estas 2: */
+}
+
+{
+  /* Ausentes (solo los que DEBERÍAN estar trabajando) */
+}
 <Card className="to-card bg-gradient-to-t from-red-500/5 p-4 shadow-xs">
   <div className="flex items-center gap-3">
     <div className="flex size-10 items-center justify-center rounded-full bg-red-500/10">
@@ -504,9 +518,11 @@ const notYetCount = employees.filter(
       <span className="text-2xl font-bold">{absentCount}</span>
     </div>
   </div>
-</Card>
+</Card>;
 
-{/* No laborable (festivos, fines de semana) */}
+{
+  /* No laborable (festivos, fines de semana) */
+}
 <Card className="to-card bg-gradient-to-t from-blue-500/5 p-4 shadow-xs">
   <div className="flex items-center gap-3">
     <div className="flex size-10 items-center justify-center rounded-full bg-blue-500/10">
@@ -517,29 +533,43 @@ const notYetCount = employees.filter(
       <span className="text-2xl font-bold">{nonWorkingCount}</span>
     </div>
   </div>
-</Card>
+</Card>;
 ```
 
 **Nuevo tab "Ausentes":**
+
 ```tsx
 <TabsList className="hidden @4xl/main:flex">
   <TabsTrigger value="all">
-    Todos <Badge variant="secondary" className="ml-2">{employees.length}</Badge>
+    Todos{" "}
+    <Badge variant="secondary" className="ml-2">
+      {employees.length}
+    </Badge>
   </TabsTrigger>
   <TabsTrigger value="working">
-    Trabajando <Badge variant="secondary" className="ml-2">{workingCount}</Badge>
+    Trabajando{" "}
+    <Badge variant="secondary" className="ml-2">
+      {workingCount}
+    </Badge>
   </TabsTrigger>
   <TabsTrigger value="break">
-    En pausa <Badge variant="secondary" className="ml-2">{breakCount}</Badge>
+    En pausa{" "}
+    <Badge variant="secondary" className="ml-2">
+      {breakCount}
+    </Badge>
   </TabsTrigger>
   {/* NUEVO TAB */}
   <TabsTrigger value="absent">
-    Ausentes <Badge variant="destructive" className="ml-2">{absentCount}</Badge>
+    Ausentes{" "}
+    <Badge variant="destructive" className="ml-2">
+      {absentCount}
+    </Badge>
   </TabsTrigger>
 </TabsList>
 ```
 
 **Actualizar filtro:**
+
 ```typescript
 type FilterValue = "all" | "working" | "break" | "absent"; // Añadir "absent"
 
@@ -573,6 +603,7 @@ const applyFilter = (data: EmployeeStatus[], filterValue: FilterValue) => {
 **Ubicación:** `/src/server/actions/admin-time-tracking.ts`
 
 **Cambios principales:**
+
 ```typescript
 export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date, dateTo?: Date) {
   try {
@@ -611,7 +642,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
         // NUEVO: Obtener info del día
         const { hoursExpected, isWorkingDay, isHoliday, holidayName } = await getExpectedHoursForDay(
           employeeId,
-          dayDate
+          dayDate,
         );
 
         // Determinar status correcto
@@ -665,7 +696,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             requiresReview: entry.requiresReview,
           })),
         };
-      })
+      }),
     );
 
     return {
@@ -691,6 +722,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 **Archivo:** `/src/app/(main)/dashboard/time-tracking/_components/day-card.tsx`
 
 **Añadir nuevos status:**
+
 ```typescript
 const statusConfig = {
   COMPLETED: {
@@ -734,6 +766,7 @@ const statusConfig = {
 ```
 
 **Actualizar interfaz:**
+
 ```typescript
 interface DayData {
   date: Date;
@@ -754,6 +787,7 @@ interface DayData {
 ```
 
 **Mostrar nombre del festivo:**
+
 ```tsx
 <div className="flex flex-wrap items-center justify-between gap-2">
   <div className="flex items-center gap-1.5">
@@ -766,7 +800,10 @@ interface DayData {
     </Badge>
     {/* NUEVO: Mostrar nombre del festivo */}
     {day.isHoliday && day.holidayName && (
-      <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-400">
+      <Badge
+        variant="outline"
+        className="border-purple-200 bg-purple-50 text-purple-700 dark:border-purple-900 dark:bg-purple-950/30 dark:text-purple-400"
+      >
         🎉 {day.holidayName}
       </Badge>
     )}
@@ -782,6 +819,7 @@ interface DayData {
 **Ubicación:** `/src/server/actions/admin-time-tracking.ts`
 
 **Antes (obsoleto):**
+
 ```typescript
 function calculateWorkableDays(periodStart: Date, periodEnd: Date, contractStartDate: Date | null): number {
   const effectiveStart = contractStartDate && contractStartDate > periodStart ? contractStartDate : periodStart;
@@ -795,12 +833,9 @@ function calculateWorkableDays(periodStart: Date, periodEnd: Date, contractStart
 ```
 
 **Después (correcto):**
+
 ```typescript
-async function calculateWorkableDays(
-  employeeId: string,
-  periodStart: Date,
-  periodEnd: Date
-): Promise<number> {
+async function calculateWorkableDays(employeeId: string, periodStart: Date, periodEnd: Date): Promise<number> {
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
 
   let workableDays = 0;
@@ -816,6 +851,7 @@ async function calculateWorkableDays(
 ```
 
 **Actualizar en resúmenes semanal/mensual/anual:**
+
 - `getEmployeeWeeklySummary()` línea 270
 - `getEmployeeMonthlySummary()` línea 391
 - `getEmployeeYearlySummary()` línea 508
@@ -827,6 +863,7 @@ async function calculateWorkableDays(
 ### Caso 1: Empleado en festivo
 
 **Contexto:**
+
 - Empleado: Juan Pérez
 - Fecha: 2025-12-25 (Navidad)
 - Contrato: FLEXIBLE, 40h/semana, Lunes-Viernes
@@ -835,11 +872,13 @@ async function calculateWorkableDays(
 **Resultado esperado:**
 
 **Página LIVE:**
+
 - Estado: No laborable 🔵
 - NO aparece en contador "Ausentes"
 - Aparece en contador "No laborable"
 
 **Página DETAIL:**
+
 - Status: `HOLIDAY`
 - Badge: 🎉 Navidad (color púrpura)
 - Horas esperadas: 0h
@@ -850,6 +889,7 @@ async function calculateWorkableDays(
 ### Caso 2: Empleado ausente (pasó hora de entrada)
 
 **Contexto:**
+
 - Empleado: María García
 - Fecha: 2025-11-18 (Lunes)
 - Hora actual: 09:30
@@ -860,6 +900,7 @@ async function calculateWorkableDays(
 **Resultado esperado:**
 
 **Página LIVE:**
+
 - Estado: Ausente 🔴 (alerta)
 - Aparece en contador "Ausentes": 1
 - Aparece en tab "Ausentes"
@@ -867,6 +908,7 @@ async function calculateWorkableDays(
 - `isAbsent: true` (hora actual > 09:15)
 
 **Página DETAIL:**
+
 - Status: `ABSENT`
 - Badge: Ausente (color rojo)
 - Horas esperadas: 8h
@@ -878,6 +920,7 @@ async function calculateWorkableDays(
 ### Caso 3: Empleado aún no llegó (antes de hora)
 
 **Contexto:**
+
 - Empleado: Carlos López
 - Fecha: 2025-11-18 (Lunes)
 - Hora actual: 08:45
@@ -887,6 +930,7 @@ async function calculateWorkableDays(
 **Resultado esperado:**
 
 **Página LIVE:**
+
 - Estado: Sin fichar ⚪ (pero sin alerta)
 - NO aparece en contador "Ausentes"
 - `shouldBeWorking: false` (aún no llega su hora)
@@ -897,6 +941,7 @@ async function calculateWorkableDays(
 ### Caso 4: Fin de semana (día no laborable según contrato)
 
 **Contexto:**
+
 - Empleado: Ana Rodríguez
 - Fecha: 2025-11-16 (Sábado)
 - Contrato: FLEXIBLE, 40h/semana, 5 días (Lunes-Viernes)
@@ -904,11 +949,13 @@ async function calculateWorkableDays(
 **Resultado esperado:**
 
 **Página LIVE:**
+
 - Estado: No laborable 🔵
 - NO aparece en contador "Ausentes"
 - Aparece en contador "No laborable"
 
 **Página DETAIL:**
+
 - Status: `NON_WORKDAY`
 - Badge: No laborable (color gris)
 - Horas esperadas: 0h
@@ -919,6 +966,7 @@ async function calculateWorkableDays(
 ### Caso 5: Patrón semanal personalizado (Miércoles no trabaja)
 
 **Contexto:**
+
 - Empleado: Pedro Sánchez
 - Fecha: 2025-11-19 (Miércoles)
 - Contrato: FLEXIBLE con patrón personalizado
@@ -929,10 +977,12 @@ async function calculateWorkableDays(
 **Resultado esperado:**
 
 **Página LIVE:**
+
 - Estado: No laborable 🔵
 - NO aparece en contador "Ausentes"
 
 **Página DETAIL:**
+
 - Status: `NON_WORKDAY`
 - Badge: No laborable (color gris)
 - Horas esperadas: 0h
@@ -944,6 +994,7 @@ async function calculateWorkableDays(
 ### Tests manuales recomendados
 
 #### 1. Página LIVE (`/dashboard/time-tracking/live`)
+
 - [ ] Verificar contador "Ausentes" solo muestra empleados que pasaron hora entrada + margen
 - [ ] Verificar contador "No laborable" muestra festivos y fines de semana
 - [ ] Verificar tab "Ausentes" funciona correctamente
@@ -951,6 +1002,7 @@ async function calculateWorkableDays(
 - [ ] Verificar empleado antes de su hora NO aparece como ausente
 
 #### 2. Página DETAIL (`/dashboard/time-tracking/[employeeId]`)
+
 - [ ] Verificar días festivos tienen badge púrpura y muestran nombre
 - [ ] Verificar fines de semana tienen badge gris "No laborable"
 - [ ] Verificar solo días laborables sin fichar marcan "ABSENT"
@@ -958,12 +1010,14 @@ async function calculateWorkableDays(
 - [ ] Verificar resúmenes semanales/mensuales excluyen festivos de días esperados
 
 #### 3. Tipos de contrato
+
 - [ ] FLEXIBLE con patrón personalizado (días específicos no laborables)
 - [ ] FIXED con franjas horarias (horarios diferentes por día)
 - [ ] FIXED sin franjas horarias (horario genérico)
 - [ ] Jornada intensiva (horas reducidas en período estacional)
 
 #### 4. Festivos
+
 - [ ] Festivo en día laborable (Lunes festivo)
 - [ ] Festivo en fin de semana (Sábado festivo)
 - [ ] Múltiples festivos en una semana
@@ -973,6 +1027,7 @@ async function calculateWorkableDays(
 ## Archivos Modificados
 
 ### Backend (`/src/server/actions/admin-time-tracking.ts`)
+
 - ✅ Crear `getExpectedHoursForDay(employeeId, date)`
 - ✅ Crear `getEmployeeEntryTime(employeeId, date)`
 - ✅ Actualizar `getCurrentlyWorkingEmployees()` con nuevos campos
@@ -981,6 +1036,7 @@ async function calculateWorkableDays(
 - ✅ Actualizar resúmenes semanal/mensual/anual
 
 ### Frontend - Página LIVE (`/src/app/(main)/dashboard/time-tracking/live/page.tsx`)
+
 - ✅ Actualizar interface `EmployeeStatus` con nuevos campos
 - ✅ Añadir nuevos contadores (`absentCount`, `nonWorkingCount`)
 - ✅ Reemplazar card "Sin fichar" por "Ausentes" + "No laborable"
@@ -988,9 +1044,11 @@ async function calculateWorkableDays(
 - ✅ Actualizar filtro con opción "absent"
 
 ### Frontend - Página DETAIL (`/src/app/(main)/dashboard/time-tracking/[employeeId]/page.tsx`)
+
 - ✅ Actualizar interface `DayDetailData` con nuevos status y campos
 
 ### Frontend - Component (`/src/app/(main)/dashboard/time-tracking/_components/day-card.tsx`)
+
 - ✅ Añadir `HOLIDAY` y `NON_WORKDAY` a `statusConfig`
 - ✅ Actualizar interface `DayData` con nuevos campos
 - ✅ Mostrar badge con nombre del festivo

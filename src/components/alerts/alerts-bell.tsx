@@ -5,105 +5,151 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { AlertTriangle } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { es } from "date-fns/locale";
+import { AlertCircle, AlertTriangle, Bell, Info } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getActiveAlertsCount } from "@/server/actions/alert-detection";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { getActiveAlerts, getActiveAlertsCount } from "@/server/actions/alert-detection";
+
+type AlertSimple = {
+  id: string;
+  type: string;
+  severity: string;
+  title: string;
+  date: string;
+  employee: {
+    firstName: string;
+    lastName: string;
+  };
+};
 
 export function AlertsBell() {
   const pathname = usePathname();
   const [alertsCount, setAlertsCount] = useState(0);
+  const [recentAlerts, setRecentAlerts] = useState<AlertSimple[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Función para cargar el contador
-  const loadAlertsCount = async () => {
+  // Función para cargar datos
+  const loadData = async () => {
     try {
-      const count = await getActiveAlertsCount();
+      const [count, alerts] = await Promise.all([
+        getActiveAlertsCount(),
+        getActiveAlerts({}), // Traemos todas y filtramos las 5 primeras en cliente
+      ]);
+
       setAlertsCount(count);
+      // Tomar solo las 5 más recientes
+      setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
     } catch (error) {
-      console.error("Error al cargar contador de alertas:", error);
-      setAlertsCount(0);
+      console.error("Error al cargar alertas:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Cargar al montar el componente
+  // Cargar al montar y al cambiar ruta
   useEffect(() => {
-    loadAlertsCount();
-  }, []);
-
-  // Recargar al cambiar de ruta
-  useEffect(() => {
-    loadAlertsCount();
+    loadData();
   }, [pathname]);
 
-  // Recargar al hacer foco en la ventana
-  useEffect(() => {
-    const handleFocus = () => {
-      loadAlertsCount();
-    };
-
-    window.addEventListener("focus", handleFocus);
-
-    return () => {
-      window.removeEventListener("focus", handleFocus);
-    };
-  }, []);
-
-  // Auto-refresh cada 5 minutos (solo si la pestaña está activa)
+  // Auto-refresh cada 2 minutos
   useEffect(() => {
     const interval = setInterval(
       () => {
-        if (!document.hidden) {
-          loadAlertsCount();
+        if (!document.hidden && !isOpen) {
+          loadData();
         }
       },
-      5 * 60 * 1000,
-    ); // 5 minutos
+      2 * 60 * 1000,
+    );
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isOpen]);
 
-  // Si está cargando, mostrar el botón sin badge
-  if (isLoading) {
-    return (
-      <Button
-        variant="ghost"
-        size="icon"
-        className="group border-border/60 bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:text-foreground relative rounded-lg border transition-colors"
-        disabled
-      >
-        <AlertTriangle
-          className="text-muted-foreground group-hover:text-foreground h-5 w-5 transition-colors"
-          aria-hidden="true"
-        />
-      </Button>
-    );
-  }
+  const severityConfig = {
+    INFO: { icon: Info, color: "text-blue-500" },
+    WARNING: { icon: AlertTriangle, color: "text-yellow-500" },
+    CRITICAL: { icon: AlertCircle, color: "text-red-500" },
+  };
 
   return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="group border-border/60 bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:text-foreground relative rounded-lg border transition-colors"
-      asChild
-    >
-      <Link href="/dashboard/time-tracking/alerts">
-        <AlertTriangle
-          className="text-muted-foreground group-hover:text-foreground h-5 w-5 transition-colors"
-          aria-hidden="true"
-        />
-        {alertsCount > 0 && (
-          <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 rounded-full px-1 text-xs">
-            {alertsCount > 99 ? "99+" : alertsCount}
-          </Badge>
-        )}
-        <span className="sr-only">
-          {alertsCount > 0 ? `${alertsCount} alertas activas` : "Sin alertas activas"}
-        </span>
-      </Link>
-    </Button>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
+          <Bell className="h-5 w-5" />
+          {alertsCount > 0 && (
+            <span className="ring-background absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-600 ring-2" />
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0" align="end">
+        <div className="flex items-center justify-between p-4">
+          <h4 className="leading-none font-semibold">Notificaciones</h4>
+          {alertsCount > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {alertsCount} nuevas
+            </Badge>
+          )}
+        </div>
+        <Separator />
+        <ScrollArea className="h-[300px]">
+          {isLoading ? (
+            <div className="text-muted-foreground flex h-full items-center justify-center p-4 text-sm">Cargando...</div>
+          ) : recentAlerts.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+              <Bell className="text-muted-foreground/50 h-8 w-8" />
+              <p className="text-muted-foreground text-sm">No tienes notificaciones nuevas</p>
+            </div>
+          ) : (
+            <div className="grid gap-1">
+              {recentAlerts.map((alert) => {
+                const config = severityConfig[alert.severity as keyof typeof severityConfig] || severityConfig.INFO;
+                const Icon = config.icon;
+
+                return (
+                  <Link
+                    key={alert.id}
+                    href="/dashboard/time-tracking/alerts"
+                    onClick={() => setIsOpen(false)}
+                    className="hover:bg-muted/50 flex items-start gap-3 p-4 transition-colors"
+                  >
+                    <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", config.color)} />
+                    <div className="grid gap-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm leading-none font-medium">
+                          {alert.employee.firstName} {alert.employee.lastName}
+                        </p>
+                        <span className="text-muted-foreground text-xs">
+                          {formatDistanceToNow(new Date(alert.date), {
+                            addSuffix: true,
+                            locale: es,
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground line-clamp-2 text-xs">{alert.title}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </ScrollArea>
+        <Separator />
+        <div className="p-4">
+          <Button asChild variant="outline" className="w-full justify-center">
+            <Link href="/dashboard/time-tracking/alerts" onClick={() => setIsOpen(false)}>
+              Ver todas las alertas
+            </Link>
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

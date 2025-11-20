@@ -12,12 +12,14 @@
 > **Este documento contiene SOLO el plan general, roadmap y seguimiento de progreso.**
 >
 > **❌ NO incluir aquí:**
+>
 > - Detalles técnicos de implementación (modelos, código, algoritmos)
 > - Especificaciones de componentes UI
 > - Documentación de server actions o funciones
 > - Cualquier información técnica profunda
 >
 > **✅ Para contenido técnico:**
+>
 > - **Consultar los documentos especializados** listados en "Documentos Relacionados" abajo
 > - **Si no existe documento para el tema:** Crear nuevo documento especializado
 > - **Mantener este documento ligero y navegable** (~400 líneas máximo)
@@ -192,17 +194,20 @@ Para detalles técnicos completos, consultar **[ARQUITECTURA_HORARIOS_V2.md](./A
 ### Completado (Fases 1-6.5)
 
 **Sprint 1: Fundamentos ✅**
+
 - ✅ Modelo de datos Prisma completo (8 modelos principales)
 - ✅ Motor de cálculo `schedule-engine.ts` con soporte para rotaciones
 - ✅ Lógica de prioridades: Absence > Exception > Period > Template
 
 **Sprint 2: UI Básica ✅**
+
 - ✅ Server actions completas (`/src/server/actions/schedules-v2.ts`)
 - ✅ UI CRUD de plantillas (`/dashboard/schedules`)
 - ✅ Wizard de creación con preview visual
 - ✅ Gestión de excepciones globales con scopes (global, departamento, centro, plantilla, empleado)
 
 **Sprint 3: Asignación y Fichaje ✅**
+
 - ✅ Asignación de empleados (`/dashboard/employees/[id]/schedules`)
 - ✅ Integración con fichaje diario (`/dashboard/me/clock`)
 - ✅ Visualización de horario esperado (`TodaySchedule`)
@@ -210,6 +215,7 @@ Para detalles técnicos completos, consultar **[ARQUITECTURA_HORARIOS_V2.md](./A
 - ✅ Migración de calendario mensual a Schedule V2.0
 
 **Sprint 4: Validaciones ✅**
+
 - ✅ Sistema de validaciones configurables (FASE 6.5)
 - ✅ Configuración en `/dashboard/settings`
 - ✅ Badges de validación en UI
@@ -218,17 +224,20 @@ Para detalles técnicos completos, consultar **[ARQUITECTURA_HORARIOS_V2.md](./A
 ### Pendiente (Fases 7-8)
 
 **Sprint 4: Métricas ⚠️**
+
 - ❌ Métricas y alertas automáticas (FASE 7)
 - ❌ Dashboard de cumplimiento de horario
 - ❌ Reportes de desviaciones
 
 **Sprint 4: Import/Export ⚠️**
+
 - ❌ Importación masiva CSV/Excel (FASE 8)
 - ❌ Exportación legal PDF/Excel
 
 ### Archivos Clave Implementados
 
 **Rutas:**
+
 - `/src/app/(main)/dashboard/schedules/page.tsx` - Listado de plantillas
 - `/src/app/(main)/dashboard/schedules/[id]/page.tsx` - Detalle de plantilla
 - `/src/app/(main)/dashboard/schedules/new/page.tsx` - Creación de plantilla
@@ -236,17 +245,20 @@ Para detalles técnicos completos, consultar **[ARQUITECTURA_HORARIOS_V2.md](./A
 - `/src/app/(main)/dashboard/me/clock/page.tsx` - Fichaje con horarios V2.0
 
 **Server Actions:**
+
 - `/src/server/actions/schedules-v2.ts` - CRUD completo de plantillas
 - `/src/server/actions/employee-schedule.ts` - `getTodaySchedule()`, `getTodaySummary()`
 - `/src/server/actions/time-tracking.ts` - Cálculo de desviaciones
 - `/src/server/actions/time-clock-validations.ts` - Configuración de validaciones
 
 **Motor y Helpers:**
+
 - `/src/lib/schedule-engine.ts` - Motor de cálculo de horarios efectivos (541 líneas)
 - `/src/lib/schedule-helpers.ts` - Utilidades de cálculo
 - `/src/types/schedule.ts` - Definiciones de tipos TypeScript
 
 **Componentes UI:**
+
 - `/src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` - Horario esperado
 - `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Resumen con desviaciones
 - `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx` - Configuración validaciones
@@ -388,6 +400,7 @@ Para documentación técnica detallada, consultar archivos especializados.
 **Autor:** Sistema de Planificación ERP TimeNow
 
 **Cambios en esta versión:**
+
 - ✅ Reorganización completa del documento maestro
 - ✅ Separación de detalles técnicos en 8 documentos especializados
 - ✅ Documento maestro ligero y navegable (<350 líneas)

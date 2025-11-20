@@ -5,6 +5,7 @@
 **Compatible con**: Safari, Chrome, Firefox
 
 Este documento define el sistema de diseño visual para **todos los formularios** de TimeNow, garantizando:
+
 - ✅ Jerarquía visual clara (nivel Factorial/Linear/Notion)
 - ✅ Compatibilidad total con Safari
 - ✅ Microinteracciones premium
@@ -20,20 +21,17 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 **Para páginas completas o wizards:**
 
 ```tsx
-<form className="mx-auto max-w-4xl space-y-8">
-  {/* Contenido del formulario */}
-</form>
+<form className="mx-auto max-w-4xl space-y-8">{/* Contenido del formulario */}</form>
 ```
 
 **Para dialogs (más compacto):**
 
 ```tsx
-<form className="space-y-6">
-  {/* Contenido del formulario */}
-</form>
+<form className="space-y-6">{/* Contenido del formulario */}</form>
 ```
 
 **Claves**:
+
 - `max-w-4xl`: Ancho máximo óptimo para lectura
 - `mx-auto`: Centrado horizontal
 - `space-y-8`: Espaciado generoso entre secciones
@@ -46,9 +44,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 
 ```tsx
 <Card className="overflow-hidden rounded-xl border shadow-sm transition-shadow duration-200 hover:shadow-md">
-  <CardContent className="space-y-8 p-6 md:p-8">
-    {/* Secciones del formulario */}
-  </CardContent>
+  <CardContent className="space-y-8 p-6 md:p-8">{/* Secciones del formulario */}</CardContent>
 </Card>
 ```
 
@@ -71,6 +67,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 ```
 
 **Claves**:
+
 - `overflow-hidden`: Evita desbordamientos en Safari
 - `rounded-xl`: Esquinas modernas (12px)
 - `shadow-sm` → `hover:shadow-md`: Elevación sutil
@@ -88,53 +85,56 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 <div className="space-y-4">
   {/* Header con icono */}
   <div className="flex items-center gap-3 pb-2">
-    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+    <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
       <Briefcase className="text-primary h-5 w-5" />
     </div>
     <Label className="text-xl font-semibold tracking-tight">Información del Contrato</Label>
   </div>
 
   {/* Campos del formulario */}
-  <div className="grid gap-3 md:grid-cols-3">
-    {/* FormFields aquí */}
-  </div>
+  <div className="grid gap-3 md:grid-cols-3">{/* FormFields aquí */}</div>
 </div>
 ```
 
 ### Colores de Iconos por Categoría
 
 **Primary (azul/morado) - General:**
+
 ```tsx
-<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+<div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
   <Briefcase className="text-primary h-5 w-5" />
 </div>
 ```
 
 **Emerald (verde) - Dinero/Finanzas:**
+
 ```tsx
 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-  <span className="text-emerald-600 dark:text-emerald-400 text-lg font-bold">€</span>
+  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">€</span>
 </div>
 ```
 
 **Blue (azul claro) - Organización:**
+
 ```tsx
 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-500/10">
-  <Building2 className="text-blue-600 dark:text-blue-400 h-5 w-5" />
+  <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
 </div>
 ```
 
 **Amber (naranja) - Alertas/Tiempo:**
+
 ```tsx
 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10">
-  <Clock className="text-amber-600 dark:text-amber-400 h-5 w-5" />
+  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
 </div>
 ```
 
 **Red (rojo) - Peligro/Eliminar:**
+
 ```tsx
 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/10">
-  <Trash2 className="text-red-600 dark:text-red-400 h-5 w-5" />
+  <Trash2 className="h-5 w-5 text-red-600 dark:text-red-400" />
 </div>
 ```
 
@@ -164,6 +164,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 ```
 
 **Claves**:
+
 - `border-muted-foreground/20`: Más sutil que muted
 - `my-6`: Espaciado vertical generoso
 
@@ -186,7 +187,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
           <Input
             type="number"
             placeholder="40"
-            className="pl-9 transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+            className="focus:ring-primary/20 pl-9 transition-all duration-150 focus:ring-2"
             {...field}
           />
         </div>
@@ -203,7 +204,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 <Input
   type="text"
   placeholder="Escribe aquí..."
-  className="transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+  className="focus:ring-primary/20 transition-all duration-150 focus:ring-2"
 />
 ```
 
@@ -217,13 +218,14 @@ Este documento define el sistema de diseño visual para **todos los formularios*
     min="0"
     step="100"
     placeholder="30000"
-    className="pl-8 transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+    className="focus:ring-primary/20 pl-8 transition-all duration-150 focus:ring-2"
     {...field}
   />
 </div>
 ```
 
 **Claves del Focus Ring**:
+
 - `focus:ring-2`: Anillo de 2px
 - `focus:ring-primary/20`: Color primary con 20% opacidad
 - `transition-all duration-150`: Transición suave
@@ -254,12 +256,11 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 ### Grid de 4 columnas (para días de la semana)
 
 ```tsx
-<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-  {/* Lunes - Domingo */}
-</div>
+<div className="grid grid-cols-2 gap-3 md:grid-cols-4">{/* Lunes - Domingo */}</div>
 ```
 
 **Claves**:
+
 - `gap-3`: 12px entre columnas
 - `md:grid-cols-X`: Desktop muestra X columnas
 - Mobile siempre 1 columna (por defecto)
@@ -271,7 +272,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 ### Switch Card (Estilo Premium + Safari Compatible)
 
 ```tsx
-<div className="flex items-center justify-between rounded-xl border-2 border-muted bg-muted/30 p-5 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md">
+<div className="border-muted bg-muted/30 hover:border-primary/40 flex items-center justify-between rounded-xl border-2 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
   <div className="flex-1 space-y-1">
     <Label htmlFor="skip-option" className="text-lg font-semibold">
       Configurar más tarde
@@ -280,31 +281,20 @@ Este documento define el sistema de diseño visual para **todos los formularios*
       Usaremos valores por defecto. Podrás editarlo después.
     </p>
   </div>
-  <Switch
-    id="skip-option"
-    checked={skipOption}
-    onCheckedChange={setSkipOption}
-    className="wizard-switch"
-  />
+  <Switch id="skip-option" checked={skipOption} onCheckedChange={setSkipOption} className="wizard-switch" />
 </div>
 ```
 
 ### Toggle Simple (Dentro de Card)
 
 ```tsx
-<FormItem className="flex flex-col gap-3 rounded-xl border-2 border-dashed border-muted-foreground/30 bg-muted/20 p-5 transition-all duration-200 hover:border-primary/40 hover:bg-muted/30 md:flex-row md:items-center md:justify-between">
+<FormItem className="border-muted-foreground/30 bg-muted/20 hover:border-primary/40 hover:bg-muted/30 flex flex-col gap-3 rounded-xl border-2 border-dashed p-5 transition-all duration-200 md:flex-row md:items-center md:justify-between">
   <div className="space-y-1">
     <FormLabel className="text-base">Patrón semanal personalizado</FormLabel>
-    <FormDescription>
-      Activa esta opción para definir horas diferentes para cada día.
-    </FormDescription>
+    <FormDescription>Activa esta opción para definir horas diferentes para cada día.</FormDescription>
   </div>
   <FormControl>
-    <Switch
-      checked={field.value ?? false}
-      onCheckedChange={field.onChange}
-      className="wizard-switch"
-    />
+    <Switch checked={field.value ?? false} onCheckedChange={field.onChange} className="wizard-switch" />
   </FormControl>
 </FormItem>
 ```
@@ -339,6 +329,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 ```
 
 **Por qué es necesario**:
+
 - Safari ignora clases Tailwind con opacidades en switches (`data-[state=unchecked]:bg-gray-300`)
 - `!important` + colores hex sólidos Safari no puede ignorar (solo en `unchecked`)
 - Estado `checked` usa color primary del tema (sin `!important` para no sobrescribir)
@@ -346,6 +337,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 - `backface-visibility: hidden` elimina artefactos visuales
 
 **Claves Switch Visibility**:
+
 - ❌ **NUNCA** usar: `data-[state=unchecked]:bg-gray-300` (invisible en Safari)
 - ✅ **SIEMPRE** usar: `className="wizard-switch"` con CSS custom
 - ✅ Probar en Safari ambos estados (checked/unchecked)
@@ -359,7 +351,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 **Estado Success (verde):**
 
 ```tsx
-<div className="space-y-5 rounded-xl border-2 p-6 shadow-sm border-emerald-300 bg-emerald-50/70 dark:border-emerald-700 dark:bg-emerald-900/20">
+<div className="space-y-5 rounded-xl border-2 border-emerald-300 bg-emerald-50/70 p-6 shadow-sm dark:border-emerald-700 dark:bg-emerald-900/20">
   {/* Contenido cuando todo está bien */}
 </div>
 ```
@@ -367,7 +359,7 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 **Estado Warning (naranja):**
 
 ```tsx
-<div className="space-y-5 rounded-xl border-2 p-6 shadow-sm border-orange-300 bg-orange-50/60 dark:border-orange-700 dark:bg-orange-900/20">
+<div className="space-y-5 rounded-xl border-2 border-orange-300 bg-orange-50/60 p-6 shadow-sm dark:border-orange-700 dark:bg-orange-900/20">
   {/* Contenido cuando hay advertencia */}
 </div>
 ```
@@ -431,22 +423,20 @@ Este documento define el sistema de diseño visual para **todos los formularios*
 
 ```tsx
 <div className="animate-in fade-in-50 slide-in-from-top-2 duration-200">
-  <FormCard>
-    {/* Contenido */}
-  </FormCard>
+  <FormCard>{/* Contenido */}</FormCard>
 </div>
 ```
 
 ### Hover en Cards
 
 ```tsx
-className="transition-shadow duration-200 hover:shadow-md"
+className = "transition-shadow duration-200 hover:shadow-md";
 ```
 
 ### Focus en Inputs (ya incluido en clases)
 
 ```tsx
-className="transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+className = "transition-all duration-150 focus:ring-2 focus:ring-primary/20";
 ```
 
 ---
@@ -569,9 +559,7 @@ Safari no aplica blur si el padre tiene `overflow-hidden` o `transform`.
 
 ```tsx
 // ✅ SIEMPRE añadir colores explícitos para estado unchecked
-<Switch
-  className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600"
-/>
+<Switch className="data-[state=unchecked]:bg-gray-300 dark:data-[state=unchecked]:bg-gray-600" />
 ```
 
 ---
@@ -619,7 +607,7 @@ export function PremiumForm({ onSubmit, onCancel }: Props) {
             {/* Sección 1: Información Básica */}
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                <div className="bg-primary/10 flex h-9 w-9 items-center justify-center rounded-lg">
                   <Briefcase className="text-primary h-5 w-5" />
                 </div>
                 <Label className="text-xl font-semibold tracking-tight">Información Básica</Label>
@@ -635,7 +623,7 @@ export function PremiumForm({ onSubmit, onCancel }: Props) {
                       <FormControl>
                         <Input
                           placeholder="Juan Pérez"
-                          className="transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+                          className="focus:ring-primary/20 transition-all duration-150 focus:ring-2"
                           {...field}
                         />
                       </FormControl>
@@ -653,7 +641,7 @@ export function PremiumForm({ onSubmit, onCancel }: Props) {
                       <FormControl>
                         <Input
                           placeholder="Tecnología"
-                          className="transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+                          className="focus:ring-primary/20 transition-all duration-150 focus:ring-2"
                           {...field}
                         />
                       </FormControl>
@@ -670,7 +658,7 @@ export function PremiumForm({ onSubmit, onCancel }: Props) {
             <div className="space-y-4">
               <div className="flex items-center gap-3 pb-2">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/10">
-                  <span className="text-emerald-600 dark:text-emerald-400 text-lg font-bold">€</span>
+                  <span className="text-lg font-bold text-emerald-600 dark:text-emerald-400">€</span>
                 </div>
                 <Label className="text-xl font-semibold tracking-tight">Información Salarial</Label>
               </div>
@@ -690,7 +678,7 @@ export function PremiumForm({ onSubmit, onCancel }: Props) {
                             min="0"
                             step="100"
                             placeholder="30000"
-                            className="pl-8 transition-all duration-150 focus:ring-2 focus:ring-primary/20"
+                            className="focus:ring-primary/20 pl-8 transition-all duration-150 focus:ring-2"
                             {...field}
                           />
                         </div>

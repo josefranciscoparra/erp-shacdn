@@ -29,6 +29,7 @@ Botón "Entrar"
 ```
 
 **Problemas:**
+
 - ❌ **Parpadeos visuales**: Múltiples cambios de texto
 - ❌ **Experiencia brusca**: Transiciones sin suavizado
 - ❌ **Confusión**: El usuario ve demasiados estados intermedios
@@ -43,6 +44,7 @@ Botón "Entrar" (con spinner sutil)
 ```
 
 **Beneficios:**
+
 - ✅ **Sin parpadeos**: El texto nunca cambia
 - ✅ **Transiciones suaves**: Animaciones fluidas de 250-300ms
 - ✅ **Feedback visual claro**: Spinner discreto indica progreso
@@ -70,6 +72,7 @@ npm install framer-motion
 ```
 
 **Framer Motion** es la librería de animaciones más popular para React:
+
 - Sintaxis declarativa y sencilla
 - Animaciones suaves por defecto
 - Soporte para `AnimatePresence` (animaciones de entrada/salida)
@@ -77,6 +80,7 @@ npm install framer-motion
 - Usada por empresas como Linear, Pitch, Vercel, etc.
 
 **Componentes principales:**
+
 - `motion.div`: Versión animada de elementos HTML
 - `AnimatePresence`: Gestiona animaciones de entrada/salida del DOM
 - `Loader2`: Icono de lucide-react para spinner
@@ -239,6 +243,7 @@ export function QuickClockWidget() {
 ```
 
 **Características:**
+
 - Animación **horizontal** (`x: -10` → `x: 0`) para espacios reducidos
 - Duración: **250ms** (más rápida para botones pequeños)
 - Spinner discreto sin cambiar el texto
@@ -331,6 +336,7 @@ export function ClockIn() {
 ```
 
 **Características:**
+
 - Animación **vertical** (`y: 10` → `y: 0`) para páginas completas
 - Duración: **300ms** (más pausada para botones grandes)
 - Botones de tamaño `lg` para mejor visibilidad
@@ -431,7 +437,7 @@ exit={{ opacity: 0, scale: 0.95 }}
 
 ```tsx
 // SIEMPRE añadir opacidad reducida en botones deshabilitados
-className="disabled:opacity-70"
+className = "disabled:opacity-70";
 
 // ❌ NO usar disabled:opacity-50 (demasiado tenue)
 // ❌ NO usar disabled:opacity-100 (no se nota que está deshabilitado)
@@ -489,15 +495,18 @@ Antes de considerar la mejora como completa, verifica:
 ## Recursos adicionales
 
 ### Documentación oficial
+
 - [Framer Motion Docs](https://www.framer.com/motion/)
 - [AnimatePresence Guide](https://www.framer.com/motion/animate-presence/)
 
 ### Inspiración
+
 - [Linear](https://linear.app) - Animaciones sutiles y profesionales
 - [Notion](https://notion.so) - Transiciones suaves en toda la app
 - [Vercel](https://vercel.com) - Micro-interacciones pulidas
 
 ### Testing
+
 ```tsx
 // Probar siempre:
 1. Click en el botón (¿se ve el spinner?)
@@ -513,6 +522,7 @@ Antes de considerar la mejora como completa, verifica:
 **Regla de oro:** Si un botón ejecuta una acción asíncrona y cambia de estado, aplica este patrón.
 
 **Beneficios:**
+
 - ✅ UX profesional y pulida
 - ✅ Sin parpadeos ni cambios bruscos
 - ✅ Feedback visual claro
@@ -559,7 +569,7 @@ export function PageTransition({ children }: PageTransitionProps) {
       exit={shouldReduceMotion ? false : { opacity: 0, y: -10 }}
       transition={{
         duration: shouldReduceMotion ? 0 : 0.2,
-        ease: "easeInOut"
+        ease: "easeInOut",
       }}
       style={{ width: "100%", height: "100%" }}
     >
@@ -596,6 +606,7 @@ export default async function Layout({ children }) {
 #### Resultado:
 
 Cuando navegas entre páginas del dashboard:
+
 - `/dashboard/employees` → `/dashboard/settings`
 - La página actual se desvanece suavemente hacia arriba (200ms)
 - La nueva página aparece suavemente desde abajo (200ms)
@@ -603,13 +614,13 @@ Cuando navegas entre páginas del dashboard:
 
 #### Rendimiento:
 
-| Métrica | Sin animación | Con PageTransition | Diferencia |
-|---------|---------------|-------------------|------------|
-| **CPU** | ~1% | ~2-3% | +1-2% |
-| **RAM** | 120MB | 122MB | +2MB |
-| **FPS** | 60fps | 60fps | 0fps |
-| **First Paint** | 1.2s | 1.2s | 0s |
-| **TTI** | 1.5s | 1.5s | 0s |
+| Métrica         | Sin animación | Con PageTransition | Diferencia |
+| --------------- | ------------- | ------------------ | ---------- |
+| **CPU**         | ~1%           | ~2-3%              | +1-2%      |
+| **RAM**         | 120MB         | 122MB              | +2MB       |
+| **FPS**         | 60fps         | 60fps              | 0fps       |
+| **First Paint** | 1.2s          | 1.2s               | 0s         |
+| **TTI**         | 1.5s          | 1.5s               | 0s         |
 
 **Conclusión:** Impacto despreciable. Las animaciones son client-side y no afectan al servidor.
 

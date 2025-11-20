@@ -23,6 +23,7 @@
 ### Objetivo Principal
 
 Implementar un sistema flexible de **gestión de responsables** y **notificaciones de alertas** que permita:
+
 - Asignar responsables a centros de trabajo y equipos
 - Configurar permisos granulares por ámbito
 - Notificar alertas automáticamente a los responsables
@@ -31,6 +32,7 @@ Implementar un sistema flexible de **gestión de responsables** y **notificacion
 ### Alcance de la Implementación
 
 **Incluido en esta versión:**
+
 - ✅ Modelo de equipos (Team)
 - ✅ Asignación de responsables a centros y equipos
 - ✅ Permisos configurables por asignación
@@ -40,6 +42,7 @@ Implementar un sistema flexible de **gestión de responsables** y **notificacion
 - ✅ RRHH Global con acceso total
 
 **NO incluido (futuro):**
+
 - ❌ Notificaciones por email
 - ❌ Departamentos como ámbito (solo Centro y Equipo)
 - ❌ Más de 2 niveles de jerarquía
@@ -50,43 +53,53 @@ Implementar un sistema flexible de **gestión de responsables** y **notificacion
 ## 📋 Requisitos del Cliente
 
 ### 1. Modelo de Equipos
+
 - **NO existe actualmente** → Crear desde cero
 - Estructura: `Centro → Equipos` (2 niveles)
 - Un centro puede tener miles de equipos
 
 ### 2. Asignación Flexible de Responsables
+
 - Un manager puede tener:
   - **Centro completo** (ve todos los equipos del centro)
   - **Equipos específicos** (selecciona qué equipos gestiona)
 - Permisos configurables por cada asignación
 
 ### 3. Sistema de Alertas
+
 **Recibir alertas (notificaciones):**
+
 - Solo el manager asignado recibe notificaciones
 - Configuración de resumen diario
 
 **Ver alertas (dashboard):**
+
 - Todo el mundo puede ver las alertas
 - Filtros por centro/equipo en panel general
 - Cada usuario ve solo su ámbito asignado
 
 ### 4. Configuración de Responsables
+
 - **En cada Centro:** `/dashboard/cost-centers/[id]` → Pestaña "Responsables"
 - **En cada Equipo:** `/dashboard/teams/[id]` → Pestaña "Responsables"
 
 ### 5. UI para Equipos
+
 - Selector con búsqueda paginada (no dropdown simple)
 - Manejar miles de equipos sin lag
 
 ### 6. RRHH Global
+
 - Existe y ve TODO (todos los centros, todos los equipos)
 - Scope: `ORGANIZATION`
 
 ### 7. Notificaciones
+
 - Solo notificaciones in-app (navbar con contador)
 - Resumen diario opcional
 
 ### 8. Niveles de Jerarquía
+
 - Por ahora: 2 niveles (Centro → Equipo)
 - Futuro: Más niveles (Centro → Zona → Equipo)
 
@@ -97,7 +110,9 @@ Implementar un sistema flexible de **gestión de responsables** y **notificacion
 ### Conceptos Fundamentales
 
 #### 1. **Ámbito (Scope)**
+
 Define el alcance de responsabilidad de un usuario:
+
 ```typescript
 enum Scope {
   ORGANIZATION  // Ve toda la organización (RRHH Global)
@@ -107,7 +122,9 @@ enum Scope {
 ```
 
 #### 2. **Responsable (AreaResponsible)**
+
 Define quién puede **ver y gestionar** datos de un ámbito:
+
 ```typescript
 {
   userId: "ana_garcia",
@@ -118,7 +135,9 @@ Define quién puede **ver y gestionar** datos de un ámbito:
 ```
 
 #### 3. **Suscripción (AlertSubscription)**
+
 Define quién **recibe notificaciones** de alertas:
+
 ```typescript
 {
   userId: "ana_garcia",
@@ -194,6 +213,7 @@ model Team {
 ```
 
 **Justificación:**
+
 - `costCenterId` obligatorio: Todo equipo pertenece a un centro
 - `code` único: Para búsquedas rápidas (ej: "LOG-001")
 - Sin `teamLeaderId`: Se gestiona con `AreaResponsible`
@@ -243,6 +263,7 @@ model AreaResponsible {
 ```
 
 **Permisos disponibles:**
+
 ```typescript
 enum Permission {
   VIEW_EMPLOYEES       // Ver listado de empleados
@@ -314,6 +335,7 @@ model AlertSubscription {
 ### 4. Extensiones a Modelos Existentes
 
 #### Employee
+
 ```prisma
 model Employee {
   // ... campos existentes ...
@@ -327,6 +349,7 @@ model Employee {
 ```
 
 #### User
+
 ```prisma
 model User {
   // ... campos existentes ...
@@ -340,6 +363,7 @@ model User {
 ```
 
 #### CostCenter
+
 ```prisma
 model CostCenter {
   // ... campos existentes ...
@@ -354,6 +378,7 @@ model CostCenter {
 ```
 
 #### Alert
+
 ```prisma
 model Alert {
   // ... campos existentes ...
@@ -375,6 +400,7 @@ model Alert {
 **Objetivo:** Crear las tablas base del sistema
 
 **Tareas:**
+
 1. Añadir modelo `Team` al schema de Prisma
 2. Añadir modelo `AreaResponsible`
 3. Añadir modelo `AlertSubscription`
@@ -384,6 +410,7 @@ model Alert {
 7. Verificar migración exitosa
 
 **Entregables:**
+
 - ✅ `schema.prisma` actualizado
 - ✅ Migración aplicada a base de datos
 - ✅ Tipos de TypeScript regenerados
@@ -395,6 +422,7 @@ model Alert {
 **Objetivo:** Gestión completa de equipos
 
 **Tareas:**
+
 1. **Server Actions:**
    - `src/server/actions/teams.ts`
      - `getTeams()` - Listar equipos con filtros
@@ -419,6 +447,7 @@ model Alert {
      - "Responsables": (Implementado en FASE 4)
 
 **Entregables:**
+
 - ✅ Server actions funcionales
 - ✅ Página de listado de equipos
 - ✅ Página de detalle de equipo
@@ -431,6 +460,7 @@ model Alert {
 **Objetivo:** Permitir asignar responsables a centros de trabajo
 
 **Tareas:**
+
 1. **Server Actions:**
    - `src/server/actions/area-responsibilities.ts`
      - `assignResponsibility(userId, scope, scopeId, permissions)` - Asignar responsable
@@ -453,6 +483,7 @@ model Alert {
      - Opción "Crear suscripción automática" (checked por defecto)
 
 **Entregables:**
+
 - ✅ Server actions de responsabilidades
 - ✅ UI en centros para gestionar responsables
 - ✅ Asignación funcional
@@ -464,6 +495,7 @@ model Alert {
 **Objetivo:** Permitir asignar responsables a equipos específicos
 
 **Tareas:**
+
 1. **UI - Pestaña Responsables en Equipo:**
    - Ubicación: `/dashboard/teams/[id]/page.tsx` → Pestaña "Responsables"
    - Reutilizar componentes de FASE 3 (misma UI)
@@ -481,6 +513,7 @@ model Alert {
    - Casos de uso: Manager de zona con 50 equipos
 
 **Entregables:**
+
 - ✅ UI en equipos para gestionar responsables
 - ✅ Selector de equipos con búsqueda paginada
 - ✅ Asignación múltiple de equipos
@@ -492,6 +525,7 @@ model Alert {
 **Objetivo:** Filtrar alertas automáticamente según ámbito del usuario
 
 **Tareas:**
+
 1. **Helper de Filtrado:**
    - `src/lib/permissions/scope-filter.ts`
      - `buildScopeFilter(userId)` - Construye filtro de Prisma según responsabilidades
@@ -522,6 +556,7 @@ model Alert {
      - Manager de Equipo: Ve solo su equipo
 
 **Entregables:**
+
 - ✅ Helper de filtrado automático
 - ✅ Dashboard de alertas con filtros
 - ✅ Permisos aplicados correctamente
@@ -533,6 +568,7 @@ model Alert {
 **Objetivo:** Notificar a responsables cuando se crean alertas
 
 **Tareas:**
+
 1. **Modelo de Notificaciones:**
    - Reutilizar `PtoNotification` existente o crear `Notification` genérico
    - Campos: type, title, message, linkTo, isRead, userId
@@ -546,6 +582,7 @@ model Alert {
      - `getUnreadNotifications(userId)` - Notificaciones sin leer
 
 3. **Lógica de Notificación:**
+
    ```typescript
    // Al crear alerta en clockIn/clockOut:
    const alert = await detectAlerts(employeeId, date);
@@ -578,6 +615,7 @@ model Alert {
      - Link al dashboard filtrado
 
 **Entregables:**
+
 - ✅ Sistema de notificaciones in-app
 - ✅ Campanita en navbar con contador
 - ✅ Notificaciones automáticas al crear alertas
@@ -591,6 +629,7 @@ model Alert {
 
 **Usuario:** Ana García
 **Asignación:**
+
 ```typescript
 {
   scope: "COST_CENTER",
@@ -600,6 +639,7 @@ model Alert {
 ```
 
 **Suscripción:**
+
 ```typescript
 {
   scope: "COST_CENTER",
@@ -611,6 +651,7 @@ model Alert {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve todos los empleados de Madrid Norte (todos los equipos)
 - ✅ Ve todas las alertas de Madrid Norte
 - ✅ Puede resolver alertas de su centro
@@ -623,6 +664,7 @@ model Alert {
 
 **Usuario:** Carlos Ruiz
 **Asignación 1:**
+
 ```typescript
 {
   scope: "TEAM",
@@ -632,6 +674,7 @@ model Alert {
 ```
 
 **Asignación 2:**
+
 ```typescript
 {
   scope: "TEAM",
@@ -641,6 +684,7 @@ model Alert {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve empleados solo de Equipo Ventas A y Ventas B
 - ✅ Ve alertas solo de esos 2 equipos
 - ✅ Puede resolver alertas de sus equipos
@@ -653,6 +697,7 @@ model Alert {
 
 **Usuario:** María López (role: HR_ADMIN)
 **Asignación:**
+
 ```typescript
 {
   scope: "ORGANIZATION",
@@ -661,6 +706,7 @@ model Alert {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve TODOS los empleados de la organización
 - ✅ Ve TODAS las alertas (todos los centros, todos los equipos)
 - ✅ Puede gestionar cualquier cosa
@@ -675,6 +721,7 @@ model Alert {
 **Asignación:** Ninguna
 
 **Comportamiento:**
+
 - ✅ Puede ver dashboard general de alertas (con filtros)
 - ✅ Los filtros muestran todos los centros/equipos
 - ✅ Puede ver las alertas aplicando filtros
@@ -831,7 +878,7 @@ const teams = await prisma.team.findMany();
 
 // ✅ CORRECTO - Filtra por organización
 const teams = await prisma.team.findMany({
-  where: { orgId: session.user.orgId }
+  where: { orgId: session.user.orgId },
 });
 ```
 
@@ -938,10 +985,7 @@ export async function searchTeams(query: string, page: number = 1, limit: number
     where: {
       orgId: session.user.orgId,
       isActive: true,
-      OR: [
-        { name: { contains: query, mode: "insensitive" } },
-        { code: { contains: query, mode: "insensitive" } },
-      ],
+      OR: [{ name: { contains: query, mode: "insensitive" } }, { code: { contains: query, mode: "insensitive" } }],
     },
     include: {
       costCenter: { select: { name: true } },
@@ -981,6 +1025,7 @@ interface UserSession {
 ## ✅ Checklist de Implementación
 
 ### FASE 1: Modelo de Datos
+
 - [ ] Añadir modelo `Team` al schema
 - [ ] Añadir modelo `AreaResponsible`
 - [ ] Añadir modelo `AlertSubscription`
@@ -989,6 +1034,7 @@ interface UserSession {
 - [ ] Verificar migración exitosa
 
 ### FASE 2: CRUD de Equipos
+
 - [ ] Server actions de equipos
 - [ ] Página de listado de equipos
 - [ ] Página de detalle de equipo
@@ -996,6 +1042,7 @@ interface UserSession {
 - [ ] Asignar empleados a equipos
 
 ### FASE 3: Responsables de Centros
+
 - [ ] Server actions de responsabilidades
 - [ ] Pestaña "Responsables" en centros
 - [ ] Dialog añadir responsable
@@ -1003,12 +1050,14 @@ interface UserSession {
 - [ ] Eliminar responsable
 
 ### FASE 4: Responsables de Equipos
+
 - [ ] Componente `TeamCombobox` (paginado)
 - [ ] Pestaña "Responsables" en equipos
 - [ ] Asignación múltiple de equipos
 - [ ] Dialog de configuración
 
 ### FASE 5: Filtrado de Alertas
+
 - [ ] Helper `buildScopeFilter()`
 - [ ] Helper `checkPermission()`
 - [ ] Aplicar filtrado en dashboard de alertas
@@ -1016,6 +1065,7 @@ interface UserSession {
 - [ ] Guardar `teamId` en alertas
 
 ### FASE 6: Notificaciones In-App
+
 - [ ] Server action `notifyAlertSubscribers()`
 - [ ] Crear notificaciones al detectar alertas
 - [ ] Componente `AlertsBell` mejorado
@@ -1034,6 +1084,7 @@ interface UserSession {
 ---
 
 **Próximos Pasos:**
+
 1. Commit de este documento
 2. Implementar FASE 1 (Modelo de Datos)
 3. Testing de migración

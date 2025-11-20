@@ -53,6 +53,7 @@ const handleAction = async () => {
 ```
 
 **Problemas:**
+
 1. El usuario ve un delay de 500ms-2s antes de ver cambios
 2. `loadAllData()` recarga TODO desde el servidor → parpadeo visible
 3. Experiencia lenta y poco responsive
@@ -89,6 +90,7 @@ const handleAction = async () => {
 ```
 
 **Ventajas:**
+
 1. ⚡ **Respuesta instantánea**: La UI se actualiza en 0ms
 2. 🚫 **Sin parpadeo**: No hay recargas completas
 3. 🎯 **Mejor UX**: El usuario ve el cambio inmediatamente
@@ -116,7 +118,6 @@ const handleOptimisticUpdate = async (newValue: T) => {
 
     // 5. (Opcional) Actualizar solo si es necesario
     // await refreshOnlyIfNeeded();
-
   } catch (error) {
     // 6. En caso de error: revertir o recargar
     setState(previousState); // Opción A: Revertir
@@ -161,6 +162,7 @@ const handleMarkAllAsRead = async () => {
 ```
 
 **Resultado:**
+
 - ⚡ Los iconos Mail → MailOpen cambian **instantáneamente**
 - 🚫 **Sin parpadeo** en la tabla
 - 🎯 La UI responde en **0ms**
@@ -175,9 +177,7 @@ const handleToggleRead = useCallback(
     event.stopPropagation();
 
     // 1. Actualización optimista: actualizar estado local primero
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notification.id ? { ...n, isRead: !n.isRead } : n))
-    );
+    setNotifications((prev) => prev.map((n) => (n.id === notification.id ? { ...n, isRead: !n.isRead } : n)));
     setTotals((prev) => ({
       ...prev,
       unread: notification.isRead ? prev.unread + 1 : Math.max(prev.unread - 1, 0),
@@ -203,6 +203,7 @@ const handleToggleRead = useCallback(
 ```
 
 **Resultado:**
+
 - ⚡ El icono cambia **inmediatamente** al hacer click
 - 🚫 **Sin delay** esperando al servidor
 - 🎯 Experiencia fluida y responsive
@@ -216,9 +217,7 @@ const updateLiveMinutes = () => {
   if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
     const now = new Date();
     const entries = todaySummary.timeEntries;
-    const lastWorkStart = [...entries]
-      .reverse()
-      .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
+    const lastWorkStart = [...entries].reverse().find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
 
     if (lastWorkStart) {
       const startTime = new Date(lastWorkStart.timestamp);
@@ -244,6 +243,7 @@ useEffect(() => {
 ```
 
 **Resultado:**
+
 - ⚡ El contador se actualiza **cada segundo** sin llamadas al servidor
 - 🚫 **Sin parpadeo** en el widget
 - 🎯 Experiencia fluida similar a un cronómetro nativo
@@ -305,9 +305,7 @@ useEffect(() => {
 ```typescript
 const toggleRead = async (id: string, currentState: boolean) => {
   // Optimistic
-  setItems(prev => prev.map(item =>
-    item.id === id ? { ...item, isRead: !currentState } : item
-  ));
+  setItems((prev) => prev.map((item) => (item.id === id ? { ...item, isRead: !currentState } : item)));
 
   try {
     await api.toggleRead(id);
@@ -322,9 +320,7 @@ const toggleRead = async (id: string, currentState: boolean) => {
 ```typescript
 const toggleActive = async (id: string, currentState: boolean) => {
   // Optimistic
-  setItems(prev => prev.map(item =>
-    item.id === id ? { ...item, active: !currentState } : item
-  ));
+  setItems((prev) => prev.map((item) => (item.id === id ? { ...item, active: !currentState } : item)));
 
   try {
     await api.toggleActive(id);
@@ -360,7 +356,7 @@ const handleReorder = async (newOrder: Item[]) => {
   setItems(newOrder);
 
   try {
-    await api.updateOrder(newOrder.map(item => item.id));
+    await api.updateOrder(newOrder.map((item) => item.id));
   } catch {
     // Revertir si falla
     await reloadItems();
@@ -374,11 +370,11 @@ const handleReorder = async (newOrder: Item[]) => {
 ```typescript
 const toggleLike = async (id: string, isLiked: boolean) => {
   // Optimistic
-  setItems(prev => prev.map(item =>
-    item.id === id
-      ? { ...item, isLiked: !isLiked, likeCount: item.likeCount + (isLiked ? -1 : 1) }
-      : item
-  ));
+  setItems((prev) =>
+    prev.map((item) =>
+      item.id === id ? { ...item, isLiked: !isLiked, likeCount: item.likeCount + (isLiked ? -1 : 1) } : item,
+    ),
+  );
 
   try {
     await api.toggleLike(id);
@@ -412,10 +408,12 @@ const handleUpdate = async (newValue: T) => {
 ```
 
 **Ventajas:**
+
 - ✅ No hace llamadas adicionales al servidor
 - ✅ Más rápido
 
 **Desventajas:**
+
 - ⚠️ Puede quedarse desincronizado si hubo otros cambios
 - ⚠️ No refleja el estado real del servidor
 
@@ -437,10 +435,12 @@ const handleUpdate = async (newValue: T) => {
 ```
 
 **Ventajas:**
+
 - ✅ Garantiza sincronización con el servidor
 - ✅ Estado siempre correcto
 
 **Desventajas:**
+
 - ⚠️ Hace una llamada adicional
 - ⚠️ Puede tardar más
 
@@ -459,7 +459,7 @@ const handleUpdate = async (newValue: T) => {
     setValue(serverResponse.data);
   } catch (error) {
     // Si es error de red, revertir
-    if (error.code === 'NETWORK_ERROR') {
+    if (error.code === "NETWORK_ERROR") {
       setValue(previousValue);
     } else {
       // Si es error de validación, recargar
@@ -471,6 +471,7 @@ const handleUpdate = async (newValue: T) => {
 ```
 
 **Ventajas:**
+
 - ✅ Maneja diferentes tipos de error apropiadamente
 - ✅ Balancea velocidad y precisión
 

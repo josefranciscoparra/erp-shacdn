@@ -78,7 +78,7 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   const assignment = await getActiveAssignment(employeeId, date);
   console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
     hasAssignment: !!assignment,
-    assignmentType: assignment?.assignmentType
+    assignmentType: assignment?.assignmentType,
   });
 
   if (!assignment) {
@@ -132,8 +132,12 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Buscando patrón del día:", {
     date: date.toISOString(),
     dayOfWeek,
-    dayName: ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'][dayOfWeek],
-    availablePatterns: period.workDayPatterns.map(p => ({ dayOfWeek: p.dayOfWeek, isWorkingDay: p.isWorkingDay, slots: p.timeSlots.length }))
+    dayName: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeek],
+    availablePatterns: period.workDayPatterns.map((p) => ({
+      dayOfWeek: p.dayOfWeek,
+      isWorkingDay: p.isWorkingDay,
+      slots: p.timeSlots.length,
+    })),
   });
 
   const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === dayOfWeek);
@@ -141,7 +145,7 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   console.log("📋 [GET_EFFECTIVE_SCHEDULE] Pattern encontrado:", {
     found: !!pattern,
     isWorkingDay: pattern?.isWorkingDay,
-    slotsCount: pattern?.timeSlots.length
+    slotsCount: pattern?.timeSlots.length,
   });
 
   if (!pattern || !pattern.isWorkingDay) {
@@ -466,7 +470,7 @@ async function getActiveAssignment(employeeId: string, date: Date) {
     employeeId,
     date: date.toISOString(),
     dateStart: dateStart.toISOString(),
-    dateEnd: dateEnd.toISOString()
+    dateEnd: dateEnd.toISOString(),
   });
 
   const assignment = await prisma.employeeScheduleAssignment.findFirst({
@@ -524,7 +528,7 @@ async function getActiveAssignment(employeeId: string, date: Date) {
       templateType: assignment.scheduleTemplate.templateType,
       periodsArray: assignment.scheduleTemplate.periods,
       periodsCount: assignment.scheduleTemplate.periods?.length,
-      firstPeriod: assignment.scheduleTemplate.periods?.[0]
+      firstPeriod: assignment.scheduleTemplate.periods?.[0],
     });
   } else {
     console.log("❌ [GET_ASSIGNMENT] Template NO cargado a pesar de tener scheduleTemplateId");
@@ -609,13 +613,13 @@ async function getActivePeriod(
     templateName: template.name,
     date: date.toISOString(),
     periodsCount: template.periods.length,
-    periods: template.periods.map(p => ({
+    periods: template.periods.map((p) => ({
       id: p.id,
       type: p.periodType,
       validFrom: p.validFrom?.toISOString(),
       validTo: p.validTo?.toISOString(),
-      patternsCount: p.workDayPatterns.length
-    }))
+      patternsCount: p.workDayPatterns.length,
+    })),
   });
 
   // Filtrar períodos cuyas fechas incluyan la fecha solicitada

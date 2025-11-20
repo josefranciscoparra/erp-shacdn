@@ -7,9 +7,9 @@ async function main() {
   const employee = await prisma.employee.findFirst({
     where: {
       user: {
-        email: "hr@demo.com"
-      }
-    }
+        email: "hr@demo.com",
+      },
+    },
   });
 
   if (!employee) {
@@ -24,8 +24,8 @@ async function main() {
   const result = await prisma.alert.deleteMany({
     where: {
       employeeId: employee.id,
-      date: today
-    }
+      date: today,
+    },
   });
 
   console.log(`✅ Eliminadas ${result.count} alertas de hoy`);

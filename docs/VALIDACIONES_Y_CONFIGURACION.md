@@ -95,14 +95,16 @@ model TimeEntry {
 ### `getOrganizationValidationConfig()`
 
 **Firma:**
+
 ```typescript
-export async function getOrganizationValidationConfig(): Promise<ValidationConfig>
+export async function getOrganizationValidationConfig(): Promise<ValidationConfig>;
 ```
 
 **Descripción:**
 Obtiene la configuración de validaciones de la organización del usuario autenticado.
 
 **Retorna:**
+
 ```typescript
 interface ValidationConfig {
   clockInToleranceMinutes: number;
@@ -119,16 +121,16 @@ interface ValidationConfig {
 ### `updateOrganizationValidationConfig()`
 
 **Firma:**
+
 ```typescript
-export async function updateOrganizationValidationConfig(
-  config: ValidationConfig
-): Promise<{ success: boolean }>
+export async function updateOrganizationValidationConfig(config: ValidationConfig): Promise<{ success: boolean }>;
 ```
 
 **Descripción:**
 Actualiza la configuración de validaciones de la organización. Valida que los valores sean números positivos.
 
 **Ejemplo:**
+
 ```typescript
 await updateOrganizationValidationConfig({
   clockInToleranceMinutes: 10,
@@ -136,8 +138,8 @@ await updateOrganizationValidationConfig({
   earlyClockInToleranceMinutes: 20,
   lateClockOutToleranceMinutes: 20,
   nonWorkdayClockInAllowed: false,
-  nonWorkdayClockInWarning: true
-})
+  nonWorkdayClockInWarning: true,
+});
 ```
 
 ---
@@ -262,9 +264,7 @@ if (entryType === "CLOCK_IN") {
   if (deviationMinutes > orgConfig.clockInToleranceMinutes) {
     warnings.push(`Fichaje tardío: ${deviationMinutes} minutos de retraso`);
   } else if (deviationMinutes < -orgConfig.earlyClockInToleranceMinutes) {
-    warnings.push(
-      `Fichaje muy anticipado: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`
-    );
+    warnings.push(`Fichaje muy anticipado: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`);
   }
 }
 ```
@@ -276,13 +276,9 @@ if (entryType === "CLOCK_IN") {
 ```typescript
 if (entryType === "CLOCK_OUT") {
   if (deviationMinutes < -orgConfig.clockOutToleranceMinutes) {
-    warnings.push(
-      `Salida anticipada: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`
-    );
+    warnings.push(`Salida anticipada: ${Math.abs(deviationMinutes)} minutos antes de lo esperado`);
   } else if (deviationMinutes > orgConfig.lateClockOutToleranceMinutes) {
-    warnings.push(
-      `Salida muy tardía: ${deviationMinutes} minutos después de lo esperado`
-    );
+    warnings.push(`Salida muy tardía: ${deviationMinutes} minutos después de lo esperado`);
   }
 }
 ```
@@ -384,35 +380,39 @@ return {
 Añadida sección de validaciones al final del componente:
 
 ```tsx
-{/* Validaciones */}
-{(summary.validationWarnings.length > 0 || summary.validationErrors.length > 0) && (
-  <>
-    <Separator />
-    <div className="space-y-2">
-      {/* Errores en rojo */}
-      {summary.validationErrors.map((error, index) => (
-        <div
-          key={`error-${index}`}
-          className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 p-2.5 dark:border-red-900 dark:bg-red-950/30"
-        >
-          <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
-          <span className="text-xs text-red-700 dark:text-red-300">{error}</span>
-        </div>
-      ))}
+{
+  /* Validaciones */
+}
+{
+  (summary.validationWarnings.length > 0 || summary.validationErrors.length > 0) && (
+    <>
+      <Separator />
+      <div className="space-y-2">
+        {/* Errores en rojo */}
+        {summary.validationErrors.map((error, index) => (
+          <div
+            key={`error-${index}`}
+            className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50/50 p-2.5 dark:border-red-900 dark:bg-red-950/30"
+          >
+            <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600 dark:text-red-400" />
+            <span className="text-xs text-red-700 dark:text-red-300">{error}</span>
+          </div>
+        ))}
 
-      {/* Warnings en amarillo/ámbar */}
-      {summary.validationWarnings.map((warning, index) => (
-        <div
-          key={`warning-${index}`}
-          className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900 dark:bg-amber-950/30"
-        >
-          <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-          <span className="text-xs text-amber-700 dark:text-amber-300">{warning}</span>
-        </div>
-      ))}
-    </div>
-  </>
-)}
+        {/* Warnings en amarillo/ámbar */}
+        {summary.validationWarnings.map((warning, index) => (
+          <div
+            key={`warning-${index}`}
+            className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-2.5 dark:border-amber-900 dark:bg-amber-950/30"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-xs text-amber-700 dark:text-amber-300">{warning}</span>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
 ```
 
 ---
@@ -443,12 +443,14 @@ Añadida sección de validaciones al final del componente:
 ### Caso 1: Empresa flexible (tolerancia 30 minutos)
 
 **Configuración:**
+
 ```
 - clockInToleranceMinutes: 30
 - clockOutToleranceMinutes: 30
 ```
 
 **Resultado:**
+
 ```
 - Empleado entra 09:25 (esperado 09:00) → ✅ Sin warning (dentro de tolerancia)
 - Empleado entra 09:35 (esperado 09:00) → ⚠️ Warning: "Fichaje tardío: 35 minutos"
@@ -459,12 +461,14 @@ Añadida sección de validaciones al final del componente:
 ### Caso 2: Empresa estricta (tolerancia 5 minutos)
 
 **Configuración:**
+
 ```
 - clockInToleranceMinutes: 5
 - clockOutToleranceMinutes: 5
 ```
 
 **Resultado:**
+
 ```
 - Empleado entra 09:04 (esperado 09:00) → ✅ Sin warning
 - Empleado entra 09:06 (esperado 09:00) → ⚠️ Warning: "Fichaje tardío: 6 minutos"
@@ -475,11 +479,13 @@ Añadida sección de validaciones al final del componente:
 ### Caso 3: Impedir fichajes en días no laborables
 
 **Configuración:**
+
 ```
 - nonWorkdayClockInAllowed: false
 ```
 
 **Resultado:**
+
 ```
 - Empleado intenta fichar un domingo → ❌ Error: "No está permitido fichar en días no laborables"
 - El fichaje NO se crea
@@ -490,12 +496,14 @@ Añadida sección de validaciones al final del componente:
 ### Caso 4: Permitir pero avisar en días no laborables
 
 **Configuración:**
+
 ```
 - nonWorkdayClockInAllowed: true
 - nonWorkdayClockInWarning: true
 ```
 
 **Resultado:**
+
 ```
 - Empleado ficha un domingo → ✅ Fichaje creado + ⚠️ Warning: "Fichaje en día no laboral"
 ```
@@ -505,13 +513,16 @@ Añadida sección de validaciones al final del componente:
 ## 📂 Archivos Clave Implementados
 
 **Server Actions:**
+
 - `/src/server/actions/time-clock-validations.ts` - Gestión de configuración
 
 **Componentes UI:**
+
 - `/src/app/(main)/dashboard/settings/_components/time-clock-validations-tab.tsx` - UI de configuración
 - `/src/app/(main)/dashboard/me/clock/_components/today-summary.tsx` - Visualización de badges
 
 **Integraciones:**
+
 - `/src/lib/schedule-engine.ts` - `validateTimeEntry()` usa configuraciones
 - `/src/server/actions/time-tracking.ts` - `clockIn()`/`clockOut()` guardan validaciones
 - `/src/server/actions/employee-schedule.ts` - `getTodaySummary()` consolida warnings/errors
@@ -582,6 +593,7 @@ model Organization {
 ```
 
 **Valores por defecto:**
+
 - `criticalLateArrivalMinutes`: **30 minutos**
 - `criticalEarlyDepartureMinutes`: **30 minutos**
 - `alertsEnabled`: **true** (sistema activado)
@@ -629,6 +641,7 @@ if (config.criticalEarlyDepartureMinutes < config.clockOutToleranceMinutes) {
 ```
 
 **Estas validaciones garantizan:**
+
 - Tolerancia ≤ Umbral crítico (coherencia lógica)
 - Imposible configurar alertas críticas antes que las warnings
 
@@ -698,30 +711,32 @@ Ejemplo: Tolerancia entrada 15min, Umbral crítico 30min
 #### Entrada Tarde (Late Arrival)
 
 **Configuración ejemplo:**
+
 - `clockInToleranceMinutes = 15`
 - `criticalLateArrivalMinutes = 30`
 
 **Comportamiento:**
 
-| Retraso | Nivel | Indicador | Acción |
-|---------|-------|-----------|--------|
-| 0-15 min | ✅ OK | Sin badge | Ninguna |
-| 16-30 min | ⚠️ WARNING | Badge amarillo | Warning en fichaje |
-| 31+ min | 🔴 CRITICAL | Badge rojo | Warning + Notificación (si activado) |
+| Retraso   | Nivel       | Indicador      | Acción                               |
+| --------- | ----------- | -------------- | ------------------------------------ |
+| 0-15 min  | ✅ OK       | Sin badge      | Ninguna                              |
+| 16-30 min | ⚠️ WARNING  | Badge amarillo | Warning en fichaje                   |
+| 31+ min   | 🔴 CRITICAL | Badge rojo     | Warning + Notificación (si activado) |
 
 #### Salida Temprana (Early Departure)
 
 **Configuración ejemplo:**
+
 - `clockOutToleranceMinutes = 15`
 - `criticalEarlyDepartureMinutes = 30`
 
 **Comportamiento:**
 
-| Adelanto | Nivel | Indicador | Acción |
-|----------|-------|-----------|--------|
-| 0-15 min | ✅ OK | Sin badge | Ninguna |
-| 16-30 min | ⚠️ WARNING | Badge amarillo | Warning en fichaje |
-| 31+ min | 🔴 CRITICAL | Badge rojo | Warning + Notificación (si activado) |
+| Adelanto  | Nivel       | Indicador      | Acción                               |
+| --------- | ----------- | -------------- | ------------------------------------ |
+| 0-15 min  | ✅ OK       | Sin badge      | Ninguna                              |
+| 16-30 min | ⚠️ WARNING  | Badge amarillo | Warning en fichaje                   |
+| 31+ min   | 🔴 CRITICAL | Badge rojo     | Warning + Notificación (si activado) |
 
 ---
 
@@ -730,6 +745,7 @@ Ejemplo: Tolerancia entrada 15min, Umbral crítico 30min
 #### Caso 1: Empresa con alertas estrictas
 
 **Configuración:**
+
 ```typescript
 clockInToleranceMinutes: 10,
 criticalLateArrivalMinutes: 20,
@@ -738,6 +754,7 @@ alertNotificationsEnabled: true
 ```
 
 **Escenarios:**
+
 ```
 Horario: 09:00
 - 09:08 → ✅ OK (dentro de tolerancia 10 min)
@@ -750,6 +767,7 @@ Horario: 09:00
 #### Caso 2: Empresa flexible sin notificaciones
 
 **Configuración:**
+
 ```typescript
 clockInToleranceMinutes: 30,
 criticalLateArrivalMinutes: 60,
@@ -758,6 +776,7 @@ alertNotificationsEnabled: false
 ```
 
 **Escenarios:**
+
 ```
 Horario: 09:00
 - 09:25 → ✅ OK (dentro de tolerancia 30 min)
@@ -770,11 +789,13 @@ Horario: 09:00
 #### Caso 3: Sistema de alertas desactivado
 
 **Configuración:**
+
 ```typescript
-alertsEnabled: false
+alertsEnabled: false;
 ```
 
 **Resultado:**
+
 ```
 - Validaciones básicas siguen funcionando (warnings en fichajes)
 - NO se generan alertas críticas
@@ -787,22 +808,26 @@ alertsEnabled: false
 ### 🔮 Próximas Implementaciones
 
 **Fase 2: Detección de Alertas**
+
 - Server action para analizar fichajes y generar alertas
 - Detección automática de patrones (3 retrasos consecutivos = alerta)
 - Clasificación de alertas por severidad
 
 **Fase 3: Dashboard de Alertas**
+
 - Página `/dashboard/time-tracking/alerts`
 - Vista de todas las alertas activas
 - Filtros por empleado, tipo, severidad
 - Acciones: resolver, comentar, justificar
 
 **Fase 4: Notificaciones**
+
 - Sistema de notificaciones en navbar (contador)
 - Notificaciones por email (opcional)
 - Configuración de destinatarios por rol
 
 **Fase 5: Visualización en Componentes**
+
 - Badges de alertas en `DayCard`
 - Columna de alertas en tabla de empleados
 - Indicadores visuales en tiempo real
@@ -834,6 +859,7 @@ PrismaClientValidationError: Unknown field `criticalLateArrivalMinutes`
 ```
 
 **Solución:**
+
 ```bash
 pkill -f "next|node.*3000" && rm -rf .next && npx prisma generate && npm run dev
 ```
