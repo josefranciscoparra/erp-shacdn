@@ -1,10 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 🚧 EN DESARROLLO - Sprint 2 FASE 3 Completada
+**Estado:** 🚧 EN DESARROLLO - Sprint 2 FASE 4 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
-**Última actualización:** 2025-11-20 22:30
+**Última actualización:** 2025-11-20 23:15
 
 ---
 
@@ -508,44 +508,116 @@ npx eslint src/server/actions/alerts.ts --fix
 
 ---
 
-#### FASE 4: Sistema de Contexto Activo
+#### FASE 4: Sistema de Contexto Activo ✅ COMPLETADO (2025-11-20)
 
-**Nuevo modelo:**
+**Modelo creado:**
+- ✅ `/prisma/schema.prisma`: Modelo `UserActiveContext` añadido
+
+**Server Actions creadas:**
+- ✅ `/src/server/actions/user-context.ts` (339 líneas)
+
+**Server Actions implementadas:**
+```typescript
+// ✅ Obtiene contexto activo del usuario (retorna null si no configurado)
+export async function getActiveContext(): Promise<UserActiveContextData | null>
+
+// ✅ Establece contexto activo con validaciones completas
+export async function setActiveContext(
+  scope: ActiveScope,
+  options?: { departmentId?: string; costCenterId?: string; teamId?: string }
+): Promise<UserActiveContextData>
+
+// ✅ Obtiene ámbitos disponibles según responsabilidades del usuario
+export async function getAvailableScopes(): Promise<{
+  hasOrganizationScope: boolean;
+  departments: Array<{ id: string; name: string }>;
+  costCenters: Array<{ id: string; name: string; code: string | null }>;
+  teams: Array<{ id: string; name: string; code: string | null }>;
+}>
+```
+
+**Modelo implementado:**
 ```prisma
 model UserActiveContext {
   id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User @relation(...)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Usuario (uno a uno)
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Contexto activo seleccionado por el usuario
-  activeScope String // "ALL" | "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"
+  activeScope String @default("ALL") // "ALL" | "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM"
 
-  // ID del ámbito activo (solo si activeScope != "ALL" y != "ORGANIZATION")
-  activeDepartmentId  String?
-  activeCostCenterId  String?
-  activeTeamId        String?
+  // IDs de ámbito activo (opcionales según scope)
+  activeDepartmentId String?
+  activeDepartment   Department? @relation("UserActiveDepartment", fields: [activeDepartmentId], references: [id])
 
-  updatedAt DateTime @updatedAt
+  activeCostCenterId String?
+  activeCostCenter   CostCenter? @relation("UserActiveCostCenter", fields: [activeCostCenterId], references: [id])
+
+  activeTeamId String?
+  activeTeam   Team?   @relation("UserActiveTeam", fields: [activeTeamId], references: [id])
+
+  // Índices
+  @@index([userId])
+  @@index([orgId])
+  @@index([activeScope])
 }
 ```
 
-**Server Action:**
-```typescript
-// Cambiar contexto activo
-export async function setActiveContext(scope: Scope, scopeId?: string): Promise<void>
+**Funcionalidades implementadas:**
 
-// Obtener contexto activo
-export async function getActiveContext(): Promise<UserActiveContext>
+1. ✅ **Scopes disponibles**
+   - `ALL`: Ver todo lo accesible (acumulativo de todas las responsabilidades)
+   - `ORGANIZATION`: Solo nivel organizacional
+   - `DEPARTMENT`: Solo un departamento específico
+   - `COST_CENTER`: Solo un centro de coste específico
+   - `TEAM`: Solo un equipo específico
+
+2. ✅ **Validaciones completas**
+   - `DEPARTMENT` requiere `departmentId` obligatorio
+   - `COST_CENTER` requiere `costCenterId` obligatorio
+   - `TEAM` requiere `teamId` obligatorio
+   - `ALL` y `ORGANIZATION` limpian IDs automáticamente
+   - Verifica ownership (entidad pertenece a la organización del usuario)
+
+3. ✅ **Persistencia en BD**
+   - Contexto guardado en base de datos (no localStorage)
+   - Persiste entre sesiones y dispositivos
+   - UPSERT automático (crea o actualiza según exista)
+
+4. ✅ **Relaciones inversas**
+   - `User.activeContext` (uno a uno)
+   - `Organization.userActiveContexts`
+   - `Department.activeContexts`
+   - `CostCenter.activeContexts`
+   - `Team.activeContexts`
+
+**Validación:**
+```bash
+npx eslint src/server/actions/user-context.ts --fix
+# ✅ 0 errores, 10 warnings (complexity, unnecessary optional chain)
+
+npx prisma db push
+# ✅ Base de datos sincronizada
+# ✅ Prisma Client regenerado
 ```
 
-**UI:**
-- Dropdown en header: "Ver: Todo | Mi Equipo | Mi Centro | Mi Departamento"
-- Se guarda en BD (no localStorage)
-- Afecta a:
-  - Dashboard de empleados
-  - Fichajes
-  - Alertas
-  - Reportes
+**Commits:**
+- `efb5620` - feat(alerts): Sprint 2 FASE 4 - Modelo UserActiveContext
+- `7f4dc2b` - feat(alerts): Sprint 2 FASE 4 - Server Actions de Contexto Activo
+
+**Próximos pasos (Sprint 3 - UI):**
+- Implementar UI de gestión de suscripciones a alertas
+- Dashboard de alertas mejorado con filtros
+- Selector de contexto global en header (dropdown)
+- Integrar contexto activo en filtros de dashboard/empleados/fichajes
 
 ---
 
