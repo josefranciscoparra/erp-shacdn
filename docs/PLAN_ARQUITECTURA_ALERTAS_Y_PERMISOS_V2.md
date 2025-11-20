@@ -1,10 +1,10 @@
 # PLAN: Sistema de Alertas y Permisos Granulares v2.0
 
 **Fecha:** 2025-11-20
-**Estado:** 🚧 EN DESARROLLO - Sprint 2 FASE 4 Completada
+**Estado:** 🚧 EN DESARROLLO - Sprint 3 FASE 5 Completada
 **Versión:** 2.0
 **Tipo:** Mejora Arquitectural
-**Última actualización:** 2025-11-20 23:15
+**Última actualización:** 2025-11-21 00:30
 
 ---
 
@@ -621,23 +621,70 @@ npx prisma db push
 
 ---
 
-### Sprint 3: UI y Experiencia de Usuario ⏳ PENDIENTE
+### Sprint 3: UI y Experiencia de Usuario 🚧 EN CURSO
 
-#### FASE 5: UI de Gestión de Suscripciones
+#### FASE 5: UI de Gestión de Suscripciones ✅ COMPLETADO (2025-11-21)
 
 **Ruta:**
-- `/dashboard/settings/alert-subscriptions`
+- `/dashboard/settings` → Tab "Alertas"
 
-**Componentes:**
-- `AlertSubscriptionsList` - Lista de suscripciones actuales
-- `AddSubscriptionDialog` - Añadir nueva suscripción
-- `SubscriptionCard` - Card con scope + ámbito + botón eliminar
+**Componentes creados:**
+- ✅ `/src/app/(main)/dashboard/settings/_components/alert-subscriptions-tab.tsx` (185 líneas)
+- ✅ `/src/app/(main)/dashboard/settings/_components/add-subscription-dialog.tsx` (287 líneas)
 
-**Features:**
-- Ver todas las suscripciones del usuario
-- Añadir nuevas suscripciones (con selector de scope + ámbito)
-- Eliminar suscripciones existentes
-- Preview de cuántas alertas recibiría
+**Componentes modificados:**
+- ✅ `/src/app/(main)/dashboard/settings/page.tsx` - Añadido tab "Alertas"
+
+**Funcionalidades implementadas:**
+
+1. ✅ **Vista de suscripciones actuales** (`AlertSubscriptionsTab`)
+   - Lista con cards responsive (grid 1 col → 2 cols en @2xl/main)
+   - Información por suscripción: scope, ámbito, email enabled
+   - Badges para severidades y tipos de alerta filtrados
+   - Botón eliminar integrado en cada card
+   - EmptyState cuando no hay suscripciones
+   - Loading states con Skeleton components
+
+2. ✅ **Dialog para añadir suscripciones** (`AddSubscriptionDialog`)
+   - Selector de scope dinámico según responsabilidades del usuario
+   - Usa `getAvailableScopes()` para mostrar solo ámbitos permitidos
+   - Selector condicional de ámbito específico (Department/CostCenter/Team)
+   - Filtros opcionales de severidad (INFO/WARNING/CRITICAL)
+   - Filtros opcionales de tipo de alerta (8 tipos disponibles)
+   - Toggle de notificación por email
+   - Validación: scopeId obligatorio si scope ≠ ORGANIZATION
+   - Integración con `subscribeToAlerts()` server action
+
+3. ✅ **Integración en Settings**
+   - Tab "Alertas" añadido al menú de configuración
+   - Responsive: Select en móvil, TabsList en desktop
+   - Recarga automática después de crear/eliminar suscripciones
+
+**Patrones de diseño aplicados:**
+- EmptyState con icono Bell y CTA
+- Card-based layout con badges
+- Dialog pattern para creación
+- Container queries (@2xl/main)
+- Loading/Error handling con try-catch
+
+**Validación:**
+```bash
+npm run lint
+# ✅ 0 errores
+# ⚠️ 1 warning (complexity 22 en AddSubscriptionDialog - aceptable)
+
+git status
+# ✅ 3 archivos modificados/creados
+```
+
+**Commit:**
+- `c5e3bc3` - feat(alerts): Sprint 3 FASE 5 - UI de Gestión de Suscripciones
+
+**Próximos pasos (Sprint 3 FASE 6):**
+- Mejorar dashboard de alertas existente
+- Añadir selector de contexto en header
+- Añadir filtros avanzados (tipo, severidad, estado, fecha)
+- Añadir tabs "Mis Alertas" | "Todas"
 
 ---
 
