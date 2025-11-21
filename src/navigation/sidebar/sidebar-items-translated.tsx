@@ -178,32 +178,11 @@ export function useSidebarItems(): NavGroup[] {
           icon: CheckSquare,
           permission: "approve_requests",
         },
-        // MOVED HERE and RENAMED
         {
           title: "Responsables de Área",
           url: "/dashboard/me/responsibilities",
           icon: ClipboardList,
-          permission: "view_employees", // Adjusted permission
-        },
-        {
-          title: "Gastos",
-          url: "/dashboard/expenses",
-          icon: Receipt,
-          permission: "approve_requests",
-          subItems: [
-            {
-              title: "Analytics",
-              url: "/dashboard/expenses",
-              icon: BarChart3,
-              permission: "approve_requests",
-            },
-            {
-              title: "Reembolsos",
-              url: "/dashboard/expenses/reimbursements",
-              icon: Banknote,
-              permission: "approve_requests",
-            },
-          ],
+          permission: "view_employees",
         },
         ...(signaturesEnabled
           ? [
@@ -215,6 +194,36 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
+      ],
+    },
+    {
+      id: 6,
+      label: "Finanzas",
+      permission: "approve_requests", // Solo visible para managers/admin
+      items: [
+        {
+          title: "Gestión de Gastos",
+          url: "/dashboard/expenses",
+          icon: Banknote,
+          permission: "approve_requests",
+          subItems: [
+            {
+              title: "Control de Gastos",
+              url: "/dashboard/expenses",
+              permission: "approve_requests",
+            },
+            {
+              title: "Reembolsos",
+              url: "/dashboard/expenses/reimbursements",
+              permission: "approve_requests",
+            },
+            {
+              title: "Políticas",
+              url: "/dashboard/expenses/policies",
+              permission: "manage_organization",
+            },
+          ],
+        },
       ],
     },
     {
