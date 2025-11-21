@@ -79,20 +79,20 @@ export async function getActiveContext(): Promise<UserActiveContextData | null> 
     const context = await prisma.userActiveContext.findUnique({
       where: { userId: session.user.id },
       include: {
-        department: {
+        activeDepartment: {
           select: {
             id: true,
             name: true,
           },
         },
-        costCenter: {
+        activeCostCenter: {
           select: {
             id: true,
             name: true,
             code: true,
           },
         },
-        team: {
+        activeTeam: {
           select: {
             id: true,
             name: true,
@@ -231,20 +231,20 @@ export async function setActiveContext(
         activeTeamId,
       },
       include: {
-        department: {
+        activeDepartment: {
           select: {
             id: true,
             name: true,
           },
         },
-        costCenter: {
+        activeCostCenter: {
           select: {
             id: true,
             name: true,
             code: true,
           },
         },
-        team: {
+        activeTeam: {
           select: {
             id: true,
             name: true,
@@ -329,16 +329,21 @@ export async function getAvailableScopes() {
     // ✅ Usuarios ADMIN y RRHH siempre tienen acceso a nivel ORGANIZATION
     // Esto permite que puedan suscribirse a alertas de toda la organización
     // sin necesidad de configurar AreaResponsible explícitamente
-    if (session.user.role === "ADMIN" || session.user.role === "RRHH") {
+    console.log("[getAvailableScopes] User role:", session.user.role);
+    if (session.user.role === "ORG_ADMIN" || session.user.role === "HR_ADMIN") {
       hasOrganizationScope = true;
+      console.log("[getAvailableScopes] ORG_ADMIN/HR_ADMIN detected, setting hasOrganizationScope = true");
     }
 
-    return {
+    const result = {
       hasOrganizationScope,
       departments: Array.from(departments.values()),
       costCenters: Array.from(costCenters.values()),
       teams: Array.from(teams.values()),
     };
+
+    console.log("[getAvailableScopes] Result:", result);
+    return result;
   } catch (error) {
     console.error("Error al obtener ámbitos disponibles:", error);
     throw error;

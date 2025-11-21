@@ -928,8 +928,222 @@ export async function getVisibleEmployees(contextId?: string): Promise<Employee[
 
 ---
 
-**Versión:** 2.0
-**Última actualización:** 2025-11-20
+## 📋 Sprint 3 FASE 7: Mejora UX - "Mis Responsabilidades"
+
+**Fecha:** 2025-11-20 22:00
+**Estado:** 🚧 EN DESARROLLO
+**Tipo:** Mejora de UX y Arquitectura
+
+### 🎯 Problema Detectado
+
+**Arquitectura actual INCORRECTA:**
+- ❌ Suscripciones a alertas están en **Settings** (pantalla de configuración organizacional)
+- ❌ Settings está diseñado para RRHH/ADMIN, no para usuarios finales
+- ❌ Managers tienen que entrar a una pantalla de "administración" para gestionar sus notificaciones personales
+- ❌ No hay visibilidad clara de "mis áreas de responsabilidad"
+
+**Problema de UX:**
+Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
+1. Crear manualmente una suscripción
+2. Elegir el scope (TEAM)
+3. Elegir qué equipo (de una lista)
+4. No ve un resumen de TODAS sus responsabilidades
+5. No tiene acceso directo al dashboard filtrado de cada equipo
+
+### ✅ Solución: Nueva Pantalla "Mis Responsabilidades"
+
+**Ruta:** `/dashboard/me/responsibilities`
+
+**Concepto:**
+- Vista personal de TODAS las áreas donde el usuario es responsable
+- Gestión de suscripciones POR ÁREA (no global)
+- Acceso directo al dashboard de cada área
+- Claridad visual de estado de suscripciones
+
+### 🏗️ Arquitectura Propuesta
+
+#### 1. **Nueva Página**
+```
+/src/app/(main)/dashboard/me/responsibilities/
+  ├── page.tsx                           # Página principal
+  └── _components/
+      ├── responsibilities-list.tsx      # Lista de áreas de responsabilidad
+      ├── responsibility-card.tsx        # Card individual por área
+      └── subscription-dialog.tsx        # Dialog para gestionar suscripción (scope pre-seleccionado)
+```
+
+#### 2. **Nuevo Server Action**
+```typescript
+// /src/server/actions/responsibilities.ts
+
+/**
+ * Obtiene todas las áreas de responsabilidad del usuario autenticado
+ * con información de suscripciones activas
+ */
+export async function getMyResponsibilities(): Promise<ResponsibilityWithSubscription[]>
+```
+
+#### 3. **Estructura de Datos**
+```typescript
+type ResponsibilityWithSubscription = {
+  // Datos de AreaResponsible
+  id: string;
+  scope: "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM";
+  isActive: boolean;
+
+  // Datos del área específica
+  organization?: { id: string; name: string };
+  department?: { id: string; name: string };
+  costCenter?: { id: string; name: string; code: string };
+  team?: { id: string; name: string; code: string };
+
+  // Suscripción activa (si existe)
+  subscription?: {
+    id: string;
+    severityLevels: string[];
+    alertTypes: string[];
+    notifyByEmail: boolean;
+  } | null;
+
+  // Metadatos
+  employeesCount: number;  // Cuántos empleados están bajo esta responsabilidad
+  activeAlertsCount: number;  // Alertas activas actualmente
+};
+```
+
+#### 4. **UI/UX Mejorada**
+
+**Card de Responsabilidad:**
+```
+┌─────────────────────────────────────────────────────────┐
+│ 🏢 Organización: ACME Corp                              │
+│ Ámbito: Toda la organización                            │
+│                                                          │
+│ 👥 152 empleados · 🔔 5 alertas activas                 │
+│                                                          │
+│ ✅ Suscrito a alertas                                   │
+│ Email activado · Filtros: CRITICAL, WARNING             │
+│                                                          │
+│ [Editar Suscripción]  [Ver Dashboard de Alertas →]     │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│ 👥 Equipo: Desarrollo Frontend                          │
+│ Centro: Oficina Madrid · Depto: Tecnología              │
+│                                                          │
+│ 👥 12 empleados · 🔔 2 alertas activas                  │
+│                                                          │
+│ ❌ No suscrito a alertas                                │
+│                                                          │
+│ [Suscribirme a Alertas]  [Ver Dashboard de Alertas →]  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Dialog de Suscripción (Mejorado):**
+- ✅ **Scope pre-seleccionado** (no se elige, viene del área)
+- ✅ Solo configurar: Severidades, Tipos de alerta, Email
+- ✅ Preview de "qué alertas recibirás"
+- ✅ Más simple y directo
+
+#### 5. **Cambios en Settings**
+
+**ANTES (Incorrecto):**
+```
+Settings (RRHH/ADMIN)
+├── Profile
+├── Account
+├── Security
+├── Alerts ← ❌ Suscripciones personales aquí (MAL)
+└── Geolocation
+```
+
+**DESPUÉS (Correcto):**
+```
+Settings (RRHH/ADMIN)
+├── Profile
+├── Account
+├── Security
+├── Geolocation
+└── (SE ELIMINA Alerts tab)
+```
+
+**Mis Responsabilidades (Todos los usuarios):**
+```
+/dashboard/me/
+├── clock           # Fichaje
+├── pto             # Ausencias
+└── responsibilities # ← NUEVO: Áreas de responsabilidad + suscripciones
+```
+
+### 🎨 Navegación Actualizada
+
+**Sidebar → Sección "Mi Espacio":**
+```
+Mi Espacio
+├── 🕐 Fichar
+├── 📅 Mis Ausencias
+└── 📊 Mis Responsabilidades  ← NUEVO
+```
+
+### 📊 Beneficios
+
+1. **Claridad:** El usuario ve TODAS sus áreas de responsabilidad en un solo lugar
+2. **Contexto:** Cada área muestra métricas relevantes (empleados, alertas activas)
+3. **Accesibilidad:** Acceso directo al dashboard filtrado de cada área
+4. **Simplicidad:** Suscripciones ligadas a áreas, no globales abstractas
+5. **Arquitectura correcta:** Separación entre configuración organizacional (Settings) y gestión personal (Me)
+
+### 🔄 Flujo de Usuario Mejorado
+
+**ANTES:**
+1. Usuario entra a Settings (confuso, ¿por qué estoy en "ajustes"?)
+2. Ve tab "Alerts" (no está claro qué es)
+3. Click "Añadir Suscripción"
+4. Elige scope manualmente (¿ORGANIZATION? ¿TEAM?)
+5. Elige área específica (de una lista genérica)
+6. No ve contexto de sus otras responsabilidades
+
+**DESPUÉS:**
+1. Usuario entra a "Mis Responsabilidades" (claro y personal)
+2. Ve lista de TODAS sus áreas con estado visual
+3. Por cada área: empleados, alertas activas, estado de suscripción
+4. Click "Suscribirme" en un área específica
+5. Dialog simple: solo filtros (scope ya está pre-seleccionado)
+6. Botón directo a "Ver Dashboard de Alertas" filtrado por esa área
+
+### 📝 Tareas de Implementación
+
+- [x] Documentar nueva arquitectura
+- [x] Crear `/dashboard/me/responsibilities/page.tsx`
+- [x] Crear `responsibilities-list.tsx` component
+- [x] Crear `responsibility-card.tsx` component
+- [x] Adaptar `subscription-dialog.tsx` para scope pre-seleccionado
+- [x] Crear `getMyResponsibilities()` server action
+- [x] Eliminar tab "Alerts" de Settings page
+- [x] Actualizar navegación sidebar
+- [x] Testing del flujo completo
+
+### 🗂️ Archivos Afectados
+
+**Crear:**
+- `/src/app/(main)/dashboard/me/responsibilities/page.tsx`
+- `/src/app/(main)/dashboard/me/responsibilities/_components/responsibilities-list.tsx`
+- `/src/app/(main)/dashboard/me/responsibilities/_components/responsibility-card.tsx`
+- `/src/app/(main)/dashboard/me/responsibilities/_components/subscription-dialog.tsx`
+- `/src/server/actions/responsibilities.ts`
+
+**Modificar:**
+- `/src/app/(main)/dashboard/settings/page.tsx` (eliminar tab Alerts)
+- `/src/navigation/sidebar-nav.tsx` (agregar link a Mis Responsabilidades)
+
+**Eliminar:**
+- `/src/app/(main)/dashboard/settings/_components/alert-subscriptions-tab.tsx` (mover lógica)
+- `/src/app/(main)/dashboard/settings/_components/add-subscription-dialog.tsx` (adaptar y mover)
+
+---
+
+**Versión:** 2.1
+**Última actualización:** 2025-11-20 22:00
 **Autor:** Sistema de Planificación ERP TimeNow
 
 **Cambios en esta versión:**
@@ -938,4 +1152,5 @@ export async function getVisibleEmployees(contextId?: string): Promise<Employee[
 - ✅ Arquitectura propuesta documentada
 - ✅ Decisiones técnicas definidas
 - ✅ Roadmap con 5 sprints planificados
+- ✅ Sprint 3 FASE 7: Mejora UX "Mis Responsabilidades" documentada
 - ✅ Checklist de validación incluido

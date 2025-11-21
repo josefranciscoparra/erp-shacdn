@@ -21,6 +21,7 @@ import {
   BarChart3,
   CalendarCheck,
   AlertCircle,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
 
@@ -89,6 +90,11 @@ export function useSidebarItems(): NavGroup[] {
           title: "Mis Vacaciones",
           url: "/dashboard/me/pto",
           icon: CalendarDays,
+        },
+        {
+          title: "Mis Responsabilidades",
+          url: "/dashboard/me/responsibilities",
+          icon: ClipboardList,
         },
         ...(shiftsEnabled
           ? [

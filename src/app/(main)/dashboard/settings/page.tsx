@@ -11,7 +11,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import { AbsenceTypesTab } from "./_components/absence-types-tab";
-import { AlertSubscriptionsTab } from "./_components/alert-subscriptions-tab";
 import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
@@ -26,7 +25,6 @@ export default function SettingsPage() {
   const tabs = [
     { value: "organization", label: "Organización" },
     { value: "absence-types", label: "Tipos de Ausencia" },
-    { value: "alerts", label: "Alertas" },
     { value: "chat", label: "Chat" },
     { value: "shifts", label: "Turnos" },
     { value: "geolocation", label: "Geolocalización" },
@@ -84,10 +82,6 @@ export default function SettingsPage() {
 
           <TabsContent value="absence-types" className="mt-4 md:mt-6">
             <AbsenceTypesTab />
-          </TabsContent>
-
-          <TabsContent value="alerts" className="mt-4 md:mt-6">
-            <AlertSubscriptionsTab />
           </TabsContent>
 
           <TabsContent value="chat" className="mt-4 md:mt-6">

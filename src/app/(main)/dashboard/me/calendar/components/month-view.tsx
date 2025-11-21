@@ -18,21 +18,14 @@ import { es } from "date-fns/locale";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
-import { DefaultStartHour } from "../constants";
+import { DefaultStartHour, EventGap, EventHeight } from "../constants";
+import { useEventVisibility } from "../hooks/use-event-visibility";
+import type { CalendarEvent } from "../types";
+import { getAllEventsForDay, getEventsForDay, getSpanningEventsForDay, sortEvents } from "../utils";
 
-import {
-  DraggableEvent,
-  DroppableCell,
-  EventGap,
-  EventHeight,
-  EventItem,
-  getAllEventsForDay,
-  getEventsForDay,
-  getSpanningEventsForDay,
-  sortEvents,
-  useEventVisibility,
-  type CalendarEvent,
-} from "./";
+import { DraggableEvent } from "./draggable-event";
+import { DroppableCell } from "./droppable-cell";
+import { EventItem } from "./event-item";
 
 interface MonthViewProps {
   currentDate: Date;

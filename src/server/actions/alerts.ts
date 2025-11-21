@@ -386,6 +386,61 @@ export async function unsubscribeFromAlerts(subscriptionId: string) {
 }
 
 /**
+ * Actualiza una suscripción a alertas existente
+ *
+ * @param subscriptionId ID de la suscripción
+ * @param options Nuevas opciones de la suscripción
+ * @returns Suscripción actualizada
+ *
+ * @example
+ * await updateAlertSubscription("sub123", {
+ *   severityLevels: ["CRITICAL"],
+ *   alertTypes: ["LATE_ARRIVAL"]
+ * });
+ */
+export async function updateAlertSubscription(
+  subscriptionId: string,
+  options: {
+    severityLevels?: string[];
+    alertTypes?: string[];
+  },
+) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session?.user?.orgId) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    // Verificar que la suscripción pertenece al usuario
+    const subscription = await prisma.alertSubscription.findFirst({
+      where: {
+        id: subscriptionId,
+        userId: session.user.id,
+        orgId: session.user.orgId,
+      },
+    });
+
+    if (!subscription) {
+      throw new Error("Suscripción no encontrada");
+    }
+
+    // Actualizar suscripción
+    const updated = await prisma.alertSubscription.update({
+      where: { id: subscriptionId },
+      data: {
+        severityLevels: options.severityLevels ?? [],
+        alertTypes: options.alertTypes ?? [],
+      },
+    });
+
+    return updated;
+  } catch (error) {
+    console.error("Error al actualizar suscripción:", error);
+    throw error;
+  }
+}
+
+/**
  * Obtiene las suscripciones activas del usuario
  *
  * @returns Lista de suscripciones

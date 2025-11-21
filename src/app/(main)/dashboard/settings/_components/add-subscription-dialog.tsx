@@ -61,7 +61,9 @@ export function AddSubscriptionDialog({ open, onOpenChange, onSuccess }: AddSubs
 
   // Cargar scopes disponibles al abrir el dialog
   useEffect(() => {
+    console.log("[AddSubscriptionDialog] useEffect ejecutado. open =", open);
     if (open) {
+      console.log("[AddSubscriptionDialog] Diálogo abierto, cargando scopes...");
       loadAvailableScopes();
       // Reset form
       setScope("ORGANIZATION");
@@ -73,11 +75,13 @@ export function AddSubscriptionDialog({ open, onOpenChange, onSuccess }: AddSubs
   }, [open]);
 
   const loadAvailableScopes = async () => {
+    console.log("[AddSubscriptionDialog] loadAvailableScopes iniciado");
     try {
       const scopes = await getAvailableScopes();
+      console.log("[AddSubscriptionDialog] Scopes recibidos:", scopes);
       setAvailableScopes(scopes as AvailableScopes);
     } catch (error) {
-      console.error("Error al cargar scopes:", error);
+      console.error("[AddSubscriptionDialog] Error al cargar scopes:", error);
     }
   };
 

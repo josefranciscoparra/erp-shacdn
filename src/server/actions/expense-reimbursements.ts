@@ -55,8 +55,8 @@ async function getHRUserData() {
     throw new Error("Usuario no encontrado");
   }
 
-  // Solo HR_ADMIN y ADMIN pueden gestionar reembolsos
-  if (user.role !== "HR_ADMIN" && user.role !== "ADMIN") {
+  // Solo HR_ADMIN y ORG_ADMIN pueden gestionar reembolsos
+  if (user.role !== "HR_ADMIN" && user.role !== "ORG_ADMIN") {
     throw new Error("No tienes permisos para gestionar reembolsos");
   }
 
