@@ -13,13 +13,15 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { AuditTimeline, type TimelineEvent } from "@/components/ui/audit-timeline";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
 
 const expenseCategories: Record<string, string> = {
@@ -31,6 +33,46 @@ const expenseCategories: Record<string, string> = {
   LODGING: "Alojamiento",
   OTHER: "Otro",
 };
+
+function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+
+  // 1. Creación
+  events.push({
+    id: "created",
+    type: "CREATED",
+    actorName: item.employeeName,
+    actorImage: item.employeeImage,
+    date: item.createdAt,
+    comment: item.type === "PTO" ? (item.details?.reason as string) : (item.details?.notes as string),
+  });
+
+  // 2. Decisión (si existe en audit)
+  const audit = item.details?.audit;
+  if (audit?.decidedAt || audit?.approvedAt || audit?.rejectedAt || (item.type === "ALERT" && item.status !== "ACTIVE")) {
+    // Para alertas, usamos resolvedAt si está disponible, o updatedAt del item como fallback
+    const date = audit?.decidedAt || audit?.approvedAt || audit?.rejectedAt || item.createdAt; // TODO: Backend should send resolvedAt in audit for alerts
+
+    let type: TimelineEvent["type"] = "COMMENT";
+    switch (item.status) {
+        case "APPROVED": type = "APPROVED"; break;
+        case "REJECTED": type = "REJECTED"; break;
+        case "RESOLVED": type = "RESOLVED"; break;
+        case "DISMISSED": type = "DISMISSED"; break;
+    }
+
+    events.push({
+      id: "decision",
+      type,
+      actorName: audit?.approverName ?? "Sistema/Usuario",
+      actorImage: audit?.approverImage,
+      date,
+      comment: (item.details?.approverComments as string) || (item.details?.rejectionReason as string),
+    });
+  }
+
+  return events;
+}
 
 interface ApprovalDialogProps {
   item: PendingApprovalItem | null;
@@ -274,45 +316,19 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
               {item.summary}
             </Badge>
             <span className="text-muted-foreground text-xs">
-              Solicitado el {format(new Date(item.createdAt), "PPP", { locale: es })}
+              Solicitado el {format(new Date(item.createdAt), "PPPP", { locale: es })}
             </span>
           </div>
 
           {renderDetails()}
 
-          {/* Información adicional si ya fue resuelta */}
-          {isReadOnly && (
-            <div className="bg-muted/10 mt-4 rounded-lg border p-4 text-sm">
-              <p className="mb-2 font-medium">Resolución</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <span className="text-muted-foreground">Estado:</span>
-                  <Badge
-                    className={`ml-2 ${
-                      item.status === "APPROVED"
-                        ? "bg-green-100 text-green-700 hover:bg-green-100"
-                        : "bg-red-100 text-red-700 hover:bg-red-100"
-                    }`}
-                  >
-                    {item.status === "APPROVED" ? "Aprobada" : "Rechazada"}
-                  </Badge>
-                </div>
-                {/* Aquí podríamos mostrar quién aprobó si tuviéramos el nombre, por ahora asumimos el usuario actual en historial */}
-                {item.details?.approverComments && (
-                  <div className="col-span-2 mt-1">
-                    <span className="text-muted-foreground">Comentarios:</span>
-                    <p className="text-muted-foreground mt-1 italic">{item.details.approverComments}</p>
-                  </div>
-                )}
-                {item.details?.rejectionReason && (
-                  <div className="col-span-2 mt-1">
-                    <span className="text-muted-foreground">Motivo rechazo:</span>
-                    <p className="text-destructive mt-1 italic">{item.details.rejectionReason}</p>
-                  </div>
-                )}
-              </div>
+          {/* Timeline de Auditoría */}
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-muted-foreground mb-4">Historial de Actividad</h4>
+            <div className="rounded-lg border bg-muted/10 p-4">
+              <AuditTimeline events={buildTimelineEvents(item)} />
             </div>
-          )}
+          </div>
         </div>
 
         <DialogFooter className="flex gap-2 sm:justify-end">

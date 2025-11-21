@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 
 export type PendingApprovalItem = {
   id: string;
-  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE";
+  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE" | "ALERT";
   employeeName: string;
   employeeImage?: string | null;
   employeeId: string; // Necesario para algunas lógicas UI
@@ -24,6 +24,7 @@ export type PendingApprovalItem = {
 
 /**
  * Obtiene las aprobaciones (pendientes o historial) para el usuario actual.
+ * OPTIMIZADO: Usa Promise.all para paralelizar consultas.
  */
 export async function getMyApprovals(filter: "pending" | "history" = "pending"): Promise<{
   success: boolean;
@@ -45,11 +46,12 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     // Si es historial, buscamos explícitamente donde el usuario actuó como aprobador
     // O si es admin, quizás quiera ver todo, pero por ahora limitamos a "Mis acciones" para consistencia
     const historyWhereClause = isHistory ? { approverId: userId } : {};
+    const isGlobalAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HR_ADMIN"].includes(session.user.role);
 
-    // ==================================================================
-    // 1. PTO REQUESTS
-    // ==================================================================
-    const ptoRequests = await prisma.ptoRequest.findMany({
+    // --- PREPARAR CONSULTAS ---
+
+    // 1. PTO Promise
+    const ptoPromise = prisma.ptoRequest.findMany({
       where: {
         orgId,
         status: statusFilter,
@@ -66,31 +68,116 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
           },
         },
         absenceType: true,
+        approver: { select: { name: true, image: true } },
       },
       orderBy: isHistory ? { approvedAt: "desc" } : { submittedAt: "desc" },
-      take: isHistory ? 50 : undefined, // Limitar historial
+      take: isHistory ? 50 : undefined,
     });
 
-    const isGlobalAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HR_ADMIN"].includes(session.user.role);
+    // 2. Manual Time Entry Promise
+    const manualPromise = prisma.manualTimeEntryRequest.findMany({
+      where: {
+        orgId,
+        status: statusFilter,
+        ...historyWhereClause,
+      },
+      include: {
+        employee: true,
+        approver: { select: { name: true, image: true } },
+      },
+      orderBy: isHistory ? { approvedAt: "desc" } : { submittedAt: "desc" },
+      take: isHistory ? 50 : undefined,
+    });
 
+    // 3. Expenses Promise
+    const expenseStatus = isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED";
+    const expenseApprovalsFilter = isHistory
+      ? { decision: { in: ["APPROVED", "REJECTED"] } as const }
+      : { decision: "PENDING" as const };
+
+    const expensesWhere: any = {
+      orgId,
+      status: expenseStatus,
+    };
+
+    if (isHistory || !isGlobalAdmin) {
+      expensesWhere.approvals = {
+        some: {
+          approverId: userId,
+          ...expenseApprovalsFilter,
+        },
+      };
+    }
+
+    const expensesPromise = prisma.expense.findMany({
+      where: expensesWhere,
+      include: {
+        employee: {
+          include: {
+            employmentContracts: {
+              where: { active: true },
+              take: 1,
+              include: { position: true },
+            },
+          },
+        },
+        approvals: {
+          where: isGlobalAdmin && !isHistory ? {} : { approverId: userId },
+          take: 1,
+          include: { approver: { select: { name: true, image: true } } },
+        },
+        attachments: {
+          take: 1,
+          select: { id: true },
+        },
+      },
+      orderBy: isHistory ? { updatedAt: "desc" } : { date: "desc" },
+      take: isHistory ? 50 : undefined,
+    });
+
+    // 4. Alerts Promise (Solo Admin)
+    const alertsPromise = isGlobalAdmin
+      ? prisma.alert.findMany({
+          where: {
+            orgId,
+            status: isHistory ? { in: ["RESOLVED", "DISMISSED"] } : "ACTIVE",
+          },
+          include: {
+            employee: {
+              include: {
+                employmentContracts: {
+                  where: { active: true },
+                  take: 1,
+                  include: { position: true },
+                },
+              },
+            },
+          },
+          orderBy: { date: "desc" },
+          take: isHistory ? 50 : undefined,
+        })
+      : Promise.resolve([]);
+
+    // --- EJECUTAR EN PARALELO ---
+    const [ptoRequests, manualRequests, expenses, alerts] = await Promise.all([
+      ptoPromise,
+      manualPromise,
+      expensesPromise,
+      alertsPromise,
+    ]);
+
+    // --- PROCESAR PTO ---
     for (const req of ptoRequests) {
       let canView = isGlobalAdmin;
-
-      if (isHistory) {
-        // En historial, si ya filtré por approverId, seguro puedo verla.
-        // Si soy admin y estoy viendo historial global (si quitara el filtro), entonces ok.
-        canView = true;
-      } else if (!canView) {
-        // Lógica de pendientes (jerarquía)
+      if (!isHistory && !canView) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "PTO");
         if (approvers.some((a) => a.userId === userId)) canView = true;
+      } else if (isHistory) {
+        canView = true; // Ya filtrado por approverId en query
       }
 
       if (canView) {
         const activeContract = req.employee.employmentContracts[0];
-        const positionName = activeContract?.position?.title;
-        const departmentName = activeContract?.department?.name;
-
         items.push({
           id: req.id,
           type: "PTO",
@@ -108,37 +195,29 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
             reason: req.reason,
             absenceType: req.absenceType.name,
             color: req.absenceType.color,
-            position: positionName,
-            department: departmentName,
+            position: activeContract?.position?.title,
+            department: activeContract?.department?.name,
             approverComments: req.approverComments,
             rejectionReason: req.rejectionReason,
+            audit: {
+              approvedAt: req.approvedAt?.toISOString(),
+              rejectedAt: req.rejectedAt?.toISOString(),
+              approverName: req.approver?.name,
+              approverImage: req.approver?.image,
+            },
           },
         });
       }
     }
 
-    // ==================================================================
-    // 2. MANUAL TIME ENTRIES
-    // ==================================================================
-    const manualRequests = await prisma.manualTimeEntryRequest.findMany({
-      where: {
-        orgId,
-        status: statusFilter,
-        ...historyWhereClause,
-      },
-      include: { employee: true },
-      orderBy: isHistory ? { approvedAt: "desc" } : { submittedAt: "desc" },
-      take: isHistory ? 50 : undefined,
-    });
-
+    // --- PROCESAR MANUAL TIME ENTRIES ---
     for (const req of manualRequests) {
       let canView = isGlobalAdmin;
-
-      if (isHistory) {
-        canView = true;
-      } else if (!canView) {
+      if (!isHistory && !canView) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "MANUAL_TIME_ENTRY");
         if (approvers.some((a) => a.userId === userId)) canView = true;
+      } else if (isHistory) {
+        canView = true;
       }
 
       if (canView) {
@@ -159,101 +238,20 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
             reason: req.reason,
             approverComments: req.approverComments,
             rejectionReason: req.rejectionReason,
+            audit: {
+              approvedAt: req.approvedAt?.toISOString(),
+              rejectedAt: req.rejectedAt?.toISOString(),
+              approverName: req.approver?.name,
+              approverImage: req.approver?.image,
+            },
           },
         });
       }
     }
 
-    // ==================================================================
-    // 3. EXPENSES
-    // ==================================================================
-    // Lógica específica de gastos basada en la tabla ExpenseApproval
-    const expenseFilter = isHistory
-      ? { decision: { in: ["APPROVED", "REJECTED"] } as const }
-      : { decision: "PENDING" as const };
-
-    // Si es admin, ve todos los gastos de la org. Si no, solo donde es aprobador.
-    const expenseWhereClause: any = {
-      orgId,
-      status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
-    };
-
-    if (!isGlobalAdmin) {
-      expenseWhereClause.approvals = {
-        some: {
-          approverId: userId,
-          ...expenseFilter,
-        },
-      };
-    } else if (isHistory) {
-      // Si es admin viendo historial, quizás quiera ver SU historial de aprobaciones
-      // O todo el historial. Por consistencia con PTO, si filtra historial, mostramos donde él actuó.
-      // Si queremos ver TODO el historial de la empresa, quitamos esta restricción.
-      // De momento, dejemos que historial admin vea donde él aprobó para no saturar,
-      // pero para PENDIENTES (que es lo crítico), ve TODO.
-      expenseWhereClause.approvals = {
-        some: {
-          approverId: userId,
-          ...expenseFilter,
-        },
-      };
-    }
-
-    // Corrección: Si es Admin y Pendientes, NO aplicamos filtro de approvals.
-    // Pero si es Admin y Historial, mantenemos el filtro de "mis aprobaciones" o mostramos todo?
-    // El usuario pidió: "Admin y RRHH puedan verlo".
-    // Para pendientes: Ver TODO.
-    // Para historial: Mantendré "Mis acciones" para no explotar la lista, salvo que me digas lo contrario.
-
-    // Re-definición más limpia:
-    const expensesWhere: any = {
-      orgId,
-      status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
-    };
-
-    if (isHistory || !isGlobalAdmin) {
-      // En historial (para todos) o pendientes (para empleados normales), filtramos por aprobador
-      expensesWhere.approvals = {
-        some: {
-          approverId: userId,
-          ...expenseFilter,
-        },
-      };
-    }
-    // Si es GlobalAdmin y Pendientes, expensesWhere no tiene filtro de approvals -> Ve todo.
-
-    const expenses = await prisma.expense.findMany({
-      where: expensesWhere,
-      include: {
-        employee: {
-          include: {
-            // Intentamos obtener el puesto si es posible
-            employmentContracts: {
-              where: { active: true },
-              take: 1,
-              include: { position: true },
-            },
-          },
-        },
-        approvals: {
-          // Intentamos traer MI aprobación si existe, o la primera pendiente si soy admin viendo global
-          where: isGlobalAdmin && !isHistory ? {} : { approverId: userId },
-          take: 1,
-        },
-        attachments: {
-          take: 1, // Solo necesitamos uno para la vista rápida
-          select: { id: true }, // Solo ID, la URL se construye en el frontend
-        },
-      },
-      orderBy: isHistory ? { updatedAt: "desc" } : { date: "desc" }, // Fecha de gasto o actualización
-      take: isHistory ? 50 : undefined,
-    });
-
+    // --- PROCESAR EXPENSES ---
     for (const expense of expenses) {
       const myApproval = expense.approvals[0];
-      const positionName = expense.employee.employmentContracts[0]?.position?.title;
-      const attachmentId = expense.attachments[0]?.id;
-
       items.push({
         id: expense.id,
         type: "EXPENSE",
@@ -269,29 +267,56 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
           category: expense.category,
           notes: expense.notes,
           merchant: expense.merchantName,
-          attachmentId, // ID del adjunto para construir la URL
-          // Datos de mi aprobación (para historial)
+          attachmentId: expense.attachments[0]?.id,
           approverComments: myApproval?.comment,
           rejectionReason: myApproval?.decision === "REJECTED" ? myApproval.comment : undefined,
-          position: positionName,
+          position: expense.employee.employmentContracts[0]?.position?.title,
+          audit: {
+            decidedAt: myApproval?.decidedAt?.toISOString(),
+            approverName: myApproval?.approver?.name,
+            approverImage: myApproval?.approver?.image,
+          },
         },
       });
     }
 
-    // Ordenar por fecha más reciente
+    // --- PROCESAR ALERTS ---
+    for (const alert of alerts) {
+      const incidents = alert.incidents as any[];
+      const incidentCount = Array.isArray(incidents) ? incidents.length : 0;
+
+      items.push({
+        id: alert.id,
+        type: "ALERT",
+        employeeId: alert.employeeId,
+        employeeName: `${alert.employee.firstName} ${alert.employee.lastName}`,
+        employeeImage: alert.employee.photoUrl,
+        date: alert.date.toISOString(),
+        summary: `Alerta: ${incidentCount} incidencia(s) detectada(s)`,
+        status: alert.status,
+        createdAt: alert.createdAt,
+        details: {
+          date: alert.date.toISOString(),
+          incidents: incidents,
+          position: alert.employee.employmentContracts[0]?.position?.title,
+          alertType: alert.type,
+          // Audit info for alerts (resolver)
+          // TODO: Fetch resolver if needed, currently assuming current user action for new ones
+        },
+      });
+    }
+
+    // Ordenar final
     items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return { success: true, items };
   } catch (error) {
     console.error("❌ Error CRÍTICO en getMyApprovals:", error);
-    if (error instanceof Error) {
-      console.error("Stack:", error.stack);
-    }
     return { success: false, items: [], error: "Error interno del servidor" };
   }
 }
 
-// Alias para compatibilidad si alguien lo llama desde otro lado
+// Alias para compatibilidad
 export async function getMyPendingApprovals() {
   return await getMyApprovals("pending");
 }
@@ -303,7 +328,6 @@ export async function approveRequest(id: string, type: string, comments?: string
   let result;
 
   if (type === "PTO") {
-    // eslint-disable-next-line import/no-cycle
     const { approvePtoRequest } = await import("./approver-pto");
     result = await approvePtoRequest(id, comments);
   } else if (type === "MANUAL_TIME_ENTRY") {

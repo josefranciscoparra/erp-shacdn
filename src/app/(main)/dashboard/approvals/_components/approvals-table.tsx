@@ -16,7 +16,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, ArrowRight, FileText, AlertCircle, Check, Loader2 } from "lucide-react";
+import { CheckCircle2, Clock, ArrowRight, FileText, AlertCircle, Check, Loader2, TriangleAlert, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -134,6 +134,10 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
             label = "Gasto";
             icon = FileText;
             colorClass = "text-green-500";
+          } else if (type === "ALERT") {
+            label = "Alerta";
+            icon = TriangleAlert;
+            colorClass = "text-destructive"; // Rojo semántico
           }
 
           const IconComp = icon;
@@ -168,6 +172,12 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         id: "actions",
         cell: ({ row }) => {
           const item = row.original;
+          // Gastos usan SUBMITTED, Alertas usan ACTIVE, otros PENDING
+          const isPending = 
+            item.status === "PENDING" || 
+            item.status === "SUBMITTED" || 
+            (item.type === "ALERT" && item.status === "ACTIVE");
+
           return (
             <Button
               onClick={() => onReview(item)}
@@ -175,7 +185,15 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
               size="sm"
               className="text-primary hover:text-primary/80 gap-2"
             >
-              Revisar <ArrowRight className="h-3.5 w-3.5" />
+              {isPending ? (
+                <>
+                  Revisar <ArrowRight className="h-3.5 w-3.5" />
+                </>
+              ) : (
+                <>
+                  Ver Detalle <Eye className="h-3.5 w-3.5" />
+                </>
+              )}
             </Button>
           );
         },
