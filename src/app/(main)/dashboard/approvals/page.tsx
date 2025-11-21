@@ -8,7 +8,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getMyPendingApprovals, type PendingApprovalItem } from "@/server/actions/approvals";
+import { getMyApprovals, type PendingApprovalItem } from "@/server/actions/approvals";
 
 import { ApprovalDialog } from "./_components/approval-dialog";
 import { ApprovalsKpiCards } from "./_components/approvals-kpi-cards";
@@ -18,7 +18,7 @@ export default function ApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingApprovalItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedTab, setSelectedTab] = useState("pending");
+  const [selectedTab, setSelectedTab] = useState<"pending" | "history">("pending");
   const [filterType, setFilterType] = useState("all");
 
   // Estado para el diálogo de aprobación
@@ -28,7 +28,7 @@ export default function ApprovalsPage() {
   const loadApprovals = async () => {
     setLoading(true);
     try {
-      const result = await getMyPendingApprovals();
+      const result = await getMyApprovals(selectedTab);
       if (result.success) {
         setItems(result.items);
       } else {
@@ -43,7 +43,7 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     loadApprovals();
-  }, []);
+  }, [selectedTab]); // Recargar al cambiar de pestaña
 
   const handleReview = (item: PendingApprovalItem) => {
     setSelectedItem(item);
@@ -70,33 +70,29 @@ export default function ApprovalsPage() {
         </Card>
       )}
 
-      {/* KPIs */}
-      <ApprovalsKpiCards items={items} loading={loading} />
+      {/* KPIs (Solo mostrar en Pendientes para no confundir, o mostrar estadísticas diferentes) */}
+      {selectedTab === "pending" && <ApprovalsKpiCards items={items} loading={loading} />}
 
       {/* Tabs y Filtros */}
-      <Tabs value={selectedTab} onValueChange={setSelectedTab} className="w-full">
+      <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")} className="w-full">
         <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
           {/* Selector Tabs (Pendientes / Historial) */}
           <div className="flex items-center gap-3">
             {/* Móvil */}
-            <Select value={selectedTab} onValueChange={setSelectedTab}>
+            <Select value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")}>
               <SelectTrigger className="w-[200px] @4xl/main:hidden">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="history" disabled>
-                  Historial (Pronto)
-                </SelectItem>
+                <SelectItem value="history">Historial</SelectItem>
               </SelectContent>
             </Select>
 
             {/* Desktop */}
             <TabsList className="hidden @4xl/main:flex">
               <TabsTrigger value="pending">Pendientes</TabsTrigger>
-              <TabsTrigger value="history" disabled>
-                Historial
-              </TabsTrigger>
+              <TabsTrigger value="history">Historial</TabsTrigger>
             </TabsList>
           </div>
 
@@ -117,14 +113,29 @@ export default function ApprovalsPage() {
           </div>
         </div>
 
-        {/* Contenido */}
-        <TabsContent value="pending">
+        {/* Contenido Pendientes */}
+        <TabsContent value="pending" className="mt-4">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
             </div>
           ) : (
             <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} />
+          )}
+        </TabsContent>
+
+        {/* Contenido Historial */}
+        <TabsContent value="history" className="mt-4">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            </div>
+          ) : (
+            <ApprovalsTable
+              items={items}
+              filterType={filterType}
+              onReview={handleReview} // Reutilizamos la tabla, el diálogo deberá ser "read-only" si status != PENDING
+            />
           )}
         </TabsContent>
       </Tabs>

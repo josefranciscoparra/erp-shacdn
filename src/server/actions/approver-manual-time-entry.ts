@@ -406,7 +406,7 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
     };
   } catch (error) {
     console.error("Error al aprobar solicitud de fichaje manual:", error);
-    throw error;
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido" };
   }
 }
 
@@ -483,6 +483,6 @@ export async function rejectManualTimeEntryRequest(input: RejectManualTimeEntryR
     };
   } catch (error) {
     console.error("Error al rechazar solicitud de fichaje manual:", error);
-    throw error;
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido" };
   }
 }

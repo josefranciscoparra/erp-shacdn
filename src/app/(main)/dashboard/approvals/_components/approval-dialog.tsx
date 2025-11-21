@@ -37,6 +37,8 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
 
   if (!item) return null;
 
+  const isReadOnly = item.status !== "PENDING";
+
   const handleActionClick = (type: "approve" | "reject") => {
     setAction(type);
     setComments("");
@@ -210,21 +212,64 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
           </div>
 
           {renderDetails()}
+
+          {/* Información adicional si ya fue resuelta */}
+          {isReadOnly && (
+            <div className="bg-muted/10 mt-4 rounded-lg border p-4 text-sm">
+              <p className="mb-2 font-medium">Resolución</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <span className="text-muted-foreground">Estado:</span>
+                  <Badge
+                    className={`ml-2 ${
+                      item.status === "APPROVED"
+                        ? "bg-green-100 text-green-700 hover:bg-green-100"
+                        : "bg-red-100 text-red-700 hover:bg-red-100"
+                    }`}
+                  >
+                    {item.status === "APPROVED" ? "Aprobada" : "Rechazada"}
+                  </Badge>
+                </div>
+                {/* Aquí podríamos mostrar quién aprobó si tuviéramos el nombre, por ahora asumimos el usuario actual en historial */}
+                {item.details?.approverComments && (
+                  <div className="col-span-2 mt-1">
+                    <span className="text-muted-foreground">Comentarios:</span>
+                    <p className="text-muted-foreground mt-1 italic">{item.details.approverComments}</p>
+                  </div>
+                )}
+                {item.details?.rejectionReason && (
+                  <div className="col-span-2 mt-1">
+                    <span className="text-muted-foreground">Motivo rechazo:</span>
+                    <p className="text-destructive mt-1 italic">{item.details.rejectionReason}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex gap-2 sm:justify-end">
-          <Button
-            variant="outline"
-            className="text-red-600 hover:bg-red-50 hover:text-red-700"
-            onClick={() => handleActionClick("reject")}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Rechazar
-          </Button>
-          <Button className="bg-green-600 text-white hover:bg-green-700" onClick={() => handleActionClick("approve")}>
-            <Check className="mr-2 h-4 w-4" />
-            Aprobar
-          </Button>
+          {isReadOnly ? (
+            <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                className="text-red-600 hover:bg-red-50 hover:text-red-700"
+                onClick={() => handleActionClick("reject")}
+              >
+                <X className="mr-2 h-4 w-4" />
+                Rechazar
+              </Button>
+              <Button
+                className="bg-green-600 text-white hover:bg-green-700"
+                onClick={() => handleActionClick("approve")}
+              >
+                <Check className="mr-2 h-4 w-4" />
+                Aprobar
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

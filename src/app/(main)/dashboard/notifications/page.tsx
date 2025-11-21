@@ -310,7 +310,7 @@ export default function NotificationsPage() {
 
       if (!skipNavigation && notification.ptoRequestId) {
         if (notification.type === "PTO_SUBMITTED") {
-          router.push(`/dashboard/approvals/pto`);
+          router.push(`/dashboard/approvals`);
         } else {
           router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
         }
@@ -386,7 +386,7 @@ export default function NotificationsPage() {
       // Manejar notificaciones de fichaje manual
       if (notification.manualTimeEntryRequestId) {
         if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
-          router.push(`/dashboard/approvals/time-entries`);
+          router.push(`/dashboard/approvals`);
         } else {
           router.push(`/dashboard/me/clock/requests`);
         }
@@ -424,7 +424,7 @@ export default function NotificationsPage() {
       }
 
       if (notification.type === "PTO_SUBMITTED") {
-        router.push(`/dashboard/approvals/pto`);
+        router.push(`/dashboard/approvals`);
       } else {
         router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
       }
