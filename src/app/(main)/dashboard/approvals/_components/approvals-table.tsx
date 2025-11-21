@@ -12,30 +12,86 @@ import {
   type ColumnDef,
   type SortingState,
   type ColumnFiltersState,
+  type RowSelectionState,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, ArrowRight, FileText, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, ArrowRight, FileText, AlertCircle, Check, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { PendingApprovalItem } from "@/server/actions/approvals";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { bulkApproveRequests, type PendingApprovalItem } from "@/server/actions/approvals";
 
 interface ApprovalsTableProps {
   items: PendingApprovalItem[];
   filterType?: string;
   onReview: (item: PendingApprovalItem) => void;
+  onSuccess?: () => void; // Para recargar datos tras acción masiva
 }
 
-export function ApprovalsTable({ items, filterType = "all", onReview }: ApprovalsTableProps) {
+export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess }: ApprovalsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
+
+  // Solo permitir selección si son pendientes (asumiendo que items trae el estado,
+  // aunque items es PendingApprovalItem, así que por definición deberían serlo si estamos en esa tab.
+  // Pero si reutilizamos la tabla para historial, hay que tener cuidado).
+  const canSelect = items.some((i) => i.status === "PENDING");
 
   const columns: ColumnDef<PendingApprovalItem>[] = useMemo(
     () => [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+            aria-label="Seleccionar todo"
+            className="translate-y-[2px]"
+          />
+        ),
+        cell: ({ row }) => {
+          const isExpense = row.original.type === "EXPENSE";
+
+          const checkbox = (
+            <Checkbox
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label="Seleccionar fila"
+              className="translate-y-[2px]"
+              disabled={!row.getCanSelect()}
+            />
+          );
+
+          if (isExpense) {
+            return (
+              <TooltipProvider>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    {/* Wrapper div to catch hover events on disabled input */}
+                    <div className="inline-flex items-center justify-center">{checkbox}</div>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <p>Los gastos requieren revisión manual obligatoria</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          }
+
+          return checkbox;
+        },
+        enableSorting: false,
+        enableHiding: false,
+      },
       {
         accessorKey: "employeeName",
         header: "Empleado",
@@ -146,16 +202,55 @@ export function ApprovalsTable({ items, filterType = "all", onReview }: Approval
     getFilteredRowModel: getFilteredRowModel(),
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
+    onRowSelectionChange: setRowSelection,
     state: {
       sorting,
       columnFilters,
+      rowSelection,
     },
+    // Solo permitir selección si son pendientes Y NO SON GASTOS (requieren revisión manual)
+    enableRowSelection: (row) => row.original.status === "PENDING" && row.original.type !== "EXPENSE",
     initialState: {
       pagination: {
         pageSize: 10,
       },
     },
   });
+
+  const handleBulkApprove = async () => {
+    const selectedRows = table.getFilteredSelectedRowModel().rows;
+    const requests = selectedRows.map((row) => ({
+      id: row.original.id,
+      type: row.original.type,
+    }));
+
+    if (requests.length === 0) return;
+
+    setIsBulkSubmitting(true);
+    try {
+      const result = await bulkApproveRequests(requests);
+      if (result.success) {
+        toast.success(`Aprobadas ${result.summary?.success} solicitudes correctamente.`);
+        if (result.summary?.failed && result.summary.failed > 0) {
+          toast.warning(`Fallaron ${result.summary.failed} solicitudes.`);
+        }
+        setRowSelection({}); // Limpiar selección
+
+        // Recargar datos automáticamente
+        if (onSuccess) {
+          onSuccess();
+        }
+      } else {
+        toast.error("Error al procesar la aprobación masiva.");
+      }
+    } catch {
+      toast.error("Error de conexión al aprobar.");
+    } finally {
+      setIsBulkSubmitting(false);
+    }
+  };
+
+  const selectedCount = Object.keys(rowSelection).length;
 
   return (
     <>
@@ -175,7 +270,7 @@ export function ApprovalsTable({ items, filterType = "all", onReview }: Approval
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="hover:bg-muted/40">
+                <TableRow key={row.id} className="hover:bg-muted/40" data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -195,6 +290,32 @@ export function ApprovalsTable({ items, filterType = "all", onReview }: Approval
       <div className="mt-4">
         <DataTablePagination table={table} />
       </div>
+
+      {/* Barra de Acción Flotante */}
+      {selectedCount > 0 && (
+        <div className="bg-background animate-in slide-in-from-bottom-4 fixed bottom-8 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full border p-2 px-6 shadow-xl">
+          <span className="text-sm font-medium">{selectedCount} seleccionados</span>
+          <div className="bg-border h-4 w-px" />
+          <Button
+            onClick={handleBulkApprove}
+            disabled={isBulkSubmitting}
+            size="sm"
+            className="bg-green-600 text-white hover:bg-green-700"
+          >
+            {isBulkSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <Check className="mr-2 h-4 w-4" />
+                Aprobar Selección
+              </>
+            )}
+          </Button>
+        </div>
+      )}
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { Loader2, Filter, ExternalLink } from "lucide-react";
 
@@ -18,6 +19,7 @@ import { ApprovalsKpiCards } from "./_components/approvals-kpi-cards";
 import { ApprovalsTable } from "./_components/approvals-table";
 
 export default function ApprovalsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingApprovalItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +57,9 @@ export default function ApprovalsPage() {
 
   const handleSuccess = () => {
     // Recargar la lista tras aprobar/rechazar
+    // Forzamos refresco de router para invalidar caché de servidor
+    router.refresh();
+    // Y recargamos los datos locales
     loadApprovals();
   };
 
@@ -131,7 +136,7 @@ export default function ApprovalsPage() {
               <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} />
+            <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
           )}
         </TabsContent>
 
@@ -142,11 +147,7 @@ export default function ApprovalsPage() {
               <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
             </div>
           ) : (
-            <ApprovalsTable
-              items={items}
-              filterType={filterType}
-              onReview={handleReview} // Reutilizamos la tabla, el diálogo deberá ser "read-only" si status != PENDING
-            />
+            <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
           )}
         </TabsContent>
       </Tabs>

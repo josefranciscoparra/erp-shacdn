@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { getAuthorizedApprovers } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -255,43 +257,83 @@ export async function getMyPendingApprovals() {
  * Acción unificada para aprobar
  */
 export async function approveRequest(id: string, type: string, comments?: string) {
+  let result;
+
   if (type === "PTO") {
     // eslint-disable-next-line import/no-cycle
     const { approvePtoRequest } = await import("./approver-pto");
-    return await approvePtoRequest(id, comments);
-  }
-
-  if (type === "MANUAL_TIME_ENTRY") {
+    result = await approvePtoRequest(id, comments);
+  } else if (type === "MANUAL_TIME_ENTRY") {
     const { approveManualTimeEntryRequest } = await import("./approver-manual-time-entry");
-    return await approveManualTimeEntryRequest({ requestId: id, comments });
-  }
-
-  if (type === "EXPENSE") {
+    result = await approveManualTimeEntryRequest({ requestId: id, comments });
+  } else if (type === "EXPENSE") {
     const { approveExpense } = await import("./expense-approvals");
-    return await approveExpense(id, comments);
+    result = await approveExpense(id, comments);
+  } else {
+    return { success: false, error: "Tipo de solicitud no soportado" };
   }
 
-  return { success: false, error: "Tipo de solicitud no soportado" };
+  if (result.success) {
+    revalidatePath("/dashboard/approvals");
+  }
+
+  return result;
 }
 
 /**
  * Acción unificada para rechazar
  */
 export async function rejectRequest(id: string, type: string, reason: string) {
+  let result;
+
   if (type === "PTO") {
     const { rejectPtoRequest } = await import("./approver-pto");
-    return await rejectPtoRequest(id, reason);
-  }
-
-  if (type === "MANUAL_TIME_ENTRY") {
+    result = await rejectPtoRequest(id, reason);
+  } else if (type === "MANUAL_TIME_ENTRY") {
     const { rejectManualTimeEntryRequest } = await import("./approver-manual-time-entry");
-    return await rejectManualTimeEntryRequest({ requestId: id, rejectionReason: reason });
-  }
-
-  if (type === "EXPENSE") {
+    result = await rejectManualTimeEntryRequest({ requestId: id, rejectionReason: reason });
+  } else if (type === "EXPENSE") {
     const { rejectExpense } = await import("./expense-approvals");
-    return await rejectExpense(id, reason);
+    result = await rejectExpense(id, reason);
+  } else {
+    return { success: false, error: "Tipo de solicitud no soportado" };
   }
 
-  return { success: false, error: "Tipo de solicitud no soportado" };
+  if (result.success) {
+    revalidatePath("/dashboard/approvals");
+  }
+
+  return result;
+}
+
+/**
+ * Acción unificada para aprobación masiva
+ */
+export async function bulkApproveRequests(requests: { id: string; type: string }[]) {
+  try {
+    const results = await Promise.allSettled(requests.map((req) => approveRequest(req.id, req.type)));
+
+    const successCount = results.filter(
+      (r) => r.status === "fulfilled" && (r.value as { success: boolean }).success,
+    ).length;
+    const failureCount = results.filter(
+      (r) => r.status === "rejected" || (r.status === "fulfilled" && !(r.value as { success: boolean }).success),
+    ).length;
+
+    if (successCount > 0) {
+      revalidatePath("/dashboard/approvals");
+    }
+
+    return {
+      success: true,
+      summary: {
+        total: requests.length,
+        success: successCount,
+        failed: failureCount,
+      },
+    };
+  } catch (error) {
+    console.error("Error en aprobación masiva:", error);
+    return { success: false, error: "Error procesando solicitudes masivas" };
+  }
 }
