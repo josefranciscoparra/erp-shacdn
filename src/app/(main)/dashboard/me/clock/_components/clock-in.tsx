@@ -39,6 +39,7 @@ export function ClockIn() {
   const [shouldAnimateChart, setShouldAnimateChart] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<EffectiveSchedule | null>(null);
   const [scheduleExpectedMinutes, setScheduleExpectedMinutes] = useState<number | null>(null);
+  const [isScheduleLoading, setIsScheduleLoading] = useState(true);
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
     breakMinutes: number;
@@ -170,10 +171,16 @@ export function ClockIn() {
   // Cargar horario esperado del Schedule V2.0
   useEffect(() => {
     async function loadScheduleExpectedHours() {
-      const result = await getTodaySchedule();
-      if (result.success && result.schedule) {
-        setTodaySchedule(result.schedule);
-        setScheduleExpectedMinutes(result.schedule.expectedMinutes);
+      try {
+        const result = await getTodaySchedule();
+        if (result.success && result.schedule) {
+          setTodaySchedule(result.schedule);
+          setScheduleExpectedMinutes(result.schedule.expectedMinutes);
+        }
+      } catch (error) {
+        console.error("Error loading schedule:", error);
+      } finally {
+        setIsScheduleLoading(false);
       }
     }
     loadScheduleExpectedHours();
@@ -208,7 +215,7 @@ export function ClockIn() {
   }, [restartChartAnimation]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading || isScheduleLoading) {
       return;
     }
 
@@ -230,7 +237,7 @@ export function ClockIn() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isLoading, updateChartSnapshot]);
+  }, [isLoading, isScheduleLoading, updateChartSnapshot]);
 
   // Helper para ejecutar fichaje con geolocalización
   const executeWithGeolocation = async <T,>(
@@ -663,7 +670,7 @@ export function ClockIn() {
             {/* Tiempo trabajado */}
             <div className="flex flex-col items-center gap-2">
               <span className="text-muted-foreground text-sm font-medium">Tiempo trabajado</span>
-              {isLoading ? (
+              {isLoading || isScheduleLoading ? (
                 <div className="flex items-center gap-1 tabular-nums">
                   <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
                     <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -690,7 +697,7 @@ export function ClockIn() {
 
             {/* Tiempo restante o completado */}
             <div className="flex w-full flex-col items-center gap-1">
-              {isLoading ? (
+              {isLoading || isScheduleLoading ? (
                 <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 </div>
@@ -761,9 +768,9 @@ export function ClockIn() {
                           size="lg"
                           onClick={handleClockIn}
                           className="w-full disabled:opacity-70"
-                          disabled={isLoading || isClocking}
+                          disabled={isLoading || isClocking || isScheduleLoading}
                         >
-                          {isLoading || isClocking ? (
+                          {isLoading || isClocking || isScheduleLoading ? (
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                           ) : (
                             <LogIn className="mr-2 h-5 w-5" />
@@ -800,9 +807,9 @@ export function ClockIn() {
                       "w-full disabled:opacity-70",
                       isExcessive && "border-2 border-orange-500 ring-2 ring-orange-200",
                     )}
-                    disabled={isLoading || isClocking}
+                    disabled={isLoading || isClocking || isScheduleLoading}
                   >
-                    {isLoading || isClocking ? (
+                    {isLoading || isClocking || isScheduleLoading ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : (
                       <LogOut className="mr-2 h-5 w-5" />
@@ -814,9 +821,9 @@ export function ClockIn() {
                     onClick={handleBreak}
                     variant="outline"
                     className="w-full disabled:opacity-70"
-                    disabled={isLoading || isClocking}
+                    disabled={isLoading || isClocking || isScheduleLoading}
                   >
-                    {isLoading || isClocking ? (
+                    {isLoading || isClocking || isScheduleLoading ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                     ) : (
                       <Coffee className="mr-2 h-5 w-5" />
@@ -832,7 +839,7 @@ export function ClockIn() {
         {/* Card de resumen del día */}
         <Card className="h-full">
           <CardContent className="space-y-2 pb-0">
-            {isLoading ? (
+            {isLoading || isScheduleLoading ? (
               <div className="bg-muted relative mx-auto aspect-square max-h-[270px] overflow-hidden rounded-lg">
                 <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               </div>
@@ -847,7 +854,7 @@ export function ClockIn() {
             )}
           </CardContent>
           <CardFooter className="flex-col items-start justify-start gap-4 border-t pt-4 md:flex-row md:justify-around lg:items-center lg:gap-0">
-            {isLoading ? (
+            {isLoading || isScheduleLoading ? (
               <>
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex w-full items-center gap-3">
