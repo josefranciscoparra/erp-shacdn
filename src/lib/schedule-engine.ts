@@ -174,8 +174,14 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   // Calcular minutos esperados (suma de slots que NO sean descanso)
   let expectedMinutes = 0;
   for (const slot of effectiveSlots) {
-    if (slot.slotType !== "BREAK") {
-      expectedMinutes += slot.endMinutes - slot.startMinutes;
+    // Normalización defensiva para asegurar comparación correcta
+    const typeStr = String(slot.slotType).trim().toUpperCase();
+
+    if (typeStr !== "BREAK") {
+      const duration = slot.endMinutes - slot.startMinutes;
+      if (duration > 0) {
+        expectedMinutes += duration;
+      }
     }
   }
   // 🆕 Si hay ausencia PARCIAL, reducir los minutos esperados

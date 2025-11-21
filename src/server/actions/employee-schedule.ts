@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+// Force recompile schedule-engine
 import { getEffectiveSchedule, getWeekSchedule } from "@/lib/schedule-engine";
 import type { EffectiveSchedule } from "@/types/schedule";
 
