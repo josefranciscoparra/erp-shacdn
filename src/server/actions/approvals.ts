@@ -162,8 +162,78 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
       }
     }
 
-    // Ordenar: Historial por fecha de resolución (si se pudiera mezclar), Pendientes por creación
-    // Simplificamos ordenando todo por createdAt para mezclar tipos, o podríamos usar un campo virtual 'relevantDate'
+    // ==================================================================
+    // 3. EXPENSES
+    // ==================================================================
+    // Lógica específica de gastos basada en la tabla ExpenseApproval
+    const expenseFilter = isHistory
+      ? { decision: { in: ["APPROVED", "REJECTED"] } as const }
+      : { decision: "PENDING" as const };
+
+    const expenses = await prisma.expense.findMany({
+      where: {
+        orgId,
+        status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
+        approvals: {
+          some: {
+            approverId: userId,
+            ...expenseFilter,
+          },
+        },
+      },
+      include: {
+        employee: {
+          include: {
+            // Intentamos obtener el puesto si es posible
+            employmentContracts: {
+              where: { active: true },
+              take: 1,
+              include: { position: true },
+            },
+          },
+        },
+        approvals: {
+          where: { approverId: userId }, // Traer solo mi aprobación para ver comentarios/decisión
+        },
+        attachments: {
+          take: 1, // Solo necesitamos uno para la vista rápida
+          select: { id: true }, // Solo ID, la URL se construye en el frontend
+        },
+      },
+      orderBy: isHistory ? { updatedAt: "desc" } : { date: "desc" }, // Fecha de gasto o actualización
+      take: isHistory ? 50 : undefined,
+    });
+
+    for (const expense of expenses) {
+      const myApproval = expense.approvals[0];
+      const positionName = expense.employee.employmentContracts[0]?.position?.title;
+      const attachmentId = expense.attachments[0]?.id;
+
+      items.push({
+        id: expense.id,
+        type: "EXPENSE",
+        employeeId: expense.employeeId,
+        employeeName: `${expense.employee.firstName} ${expense.employee.lastName}`,
+        employeeImage: expense.employee.photoUrl,
+        date: expense.date.toISOString(),
+        summary: `Gasto: ${Number(expense.totalAmount).toFixed(2)}€ (${expense.category})`,
+        status: expense.status,
+        createdAt: expense.createdAt,
+        details: {
+          amount: Number(expense.totalAmount),
+          category: expense.category,
+          notes: expense.notes,
+          merchant: expense.merchantName,
+          attachmentId, // ID del adjunto para construir la URL
+          // Datos de mi aprobación (para historial)
+          approverComments: myApproval?.comment,
+          rejectionReason: myApproval?.decision === "REJECTED" ? myApproval.comment : undefined,
+          position: positionName,
+        },
+      });
+    }
+
+    // Ordenar por fecha más reciente
     items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return { success: true, items };
@@ -196,6 +266,11 @@ export async function approveRequest(id: string, type: string, comments?: string
     return await approveManualTimeEntryRequest({ requestId: id, comments });
   }
 
+  if (type === "EXPENSE") {
+    const { approveExpense } = await import("./expense-approvals");
+    return await approveExpense(id, comments);
+  }
+
   return { success: false, error: "Tipo de solicitud no soportado" };
 }
 
@@ -211,6 +286,11 @@ export async function rejectRequest(id: string, type: string, reason: string) {
   if (type === "MANUAL_TIME_ENTRY") {
     const { rejectManualTimeEntryRequest } = await import("./approver-manual-time-entry");
     return await rejectManualTimeEntryRequest({ requestId: id, rejectionReason: reason });
+  }
+
+  if (type === "EXPENSE") {
+    const { rejectExpense } = await import("./expense-approvals");
+    return await rejectExpense(id, reason);
   }
 
   return { success: false, error: "Tipo de solicitud no soportado" };

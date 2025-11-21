@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -13,7 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, Clock, Eye, Loader2, Receipt, X } from "lucide-react";
+import { Check, Clock, Eye, Loader2, Receipt, X, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -469,10 +471,18 @@ export default function ExpenseApprovalsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Aprobación de Gastos"
-        description="Revisa y aprueba los gastos presentados por los empleados de tu organización."
-      />
+      <div>
+        <Button variant="ghost" size="sm" asChild className="text-muted-foreground mb-2">
+          <Link href="/dashboard/approvals">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver a Bandeja de Aprobaciones
+          </Link>
+        </Button>
+        <SectionHeader
+          title="Aprobación de Gastos"
+          description="Revisa y aprueba los gastos presentados por los empleados de tu organización."
+        />
+      </div>
 
       <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
         <TabsList className="justify-start overflow-x-auto">

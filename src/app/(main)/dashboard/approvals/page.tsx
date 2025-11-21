@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-import { Loader2, Filter } from "lucide-react";
+import Link from "next/link";
+
+import { Loader2, Filter, ExternalLink } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -57,10 +60,18 @@ export default function ApprovalsPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Bandeja de Aprobaciones"
-        description="Revisa y gestiona las solicitudes pendientes de tu equipo."
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <SectionHeader
+          title="Bandeja de Aprobaciones"
+          description="Revisa y gestiona las solicitudes pendientes de tu equipo."
+        />
+        <Button variant="outline" size="sm" asChild className="hidden shrink-0 gap-2 sm:flex">
+          <Link href="/dashboard/approvals/expenses">
+            <ExternalLink className="h-4 w-4" />
+            Gestión Avanzada Gastos
+          </Link>
+        </Button>
+      </div>
 
       {/* Mostrar error si existe */}
       {error && (

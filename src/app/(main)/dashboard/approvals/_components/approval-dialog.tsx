@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -21,6 +21,16 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
+
+const expenseCategories: Record<string, string> = {
+  FUEL: "Combustible",
+  MILEAGE: "Kilometraje",
+  MEAL: "Comida",
+  TOLL: "Peaje",
+  PARKING: "Parking",
+  LODGING: "Alojamiento",
+  OTHER: "Otro",
+};
 
 interface ApprovalDialogProps {
   item: PendingApprovalItem | null;
@@ -131,6 +141,63 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
               {item.details?.clockOut ? format(new Date(item.details.clockOut), "HH:mm", { locale: es }) : "-"}
             </p>
           </div>
+        </div>
+      );
+    }
+
+    if (item.type === "EXPENSE") {
+      const downloadUrl = item.details?.attachmentId
+        ? `/api/expenses/${item.id}/attachments/${item.details.attachmentId}/download`
+        : null;
+
+      return (
+        <div className="bg-muted/20 grid grid-cols-2 gap-4 rounded-lg border p-4 text-sm">
+          <div>
+            <span className="text-muted-foreground">Importe Total:</span>
+            <p className="mt-1 text-lg font-bold text-green-700 dark:text-green-400">
+              {item.details?.amount ? `${Number(item.details.amount).toFixed(2)}€` : "-"}
+            </p>
+          </div>
+          <div>
+            <span className="text-muted-foreground">Categoría:</span>
+            <div className="mt-1">
+              <Badge variant="secondary" className="font-medium">
+                {expenseCategories[item.details?.category as string] ?? item.details?.category}
+              </Badge>
+            </div>
+          </div>
+          {item.details?.merchant && (
+            <div className="col-span-2">
+              <span className="text-muted-foreground">Comercio:</span>
+              <p className="mt-1 font-medium">{item.details.merchant}</p>
+            </div>
+          )}
+          {item.details?.notes && (
+            <div className="col-span-2 mt-2 border-t pt-2">
+              <span className="text-muted-foreground">Notas:</span>
+              <p className="text-muted-foreground mt-1 italic">{item.details.notes}</p>
+            </div>
+          )}
+          {downloadUrl && (
+            <div className="col-span-2 mt-2">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = downloadUrl;
+                  link.target = "_blank";
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                }}
+              >
+                <FileText className="h-4 w-4" />
+                Ver Comprobante Original
+                <ExternalLink className="text-muted-foreground ml-auto h-3 w-3" />
+              </Button>
+            </div>
+          )}
         </div>
       );
     }
