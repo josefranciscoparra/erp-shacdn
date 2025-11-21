@@ -171,11 +171,13 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
     description: slot.description ?? undefined,
   }));
 
-  // Calcular minutos esperados (suma de slots tipo WORK)
-  let expectedMinutes = effectiveSlots
-    .filter((slot) => slot.slotType === "WORK")
-    .reduce((sum, slot) => sum + (slot.endMinutes - slot.startMinutes), 0);
-
+  // Calcular minutos esperados (suma de slots que NO sean descanso)
+  let expectedMinutes = 0;
+  for (const slot of effectiveSlots) {
+    if (slot.slotType !== "BREAK") {
+      expectedMinutes += slot.endMinutes - slot.startMinutes;
+    }
+  }
   // 🆕 Si hay ausencia PARCIAL, reducir los minutos esperados
   if (absence && absence.isPartial && absence.durationMinutes) {
     expectedMinutes = Math.max(0, expectedMinutes - absence.durationMinutes);

@@ -252,3 +252,24 @@ El área personal del empleado está completamente implementada con todas las fu
 - ✅ Base de datos PostgreSQL con migraciones incrementales
 
 **Estado del proyecto:** Todas las funcionalidades del área personal del empleado implementadas y funcionales ✨
+
+---
+
+## 🚀 Próximos Pasos (Fase Enterprise)
+
+Tras completar el "Área del Empleado", el siguiente nivel es potenciar las herramientas de Gestión y Supervisión.
+
+### Opción A: El "Cuadrante del Manager" (Prioridad Recomendada) 📅👑
+- **Objetivo:** Conectar la vista de `/dashboard/shifts` con datos reales.
+- **Valor:** Permitir a los managers gestionar visualmente los equipos y turnos reales generados por el motor.
+- **Estado:** Pendiente.
+
+### Opción B: Fichaje con Geolocalización 🌍📍
+- **Objetivo:** Guardar ubicación (Lat/Long) al fichar y visualizar en mapa.
+- **Valor:** Control de personal desplazado y geofencing.
+- **Estado:** Pendiente.
+
+### Opción C: Dashboard Analítico (BI) 📊
+- **Objetivo:** Gráficos de horas extra, costes, absentismo.
+- **Valor:** Visibilidad financiera y operativa para RRHH.
+- **Estado:** Pendiente.

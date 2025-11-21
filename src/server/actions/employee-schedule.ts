@@ -160,12 +160,29 @@ export async function getTodaySummary(): Promise<{
       };
     }
 
+    let expectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : null;
+    let deviationMinutes = workdaySummary.deviationMinutes ? Number(workdaySummary.deviationMinutes) : null;
+
+    // FIX ON-THE-FLY: Si expectedMinutes es 0 o null (posible bug antiguo), recalcular con el motor actual
+    if (!expectedMinutes || expectedMinutes === 0) {
+      try {
+        const freshSchedule = await getEffectiveSchedule(employee.id, today);
+        if (freshSchedule.expectedMinutes > 0) {
+          expectedMinutes = freshSchedule.expectedMinutes;
+          // Recalcular desviación: Trabajado - Esperado
+          deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
+        }
+      } catch (e) {
+        console.warn("Error recalculando expectedMinutes al vuelo:", e);
+      }
+    }
+
     return {
       success: true,
       summary: {
-        expectedMinutes: workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : null,
+        expectedMinutes,
         workedMinutes: Number(workdaySummary.totalWorkedMinutes),
-        deviationMinutes: workdaySummary.deviationMinutes ? Number(workdaySummary.deviationMinutes) : null,
+        deviationMinutes,
         status: workdaySummary.status,
         hasFinished: workdaySummary.clockOut !== null,
         validationWarnings: Array.from(allWarnings),

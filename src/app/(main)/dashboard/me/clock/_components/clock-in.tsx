@@ -430,9 +430,13 @@ export function ClockIn() {
   };
 
   // Calcular tiempo restante usando Schedule V2.0 si está disponible
-  const effectiveExpectedMinutes = scheduleExpectedMinutes ?? expectedDailyHours * 60;
+  // Si scheduleExpectedMinutes es 0 (ej: no configurado o día libre mal detectado), usamos el fallback del contrato
+  const effectiveExpectedMinutes =
+    scheduleExpectedMinutes && scheduleExpectedMinutes > 0 ? scheduleExpectedMinutes : expectedDailyHours * 60;
+
   const remainingMinutes = Math.max(0, effectiveExpectedMinutes - liveWorkedMinutes);
-  const isCompleted = liveWorkedMinutes >= effectiveExpectedMinutes;
+  // Solo marcar como completada si hay horas esperadas definidas (> 0)
+  const isCompleted = effectiveExpectedMinutes > 0 && liveWorkedMinutes >= effectiveExpectedMinutes;
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
 
@@ -484,6 +488,16 @@ export function ClockIn() {
         ];
   const chartLastUpdatedAt = chartSnapshot?.updatedAt ?? currentTime;
 
+  // Controlar animación inicial: Solo animar la primera vez que se carga el gráfico
+  const [hasAnimated, setHasAnimated] = useState(false);
+  useEffect(() => {
+    if (!hasAnimated && chartWorkedMinutes > 0) {
+      // Pequeño timeout para asegurar que se monte antes de marcar animado
+      const timer = setTimeout(() => setHasAnimated(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasAnimated, chartWorkedMinutes]);
+
   // Memoizar el gráfico para evitar re-renders innecesarios - solo actualizar cada minuto
   const memoizedChart = useMemo(
     () => (
@@ -498,7 +512,8 @@ export function ClockIn() {
             animationBegin={0}
             animationDuration={800}
             animationEasing="ease-out"
-            isAnimationActive={shouldAnimateChart}
+            // Solo animar si NO se ha animado previamente O si se fuerza explícitamente
+            isAnimationActive={!hasAnimated || shouldAnimateChart}
           >
             <Label
               content={({ viewBox }) => {
