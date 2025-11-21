@@ -184,6 +184,31 @@ function TodayScheduleComponent() {
             ))}
           </div>
 
+          {/* Aviso de Ausencia Parcial */}
+          {schedule.absence && (
+            <div className="rounded-lg border border-orange-200 bg-orange-50/50 p-2 dark:border-orange-900 dark:bg-orange-950/30">
+              <div className="flex items-center justify-between gap-2 text-orange-800 dark:text-orange-300">
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className="h-5 border-orange-300 bg-orange-100/50 px-1.5 py-0 text-[10px] text-orange-700"
+                  >
+                    {schedule.absence.type}
+                  </Badge>
+                  <span className="text-xs font-medium">Ausencia Parcial</span>
+                </div>
+                {schedule.absence.startTime !== undefined && schedule.absence.endTime !== undefined && (
+                  <span className="rounded bg-orange-100/50 px-1.5 font-mono text-xs text-orange-700 dark:text-orange-400">
+                    {minutesToTime(schedule.absence.startTime)} - {minutesToTime(schedule.absence.endTime)}
+                  </span>
+                )}
+              </div>
+              {schedule.absence.reason && (
+                <p className="mt-1 ml-1 text-xs text-orange-700 dark:text-orange-400">{schedule.absence.reason}</p>
+              )}
+            </div>
+          )}
+
           <Separator />
 
           {/* Resumen */}

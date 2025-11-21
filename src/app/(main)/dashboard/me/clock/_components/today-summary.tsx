@@ -138,7 +138,7 @@ function TodaySummaryComponent() {
             </div>
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">Horas trabajadas:</span>
-              <span className="font-medium">{formatDuration(summary.workedMinutes)}</span>
+              <span className="font-medium">{formatDuration(Math.round(summary.workedMinutes))}</span>
             </div>
           </div>
 
@@ -162,7 +162,7 @@ function TodaySummaryComponent() {
               }
             >
               {isPositive && "+"}
-              {formatDuration(Math.abs(deviation))}
+              {formatDuration(Math.round(Math.abs(deviation)))}
             </Badge>
           </div>
 

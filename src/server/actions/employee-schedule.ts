@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 // Force recompile schedule-engine
@@ -19,6 +21,9 @@ export async function getTodaySchedule(): Promise<{
     if (!session?.user?.id) {
       return { success: false, error: "No autenticado" };
     }
+
+    // Force fresh data for UI consistency
+    revalidatePath("/dashboard/me/clock");
 
     // Obtener el empleado asociado al usuario
     const employee = await prisma.employee.findFirst({
@@ -161,22 +166,20 @@ export async function getTodaySummary(): Promise<{
       };
     }
 
-    let expectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : null;
-    let deviationMinutes = workdaySummary.deviationMinutes ? Number(workdaySummary.deviationMinutes) : null;
-
-    // FIX ON-THE-FLY: Si expectedMinutes es 0 o null (posible bug antiguo), recalcular con el motor actual
-    if (!expectedMinutes || expectedMinutes === 0) {
-      try {
-        const freshSchedule = await getEffectiveSchedule(employee.id, today);
-        if (freshSchedule.expectedMinutes > 0) {
-          expectedMinutes = freshSchedule.expectedMinutes;
-          // Recalcular desviación: Trabajado - Esperado
-          deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
-        }
-      } catch (e) {
-        console.warn("Error recalculando expectedMinutes al vuelo:", e);
-      }
+    // CONSISTENCIA UI: Siempre obtener el horario fresco del motor
+    // La BD puede tener un snapshot obsoleto si se aprobaron vacaciones después de fichar
+    let expectedMinutes = 0;
+    try {
+      const freshSchedule = await getEffectiveSchedule(employee.id, today);
+      expectedMinutes = freshSchedule.expectedMinutes;
+    } catch (e) {
+      console.warn("Error getting fresh schedule for summary:", e);
+      // Fallback a BD si falla el motor
+      expectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : 0;
     }
+
+    // Recalcular desviación siempre con el valor fresco
+    const deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
 
     return {
       success: true,

@@ -255,7 +255,11 @@ async function getAbsenceForDate(employeeId: string, date: Date) {
           absence.durationMinutes !== null,
         startTime: absence.startTime ? Number(absence.startTime) : undefined,
         endTime: absence.endTime ? Number(absence.endTime) : undefined,
-        durationMinutes: absence.durationMinutes ? Number(absence.durationMinutes) : undefined,
+        durationMinutes: absence.durationMinutes
+          ? Number(absence.durationMinutes)
+          : absence.startTime !== null && absence.endTime !== null
+            ? Number(absence.endTime) - Number(absence.startTime)
+            : undefined,
       };
     });
 }

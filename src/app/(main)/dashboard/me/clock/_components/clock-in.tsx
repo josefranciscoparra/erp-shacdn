@@ -26,6 +26,7 @@ import { getTodaySchedule } from "@/server/actions/employee-schedule";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
+import type { EffectiveSchedule } from "@/types/schedule";
 
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
@@ -36,6 +37,7 @@ export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [shouldAnimateChart, setShouldAnimateChart] = useState(false);
+  const [todaySchedule, setTodaySchedule] = useState<EffectiveSchedule | null>(null);
   const [scheduleExpectedMinutes, setScheduleExpectedMinutes] = useState<number | null>(null);
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
@@ -170,6 +172,7 @@ export function ClockIn() {
     async function loadScheduleExpectedHours() {
       const result = await getTodaySchedule();
       if (result.success && result.schedule) {
+        setTodaySchedule(result.schedule);
         setScheduleExpectedMinutes(result.schedule.expectedMinutes);
       }
     }
@@ -429,14 +432,24 @@ export function ClockIn() {
     };
   };
 
-  // Calcular tiempo restante usando Schedule V2.0 si está disponible
-  // Si scheduleExpectedMinutes es 0 (ej: no configurado o día libre mal detectado), usamos el fallback del contrato
-  const effectiveExpectedMinutes =
-    scheduleExpectedMinutes && scheduleExpectedMinutes > 0 ? scheduleExpectedMinutes : expectedDailyHours * 60;
+  // Calcular tiempo restante usando Schedule V2.0 de forma robusta
+  let effectiveExpectedMinutes = expectedDailyHours * 60; // Default fallback
+
+  if (todaySchedule?.source === "NO_ASSIGNMENT") {
+    effectiveExpectedMinutes = expectedDailyHours * 60;
+  } else if (scheduleExpectedMinutes !== null) {
+    // Si el motor devuelve un valor (incluso 0), lo respetamos (ej: vacaciones)
+    effectiveExpectedMinutes = scheduleExpectedMinutes;
+  }
 
   const remainingMinutes = Math.max(0, effectiveExpectedMinutes - liveWorkedMinutes);
-  // Solo marcar como completada si hay horas esperadas definidas (> 0)
+
+  // Estado completado:
+  // - Si se esperaban horas (>0) y se cumplieron -> Completado
+  // - Si NO se esperaban horas (0) y se trabajó -> "Trabajando en ausencia" (no es completado estándar)
   const isCompleted = effectiveExpectedMinutes > 0 && liveWorkedMinutes >= effectiveExpectedMinutes;
+  const isWorkingOnAbsence = effectiveExpectedMinutes === 0 && liveWorkedMinutes > 0;
+
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
 
@@ -681,6 +694,17 @@ export function ClockIn() {
                 <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
                   <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                 </div>
+              ) : todaySchedule?.source === "ABSENCE" ? (
+                <Alert className="w-full border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30">
+                  <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  <AlertTitle className="font-semibold text-orange-800 dark:text-orange-300">
+                    Ausencia Registrada: {todaySchedule.absence?.type ?? "Ausencia"}
+                  </AlertTitle>
+                  <AlertDescription className="text-xs text-orange-700 dark:text-orange-400">
+                    {todaySchedule.absence?.reason ? `Motivo: ${todaySchedule.absence.reason}. ` : ""}
+                    Estás fichando en un día marcado como ausencia.
+                  </AlertDescription>
+                </Alert>
               ) : !isWorkingDay ? (
                 <Alert className="border-muted-foreground/20 bg-muted/40 w-full">
                   <Info className="text-muted-foreground h-4 w-4" />
@@ -693,6 +717,12 @@ export function ClockIn() {
                 <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2">
                   <span className="text-sm font-semibold text-green-600 dark:text-green-400">
                     ¡Jornada completada! 🎉
+                  </span>
+                </div>
+              ) : isWorkingOnAbsence ? (
+                <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-4 py-2">
+                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                    Actividad registrada en día libre
                   </span>
                 </div>
               ) : (
