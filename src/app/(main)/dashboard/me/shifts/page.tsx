@@ -227,9 +227,11 @@ export default function MyShiftsPage() {
                   const workShifts = dayShifts.filter(
                     (s) => !s.role?.toLowerCase().includes("vacaciones") && !s.role?.toLowerCase().includes("ausencia"),
                   );
-                  const absenceShifts = dayShifts.filter(
-                    (s) => s.role?.toLowerCase().includes("vacaciones") ?? s.role?.toLowerCase().includes("ausencia"),
-                  );
+                  const absenceShifts = dayShifts.filter((s) => {
+                    const role = s.role?.toLowerCase();
+                    if (!role) return false;
+                    return role.includes("vacaciones") || role.includes("ausencia");
+                  });
 
                   const hasWork = workShifts.length > 0;
                   const hasAbsence = absenceShifts.length > 0;
