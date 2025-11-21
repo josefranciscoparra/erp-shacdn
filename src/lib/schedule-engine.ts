@@ -734,21 +734,11 @@ export async function validateTimeEntry(
   timestamp: Date,
   entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END",
 ): Promise<ValidationResult> {
-  // Obtener configuración de validaciones de la organización
+  // 1. Obtener ID de organización del empleado
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
       orgId: true,
-      organization: {
-        select: {
-          clockInToleranceMinutes: true,
-          clockOutToleranceMinutes: true,
-          earlyClockInToleranceMinutes: true,
-          lateClockOutToleranceMinutes: true,
-          nonWorkdayClockInAllowed: true,
-          nonWorkdayClockInWarning: true,
-        },
-      },
     },
   });
 
@@ -760,7 +750,27 @@ export async function validateTimeEntry(
     };
   }
 
-  const orgConfig = employee.organization;
+  // 2. Obtener configuración de validaciones de la organización directamente
+  const orgConfig = await prisma.organization.findUnique({
+    where: { id: employee.orgId },
+    select: {
+      clockInToleranceMinutes: true,
+      clockOutToleranceMinutes: true,
+      earlyClockInToleranceMinutes: true,
+      lateClockOutToleranceMinutes: true,
+      nonWorkdayClockInAllowed: true,
+      nonWorkdayClockInWarning: true,
+    },
+  });
+
+  if (!orgConfig) {
+    return {
+      isValid: false,
+      warnings: [],
+      errors: ["Configuración de organización no encontrada"],
+    };
+  }
+
   const schedule = await getEffectiveSchedule(employeeId, timestamp);
 
   if (!schedule.isWorkingDay) {
