@@ -26,11 +26,11 @@ export function ShiftsFiltersBar() {
 
   return (
     <Card className="p-4 shadow-sm">
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex min-h-[40px] flex-wrap items-center gap-4">
         {/* Grupo: Filtros */}
         <div className="flex flex-wrap items-center gap-3">
           {/* Filtro Lugar */}
-          <div className="flex h-9 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Lugar:</span>
             <Select
               value={filters.costCenterId ?? "all"}
@@ -56,7 +56,7 @@ export function ShiftsFiltersBar() {
           </div>
 
           {/* Filtro Zona */}
-          <div className="flex h-9 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Zona:</span>
             <Select
               value={filters.zoneId ?? "all"}
@@ -78,7 +78,7 @@ export function ShiftsFiltersBar() {
           </div>
 
           {/* Filtro Estado */}
-          <div className="flex h-9 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Estado:</span>
             <Select
               value={filters.status ?? "all"}
@@ -103,10 +103,10 @@ export function ShiftsFiltersBar() {
           </Button>
         </div>
 
-        {/* Grupo: Selectores de Vista */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Grupo: Selectores de Vista (alineado a la derecha) */}
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           {/* Vista: Semana / Mes */}
-          <div className="flex h-9 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Vista:</span>
             <ToggleGroup
               type="single"
@@ -116,19 +116,11 @@ export function ShiftsFiltersBar() {
               }}
               className="h-9"
             >
-              <ToggleGroupItem
-                value="week"
-                aria-label="Vista semanal"
-                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
-              >
+              <ToggleGroupItem value="week" aria-label="Vista semanal" className="h-9 gap-1.5 px-3 text-xs">
                 <Calendar className="size-3" />
                 <span>Semana</span>
               </ToggleGroupItem>
-              <ToggleGroupItem
-                value="month"
-                aria-label="Vista mensual"
-                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
-              >
+              <ToggleGroupItem value="month" aria-label="Vista mensual" className="h-9 gap-1.5 px-3 text-xs">
                 <CalendarDays className="size-3" />
                 <span>Mes</span>
               </ToggleGroupItem>
@@ -136,7 +128,7 @@ export function ShiftsFiltersBar() {
           </div>
 
           {/* Agrupar por: Empleado / Áreas */}
-          <div className="flex h-9 items-center gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Agrupar por:</span>
             <ToggleGroup
               type="single"
@@ -146,19 +138,11 @@ export function ShiftsFiltersBar() {
               }}
               className="h-9"
             >
-              <ToggleGroupItem
-                value="employee"
-                aria-label="Vista por empleado"
-                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
-              >
+              <ToggleGroupItem value="employee" aria-label="Vista por empleado" className="h-9 gap-1.5 px-3 text-xs">
                 <Users className="size-3" />
                 <span>Empleado</span>
               </ToggleGroupItem>
-              <ToggleGroupItem
-                value="area"
-                aria-label="Vista por áreas"
-                className="h-9 gap-1.5 px-3 text-xs data-[state=off]:bg-slate-50"
-              >
+              <ToggleGroupItem value="area" aria-label="Vista por áreas" className="h-9 gap-1.5 px-3 text-xs">
                 <Building2 className="size-3" />
                 <span>Áreas</span>
               </ToggleGroupItem>

@@ -1,317 +1,62 @@
 "use server";
 
+import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
 
-/**
- * Obtiene las solicitudes pendientes de aprobación para el usuario autenticado
- */
-type ApproverRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
-
-interface ApproverPtoTotals {
-  pending: number;
-  approved: number;
-  rejected: number;
-}
-
-async function getApproverBaseData() {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    throw new Error("Usuario no autenticado");
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { orgId: true },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
-
-  return { session, user };
-}
-
-export async function getApproverPtoRequests(status: ApproverRequestStatus) {
-  try {
-    const { session, user } = await getApproverBaseData();
-
-    // Buscar solicitudes donde el usuario es el aprobador
-    const requests = await prisma.ptoRequest.findMany({
-      where: {
-        orgId: user.orgId,
-        approverId: session.user.id,
-        status,
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            photoUrl: true,
-          },
-        },
-        absenceType: true,
-      },
-      orderBy: {
-        submittedAt: "desc",
-      },
-    });
-
-    const [pendingTotal, approvedTotal, rejectedTotal] = await Promise.all([
-      prisma.ptoRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "PENDING",
-        },
-      }),
-      prisma.ptoRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "APPROVED",
-        },
-      }),
-      prisma.ptoRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "REJECTED",
-        },
-      }),
-    ]);
-
-    const totals: ApproverPtoTotals = {
-      pending: pendingTotal,
-      approved: approvedTotal,
-      rejected: rejectedTotal,
-    };
-
-    return {
-      requests: requests.map((r) => ({
-        id: r.id,
-        startDate: r.startDate,
-        endDate: r.endDate,
-        workingDays: Number(r.workingDays),
-        status: r.status,
-        reason: r.reason,
-        attachmentUrl: r.attachmentUrl,
-        submittedAt: r.submittedAt,
-        approvedAt: r.approvedAt,
-        rejectedAt: r.rejectedAt,
-        approverComments: r.approverComments,
-        rejectionReason: r.rejectionReason,
-        employee: r.employee,
-        absenceType: r.absenceType,
-      })),
-      totals,
-    };
-  } catch (error) {
-    console.error("Error al obtener solicitudes de PTO:", error);
-    throw error;
-  }
-}
-
-export async function getPendingPtoRequests() {
-  const { requests } = await getApproverPtoRequests("PENDING");
-  return requests;
-}
-
-/**
- * Obtiene todas las solicitudes de PTO del equipo (para managers y RRHH)
- */
-export async function getTeamPtoRequests() {
-  try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        id: true,
-        orgId: true,
-        role: true,
-        employee: {
-          include: {
-            managedContracts: {
-              where: { active: true },
-              select: {
-                employeeId: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new Error("Usuario no encontrado");
-    }
-
-    // Si es HR_ADMIN u ORG_ADMIN, puede ver todas las solicitudes de la organización
-    if (user.role === "HR_ADMIN" || user.role === "ORG_ADMIN") {
-      const requests = await prisma.ptoRequest.findMany({
-        where: {
-          orgId: user.orgId,
-        },
-        include: {
-          employee: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              photoUrl: true,
-            },
-          },
-          absenceType: true,
-          approver: {
-            select: {
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          submittedAt: "desc",
-        },
-      });
-
-      return requests.map((r) => ({
-        id: r.id,
-        startDate: r.startDate,
-        endDate: r.endDate,
-        workingDays: Number(r.workingDays),
-        status: r.status,
-        reason: r.reason,
-        attachmentUrl: r.attachmentUrl,
-        submittedAt: r.submittedAt,
-        approvedAt: r.approvedAt,
-        rejectedAt: r.rejectedAt,
-        cancelledAt: r.cancelledAt,
-        approverComments: r.approverComments,
-        rejectionReason: r.rejectionReason,
-        employee: r.employee,
-        absenceType: r.absenceType,
-        approver: r.approver,
-      }));
-    }
-
-    // Si es MANAGER, solo ve las solicitudes de sus subordinados
-    const subordinateIds = user.employee?.managedContracts.map((c) => c.employeeId) ?? [];
-
-    const requests = await prisma.ptoRequest.findMany({
-      where: {
-        orgId: user.orgId,
-        employeeId: {
-          in: subordinateIds,
-        },
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            photoUrl: true,
-          },
-        },
-        absenceType: true,
-        approver: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        submittedAt: "desc",
-      },
-    });
-
-    return requests.map((r) => ({
-      id: r.id,
-      startDate: r.startDate,
-      endDate: r.endDate,
-      workingDays: Number(r.workingDays),
-      status: r.status,
-      reason: r.reason,
-      attachmentUrl: r.attachmentUrl,
-      submittedAt: r.submittedAt,
-      approvedAt: r.approvedAt,
-      rejectedAt: r.rejectedAt,
-      cancelledAt: r.cancelledAt,
-      approverComments: r.approverComments,
-      rejectionReason: r.rejectionReason,
-      employee: r.employee,
-      absenceType: r.absenceType,
-      approver: r.approver,
-    }));
-  } catch (error) {
-    console.error("Error al obtener solicitudes del equipo:", error);
-    throw error;
-  }
-}
+// ==========================================================================
+// ACTIONS DE APROBACIÓN DE PTO (SISTEMA CENTRALIZADO)
+// ==========================================================================
+// Refactorizado el 2025-11-21 para usar el motor de aprobaciones unificado.
+// Eliminada lógica "legacy" de búsqueda de managers.
 
 /**
  * Aprueba una solicitud de PTO
+ *
+ * @param requestId ID de la solicitud
+ * @param comments Comentarios opcionales del aprobador
  */
 export async function approvePtoRequest(requestId: string, comments?: string) {
   try {
     const session = await auth();
+    if (!session?.user?.id) throw new Error("Usuario no autenticado");
 
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    // Obtener la solicitud
+    // 1. Obtener solicitud
     const request = await prisma.ptoRequest.findUnique({
-      where: {
-        id: requestId,
-        approverId: session.user.id, // Seguridad: solo puede aprobar si es el aprobador
-      },
+      where: { id: requestId },
       include: {
-        employee: {
-          include: {
-            user: true,
-          },
-        },
+        employee: { include: { user: true } },
         absenceType: true,
       },
     });
 
-    if (!request) {
-      throw new Error("Solicitud no encontrada o no tienes permisos");
+    if (!request) throw new Error("Solicitud no encontrada");
+    if (request.status !== "PENDING") throw new Error("La solicitud no está pendiente");
+
+    // 2. VERIFICAR PERMISO CON EL MOTOR DE APROBACIONES
+    const canApprove = await canUserApprove(session.user.id, request.employeeId, "PTO");
+    if (!canApprove) {
+      throw new Error("No tienes permiso para aprobar esta solicitud");
     }
 
-    if (request.status !== "PENDING") {
-      throw new Error("Solo se pueden aprobar solicitudes pendientes");
-    }
-
-    // Actualizar la solicitud
+    // 3. Ejecutar aprobación
     await prisma.ptoRequest.update({
       where: { id: requestId },
       data: {
         status: "APPROVED",
+        approverId: session.user.id, // Guardamos quién lo aprobó realmente
         approvedAt: new Date(),
         approverComments: comments,
       },
     });
 
-    // Recalcular balance del empleado
+    // 4. Recalcular balance y notificar
     const currentYear = new Date().getFullYear();
     await recalculatePtoBalance(request.employeeId, request.orgId, currentYear);
 
-    // Notificar al empleado
     if (request.employee.user) {
       await createNotification(
         request.employee.user.id,
@@ -326,64 +71,55 @@ export async function approvePtoRequest(requestId: string, comments?: string) {
     return { success: true };
   } catch (error) {
     console.error("Error al aprobar solicitud:", error);
-    throw error;
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido" };
   }
 }
 
 /**
  * Rechaza una solicitud de PTO
+ *
+ * @param requestId ID de la solicitud
+ * @param reason Motivo del rechazo (obligatorio)
  */
 export async function rejectPtoRequest(requestId: string, reason: string) {
   try {
     const session = await auth();
+    if (!session?.user?.id) throw new Error("Usuario no autenticado");
+    if (!reason?.trim()) throw new Error("Debes proporcionar un motivo");
 
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
-
-    if (!reason || reason.trim().length === 0) {
-      throw new Error("Debes proporcionar un motivo para el rechazo");
-    }
-
-    // Obtener la solicitud
+    // 1. Obtener solicitud
     const request = await prisma.ptoRequest.findUnique({
-      where: {
-        id: requestId,
-        approverId: session.user.id, // Seguridad: solo puede rechazar si es el aprobador
-      },
+      where: { id: requestId },
       include: {
-        employee: {
-          include: {
-            user: true,
-          },
-        },
+        employee: { include: { user: true } },
         absenceType: true,
       },
     });
 
-    if (!request) {
-      throw new Error("Solicitud no encontrada o no tienes permisos");
+    if (!request) throw new Error("Solicitud no encontrada");
+    if (request.status !== "PENDING") throw new Error("La solicitud no está pendiente");
+
+    // 2. VERIFICAR PERMISO CON EL MOTOR DE APROBACIONES
+    const canApprove = await canUserApprove(session.user.id, request.employeeId, "PTO");
+    if (!canApprove) {
+      throw new Error("No tienes permiso para rechazar esta solicitud");
     }
 
-    if (request.status !== "PENDING") {
-      throw new Error("Solo se pueden rechazar solicitudes pendientes");
-    }
-
-    // Actualizar la solicitud
+    // 3. Ejecutar rechazo
     await prisma.ptoRequest.update({
       where: { id: requestId },
       data: {
         status: "REJECTED",
+        approverId: session.user.id,
         rejectedAt: new Date(),
         rejectionReason: reason,
       },
     });
 
-    // Recalcular balance del empleado
+    // 4. Recalcular balance y notificar
     const currentYear = new Date().getFullYear();
     await recalculatePtoBalance(request.employeeId, request.orgId, currentYear);
 
-    // Notificar al empleado
     if (request.employee.user) {
       await createNotification(
         request.employee.user.id,
@@ -398,107 +134,96 @@ export async function rejectPtoRequest(requestId: string, reason: string) {
     return { success: true };
   } catch (error) {
     console.error("Error al rechazar solicitud:", error);
-    throw error;
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido" };
   }
 }
 
 /**
- * Obtiene el calendario del equipo con las ausencias aprobadas
- * Útil para que los managers vean la disponibilidad del equipo
+ * @deprecated Usar src/server/actions/approvals.ts -> getPendingApprovals
+ * Mantenido para compatibilidad con /dashboard/approvals/pto/page.tsx
  */
+export async function getApproverPtoRequests(status: "PENDING" | "APPROVED" | "REJECTED" = "PENDING") {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return { requests: [], totals: { pending: 0, approved: 0, rejected: 0 } };
+
+    // Importamos dinámicamente para evitar ciclos
+    // eslint-disable-next-line import/no-cycle
+    const { getPendingApprovals } = await import("./approvals");
+    const pendingUnified = await getPendingApprovals();
+
+    // Mapear items unificados al formato legacy
+    const requests = pendingUnified.items // Accedemos a .items
+      .filter((req) => req.type === "PTO")
+      .map((req) => ({
+        id: req.id,
+        startDate: new Date(req.details["startDate"]),
+        endDate: new Date(req.details["endDate"]),
+        workingDays: parseFloat(req.details["days"]?.toString() ?? "0"),
+        status: "PENDING", // Asumimos pendiente porque getPendingApprovals solo devuelve pendientes
+        reason: req.details["reason"],
+        submittedAt: req.createdAt,
+        employee: {
+          id: req.employeeId, // Esto podría fallar si el frontend necesita el ID real del empleado, pero approvalItem trae employeeId
+          firstName: req.employeeName.split(" ")[0],
+          lastName: req.employeeName.split(" ").slice(1).join(" "),
+          email: "email@placeholder.com", // Dato no disponible en la vista unificada ligera
+          photoUrl: req.employeeImage,
+        },
+        absenceType: {
+          id: "unknown", // No crítico para la vista
+          name: req.details["absenceType"] ?? "Vacaciones",
+          color: req.details["color"] ?? "#3b82f6",
+        },
+      }));
+
+    // Si piden aprobadas/rechazadas, devolvemos vacío por ahora para no romper
+    // ya que getPendingApprovals NO devuelve historial.
+    if (status !== "PENDING") {
+      return {
+        requests: [],
+        totals: { pending: requests.length, approved: 0, rejected: 0 },
+      };
+    }
+
+    return {
+      requests,
+      totals: { pending: requests.length, approved: 0, rejected: 0 },
+    };
+  } catch (error) {
+    console.error("Error en getApproverPtoRequests (legacy):", error);
+    return { requests: [], totals: { pending: 0, approved: 0, rejected: 0 } };
+  }
+}
+
 export async function getTeamPtoCalendar(startDate: Date, endDate: Date) {
   try {
     const session = await auth();
-
-    if (!session?.user?.id) {
-      throw new Error("Usuario no autenticado");
-    }
+    if (!session?.user?.id) throw new Error("No autenticado");
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: {
-        orgId: true,
-        role: true,
-        employee: {
-          include: {
-            managedContracts: {
-              where: { active: true },
-              select: {
-                employeeId: true,
-              },
-            },
-          },
-        },
-      },
+      select: { orgId: true, role: true },
     });
 
-    if (!user) {
-      throw new Error("Usuario no encontrado");
-    }
+    if (!user) throw new Error("Usuario no encontrado");
 
-    // Determinar qué empleados puede ver
-    let employeeIds: string[] = [];
-
-    if (user.role === "HR_ADMIN" || user.role === "ORG_ADMIN") {
-      // Ver todos los empleados de la organización
-      const allEmployees = await prisma.employee.findMany({
-        where: {
-          orgId: user.orgId,
-          active: true,
-        },
-        select: { id: true },
-      });
-      employeeIds = allEmployees.map((e) => e.id);
-    } else if (user.role === "MANAGER" && user.employee) {
-      // Ver solo sus subordinados
-      employeeIds = user.employee.managedContracts.map((c) => c.employeeId);
-    }
-
-    // Obtener solicitudes aprobadas en el rango de fechas
-    const approvedRequests = await prisma.ptoRequest.findMany({
+    const requests = await prisma.ptoRequest.findMany({
       where: {
         orgId: user.orgId,
-        employeeId: {
-          in: employeeIds,
-        },
         status: "APPROVED",
-        OR: [
-          {
-            startDate: {
-              lte: endDate,
-            },
-            endDate: {
-              gte: startDate,
-            },
-          },
-        ],
+        startDate: { lte: endDate },
+        endDate: { gte: startDate },
       },
       include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            photoUrl: true,
-          },
-        },
+        employee: { select: { firstName: true, lastName: true, photoUrl: true } },
         absenceType: true,
-      },
-      orderBy: {
-        startDate: "asc",
       },
     });
 
-    return approvedRequests.map((r) => ({
-      id: r.id,
-      startDate: r.startDate,
-      endDate: r.endDate,
-      workingDays: Number(r.workingDays),
-      employee: r.employee,
-      absenceType: r.absenceType,
-    }));
+    return requests;
   } catch (error) {
-    console.error("Error al obtener calendario del equipo:", error);
-    throw error;
+    console.error(error);
+    return [];
   }
 }

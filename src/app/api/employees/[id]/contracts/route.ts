@@ -18,6 +18,8 @@ const isValidDayForMonth = (mmdd: string): boolean => {
   return day <= daysInMonth[month - 1];
 };
 
+// Esquema simplificado de validación para creación
+// Validamos todo lo que venga del frontend, pero solo usaremos lo que exista en V2
 const contractSchema = z
   .object({
     contractType: z.enum([
@@ -34,178 +36,20 @@ const contractSchema = z
     weeklyHours: z.number().min(1).max(60),
     workingDaysPerWeek: z.number().min(0.5).max(7).optional().nullable(),
     grossSalary: z.number().min(0).optional().nullable(),
-    hasIntensiveSchedule: z.boolean().optional().nullable(),
-    intensiveStartDate: z
-      .string()
-      .regex(MM_DD_REGEX, "Formato inválido. Debe ser MM-DD (ej: 06-15)")
-      .refine(isValidDayForMonth, "Día inválido para el mes especificado")
-      .optional()
-      .nullable(),
-    intensiveEndDate: z
-      .string()
-      .regex(MM_DD_REGEX, "Formato inválido. Debe ser MM-DD (ej: 09-15)")
-      .refine(isValidDayForMonth, "Día inválido para el mes especificado")
-      .optional()
-      .nullable(),
-    intensiveWeeklyHours: z.number().min(1).max(60).optional().nullable(),
-    hasCustomWeeklyPattern: z.boolean().optional().nullable(),
-    mondayHours: z.number().min(0).max(24).optional().nullable(),
-    tuesdayHours: z.number().min(0).max(24).optional().nullable(),
-    wednesdayHours: z.number().min(0).max(24).optional().nullable(),
-    thursdayHours: z.number().min(0).max(24).optional().nullable(),
-    fridayHours: z.number().min(0).max(24).optional().nullable(),
-    saturdayHours: z.number().min(0).max(24).optional().nullable(),
-    sundayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveMondayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveTuesdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveWednesdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveThursdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveFridayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveSaturdayHours: z.number().min(0).max(24).optional().nullable(),
-    intensiveSundayHours: z.number().min(0).max(24).optional().nullable(),
-    // Nuevos campos para FLEXIBLE, FIXED, SHIFTS
-    scheduleType: z.enum(["FLEXIBLE", "FIXED", "SHIFTS"]).optional().nullable(),
-    workMonday: z.boolean().optional().nullable(),
-    workTuesday: z.boolean().optional().nullable(),
-    workWednesday: z.boolean().optional().nullable(),
-    workThursday: z.boolean().optional().nullable(),
-    workFriday: z.boolean().optional().nullable(),
-    workSaturday: z.boolean().optional().nullable(),
-    workSunday: z.boolean().optional().nullable(),
-    hasFixedTimeSlots: z.boolean().optional().nullable(),
-    mondayStartTime: z.string().optional().nullable(),
-    mondayEndTime: z.string().optional().nullable(),
-    tuesdayStartTime: z.string().optional().nullable(),
-    tuesdayEndTime: z.string().optional().nullable(),
-    wednesdayStartTime: z.string().optional().nullable(),
-    wednesdayEndTime: z.string().optional().nullable(),
-    thursdayStartTime: z.string().optional().nullable(),
-    thursdayEndTime: z.string().optional().nullable(),
-    fridayStartTime: z.string().optional().nullable(),
-    fridayEndTime: z.string().optional().nullable(),
-    saturdayStartTime: z.string().optional().nullable(),
-    saturdayEndTime: z.string().optional().nullable(),
-    sundayStartTime: z.string().optional().nullable(),
-    sundayEndTime: z.string().optional().nullable(),
-    // Pausas/Breaks para horario FIXED
-    mondayBreakStartTime: z.string().optional().nullable(),
-    mondayBreakEndTime: z.string().optional().nullable(),
-    tuesdayBreakStartTime: z.string().optional().nullable(),
-    tuesdayBreakEndTime: z.string().optional().nullable(),
-    wednesdayBreakStartTime: z.string().optional().nullable(),
-    wednesdayBreakEndTime: z.string().optional().nullable(),
-    thursdayBreakStartTime: z.string().optional().nullable(),
-    thursdayBreakEndTime: z.string().optional().nullable(),
-    fridayBreakStartTime: z.string().optional().nullable(),
-    fridayBreakEndTime: z.string().optional().nullable(),
-    saturdayBreakStartTime: z.string().optional().nullable(),
-    saturdayBreakEndTime: z.string().optional().nullable(),
-    sundayBreakStartTime: z.string().optional().nullable(),
-    sundayBreakEndTime: z.string().optional().nullable(),
-    // Franjas horarias para jornada intensiva en horario FIXED
-    intensiveMondayStartTime: z.string().optional().nullable(),
-    intensiveMondayEndTime: z.string().optional().nullable(),
-    intensiveTuesdayStartTime: z.string().optional().nullable(),
-    intensiveTuesdayEndTime: z.string().optional().nullable(),
-    intensiveWednesdayStartTime: z.string().optional().nullable(),
-    intensiveWednesdayEndTime: z.string().optional().nullable(),
-    intensiveThursdayStartTime: z.string().optional().nullable(),
-    intensiveThursdayEndTime: z.string().optional().nullable(),
-    intensiveFridayStartTime: z.string().optional().nullable(),
-    intensiveFridayEndTime: z.string().optional().nullable(),
-    intensiveSaturdayStartTime: z.string().optional().nullable(),
-    intensiveSaturdayEndTime: z.string().optional().nullable(),
-    intensiveSundayStartTime: z.string().optional().nullable(),
-    intensiveSundayEndTime: z.string().optional().nullable(),
-    // Pausas durante jornada intensiva en horario FIXED
-    intensiveMondayBreakStartTime: z.string().optional().nullable(),
-    intensiveMondayBreakEndTime: z.string().optional().nullable(),
-    intensiveTuesdayBreakStartTime: z.string().optional().nullable(),
-    intensiveTuesdayBreakEndTime: z.string().optional().nullable(),
-    intensiveWednesdayBreakStartTime: z.string().optional().nullable(),
-    intensiveWednesdayBreakEndTime: z.string().optional().nullable(),
-    intensiveThursdayBreakStartTime: z.string().optional().nullable(),
-    intensiveThursdayBreakEndTime: z.string().optional().nullable(),
-    intensiveFridayBreakStartTime: z.string().optional().nullable(),
-    intensiveFridayBreakEndTime: z.string().optional().nullable(),
-    intensiveSaturdayBreakStartTime: z.string().optional().nullable(),
-    intensiveSaturdayBreakEndTime: z.string().optional().nullable(),
-    intensiveSundayBreakStartTime: z.string().optional().nullable(),
-    intensiveSundayBreakEndTime: z.string().optional().nullable(),
     positionId: z.string().optional().nullable(),
     departmentId: z.string().optional().nullable(),
     costCenterId: z.string().optional().nullable(),
     managerId: z.string().optional().nullable(),
-  })
-  .refine(
-    (data) => {
-      // Si tiene jornada intensiva, los campos deben estar completos
-      if (data.hasIntensiveSchedule) {
-        return (
-          data.intensiveStartDate &&
-          data.intensiveStartDate.trim().length > 0 &&
-          data.intensiveEndDate &&
-          data.intensiveEndDate.trim().length > 0 &&
-          data.intensiveWeeklyHours !== null &&
-          data.intensiveWeeklyHours !== undefined
-        );
-      }
-      return true;
-    },
-    {
-      message:
-        "Si activas la jornada intensiva, debes proporcionar fecha de inicio (MM-DD), fecha de fin (MM-DD) y horas semanales",
-    },
-  )
-  .refine(
-    (data) => {
-      // Si tiene patrón semanal personalizado, todos los campos deben estar completos
-      if (data.hasCustomWeeklyPattern) {
-        return (
-          data.mondayHours !== null &&
-          data.mondayHours !== undefined &&
-          data.tuesdayHours !== null &&
-          data.tuesdayHours !== undefined &&
-          data.wednesdayHours !== null &&
-          data.wednesdayHours !== undefined &&
-          data.thursdayHours !== null &&
-          data.thursdayHours !== undefined &&
-          data.fridayHours !== null &&
-          data.fridayHours !== undefined &&
-          data.saturdayHours !== null &&
-          data.saturdayHours !== undefined &&
-          data.sundayHours !== null &&
-          data.sundayHours !== undefined
-        );
-      }
-      return true;
-    },
-    {
-      message: "Si activas el patrón semanal personalizado, debes proporcionar las horas de todos los días",
-    },
-  )
-  .refine(
-    (data) => {
-      // Si tiene patrón semanal personalizado, la suma debe coincidir con weeklyHours
-      if (data.hasCustomWeeklyPattern) {
-        const totalHours =
-          (data.mondayHours ?? 0) +
-          (data.tuesdayHours ?? 0) +
-          (data.wednesdayHours ?? 0) +
-          (data.thursdayHours ?? 0) +
-          (data.fridayHours ?? 0) +
-          (data.saturdayHours ?? 0) +
-          (data.sundayHours ?? 0);
 
-        const difference = Math.abs(totalHours - data.weeklyHours);
-        return difference < 0.51;
-      }
-      return true;
-    },
-    {
-      message: "La suma de las horas semanales personalizadas debe coincidir con las horas semanales totales",
-    },
-  );
+    // Campos V1 (Legacy) - Se validan para no romper el form, pero se ignoran
+    hasIntensiveSchedule: z.boolean().optional().nullable(),
+    intensiveStartDate: z.string().optional().nullable(),
+    intensiveEndDate: z.string().optional().nullable(),
+    intensiveWeeklyHours: z.number().optional().nullable(),
+    hasCustomWeeklyPattern: z.boolean().optional().nullable(),
+    // ... se pueden añadir más si el frontend los envía, .passthrough() lo maneja
+  })
+  .passthrough();
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -386,7 +230,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       );
     }
 
-    // Crear contrato
+    // Crear contrato - LIMPIEZA V1: Solo campos existentes en V2
     const contract = await prisma.employmentContract.create({
       data: {
         orgId,
@@ -397,99 +241,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         weeklyHours: data.weeklyHours,
         workingDaysPerWeek: data.workingDaysPerWeek ?? 5,
         grossSalary: data.grossSalary,
-        hasIntensiveSchedule: data.hasIntensiveSchedule ?? false,
-        intensiveStartDate: data.intensiveStartDate ?? null,
-        intensiveEndDate: data.intensiveEndDate ?? null,
-        intensiveWeeklyHours: data.intensiveWeeklyHours,
-        hasCustomWeeklyPattern: data.hasCustomWeeklyPattern ?? false,
-        mondayHours: data.mondayHours,
-        tuesdayHours: data.tuesdayHours,
-        wednesdayHours: data.wednesdayHours,
-        thursdayHours: data.thursdayHours,
-        fridayHours: data.fridayHours,
-        saturdayHours: data.saturdayHours,
-        sundayHours: data.sundayHours,
-        intensiveMondayHours: data.intensiveMondayHours,
-        intensiveTuesdayHours: data.intensiveTuesdayHours,
-        intensiveWednesdayHours: data.intensiveWednesdayHours,
-        intensiveThursdayHours: data.intensiveThursdayHours,
-        intensiveFridayHours: data.intensiveFridayHours,
-        intensiveSaturdayHours: data.intensiveSaturdayHours,
-        intensiveSundayHours: data.intensiveSundayHours,
-        // Nuevos campos para FLEXIBLE, FIXED, SHIFTS
-        scheduleType: data.scheduleType ?? "FLEXIBLE",
-        workMonday: data.workMonday ?? false,
-        workTuesday: data.workTuesday ?? false,
-        workWednesday: data.workWednesday ?? false,
-        workThursday: data.workThursday ?? false,
-        workFriday: data.workFriday ?? false,
-        workSaturday: data.workSaturday ?? false,
-        workSunday: data.workSunday ?? false,
-        hasFixedTimeSlots: data.hasFixedTimeSlots ?? false,
-        mondayStartTime: data.mondayStartTime,
-        mondayEndTime: data.mondayEndTime,
-        tuesdayStartTime: data.tuesdayStartTime,
-        tuesdayEndTime: data.tuesdayEndTime,
-        wednesdayStartTime: data.wednesdayStartTime,
-        wednesdayEndTime: data.wednesdayEndTime,
-        thursdayStartTime: data.thursdayStartTime,
-        thursdayEndTime: data.thursdayEndTime,
-        fridayStartTime: data.fridayStartTime,
-        fridayEndTime: data.fridayEndTime,
-        saturdayStartTime: data.saturdayStartTime,
-        saturdayEndTime: data.saturdayEndTime,
-        sundayStartTime: data.sundayStartTime,
-        sundayEndTime: data.sundayEndTime,
-        // Pausas/Breaks para horario FIXED
-        mondayBreakStartTime: data.mondayBreakStartTime,
-        mondayBreakEndTime: data.mondayBreakEndTime,
-        tuesdayBreakStartTime: data.tuesdayBreakStartTime,
-        tuesdayBreakEndTime: data.tuesdayBreakEndTime,
-        wednesdayBreakStartTime: data.wednesdayBreakStartTime,
-        wednesdayBreakEndTime: data.wednesdayBreakEndTime,
-        thursdayBreakStartTime: data.thursdayBreakStartTime,
-        thursdayBreakEndTime: data.thursdayBreakEndTime,
-        fridayBreakStartTime: data.fridayBreakStartTime,
-        fridayBreakEndTime: data.fridayBreakEndTime,
-        saturdayBreakStartTime: data.saturdayBreakStartTime,
-        saturdayBreakEndTime: data.saturdayBreakEndTime,
-        sundayBreakStartTime: data.sundayBreakStartTime,
-        sundayBreakEndTime: data.sundayBreakEndTime,
-        // Franjas horarias para jornada intensiva en horario FIXED
-        intensiveMondayStartTime: data.intensiveMondayStartTime,
-        intensiveMondayEndTime: data.intensiveMondayEndTime,
-        intensiveTuesdayStartTime: data.intensiveTuesdayStartTime,
-        intensiveTuesdayEndTime: data.intensiveTuesdayEndTime,
-        intensiveWednesdayStartTime: data.intensiveWednesdayStartTime,
-        intensiveWednesdayEndTime: data.intensiveWednesdayEndTime,
-        intensiveThursdayStartTime: data.intensiveThursdayStartTime,
-        intensiveThursdayEndTime: data.intensiveThursdayEndTime,
-        intensiveFridayStartTime: data.intensiveFridayStartTime,
-        intensiveFridayEndTime: data.intensiveFridayEndTime,
-        intensiveSaturdayStartTime: data.intensiveSaturdayStartTime,
-        intensiveSaturdayEndTime: data.intensiveSaturdayEndTime,
-        intensiveSundayStartTime: data.intensiveSundayStartTime,
-        intensiveSundayEndTime: data.intensiveSundayEndTime,
-        // Pausas durante jornada intensiva en horario FIXED
-        intensiveMondayBreakStartTime: data.intensiveMondayBreakStartTime,
-        intensiveMondayBreakEndTime: data.intensiveMondayBreakEndTime,
-        intensiveTuesdayBreakStartTime: data.intensiveTuesdayBreakStartTime,
-        intensiveTuesdayBreakEndTime: data.intensiveTuesdayBreakEndTime,
-        intensiveWednesdayBreakStartTime: data.intensiveWednesdayBreakStartTime,
-        intensiveWednesdayBreakEndTime: data.intensiveWednesdayBreakEndTime,
-        intensiveThursdayBreakStartTime: data.intensiveThursdayBreakStartTime,
-        intensiveThursdayBreakEndTime: data.intensiveThursdayBreakEndTime,
-        intensiveFridayBreakStartTime: data.intensiveFridayBreakStartTime,
-        intensiveFridayBreakEndTime: data.intensiveFridayBreakEndTime,
-        intensiveSaturdayBreakStartTime: data.intensiveSaturdayBreakStartTime,
-        intensiveSaturdayBreakEndTime: data.intensiveSaturdayBreakEndTime,
-        intensiveSundayBreakStartTime: data.intensiveSundayBreakStartTime,
-        intensiveSundayBreakEndTime: data.intensiveSundayBreakEndTime,
+
+        // Relaciones
         positionId,
         departmentId,
         costCenterId,
         managerId,
         active: true,
+
+        // NOTA: Los campos de horario V1 (hasIntensiveSchedule, mondayHours, etc.)
+        // SE HAN ELIMINADO AQUÍ para evitar error de Prisma.
+        // La gestión de horarios se debe hacer posteriormente asignando un ScheduleTemplate.
       },
       include: {
         position: {
@@ -535,6 +297,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json(contract, { status: 201 });
   } catch (error) {
     console.error("Error al crear contrato:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "Error interno del servidor",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   }
 }

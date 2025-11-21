@@ -91,11 +91,7 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/pto",
           icon: CalendarDays,
         },
-        {
-          title: "Mis Responsabilidades",
-          url: "/dashboard/me/responsibilities",
-          icon: ClipboardList,
-        },
+        // "Mis Responsabilidades" REMOVED from here
         ...(shiftsEnabled
           ? [
               {
@@ -178,26 +174,16 @@ export function useSidebarItems(): NavGroup[] {
           : []),
         {
           title: "Aprobaciones",
-          url: "/dashboard/approvals/pto",
+          url: "/dashboard/approvals",
           icon: CheckSquare,
           permission: "approve_requests",
-          subItems: [
-            {
-              title: "Vacaciones",
-              url: "/dashboard/approvals/pto",
-              permission: "approve_requests",
-            },
-            {
-              title: "Fichajes manuales",
-              url: "/dashboard/approvals/time-entries",
-              permission: "approve_requests",
-            },
-            {
-              title: "Gastos",
-              url: "/dashboard/approvals/expenses",
-              permission: "approve_requests",
-            },
-          ],
+        },
+        // MOVED HERE and RENAMED
+        {
+          title: "Responsables de Área",
+          url: "/dashboard/me/responsibilities",
+          icon: ClipboardList,
+          permission: "view_employees", // Adjusted permission
         },
         {
           title: "Gastos",
