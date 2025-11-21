@@ -1,12 +1,3 @@
-/**
- * Página "Mis Turnos" (Empleados)
- *
- * Vista personal de turnos asignados con:
- * - Métricas personales (horas, próximo turno, balance)
- * - Calendario semana/mes (solo lectura)
- * - Lista de próximos turnos
- */
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -16,33 +7,35 @@ import {
   startOfMonth,
   endOfMonth,
   eachDayOfInterval,
-  isSameMonth,
   isToday,
   addMonths,
   subMonths,
   startOfToday,
   getDay,
-  startOfWeek,
 } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 import { formatShiftTime, getEmptyDayType } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
-import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
-import { useShiftsStore } from "@/app/(main)/dashboard/shifts/_store/shifts-store";
+import type { Shift, EmployeeShift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { getMyMonthlyShifts, getMyEmployeeProfile } from "@/server/actions/my-shifts";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
 import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
 
 // Helper: Determinar tipo de turno según hora de inicio
-function getShiftType(startTime: string): "morning" | "afternoon" | "night" | "vacation" {
-  const hour = parseInt(startTime.split(":")[0] ?? "0", 10);
+function getShiftType(shift: Shift): "morning" | "afternoon" | "night" | "vacation" {
+  // Si es vacaciones o ausencia, forzamos tipo vacation para el color
+  if (shift.role?.toLowerCase().includes("vacaciones") || shift.role?.toLowerCase().includes("ausencia")) {
+    return "vacation";
+  }
+
+  const hour = parseInt(shift.startTime.split(":")[0] ?? "0", 10);
   if (hour >= 6 && hour < 14) return "morning";
   if (hour >= 14 && hour < 22) return "afternoon";
   return "night";
@@ -79,45 +72,36 @@ function getShiftLabel(type: "morning" | "afternoon" | "night" | "vacation") {
 }
 
 export default function MyShiftsPage() {
-  // Store de turnos (compartido con el módulo de gestión)
-  const {
-    shifts,
-    employees,
-    costCenters,
-    zones,
-    isLoading,
-    fetchShifts,
-    fetchEmployees,
-    fetchCostCenters,
-    fetchZones,
-  } = useShiftsStore();
-
-  // Estado local para navegación de calendario y dialog
+  // Estado local
   const [currentMonth, setCurrentMonth] = useState(startOfToday());
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
-  // Cargar datos iniciales
+  const [shifts, setShifts] = useState<Shift[]>([]);
+  const [currentEmployee, setCurrentEmployee] = useState<EmployeeShift | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Cargar perfil de empleado
   useEffect(() => {
-    void fetchShifts();
-    void fetchEmployees();
-    void fetchCostCenters();
-    void fetchZones();
-  }, [fetchShifts, fetchEmployees, fetchCostCenters, fetchZones]);
+    getMyEmployeeProfile().then((emp) => {
+      if (emp) setCurrentEmployee(emp as unknown as EmployeeShift);
+    });
+  }, []);
 
-  // Obtener el primer empleado como "empleado actual" (MOCK)
-  // En producción, esto vendría del contexto de autenticación
-  const currentEmployee = useMemo(() => {
-    // Buscar el primer empleado que use el sistema de turnos
-    const employee = employees.find((e) => e.usesShiftSystem);
-    return employee ?? null;
-  }, [employees]);
+  // Cargar turnos al cambiar de mes
+  useEffect(() => {
+    setIsLoading(true);
+    getMyMonthlyShifts(currentMonth)
+      .then((result) => {
+        if (result.success) {
+          setShifts(result.shifts);
+        }
+      })
+      .finally(() => setIsLoading(false));
+  }, [currentMonth]);
 
-  // Filtrar solo MIS turnos
-  const myShifts = useMemo(() => {
-    if (!currentEmployee) return [];
-    return shifts.filter((s) => s.employeeId === currentEmployee.id);
-  }, [shifts, currentEmployee]);
+  // Filtrar solo MIS turnos (ya vienen filtrados del server, pero mantenemos consistencia)
+  const myShifts = shifts;
 
   // Calcular métricas personales
   const metrics = useMemo(() => {
@@ -148,7 +132,7 @@ export default function MyShiftsPage() {
 
   // Agrupar turnos por fecha
   const shiftsByDate = useMemo(() => {
-    const grouped = new Map<string, typeof myShifts>();
+    const grouped = new Map<string, Shift[]>();
     myShifts.forEach((shift) => {
       const dateKey = shift.date;
       const existing = grouped.get(dateKey) ?? [];
@@ -157,7 +141,7 @@ export default function MyShiftsPage() {
     return grouped;
   }, [myShifts]);
 
-  if (!currentEmployee) {
+  if (!currentEmployee && !isLoading) {
     return (
       <div className="@container/main flex flex-col gap-6">
         <Card>
@@ -189,23 +173,26 @@ export default function MyShiftsPage() {
           <div className="flex items-center justify-between">
             {/* Navegación y mes juntos (izquierda) */}
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" onClick={goToPreviousMonth}>
+              <Button variant="outline" size="icon" onClick={goToPreviousMonth} disabled={isLoading}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <h2 className="px-3 text-xl font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: es })}</h2>
-              <Button variant="outline" size="icon" onClick={goToNextMonth}>
+              <h2 className="flex items-center gap-2 px-3 text-xl font-bold capitalize">
+                {format(currentMonth, "MMMM yyyy", { locale: es })}
+                {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
+              </h2>
+              <Button variant="outline" size="icon" onClick={goToNextMonth} disabled={isLoading}>
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
 
             {/* Botón Hoy (derecha) */}
-            <Button variant="outline" size="sm" onClick={goToToday}>
+            <Button variant="outline" size="sm" onClick={goToToday} disabled={isLoading}>
               Hoy
             </Button>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {myShifts.length === 0 ? (
+          {!isLoading && myShifts.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
               <Calendar className="text-muted-foreground size-12" />
               <p className="text-muted-foreground text-sm">No tienes turnos asignados este mes</p>
@@ -236,6 +223,24 @@ export default function MyShiftsPage() {
                   // Determinar el tipo de día vacío (descanso vs sin planificar)
                   const emptyDayType = getEmptyDayType(dateKey, shifts);
 
+                  // Lógica de consolidación: Si hay trabajo, ocultamos las ausencias parciales pero marcamos el día
+                  const workShifts = dayShifts.filter(
+                    (s) => !s.role?.toLowerCase().includes("vacaciones") && !s.role?.toLowerCase().includes("ausencia"),
+                  );
+                  const absenceShifts = dayShifts.filter(
+                    (s) => s.role?.toLowerCase().includes("vacaciones") ?? s.role?.toLowerCase().includes("ausencia"),
+                  );
+
+                  const hasWork = workShifts.length > 0;
+                  const hasAbsence = absenceShifts.length > 0;
+
+                  // Si hay trabajo y ausencia, mostramos trabajo con indicador (split card).
+                  // Si solo hay ausencia, mostramos ausencia.
+                  // Si solo hay trabajo, mostramos trabajo.
+                  // Fallback a dayShifts si algo raro pasa.
+                  const visibleShifts = hasWork ? workShifts : hasAbsence ? absenceShifts : dayShifts;
+                  const showAbsenceIndicator = hasWork && hasAbsence;
+
                   return (
                     <div key={dateKey} className="relative min-h-[60px] md:min-h-[80px]">
                       {/* Indicador de día actual */}
@@ -247,58 +252,95 @@ export default function MyShiftsPage() {
 
                       {/* Turnos del día */}
                       {hasShifts ? (
-                        dayShifts.map((shift) => {
-                          // Detectar vacaciones basándose en el campo role
-                          const isVacation = shift.role?.toLowerCase().includes("vacaciones");
-                          const shiftType = isVacation ? "vacation" : getShiftType(shift.startTime);
+                        visibleShifts.map((shift) => {
+                          const shiftType = getShiftType(shift);
                           const colors = getShiftColors(shiftType);
-                          const label = getShiftLabel(shiftType);
+
+                          let label = getShiftLabel(shiftType);
+                          if (shift.role?.toLowerCase().includes("ausencia")) label = "Ausencia";
+
+                          const isFullDayVacation = shiftType === "vacation" && shift.startTime === "00:00";
 
                           return (
                             <button
                               key={shift.id}
                               onClick={() => handleShiftClick(shift)}
                               className={cn(
-                                "h-full w-full rounded-lg p-2 text-left transition-all hover:scale-[1.02] hover:opacity-90",
-                                colors,
+                                "relative h-full w-full overflow-hidden rounded-lg border border-transparent text-left transition-all hover:scale-[1.02] hover:opacity-90",
+                                // Si hay indicador de ausencia (mixto), usamos un fondo base neutro o del trabajo,
+                                // pero el contenido lo dividimos. Si no, usamos el color normal.
+                                showAbsenceIndicator
+                                  ? "dark:bg-card border-input bg-white p-0 shadow-sm"
+                                  : cn("p-2", colors),
                               )}
                             >
-                              {/* Vacaciones: centrado */}
-                              {isVacation ? (
-                                <div className="flex h-full items-center justify-center">
-                                  {/* Desktop: texto completo */}
-                                  <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
-                                    {label}
-                                  </span>
-                                  {/* Móvil: solo letra V centrada */}
-                                  <span className="text-xs font-bold uppercase md:hidden">V</span>
+                              {/* CASO MIXTO: TRABAJO + VACACIONES (Tarjeta Dividida) */}
+                              {showAbsenceIndicator ? (
+                                <div className="flex h-full flex-col">
+                                  {/* Parte Superior: TRABAJO */}
+                                  <div className={cn("flex flex-1 flex-col justify-between p-1.5", colors)}>
+                                    <div className="flex items-start justify-between">
+                                      <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                        {label}
+                                      </span>
+                                      <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
+                                        {format(day, "d")}
+                                      </span>
+                                      {/* Móvil: Letra turno */}
+                                      <span className="mx-auto text-xs font-bold uppercase md:hidden">
+                                        {label.charAt(0)}
+                                      </span>
+                                    </div>
+                                    {/* Hora solo desktop */}
+                                    <div className="hidden justify-end md:flex">
+                                      <span className="text-[9px] font-medium opacity-80">
+                                        {formatShiftTime(shift.startTime, shift.endTime)}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Parte Inferior: VACACIONES / AUSENCIA */}
+                                  <div className="flex h-[22px] items-center justify-center border-t border-orange-200/50 bg-orange-100 text-orange-800 dark:bg-orange-900/60 dark:text-orange-100">
+                                    <span className="truncate px-1 text-[9px] font-bold tracking-wider uppercase">
+                                      {/* En móvil ponemos icono o texto corto, desktop texto completo */}
+                                      <span className="md:hidden">VAC</span>
+                                      <span className="hidden md:inline">VACACIONES</span>
+                                    </span>
+                                  </div>
                                 </div>
                               ) : (
-                                /* Turnos normales: layout completo */
-                                <div className="flex h-full flex-col justify-between">
-                                  {/* Fila superior: Tipo turno (izq) + Fecha (der) */}
-                                  <div className="flex items-start justify-between md:justify-start">
-                                    {/* Desktop: tipo turno izquierda + fecha derecha */}
-                                    <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
-                                      {label}
-                                    </span>
-                                    <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
-                                      {format(day, "d")}
-                                    </span>
+                                /* CASO NORMAL (Solo Trabajo O Solo Vacaciones Día Completo) */
+                                <>
+                                  {isFullDayVacation ? (
+                                    <div className="flex h-full items-center justify-center">
+                                      <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                        {label}
+                                      </span>
+                                      <span className="text-xs font-bold uppercase md:hidden">V</span>
+                                    </div>
+                                  ) : (
+                                    /* Turnos normales */
+                                    <div className="relative z-10 flex h-full flex-col justify-between">
+                                      <div className="flex items-start justify-between md:justify-start">
+                                        <span className="hidden text-[10px] font-bold tracking-wider uppercase md:inline">
+                                          {label}
+                                        </span>
+                                        <span className="hidden text-[10px] font-medium opacity-60 md:ml-auto md:inline">
+                                          {format(day, "d")}
+                                        </span>
+                                        <span className="mx-auto text-xs font-bold uppercase md:hidden">
+                                          {label.charAt(0)}
+                                        </span>
+                                      </div>
 
-                                    {/* Móvil: solo letra centrada */}
-                                    <span className="mx-auto text-xs font-bold uppercase md:hidden">
-                                      {label.charAt(0)}
-                                    </span>
-                                  </div>
-
-                                  {/* Fila inferior: Horario abajo derecha - solo desktop */}
-                                  <div className="hidden justify-end md:flex">
-                                    <span className="text-[9px] font-medium opacity-80">
-                                      {formatShiftTime(shift.startTime, shift.endTime)}
-                                    </span>
-                                  </div>
-                                </div>
+                                      <div className="hidden justify-end md:flex">
+                                        <span className="text-[9px] font-medium opacity-80">
+                                          {formatShiftTime(shift.startTime, shift.endTime)}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
                               )}
                             </button>
                           );
@@ -311,18 +353,14 @@ export default function MyShiftsPage() {
                             emptyDayType === "rest" ? getShiftColors("rest") : "bg-muted/50 dark:bg-muted/30",
                           )}
                         >
-                          {/* Descanso: centrado */}
                           {emptyDayType === "rest" ? (
                             <>
-                              {/* Desktop: texto completo */}
                               <span className="hidden text-[9px] font-bold tracking-wider uppercase opacity-70 md:inline">
                                 Descanso
                               </span>
-                              {/* Móvil: solo letra D centrada */}
                               <span className="text-xs font-bold uppercase opacity-70 md:hidden">D</span>
                             </>
                           ) : (
-                            // Sin planificar: texto solo en desktop, NADA en móvil
                             <span className="hidden text-[8px] tracking-wide uppercase opacity-40 md:inline">
                               Sin planificar
                             </span>
@@ -345,7 +383,7 @@ export default function MyShiftsPage() {
           onOpenChange={setIsDialogOpen}
           shift={selectedShift}
           employee={currentEmployee}
-          employees={employees}
+          employees={[]} // Deshabilitado temporalmente
         />
       )}
     </div>
