@@ -172,17 +172,58 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
       ? { decision: { in: ["APPROVED", "REJECTED"] } as const }
       : { decision: "PENDING" as const };
 
-    const expenses = await prisma.expense.findMany({
-      where: {
-        orgId,
-        status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
-        approvals: {
-          some: {
-            approverId: userId,
-            ...expenseFilter,
-          },
+    // Si es admin, ve todos los gastos de la org. Si no, solo donde es aprobador.
+    const expenseWhereClause: any = {
+      orgId,
+      status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
+    };
+
+    if (!isGlobalAdmin) {
+      expenseWhereClause.approvals = {
+        some: {
+          approverId: userId,
+          ...expenseFilter,
         },
-      },
+      };
+    } else if (isHistory) {
+      // Si es admin viendo historial, quizás quiera ver SU historial de aprobaciones
+      // O todo el historial. Por consistencia con PTO, si filtra historial, mostramos donde él actuó.
+      // Si queremos ver TODO el historial de la empresa, quitamos esta restricción.
+      // De momento, dejemos que historial admin vea donde él aprobó para no saturar,
+      // pero para PENDIENTES (que es lo crítico), ve TODO.
+      expenseWhereClause.approvals = {
+        some: {
+          approverId: userId,
+          ...expenseFilter,
+        },
+      };
+    }
+
+    // Corrección: Si es Admin y Pendientes, NO aplicamos filtro de approvals.
+    // Pero si es Admin y Historial, mantenemos el filtro de "mis aprobaciones" o mostramos todo?
+    // El usuario pidió: "Admin y RRHH puedan verlo".
+    // Para pendientes: Ver TODO.
+    // Para historial: Mantendré "Mis acciones" para no explotar la lista, salvo que me digas lo contrario.
+
+    // Re-definición más limpia:
+    const expensesWhere: any = {
+      orgId,
+      status: isHistory ? { in: ["APPROVED", "REJECTED"] } : "SUBMITTED",
+    };
+
+    if (isHistory || !isGlobalAdmin) {
+      // En historial (para todos) o pendientes (para empleados normales), filtramos por aprobador
+      expensesWhere.approvals = {
+        some: {
+          approverId: userId,
+          ...expenseFilter,
+        },
+      };
+    }
+    // Si es GlobalAdmin y Pendientes, expensesWhere no tiene filtro de approvals -> Ve todo.
+
+    const expenses = await prisma.expense.findMany({
+      where: expensesWhere,
       include: {
         employee: {
           include: {
@@ -195,7 +236,9 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
           },
         },
         approvals: {
-          where: { approverId: userId }, // Traer solo mi aprobación para ver comentarios/decisión
+          // Intentamos traer MI aprobación si existe, o la primera pendiente si soy admin viendo global
+          where: isGlobalAdmin && !isHistory ? {} : { approverId: userId },
+          take: 1,
         },
         attachments: {
           take: 1, // Solo necesitamos uno para la vista rápida
