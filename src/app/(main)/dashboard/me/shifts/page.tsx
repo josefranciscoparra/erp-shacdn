@@ -384,6 +384,7 @@ export default function MyShiftsPage() {
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           shift={selectedShift}
+          dayShifts={selectedShift ? (shiftsByDate.get(selectedShift.date) ?? []) : []}
           employee={currentEmployee}
           employees={[]} // Deshabilitado temporalmente
         />

@@ -123,7 +123,12 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
       <Card className="gap-2">
         <CardHeader>
           <CardTitle className="font-display text-xl">
-            {metrics.nextShift ? "Próximo turno" : "Sin turnos próximos"}
+            {metrics.nextShift
+              ? metrics.nextShift.role?.toLowerCase().includes("vacaciones") ||
+                metrics.nextShift.role?.toLowerCase().includes("ausencia")
+                ? "Próxima ausencia"
+                : "Próximo turno"
+              : "Sin eventos próximos"}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -134,9 +139,24 @@ export function MyShiftsMetricsCards({ metrics, isLoading }: MyShiftsMetricsProp
             <div className="flex-1">
               {metrics.nextShift ? (
                 <>
+                  {/* Tipo de evento (Ausencia/Vacaciones) */}
+                  {(() => {
+                    const role = metrics.nextShift.role?.toLowerCase();
+                    return (role?.includes("vacaciones") ?? false) || (role?.includes("ausencia") ?? false);
+                  })() && (
+                    <p className="mb-1 text-xs font-bold text-orange-600 uppercase dark:text-orange-400">
+                      {metrics.nextShift.role}
+                    </p>
+                  )}
+
+                  {/* Horario */}
                   <p className="text-sm font-semibold">
-                    {formatShiftTime(metrics.nextShift.startTime, metrics.nextShift.endTime)}
+                    {metrics.nextShift.startTime === "00:00" && metrics.nextShift.endTime === "23:59"
+                      ? "Día completo"
+                      : formatShiftTime(metrics.nextShift.startTime, metrics.nextShift.endTime)}
                   </p>
+
+                  {/* Fecha y tiempo hasta el evento */}
                   <p className="text-muted-foreground text-sm">
                     {formatDateShort(new Date(metrics.nextShift.date))} · En{" "}
                     <span className="text-foreground font-semibold">{Math.abs(metrics.hoursUntilNextShift)}h</span>

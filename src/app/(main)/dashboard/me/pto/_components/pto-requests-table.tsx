@@ -18,6 +18,7 @@ import { es } from "date-fns/locale";
 import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal } from "lucide-react";
 import { toast } from "sonner";
 
+import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
 import {
@@ -39,7 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatMinutes } from "@/lib/pto-helpers-client";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
@@ -122,20 +122,32 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
       },
       {
         accessorKey: "workingDays",
-        header: "Duración",
+        header: "Duración / Horario",
         cell: ({ row }) => {
           const request = row.original;
 
-          // Si tiene durationMinutes, es una ausencia parcial → mostrar horas
+          // Si tiene durationMinutes, es una ausencia parcial → mostrar horas y rango
           if (request.durationMinutes !== null && request.durationMinutes !== undefined) {
             const hours = Math.floor(request.durationMinutes / 60);
             const minutes = request.durationMinutes % 60;
 
+            // Formatear rango de horas si existe
+            const timeRange =
+              request.startTime !== null &&
+              request.startTime !== undefined &&
+              request.endTime !== null &&
+              request.endTime !== undefined
+                ? `${minutesToTime(request.startTime)} - ${minutesToTime(request.endTime)}`
+                : null;
+
             return (
-              <span className="font-semibold">
-                {hours > 0 && `${hours}h`}
-                {minutes > 0 && ` ${minutes}m`}
-              </span>
+              <div className="flex flex-col text-sm">
+                {timeRange && <span className="font-semibold">{timeRange}</span>}
+                <span className="text-muted-foreground text-xs">
+                  {hours > 0 && `${hours}h`}
+                  {minutes > 0 && ` ${minutes}m`}
+                </span>
+              </div>
             );
           }
 

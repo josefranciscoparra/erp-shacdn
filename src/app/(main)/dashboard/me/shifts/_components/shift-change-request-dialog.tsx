@@ -13,9 +13,9 @@ import { useState } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Users, AlertCircle } from "lucide-react";
+import { Calendar, AlertCircle } from "lucide-react";
 
-import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
+import { formatShiftTime, doTimesOverlap } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift, Employee } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -37,17 +37,12 @@ interface ShiftChangeRequestDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   shift: Shift | null;
+  dayShifts?: Shift[];
   employee: Employee;
   employees: Employee[];
 }
 
-export function ShiftChangeRequestDialog({
-  open,
-  onOpenChange,
-  shift,
-  employee,
-  employees,
-}: ShiftChangeRequestDialogProps) {
+export function ShiftChangeRequestDialog({ open, onOpenChange, shift, dayShifts = [] }: ShiftChangeRequestDialogProps) {
   const { createChangeRequest, isLoadingRequests } = useMyShiftsStore();
 
   const [reason, setReason] = useState("");
@@ -83,6 +78,11 @@ export function ShiftChangeRequestDialog({
 
   if (!shift) return null;
 
+  const absences = dayShifts.filter((s) => {
+    const role = s.role?.toLowerCase() ?? "";
+    return role.includes("vacaciones") || role.includes("ausencia");
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
@@ -110,6 +110,41 @@ export function ShiftChangeRequestDialog({
                 </Badge>
               )}
             </div>
+
+            {absences.length > 0 && (
+              <div className="border-border mt-3 border-t pt-3">
+                <h4 className="text-muted-foreground mb-2 text-xs font-semibold">Ausencias / Vacaciones</h4>
+                {absences.map((absence) => {
+                  const isOverlap =
+                    absence.startTime === "00:00" ||
+                    doTimesOverlap(shift.startTime, shift.endTime, absence.startTime, absence.endTime);
+
+                  return (
+                    <div key={absence.id} className="flex flex-col gap-1 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-orange-600 dark:text-orange-400">
+                          {absence.role ?? "Ausencia"}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className="border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900 dark:bg-orange-900/20 dark:text-orange-300"
+                        >
+                          {absence.startTime === "00:00"
+                            ? "Total"
+                            : formatShiftTime(absence.startTime, absence.endTime)}
+                        </Badge>
+                      </div>
+                      {isOverlap && (
+                        <div className="flex items-center gap-1 text-xs text-orange-600/80 dark:text-orange-400/80">
+                          <AlertCircle className="h-3 w-3" />
+                          <span>Coincide con el horario del turno</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Motivo */}
