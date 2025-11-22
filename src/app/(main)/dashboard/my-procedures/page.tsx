@@ -90,7 +90,7 @@ export default async function MyProceduresPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
-        title="Mis Expedientes"
+        title="Expedientes de Gasto"
         description="Consulta y crea tus solicitudes de gasto o comisiones de servicio."
         actionLabel="Nuevo Expediente"
         actionHref="/dashboard/procedures/new"

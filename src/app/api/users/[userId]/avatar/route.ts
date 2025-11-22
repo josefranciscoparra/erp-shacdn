@@ -7,7 +7,6 @@ import { avatarUploadService } from "@/lib/storage/avatar-service";
 
 export const runtime = "nodejs";
 
-// eslint-disable-next-line complexity -- Endpoint con múltiples validaciones y fallback Safari
 export async function GET(request: NextRequest, { params }: { params: Promise<{ userId: string }> }) {
   try {
     const session = await auth();
@@ -58,33 +57,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const isWebpFile = storagePath.endsWith(".webp");
 
-    if (!acceptsWebP && isWebpFile) {
-      const avatarBuffer = await avatarUploadService.getAvatarBuffer(storagePath);
-      const pngBuffer = await avatarUploadService.convertAvatarToPng(avatarBuffer);
-
-      return new NextResponse(pngBuffer, {
-        status: 200,
-        headers: {
-          "Content-Type": "image/png",
-          "Cache-Control": "public, max-age=86400, must-revalidate",
-          Vary: "Accept",
-          "Content-Length": pngBuffer.length.toString(),
-        },
-      });
-    }
+    // Bloque de conversión a PNG eliminado para forzar WebP (soportado por todos los navegadores modernos en 2025)
+    // y optimizar rendimiento del servidor.
 
     // Generar URL firmada válida por 24 horas
     const signedUrl = await avatarUploadService.getSignedAvatarUrl(storagePath, 24 * 60 * 60);
     const redirectUrl = new URL(signedUrl, origin).toString();
 
-    // Caché de 24 horas con revalidación (compatible con Safari)
-    // Removido 'immutable' porque Safari lo interpreta demasiado estrictamente
-    // y no recarga la imagen incluso cuando cambia el parámetro ?v=timestamp
-    // Con must-revalidate, Safari verificará si la imagen cambió después de 24h
+    // Caché de 24 horas (86400s)
+    // - Coincide con la validez de la firma de la URL (24h).
+    // - Permite que si el usuario cambia la foto, se actualice al día siguiente para los demás.
+    // - Safari ya no tendrá problemas porque servimos WebP directo sin conversión.
     return NextResponse.redirect(redirectUrl, {
       status: 302,
       headers: {
-        "Cache-Control": "public, max-age=86400, must-revalidate", // 24 horas
+        "Cache-Control": "public, max-age=86400",
         Vary: "Accept",
       },
     });

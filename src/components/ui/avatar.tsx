@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Image from "next/image"
 import { Avatar as AvatarPrimitive } from "radix-ui"
 
 import { cn } from "@/lib/utils"
@@ -23,15 +24,23 @@ function Avatar({
 
 function AvatarImage({
   className,
+  src,
+  alt,
   ...props
 }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
   return (
-    <AvatarPrimitive.Image
-      data-slot="avatar-image"
-      className={cn("aspect-square size-full object-cover", className)}
-      loading="lazy"
-      {...props}
-    />
+    <AvatarPrimitive.Image asChild src={src} {...props}>
+      <Image
+        src={src || ""}
+        alt={alt || "Avatar"}
+        fill
+        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+        className={cn("aspect-square size-full object-cover", className)}
+        priority={false}
+        unoptimized={true}
+        {...props}
+      />
+    </AvatarPrimitive.Image>
   )
 }
 

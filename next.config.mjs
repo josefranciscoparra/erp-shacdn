@@ -15,6 +15,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**.r2.cloudflarestorage.com",
+      },
+    ],
+  },
   experimental: {
     optimizePackageImports: ['lucide-react'],
     turbo: {
