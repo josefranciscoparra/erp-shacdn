@@ -57,21 +57,21 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const isWebpFile = storagePath.endsWith(".webp");
 
-    // Bloque de conversión a PNG eliminado para forzar WebP (soportado por todos los navegadores modernos en 2025)
-    // y optimizar rendimiento del servidor.
+    // Bloque de conversión a PNG eliminado para forzar WebP
+    // PROXY: Servimos la imagen directamente desde el servidor para evitar problemas de CORS/Redirección con next/image
+    const avatarBuffer = await avatarUploadService.getAvatarBuffer(storagePath);
 
-    // Generar URL firmada válida por 24 horas
-    const signedUrl = await avatarUploadService.getSignedAvatarUrl(storagePath, 24 * 60 * 60);
-    const redirectUrl = new URL(signedUrl, origin).toString();
+    // Determinar Content-Type basado en la extensión (aunque subimos todo como webp, soportamos legacy)
+    let contentType = "image/webp";
+    if (storagePath.endsWith(".png")) contentType = "image/png";
+    if (storagePath.endsWith(".jpg") || storagePath.endsWith(".jpeg")) contentType = "image/jpeg";
 
     // Caché de 24 horas (86400s)
-    // - Coincide con la validez de la firma de la URL (24h).
-    // - Permite que si el usuario cambia la foto, se actualice al día siguiente para los demás.
-    // - Safari ya no tendrá problemas porque servimos WebP directo sin conversión.
-    return NextResponse.redirect(redirectUrl, {
-      status: 302,
+    return new NextResponse(avatarBuffer, {
+      status: 200,
       headers: {
-        "Cache-Control": "public, max-age=86400",
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=86400, immutable",
         Vary: "Accept",
       },
     });
