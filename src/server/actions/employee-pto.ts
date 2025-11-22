@@ -1,7 +1,6 @@
 "use server";
 
 import { Decimal } from "@prisma/client/runtime/library";
-import { isSameDay } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
@@ -62,25 +61,42 @@ export async function calculateWorkingDays(
   endDate: Date,
   employeeId: string,
   orgId: string,
+  countsCalendarDays: boolean = false,
 ): Promise<{ workingDays: number; holidays: Array<{ date: Date; name: string }> }> {
+  // Si no se proporcionan IDs (ej: desde cliente), intentar obtener del usuario autenticado
+  if (!employeeId || !orgId) {
+    try {
+      const auth = await getAuthenticatedEmployee();
+      employeeId = auth.employeeId;
+      orgId = auth.orgId;
+    } catch (error) {
+      // Si falla la autenticación y no hay IDs, calculamos sin festivos (solo fines de semana)
+      console.warn("calculateWorkingDays: No employeeId/orgId and no auth session");
+    }
+  }
+
   // Obtener el centro de coste del empleado para saber qué calendarios aplican
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    include: {
-      employmentContracts: {
-        where: { active: true },
-        include: {
-          costCenter: {
-            include: {
-              calendars: {
-                where: { active: true },
-                include: {
-                  events: {
-                    where: {
-                      eventType: "HOLIDAY",
-                      date: {
-                        gte: startDate,
-                        lte: endDate,
+  let calendars: any[] = [];
+
+  if (employeeId) {
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      include: {
+        employmentContracts: {
+          where: { active: true },
+          include: {
+            costCenter: {
+              include: {
+                calendars: {
+                  where: { active: true },
+                  include: {
+                    events: {
+                      where: {
+                        eventType: "HOLIDAY",
+                        date: {
+                          gte: startDate,
+                          lte: endDate,
+                        },
                       },
                     },
                   },
@@ -88,16 +104,15 @@ export async function calculateWorkingDays(
               },
             },
           },
+          take: 1,
         },
-        take: 1,
       },
-    },
-  });
+    });
+    calendars = employee?.employmentContracts[0]?.costCenter?.calendars ?? [];
+  }
 
   // Recopilar festivos
   const holidaysMap = new Map<string, { date: Date; name: string }>();
-
-  const calendars = employee?.employmentContracts[0]?.costCenter?.calendars ?? [];
 
   for (const calendar of calendars) {
     for (const event of calendar.events) {
@@ -111,20 +126,28 @@ export async function calculateWorkingDays(
     }
   }
 
-  // Contar días hábiles
+  // Contar días
   let workingDays = 0;
   const currentDate = new Date(startDate);
   const end = new Date(endDate);
 
   while (currentDate <= end) {
-    const dayOfWeek = currentDate.getDay();
     const dateStr = currentDate.toISOString().split("T")[0];
 
-    // Excluir sábados (6) y domingos (0)
-    if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-      // Excluir festivos
-      if (!holidaysMap.has(dateStr)) {
-        workingDays++;
+    if (countsCalendarDays) {
+      // Si cuenta días naturales, contamos TODOS los días (incluso festivos y fines de semana)
+      // Útil para bajas médicas, permisos de matrimonio, nacimiento, etc.
+      workingDays++;
+    } else {
+      // Lógica estándar: Días laborables
+      const dayOfWeek = currentDate.getDay();
+
+      // Excluir sábados (6) y domingos (0)
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        // Excluir festivos
+        if (!holidaysMap.has(dateStr)) {
+          workingDays++;
+        }
       }
     }
 
@@ -356,8 +379,10 @@ export async function createPtoRequest(data: {
       const MINUTES_PER_WORKDAY = 480;
       workingDays = data.durationMinutes / MINUTES_PER_WORKDAY;
     } else {
-      // Para días completos: calcular días hábiles excluyendo festivos
-      const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId);
+      // Para días completos: calcular días hábiles excluyendo festivos (o naturales si aplica)
+      // @ts-expect-error - TS no detecta el campo nuevo en AbsenceType hasta regenerar cliente, pero en runtime funciona
+      const countsCalendarDays = (absenceType as Record<string, unknown>).countsCalendarDays ?? false;
+      const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId, countsCalendarDays);
       workingDays = result.workingDays;
       holidays = result.holidays;
     }
@@ -370,7 +395,7 @@ export async function createPtoRequest(data: {
     }
 
     // Validar que no haya solapamiento con otras solicitudes aprobadas
-    const overlappingRequests = await prisma.ptoRequest.findFirst({
+    const overlappingRequests = await prisma.ptoRequest.findMany({
       where: {
         employeeId,
         orgId,
@@ -386,11 +411,51 @@ export async function createPtoRequest(data: {
           },
         ],
       },
+      include: {
+        absenceType: true,
+      },
     });
 
-    if (overlappingRequests) {
-      throw new Error("Ya tienes una solicitud aprobada en estas fechas");
+    // Flag para forzar revisión manual si hay conflicto de prioridades
+    let forceManualReview = false;
+    let systemWarningReason = "";
+
+    if (overlappingRequests.length > 0) {
+      // LÓGICA DE PRIORIDAD DE AUSENCIAS:
+      // Definir códigos de alta prioridad
+      const HIGH_PRIORITY_CODES = ["SICK_LEAVE", "MATERNITY_PATERNITY"];
+      // Definir códigos de baja prioridad (cancelables)
+      const LOW_PRIORITY_CODES = ["VACATION", "PERSONAL", "UNPAID_LEAVE"];
+
+      // Obtener el código de la nueva solicitud
+      const newTypeCode = absenceType.code;
+      const isHighPriority = HIGH_PRIORITY_CODES.includes(newTypeCode);
+
+      if (isHighPriority) {
+        // Verificar si TODOS los solapamientos son cancelables
+        const allOverlapsAreCancellable = overlappingRequests.every((req) =>
+          LOW_PRIORITY_CODES.includes(req.absenceType.code),
+        );
+
+        if (allOverlapsAreCancellable) {
+          // ✅ ESCENARIO B: SUPERVISIÓN DEL RESPONSABLE
+          // En lugar de cancelar automáticamente, forzamos estado PENDING.
+          // El responsable verá el conflicto y al aprobar se ejecutará la cancelación (en approvePtoRequest).
+          forceManualReview = true;
+          systemWarningReason = ` [⚠️ AVISO SISTEMA: Esta baja coincide con vacaciones aprobadas. Su aprobación cancelará las vacaciones existentes.]`;
+
+          // No lanzamos error, permitimos continuar
+        } else {
+          // Si hay solapamientos que NO son cancelables (ej: otra Baja Médica), bloqueamos
+          throw new Error("Ya existe una baja o permiso protegido en estas fechas.");
+        }
+      } else {
+        // Si la nueva solicitud es normal (Vacaciones), comportamiento estándar: Bloquear
+        throw new Error("Ya tienes una solicitud aprobada en estas fechas. Cancélala primero si es necesario.");
+      }
     }
+
+    // Si afecta al balance, validar días disponibles
 
     // Si afecta al balance, validar días disponibles
     if (absenceType.affectsBalance) {
@@ -405,7 +470,11 @@ export async function createPtoRequest(data: {
     }
 
     // Obtener aprobador
-    const approverId = await getDefaultApprover(employeeId, orgId);
+    // Si requiere aprobación O si forzamos revisión manual por conflicto
+    let approverId: string | undefined;
+    if (absenceType.requiresApproval || forceManualReview) {
+      approverId = await getDefaultApprover(employeeId, orgId);
+    }
 
     // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
     const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
@@ -420,6 +489,13 @@ export async function createPtoRequest(data: {
       effectiveMinutes = applyCompensationFactor(baseMinutes, absenceType.compensationFactor);
     }
 
+    // Determinar estado final
+    // Si forceManualReview es true -> PENDING
+    // Si requiresApproval es true -> PENDING
+    // Si requiresApproval es false y no forceManualReview -> APPROVED
+    const finalStatus = absenceType.requiresApproval || forceManualReview ? "PENDING" : "APPROVED";
+    const finalApprovedAt = finalStatus === "APPROVED" ? new Date() : undefined;
+
     // Crear la solicitud
     const request = await prisma.ptoRequest.create({
       data: {
@@ -429,11 +505,11 @@ export async function createPtoRequest(data: {
         startDate: data.startDate,
         endDate: data.endDate,
         workingDays: new Decimal(workingDays),
-        reason: data.reason,
+        reason: (data.reason ?? "") + systemWarningReason, // Añadir warning al motivo
         attachmentUrl: data.attachmentUrl,
-        status: absenceType.requiresApproval ? "PENDING" : "APPROVED",
-        approverId: absenceType.requiresApproval ? approverId : undefined,
-        approvedAt: absenceType.requiresApproval ? undefined : new Date(),
+        status: finalStatus,
+        approverId: approverId,
+        approvedAt: finalApprovedAt,
         // 🆕 Campos para ausencias parciales
         startTime: data.startTime,
         endTime: data.endTime,
@@ -456,15 +532,19 @@ export async function createPtoRequest(data: {
     await recalculatePtoBalance(employeeId, orgId, currentYear);
 
     // Crear notificación para el aprobador
-    if (absenceType.requiresApproval && approverId) {
+    // Si está PENDING (por configuración o forzado), notificamos
+    if (finalStatus === "PENDING" && approverId) {
       await createNotification(
         approverId,
         orgId,
         "PTO_SUBMITTED",
         "Nueva solicitud de vacaciones",
-        `${employee.firstName} ${employee.lastName} ha solicitado ${workingDays} días de ${absenceType.name}`,
+        `${employee.firstName} ${employee.lastName} ha solicitado ${workingDays} días de ${absenceType.name}` +
+          (forceManualReview ? " (Conflicto detectado)" : ""),
         request.id,
       );
+    } else if (finalStatus === "APPROVED") {
+      // Auto-aprobado sin conflictos
     }
 
     return {

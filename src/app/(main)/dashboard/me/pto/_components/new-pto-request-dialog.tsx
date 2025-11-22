@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { calculateWorkingDays } from "@/server/actions/employee-pto";
 import { usePtoStore, type PtoBalance } from "@/stores/pto-store";
 
 interface NewPtoRequestDialogProps {
@@ -193,7 +192,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 });
 
 export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogProps) {
-  const { absenceTypes, balance, createRequest, isSubmitting } = usePtoStore();
+  const { absenceTypes, balance, createRequest, isSubmitting, calculateWorkingDays } = usePtoStore();
 
   const [selectedTypeId, setSelectedTypeId] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -249,7 +248,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       // Debounce para evitar cálculos mientras el usuario selecciona
       const timeout = setTimeout(() => {
         setIsCalculating(true);
-        calculateWorkingDays(dateRange.from, dateRange.to, "", "")
+        calculateWorkingDays(dateRange.from, dateRange.to, selectedTypeId)
           .then((result) => {
             setWorkingDaysCalc(result.workingDays);
             setHolidays(result.holidays);
@@ -268,7 +267,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setWorkingDaysCalc(null);
       setHolidays([]);
     }
-  }, [hasActiveContract, dateRange]);
+  }, [hasActiveContract, dateRange, selectedTypeId, calculateWorkingDays]);
 
   const handleSubmit = async () => {
     if (!selectedTypeId || !dateRange?.from || !dateRange?.to) {

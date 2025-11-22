@@ -809,6 +809,7 @@ model AbsenceType {
 
   // 🆕 GRANULARIDAD - Para soportar ausencias en minutos/horas (sector privado/público)
   allowPartialDays       Boolean @default(false) // ¿Permite fracciones de día?
+  countsCalendarDays     Boolean @default(false) // // Si cuenta días naturales (bajas médicas, permisos naturales)
   granularityMinutes     Int     @default(480)   // Granularidad: 480=día, 60=hora, 30=media, 15=cuarto
   minimumDurationMinutes Int     @default(480)   // Duración mínima en minutos
   maxDurationMinutes     Int?                    // Duración máxima (null=sin límite)

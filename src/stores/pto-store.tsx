@@ -95,6 +95,7 @@ interface PtoState {
   calculateWorkingDays: (
     startDate: Date,
     endDate: Date,
+    absenceTypeId?: string,
   ) => Promise<{ workingDays: number; holidays: Array<{ date: Date; name: string }> }>;
   setError: (error: string | null) => void;
   reset: () => void;
@@ -212,9 +213,19 @@ export const usePtoStore = create<PtoState>((set, get) => ({
   },
 
   // Calcular días hábiles
-  calculateWorkingDays: async (startDate, endDate) => {
+  calculateWorkingDays: async (startDate, endDate, absenceTypeId) => {
     try {
-      const result = await calculateWorkingDaysAction(startDate, endDate, "", "");
+      let countsCalendarDays = false;
+
+      if (absenceTypeId) {
+        const type = get().absenceTypes.find((t) => t.id === absenceTypeId);
+        if (type) {
+          // @ts-expect-error - El tipo Prisma no se ha regenerado pero el campo existe
+          countsCalendarDays = (type as Record<string, unknown>).countsCalendarDays ?? false;
+        }
+      }
+
+      const result = await calculateWorkingDaysAction(startDate, endDate, "", "", countsCalendarDays);
       return result;
     } catch (error) {
       console.error("Error al calcular días hábiles:", error);

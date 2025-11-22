@@ -42,6 +42,85 @@ export async function approvePtoRequest(requestId: string, comments?: string) {
       throw new Error("No tienes permiso para aprobar esta solicitud");
     }
 
+    // 2.5. VERIFICAR SOLAPAMIENTOS (Lógica de Autorregulación Diferida)
+    // Ahora que el manager va a aprobar, verificamos si esta solicitud "pisa" otras ya aprobadas.
+    const overlappingRequests = await prisma.ptoRequest.findMany({
+      where: {
+        employeeId: request.employeeId,
+        orgId: request.orgId,
+        status: "APPROVED", // Solo nos importan las ya aprobadas
+        OR: [
+          {
+            startDate: {
+              lte: request.endDate,
+            },
+            endDate: {
+              gte: request.startDate,
+            },
+          },
+        ],
+      },
+      include: {
+        absenceType: true,
+      },
+    });
+
+    if (overlappingRequests.length > 0) {
+      // Definir prioridades (Misma lógica que en creación)
+      const HIGH_PRIORITY_CODES = ["SICK_LEAVE", "MATERNITY_PATERNITY"];
+      const LOW_PRIORITY_CODES = ["VACATION", "PERSONAL", "UNPAID_LEAVE"];
+
+      const newTypeCode = request.absenceType.code;
+      const isHighPriority = HIGH_PRIORITY_CODES.includes(newTypeCode);
+
+      // Función helper para cancelar solicitudes solapadas
+      const cancelOverlappingRequest = async (req: (typeof overlappingRequests)[0]) => {
+        await prisma.ptoRequest.update({
+          where: { id: req.id },
+          data: {
+            status: "CANCELLED",
+            cancelledAt: new Date(),
+            cancellationReason: `Cancelación automática al aprobar ${request.absenceType.name} (${request.startDate.toLocaleDateString()})`,
+          },
+        });
+
+        // Notificar al empleado de la cancelación
+        if (request.employee.user) {
+          await createNotification(
+            request.employee.user.id,
+            request.orgId,
+            "PTO_CANCELLED",
+            "Vacaciones canceladas por solapamiento",
+            `Tus vacaciones del ${req.startDate.toLocaleDateString()} han sido canceladas al aprobarse tu ${request.absenceType.name}.`,
+            req.id,
+          );
+        }
+      };
+
+      if (isHighPriority) {
+        // Verificar que lo que pisamos es de baja prioridad
+        const allOverlapsAreCancellable = overlappingRequests.every((req) =>
+          LOW_PRIORITY_CODES.includes(req.absenceType.code),
+        );
+
+        if (!allOverlapsAreCancellable) {
+          // Conflicto de Alta Prioridad vs Alta Prioridad (ej: Baja sobre Baja) -> Bloquear
+          throw new Error("No se puede aprobar: Solapa con otra ausencia protegida existente.");
+        }
+
+        // ✅ Ejecutar cancelación automática de las solicitudes pisadas
+        console.log(`🔄 Autorregulación (Aprobación): Cancelando ${overlappingRequests.length} solicitudes.`);
+
+        for (const req of overlappingRequests) {
+          await cancelOverlappingRequest(req);
+        }
+      } else {
+        // Conflicto Normal (Vacaciones sobre Vacaciones) -> Bloquear
+        // Esto no debería pasar si la validación en creación funcionó, pero por seguridad.
+        throw new Error("No se puede aprobar: Ya existen solicitudes aprobadas en estas fechas.");
+      }
+    }
+
     // 3. Ejecutar aprobación
     await prisma.ptoRequest.update({
       where: { id: requestId },
