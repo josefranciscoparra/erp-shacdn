@@ -62,6 +62,9 @@ export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated } = usePermissions();
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
+  const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
+  const showProcedures = expenseMode === "PUBLIC" || expenseMode === "MIXED";
+
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
 
@@ -106,6 +109,18 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/calendar",
           icon: Calendar,
         },
+        // PÚBLICO: Mis Expedientes (Para el empleado)
+        ...(showProcedures
+          ? [
+              {
+                title: "Mis Expedientes",
+                url: "/dashboard/procedures?filter=mine",
+                icon: ClipboardList,
+              },
+            ]
+          : []),
+        // PRIVADO/MIXTO: Mis Gastos (Si es PÚBLICO estricto, quizás quieras ocultar esto y que todo vaya por expedientes,
+        // pero por ahora lo dejamos para ver los tickets sueltos o vinculados)
         {
           title: "Mis Gastos",
           url: "/dashboard/me/expenses",
@@ -207,6 +222,16 @@ export function useSidebarItems(): NavGroup[] {
           icon: Banknote,
           permission: "approve_requests",
           subItems: [
+            // PÚBLICO: Gestión de Expedientes (RRHH/Managers)
+            ...(showProcedures
+              ? [
+                  {
+                    title: "Expedientes",
+                    url: "/dashboard/procedures", // Reutilizamos la vista, filtrada por permisos
+                    permission: "approve_requests",
+                  },
+                ]
+              : []),
             {
               title: "Control de Gastos",
               url: "/dashboard/expenses",

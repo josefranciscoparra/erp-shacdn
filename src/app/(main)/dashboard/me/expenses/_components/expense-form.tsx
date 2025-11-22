@@ -24,6 +24,9 @@ const expenseFormSchema = z.object({
   merchantVat: z.string().optional(),
   notes: z.string().optional(),
   mileageKm: z.string().optional(),
+  // Nuevos campos Sector Público
+  procedureId: z.string().optional(),
+  paidBy: z.enum(["EMPLOYEE", "ORGANIZATION"]).default("EMPLOYEE"),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
@@ -34,6 +37,8 @@ interface ExpenseFormProps {
   onCancel: () => void;
   isSubmitting?: boolean;
   isEditMode?: boolean; // true = editando gasto existente, false/undefined = nuevo gasto
+  // Lista de expedientes activos para vincular
+  procedures?: { id: string; name: string; code: string | null }[];
 }
 
 export function ExpenseForm({
@@ -42,6 +47,7 @@ export function ExpenseForm({
   onCancel,
   isSubmitting = false,
   isEditMode = false,
+  procedures = [],
 }: ExpenseFormProps) {
   const [isMileage, setIsMileage] = useState(initialData?.category === "MILEAGE");
   const [totalAmount, setTotalAmount] = useState(0);
@@ -60,6 +66,8 @@ export function ExpenseForm({
       merchantVat: initialData?.merchantVat ?? "",
       notes: initialData?.notes ?? "",
       mileageKm: initialData?.mileageKm?.toString() ?? "",
+      procedureId: initialData?.procedureId ?? undefined,
+      paidBy: initialData?.paidBy ?? "EMPLOYEE",
     },
   });
 
@@ -102,6 +110,8 @@ export function ExpenseForm({
       notes: data.notes ?? null,
       mileageKm: isMileage && data.mileageKm ? parseFloat(data.mileageKm) : null,
       // totalAmount y mileageRate se calculan en el servidor
+      procedureId: data.procedureId,
+      paidBy: data.paidBy,
     };
 
     await onSubmit(formattedData, type);
@@ -126,6 +136,62 @@ export function ExpenseForm({
         }}
         className="space-y-6"
       >
+        {/* Expediente y Método de Pago (Sector Público) */}
+        {procedures.length > 0 && (
+          <div className="space-y-4 rounded-lg border bg-slate-50 p-4">
+            <h3 className="text-sm font-semibold text-slate-900">Detalles del Expediente</h3>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <FormField
+                control={form.control}
+                name="procedureId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Vincular a Expediente</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un expediente..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {procedures.map((proc) => (
+                          <SelectItem key={proc.id} value={proc.id}>
+                            {proc.code ? `[${proc.code}] ` : ""}
+                            {proc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="paidBy"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pagado por</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="¿Quién pagó?" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="EMPLOYEE">Yo (Reembolsable)</SelectItem>
+                        <SelectItem value="ORGANIZATION">Organización (Pago directo)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Fecha y Categoría */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <FormField

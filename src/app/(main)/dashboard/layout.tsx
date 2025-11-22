@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
-import { PasswordGuard } from "@/components/auth/password-guard";
 import { AlertsBell } from "@/components/alerts/alerts-bell";
+import { PasswordGuard } from "@/components/auth/password-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget";
 import { Separator } from "@/components/ui/separator";
@@ -34,6 +34,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     select: {
       chatEnabled: true,
       shiftsEnabled: true,
+      expenseMode: true,
       // Futuros módulos aquí
     },
   });
@@ -41,6 +42,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   const orgFeatures = {
     chatEnabled: org?.chatEnabled ?? false,
     shiftsEnabled: org?.shiftsEnabled ?? false,
+    expenseMode: org?.expenseMode ?? "PRIVATE",
     // Futuros módulos aquí
   };
 
