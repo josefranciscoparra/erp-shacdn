@@ -236,14 +236,41 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
         break;
     }
 
-    // Ordenar: PENDING primero, luego por fecha de inicio descendente
+    // Ordenar con "Smart Sort":
+    // 1. Pendientes siempre arriba.
+    // 2. Futuras (>= hoy): Orden Ascendente (la más próxima primero).
+    // 3. Pasadas (< hoy): Orden Descendente (la más reciente primero).
     return filtered.sort((a, b) => {
+      const dateA = new Date(a.startDate);
+      const dateB = new Date(b.startDate);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0); // Ignorar hora actual para comparar fechas
+
       // Prioridad 1: PENDING primero
       if (a.status === "PENDING" && b.status !== "PENDING") return -1;
       if (a.status !== "PENDING" && b.status === "PENDING") return 1;
 
-      // Prioridad 2: Por fecha de inicio (más reciente primero)
-      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+      // Si ambas son pendientes, ordenar por fecha (más antigua primero para atender antes)
+      if (a.status === "PENDING" && b.status === "PENDING") {
+        return dateA.getTime() - dateB.getTime();
+      }
+
+      // Clasificar en Futuro vs Pasado
+      const isFutureA = dateA >= now;
+      const isFutureB = dateB >= now;
+
+      // Prioridad 2: Futuro va antes que Pasado
+      if (isFutureA && !isFutureB) return -1;
+      if (!isFutureA && isFutureB) return 1;
+
+      // Prioridad 3: Ordenar dentro del grupo
+      if (isFutureA && isFutureB) {
+        // Ambas futuras: Ascendente (próxima vacación primero)
+        return dateA.getTime() - dateB.getTime();
+      } else {
+        // Ambas pasadas: Descendente (historial reciente primero)
+        return dateB.getTime() - dateA.getTime();
+      }
     });
   }, [requests, status, yearFilter]);
 

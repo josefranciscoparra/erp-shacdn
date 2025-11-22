@@ -4,6 +4,7 @@ import { format, isSameDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { CalendarDays, Calendar, FileCheck } from "lucide-react";
 
+import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatMinutes } from "@/lib/pto-helpers-client";
@@ -144,11 +145,31 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
                     const daysUntil = Math.floor(
                       (new Date(nextVacation.startDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
                     );
-                    if (daysUntil === 0) return "Hoy empiezan · 🏖️";
-                    if (daysUntil === 1) return "Mañana · 🔥";
-                    if (daysUntil <= 7) return `Dentro de ${daysUntil} días · 🌴`;
-                    if (daysUntil <= 30) return `Dentro de ${daysUntil} días · ⛱️`;
-                    return `Dentro de ${daysUntil} días · 🗓️`;
+                    let timeText = "";
+
+                    if (daysUntil === 0) timeText = "Hoy empiezan · 🏖️";
+                    else if (daysUntil === 1) timeText = "Mañana · 🔥";
+                    else if (daysUntil <= 7) timeText = `Dentro de ${daysUntil} días · 🌴`;
+                    else if (daysUntil <= 30) timeText = `Dentro de ${daysUntil} días · ⛱️`;
+                    else timeText = `Dentro de ${daysUntil} días · 🗓️`;
+
+                    // Mostrar horario si es parcial
+                    const isPartial =
+                      nextVacation.startTime !== null &&
+                      nextVacation.startTime !== undefined &&
+                      nextVacation.endTime !== null &&
+                      nextVacation.endTime !== undefined;
+
+                    return (
+                      <>
+                        {timeText}
+                        {isPartial && (
+                          <span className="ml-2 inline-flex items-center rounded-md bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 ring-1 ring-orange-600/20 ring-inset dark:bg-orange-900/20 dark:text-orange-300 dark:ring-orange-400/30">
+                            {minutesToTime(nextVacation.startTime!)} - {minutesToTime(nextVacation.endTime!)}
+                          </span>
+                        )}
+                      </>
+                    );
                   })()}
                 </p>
               </div>
