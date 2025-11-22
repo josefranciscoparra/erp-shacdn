@@ -67,7 +67,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (storagePath.endsWith(".jpg") || storagePath.endsWith(".jpeg")) contentType = "image/jpeg";
 
     // Caché de 24 horas (86400s)
-    return new NextResponse(avatarBuffer, {
+    return new NextResponse(avatarBuffer as any, {
       status: 200,
       headers: {
         "Content-Type": contentType,
