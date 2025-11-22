@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateOrganizationExpenseMode } from "@/server/actions/organizations"; // Need to create this
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 const formSchema = z.object({
   expenseMode: z.enum(["PRIVATE", "PUBLIC", "MIXED"]),
@@ -26,6 +27,7 @@ interface ExpenseModeSettingsProps {
 export function ExpenseModeSettings({ initialMode }: ExpenseModeSettingsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const { features, setFeatures } = useOrganizationFeaturesStore();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,11 +36,21 @@ export function ExpenseModeSettings({ initialMode }: ExpenseModeSettingsProps) {
     },
   });
 
+  useEffect(() => {
+    form.reset({ expenseMode: initialMode });
+  }, [initialMode, form]);
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
       const result = await updateOrganizationExpenseMode(values.expenseMode);
 
       if (result.success) {
+        // Actualización optimista del store cliente para refrescar el sidebar inmediatamente
+        setFeatures({
+          ...features,
+          expenseMode: values.expenseMode,
+        });
+
         toast.success("Configuración actualizada", {
           description: "El modo de gestión de gastos se ha actualizado correctamente.",
         });

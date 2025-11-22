@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useRouter } from "next/navigation";
+
 import { MessageSquare, ShieldCheck, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,6 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { getChatStats, getOrganizationChatConfig, updateOrganizationChatStatus } from "@/server/actions/chat";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 interface ChatStats {
   totalConversations: number;
@@ -19,10 +22,12 @@ interface ChatStats {
 }
 
 export function ChatTab() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [enabled, setEnabled] = useState(false);
   const [stats, setStats] = useState<ChatStats | null>(null);
+  const { features, setFeatures } = useOrganizationFeaturesStore();
 
   useEffect(() => {
     const loadData = async () => {
@@ -49,12 +54,15 @@ export function ChatTab() {
       await updateOrganizationChatStatus(newValue);
 
       setEnabled(newValue);
-      toast.success(newValue ? "Chat activado" : "Chat desactivado");
 
-      // Recargar la página después de cambiar el estado para actualizar la navegación
-      setTimeout(() => {
-        window.location.reload();
-      }, 1000);
+      // Actualización optimista del store cliente para refrescar el sidebar inmediatamente
+      setFeatures({
+        ...features,
+        chatEnabled: newValue,
+      });
+
+      toast.success(newValue ? "Chat activado" : "Chat desactivado");
+      router.refresh();
     } catch (error) {
       console.error("[ChatTab] Error updating chat status:", error);
 

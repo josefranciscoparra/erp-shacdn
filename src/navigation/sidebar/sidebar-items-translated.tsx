@@ -64,6 +64,7 @@ export function useSidebarItems(): NavGroup[] {
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
   const showProcedures = expenseMode === "PUBLIC" || expenseMode === "MIXED";
+  const showExpenses = expenseMode === "PRIVATE" || expenseMode === "MIXED";
 
   const documentsEnabled = features.documents;
   const signaturesEnabled = features.signatures;
@@ -119,13 +120,16 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
-        // PRIVADO/MIXTO: Mis Gastos (Si es PÚBLICO estricto, quizás quieras ocultar esto y que todo vaya por expedientes,
-        // pero por ahora lo dejamos para ver los tickets sueltos o vinculados)
-        {
-          title: "Mis Gastos",
-          url: "/dashboard/me/expenses",
-          icon: Receipt,
-        },
+        // PRIVADO/MIXTO: Mis Gastos
+        ...(showExpenses
+          ? [
+              {
+                title: "Mis Gastos",
+                url: "/dashboard/me/expenses",
+                icon: Receipt,
+              },
+            ]
+          : []),
         ...(chatEnabled
           ? [
               {
@@ -232,16 +236,20 @@ export function useSidebarItems(): NavGroup[] {
                   },
                 ]
               : []),
-            {
-              title: "Control de Gastos",
-              url: "/dashboard/expenses",
-              permission: "approve_requests",
-            },
-            {
-              title: "Reembolsos",
-              url: "/dashboard/expenses/reimbursements",
-              permission: "approve_requests",
-            },
+            ...(showExpenses
+              ? [
+                  {
+                    title: "Control de Gastos",
+                    url: "/dashboard/expenses",
+                    permission: "approve_requests",
+                  },
+                  {
+                    title: "Reembolsos",
+                    url: "/dashboard/expenses/reimbursements",
+                    permission: "approve_requests",
+                  },
+                ]
+              : []),
             {
               title: "Políticas",
               url: "/dashboard/expenses/policies",
