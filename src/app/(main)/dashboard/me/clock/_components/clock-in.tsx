@@ -540,11 +540,19 @@ export function ClockIn() {
                 if (viewBox && "cx" in viewBox && "cy" in viewBox) {
                   return (
                     <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                      <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) - 8} className="fill-foreground font-display text-3xl">
+                      <tspan
+                        x={viewBox.cx}
+                        y={(viewBox.cy ?? 0) - 8}
+                        className="fill-foreground text-3xl font-bold tracking-tight"
+                      >
                         {chartProgressPercentage}%
                       </tspan>
-                      <tspan x={viewBox.cx} y={(viewBox.cy ?? 0) + 20} className="fill-muted-foreground text-sm">
-                        {chartTotalMinutes > 0 ? "de tu jornada" : "tiempo extra"}
+                      <tspan
+                        x={viewBox.cx}
+                        y={(viewBox.cy ?? 0) + 20}
+                        className="fill-muted-foreground text-sm font-medium tracking-wide uppercase"
+                      >
+                        {chartTotalMinutes > 0 ? "Completado" : "Extra"}
                       </tspan>
                     </text>
                   );
@@ -853,85 +861,70 @@ export function ClockIn() {
               </>
             )}
           </CardContent>
-          <CardFooter className="flex-col items-start justify-start gap-4 border-t pt-4 md:flex-row md:justify-around lg:items-center lg:gap-0">
+          <CardFooter className="flex-col items-start justify-start gap-4 border-t pt-6 md:justify-between lg:gap-0">
             {isLoading || isScheduleLoading ? (
-              <>
+              <div className="w-full space-y-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex w-full items-center gap-3">
-                    <div className="bg-muted relative size-10 overflow-hidden rounded-full">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.1}s` }}
-                      />
-                    </div>
-                    <div className="flex flex-1 flex-col gap-2">
+                  <div key={i} className="flex w-full items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-muted relative size-2 overflow-hidden rounded-full">
+                        <div className="absolute inset-0 animate-[shimmer_1.5s_infinite] bg-white/20" />
+                      </div>
                       <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
-                        <div
-                          className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                          style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.05}s` }}
-                        />
+                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                       </div>
-                      <div className="bg-muted relative h-4 w-20 overflow-hidden rounded">
-                        <div
-                          className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                          style={{ animation: `shimmer 1.5s infinite ${i * 0.1 + 0.1}s` }}
-                        />
-                      </div>
+                    </div>
+                    <div className="bg-muted relative h-3 w-12 overflow-hidden rounded">
+                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
                     </div>
                   </div>
                 ))}
-              </>
+              </div>
             ) : (
-              <>
+              <div className="w-full space-y-3">
                 {/* Entrada */}
-                <div className="flex w-full items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-green-400 bg-green-200 dark:bg-green-900">
-                    <LogIn className="size-4" />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="text-sm">Entrada</div>
-                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
-                      {todaySummary?.clockIn
-                        ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "--:--"}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Salida */}
-                <div className="flex w-full items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-red-400 bg-red-200 dark:bg-red-900">
-                    <LogOut className="size-4" />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="text-sm">Salida</div>
-                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
-                      {todaySummary?.clockOut
-                        ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "--:--"}
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-emerald-500" />
+                    Entrada
+                  </span>
+                  <span className="font-mono font-medium">
+                    {todaySummary?.clockIn
+                      ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "--:--"}
+                  </span>
                 </div>
 
                 {/* Pausas */}
-                <div className="flex w-full items-center gap-3">
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-yellow-400 bg-yellow-200 dark:bg-yellow-900">
-                    <Coffee className="size-4" />
-                  </div>
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="text-sm">Pausas</div>
-                    <div className="text-muted-foreground text-sm font-semibold tabular-nums">
-                      {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
-                    </div>
-                  </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-amber-500" />
+                    Pausas
+                  </span>
+                  <span className="font-mono font-medium">
+                    {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
+                  </span>
                 </div>
-              </>
+
+                {/* Salida */}
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-2">
+                    <div className="size-2 rounded-full bg-red-500" />
+                    Salida
+                  </span>
+                  <span className="font-mono font-medium">
+                    {todaySummary?.clockOut
+                      ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "--:--"}
+                  </span>
+                </div>
+              </div>
             )}
           </CardFooter>
         </Card>
