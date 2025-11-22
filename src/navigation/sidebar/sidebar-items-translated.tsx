@@ -114,7 +114,7 @@ export function useSidebarItems(): NavGroup[] {
           ? [
               {
                 title: "Mis Expedientes",
-                url: "/dashboard/procedures?filter=mine",
+                url: "/dashboard/my-procedures",
                 icon: ClipboardList,
               },
             ]
