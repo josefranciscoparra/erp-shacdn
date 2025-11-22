@@ -173,11 +173,61 @@ export async function calculateOrUpdatePtoBalance(
   const daysAvailable = allowance - daysUsed - daysPending;
 
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular campos en minutos
+  // Usar suma directa de effectiveMinutes para precisión exacta, fallback a días convertidos para legacy
   const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
 
+  // Calcular minutos usados (solicitudes APPROVED)
+  const approvedRequestsMinutes = await prisma.ptoRequest.findMany({
+    where: {
+      employeeId,
+      orgId,
+      status: "APPROVED",
+      startDate: {
+        gte: new Date(year, 0, 1),
+        lte: new Date(year, 11, 31),
+      },
+      absenceType: {
+        affectsBalance: true, // Solo sumar si afecta al balance
+      },
+    },
+    select: {
+      workingDays: true,
+      effectiveMinutes: true,
+    },
+  });
+
+  const minutesUsed = approvedRequestsMinutes.reduce((sum, req) => {
+    // Si tiene effectiveMinutes (nuevo sistema), usarlo. Si no, convertir workingDays.
+    if (req.effectiveMinutes > 0) return sum + req.effectiveMinutes;
+    return sum + daysToMinutes(Number(req.workingDays), workdayMinutes);
+  }, 0);
+
+  // Calcular minutos pendientes (solicitudes PENDING)
+  const pendingRequestsMinutes = await prisma.ptoRequest.findMany({
+    where: {
+      employeeId,
+      orgId,
+      status: "PENDING",
+      startDate: {
+        gte: new Date(year, 0, 1),
+        lte: new Date(year, 11, 31),
+      },
+      absenceType: {
+        affectsBalance: true,
+      },
+    },
+    select: {
+      workingDays: true,
+      effectiveMinutes: true,
+    },
+  });
+
+  const minutesPending = pendingRequestsMinutes.reduce((sum, req) => {
+    if (req.effectiveMinutes > 0) return sum + req.effectiveMinutes;
+    return sum + daysToMinutes(Number(req.workingDays), workdayMinutes);
+  }, 0);
+
   const annualAllowanceMinutes = daysToMinutes(allowance, workdayMinutes);
-  const minutesUsed = daysToMinutes(daysUsed, workdayMinutes);
-  const minutesPending = daysToMinutes(daysPending, workdayMinutes);
   const minutesAvailable = annualAllowanceMinutes - minutesUsed - minutesPending;
 
   // Crear o actualizar el balance
