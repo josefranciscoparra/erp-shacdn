@@ -160,7 +160,7 @@ export default function MyShiftsPage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
       <SectionHeader
-        title="Mis Turnos"
+        title="Mi Horario"
         description="Consulta tu planificación de turnos y gestiona tus horarios asignados."
       />
 

@@ -18,8 +18,6 @@ import {
   MessageSquare,
   CalendarClock,
   Banknote,
-  BarChart3,
-  CalendarCheck,
   AlertCircle,
   ClipboardList,
   type LucideIcon,
@@ -86,11 +84,6 @@ export function useSidebarItems(): NavGroup[] {
           icon: Clock,
         },
         {
-          title: "Mi Horario",
-          url: "/dashboard/me/schedule",
-          icon: CalendarCheck,
-        },
-        {
           title: "Mis Vacaciones",
           url: "/dashboard/me/pto",
           icon: CalendarDays,
@@ -99,7 +92,7 @@ export function useSidebarItems(): NavGroup[] {
         ...(shiftsEnabled
           ? [
               {
-                title: "Mis Turnos",
+                title: "Mi Horario",
                 url: "/dashboard/me/shifts",
                 icon: CalendarClock,
               },
