@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { ArrowLeft, Calendar, Euro, User, Plus, FileText, Send, Edit, PlusCircle } from "lucide-react";
+import { ArrowLeft, Calendar, Euro, User, Plus, FileText, Edit, PlusCircle, CheckCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,10 @@ import { getProcedureById } from "@/server/actions/expense-procedures";
 import { getAuthenticatedUser } from "@/server/actions/shared/get-authenticated-employee";
 
 import { EditProcedureDialog } from "../../procedures/[id]/_components/edit-procedure-dialog";
+import { ProcedureTimeline } from "../../procedures/[id]/_components/procedure-timeline";
+
+import { FinishJustificationButton } from "./_components/finish-justification-button";
+import { SubmitButton } from "./_components/submit-button";
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -80,18 +84,17 @@ export default async function MyProcedureDetailPage({ params }: { params: { id: 
         <div className="flex gap-2">
           {canEdit && <EditProcedureDialog procedure={procedureSerializable} canManage={false} />}
 
-          {procedure.status === "DRAFT" && (
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700">
-              <Send className="mr-2 size-4" /> Solicitar Autorización
-            </Button>
-          )}
+          {procedure.status === "DRAFT" && <SubmitButton procedureId={procedure.id} />}
 
           {procedure.status === "AUTHORIZED" && (
-            <Button size="sm" className="bg-green-600 hover:bg-green-700" asChild>
-              <Link href={`/dashboard/expenses/new?procedureId=${procedure.id}`}>
-                <Plus className="mr-2 size-4" /> Añadir Gasto
-              </Link>
-            </Button>
+            <>
+              <FinishJustificationButton procedureId={procedure.id} hasExpenses={procedure.expenses.length > 0} />
+              <Button size="sm" className="bg-green-600 hover:bg-green-700" asChild>
+                <Link href={`/dashboard/expenses/new?procedureId=${procedure.id}`}>
+                  <Plus className="mr-2 size-4" /> Añadir Gasto
+                </Link>
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -233,6 +236,12 @@ export default async function MyProcedureDetailPage({ params }: { params: { id: 
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Historial de Auditoría */}
+          <div className="bg-card rounded-lg border p-6">
+            <h2 className="mb-4 text-lg font-semibold">Historial</h2>
+            <ProcedureTimeline procedureId={procedure.id} />
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ import { getAuthenticatedUser } from "@/server/actions/shared/get-authenticated-
 
 import { EditProcedureDialog } from "./_components/edit-procedure-dialog";
 import { ProcedureActions } from "./_components/procedure-actions";
+import { ProcedureTimeline } from "./_components/procedure-timeline";
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
@@ -307,6 +308,16 @@ export default async function ProcedureDetailPage({ params }: { params: { id: st
                   <span className="text-foreground font-medium">{procedure.createdBy.name}</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Historial de Auditoría */}
+          <Card className="h-fit shadow-sm">
+            <CardHeader className="bg-muted/30 border-b pb-4">
+              <CardTitle className="text-base font-semibold">Historial</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <ProcedureTimeline procedureId={procedure.id} />
             </CardContent>
           </Card>
         </div>

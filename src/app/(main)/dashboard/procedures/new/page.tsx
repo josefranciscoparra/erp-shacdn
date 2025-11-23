@@ -4,10 +4,16 @@ import { getAuthenticatedUser } from "@/server/actions/shared/get-authenticated-
 
 import { ProcedureForm } from "../_components/procedure-form";
 
-export default async function NewProcedurePage() {
-  const { role } = await getAuthenticatedUser();
+export default async function NewProcedurePage({ searchParams }: { searchParams: { context?: string } }) {
+  const { role, employee } = await getAuthenticatedUser();
 
   const canAssignEmployee = ["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(role);
+  const isMyContext = searchParams.context === "mine";
+
+  // Si vienes de "Mis Expedientes" (context=mine), forzamos canAssignEmployee a false
+  // para cumplir la regla: "Desde mi área solo creo para mí".
+  // Aunque seas manager, si entras desde "Mis expedientes", creas para ti.
+  const effectiveCanAssign = isMyContext ? false : canAssignEmployee;
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 p-6">
@@ -21,7 +27,11 @@ export default async function NewProcedurePage() {
           <CardTitle>Detalles del Expediente</CardTitle>
         </CardHeader>
         <CardContent>
-          <ProcedureForm canAssignEmployee={canAssignEmployee} />
+          <ProcedureForm
+            canAssignEmployee={effectiveCanAssign}
+            returnToMyProcedures={isMyContext}
+            currentEmployeeId={employee?.id}
+          />
         </CardContent>
       </Card>
     </div>

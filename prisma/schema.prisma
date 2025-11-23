@@ -173,6 +173,7 @@ model User {
   alertSubscriptions   AlertSubscription[] @relation("UserAlertSubscriptions") // Suscripciones a alertas
   resolvedAlerts       Alert[] @relation("AlertResolver") // Alertas que ha resuelto
   activeContext        UserActiveContext? // Contexto activo seleccionado por el usuario
+  procedureHistory     ExpenseProcedureHistory[] // Historial de expedientes donde ha actuado
 
   @@index([email])
   @@index([orgId])
@@ -1459,11 +1460,41 @@ model ExpenseProcedure {
 
   // Relaciones
   expenses    Expense[]       // Gastos imputados a este expediente
+  history     ExpenseProcedureHistory[] // Historial de cambios y estados
 
   @@index([orgId])
   @@index([employeeId])
   @@index([status])
   @@map("expense_procedures")
+}
+
+// Historial de cambios de estado del expediente (Auditoría)
+model ExpenseProcedureHistory {
+  id          String          @id @default(cuid())
+  
+  procedureId String
+  procedure   ExpenseProcedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
+
+  // Qué pasó
+  action      String          // "CREATED", "STATUS_CHANGE", "UPDATED", "ASSIGNED"
+  
+  // Transición de estado (si aplica)
+  previousStatus ProcedureStatus?
+  newStatus      ProcedureStatus?
+
+  // Detalles
+  comment     String?         // Comentario opcional (ej: motivo rechazo)
+  details     String?         // Detalles técnicos o resumen de cambios
+  
+  // Quién lo hizo
+  actorId     String
+  actor       User            @relation(fields: [actorId], references: [id])
+
+  createdAt   DateTime        @default(now())
+
+  @@index([procedureId])
+  @@index([actorId])
+  @@map("expense_procedure_history")
 }
 
 // Aprobadores organizacionales de gastos (sistema multi-aprobador flexible)

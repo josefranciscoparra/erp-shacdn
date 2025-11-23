@@ -33,7 +33,7 @@ export function EmployeeCombobox({
   placeholder = "Selecciona responsable",
   emptyText = "Sin responsable asignado",
   disabled = false,
-  minChars = 0,
+  minChars = 2,
 }: EmployeeComboboxProps) {
   const [open, setOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -66,14 +66,6 @@ export function EmployeeCombobox({
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`[EmployeeCombobox] Query: "${query}" | Recibidos: ${data.length} empleados`);
-        if (query.toLowerCase().includes("maría") || query.toLowerCase().includes("maria")) {
-          const marias = data.filter(
-            (e: Employee) =>
-              e.fullName.toLowerCase().includes("maría") || e.fullName.toLowerCase().includes("maria"),
-          );
-          console.log(`[EmployeeCombobox] Marías en la lista:`, marias);
-        }
         setEmployees(data);
       }
     } catch (error) {

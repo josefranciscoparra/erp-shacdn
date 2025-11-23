@@ -15,7 +15,8 @@ const CreateProcedureSchema = z.object({
   startDate: z.date().optional(),
   endDate: z.date().optional(),
   estimatedAmount: z.number().positive().optional(),
-  employeeId: z.string().optional(), // Si un manager lo crea para otro
+  employeeId: z.string().optional(), // Mantenemos para compatibilidad hacia atrás o uso simple
+  employeeIds: z.array(z.string()).optional(), // Nuevo campo para selección múltiple
 });
 
 const UpdateProcedureSchema = CreateProcedureSchema.partial().extend({
@@ -39,54 +40,131 @@ export async function createProcedure(data: z.infer<typeof CreateProcedureSchema
     const validatedData = CreateProcedureSchema.parse(data);
 
     const isManager = ["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(user.role);
-    let targetEmployeeId: string | null = null;
 
-    if (validatedData.employeeId) {
-      // Si se especifica un ID (no vacío)
+    // Lista de empleados destino
+    let targetEmployeeIds: string[] = [];
+
+    if (validatedData.employeeIds && validatedData.employeeIds.length > 0) {
+      // Caso múltiple (Prioritario si viene relleno)
+      if (!isManager) {
+        return { success: false, error: "No tienes permisos para crear expedientes para otros empleados" };
+      }
+      targetEmployeeIds = validatedData.employeeIds;
+    } else if (validatedData.employeeId) {
+      // Caso simple (Compatibilidad)
       if (!isManager && validatedData.employeeId !== employee.id) {
         return { success: false, error: "No tienes permisos para crear expedientes para otros empleados" };
       }
-      targetEmployeeId = validatedData.employeeId;
+      targetEmployeeIds = [validatedData.employeeId];
     } else {
-      // Si NO se especifica ID (vacío)
+      // Caso sin especificar (Auto-asignación o Borrador sin asignar)
       if (isManager) {
-        // Managers pueden dejarlo sin asignar (Borrador sin beneficiario)
-        targetEmployeeId = null;
+        // Managers pueden dejarlo sin asignar (Borrador sin beneficiario) -> Lista vacía o null?
+        // Si la lista está vacía y es manager, creamos UN solo expediente sin asignar.
+        targetEmployeeIds = [];
       } else {
         // Empleados normales siempre crean para sí mismos
-        targetEmployeeId = employee.id;
+        targetEmployeeIds = [employee.id];
       }
     }
 
-    // Generar código secuencial simple (TODO: Mejorar generador de códigos)
-    const count = await prisma.expenseProcedure.count({
-      where: { orgId: employee.orgId },
-    });
-    const code = `EXP-${new Date().getFullYear()}-${String(count + 1).padStart(3, "0")}`;
+    // Si es manager y no hay empleados, creamos uno solo sin asignar
+    if (isManager && targetEmployeeIds.length === 0) {
+      const count = await prisma.expenseProcedure.count({
+        where: { orgId: employee.orgId },
+      });
+      const code = `EXP-${new Date().getFullYear()}-${String(count + 1).padStart(3, "0")}`;
 
-    const procedure = await prisma.expenseProcedure.create({
-      data: {
-        name: validatedData.name,
-        description: validatedData.description,
-        code,
-        status: "DRAFT",
-        startDate: validatedData.startDate,
-        endDate: validatedData.endDate,
-        estimatedAmount: validatedData.estimatedAmount ? new Decimal(validatedData.estimatedAmount) : null,
-        organization: { connect: { id: employee.orgId } },
-        createdBy: { connect: { id: user.id } },
-        // Solo conectar employee si se especifica targetEmployeeId
-        ...(targetEmployeeId ? { employee: { connect: { id: targetEmployeeId } } } : {}),
-      },
-    });
+      const procedure = await prisma.expenseProcedure.create({
+        data: {
+          name: validatedData.name,
+          description: validatedData.description,
+          code,
+          status: "DRAFT",
+          startDate: validatedData.startDate,
+          endDate: validatedData.endDate,
+          estimatedAmount: validatedData.estimatedAmount ? new Decimal(validatedData.estimatedAmount) : null,
+          organization: { connect: { id: employee.orgId } },
+          createdBy: { connect: { id: user.id } },
+          // Sin employee connect
+        },
+      });
 
-    // Serializar Decimal para el cliente
+      // 🔹 AUDITORÍA: Registrar creación
+      await prisma.expenseProcedureHistory.create({
+        data: {
+          procedureId: procedure.id,
+          action: "CREATED",
+          newStatus: "DRAFT",
+          actorId: user.id,
+          details: "Creación inicial (Borrador sin asignar)",
+        },
+      });
+
+      return {
+        success: true,
+        procedure: {
+          ...procedure,
+          estimatedAmount: procedure.estimatedAmount?.toNumber() ?? null,
+          approvedAmount: procedure.approvedAmount?.toNumber() ?? null,
+        },
+      };
+    }
+
+    // Creación en bucle (o transacción) para los empleados seleccionados
+    const createdProcedures = [];
+
+    // Usamos una transacción para asegurar consistencia en contadores si es posible,
+    // pero para códigos secuenciales con Prisma a veces es mejor uno a uno o usar una secuencia DB real.
+    // Lo haremos iterativo simple por ahora.
+    for (const targetId of targetEmployeeIds) {
+      const count = await prisma.expenseProcedure.count({
+        where: { orgId: employee.orgId },
+      });
+      const code = `EXP-${new Date().getFullYear()}-${String(count + 1).padStart(3, "0")}`;
+
+      // Obtener datos del empleado para añadir al nombre si es masivo?
+      // Opcional: "Viaje X - Juan Perez". De momento dejamos nombre original.
+
+      const procedure = await prisma.expenseProcedure.create({
+        data: {
+          name: validatedData.name,
+          description: validatedData.description,
+          code,
+          status: "DRAFT",
+          startDate: validatedData.startDate,
+          endDate: validatedData.endDate,
+          estimatedAmount: validatedData.estimatedAmount ? new Decimal(validatedData.estimatedAmount) : null,
+          organization: { connect: { id: employee.orgId } },
+          createdBy: { connect: { id: user.id } },
+          employee: { connect: { id: targetId } },
+        },
+      });
+
+      // 🔹 AUDITORÍA: Registrar creación
+      await prisma.expenseProcedureHistory.create({
+        data: {
+          procedureId: procedure.id,
+          action: "CREATED",
+          newStatus: "DRAFT",
+          actorId: user.id,
+          details: "Creación inicial",
+        },
+      });
+
+      createdProcedures.push(procedure);
+    }
+
+    // Retornamos el primero para compatibilidad, o un indicador de éxito
+    const firstProcedure = createdProcedures[0];
+
     return {
       success: true,
+      count: createdProcedures.length,
       procedure: {
-        ...procedure,
-        estimatedAmount: procedure.estimatedAmount?.toNumber() ?? null,
-        approvedAmount: procedure.approvedAmount?.toNumber() ?? null,
+        ...firstProcedure,
+        estimatedAmount: firstProcedure.estimatedAmount?.toNumber() ?? null,
+        approvedAmount: firstProcedure.approvedAmount?.toNumber() ?? null,
       },
     };
   } catch (error) {
@@ -250,6 +328,18 @@ export async function updateProcedureStatus(
     data: { status },
   });
 
+  // 🔹 AUDITORÍA: Registrar cambio de estado
+  await prisma.expenseProcedureHistory.create({
+    data: {
+      procedureId: id,
+      action: "STATUS_CHANGE",
+      previousStatus: procedure.status,
+      newStatus: status,
+      actorId: user.id,
+      details: `Cambio de estado: ${procedure.status} -> ${status}`,
+    },
+  });
+
   // Notificar al empleado
   if (procedure.employeeId && procedure.employeeId !== employee.id) {
     // Si no es el propio usuario y tiene empleado asignado
@@ -342,6 +432,25 @@ export async function updateProcedure(id: string, data: z.infer<typeof UpdatePro
       data: updateData,
     });
 
+    // 🔹 AUDITORÍA: Registrar actualización
+    // Si cambia el estado, lo marcamos como STATUS_CHANGE, si no, UPDATED
+    const action =
+      validatedData.status && validatedData.status !== existingProcedure.status ? "STATUS_CHANGE" : "UPDATED";
+
+    await prisma.expenseProcedureHistory.create({
+      data: {
+        procedureId: id,
+        action,
+        previousStatus: existingProcedure.status,
+        newStatus: procedure.status,
+        actorId: user.id,
+        details:
+          action === "UPDATED"
+            ? "Actualización de datos generales"
+            : `Cambio de estado manual: ${existingProcedure.status} -> ${procedure.status}`,
+      },
+    });
+
     return {
       success: true,
       procedure: {
@@ -357,4 +466,32 @@ export async function updateProcedure(id: string, data: z.infer<typeof UpdatePro
       error: error instanceof Error ? error.message : "Error desconocido al actualizar el expediente",
     };
   }
+}
+
+/**
+ * Obtiene el historial de auditoría de un expediente
+ */
+export async function getProcedureHistory(procedureId: string) {
+  const { userId } = await getAuthenticatedEmployee();
+
+  // Validar acceso (simple) - Si puede ver el expediente, puede ver su historial
+  // Ya se valida al cargar la página principal, aquí asumimos seguridad por contexto o añadimos doble check si necesario.
+
+  const history = await prisma.expenseProcedureHistory.findMany({
+    where: { procedureId },
+    include: {
+      actor: {
+        select: {
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return { success: true, history };
 }

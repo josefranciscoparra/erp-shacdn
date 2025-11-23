@@ -38,7 +38,7 @@ function MyProceduresTable({ procedures }: { procedures: any[] }) {
           Aún no has creado ningún expediente de gasto o comisión de servicio.
         </p>
         <Button asChild variant="outline">
-          <Link href="/dashboard/procedures/new">Crear mi primer expediente</Link>
+          <Link href="/dashboard/procedures/new?context=mine">Crear mi primer expediente</Link>
         </Button>
       </div>
     );
@@ -93,7 +93,7 @@ export default async function MyProceduresPage() {
         title="Expedientes de Gasto"
         description="Consulta y crea tus solicitudes de gasto o comisiones de servicio."
         actionLabel="Nuevo Expediente"
-        actionHref="/dashboard/procedures/new"
+        actionHref="/dashboard/procedures/new?context=mine"
         actionIcon={<PlusCircle className="h-4 w-4" />}
       />
 

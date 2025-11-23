@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { EmployeeCombobox } from "@/components/ui/employee-combobox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { MultiEmployeeCombobox } from "@/components/ui/multi-employee-combobox";
 import { Textarea } from "@/components/ui/textarea";
 import { createProcedure } from "@/server/actions/expense-procedures";
 
@@ -24,13 +25,20 @@ const formSchema = z.object({
   endDate: z.string().optional(),
   estimatedAmount: z.string().optional(), // Input type number returns string usually
   employeeId: z.string().optional(),
+  employeeIds: z.array(z.string()).optional(),
 });
 
 interface ProcedureFormProps {
   canAssignEmployee?: boolean;
+  returnToMyProcedures?: boolean;
+  currentEmployeeId?: string;
 }
 
-export function ProcedureForm({ canAssignEmployee = false }: ProcedureFormProps) {
+export function ProcedureForm({
+  canAssignEmployee = false,
+  returnToMyProcedures = false,
+  currentEmployeeId,
+}: ProcedureFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -43,26 +51,44 @@ export function ProcedureForm({ canAssignEmployee = false }: ProcedureFormProps)
       endDate: "",
       estimatedAmount: "",
       employeeId: "",
+      employeeIds: [],
     },
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
+      // Si no puedo asignar (soy empleado o manager en modo "mío"), uso mi ID.
+      // Si puedo asignar, uso la lista seleccionada.
+      // Si puedo asignar pero no selecciono nada, va vacío (borrador sin asignar).
+
+      let finalEmployeeIds = values.employeeIds;
+
+      if (!canAssignEmployee && currentEmployeeId) {
+        finalEmployeeIds = [currentEmployeeId];
+      }
+
       const payload = {
         ...values,
         estimatedAmount: values.estimatedAmount ? parseFloat(values.estimatedAmount) : undefined,
         startDate: values.startDate ? new Date(values.startDate) : undefined,
         endDate: values.endDate ? new Date(values.endDate) : undefined,
-        employeeId: values.employeeId ?? undefined,
+        employeeId: undefined,
+        employeeIds: finalEmployeeIds,
       };
 
       const result = await createProcedure(payload);
 
       if (result.success) {
-        toast.success("Expediente creado", {
-          description: "El expediente se ha creado correctamente en estado borrador.",
+        toast.success("Expediente(s) creado(s)", {
+          description: "La operación se ha completado correctamente.",
         });
-        router.push("/dashboard/procedures");
+
+        // Redirección inteligente
+        if (returnToMyProcedures) {
+          router.push("/dashboard/my-procedures");
+        } else {
+          router.push("/dashboard/procedures");
+        }
         router.refresh();
       } else {
         toast.error("Error", {
@@ -78,20 +104,21 @@ export function ProcedureForm({ canAssignEmployee = false }: ProcedureFormProps)
         {canAssignEmployee && (
           <FormField
             control={form.control}
-            name="employeeId"
+            name="employeeIds"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Beneficiario (Empleado)</FormLabel>
+                <FormLabel>Beneficiarios (Empleados)</FormLabel>
                 <FormControl>
-                  <EmployeeCombobox
+                  <MultiEmployeeCombobox
                     value={field.value}
-                    onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
-                    placeholder="Selecciona un empleado (Opcional)"
-                    emptyText="Sin responsable (Borrador)"
-                    minChars={2}
+                    onValueChange={field.onChange}
+                    placeholder="Selecciona empleados (Opcional)"
                   />
                 </FormControl>
-                <FormDescription>Si lo dejas vacío, se guardará como borrador sin asignar.</FormDescription>
+                <FormDescription>
+                  Selecciona uno o más empleados. Se creará un expediente independiente para cada uno. Si lo dejas
+                  vacío, se creará un único borrador sin asignar.
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
