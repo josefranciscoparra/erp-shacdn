@@ -24,11 +24,13 @@
 
 import { useEffect, useState } from "react";
 
-import { FileText, Settings, LayoutDashboard } from "lucide-react";
+import { FileText, Settings, LayoutDashboard, ShieldOff } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 import { CalendarMonthArea } from "./_components/calendar-month-area";
 import { CalendarMonthEmployee } from "./_components/calendar-month-employee";
@@ -64,15 +66,47 @@ export default function ShiftsPage() {
 
   // Estado local para tab activo
   const [activeTab, setActiveTab] = useState("calendar");
+  const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
 
   // Cargar datos iniciales
   useEffect(() => {
+    if (!shiftsEnabled) return;
     void fetchShifts();
     void fetchEmployees();
     void fetchCostCenters();
     void fetchZones();
     void fetchTemplates();
-  }, []);
+  }, [fetchShifts, fetchEmployees, fetchCostCenters, fetchZones, fetchTemplates, shiftsEnabled]);
+
+  if (!shiftsEnabled) {
+    return (
+      <div className="@container/main flex flex-col gap-6">
+        <SectionHeader
+          title="Gestión de Turnos"
+          description="Este módulo está desactivado para tu organización. Actívalo en Configuración → Turnos."
+        />
+
+        <Card className="bg-muted/30 border-dashed">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldOff className="text-muted-foreground h-4 w-4" />
+              Módulo deshabilitado
+            </CardTitle>
+            <CardDescription>
+              Solo los administradores con permisos pueden habilitar el módulo y definir las reglas de descanso desde la
+              sección de Configuración.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-muted-foreground text-sm">
+              No verás cuadrantes ni podrás planificar turnos hasta que el módulo esté activo. Si eres administrador, ve
+              a Configuración → Turnos para activarlo.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="@container/main flex flex-col gap-6">

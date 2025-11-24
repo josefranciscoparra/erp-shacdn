@@ -505,6 +505,21 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       await get().fetchShifts();
       set({ isLoading: false });
       toast.success(`Plantilla aplicada: ${response.totalCreated} turnos creados`);
+
+      if (response.skipped && response.skipped > 0) {
+        toast.warning(`${response.skipped} turnos no se crearon por conflictos`);
+      }
+
+      if (response.conflicts && response.conflicts.length > 0) {
+        response.conflicts.forEach((conflict) => {
+          if (conflict.severity === "warning") {
+            toast.warning(conflict.message);
+          } else {
+            toast.error(conflict.message);
+          }
+        });
+      }
+
       get().closeTemplateApplyDialog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al aplicar plantilla";

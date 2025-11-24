@@ -46,6 +46,8 @@ import type {
   ApplyTemplateInput,
   ApplyTemplateResponse,
   PublishShiftsResponse,
+  Conflict,
+  ConflictType,
   ShiftStatus,
 } from "./types";
 
@@ -142,6 +144,7 @@ export const shiftService = {
       return {
         success: true,
         data: mapAssignmentToShift(created as ManualAssignmentRecord),
+        validation: mapValidationResultFromServer(result.validation?.conflicts),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al crear turno";
@@ -178,6 +181,7 @@ export const shiftService = {
       return {
         success: true,
         data: mapAssignmentToShift(updated as ManualAssignmentRecord),
+        validation: mapValidationResultFromServer(result.validation?.conflicts),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al actualizar turno";
@@ -212,13 +216,18 @@ export const shiftService = {
 
       const result = await updateManualShiftAssignment(shift.id, payload);
       if (!result.success) {
-        return { success: false, conflicts: [] };
+        return {
+          success: false,
+          conflicts: mapValidationResultFromServer(result.validation?.conflicts)?.conflicts ?? [],
+        };
       }
 
       const updated = await getManualShiftAssignmentById(shift.id);
+      const validation = mapValidationResultFromServer(result.validation?.conflicts);
       return {
         success: true,
         updatedShift: updated ? mapAssignmentToShift(updated as ManualAssignmentRecord) : undefined,
+        conflicts: validation?.conflicts,
       };
     } catch (error) {
       return { success: false, conflicts: [] };
@@ -247,13 +256,18 @@ export const shiftService = {
 
     const result = await createManualShiftAssignment(payload);
     if (!result.success || !result.data) {
-      return { success: false, conflicts: [] };
+      return {
+        success: false,
+        conflicts: mapValidationResultFromServer(result.validation?.conflicts)?.conflicts ?? [],
+      };
     }
 
     const created = await getManualShiftAssignmentById(result.data.id);
+    const validation = mapValidationResultFromServer(result.validation?.conflicts);
     return {
       success: true,
       updatedShift: created ? mapAssignmentToShift(created as ManualAssignmentRecord) : undefined,
+      conflicts: validation?.conflicts,
     };
   },
 
@@ -265,7 +279,11 @@ export const shiftService = {
       });
 
       if (!result.success) {
-        return { success: false, error: result.error ?? "Error al actualizar duración" };
+        return {
+          success: false,
+          error: result.error ?? "Error al actualizar duración",
+          validation: mapValidationResultFromServer(result.validation?.conflicts),
+        };
       }
 
       const updated = await getManualShiftAssignmentById(shiftId);
@@ -276,6 +294,7 @@ export const shiftService = {
       return {
         success: true,
         data: mapAssignmentToShift(updated as ManualAssignmentRecord),
+        validation: mapValidationResultFromServer(result.validation?.conflicts),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al redimensionar turno";
@@ -443,12 +462,19 @@ export const shiftService = {
     });
 
     if (!response.success) {
-      return { success: false, totalCreated: 0, error: response.error };
+      return {
+        success: false,
+        totalCreated: 0,
+        error: response.error,
+        conflicts: mapValidationResultFromServer(response.conflicts)?.conflicts,
+      };
     }
 
     return {
       success: true,
       totalCreated: response.created ?? 0,
+      skipped: response.skipped ?? 0,
+      conflicts: mapValidationResultFromServer(response.conflicts)?.conflicts,
     };
   },
 
@@ -518,4 +544,32 @@ function normalizeZoneId(value?: string | null) {
     return undefined;
   }
   return value;
+}
+
+type ServerValidationConflict = {
+  type?: string;
+  message: string;
+  severity: "error" | "warning";
+  relatedAssignmentId?: string;
+};
+
+function mapValidationResultFromServer(conflicts?: ServerValidationConflict[]) {
+  if (!conflicts || conflicts.length === 0) {
+    return undefined;
+  }
+
+  return {
+    isValid: conflicts.every((conflict) => conflict.severity !== "error"),
+    conflicts: conflicts.map(mapConflictFromServer),
+    warnings: [],
+  };
+}
+
+function mapConflictFromServer(conflict: ServerValidationConflict): Conflict {
+  return {
+    type: (conflict.type as ConflictType) ?? "overlap",
+    message: conflict.message,
+    severity: conflict.severity,
+    relatedShiftId: conflict.relatedAssignmentId,
+  };
 }

@@ -272,6 +272,16 @@ export interface ActionResponse<T = void> {
   success: boolean;
   data?: T;
   error?: string;
+  validation?: {
+    conflicts: ScheduleValidationConflict[];
+  };
+}
+
+export interface ScheduleValidationConflict {
+  type: "overlap" | "min_rest" | "absence";
+  message: string;
+  severity: "error" | "warning";
+  relatedAssignmentId?: string;
 }
 
 /**

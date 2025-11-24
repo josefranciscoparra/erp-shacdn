@@ -10,7 +10,16 @@
  * - Cálculo de horarios semanales
  */
 
-import { startOfWeek, endOfWeek, addDays, isBefore, isAfter, isWithinInterval, differenceInDays } from "date-fns";
+import {
+  startOfWeek,
+  endOfWeek,
+  addDays,
+  isBefore,
+  isAfter,
+  isWithinInterval,
+  differenceInDays,
+  differenceInMinutes,
+} from "date-fns";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -29,6 +38,7 @@ import type {
   CreateShiftRotationPatternInput,
   CreateShiftRotationStepInput,
   ManualShiftStatus,
+  ScheduleValidationConflict,
 } from "@/types/schedule";
 
 // ============================================================================
@@ -2066,6 +2076,180 @@ export async function getShiftRotationPatterns() {
 // GESTIÓN DE ASIGNACIONES MANUALES (Rostering / Planificación)
 // ============================================================================
 
+const DEFAULT_MIN_REST_MINUTES = 12 * 60; // 12h
+
+type ManualAssignmentValidationParams = {
+  orgId: string;
+  employeeId: string;
+  date: Date;
+  startTimeMinutes?: number | null;
+  endTimeMinutes?: number | null;
+  scheduleTemplateId?: string | null;
+  excludeAssignmentId?: string;
+  minRestMinutes: number;
+};
+
+async function getOrgShiftValidationConfig(orgId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { shiftMinRestMinutes: true },
+  });
+
+  return {
+    minRestMinutes: org?.shiftMinRestMinutes ?? DEFAULT_MIN_REST_MINUTES,
+  };
+}
+
+function combineDateAndMinutes(baseDate: Date, minutes?: number | null): Date | null {
+  if (minutes === null || minutes === undefined) return null;
+  const date = new Date(baseDate);
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCMinutes(date.getUTCMinutes() + minutes);
+  return date;
+}
+
+function getAssignmentDateRange(
+  date: Date,
+  startMinutes?: number | null,
+  endMinutes?: number | null,
+): { start: Date; end: Date } | null {
+  const start = combineDateAndMinutes(date, startMinutes);
+  let end = combineDateAndMinutes(date, endMinutes);
+  if (!start || !end) return null;
+  if (end <= start) {
+    end = addDays(end, 1);
+  }
+  return { start, end };
+}
+
+async function validateManualAssignmentInput(
+  params: ManualAssignmentValidationParams,
+): Promise<ScheduleValidationConflict[]> {
+  const conflicts: ScheduleValidationConflict[] = [];
+  const normalizedDate = normalizeAssignmentDate(params.date);
+  const newRange = getAssignmentDateRange(normalizedDate, params.startTimeMinutes, params.endTimeMinutes);
+
+  // Overlaps (solo si conocemos start/end)
+  if (newRange) {
+    const overlappingAssignments = await prisma.manualShiftAssignment.findMany({
+      where: {
+        orgId: params.orgId,
+        employeeId: params.employeeId,
+        date: normalizedDate,
+        ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
+      },
+      select: {
+        id: true,
+        startTimeMinutes: true,
+        endTimeMinutes: true,
+      },
+    });
+
+    for (const assignment of overlappingAssignments) {
+      const existingRange = getAssignmentDateRange(
+        normalizedDate,
+        assignment.startTimeMinutes,
+        assignment.endTimeMinutes,
+      );
+      if (!existingRange) continue;
+
+      const overlap = newRange.start < existingRange.end && existingRange.start < newRange.end;
+      if (overlap) {
+        conflicts.push({
+          type: "overlap",
+          severity: "error",
+          message: "El empleado ya tiene un turno asignado en ese horario.",
+          relatedAssignmentId: assignment.id,
+        });
+        break;
+      }
+    }
+  }
+
+  // Descanso mínimo (prev/next)
+  if (newRange) {
+    const prevAssignment = await prisma.manualShiftAssignment.findFirst({
+      where: {
+        orgId: params.orgId,
+        employeeId: params.employeeId,
+        date: { lt: normalizedDate },
+      },
+      orderBy: { date: "desc" },
+    });
+
+    if (prevAssignment) {
+      const prevRange = getAssignmentDateRange(
+        normalizeAssignmentDate(prevAssignment.date),
+        prevAssignment.startTimeMinutes,
+        prevAssignment.endTimeMinutes,
+      );
+      if (prevRange) {
+        const diffMinutes = differenceInMinutes(newRange.start, prevRange.end);
+        if (diffMinutes < params.minRestMinutes) {
+          conflicts.push({
+            type: "min_rest",
+            severity: "warning",
+            message: `Descanso insuficiente (${diffMinutes} minutos) respecto al turno anterior. Mínimo requerido: ${params.minRestMinutes} minutos.`,
+            relatedAssignmentId: prevAssignment.id,
+          });
+        }
+      }
+    }
+
+    const nextAssignment = await prisma.manualShiftAssignment.findFirst({
+      where: {
+        orgId: params.orgId,
+        employeeId: params.employeeId,
+        date: { gt: normalizedDate },
+      },
+      orderBy: { date: "asc" },
+    });
+
+    if (nextAssignment) {
+      const nextRange = getAssignmentDateRange(
+        normalizeAssignmentDate(nextAssignment.date),
+        nextAssignment.startTimeMinutes,
+        nextAssignment.endTimeMinutes,
+      );
+      if (nextRange) {
+        const diffMinutes = differenceInMinutes(nextRange.start, newRange.end);
+        if (diffMinutes < params.minRestMinutes) {
+          conflicts.push({
+            type: "min_rest",
+            severity: "warning",
+            message: `Descanso insuficiente (${diffMinutes} minutos) respecto al turno siguiente. Mínimo requerido: ${params.minRestMinutes} minutos.`,
+            relatedAssignmentId: nextAssignment.id,
+          });
+        }
+      }
+    }
+  }
+
+  // PTO / ausencias
+  const absence = await prisma.ptoRequest.findFirst({
+    where: {
+      orgId: params.orgId,
+      employeeId: params.employeeId,
+      status: "APPROVED",
+      startDate: { lte: normalizedDate },
+      endDate: { gte: normalizedDate },
+    },
+    include: {
+      absenceType: { select: { name: true } },
+    },
+  });
+
+  if (absence) {
+    conflicts.push({
+      type: "absence",
+      severity: "error",
+      message: `El empleado está ausente (${absence.absenceType?.name ?? "Ausencia"}) en esta fecha.`,
+    });
+  }
+
+  return conflicts;
+}
+
 type ManualShiftFilters = {
   employeeIds?: string[];
   costCenterId?: string;
@@ -2136,6 +2320,26 @@ export async function createManualShiftAssignment(
     const normalizedDate = normalizeAssignmentDate(input.date);
     const { status, publishedAt } = resolveStatus(input.status);
 
+    const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
+
+    const validationConflicts = await validateManualAssignmentInput({
+      orgId,
+      employeeId: input.employeeId,
+      date: normalizedDate,
+      startTimeMinutes: input.startTimeMinutes,
+      endTimeMinutes: input.endTimeMinutes,
+      scheduleTemplateId: input.scheduleTemplateId ?? null,
+      minRestMinutes,
+    });
+
+    if (validationConflicts.some((conflict) => conflict.severity === "error")) {
+      return {
+        success: false,
+        error: "Se detectaron conflictos al crear el turno",
+        validation: { conflicts: validationConflicts },
+      };
+    }
+
     const assignment = await prisma.manualShiftAssignment.upsert({
       where: {
         employeeId_date: {
@@ -2172,7 +2376,7 @@ export async function createManualShiftAssignment(
       },
     });
 
-    return { success: true, data: { id: assignment.id } };
+    return { success: true, data: { id: assignment.id }, validation: { conflicts: validationConflicts } };
   } catch (error) {
     console.error("Error creating manual assignment:", error);
     return { success: false, error: "Error al crear asignación manual" };
@@ -2190,6 +2394,40 @@ export async function updateManualShiftAssignment(
 ): Promise<ActionResponse<{ id: string }>> {
   try {
     const { orgId } = await requireOrg();
+    const existing = await prisma.manualShiftAssignment.findUnique({
+      where: { id, orgId },
+    });
+    if (!existing) {
+      return { success: false, error: "Turno no encontrado" };
+    }
+
+    const targetDate = data.date ? normalizeAssignmentDate(data.date) : existing.date;
+    const finalEmployeeId = data.employeeId ?? existing.employeeId;
+    const finalStartMinutes = data.startTimeMinutes ?? existing.startTimeMinutes ?? undefined;
+    const finalEndMinutes = data.endTimeMinutes ?? existing.endTimeMinutes ?? undefined;
+    const finalTemplateId = data.scheduleTemplateId ?? existing.scheduleTemplateId ?? null;
+
+    const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
+
+    const validationConflicts = await validateManualAssignmentInput({
+      orgId,
+      employeeId: finalEmployeeId,
+      date: targetDate,
+      startTimeMinutes: finalStartMinutes,
+      endTimeMinutes: finalEndMinutes,
+      scheduleTemplateId: finalTemplateId,
+      excludeAssignmentId: id,
+      minRestMinutes,
+    });
+
+    if (validationConflicts.some((conflict) => conflict.severity === "error")) {
+      return {
+        success: false,
+        error: "Se detectaron conflictos al actualizar el turno",
+        validation: { conflicts: validationConflicts },
+      };
+    }
+
     const payload: any = {};
 
     if (data.employeeId) {
@@ -2197,7 +2435,7 @@ export async function updateManualShiftAssignment(
     }
 
     if (data.date) {
-      payload.date = normalizeAssignmentDate(data.date);
+      payload.date = targetDate;
     }
 
     if (data.scheduleTemplateId !== undefined) {
@@ -2243,7 +2481,7 @@ export async function updateManualShiftAssignment(
       data: payload,
     });
 
-    return { success: true, data: { id: assignment.id } };
+    return { success: true, data: { id: assignment.id }, validation: { conflicts: validationConflicts } };
   } catch (error) {
     console.error("Error updating manual assignment:", error);
     return { success: false, error: "Error al actualizar asignación manual" };
@@ -2339,9 +2577,10 @@ export async function copyManualShiftAssignmentsFromWeek(
   sourceWeekStart: Date,
   targetWeekStart: Date,
   filters?: Omit<ManualShiftFilters, "statuses">,
-): Promise<ActionResponse<{ copied: number }>> {
+): Promise<ActionResponse<{ copied: number; skipped: number }>> {
   try {
     const { orgId } = await requireOrg();
+    const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
     const sourceStart = getRangeBoundary(sourceWeekStart);
     const sourceEnd = getRangeBoundary(addDays(sourceWeekStart, 6), true);
     const targetStart = getRangeBoundary(targetWeekStart);
@@ -2356,47 +2595,73 @@ export async function copyManualShiftAssignmentsFromWeek(
       return { success: true, data: { copied: 0 } };
     }
 
-    const operations = assignments.map((assignment) => {
+    const operations: Array<ReturnType<typeof prisma.manualShiftAssignment.upsert>> = [];
+    let skipped = 0;
+    const validationConflicts: ScheduleValidationConflict[] = [];
+
+    for (const assignment of assignments) {
       const targetDate = normalizeAssignmentDate(addDays(assignment.date, diff));
-      return prisma.manualShiftAssignment.upsert({
-        where: {
-          employeeId_date: {
+      const conflicts = await validateManualAssignmentInput({
+        orgId,
+        employeeId: assignment.employeeId,
+        date: targetDate,
+        startTimeMinutes: assignment.startTimeMinutes ?? undefined,
+        endTimeMinutes: assignment.endTimeMinutes ?? undefined,
+        scheduleTemplateId: assignment.scheduleTemplateId,
+        minRestMinutes,
+      });
+
+      if (conflicts.some((conflict) => conflict.severity === "error")) {
+        skipped += 1;
+        validationConflicts.push(...conflicts);
+        continue;
+      }
+
+      operations.push(
+        prisma.manualShiftAssignment.upsert({
+          where: {
+            employeeId_date: {
+              employeeId: assignment.employeeId,
+              date: targetDate,
+            },
+          },
+          update: {
+            scheduleTemplateId: assignment.scheduleTemplateId,
+            startTimeMinutes: assignment.startTimeMinutes,
+            endTimeMinutes: assignment.endTimeMinutes,
+            costCenterId: assignment.costCenterId,
+            workZoneId: assignment.workZoneId,
+            breakMinutes: assignment.breakMinutes,
+            customRole: assignment.customRole,
+            notes: assignment.notes,
+            status: "DRAFT",
+            publishedAt: null,
+          },
+          create: {
+            orgId,
             employeeId: assignment.employeeId,
             date: targetDate,
+            scheduleTemplateId: assignment.scheduleTemplateId,
+            startTimeMinutes: assignment.startTimeMinutes,
+            endTimeMinutes: assignment.endTimeMinutes,
+            costCenterId: assignment.costCenterId,
+            workZoneId: assignment.workZoneId,
+            breakMinutes: assignment.breakMinutes,
+            customRole: assignment.customRole,
+            notes: assignment.notes,
+            status: "DRAFT",
+            publishedAt: null,
           },
-        },
-        update: {
-          scheduleTemplateId: assignment.scheduleTemplateId,
-          startTimeMinutes: assignment.startTimeMinutes,
-          endTimeMinutes: assignment.endTimeMinutes,
-          costCenterId: assignment.costCenterId,
-          workZoneId: assignment.workZoneId,
-          breakMinutes: assignment.breakMinutes,
-          customRole: assignment.customRole,
-          notes: assignment.notes,
-          status: "DRAFT",
-          publishedAt: null,
-        },
-        create: {
-          orgId,
-          employeeId: assignment.employeeId,
-          date: targetDate,
-          scheduleTemplateId: assignment.scheduleTemplateId,
-          startTimeMinutes: assignment.startTimeMinutes,
-          endTimeMinutes: assignment.endTimeMinutes,
-          costCenterId: assignment.costCenterId,
-          workZoneId: assignment.workZoneId,
-          breakMinutes: assignment.breakMinutes,
-          customRole: assignment.customRole,
-          notes: assignment.notes,
-          status: "DRAFT",
-          publishedAt: null,
-        },
-      });
-    });
+        }),
+      );
+    }
 
-    const results = await prisma.$transaction(operations);
-    return { success: true, data: { copied: results.length } };
+    const results = operations.length > 0 ? await prisma.$transaction(operations) : [];
+    return {
+      success: true,
+      data: { copied: results.length, skipped },
+      ...(validationConflicts.length > 0 ? { validation: { conflicts: validationConflicts } } : {}),
+    };
   } catch (error) {
     console.error("Error copying manual assignments:", error);
     return { success: false, error: "Error al copiar turnos" };
@@ -2546,6 +2811,7 @@ export async function deleteManualShiftTemplate(id: string) {
 export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateInput) {
   try {
     const { orgId } = await requireOrg();
+    const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
     const template = await prisma.manualShiftTemplate.findUnique({
       where: { id: input.templateId, orgId },
     });
@@ -2562,9 +2828,11 @@ export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateIn
       return { success: false, error: "Debes seleccionar al menos un empleado" };
     }
 
-    const operations: any[] = [];
+    const operations: Array<ReturnType<typeof prisma.manualShiftAssignment.upsert>> = [];
     const totalDays = differenceInDays(input.dateTo, input.dateFrom) + 1;
     const offset = input.initialGroup ?? 0;
+    let skipped = 0;
+    const validationConflicts: ScheduleValidationConflict[] = [];
 
     for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
       const patternIndex = (dayIndex + offset) % template.pattern.length;
@@ -2578,6 +2846,22 @@ export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateIn
       const targetDate = normalizeAssignmentDate(addDays(input.dateFrom, dayIndex));
 
       for (const employeeId of input.employeeIds) {
+        const conflicts = await validateManualAssignmentInput({
+          orgId,
+          employeeId,
+          date: targetDate,
+          startTimeMinutes: window.startMinutes,
+          endTimeMinutes: window.endMinutes,
+          scheduleTemplateId: null,
+          minRestMinutes,
+        });
+
+        if (conflicts.some((conflict) => conflict.severity === "error")) {
+          skipped += 1;
+          validationConflicts.push(...conflicts);
+          continue;
+        }
+
         operations.push(
           prisma.manualShiftAssignment.upsert({
             where: {
@@ -2619,11 +2903,21 @@ export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateIn
     }
 
     if (operations.length === 0) {
-      return { success: true, created: 0 };
+      return {
+        success: true,
+        created: 0,
+        skipped,
+        conflicts: validationConflicts,
+      };
     }
 
     await prisma.$transaction(operations);
-    return { success: true, created: operations.length };
+    return {
+      success: true,
+      created: operations.length,
+      skipped,
+      conflicts: validationConflicts,
+    };
   } catch (error) {
     console.error("Error applying manual shift template:", error);
     return { success: false, error: "Error al aplicar plantilla manual" };

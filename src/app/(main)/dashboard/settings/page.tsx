@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ShieldAlert } from "lucide-react";
 
@@ -20,18 +22,39 @@ import { SystemInfoTab } from "./_components/system-info-tab";
 import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState("organization");
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
-  const tabs = [
-    { value: "organization", label: "Organización" },
-    { value: "absence-types", label: "Tipos de Ausencia" },
-    { value: "chat", label: "Chat" },
-    { value: "shifts", label: "Turnos" },
-    { value: "geolocation", label: "Geolocalización" },
-    { value: "validations", label: "Fichajes" },
-    { value: "expenses", label: "Gastos" },
-    { value: "system", label: "Sistema" },
-  ];
+  const tabs = useMemo(
+    () => [
+      { value: "organization", label: "Organización" },
+      { value: "absence-types", label: "Tipos de Ausencia" },
+      { value: "chat", label: "Chat" },
+      { value: "shifts", label: "Turnos" },
+      { value: "geolocation", label: "Geolocalización" },
+      { value: "validations", label: "Fichajes" },
+      { value: "expenses", label: "Gastos" },
+      { value: "system", label: "Sistema" },
+    ],
+    [],
+  );
+
+  const initialTab = useMemo(() => {
+    const tabParam = searchParams.get("tab");
+    if (tabParam && tabs.some((tab) => tab.value === tabParam)) {
+      return tabParam;
+    }
+    return "organization";
+  }, [searchParams, tabs]);
+
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    const params = new URLSearchParams(Array.from(searchParams.entries()));
+    params.set("tab", value);
+    router.replace(`?${params.toString()}`);
+  };
 
   return (
     <PermissionGuard
@@ -50,7 +73,7 @@ export default function SettingsPage() {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader title="Configuración" subtitle="Gestiona las preferencias de tu organización" />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <div className="flex items-center justify-between gap-4">
             {/* Select para móvil */}
             <Select value={activeTab} onValueChange={setActiveTab}>

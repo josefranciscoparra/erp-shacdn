@@ -1838,6 +1838,8 @@ export class ShiftServiceMock implements IShiftService {
       success: true,
       createdShifts,
       totalCreated: createdShifts.length,
+      skipped: 0,
+      conflicts: [],
     };
   }
 

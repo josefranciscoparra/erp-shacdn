@@ -353,6 +353,8 @@ export interface ApplyTemplateResponse {
   success: boolean;
   createdShifts?: Shift[];
   totalCreated: number;
+  skipped?: number;
+  conflicts?: Conflict[];
   error?: string;
 }
 
