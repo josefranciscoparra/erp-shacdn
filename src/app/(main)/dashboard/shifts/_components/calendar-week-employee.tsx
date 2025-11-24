@@ -65,12 +65,23 @@ export function CalendarWeekEmployee() {
       .filter((emp) => emp.usesShiftSystem)
       .filter((emp) => {
         // Aplicar filtro de lugar si está activo
-        if (filters.costCenterId && emp.costCenterId !== filters.costCenterId) {
-          return false;
+        if (filters.costCenterId) {
+          // Condición 1: El empleado pertenece al centro
+          const isBaseCenter = emp.costCenterId === filters.costCenterId;
+
+          // Condición 2: El empleado tiene AL MENOS un turno en este centro en la semana visible
+          const hasShiftInCenter = shifts.some(
+            (s) =>
+              s.employeeId === emp.id &&
+              s.costCenterId === filters.costCenterId &&
+              weekDays.some((d) => formatDateISO(d) === s.date),
+          );
+
+          return isBaseCenter || hasShiftInCenter;
         }
         return true;
       });
-  }, [employees, filters.costCenterId]);
+  }, [employees, filters.costCenterId, shifts, weekDays]);
 
   // Agrupar turnos por empleado y día
   const shiftsGrid = useMemo(() => {
