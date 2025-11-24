@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { prisma } from "@/lib/prisma";
 import { getAuthenticatedUser } from "@/server/actions/shared/get-authenticated-employee";
 
 import { ProcedureForm } from "../_components/procedure-form";
 
-export default async function NewProcedurePage({ searchParams }: { searchParams: { context?: string } }) {
+export default async function NewProcedurePage({ searchParams }: { searchParams: Promise<{ context?: string }> }) {
   const { role, employee } = await getAuthenticatedUser();
+  const { context } = await searchParams;
 
   const canAssignEmployee = ["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(role);
-  const isMyContext = searchParams.context === "mine";
+  const isMyContext = context === "mine";
 
   // Si vienes de "Mis Expedientes" (context=mine), forzamos canAssignEmployee a false
   // para cumplir la regla: "Desde mi área solo creo para mí".

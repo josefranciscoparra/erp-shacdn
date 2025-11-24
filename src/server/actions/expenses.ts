@@ -216,13 +216,19 @@ export async function getExpenseById(id: string) {
  */
 export async function createExpense(data: CreateExpenseDTO) {
   try {
-    const { employee, user } = await getAuthenticatedEmployee();
-    console.log("🏭 Factory: Obteniendo servicio de gastos para Org:", employee.orgId);
+    console.log("🛠️ [createExpense Action] Iniciando...");
+    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    console.log("🛠️ [createExpense Action] Auth OK. Employee:", employee.id, "Org:", orgId);
 
-    const service = await ExpenseServiceFactory.getService(employee.orgId);
-    return await service.create(data, user.id, employee.orgId);
+    const service = await ExpenseServiceFactory.getService(orgId);
+    console.log("🛠️ [createExpense Action] Servicio obtenido:", service.constructor.name);
+
+    const result = await service.create(data, userId, orgId);
+    console.log("🛠️ [createExpense Action] Resultado servicio:", result.success ? "OK" : "ERROR");
+
+    return result;
   } catch (error) {
-    console.error("❌ Error en createExpense:", error);
+    console.error("Error creating expense:", error);
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error desconocido al crear el gasto",
@@ -235,12 +241,12 @@ export async function createExpense(data: CreateExpenseDTO) {
  */
 export async function updateExpense(id: string, data: UpdateExpenseDTO) {
   try {
-    const { employee, user } = await getAuthenticatedEmployee();
-    const service = await ExpenseServiceFactory.getService(employee.orgId);
+    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const service = await ExpenseServiceFactory.getService(orgId);
 
-    return await service.update(id, data, user.id);
+    return await service.update(id, data, userId);
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Error" };
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido al actualizar" };
   }
 }
 
@@ -249,11 +255,11 @@ export async function updateExpense(id: string, data: UpdateExpenseDTO) {
  */
 export async function deleteExpense(id: string) {
   try {
-    const { employee, user } = await getAuthenticatedEmployee();
-    const service = await ExpenseServiceFactory.getService(employee.orgId);
-    return await service.delete(id, user.id);
+    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const service = await ExpenseServiceFactory.getService(orgId);
+    return await service.delete(id, userId);
   } catch (error) {
-    return { success: false, error: "Error" };
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido al eliminar" };
   }
 }
 
@@ -262,10 +268,10 @@ export async function deleteExpense(id: string) {
  */
 export async function submitExpense(id: string) {
   try {
-    const { employee, user } = await getAuthenticatedEmployee();
-    const service = await ExpenseServiceFactory.getService(employee.orgId);
-    return await service.submit(id, user.id);
+    const { employee, userId, orgId } = await getAuthenticatedEmployee();
+    const service = await ExpenseServiceFactory.getService(orgId);
+    return await service.submit(id, userId);
   } catch (error) {
-    return { success: false, error: "Error" };
+    return { success: false, error: error instanceof Error ? error.message : "Error desconocido al enviar" };
   }
 }

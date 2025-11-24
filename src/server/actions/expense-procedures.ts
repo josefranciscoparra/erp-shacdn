@@ -335,7 +335,7 @@ export async function updateProcedureStatus(
       action: "STATUS_CHANGE",
       previousStatus: procedure.status,
       newStatus: status,
-      actorId: user.id,
+      actorId: userId, // Usar userId directo (user.id era undefined porque no se seleccionó)
       details: `Cambio de estado: ${procedure.status} -> ${status}`,
     },
   });

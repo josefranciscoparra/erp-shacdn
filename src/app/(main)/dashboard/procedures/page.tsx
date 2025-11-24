@@ -10,8 +10,9 @@ import { getProcedures } from "@/server/actions/expense-procedures";
 
 import { ProceduresManagementStats } from "./_components/procedures-management-stats";
 
-export default async function ProceduresPage({ searchParams }: { searchParams: { filter?: string } }) {
-  const showMineOnly = searchParams.filter === "mine";
+export default async function ProceduresPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter } = await searchParams;
+  const showMineOnly = filter === "mine";
   const { procedures } = await getProcedures({ mine: showMineOnly });
 
   // Transformar datos para evitar problemas de serialización con Decimal

@@ -21,7 +21,7 @@ const policyFormSchema = z.object({
   mealDailyLimit: z.coerce.number().min(0),
   lodgingDailyLimit: z.coerce.number().min(0),
   attachmentRequired: z.boolean(),
-  approvalLevels: z.coerce.number().min(1).max(3), // Limitado a 3 niveles por UI
+  approvalLevels: z.coerce.number().min(1).max(3),
 });
 
 type PolicyFormValues = z.infer<typeof policyFormSchema>;
@@ -32,6 +32,7 @@ interface ExpensePolicy {
   lodgingDailyLimit: string | number | null;
   attachmentRequired: boolean;
   approvalLevels: number;
+  expenseMode?: string; // Se recibe para contexto, pero no se edita
 }
 
 interface PolicySettingsFormProps {
@@ -59,6 +60,8 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
       const result = await updatePolicy(data);
       if (result.success) {
         toast.success("Políticas actualizadas correctamente");
+        // Recargar para aplicar cambios si fuera necesario (aunque ahora solo son valores numéricos)
+        window.location.reload();
       } else {
         toast.error(result.error ?? "Error al actualizar políticas");
       }
@@ -70,15 +73,35 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
     }
   }
 
+  const modeLabel =
+    initialData.expenseMode === "PUBLIC"
+      ? "Modo Público (Administración)"
+      : initialData.expenseMode === "MIXED"
+        ? "Modo Mixto"
+        : "Modo Privado (Empresa)";
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Banner informativo del modo actual */}
+        <div className="bg-muted/50 flex items-center justify-between rounded-lg border px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm font-medium">Modo actual:</span>
+            <span className="bg-primary/10 text-primary rounded-md px-2 py-0.5 text-sm font-semibold">{modeLabel}</span>
+          </div>
+          <p className="text-muted-foreground hidden text-xs md:block">Configurando reglas aplicables a este modo.</p>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-2">
           {/* SECCIÓN 1: LÍMITES POR CATEGORÍA */}
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>Límites de Gasto</CardTitle>
-              <CardDescription>Establece los límites máximos permitidos por categoría.</CardDescription>
+              <CardDescription>
+                {initialData.expenseMode === "PUBLIC"
+                  ? "Define las dietas y límites máximos para indemnizaciones."
+                  : "Establece los límites máximos permitidos por categoría."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <FormField
@@ -93,7 +116,9 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
                         <span className="text-muted-foreground absolute top-2.5 left-3 text-sm">€</span>
                       </div>
                     </FormControl>
-                    <FormDescription>Máximo por día en dietas.</FormDescription>
+                    <FormDescription>
+                      {initialData.expenseMode === "PUBLIC" ? "Cuantía de la dieta diaria." : "Máximo por día."}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -178,7 +203,11 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                     <div className="space-y-0.5">
                       <FormLabel>Ticket Obligatorio</FormLabel>
-                      <FormDescription>Exigir adjunto para todos los gastos.</FormDescription>
+                      <FormDescription>
+                        {initialData.expenseMode === "PUBLIC"
+                          ? "Obligatorio para fiscalización (Intervención)."
+                          : "Exigir adjunto para todos los gastos."}
+                      </FormDescription>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -186,28 +215,6 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
                   </FormItem>
                 )}
               />
-            </CardContent>
-          </Card>
-
-          {/* SECCIÓN 3: MODO DE ORGANIZACIÓN (Fase 2) */}
-          <Card className="opacity-80">
-            <CardHeader>
-              <CardTitle>Modo de Organización</CardTitle>
-              <CardDescription>Configuración del tipo de gestión de gastos.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex flex-col gap-2">
-                  <span className="text-sm font-medium">Tipo de gestión</span>
-                  <div className="bg-muted text-muted-foreground flex w-full items-center justify-center rounded-md border p-2 text-sm italic">
-                    Modo Privado (Estándar)
-                  </div>
-                  <p className="text-muted-foreground text-xs">
-                    El modo público (dietas oficiales y comisiones de servicio) estará disponible en próximas
-                    actualizaciones.
-                  </p>
-                </div>
-              </div>
             </CardContent>
           </Card>
         </div>

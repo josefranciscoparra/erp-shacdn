@@ -295,7 +295,7 @@ export function ProceduresDataTable({ data, isManagerView = false }: ProceduresD
                   <EmptyState
                     title="No se encontraron expedientes"
                     description="No hay resultados que coincidan con los filtros."
-                    icon={FileText}
+                    icon={<FileText className="mx-auto h-12 w-12" />}
                   />
                 </TableCell>
               </TableRow>

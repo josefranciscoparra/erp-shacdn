@@ -81,47 +81,24 @@ El módulo de expedientes (ya implementado) es la base del Modo Público y de la
 - [x] Página de Configuración de Políticas (`/dashboard/expenses/policies`).
 - [x] Lógica de tarifas de kilometraje.
 
-### 🛠️ Tareas Técnicas Pendientes (Lo que falta por conectar)
+### ✅ Fase 2: Automatización y Control (Completada)
+- [x] **Motor de Validaciones**: Backend bloquea gastos que superen los límites de Comidas/Alojamiento.
+- [x] **Cálculo Estricto de Kilometraje**: El sistema ignora importes manuales y calcula `Total = Km * Tarifa` tanto en público como privado.
+- [x] **Control Documental**: `submit` falla si no hay tickets y la política los exige.
 
-Aunque la configuración se guarda en base de datos, **aún no se aplica en el flujo de creación de gastos**. Estas son las tareas pendientes para que las políticas sean efectivas:
+### ✅ Fase 3: UX Formulario (Completada)
+- [x] **Campo Distancia**: Se muestra input específico de Km cuando la categoría es "Kilometraje".
+- [x] **Cálculo Tiempo Real**: El cliente calcula `Importe = Km * Tarifa` usando la tarifa configurada en tiempo real.
+- [x] **Integración**: Los formularios de creación y edición leen la política activa de la organización.
 
-#### 1. Conectar Validación de Límites (Frontend & Backend)
-- [ ] **Acción**: Modificar `createExpense` y `updateExpense` en el servidor.
-- [ ] **Lógica**: Leer la política activa (`getOrganizationPolicy`) antes de guardar.
-- [ ] **Validación**:
-    - Si `amount > mealDailyLimit` y categoría es `MEAL` → Marcar flag `policy_violation` o impedir guardar (según config).
-    - Si `amount > lodgingDailyLimit` y categoría es `LODGING` → Alerta.
-- [ ] **UI**: Mostrar warning en el formulario de gastos (`ExpenseForm`) si el usuario introduce un importe superior al límite configurado.
+### 🚧 Pendiente (Próximos Pasos)
+- [ ] **Niveles de Aprobación (Multi-step)**:
+    - Aunque la configuración existe (1, 2, 3 niveles), el motor de flujo **aún es simple (1 paso)**.
+    - *Pendiente*: Implementar máquina de estados para pasar de `PENDING` -> `APPROVED_L1` -> `APPROVED_L2`.
+- [ ] **Warning Visual de Límites**:
+    - Mostrar alerta en el formulario (frontend) si el usuario escribe un importe superior al límite, antes de intentar guardar.
 
-#### 2. Implementar Cálculo de Kilometraje Dinámico
-- [ ] **Acción**: En el formulario de gastos (`ExpenseForm`), cuando la categoría sea `MILEAGE`.
-- [ ] **Lógica**:
-    - Leer `mileageRateEurPerKm` de la política.
-    - Input de `distance` (km) en lugar de `amount`.
-    - Calcular `amount = distance * rate` automáticamente y bloquear edición manual del importe.
-
-#### 3. Implementar Regla "Ticket Obligatorio"
-- [ ] **Acción**: Validación en `ExpenseForm` y Server Action.
-- [ ] **Lógica**:
-    - Si `attachmentRequired === true` en política global.
-    - O si `categoryRequirements[CAT].requiresReceipt === true`.
-    - **Resultado**: El campo de adjuntos debe ser `required` en Zod y en el formulario HTML. Impedir envío si está vacío.
-
-#### 4. Implementar Niveles de Aprobación
-- [ ] **Acción**: Modificar lógica de transición de estados en `approveExpense` / `approveProcedure`.
-- [ ] **Lógica Actual**: `PENDING` → `APPROVED`.
-- [ ] **Lógica Nueva**:
-    - Si `approvalLevels > 1`:
-    - `PENDING` → `APPROVED_L1` (Manager) → `PENDING_L2` (Finanzas) → `APPROVED`.
-- [ ] **UI**: Mostrar barra de progreso de aprobación en el detalle del gasto.
-
-#### 5. Selector de Modo (Público/Privado)
-- [ ] **Acción**: Hacer que el switch de "Modo de Organización" en la página de políticas cambie realmente el comportamiento de la UI.
-- [ ] **Efecto**:
-    - Si `Modo === PUBLIC`: Ocultar menú "Mis Gastos" y forzar entrada por "Expedientes".
-    - Si `Modo === PRIVATE`: Permitir gastos sueltos sin expediente.
-
-### 🔮 Fase 3: Sector Público Avanzado (Futuro)
+### 🔮 Fase 4: Sector Público Avanzado (Futuro)
 - [ ] **Motor de Dietas (Per Diem)**:
     - Calculadora automática: `Días de viaje × Tarifa BOE = Total a pagar`.
     - Detección de medias dietas vs. dietas completas.

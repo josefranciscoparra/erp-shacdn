@@ -4,18 +4,18 @@ import { getOrganizationPolicy } from "@/server/actions/expense-policies";
 import { PolicySettingsForm } from "./_components/policy-settings-form";
 
 export default async function PoliciesPage() {
-  const { policy } = await getOrganizationPolicy();
+  const { policy, expenseMode } = await getOrganizationPolicy();
 
   // Transformar Decimal a number para evitar error de serialización
-  const formattedPolicy =
-    policy !== null
-      ? {
-          ...policy,
-          mileageRateEurPerKm: Number(policy.mileageRateEurPerKm),
-          mealDailyLimit: policy.mealDailyLimit ? Number(policy.mealDailyLimit) : null,
-          lodgingDailyLimit: policy.lodgingDailyLimit ? Number(policy.lodgingDailyLimit) : null,
-        }
-      : null;
+  const formattedPolicy = policy
+    ? {
+        ...policy,
+        mileageRateEurPerKm: Number(policy.mileageRateEurPerKm),
+        mealDailyLimit: policy.mealDailyLimit ? Number(policy.mealDailyLimit) : null,
+        lodgingDailyLimit: policy.lodgingDailyLimit ? Number(policy.lodgingDailyLimit) : null,
+        expenseMode: expenseMode || "PRIVATE", // Añadir modo
+      }
+    : null;
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">

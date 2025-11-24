@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { ArrowLeft } from "lucide-react";
 
@@ -20,10 +20,16 @@ type WizardStep = "capture" | "ocr-processing" | "ocr-suggestions" | "form";
 
 interface NewExpenseClientProps {
   activeProcedures: { id: string; name: string; code: string | null }[];
+  policy?: {
+    mileageRate: number;
+  };
 }
 
-export default function NewExpenseClient({ activeProcedures }: NewExpenseClientProps) {
+export default function NewExpenseClient({ activeProcedures, policy }: NewExpenseClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const procedureIdParam = searchParams.get("procedureId");
+
   const { createExpense, uploadAttachment } = useExpensesStore();
   const { error, processReceipt, reset } = useReceiptOcr();
 
@@ -87,15 +93,22 @@ export default function NewExpenseClient({ activeProcedures }: NewExpenseClientP
     setIsSubmitting(true);
     try {
       // 1. Crear el gasto
+      console.log("Enviando datos a createExpense:", data);
       const expense = await createExpense(data);
+      console.log("Respuesta createExpense:", expense);
 
       // Verificar error del store
       const storeError = useExpensesStore.getState().error;
 
       if (!expense) {
         const errorMessage = storeError ?? "No se pudo crear el gasto";
-        console.error("Error al crear gasto:", errorMessage);
+        console.error("Error al crear gasto (expense es null/undefined):", errorMessage);
         throw new Error(errorMessage);
+      }
+
+      if (!expense.id) {
+        console.error("Error crítico: El objeto expense no tiene ID", expense);
+        throw new Error("Error interno: El gasto se creó pero no tiene identificador.");
       }
 
       // 2. Subir foto del ticket (si existe)
@@ -133,22 +146,44 @@ export default function NewExpenseClient({ activeProcedures }: NewExpenseClientP
   };
 
   const handleCancel = () => {
-    router.push("/dashboard/me/expenses");
+    if (procedureIdParam) {
+      router.push(`/dashboard/my-procedures/${procedureIdParam}`);
+    } else {
+      router.push("/dashboard/me/expenses");
+    }
   };
 
-  // Calcular initial data del formulario basado en OCR
-  const getInitialFormData = () => {
-    if (!ocrData) return undefined;
+  // ...
 
+  // 4. Redirigir al listado
+  if (procedureIdParam) {
+    router.push(`/dashboard/my-procedures/${procedureIdParam}`);
+  } else {
+    router.push("/dashboard/me/expenses");
+  }
+
+  // Calcular initial data del formulario basado en OCR y params
+  const getInitialFormData = () => {
+    // Si hay OCR data, usarla
+    if (ocrData) {
+      return {
+        date: ocrData.date
+          ? new Date(ocrData.date).toISOString().split("T")[0]
+          : new Date().toISOString().split("T")[0],
+        category: "OTHER" as const,
+        amount: ocrData.totalAmount?.toString() ?? "",
+        vatPercent: ocrData.vatPercent?.toString() ?? "21",
+        merchantName: ocrData.merchantName ?? "",
+        merchantVat: ocrData.merchantVat ?? "",
+        notes: "",
+        mileageKm: "",
+        procedureId: procedureIdParam ?? undefined, // Preseleccionar expediente
+      };
+    }
+
+    // Si no hay OCR (entrada manual directa), inicializar con procedureId si existe
     return {
-      date: ocrData.date ? new Date(ocrData.date).toISOString().split("T")[0] : new Date().toISOString().split("T")[0],
-      category: "OTHER" as const,
-      amount: ocrData.totalAmount?.toString() ?? "",
-      vatPercent: ocrData.vatPercent?.toString() ?? "21",
-      merchantName: ocrData.merchantName ?? "",
-      merchantVat: ocrData.merchantVat ?? "",
-      notes: "",
-      mileageKm: "",
+      procedureId: procedureIdParam ?? undefined,
     };
   };
 
@@ -247,6 +282,7 @@ export default function NewExpenseClient({ activeProcedures }: NewExpenseClientP
                 onCancel={handleCancel}
                 isSubmitting={isSubmitting}
                 procedures={activeProcedures}
+                policy={policy}
               />
             </div>
           </>

@@ -15,19 +15,39 @@ import { Expense } from "@/stores/expenses-store";
 
 import { ExpenseCategoryIcon, getCategoryLabel } from "./expense-category-icon";
 
-const expenseFormSchema = z.object({
-  date: z.string().min(1, "La fecha es obligatoria"),
-  category: z.enum(["FUEL", "MILEAGE", "MEAL", "TOLL", "PARKING", "LODGING", "OTHER"]),
-  amount: z.string().min(1, "El importe es obligatorio"),
-  vatPercent: z.string().optional(),
-  merchantName: z.string().optional(),
-  merchantVat: z.string().optional(),
-  notes: z.string().optional(),
-  mileageKm: z.string().optional(),
-  // Nuevos campos Sector Público
-  procedureId: z.string().optional(),
-  paidBy: z.enum(["EMPLOYEE", "ORGANIZATION"]).default("EMPLOYEE"),
-});
+const expenseFormSchema = z
+  .object({
+    date: z.string().min(1, "La fecha es obligatoria"),
+    category: z.enum(["FUEL", "MILEAGE", "MEAL", "TOLL", "PARKING", "LODGING", "OTHER"]),
+    amount: z.string().optional(),
+    vatPercent: z.string().optional(),
+    merchantName: z.string().optional(),
+    merchantVat: z.string().optional(),
+    notes: z.string().optional(),
+    mileageKm: z.string().optional(),
+    // Nuevos campos Sector Público
+    procedureId: z.string().optional(),
+    paidBy: z.enum(["EMPLOYEE", "ORGANIZATION"]).default("EMPLOYEE"),
+  })
+  .superRefine((data, ctx) => {
+    if (data.category === "MILEAGE") {
+      if (!data.mileageKm || parseFloat(data.mileageKm) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Los kilómetros son obligatorios",
+          path: ["mileageKm"],
+        });
+      }
+    } else {
+      if (!data.amount || parseFloat(data.amount) <= 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "El importe es obligatorio",
+          path: ["amount"],
+        });
+      }
+    }
+  });
 
 type ExpenseFormValues = z.infer<typeof expenseFormSchema>;
 
@@ -39,6 +59,10 @@ interface ExpenseFormProps {
   isEditMode?: boolean; // true = editando gasto existente, false/undefined = nuevo gasto
   // Lista de expedientes activos para vincular
   procedures?: { id: string; name: string; code: string | null }[];
+  // Política activa para cálculos
+  policy?: {
+    mileageRate: number;
+  };
 }
 
 export function ExpenseForm({
@@ -48,10 +72,13 @@ export function ExpenseForm({
   isSubmitting = false,
   isEditMode = false,
   procedures = [],
+  policy,
 }: ExpenseFormProps) {
   const [isMileage, setIsMileage] = useState(initialData?.category === "MILEAGE");
   const [totalAmount, setTotalAmount] = useState(0);
   const [submitType, setSubmitType] = useState<"draft" | "submit">("submit");
+
+  const mileageRate = policy?.mileageRate ?? 0.26;
 
   const form = useForm<ExpenseFormValues>({
     resolver: zodResolver(expenseFormSchema),
@@ -84,9 +111,9 @@ export function ExpenseForm({
   // Calcular total automáticamente
   useEffect(() => {
     if (isMileage) {
-      // Kilometraje: km × 0.26 €/km
+      // Kilometraje: km × tarifa política
       const km = parseFloat(watchKm) || 0;
-      const total = km * 0.26;
+      const total = km * mileageRate;
       setTotalAmount(total);
     } else {
       // Normal: amount + IVA
@@ -96,7 +123,7 @@ export function ExpenseForm({
       const total = amount + vatAmount;
       setTotalAmount(total);
     }
-  }, [isMileage, watchAmount, watchVat, watchKm]);
+  }, [isMileage, watchAmount, watchVat, watchKm, mileageRate]);
 
   const handleSubmit = async (data: ExpenseFormValues, type: "draft" | "submit") => {
     const formattedData = {
@@ -248,7 +275,7 @@ export function ExpenseForm({
                 <FormControl>
                   <Input type="number" step="0.01" placeholder="0.00" {...field} />
                 </FormControl>
-                <p className="text-muted-foreground text-xs">Tarifa: 0.26 €/km</p>
+                <p className="text-muted-foreground text-xs">Tarifa: {mileageRate} €/km</p>
                 <FormMessage />
               </FormItem>
             )}

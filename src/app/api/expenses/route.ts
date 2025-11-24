@@ -73,6 +73,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
 
+    if (!result.expense) {
+      console.error("❌ Error crítico: createExpense devolvió success pero sin objeto expense");
+      return NextResponse.json({ error: "Error interno al crear el gasto" }, { status: 500 });
+    }
+
     console.log("✅ Gasto creado exitosamente:", result.expense.id);
     return NextResponse.json(result.expense, { status: 201 });
   } catch (error) {

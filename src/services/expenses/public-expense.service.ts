@@ -7,7 +7,9 @@ import { createNotification } from "@/server/actions/notifications";
 import { IExpenseService, CreateExpenseDTO, UpdateExpenseDTO, PublicExpenseSchema } from "./expense.interface";
 
 export class PublicExpenseService implements IExpenseService {
-  // Helper calc (podría ir a una clase base abstracta BaseExpenseService para no duplicar)
+  /**
+   * Lógica auxiliar para calcular montos
+   */
   private calculateTotalAmount(
     category: string,
     amount: Decimal,
@@ -26,9 +28,26 @@ export class PublicExpenseService implements IExpenseService {
     return baseAmount;
   }
 
+  /**
+   * Valida límites de política (Estricto para Sector Público)
+   */
+  private validatePolicyLimits(
+    category: string,
+    amount: Decimal,
+    policy: { mealDailyLimit: Decimal | null; lodgingDailyLimit: Decimal | null },
+  ) {
+    if (category === "MEAL" && policy.mealDailyLimit && amount.gt(policy.mealDailyLimit)) {
+      throw new Error(`El importe (${amount}€) supera la dieta/límite diario de comidas (${policy.mealDailyLimit}€).`);
+    }
+
+    if (category === "LODGING" && policy.lodgingDailyLimit && amount.gt(policy.lodgingDailyLimit)) {
+      throw new Error(`El importe (${amount}€) supera el límite diario de alojamiento (${policy.lodgingDailyLimit}€).`);
+    }
+  }
+
   async create(data: CreateExpenseDTO, userId: string, orgId: string) {
     try {
-      // 1. Validar con Schema PÚBLICO (requiere procedureId)
+      // 1. Validar con Schema PÚBLICO
       const validated = PublicExpenseSchema.parse(data);
 
       const employee = await prisma.employee.findUnique({ where: { userId } });
@@ -41,38 +60,56 @@ export class PublicExpenseService implements IExpenseService {
 
       if (!procedure) throw new Error("Expediente no encontrado");
 
-      // REGLA DE NEGOCIO PÚBLICA: El expediente debe estar AUTORIZADO
+      // REGLA: El expediente debe estar AUTORIZADO
       if (procedure.status !== "AUTHORIZED" && procedure.status !== "JUSTIFICATION_PENDING") {
         throw new Error(`El expediente no admite gastos en estado: ${procedure.status}`);
       }
 
-      // 3. Política (Tarifas oficiales BOE/Convenio)
+      // 3. Obtener política activa
       let policy = await prisma.expensePolicy.findUnique({ where: { orgId } });
       policy ??= await prisma.expensePolicy.create({
-        data: { orgId, mileageRateEurPerKm: new Decimal(0.26) }, // Tarifa oficial
+        data: {
+          orgId,
+          mileageRateEurPerKm: new Decimal(0.26), // Tarifa oficial
+          attachmentRequired: true, // Por defecto en público suele ser obligatorio
+        },
       });
 
+      // 4. Lógica específica por categoría
       let mileageRate: Decimal | null = null;
+      let finalAmount = new Decimal(validated.amount);
+      let finalTotalAmount: Decimal;
+
       if (validated.category === "MILEAGE") {
+        // CÁLCULO ESTRICTO DE KILOMETRAJE
+        if (!validated.mileageKm) {
+          throw new Error("Es obligatorio indicar los kilómetros para la indemnización por razón de servicio.");
+        }
         mileageRate = policy.mileageRateEurPerKm;
+        // Recalculamos importe base
+        finalAmount = new Decimal(validated.mileageKm).mul(mileageRate);
+        finalTotalAmount = finalAmount;
+      } else {
+        // VALIDACIÓN DE LÍMITES / DIETAS
+        this.validatePolicyLimits(validated.category, finalAmount, policy);
+
+        finalTotalAmount = this.calculateTotalAmount(
+          validated.category,
+          finalAmount,
+          validated.vatPercent ? new Decimal(validated.vatPercent) : null,
+          null,
+          null,
+        );
       }
 
-      const totalAmount = this.calculateTotalAmount(
-        validated.category,
-        new Decimal(validated.amount),
-        validated.vatPercent ? new Decimal(validated.vatPercent) : null,
-        validated.mileageKm ? new Decimal(validated.mileageKm) : null,
-        mileageRate,
-      );
-
-      // 4. Crear Gasto vinculado al Expediente
+      // 5. Crear Gasto vinculado al Expediente
       const expense = await prisma.expense.create({
         data: {
           date: validated.date,
           currency: validated.currency,
-          amount: new Decimal(validated.amount),
+          amount: finalAmount, // Guardamos el calculado si es KM
           vatPercent: validated.vatPercent ? new Decimal(validated.vatPercent) : null,
-          totalAmount,
+          totalAmount: finalTotalAmount,
           category: validated.category,
           mileageKm: validated.mileageKm ? new Decimal(validated.mileageKm) : null,
           mileageRate,
@@ -81,7 +118,7 @@ export class PublicExpenseService implements IExpenseService {
           merchantName: validated.merchantName,
           merchantVat: validated.merchantVat,
           ocrRawData: validated.ocrRawData,
-          status: "DRAFT", // Empieza en DRAFT hasta que el usuario diga "Hecho"
+          status: "DRAFT",
           orgId,
           employeeId: employee.id,
           createdBy: userId,
@@ -95,6 +132,8 @@ export class PublicExpenseService implements IExpenseService {
       await prisma.policySnapshot.create({
         data: {
           mileageRateEurPerKm: policy.mileageRateEurPerKm,
+          mealDailyLimit: policy.mealDailyLimit,
+          lodgingDailyLimit: policy.lodgingDailyLimit,
           vatAllowed: policy.vatAllowed,
           expenseId: expense.id,
         },
@@ -108,32 +147,62 @@ export class PublicExpenseService implements IExpenseService {
   }
 
   async update(id: string, data: UpdateExpenseDTO, userId: string) {
-    // Similar lógica a create...
-    // REGLA PÚBLICA ADICIONAL: Si cambio el importe, verificar que no exceda el presupuesto del expediente (si fuera restrictivo)
-    return { success: false, error: "Not implemented yet" };
+    // TODO: Implementar lógica de actualización estricta similar al create
+    // Por ahora, bloqueamos la edición simple para evitar inconsistencias en demo
+    return { success: false, error: "La edición de gastos públicos está restringida en esta versión." };
   }
 
   async validateForSubmission(expense: Expense) {
+    console.log("🔍 Validando envío gasto:", expense.id);
     // En público, validar adjuntos es CRÍTICO (Intervención)
-    // Validar que el procedureId siga activo
+    const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
+
+    // Si la política lo exige (o por defecto en público si no hay config específica)
+    if (policy?.attachmentRequired !== false) {
+      // Default to true if null/undefined logic
+      const attachmentsCount = await prisma.expenseAttachment.count({ where: { expenseId: expense.id } });
+      console.log(`📎 Adjuntos encontrados: ${attachmentsCount}`);
+      if (attachmentsCount === 0) {
+        return { valid: false, error: "Justificante documental obligatorio para fiscalización." };
+      }
+    }
+
     return { valid: true };
   }
 
   async submit(id: string, userId: string) {
-    // En flujo público, "submit" un gasto individual suele significar "marcarlo como listo para justificar"
-    // O simplemente se queda en DRAFT hasta que se cierra el expediente completo.
-    // Asumamos que pasa a "SUBMITTED" para que el gestor lo revise.
+    try {
+      console.log("🚀 Submit gasto público:", id);
+      const expense = await prisma.expense.findUnique({ where: { id } });
+      if (!expense) return { success: false, error: "Gasto no encontrado" };
 
-    const expense = await prisma.expense.update({
-      where: { id },
-      data: { status: "SUBMITTED" },
-    });
+      // Validar antes de enviar
+      const validation = await this.validateForSubmission(expense);
+      if (!validation.valid) {
+        console.warn("❌ Validación falló:", validation.error);
+        return { success: false, error: validation.error };
+      }
 
-    return { success: true, expense };
+      const updated = await prisma.expense.update({
+        where: { id },
+        data: { status: "SUBMITTED" },
+      });
+      console.log("✅ Gasto enviado a aprobación:", id);
+
+      return { success: true, expense: updated };
+    } catch (error) {
+      console.error("Error submit expense:", error);
+      return { success: false, error: "Error interno al enviar gasto" };
+    }
   }
 
   async delete(id: string, userId: string) {
-    // Igual que privado
+    const expense = await prisma.expense.findUnique({ where: { id } });
+    if (!expense || expense.createdBy !== userId) return { success: false, error: "No autorizado" };
+
+    // Permitir borrar solo si no ha sido fiscalizado/cerrado (aquí simplificado a DRAFT)
+    if (expense.status !== "DRAFT") return { success: false, error: "No se puede eliminar un gasto ya tramitado" };
+
     await prisma.expense.delete({ where: { id } });
     return { success: true };
   }

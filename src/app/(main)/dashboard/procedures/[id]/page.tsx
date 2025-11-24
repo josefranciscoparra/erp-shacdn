@@ -30,8 +30,9 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge className={styles[status] || "bg-gray-500"}>{status.replace("_", " ")}</Badge>;
 }
 
-export default async function ProcedureDetailPage({ params }: { params: { id: string } }) {
-  const { procedure, error } = await getProcedureById(params.id);
+export default async function ProcedureDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { procedure, error } = await getProcedureById(id);
   const user = await getAuthenticatedUser(); // Ya devuelve { role, ... }
 
   if (!procedure || error) {

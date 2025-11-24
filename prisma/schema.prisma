@@ -1698,6 +1698,7 @@ model PolicySnapshot {
   id                      String   @id @default(cuid())
   mileageRateEurPerKm     Decimal? @db.Decimal(5, 3)
   mealDailyLimit          Decimal? @db.Decimal(10, 2)
+  lodgingDailyLimit       Decimal? @db.Decimal(10, 2)
   fuelRequiresReceipt     Boolean  @default(true)
   vatAllowed              Boolean  @default(true)
   costCenterRequired      Boolean  @default(false)

@@ -26,6 +26,11 @@ const UpdatePolicySchema = z.object({
 export async function getOrganizationPolicy() {
   const { orgId } = await getAuthenticatedUser();
 
+  const organization = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { expenseMode: true },
+  });
+
   let policy = await prisma.expensePolicy.findUnique({
     where: { orgId },
   });
@@ -86,6 +91,7 @@ export async function getOrganizationPolicy() {
   return {
     success: true,
     policy,
+    expenseMode: organization?.expenseMode ?? "PRIVATE",
   };
 }
 

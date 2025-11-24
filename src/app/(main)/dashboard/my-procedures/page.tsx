@@ -14,6 +14,10 @@ export default async function MyProceduresPage() {
     ...p,
     estimatedAmount: p.estimatedAmount ? Number(p.estimatedAmount) : null,
     approvedAmount: p.approvedAmount ? Number(p.approvedAmount) : null,
+    expenses: p.expenses.map((e) => ({
+      ...e,
+      totalAmount: Number(e.totalAmount),
+    })),
   }));
 
   return (

@@ -31,8 +31,9 @@ function StatusBadge({ status }: { status: string }) {
   return <Badge className={styles[status] || "bg-gray-500"}>{status.replace("_", " ")}</Badge>;
 }
 
-export default async function MyProcedureDetailPage({ params }: { params: { id: string } }) {
-  const { procedure, error } = await getProcedureById(params.id);
+export default async function MyProcedureDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const { procedure, error } = await getProcedureById(id);
   const user = await getAuthenticatedUser();
 
   if (!procedure || error) {
@@ -90,7 +91,7 @@ export default async function MyProcedureDetailPage({ params }: { params: { id: 
             <>
               <FinishJustificationButton procedureId={procedure.id} hasExpenses={procedure.expenses.length > 0} />
               <Button size="sm" className="bg-green-600 hover:bg-green-700" asChild>
-                <Link href={`/dashboard/expenses/new?procedureId=${procedure.id}`}>
+                <Link href={`/dashboard/me/expenses/new?procedureId=${procedure.id}`}>
                   <Plus className="mr-2 size-4" /> Añadir Gasto
                 </Link>
               </Button>
@@ -132,7 +133,7 @@ export default async function MyProcedureDetailPage({ params }: { params: { id: 
               <h2 className="text-lg font-semibold">Gastos Imputados ({procedure.expenses.length})</h2>
               {procedure.status === "AUTHORIZED" && (
                 <Button size="sm" variant="outline" asChild>
-                  <Link href={`/dashboard/expenses/new?procedureId=${procedure.id}`}>
+                  <Link href={`/dashboard/me/expenses/new?procedureId=${procedure.id}`}>
                     <PlusCircle className="mr-2 size-4" /> Nuevo
                   </Link>
                 </Button>

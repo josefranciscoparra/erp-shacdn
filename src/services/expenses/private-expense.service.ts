@@ -30,6 +30,24 @@ export class PrivateExpenseService implements IExpenseService {
     return baseAmount;
   }
 
+  /**
+   * Valida límites de política (Comidas, Alojamiento)
+   * Lanza error si se viola una regla estricta
+   */
+  private validatePolicyLimits(
+    category: string,
+    amount: Decimal,
+    policy: { mealDailyLimit: Decimal | null; lodgingDailyLimit: Decimal | null },
+  ) {
+    if (category === "MEAL" && policy.mealDailyLimit && amount.gt(policy.mealDailyLimit)) {
+      throw new Error(`El importe (${amount}€) excede el límite diario de comidas (${policy.mealDailyLimit}€).`);
+    }
+
+    if (category === "LODGING" && policy.lodgingDailyLimit && amount.gt(policy.lodgingDailyLimit)) {
+      throw new Error(`El importe (${amount}€) excede el límite diario de alojamiento (${policy.lodgingDailyLimit}€).`);
+    }
+  }
+
   async create(data: CreateExpenseDTO, userId: string, orgId: string) {
     try {
       // 1. Validar con Schema Privado
@@ -39,7 +57,7 @@ export class PrivateExpenseService implements IExpenseService {
       const employee = await prisma.employee.findUnique({ where: { userId } });
       if (!employee) throw new Error("Empleado no encontrado");
 
-      // 3. Obtener política para tarifa kilometraje
+      // 3. Obtener política activa
       let policy = await prisma.expensePolicy.findUnique({ where: { orgId } });
 
       // Crear política default si no existe (Legacy support)
@@ -47,32 +65,49 @@ export class PrivateExpenseService implements IExpenseService {
         data: {
           orgId,
           mileageRateEurPerKm: new Decimal(0.26),
+          mealDailyLimit: new Decimal(30.0),
+          lodgingDailyLimit: new Decimal(100.0),
           attachmentRequired: true,
         },
       });
 
+      // 4. Lógica específica por categoría
       let mileageRate: Decimal | null = null;
-      if (validated.category === "MILEAGE") {
-        mileageRate = policy.mileageRateEurPerKm;
-      }
+      let finalAmount = new Decimal(validated.amount);
+      let finalTotalAmount: Decimal;
 
-      // 4. Calcular totales
-      const totalAmount = this.calculateTotalAmount(
-        validated.category,
-        new Decimal(validated.amount),
-        validated.vatPercent ? new Decimal(validated.vatPercent) : null,
-        validated.mileageKm ? new Decimal(validated.mileageKm) : null,
-        mileageRate,
-      );
+      if (validated.category === "MILEAGE") {
+        // CÁLCULO AUTOMÁTICO DE KILOMETRAJE
+        // En modo privado, forzamos el cálculo basado en la tarifa oficial de la empresa
+        if (!validated.mileageKm) {
+          throw new Error("Para gastos de kilometraje es necesario indicar la distancia.");
+        }
+        mileageRate = policy.mileageRateEurPerKm;
+        // Recalculamos el importe base: Km * Tarifa
+        finalAmount = new Decimal(validated.mileageKm).mul(mileageRate);
+        finalTotalAmount = finalAmount; // Kilometraje suele estar exento de IVA o se trata diferente
+      } else {
+        // VALIDACIÓN DE LÍMITES (Solo para no-kilometraje)
+        this.validatePolicyLimits(validated.category, finalAmount, policy);
+
+        // Cálculo estándar con IVA
+        finalTotalAmount = this.calculateTotalAmount(
+          validated.category,
+          finalAmount,
+          validated.vatPercent ? new Decimal(validated.vatPercent) : null,
+          null,
+          null,
+        );
+      }
 
       // 5. Crear Gasto
       const expense = await prisma.expense.create({
         data: {
           date: validated.date,
           currency: validated.currency,
-          amount: new Decimal(validated.amount),
+          amount: finalAmount,
           vatPercent: validated.vatPercent ? new Decimal(validated.vatPercent) : null,
-          totalAmount,
+          totalAmount: finalTotalAmount,
           category: validated.category,
           mileageKm: validated.mileageKm ? new Decimal(validated.mileageKm) : null,
           mileageRate,
@@ -91,12 +126,14 @@ export class PrivateExpenseService implements IExpenseService {
         },
       });
 
-      // 6. Snapshot de política
+      // 6. Snapshot de política (Auditoría inmutable)
       await prisma.policySnapshot.create({
         data: {
           mileageRateEurPerKm: policy.mileageRateEurPerKm,
           mealDailyLimit: policy.mealDailyLimit,
+          lodgingDailyLimit: policy.lodgingDailyLimit,
           vatAllowed: policy.vatAllowed,
+          fuelRequiresReceipt: (policy.categoryRequirements as any)?.FUEL?.requiresReceipt ?? true,
           expenseId: expense.id,
         },
       });
@@ -109,38 +146,87 @@ export class PrivateExpenseService implements IExpenseService {
   }
 
   async update(id: string, data: UpdateExpenseDTO, userId: string) {
-    // Implementación simplificada de actualización
-    // Reutiliza lógica similar a create para recálculos
-    const expense = await prisma.expense.findUnique({ where: { id } });
-    if (!expense) return { success: false, error: "Gasto no encontrado" };
-    if (expense.createdBy !== userId) return { success: false, error: "No autorizado" };
-    if (expense.status !== "DRAFT") return { success: false, error: "Solo borradores" };
+    try {
+      const expense = await prisma.expense.findUnique({ where: { id } });
+      if (!expense) return { success: false, error: "Gasto no encontrado" };
+      if (expense.createdBy !== userId) return { success: false, error: "No autorizado" };
+      if (expense.status !== "DRAFT") return { success: false, error: "Solo se pueden editar borradores" };
 
-    // ... lógica de actualización (similar al server action anterior)
-    // Por brevedad, implemento lo básico, se puede extender
+      // Obtener política para re-validar
+      const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
+      if (!policy) throw new Error("Política no encontrada");
 
-    // NOTA: Aquí iría el recálculo completo si cambian montos
-    // Para mantener la demo fluida, actualizamos campos directos
+      // Preparar datos actualizados
+      const category = data.category ?? expense.category;
+      const amountInput = data.amount !== undefined ? new Decimal(data.amount) : expense.amount;
+      const mileageKmInput =
+        data.mileageKm !== undefined ? (data.mileageKm ? new Decimal(data.mileageKm) : null) : expense.mileageKm;
+      const vatPercentInput =
+        data.vatPercent !== undefined ? (data.vatPercent ? new Decimal(data.vatPercent) : null) : expense.vatPercent;
 
-    const updated = await prisma.expense.update({
-      where: { id },
-      data: {
-        notes: data.notes,
-        // ... mapping del resto
-      },
-    });
+      let mileageRate = expense.mileageRate; // Mantener rate original si no se recalcula... o usar actual?
+      // Política: Al editar draft, actualizamos a la tarifa actual si es kilometraje
+      if (category === "MILEAGE") {
+        mileageRate = policy.mileageRateEurPerKm;
+      }
 
-    return { success: true, expense: updated };
+      let finalAmount = amountInput;
+      let finalTotalAmount = expense.totalAmount;
+
+      if (category === "MILEAGE") {
+        if (!mileageKmInput) throw new Error("Distancia requerida para kilometraje");
+        finalAmount = mileageKmInput.mul(mileageRate ?? new Decimal(0));
+        finalTotalAmount = finalAmount;
+      } else {
+        // Validar límites nuevamente al actualizar
+        this.validatePolicyLimits(category, finalAmount, policy);
+
+        finalTotalAmount = this.calculateTotalAmount(category, finalAmount, vatPercentInput, null, null);
+      }
+
+      const updated = await prisma.expense.update({
+        where: { id },
+        data: {
+          date: data.date,
+          amount: finalAmount,
+          totalAmount: finalTotalAmount,
+          category: category,
+          mileageKm: mileageKmInput,
+          mileageRate: mileageRate, // Actualizar rate si cambió política
+          vatPercent: vatPercentInput,
+          notes: data.notes,
+          merchantName: data.merchantName,
+          merchantVat: data.merchantVat,
+          costCenterId: data.costCenterId,
+        },
+      });
+
+      return { success: true, expense: updated };
+    } catch (error) {
+      console.error("PrivateExpenseService.update error:", error);
+      return { success: false, error: error instanceof Error ? error.message : "Error al actualizar" };
+    }
   }
 
   async validateForSubmission(expense: Expense) {
-    const policy = await prisma.policySnapshot.findUnique({ where: { expenseId: expense.id } });
+    // Recuperar configuración (o snapshot si quisiéramos ser estrictos con el momento de creación)
+    // Usamos política actual para validación de envío
+    const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
+    if (!policy) return { valid: false, error: "Política no definida" };
 
-    // Regla: Si la política requiere adjunto, verificarlo
-    if (policy?.fuelRequiresReceipt) {
-      // Ejemplo simplificado
-      const attachments = await prisma.expenseAttachment.count({ where: { expenseId: expense.id } });
-      if (attachments === 0) return { valid: false, error: "Adjunto requerido" };
+    // 1. REGLA: TICKET OBLIGATORIO
+    // Si la política global lo exige, O si la categoría específica lo exige
+    const catReqs = (policy.categoryRequirements as any)?.[expense.category];
+    const categoryRequiresReceipt = catReqs?.requiresReceipt ?? true; // Default true si no especificado
+
+    if (policy.attachmentRequired || categoryRequiresReceipt) {
+      const attachmentsCount = await prisma.expenseAttachment.count({ where: { expenseId: expense.id } });
+      if (attachmentsCount === 0) {
+        return {
+          valid: false,
+          error: `Es obligatorio adjuntar un ticket o factura para gastos de tipo ${expense.category}.`,
+        };
+      }
     }
 
     return { valid: true };
@@ -149,27 +235,33 @@ export class PrivateExpenseService implements IExpenseService {
   async submit(id: string, userId: string) {
     const expense = await prisma.expense.findUnique({ where: { id } });
     if (!expense) return { success: false, error: "Gasto no encontrado" };
+    if (expense.status !== "DRAFT") return { success: false, error: "El gasto no está en borrador" };
 
-    // Validar
+    // 1. Ejecutar validaciones estrictas antes de enviar
     const validation = await this.validateForSubmission(expense);
     if (!validation.valid) return { success: false, error: validation.error };
 
-    // Buscar manager
-    // (Lógica simplificada, idealmente extraída a un servicio de jerarquía)
+    // 2. Buscar aprobador (Manager)
     const employee = await prisma.employee.findUnique({
       where: { id: expense.employeeId },
-      include: { managedContracts: { include: { manager: { include: { user: true } } } } }, // Aproximación
+      include: {
+        managedContracts: {
+          where: { active: true },
+          include: { manager: { include: { user: true } } },
+        },
+      },
     });
 
-    // ... búsqueda de aprobador real ...
+    // Obtener ID del manager (fallback a RRHH o Admin si no tiene)
+    // Para simplificar, asumimos que el sistema asigna uno. En producción usaría `getDefaultApprover`.
 
     await prisma.expense.update({
       where: { id },
       data: { status: "SUBMITTED" },
     });
 
-    // Crear aprobación pendiente
-    // ...
+    // TODO: Notificar al manager
+    // await createNotification(...)
 
     return { success: true, expense };
   }
