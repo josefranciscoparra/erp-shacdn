@@ -33,7 +33,7 @@ import type { ShiftTemplate, ShiftType } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function TemplatesTable() {
-  const { templates, deleteTemplate } = useShiftsStore();
+  const { templates, deleteTemplate, openTemplateDialog, openTemplateApplyDialog, createTemplate } = useShiftsStore();
 
   const [activeTab, setActiveTab] = useState("active");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -61,23 +61,25 @@ export function TemplatesTable() {
   };
 
   const handleCreateTemplate = () => {
-    // TODO: Abrir modal de creación de plantilla (TemplateDialog)
-    console.log("Crear nueva plantilla");
+    openTemplateDialog();
   };
 
   const handleEditTemplate = (template: ShiftTemplate) => {
-    // TODO: Abrir modal de edición de plantilla (TemplateDialog)
-    console.log("Editar plantilla:", template.id);
+    openTemplateDialog(template);
   };
 
   const handleApplyTemplate = (template: ShiftTemplate) => {
-    // TODO: Abrir modal de aplicación de plantilla (TemplateApplyDialog)
-    console.log("Aplicar plantilla:", template.id);
+    openTemplateApplyDialog(template);
   };
 
-  const handleDuplicateTemplate = (template: ShiftTemplate) => {
-    // TODO: Implementar duplicación de plantilla
-    console.log("Duplicar plantilla:", template.id);
+  const handleDuplicateTemplate = async (template: ShiftTemplate) => {
+    await createTemplate({
+      name: `${template.name} (copia)`,
+      description: template.description,
+      pattern: template.pattern,
+      shiftDuration: template.shiftDuration,
+      active: template.active,
+    });
   };
 
   return (
@@ -202,7 +204,7 @@ export function TemplatesTable() {
                           </Button>
 
                           {/* Duplicar */}
-                          <Button variant="ghost" size="icon-sm" onClick={() => handleDuplicateTemplate(template)}>
+                          <Button variant="ghost" size="icon-sm" onClick={() => void handleDuplicateTemplate(template)}>
                             <Copy className="h-3 w-3" />
                           </Button>
 

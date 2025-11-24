@@ -21,6 +21,7 @@ import {
   endOfMonth,
   addMonths,
   subMonths,
+  differenceInCalendarDays,
 } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -527,16 +528,76 @@ export function getPlannedDateRange(shifts: Array<{ date: string }>): { start: s
  * @param shifts - Array de todos los turnos
  * @returns "rest" si es descanso planificado, "unplanned" si aún no se ha planificado
  */
-export function getEmptyDayType(date: string, shifts: Array<{ date: string }>): "rest" | "unplanned" {
-  const plannedRange = getPlannedDateRange(shifts);
+type EmptyDayOptions = {
+  employeeId?: string;
+  toleranceDays?: number;
+};
 
-  if (!plannedRange) return "unplanned";
+export function getEmptyDayType(
+  date: string,
+  shifts: Array<{ date: string; employeeId?: string }>,
+  options?: EmptyDayOptions,
+): "rest" | "unplanned" {
+  const tolerance = options?.toleranceDays ?? 7;
+  const relevantShifts =
+    options?.employeeId != null ? shifts.filter((s) => s.employeeId === options.employeeId) : shifts;
 
-  // Si la fecha está dentro del rango planificado, es un día de descanso
-  if (date >= plannedRange.start && date <= plannedRange.end) {
+  if (relevantShifts.length === 0) {
+    return "unplanned";
+  }
+
+  const plannedRange = getPlannedDateRange(relevantShifts);
+
+  if (plannedRange && date >= plannedRange.start && date <= plannedRange.end) {
     return "rest";
   }
 
-  // Si está fuera del rango (después), es sin planificar
+  const { prevDate, nextDate } = getAdjacentShiftDates(date, relevantShifts);
+
+  const prevDiff =
+    prevDate === null ? Number.POSITIVE_INFINITY : differenceInCalendarDays(parseISO(date), parseISO(prevDate));
+  const nextDiff =
+    nextDate === null ? Number.POSITIVE_INFINITY : differenceInCalendarDays(parseISO(nextDate), parseISO(date));
+
+  if (prevDiff <= tolerance || nextDiff <= tolerance) {
+    return "rest";
+  }
+
   return "unplanned";
+}
+
+function getAdjacentShiftDates(
+  date: string,
+  shifts: Array<{ date: string }>,
+): {
+  prevDate: string | null;
+  nextDate: string | null;
+} {
+  if (shifts.length === 0) {
+    return { prevDate: null, nextDate: null };
+  }
+
+  const sortedDates = [...new Set(shifts.map((s) => s.date))].sort();
+  let prev: string | null = null;
+  let next: string | null = null;
+
+  for (const current of sortedDates) {
+    if (current < date) {
+      prev = current;
+      continue;
+    }
+
+    if (current === date) {
+      prev = current;
+      next = current;
+      break;
+    }
+
+    if (current > date) {
+      next = current;
+      break;
+    }
+  }
+
+  return { prevDate: prev, nextDate: next };
 }

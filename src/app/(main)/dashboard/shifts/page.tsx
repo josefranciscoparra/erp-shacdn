@@ -41,6 +41,7 @@ import { ShiftDialog } from "./_components/shift-dialog";
 import { ShiftsDashboard } from "./_components/shifts-dashboard";
 import { ShiftsFiltersBar } from "./_components/shifts-filters-bar";
 import { TemplateApplyDialog } from "./_components/template-apply-dialog";
+import { TemplateDialog } from "./_components/template-dialog";
 import { TemplatesTable } from "./_components/templates-table";
 import { WeekNavigator } from "./_components/week-navigator";
 import { ZoneDialog } from "./_components/zone-dialog";
@@ -201,6 +202,7 @@ export default function ShiftsPage() {
 
       {/* Modales */}
       <ShiftDialog />
+      <TemplateDialog />
       <TemplateApplyDialog />
       <ZoneDialog />
     </div>

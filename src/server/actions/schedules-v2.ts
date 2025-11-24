@@ -28,6 +28,7 @@ import type {
   CreateManualShiftAssignmentInput,
   CreateShiftRotationPatternInput,
   CreateShiftRotationStepInput,
+  ManualShiftStatus,
 } from "@/types/schedule";
 
 // ============================================================================
@@ -2065,25 +2066,76 @@ export async function getShiftRotationPatterns() {
 // GESTIÓN DE ASIGNACIONES MANUALES (Rostering / Planificación)
 // ============================================================================
 
+type ManualShiftFilters = {
+  employeeIds?: string[];
+  costCenterId?: string;
+  workZoneId?: string;
+  statuses?: ManualShiftStatus[];
+};
+
+function normalizeAssignmentDate(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setUTCHours(12, 0, 0, 0);
+  return normalized;
+}
+
+function getRangeBoundary(date: Date, isEnd = false): Date {
+  const normalized = new Date(date);
+  if (isEnd) {
+    normalized.setUTCHours(23, 59, 59, 999);
+  } else {
+    normalized.setUTCHours(0, 0, 0, 0);
+  }
+  return normalized;
+}
+
+function buildManualAssignmentWhere(orgId: string, start: Date, end: Date, filters?: ManualShiftFilters) {
+  const where: any = {
+    orgId,
+    date: {
+      gte: start,
+      lte: end,
+    },
+  };
+
+  if (filters?.employeeIds && filters.employeeIds.length > 0) {
+    where.employeeId = { in: filters.employeeIds };
+  }
+
+  if (filters?.costCenterId) {
+    where.costCenterId = filters.costCenterId;
+  }
+
+  if (filters?.workZoneId) {
+    where.workZoneId = filters.workZoneId;
+  }
+
+  if (filters?.statuses && filters.statuses.length > 0) {
+    where.status = { in: filters.statuses };
+  }
+
+  return where;
+}
+
+function resolveStatus(status?: ManualShiftStatus) {
+  if (!status) {
+    return { status: "DRAFT" as ManualShiftStatus, publishedAt: null };
+  }
+
+  return {
+    status,
+    publishedAt: status === "PUBLISHED" ? new Date() : null,
+  };
+}
+
 export async function createManualShiftAssignment(
   input: CreateManualShiftAssignmentInput,
 ): Promise<ActionResponse<{ id: string }>> {
   try {
     const { orgId } = await requireOrg();
+    const normalizedDate = normalizeAssignmentDate(input.date);
+    const { status, publishedAt } = resolveStatus(input.status);
 
-    // Validate inputs
-    const employee = await prisma.employee.findUnique({ where: { id: input.employeeId, orgId } });
-    if (!employee) return { success: false, error: "Empleado no encontrado" };
-
-    const template = await prisma.scheduleTemplate.findUnique({ where: { id: input.scheduleTemplateId, orgId } });
-    if (!template) return { success: false, error: "Plantilla no encontrada" };
-
-    // Normalizar fecha a mediodía UTC para evitar problemas de timezone
-    // Al ser un campo @db.Date, Prisma ignorará la hora, pero aseguramos que no caiga en el día anterior por UTC
-    const normalizedDate = new Date(input.date);
-    normalizedDate.setUTCHours(12, 0, 0, 0);
-
-    // Upsert
     const assignment = await prisma.manualShiftAssignment.upsert({
       where: {
         employeeId_date: {
@@ -2092,19 +2144,31 @@ export async function createManualShiftAssignment(
         },
       },
       update: {
-        scheduleTemplateId: input.scheduleTemplateId,
+        scheduleTemplateId: input.scheduleTemplateId ?? null,
         startTimeMinutes: input.startTimeMinutes,
         endTimeMinutes: input.endTimeMinutes,
         costCenterId: input.costCenterId,
+        workZoneId: input.workZoneId,
+        breakMinutes: input.breakMinutes,
+        customRole: input.customRole,
+        notes: input.notes,
+        status,
+        publishedAt,
       },
       create: {
         orgId,
         employeeId: input.employeeId,
         date: normalizedDate,
-        scheduleTemplateId: input.scheduleTemplateId,
+        scheduleTemplateId: input.scheduleTemplateId ?? null,
         startTimeMinutes: input.startTimeMinutes,
         endTimeMinutes: input.endTimeMinutes,
         costCenterId: input.costCenterId,
+        workZoneId: input.workZoneId,
+        breakMinutes: input.breakMinutes,
+        customRole: input.customRole,
+        notes: input.notes,
+        status,
+        publishedAt,
       },
     });
 
@@ -2115,12 +2179,97 @@ export async function createManualShiftAssignment(
   }
 }
 
+export async function updateManualShiftAssignment(
+  id: string,
+  data: Partial<
+    CreateManualShiftAssignmentInput & {
+      employeeId: string;
+      date: Date;
+    }
+  >,
+): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const { orgId } = await requireOrg();
+    const payload: any = {};
+
+    if (data.employeeId) {
+      payload.employeeId = data.employeeId;
+    }
+
+    if (data.date) {
+      payload.date = normalizeAssignmentDate(data.date);
+    }
+
+    if (data.scheduleTemplateId !== undefined) {
+      payload.scheduleTemplateId = data.scheduleTemplateId;
+    }
+
+    if (data.startTimeMinutes !== undefined) {
+      payload.startTimeMinutes = data.startTimeMinutes;
+    }
+
+    if (data.endTimeMinutes !== undefined) {
+      payload.endTimeMinutes = data.endTimeMinutes;
+    }
+
+    if (data.costCenterId !== undefined) {
+      payload.costCenterId = data.costCenterId;
+    }
+
+    if (data.workZoneId !== undefined) {
+      payload.workZoneId = data.workZoneId;
+    }
+
+    if (data.breakMinutes !== undefined) {
+      payload.breakMinutes = data.breakMinutes;
+    }
+
+    if (data.customRole !== undefined) {
+      payload.customRole = data.customRole;
+    }
+
+    if (data.notes !== undefined) {
+      payload.notes = data.notes;
+    }
+
+    if (data.status) {
+      const resolved = resolveStatus(data.status);
+      payload.status = resolved.status;
+      payload.publishedAt = resolved.publishedAt;
+    }
+
+    const assignment = await prisma.manualShiftAssignment.update({
+      where: { id, orgId },
+      data: payload,
+    });
+
+    return { success: true, data: { id: assignment.id } };
+  } catch (error) {
+    console.error("Error updating manual assignment:", error);
+    return { success: false, error: "Error al actualizar asignación manual" };
+  }
+}
+
+export async function getManualShiftAssignmentById(id: string) {
+  try {
+    const { orgId } = await requireOrg();
+    return await prisma.manualShiftAssignment.findUnique({
+      where: { id, orgId },
+      include: {
+        scheduleTemplate: { select: { id: true, name: true } },
+        workZone: true,
+      },
+    });
+  } catch (error) {
+    console.error("Error getting manual assignment by id:", error);
+    return null;
+  }
+}
+
 export async function deleteManualShiftAssignment(employeeId: string, date: Date): Promise<ActionResponse> {
   try {
     const { orgId } = await requireOrg();
-
-    const normalizedDate = new Date(date);
-    normalizedDate.setUTCHours(12, 0, 0, 0);
+    const normalizedDate = normalizeAssignmentDate(date);
 
     await prisma.manualShiftAssignment.deleteMany({
       where: {
@@ -2137,30 +2286,46 @@ export async function deleteManualShiftAssignment(employeeId: string, date: Date
   }
 }
 
-export async function getManualShiftAssignmentsForRange(employeeIds: string[], startDate: Date, endDate: Date) {
+export async function deleteManualShiftAssignmentById(id: string): Promise<ActionResponse> {
   try {
     const { orgId } = await requireOrg();
 
-    // Ajustar rango para cubrir todo el día UTC
-    const start = new Date(startDate);
-    start.setUTCHours(0, 0, 0, 0);
+    await prisma.manualShiftAssignment.delete({
+      where: { id, orgId },
+    });
 
-    const end = new Date(endDate);
-    end.setUTCHours(23, 59, 59, 999);
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting manual assignment by ID:", error);
+    return { success: false, error: "Error al eliminar asignación manual" };
+  }
+}
+
+export async function getManualShiftAssignmentsForRange(
+  employeeIds: string[] | undefined,
+  startDate: Date,
+  endDate: Date,
+  filters?: Omit<ManualShiftFilters, "employeeIds">,
+) {
+  try {
+    const { orgId } = await requireOrg();
+    const start = getRangeBoundary(startDate);
+    const end = getRangeBoundary(endDate, true);
+
+    const where = buildManualAssignmentWhere(orgId, start, end, {
+      employeeIds,
+      costCenterId: filters?.costCenterId,
+      workZoneId: filters?.workZoneId,
+      statuses: filters?.statuses,
+    });
 
     const assignments = await prisma.manualShiftAssignment.findMany({
-      where: {
-        orgId,
-        employeeId: { in: employeeIds },
-        date: {
-          gte: start,
-          lte: end,
-        },
-      },
+      where,
       include: {
-        scheduleTemplate: { select: { id: true, name: true, templateType: true } },
-        costCenter: { select: { id: true, name: true } },
+        scheduleTemplate: { select: { id: true, name: true } },
+        workZone: true,
       },
+      orderBy: [{ date: "asc" }],
     });
 
     return assignments;
@@ -2170,6 +2335,323 @@ export async function getManualShiftAssignmentsForRange(employeeIds: string[], s
   }
 }
 
+export async function copyManualShiftAssignmentsFromWeek(
+  sourceWeekStart: Date,
+  targetWeekStart: Date,
+  filters?: Omit<ManualShiftFilters, "statuses">,
+): Promise<ActionResponse<{ copied: number }>> {
+  try {
+    const { orgId } = await requireOrg();
+    const sourceStart = getRangeBoundary(sourceWeekStart);
+    const sourceEnd = getRangeBoundary(addDays(sourceWeekStart, 6), true);
+    const targetStart = getRangeBoundary(targetWeekStart);
+    const diff = differenceInDays(targetStart, sourceStart);
+
+    const assignments = await getManualShiftAssignmentsForRange(filters?.employeeIds, sourceStart, sourceEnd, {
+      costCenterId: filters?.costCenterId,
+      workZoneId: filters?.workZoneId,
+    });
+
+    if (assignments.length === 0) {
+      return { success: true, data: { copied: 0 } };
+    }
+
+    const operations = assignments.map((assignment) => {
+      const targetDate = normalizeAssignmentDate(addDays(assignment.date, diff));
+      return prisma.manualShiftAssignment.upsert({
+        where: {
+          employeeId_date: {
+            employeeId: assignment.employeeId,
+            date: targetDate,
+          },
+        },
+        update: {
+          scheduleTemplateId: assignment.scheduleTemplateId,
+          startTimeMinutes: assignment.startTimeMinutes,
+          endTimeMinutes: assignment.endTimeMinutes,
+          costCenterId: assignment.costCenterId,
+          workZoneId: assignment.workZoneId,
+          breakMinutes: assignment.breakMinutes,
+          customRole: assignment.customRole,
+          notes: assignment.notes,
+          status: "DRAFT",
+          publishedAt: null,
+        },
+        create: {
+          orgId,
+          employeeId: assignment.employeeId,
+          date: targetDate,
+          scheduleTemplateId: assignment.scheduleTemplateId,
+          startTimeMinutes: assignment.startTimeMinutes,
+          endTimeMinutes: assignment.endTimeMinutes,
+          costCenterId: assignment.costCenterId,
+          workZoneId: assignment.workZoneId,
+          breakMinutes: assignment.breakMinutes,
+          customRole: assignment.customRole,
+          notes: assignment.notes,
+          status: "DRAFT",
+          publishedAt: null,
+        },
+      });
+    });
+
+    const results = await prisma.$transaction(operations);
+    return { success: true, data: { copied: results.length } };
+  } catch (error) {
+    console.error("Error copying manual assignments:", error);
+    return { success: false, error: "Error al copiar turnos" };
+  }
+}
+
+export async function publishManualShiftAssignments(
+  dateFrom: Date,
+  dateTo: Date,
+  filters?: ManualShiftFilters,
+): Promise<ActionResponse<{ published: number }>> {
+  try {
+    const { orgId } = await requireOrg();
+    const start = getRangeBoundary(dateFrom);
+    const end = getRangeBoundary(dateTo, true);
+
+    const where = buildManualAssignmentWhere(orgId, start, end, {
+      employeeIds: filters?.employeeIds,
+      costCenterId: filters?.costCenterId,
+      workZoneId: filters?.workZoneId,
+      statuses: filters?.statuses ?? ["DRAFT"],
+    });
+
+    const assignments = await prisma.manualShiftAssignment.findMany({ where, select: { id: true } });
+    if (assignments.length === 0) {
+      return { success: true, data: { published: 0 } };
+    }
+
+    const now = new Date();
+    await prisma.manualShiftAssignment.updateMany({
+      where: { id: { in: assignments.map((a) => a.id) } },
+      data: { status: "PUBLISHED", publishedAt: now },
+    });
+
+    return { success: true, data: { published: assignments.length } };
+  } catch (error) {
+    console.error("Error publishing manual assignments:", error);
+    return { success: false, error: "Error al publicar turnos" };
+  }
+}
+
+export async function deleteMultipleManualShiftAssignments(ids: string[]): Promise<number> {
+  try {
+    const { orgId } = await requireOrg();
+    const result = await prisma.manualShiftAssignment.deleteMany({
+      where: { id: { in: ids }, orgId },
+    });
+
+    return result.count;
+  } catch (error) {
+    console.error("Error deleting manual assignments:", error);
+    return 0;
+  }
+}
+
+// ============================================================================
+// Plantillas manuales de turnos (ShiftTemplate UI)
+// ============================================================================
+
+interface ManualShiftTemplateInput {
+  name: string;
+  description?: string;
+  pattern: string[];
+  shiftDurationMinutes: number;
+  color?: string;
+  isActive?: boolean;
+}
+
+interface ApplyManualShiftTemplateInput {
+  templateId: string;
+  employeeIds: string[];
+  dateFrom: Date;
+  dateTo: Date;
+  costCenterId: string;
+  workZoneId?: string;
+  initialGroup?: number;
+}
+
+export async function getManualShiftTemplates() {
+  try {
+    const { orgId } = await requireOrg();
+    return await prisma.manualShiftTemplate.findMany({
+      where: { orgId },
+      orderBy: { name: "asc" },
+    });
+  } catch (error) {
+    console.error("Error getting manual shift templates:", error);
+    return [];
+  }
+}
+
+export async function createManualShiftTemplate(data: ManualShiftTemplateInput) {
+  try {
+    const { orgId } = await requireOrg();
+    const template = await prisma.manualShiftTemplate.create({
+      data: {
+        orgId,
+        name: data.name,
+        description: data.description,
+        pattern: data.pattern,
+        shiftDurationMinutes: data.shiftDurationMinutes,
+        color: data.color,
+        isActive: data.isActive ?? true,
+      },
+    });
+
+    return template;
+  } catch (error) {
+    console.error("Error creating manual shift template:", error);
+    throw new Error("Error al crear plantilla manual");
+  }
+}
+
+export async function updateManualShiftTemplate(id: string, data: Partial<ManualShiftTemplateInput>) {
+  try {
+    const { orgId } = await requireOrg();
+    const template = await prisma.manualShiftTemplate.update({
+      where: { id, orgId },
+      data: {
+        name: data.name,
+        description: data.description,
+        pattern: data.pattern,
+        shiftDurationMinutes: data.shiftDurationMinutes,
+        color: data.color,
+        isActive: data.isActive,
+      },
+    });
+
+    return template;
+  } catch (error) {
+    console.error("Error updating manual shift template:", error);
+    throw new Error("Error al actualizar plantilla manual");
+  }
+}
+
+export async function deleteManualShiftTemplate(id: string) {
+  try {
+    const { orgId } = await requireOrg();
+    await prisma.manualShiftTemplate.delete({ where: { id, orgId } });
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting manual shift template:", error);
+    return { success: false, error: "Error al eliminar plantilla" };
+  }
+}
+
+export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateInput) {
+  try {
+    const { orgId } = await requireOrg();
+    const template = await prisma.manualShiftTemplate.findUnique({
+      where: { id: input.templateId, orgId },
+    });
+
+    if (!template) {
+      return { success: false, error: "Plantilla no encontrada" };
+    }
+
+    if (template.pattern.length === 0) {
+      return { success: false, error: "La plantilla no tiene patrón definido" };
+    }
+
+    if (input.employeeIds.length === 0) {
+      return { success: false, error: "Debes seleccionar al menos un empleado" };
+    }
+
+    const operations: any[] = [];
+    const totalDays = differenceInDays(input.dateTo, input.dateFrom) + 1;
+    const offset = input.initialGroup ?? 0;
+
+    for (let dayIndex = 0; dayIndex < totalDays; dayIndex++) {
+      const patternIndex = (dayIndex + offset) % template.pattern.length;
+      const shiftType = template.pattern[patternIndex];
+      const window = getShiftTypeWindow(shiftType, template.shiftDurationMinutes);
+
+      if (!window) {
+        continue;
+      }
+
+      const targetDate = normalizeAssignmentDate(addDays(input.dateFrom, dayIndex));
+
+      for (const employeeId of input.employeeIds) {
+        operations.push(
+          prisma.manualShiftAssignment.upsert({
+            where: {
+              employeeId_date: {
+                employeeId,
+                date: targetDate,
+              },
+            },
+            update: {
+              scheduleTemplateId: null,
+              startTimeMinutes: window.startMinutes,
+              endTimeMinutes: window.endMinutes,
+              costCenterId: input.costCenterId,
+              workZoneId: input.workZoneId,
+              breakMinutes: 0,
+              customRole: `${template.name} (${shiftType})`,
+              notes: template.description,
+              status: "DRAFT",
+              publishedAt: null,
+            },
+            create: {
+              orgId,
+              employeeId,
+              date: targetDate,
+              scheduleTemplateId: null,
+              startTimeMinutes: window.startMinutes,
+              endTimeMinutes: window.endMinutes,
+              costCenterId: input.costCenterId,
+              workZoneId: input.workZoneId,
+              breakMinutes: 0,
+              customRole: `${template.name} (${shiftType})`,
+              notes: template.description,
+              status: "DRAFT",
+              publishedAt: null,
+            },
+          }),
+        );
+      }
+    }
+
+    if (operations.length === 0) {
+      return { success: true, created: 0 };
+    }
+
+    await prisma.$transaction(operations);
+    return { success: true, created: operations.length };
+  } catch (error) {
+    console.error("Error applying manual shift template:", error);
+    return { success: false, error: "Error al aplicar plantilla manual" };
+  }
+}
+
+function getShiftTypeWindow(shiftType: string, durationMinutes: number) {
+  if (shiftType === "off") {
+    return null;
+  }
+
+  const starts: Record<string, number> = {
+    morning: 8 * 60,
+    afternoon: 16 * 60,
+    night: 0,
+    saturday: 9 * 60,
+    sunday: 9 * 60,
+    custom: 8 * 60,
+  };
+
+  const startMinutes = starts[shiftType] ?? 8 * 60;
+  const endMinutes = (startMinutes + durationMinutes) % (24 * 60);
+
+  return {
+    startMinutes,
+    endMinutes,
+  };
+}
 // ============================================================================
 // GESTIÓN DE ZONAS (ÁREAS)
 // ============================================================================
@@ -2310,21 +2792,6 @@ export async function searchEmployees(term: string) {
   } catch (error) {
     console.error("Error searching employees:", error);
     return [];
-  }
-}
-
-export async function deleteManualShiftAssignmentById(id: string): Promise<ActionResponse> {
-  try {
-    const { orgId } = await requireOrg();
-
-    await prisma.manualShiftAssignment.delete({
-      where: { id, orgId }, // orgId for security
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error deleting manual assignment by ID:", error);
-    return { success: false, error: "Error al eliminar asignación manual" };
   }
 }
 

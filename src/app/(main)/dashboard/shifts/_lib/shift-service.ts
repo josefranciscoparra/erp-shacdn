@@ -5,20 +5,30 @@
  * Realiza la conversión de tipos entre el modelo Prisma y el modelo UI.
  */
 
+"use client";
+
 import { minutesToTime, timeToMinutes } from "@/lib/schedule-helpers";
 import {
   createManualShiftAssignment,
-  deleteManualShiftAssignment,
   deleteManualShiftAssignmentById,
+  updateManualShiftAssignment,
+  getManualShiftAssignmentById,
   getManualShiftAssignmentsForRange,
   getCostCentersForFilters,
-  getEmployeesForBulkAssignment,
   searchEmployees as searchEmployeesAction,
   getShiftEmployeesPaginated,
   getWorkZones,
   createWorkZone,
   updateWorkZone,
   deleteWorkZone as deleteWorkZoneAction,
+  copyManualShiftAssignmentsFromWeek,
+  publishManualShiftAssignments,
+  deleteMultipleManualShiftAssignments,
+  getManualShiftTemplates,
+  createManualShiftTemplate,
+  updateManualShiftTemplate,
+  deleteManualShiftTemplate,
+  applyManualShiftTemplate,
 } from "@/server/actions/schedules-v2.ts";
 
 import { formatDateISO } from "./shift-utils";
@@ -36,209 +46,242 @@ import type {
   ApplyTemplateInput,
   ApplyTemplateResponse,
   PublishShiftsResponse,
+  ShiftStatus,
 } from "./types";
 
-// ==================== ADAPTADOR ====================
+type ServerShiftStatus = "DRAFT" | "PUBLISHED" | "CONFLICT";
+
+interface ManualAssignmentRecord {
+  id: string;
+  employeeId: string;
+  date: Date;
+  startTimeMinutes: number | null;
+  endTimeMinutes: number | null;
+  breakMinutes: number | null;
+  costCenterId: string | null;
+  workZoneId: string | null;
+  customRole: string | null;
+  notes: string | null;
+  status: ServerShiftStatus;
+  scheduleTemplateId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  publishedAt: Date | null;
+  scheduleTemplate?: { id: string; name: string } | null;
+  workZone?: { id: string; name: string } | null;
+}
+
+const STATUS_TO_UI: Record<ServerShiftStatus, ShiftStatus> = {
+  DRAFT: "draft",
+  PUBLISHED: "published",
+  CONFLICT: "conflict",
+};
+
+const STATUS_TO_SERVER: Record<ShiftStatus, ServerShiftStatus> = {
+  draft: "DRAFT",
+  published: "PUBLISHED",
+  conflict: "CONFLICT",
+};
 
 export const shiftService = {
   /**
-   * Obtiene turnos según filtros
+   * Obtiene turnos según filtros activos
    */
   async getShifts(filters: ShiftFilters): Promise<Shift[]> {
-    const { employeeId, dateFrom, dateTo, costCenterId } = filters;
-
-    if (!dateFrom || !dateTo) {
-      // Si no hay fechas, devolver vacío (o defaults de la semana actual si quisiéramos)
+    if (!filters.dateFrom || !filters.dateTo) {
       return [];
     }
 
-    // 1. Obtener empleados (si no se especifica uno, obtener todos los filtrados por centro)
-    let employeeIds: string[] = [];
-    if (employeeId) {
-      employeeIds = [employeeId];
-    } else {
-      // Necesitamos obtener los IDs de empleados para consultar sus turnos
-      // Usamos el helper existente para obtener empleados
-      const employees = await getEmployeesForBulkAssignment("dummy", {
-        costCenterIds: costCenterId ? [costCenterId] : undefined,
-      });
-      employeeIds = employees.map((e) => e.id);
-    }
+    const assignments = await getManualShiftAssignmentsForRange(
+      filters.employeeId ? [filters.employeeId] : undefined,
+      toDate(filters.dateFrom),
+      toDate(filters.dateTo),
+      {
+        costCenterId: filters.costCenterId,
+        workZoneId: filters.zoneId,
+        statuses: filters.status ? [STATUS_TO_SERVER[filters.status]] : undefined,
+      },
+    );
 
-    if (employeeIds.length === 0) return [];
+    return assignments.map(mapAssignmentToShift);
+  },
 
-    // 2. Llamar a la server action
-    const assignments = await getManualShiftAssignmentsForRange(employeeIds, new Date(dateFrom), new Date(dateTo));
-
-    // 3. Mapear a modelo UI (Shift)
-    return assignments.map((a) => ({
-      id: a.id,
-      employeeId: a.employeeId,
-      date: formatDateISO(a.date),
-      startTime: a.startTimeMinutes !== null ? minutesToTime(a.startTimeMinutes) : "09:00", // Default si es null
-      endTime: a.endTimeMinutes !== null ? minutesToTime(a.endTimeMinutes) : "17:00", // Default si es null
-      costCenterId: a.costCenterId ?? a.orgId, // Fallback a orgId si no hay centro específico
-      zoneId: "default", // TODO: Implementar zonas reales
-      role: a.scheduleTemplate.name,
-      status: "published", // Por defecto published para manual
-      createdAt: a.createdAt,
-      updatedAt: a.updatedAt,
-    }));
+  async getShiftById(id: string): Promise<Shift | null> {
+    const assignment = await getManualShiftAssignmentById(id);
+    return assignment ? mapAssignmentToShift(assignment as ManualAssignmentRecord) : null;
   },
 
   /**
    * Crea un nuevo turno manual
    */
   async createShift(data: ShiftInput): Promise<ShiftServiceResponse> {
-    const result = await createManualShiftAssignment({
-      employeeId: data.employeeId,
-      date: new Date(data.date),
-      scheduleTemplateId: "cmi4mjybh000hsf96s6i76mt3", // TODO: Usar selector de plantillas en el diálogo
-      startTimeMinutes: timeToMinutes(data.startTime),
-      endTimeMinutes: timeToMinutes(data.endTime),
-      costCenterId: data.costCenterId,
-      // zoneId: data.zoneId // Ignoramos zona por ahora en el backend
-    });
-
-    if (!result.success || !result.data) {
-      return { success: false, error: result.error };
-    }
-
-    // Devolver el shift creado (construido con los datos de entrada + ID generado)
-    return {
-      success: true,
-      data: {
-        id: result.data.id,
+    try {
+      const result = await createManualShiftAssignment({
         employeeId: data.employeeId,
-        date: data.date,
-        startTime: data.startTime,
-        endTime: data.endTime,
+        date: toDate(data.date),
+        scheduleTemplateId: data.scheduleTemplateId ?? null,
+        startTimeMinutes: timeToMinutes(data.startTime),
+        endTimeMinutes: timeToMinutes(data.endTime),
         costCenterId: data.costCenterId,
-        zoneId: data.zoneId,
-        status: "published",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        role: "Manual Shift", // Placeholder
-      },
-    };
+        workZoneId: normalizeZoneId(data.zoneId),
+        breakMinutes: data.breakMinutes,
+        customRole: data.role,
+        notes: data.notes,
+        status: STATUS_TO_SERVER[data.status ?? "draft"],
+      });
+
+      if (!result.success || !result.data) {
+        return { success: false, error: result.error ?? "Error al crear turno" };
+      }
+
+      const created = await getManualShiftAssignmentById(result.data.id);
+      if (!created) {
+        return { success: false, error: "No se pudo recuperar el turno creado" };
+      }
+
+      return {
+        success: true,
+        data: mapAssignmentToShift(created as ManualAssignmentRecord),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al crear turno";
+      return { success: false, error: errorMessage };
+    }
   },
 
-  /**
-   * Actualiza un turno existente
-   */
   async updateShift(id: string, data: Partial<ShiftInput>): Promise<ShiftServiceResponse> {
-    // Reutilizamos create (upsert) para actualizar, pero necesitamos todos los datos
-    // En una implementación real, createManualShiftAssignment usa upsert por (employeeId, date)
-    // Pero si cambiamos la fecha o empleado, es un delete + create.
-    // Asumiremos que el ID del turno manual es estable si no cambia la PK compuesta.
+    try {
+      const payload: Record<string, unknown> = {};
 
-    // Por ahora, para simplificar y dado que la API usa upsert por fecha/empleado:
-    if (!data.employeeId || !data.date) {
-      return { success: false, error: "Faltan datos obligatorios para actualizar" };
+      if (data.employeeId) payload.employeeId = data.employeeId;
+      if (data.date) payload.date = toDate(data.date);
+      if (data.startTime) payload.startTimeMinutes = timeToMinutes(data.startTime);
+      if (data.endTime) payload.endTimeMinutes = timeToMinutes(data.endTime);
+      if (data.costCenterId !== undefined) payload.costCenterId = data.costCenterId;
+      if (data.zoneId !== undefined) payload.workZoneId = normalizeZoneId(data.zoneId);
+      if (data.scheduleTemplateId !== undefined) payload.scheduleTemplateId = data.scheduleTemplateId;
+      if (data.breakMinutes !== undefined) payload.breakMinutes = data.breakMinutes;
+      if (data.role !== undefined) payload.customRole = data.role;
+      if (data.notes !== undefined) payload.notes = data.notes;
+      if (data.status) payload.status = STATUS_TO_SERVER[data.status];
+
+      const result = await updateManualShiftAssignment(id, payload);
+      if (!result.success) {
+        return { success: false, error: result.error ?? "Error al actualizar turno" };
+      }
+
+      const updated = await getManualShiftAssignmentById(id);
+      if (!updated) {
+        return { success: false, error: "Turno no encontrado tras actualizar" };
+      }
+
+      return {
+        success: true,
+        data: mapAssignmentToShift(updated as ManualAssignmentRecord),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al actualizar turno";
+      return { success: false, error: errorMessage };
     }
-
-    const result = await createManualShiftAssignment({
-      employeeId: data.employeeId,
-      date: new Date(data.date),
-      scheduleTemplateId: "cmi4mjybh000hsf96s6i76mt3", // TODO: Recuperar el template actual
-      startTimeMinutes: data.startTime ? timeToMinutes(data.startTime) : undefined,
-      endTimeMinutes: data.endTime ? timeToMinutes(data.endTime) : undefined,
-      costCenterId: data.costCenterId,
-      // zoneId: data.zoneId
-    });
-
-    if (!result.success || !result.data) {
-      return { success: false, error: result.error };
-    }
-
-    return {
-      success: true,
-      data: {
-        id: result.data.id,
-        employeeId: data.employeeId,
-        date: data.date,
-        startTime: data.startTime ?? "00:00",
-        endTime: data.endTime ?? "00:00",
-        costCenterId: data.costCenterId ?? "",
-        zoneId: data.zoneId ?? "",
-        status: "published",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    };
   },
 
-  /**
-   * Elimina un turno
-   */
   async deleteShift(id: string): Promise<boolean> {
     const result = await deleteManualShiftAssignmentById(id);
     return result.success;
   },
 
-  /**
-   * Mover un turno (Drag & Drop)
-   */
-  async moveShift(
-    // @ts-expect-error - Store pasa el objeto completo
-    currentShift: Shift,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<{ success: boolean; updatedShift?: Shift; conflicts?: any[] }> {
-    // 1. Eliminar el turno original
-    const deleteResult = await deleteManualShiftAssignmentById(currentShift.id);
-    if (!deleteResult.success) {
+  async moveShift(shift: Shift, newEmployeeId?: string, newDate?: string, newZoneId?: string) {
+    try {
+      const payload: Record<string, unknown> = {};
+
+      if (newEmployeeId && newEmployeeId !== shift.employeeId) {
+        payload.employeeId = newEmployeeId;
+      }
+
+      if (newDate && newDate !== shift.date) {
+        payload.date = toDate(newDate);
+      }
+
+      if (newZoneId && newZoneId !== shift.zoneId) {
+        payload.workZoneId = newZoneId;
+      }
+
+      if (Object.keys(payload).length === 0) {
+        return { success: true, updatedShift: shift };
+      }
+
+      const result = await updateManualShiftAssignment(shift.id, payload);
+      if (!result.success) {
+        return { success: false, conflicts: [] };
+      }
+
+      const updated = await getManualShiftAssignmentById(shift.id);
+      return {
+        success: true,
+        updatedShift: updated ? mapAssignmentToShift(updated as ManualAssignmentRecord) : undefined,
+      };
+    } catch (error) {
       return { success: false, conflicts: [] };
     }
+  },
 
-    // 2. Preparar datos para el nuevo turno
-    const createData: ShiftInput = {
-      employeeId: newEmployeeId ?? currentShift.employeeId,
-      date: newDate ?? currentShift.date,
-      startTime: currentShift.startTime,
-      endTime: currentShift.endTime,
-      costCenterId: currentShift.costCenterId, // Mantenemos centro
-      zoneId: newZoneId ?? currentShift.zoneId ?? "default",
-      // role, notes se pierden si no están en ShiftInput o si createManualShiftAssignment no los soporta aún
+  async copyShift(shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) {
+    const original = await getManualShiftAssignmentById(shiftId);
+    if (!original) {
+      return { success: false };
+    }
+
+    const payload = {
+      employeeId: newEmployeeId ?? original.employeeId,
+      date: toDate(newDate ?? formatDateISO(original.date ?? new Date())),
+      scheduleTemplateId: original.scheduleTemplateId,
+      startTimeMinutes: original.startTimeMinutes ?? undefined,
+      endTimeMinutes: original.endTimeMinutes ?? undefined,
+      costCenterId: original.costCenterId ?? undefined,
+      workZoneId: normalizeZoneId(newZoneId ?? original.workZoneId ?? undefined),
+      breakMinutes: original.breakMinutes ?? undefined,
+      customRole: original.customRole ?? undefined,
+      notes: original.notes ?? undefined,
+      status: "DRAFT" as ServerShiftStatus,
     };
 
-    // 3. Crear el nuevo turno
-    const createResult = await this.createShift(createData);
-
-    if (!createResult.success || !createResult.data) {
-      // TODO: Rollback? Re-crear el original?
-      console.error("Failed to create new shift after deleting old one during move");
+    const result = await createManualShiftAssignment(payload);
+    if (!result.success || !result.data) {
       return { success: false, conflicts: [] };
     }
 
+    const created = await getManualShiftAssignmentById(result.data.id);
     return {
       success: true,
-      updatedShift: createResult.data,
-      conflicts: createResult.validation?.conflicts,
+      updatedShift: created ? mapAssignmentToShift(created as ManualAssignmentRecord) : undefined,
     };
   },
 
-  /**
-   * Copiar un turno (Alt + Drag)
-   */
-  async copyShift(
-    shiftId: string,
-    newEmployeeId?: string,
-    newDate?: string,
-    newZoneId?: string,
-  ): Promise<{ success: boolean; updatedShift?: Shift; conflicts?: any[] }> {
-    return { success: false }; // Placeholder
-  },
-
-  /**
-   * Redimensionar turno
-   */
   async resizeShift(shiftId: string, newStartTime: string, newEndTime: string): Promise<ShiftServiceResponse> {
-    return { success: false, error: "Not implemented" };
-  },
+    try {
+      const result = await updateManualShiftAssignment(shiftId, {
+        startTimeMinutes: timeToMinutes(newStartTime),
+        endTimeMinutes: timeToMinutes(newEndTime),
+      });
 
-  // ========== EMPLEADOS Y CENTROS ==========
+      if (!result.success) {
+        return { success: false, error: result.error ?? "Error al actualizar duración" };
+      }
+
+      const updated = await getManualShiftAssignmentById(shiftId);
+      if (!updated) {
+        return { success: false, error: "No se pudo recuperar el turno" };
+      }
+
+      return {
+        success: true,
+        data: mapAssignmentToShift(updated as ManualAssignmentRecord),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al redimensionar turno";
+      return { success: false, error: errorMessage };
+    }
+  },
 
   async getShiftEmployees(
     costCenterId?: string,
@@ -272,8 +315,6 @@ export const shiftService = {
   async searchEmployees(term: string) {
     return await searchEmployeesAction(term);
   },
-
-  // ========== GESTIÓN DE ZONAS (ÁREAS) ==========
 
   async getZones(costCenterId?: string): Promise<Zone[]> {
     const zones = await getWorkZones(costCenterId);
@@ -330,29 +371,151 @@ export const shiftService = {
   },
 
   async getTemplates(): Promise<ShiftTemplate[]> {
-    return [];
+    const templates = await getManualShiftTemplates();
+    return templates.map((template) => ({
+      id: template.id,
+      name: template.name,
+      description: template.description ?? undefined,
+      pattern: template.pattern as ShiftTemplate["pattern"],
+      shiftDuration: template.shiftDurationMinutes / 60,
+      active: template.isActive,
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+    }));
   },
+
   async createTemplate(data: TemplateInput): Promise<ShiftTemplate> {
-    throw new Error("Not implemented");
+    const template = await createManualShiftTemplate({
+      name: data.name,
+      description: data.description,
+      pattern: data.pattern,
+      shiftDurationMinutes: Math.round(data.shiftDuration * 60),
+      isActive: data.active ?? true,
+    });
+
+    return {
+      id: template.id,
+      name: template.name,
+      description: template.description ?? undefined,
+      pattern: template.pattern as ShiftTemplate["pattern"],
+      shiftDuration: template.shiftDurationMinutes / 60,
+      active: template.isActive,
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+    };
   },
+
   async updateTemplate(id: string, data: Partial<TemplateInput>): Promise<ShiftTemplate> {
-    throw new Error("Not implemented");
+    const template = await updateManualShiftTemplate(id, {
+      name: data.name,
+      description: data.description,
+      pattern: data.pattern,
+      shiftDurationMinutes: data.shiftDuration !== undefined ? Math.round(data.shiftDuration * 60) : undefined,
+      isActive: data.active,
+    });
+
+    return {
+      id: template.id,
+      name: template.name,
+      description: template.description ?? undefined,
+      pattern: template.pattern as ShiftTemplate["pattern"],
+      shiftDuration: template.shiftDurationMinutes / 60,
+      active: template.isActive,
+      createdAt: template.createdAt,
+      updatedAt: template.updatedAt,
+    };
   },
+
   async deleteTemplate(id: string): Promise<boolean> {
-    return true;
+    const result = await deleteManualShiftTemplate(id);
+    return result.success;
   },
 
   async applyTemplate(input: ApplyTemplateInput): Promise<ApplyTemplateResponse> {
-    return { success: false, totalCreated: 0 };
+    const response = await applyManualShiftTemplate({
+      templateId: input.templateId,
+      employeeIds: input.employeeIds,
+      dateFrom: toDate(input.dateFrom),
+      dateTo: toDate(input.dateTo),
+      costCenterId: input.costCenterId,
+      workZoneId: input.zoneId,
+      initialGroup: input.initialGroup,
+    });
+
+    if (!response.success) {
+      return { success: false, totalCreated: 0, error: response.error };
+    }
+
+    return {
+      success: true,
+      totalCreated: response.created ?? 0,
+    };
   },
 
   async copyWeek(from: string, to: string, filters: ShiftFilters): Promise<number> {
-    return 0;
+    const response = await copyManualShiftAssignmentsFromWeek(toDate(from), toDate(to), {
+      employeeIds: filters.employeeId ? [filters.employeeId] : undefined,
+      costCenterId: filters.costCenterId,
+      workZoneId: filters.zoneId,
+    });
+
+    return response.success ? (response.data?.copied ?? 0) : 0;
   },
+
   async publishShifts(filters: ShiftFilters): Promise<PublishShiftsResponse> {
-    return { success: true, publishedCount: 0 };
+    if (!filters.dateFrom || !filters.dateTo) {
+      return { success: false, publishedCount: 0, error: "Faltan fechas" };
+    }
+
+    const response = await publishManualShiftAssignments(toDate(filters.dateFrom), toDate(filters.dateTo), {
+      employeeIds: filters.employeeId ? [filters.employeeId] : undefined,
+      costCenterId: filters.costCenterId,
+      workZoneId: filters.zoneId,
+      statuses: filters.status ? [STATUS_TO_SERVER[filters.status]] : undefined,
+    });
+
+    return {
+      success: response.success,
+      publishedCount: response.data?.published ?? 0,
+      error: response.error,
+    };
   },
+
   async deleteMultipleShifts(ids: string[]): Promise<number> {
-    return 0;
+    return await deleteMultipleManualShiftAssignments(ids);
   },
 };
+
+function mapAssignmentToShift(assignment: ManualAssignmentRecord): Shift {
+  const start = assignment.startTimeMinutes ?? 9 * 60;
+  const end = assignment.endTimeMinutes ?? start + 8 * 60;
+
+  return {
+    id: assignment.id,
+    employeeId: assignment.employeeId,
+    date: formatDateISO(assignment.date),
+    startTime: minutesToTime(start),
+    endTime: minutesToTime(end),
+    breakMinutes: assignment.breakMinutes ?? undefined,
+    costCenterId: assignment.costCenterId ?? "",
+    zoneId: assignment.workZoneId ?? "",
+    scheduleTemplateId: assignment.scheduleTemplateId ?? undefined,
+    role: assignment.customRole ?? assignment.scheduleTemplate?.name,
+    status: STATUS_TO_UI[assignment.status],
+    notes: assignment.notes ?? undefined,
+    publishedAt: assignment.publishedAt ?? undefined,
+    createdAt: assignment.createdAt,
+    updatedAt: assignment.updatedAt,
+  };
+}
+
+function toDate(value: string): Date {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function normalizeZoneId(value?: string | null) {
+  if (!value) {
+    return undefined;
+  }
+  return value;
+}

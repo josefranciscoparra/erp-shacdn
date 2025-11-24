@@ -1,217 +1,88 @@
-# Módulo de Turnos - Estado Actual
+# Módulo de Turnos – Estado Actual
 
-## ✅ COMPLETADO Y FUNCIONAL
-
-El módulo de turnos está **57% completado** con la estructura base completamente funcional y lista para usar. La página ya es accesible en:
-
-```
-http://localhost:3000/dashboard/shifts
-```
-
-## 📦 Lo que YA está funcionando
-
-### Core Completo (100%)
-- ✅ **20+ archivos** de lógica de negocio completamente implementados
-- ✅ **Mock service** con datos seed realistas (4 lugares, 8 zonas, 10 empleados, 20 turnos)
-- ✅ **Zustand store** desacoplado y listo para API real
-- ✅ **40+ funciones auxiliares** (fechas, validaciones, formateo, colores)
-- ✅ **Sistema de tipos** completo con TypeScript
-
-### UI Básica (50%)
-- ✅ **Filtros avanzados** (lugar, zona, rol, estado)
-- ✅ **Navegación de semana** funcional
-- ✅ **Selector de vista** (semana/mes, empleado/área)
-- ✅ **Estados vacíos** profesionales
-- ✅ **Componente turno** preparado para drag & drop
-- ✅ **Estructura de tabs** (Cuadrante, Plantillas, Configuración)
-
-### Arquitectura
-- ✅ **100% desacoplado**: Cambiar a API real = modificar 1 línea
-- ✅ **date-fns** y **@dnd-kit** ya instalados
-- ✅ **Documentación completa** (3 archivos MD detallados)
-
-## ⏳ Pendiente de Implementar (43%)
-
-### Componentes Críticos
-1. **CalendarWeekEmployee** (vista principal con drag & drop)
-2. **CalendarMonthEmployee** (vista compacta)
-3. **CalendarWeekArea** (heatmap de cobertura)
-4. **ShiftDialog** (modal crear/editar turno)
-5. **TemplateApplyDialog** (aplicar plantillas)
-6. **TemplatesTable** (gestión de plantillas)
-7. **PublishBar** (acciones masivas)
-8. **ZonesCRUD** (configuración de zonas)
-
-### Estimación
-- **Tiempo**: 4-6 horas adicionales
-- **Complejidad**: Media (los componentes base ya existen)
-- **Prioridad**: Vistas calendario > Modales > Resto
-
-## 🚀 Cómo Continuar
-
-### Opción 1: Implementar Vistas Calendario (CRÍTICO)
-
-El paso más importante es crear las vistas de calendario. Ejemplo básico:
-
-```tsx
-// _components/calendar-week-employee.tsx
-'use client'
-
-import { DndContext } from '@dnd-kit/core'
-import { useShiftsStore } from '../_store/shifts-store'
-import { ShiftBlock } from './shift-block'
-import { getWeekDays, formatDateISO } from '../_lib/shift-utils'
-
-export function CalendarWeekEmployee() {
-  const { shifts, employees, currentWeekStart, moveShift } = useShiftsStore()
-  const weekDays = getWeekDays(currentWeekStart)
-
-  // Agrupar turnos por empleado y día
-  const shiftsGrid = employees.reduce((grid, emp) => {
-    grid[emp.id] = weekDays.reduce((days, date) => {
-      days[formatDateISO(date)] = shifts.filter(
-        s => s.employeeId === emp.id && s.date === formatDateISO(date)
-      )
-      return days
-    }, {})
-    return grid
-  }, {})
-
-  return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="grid">
-        {/* Header con días */}
-        <div className="grid grid-cols-8">
-          <div>Empleado</div>
-          {weekDays.map(day => (
-            <div key={day.toString()}>{formatDateShort(day)}</div>
-          ))}
-        </div>
-
-        {/* Filas de empleados */}
-        {employees.map(emp => (
-          <div key={emp.id} className="grid grid-cols-8">
-            <div>{emp.firstName} {emp.lastName}</div>
-            {weekDays.map(day => {
-              const dayShifts = shiftsGrid[emp.id][formatDateISO(day)]
-              return (
-                <div key={day.toString()} className="border p-2">
-                  {dayShifts.map(shift => (
-                    <ShiftBlock
-                      key={shift.id}
-                      shift={shift}
-                      onClick={() => openShiftDialog(shift)}
-                    />
-                  ))}
-                </div>
-              )
-            })}
-          </div>
-        ))}
-      </div>
-    </DndContext>
-  )
-}
-```
-
-### Opción 2: Implementar Modales
-
-```tsx
-// _components/shift-dialog.tsx
-'use client'
-
-import { useForm } from 'react-hook-form'
-import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog'
-import { Form, FormField } from '@/components/ui/form'
-import { useShiftsStore } from '../_store/shifts-store'
-
-export function ShiftDialog() {
-  const { isShiftDialogOpen, selectedShift, closeShiftDialog, createShift, updateShift } = useShiftsStore()
-
-  const form = useForm({
-    defaultValues: selectedShift ?? {
-      employeeId: '',
-      date: '',
-      startTime: '08:00',
-      endTime: '16:00',
-      // ...
-    }
-  })
-
-  const onSubmit = async (data) => {
-    if (selectedShift) {
-      await updateShift(selectedShift.id, data)
-    } else {
-      await createShift(data)
-    }
-  }
-
-  return (
-    <Dialog open={isShiftDialogOpen} onOpenChange={closeShiftDialog}>
-      <DialogContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            {/* Campos del formulario */}
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
-  )
-}
-```
-
-## 📚 Documentación Disponible
-
-1. **TURNOS_UI_PLAN.md** - Plan arquitectónico completo (60 páginas)
-2. **PROGRESS.md** - Estado detallado del desarrollo
-3. **README.md** - Este archivo (guía rápida)
-
-## 🔧 Cambiar a API Real (Futuro)
-
-Cuando implementes el backend, solo necesitas:
-
-1. Crear `shift-service.api.ts`:
-```typescript
-export class ShiftServiceAPI implements IShiftService {
-  async getShifts(filters: ShiftFilters) {
-    const response = await fetch('/api/shifts', {
-      method: 'POST',
-      body: JSON.stringify(filters),
-    })
-    return response.json()
-  }
-  // ... resto de métodos
-}
-
-export const shiftService = new ShiftServiceAPI()
-```
-
-2. Cambiar import en `shifts-store.tsx`:
-```typescript
-// ANTES:
-import { shiftService } from '../_lib/shift-service.mock'
-// DESPUÉS:
-import { shiftService } from '../_lib/shift-service.api'
-```
-
-3. ✅ Listo! Los componentes NO se tocan.
-
-## 🎯 Resumen
-
-| Categoría | Estado | Archivos |
-|-----------|--------|----------|
-| Documentación | ✅ 100% | 3/3 |
-| Core (_lib) | ✅ 100% | 5/5 |
-| Store | ✅ 100% | 1/1 |
-| Componentes base | ✅ 100% | 4/4 |
-| Vistas calendario | ⏳ 0% | 0/3 |
-| Modales | ⏳ 0% | 0/3 |
-| Otros componentes | ⏳ 0% | 0/3 |
-| Páginas | 🟡 50% | 1/2 |
-| **TOTAL** | **57%** | **14/24** |
+El cuadrante accesible en `http://localhost:3000/dashboard/shifts` ya opera sobre el backend real con planificación manual, plantillas reutilizables y vistas avanzadas. Este documento resume la funcionalidad disponible y cómo está organizada la solución.
 
 ---
 
-**¿Preguntas?** Consulta `TURNOS_UI_PLAN.md` o `PROGRESS.md` para detalles completos.
+## 🚀 Capacidades Clave
 
-**Última actualización:** 2025-11-12
+- **Calendarios interactivos**
+  - Semana/Mes por empleado con drag & drop, estadísticas de horas y estados (borrador/publicado/conflicto).
+  - Vista por áreas con cobertura por franja, alertas visuales y acciones rápidas para asignar personal.
+- **Planificación manual**
+  - Creación/edición de turnos con validación básica de datos y pre-relleno desde el calendario.
+  - Reasignación, copia y redimensionado de turnos directamente en el cuadrante.
+- **Plantillas reutilizables**
+  - CRUD completo de patrones (ej. M→T→N→Descanso) mediante el nuevo `TemplateDialog`.
+  - Aplicación masiva (`TemplateApplyDialog`) con preview de turnos y selección múltiple de empleados.
+- **Operaciones masivas**
+  - Copiar semana anterior, publicar borradores y eliminación múltiple de turnos.
+- **Configuración multicentro**
+  - Gestión de zonas, cobertura requerida y filtros por centro/área.
+
+---
+
+## 🧱 Arquitectura
+
+| Capa | Descripción |
+|------|-------------|
+| Server Actions (`src/server/actions/schedules-v2.ts`) | Gestionan `ManualShiftAssignment`, plantillas manuales, copy/publish y zonas sobre Prisma. |
+| Servicio (`_lib/shift-service.ts`) | Traductor entre Prisma y la UI. Convierten modelos en `Shift`, aplican mapeos de estado y normalizan fechas. |
+| Store (`_store/shifts-store.tsx`) | Estado centralizado con Zustand (turnos, filtros, empleados, plantillas y modales). |
+| UI (`_components`) | Calendarios, diálogos y tablas desacoplados, listos para evolucionar (drag & drop con `@dnd-kit`). |
+
+### Modelos implicados
+- `ManualShiftAssignment`: turno planificado con overrides y estado (`DRAFT/PUBLISHED/CONFLICT`).
+- `ManualShiftTemplate`: patrón secuencial de turnos para aplicar sobre un rango.
+- `WorkZone`: zonas dentro de un centro con cobertura esperada.
+
+---
+
+## 🔁 Flujos Principales
+
+1. **Crear/editar turno**
+   - `ShiftDialog` → `createShift`/`updateShift` → Server Action `createManualShiftAssignment`.
+2. **Arrastrar o copiar turno**
+   - `CalendarWeek*` → `moveShift`/`copyShift` → `updateManualShiftAssignment` / `createManualShiftAssignment`.
+3. **Aplicar plantilla**
+   - `TemplatesTable` → `TemplateApplyDialog` → `applyManualShiftTemplate` y re-fetch automático.
+4. **Publicar semana**
+   - `PublishBar` → `publishManualShiftAssignments` → recarga del cuadrante + toast.
+5. **Configurar zonas**
+   - `ZonesTable` + `ZoneDialog` → `createWorkZone`/`updateWorkZone`.
+
+---
+
+## ✅ Checklist
+
+| Categoría | Estado |
+|-----------|--------|
+| Core + servicio | ✅ Integrados con Server Actions reales. |
+| Calendarios (empleados/áreas) | ✅ Drag & drop, heatmap y estadísticas. |
+| Diálogos (turnos, plantillas, aplicar) | ✅ Formularios RHF + Zod, con estados de carga. |
+| TemplatesTable + duplicado | ✅ Abre diálogos y soporta duplicación con un clic. |
+| PublishBar / WeekNavigator / Filtros | ✅ Operativos con toasts y re-fetch automático. |
+| Configuración de zonas | ✅ Tabla + modal con cobertura requerida. |
+
+---
+
+## 📂 Archivos Relevantes
+
+- `_lib/shift-service.ts`: adapta todas las server actions a los tipos UI (`Shift`, `ShiftTemplate`, etc.).
+- `_store/shifts-store.tsx`: estado global (turnos, plantillas, empleados) y operaciones masivas.
+- `_components/*`: calendarios, diálogos y tablas del módulo.
+- `PROGRESS.md`: cronología y próximos hitos.
+- `TURNOS_UI_PLAN.md`: visión de UX a medio plazo (drag & drop avanzado, cobertura, etc.).
+
+---
+
+## 🔎 Próximos pasos sugeridos
+
+1. Incorporar validaciones avanzadas (descansos mínimos, conflictos multi-zona, ausencias aprobadas).
+2. Métricas adicionales (bolsa de horas, cobertura semanal agregada, comparativas vs presupuesto).
+3. Automatizaciones (rotaciones matemáticas, notificaciones automáticas al publicar turnos).
+4. Tests E2E específicos para drag & drop y aplicación de plantillas.
+
+---
+
+**Última actualización:** ver `PROGRESS.md` para el changelog detallado.

@@ -999,6 +999,16 @@ async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: 
 
   // 2. Si no hay overrides, usar la plantilla referenciada
   // Necesitamos cargar la plantilla completa con sus patrones
+  if (!assignment.scheduleTemplateId) {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "MANUAL",
+    };
+  }
+
   const template = await prisma.scheduleTemplate.findUnique({
     where: { id: assignment.scheduleTemplateId },
     include: {

@@ -78,9 +78,11 @@ export interface Shift {
   breakMinutes?: number; // Minutos de descanso (ej: 60 para 1 hora, 30 para media hora)
   costCenterId: string; // Lugar de trabajo
   zoneId: string; // Zona dentro del lugar
+  scheduleTemplateId?: string;
   role?: string; // Rol opcional (ej: "Turno mañana", "Supervisor")
   status: ShiftStatus;
   notes?: string;
+  publishedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -201,9 +203,11 @@ export interface ShiftInput {
   endTime: string; // Formato: HH:mm
   breakMinutes?: number; // Minutos de descanso
   costCenterId: string;
-  zoneId: string;
+  zoneId?: string;
+  scheduleTemplateId?: string;
   role?: string;
   notes?: string;
+  status?: ShiftStatus;
 }
 
 /**

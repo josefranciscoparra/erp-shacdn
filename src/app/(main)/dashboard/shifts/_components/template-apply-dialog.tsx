@@ -9,8 +9,7 @@
 import { useEffect, useState, useMemo } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { differenceInDays, parseISO, addDays } from "date-fns";
-import { format } from "date-fns";
+import { differenceInDays, parseISO, addDays, format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar as CalendarIcon, Users, AlertTriangle, CheckCircle2, Loader2, Play } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -414,12 +413,11 @@ export function TemplateApplyDialog() {
               </Alert>
             )}
 
-            {/* Advertencia mock */}
             <Alert variant="default" className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
               <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-500" />
               <AlertDescription className="text-sm text-amber-800 dark:text-amber-300">
-                ⚠️ <strong>Mock:</strong> En el sistema real, aquí se validarán conflictos, ausencias y restricciones
-                antes de crear los turnos.
+                ⚠️ Antes de generar los turnos se validarán conflictos, ausencias y descansos mínimos para cada
+                empleado.
               </AlertDescription>
             </Alert>
 

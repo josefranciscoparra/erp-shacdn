@@ -86,6 +86,11 @@
 *   **Storage:** `ScheduleTemplate`, `SchedulePeriod`, `EmployeeScheduleAssignment`.
 *   **Integration:** Time tracking automatically calculates deviations from the assigned schedule.
 
+### Shift Planner (Dashboard → Shifts)
+*   **Backend:** Server Actions en `src/server/actions/schedules-v2.ts` (`ManualShiftAssignment`, `ManualShiftTemplate`, zonas).
+*   **Servicio/UI:** `_lib/shift-service.ts` + `_store/shifts-store.tsx` + `_components/*` (calendarios, diálogos y tablas).
+*   **Capacidades:** drag & drop, plantillas reutilizables, aplicación masiva, copy/publish week y configuración multicentro.
+
 ## Documentation
 *   Refer to `TECHNICAL.md` for deep dives into the stack.
 *   Refer to `CLAUDE.md` for specific AI-assistant behavioral rules (Spanish language preference, etc.).

@@ -58,6 +58,7 @@ interface ShiftsState {
   shiftDialogPrefill: Partial<ShiftInput> | null;
 
   isTemplateDialogOpen: boolean;
+  isTemplateApplyDialogOpen: boolean;
   selectedTemplate: ShiftTemplate | null;
 
   isZoneDialogOpen: boolean;
@@ -109,6 +110,8 @@ interface ShiftsState {
   closeShiftDialog: () => void;
   openTemplateDialog: (template?: ShiftTemplate) => void;
   closeTemplateDialog: () => void;
+  openTemplateApplyDialog: (template?: ShiftTemplate) => void;
+  closeTemplateApplyDialog: () => void;
   openZoneDialog: (zone?: Zone) => void;
   closeZoneDialog: () => void;
 
@@ -142,6 +145,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   shiftDialogPrefill: null,
 
   isTemplateDialogOpen: false,
+  isTemplateApplyDialogOpen: false,
   selectedTemplate: null,
 
   isZoneDialogOpen: false,
@@ -494,16 +498,14 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
     try {
       const response = await shiftService.applyTemplate(input);
 
-      if (response.success && response.createdShifts) {
-        set((state) => ({
-          shifts: [...state.shifts, ...response.createdShifts!],
-          isLoading: false,
-        }));
-
-        toast.success(`Plantilla aplicada: ${response.totalCreated} turnos creados`);
-      } else {
+      if (!response.success) {
         throw new Error(response.error ?? "Error al aplicar plantilla");
       }
+
+      await get().fetchShifts();
+      set({ isLoading: false });
+      toast.success(`Plantilla aplicada: ${response.totalCreated} turnos creados`);
+      get().closeTemplateApplyDialog();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al aplicar plantilla";
       set({ error: errorMessage, isLoading: false });
@@ -537,20 +539,13 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
     try {
       const response = await shiftService.publishShifts(get().filters);
 
-      if (response.success) {
-        // Actualizar turnos publicados en el estado
-        set((state) => ({
-          shifts: state.shifts.map((s) => {
-            const published = response.publishedShifts?.find((ps) => ps.id === s.id);
-            return published ?? s;
-          }),
-          isLoading: false,
-        }));
-
-        toast.success(`${response.publishedCount} turnos publicados correctamente`);
-      } else {
+      if (!response.success) {
         throw new Error(response.error ?? "Error al publicar turnos");
       }
+
+      await get().fetchShifts();
+      set({ isLoading: false });
+      toast.success(`${response.publishedCount} turnos publicados correctamente`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al publicar turnos";
       set({ error: errorMessage, isLoading: false });
@@ -668,6 +663,8 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   openTemplateDialog: (template) => set({ isTemplateDialogOpen: true, selectedTemplate: template ?? null }),
   closeTemplateDialog: () => set({ isTemplateDialogOpen: false, selectedTemplate: null }),
+  openTemplateApplyDialog: (template) => set({ isTemplateApplyDialogOpen: true, selectedTemplate: template ?? null }),
+  closeTemplateApplyDialog: () => set({ isTemplateApplyDialogOpen: false, selectedTemplate: null }),
 
   openZoneDialog: (zone) => set({ isZoneDialogOpen: true, selectedZone: zone ?? null }),
   closeZoneDialog: () => set({ isZoneDialogOpen: false, selectedZone: null }),

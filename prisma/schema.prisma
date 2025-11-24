@@ -29,151 +29,152 @@ model Organization {
   employeeNumberCounter Int     @default(0) // Contador atómico para generar números únicos
 
   // Configuración de validación de emails corporativos
-  allowedEmailDomains   String[] @default([]) // Dominios de email permitidos (ej: ["acme.com", "acme.es"])
+  allowedEmailDomains String[] @default([]) // Dominios de email permitidos (ej: ["acme.com", "acme.es"])
 
   // Configuración de PTO (Vacaciones)
-  annualPtoDays        Int     @default(23) // Días de vacaciones anuales por defecto
-  ptoCalculationMethod String  @default("PROPORTIONAL") // PROPORTIONAL, FIXED
-  ptoAccrualStartDate  String  @default("CONTRACT_START") // CONTRACT_START, YEAR_START
+  annualPtoDays        Int    @default(23) // Días de vacaciones anuales por defecto
+  ptoCalculationMethod String @default("PROPORTIONAL") // PROPORTIONAL, FIXED
+  ptoAccrualStartDate  String @default("CONTRACT_START") // CONTRACT_START, YEAR_START
 
   // Configuración de Geolocalización
-  geolocationEnabled      Boolean @default(false) // Activar/desactivar captura de geolocalización
-  geolocationRequired     Boolean @default(false) // Si es obligatorio tener ubicación para fichar
-  geolocationMinAccuracy  Int     @default(100)   // Precisión mínima requerida en metros
-  geolocationMaxRadius    Int     @default(200)   // Radio máximo permitido por defecto en metros
+  geolocationEnabled     Boolean @default(false) // Activar/desactivar captura de geolocalización
+  geolocationRequired    Boolean @default(false) // Si es obligatorio tener ubicación para fichar
+  geolocationMinAccuracy Int     @default(100) // Precisión mínima requerida en metros
+  geolocationMaxRadius   Int     @default(200) // Radio máximo permitido por defecto en metros
 
   // Configuración de Validaciones de Fichajes
-  clockInToleranceMinutes       Int     @default(15)  // Tolerancia para entrada (minutos de retraso aceptables)
-  clockOutToleranceMinutes      Int     @default(15)  // Tolerancia para salida (minutos de retraso aceptables)
-  earlyClockInToleranceMinutes  Int     @default(30)  // Tolerancia para entrada anticipada (minutos antes del horario)
-  lateClockOutToleranceMinutes  Int     @default(30)  // Tolerancia para salida tardía (minutos después del horario)
-  nonWorkdayClockInAllowed      Boolean @default(false) // Permitir fichar en días no laborables
-  nonWorkdayClockInWarning      Boolean @default(true)  // Mostrar warning al fichar en día no laboral
+  clockInToleranceMinutes      Int     @default(15) // Tolerancia para entrada (minutos de retraso aceptables)
+  clockOutToleranceMinutes     Int     @default(15) // Tolerancia para salida (minutos de retraso aceptables)
+  earlyClockInToleranceMinutes Int     @default(30) // Tolerancia para entrada anticipada (minutos antes del horario)
+  lateClockOutToleranceMinutes Int     @default(30) // Tolerancia para salida tardía (minutos después del horario)
+  nonWorkdayClockInAllowed     Boolean @default(false) // Permitir fichar en días no laborables
+  nonWorkdayClockInWarning     Boolean @default(true) // Mostrar warning al fichar en día no laboral
 
   // Configuración de Alertas de Fichajes (Sistema Avanzado)
-  criticalLateArrivalMinutes    Int     @default(30)  // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)
-  criticalEarlyDepartureMinutes Int     @default(30)  // Minutos de salida temprana para alerta CRÍTICA
-  alertsEnabled                 Boolean @default(true) // Activar/desactivar sistema de alertas de fichajes
-  alertNotificationsEnabled     Boolean @default(false) // Enviar notificaciones a RRHH/managers sobre alertas
+  criticalLateArrivalMinutes    Int      @default(30) // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)
+  criticalEarlyDepartureMinutes Int      @default(30) // Minutos de salida temprana para alerta CRÍTICA
+  alertsEnabled                 Boolean  @default(true) // Activar/desactivar sistema de alertas de fichajes
+  alertNotificationsEnabled     Boolean  @default(false) // Enviar notificaciones a RRHH/managers sobre alertas
   alertNotificationRoles        String[] @default(["RRHH"]) // Roles que reciben notificaciones de alertas
 
   // Configuración de Chat
-  chatEnabled             Boolean @default(false) // Activar/desactivar módulo de chat 1:1
+  chatEnabled Boolean @default(false) // Activar/desactivar módulo de chat 1:1
 
   // Configuración de Turnos
-  shiftsEnabled           Boolean @default(false) // Activar/desactivar módulo de gestión de turnos
+  shiftsEnabled Boolean @default(false) // Activar/desactivar módulo de gestión de turnos
 
   // Feature flags (DEPRECATED: migrar a campos booleanos específicos)
-  features                Json    @default("{}") // Feature flags JSON: { chat: true, ... }
+  features Json @default("{}") // Feature flags JSON: { chat: true, ... }
 
   // Relaciones
-  users               User[]
-  employees           Employee[]
-  costCenters         CostCenter[]
-  departments         Department[]
-  positions           Position[]
-  positionLevels      PositionLevel[]
-  employmentContracts EmploymentContract[]
-  employeeDocuments   EmployeeDocument[]
-  temporaryPasswords  TemporaryPassword[]
-  calendars           Calendar[]
-  timeClockTerminals  TimeClockTerminal[]
-  timeEntries         TimeEntry[]
-  workdaySummaries    WorkdaySummary[]
-  absenceTypes        AbsenceType[]
-  ptoBalances         PtoBalance[]
-  ptoRequests         PtoRequest[]
-  ptoNotifications    PtoNotification[]
-  ptoBalanceAdjustments PtoBalanceAdjustment[]
+  users                   User[]
+  employees               Employee[]
+  costCenters             CostCenter[]
+  departments             Department[]
+  positions               Position[]
+  positionLevels          PositionLevel[]
+  employmentContracts     EmploymentContract[]
+  employeeDocuments       EmployeeDocument[]
+  temporaryPasswords      TemporaryPassword[]
+  calendars               Calendar[]
+  timeClockTerminals      TimeClockTerminal[]
+  timeEntries             TimeEntry[]
+  workdaySummaries        WorkdaySummary[]
+  absenceTypes            AbsenceType[]
+  ptoBalances             PtoBalance[]
+  ptoRequests             PtoRequest[]
+  ptoNotifications        PtoNotification[]
+  ptoBalanceAdjustments   PtoBalanceAdjustment[]
   recurringPtoAdjustments RecurringPtoAdjustment[]
-  ptoConfig           OrganizationPtoConfig?
-  signableDocuments   SignableDocument[]
-  signatureRequests   SignatureRequest[]
+  ptoConfig               OrganizationPtoConfig?
+  signableDocuments       SignableDocument[]
+  signatureRequests       SignatureRequest[]
   manualTimeEntryRequests ManualTimeEntryRequest[]
-  expenses            Expense[]
-  expenseProcedures   ExpenseProcedure[]
-  expenseReports      ExpenseReport[]
-  expensePolicy       ExpensePolicy?
-  expenseApprovers    ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
-  
-  // Configuración de Gastos (Público vs Privado)
-  expenseMode         ExpenseMode       @default(PRIVATE)
+  expenses                Expense[]
+  expenseProcedures       ExpenseProcedure[]
+  expenseReports          ExpenseReport[]
+  expensePolicy           ExpensePolicy?
+  expenseApprovers        ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
 
-  geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización
-  sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
-  conversations       Conversation[] // Conversaciones de chat
-  messages            Message[] // Mensajes de chat
+  // Configuración de Gastos (Público vs Privado)
+  expenseMode ExpenseMode @default(PRIVATE)
+
+  geolocationConsents    GeolocationConsent[] // Consentimientos de geolocalización
+  sensitiveDataAccess    SensitiveDataAccess[] // Logs de acceso a datos sensibles
+  conversations          Conversation[] // Conversaciones de chat
+  messages               Message[] // Mensajes de chat
   dismissedNotifications DismissedNotification[] // Notificaciones descartadas
 
   // NUEVAS relaciones para Sistema de Horarios V2.0
-  scheduleTemplates   ScheduleTemplate[]
-  manualAssignments   ManualShiftAssignment[]
-  rotationPatterns    ShiftRotationPattern[]
-  exceptionDays       ExceptionDayOverride[]
-  workZones           WorkZone[]
+  scheduleTemplates ScheduleTemplate[]
+  manualAssignments ManualShiftAssignment[]
+  rotationPatterns  ShiftRotationPattern[]
+  exceptionDays     ExceptionDayOverride[]
+  workZones         WorkZone[]
 
   // Sistema de permisos y alertas
-  areaResponsibles    AreaResponsible[]
-  alertSubscriptions  AlertSubscription[]
-  alerts              Alert[]
+  areaResponsibles   AreaResponsible[]
+  alertSubscriptions AlertSubscription[]
+  alerts             Alert[]
 
   // NUEVO: Equipos de la organización
-  teams               Team[]
+  teams Team[]
 
   // NUEVO: Contextos activos de usuarios
   userActiveContexts  UserActiveContext[]
+  ManualShiftTemplate ManualShiftTemplate[]
 
   @@map("organizations")
 }
 
 model User {
-  id               String    @id @default(cuid())
-  email            String    @unique
-  password         String
-  name             String
-  role             Role      @default(EMPLOYEE)
-  emailVerified    DateTime?
-  image            String?
-  active           Boolean   @default(true)
-  mustChangePassword Boolean @default(false)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id                 String    @id @default(cuid())
+  email              String    @unique
+  password           String
+  name               String
+  role               Role      @default(EMPLOYEE)
+  emailVerified      DateTime?
+  image              String?
+  active             Boolean   @default(true)
+  mustChangePassword Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones
-  sessions           Session[]
-  employee           Employee?           // Un usuario puede estar vinculado a un empleado
-  uploadedDocuments  EmployeeDocument[]  // Documentos que ha subido
-  temporaryPasswords TemporaryPassword[] // Contraseñas temporales generadas para este usuario
-  createdTempPasswords TemporaryPassword[] @relation("CreatedBy") // Contraseñas temporales que ha creado
-  approvedPtoRequests PtoRequest[]        @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
-  ptoNotifications   PtoNotification[]   // Notificaciones recibidas
-  ptoBalanceAdjustments PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
-  recurringPtoAdjustments RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
-  createdSignableDocuments SignableDocument[] // Documentos firmables que ha creado
+  sessions                  Session[]
+  employee                  Employee? // Un usuario puede estar vinculado a un empleado
+  uploadedDocuments         EmployeeDocument[] // Documentos que ha subido
+  temporaryPasswords        TemporaryPassword[] // Contraseñas temporales generadas para este usuario
+  createdTempPasswords      TemporaryPassword[]      @relation("CreatedBy") // Contraseñas temporales que ha creado
+  approvedPtoRequests       PtoRequest[]             @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
+  ptoNotifications          PtoNotification[] // Notificaciones recibidas
+  ptoBalanceAdjustments     PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
+  recurringPtoAdjustments   RecurringPtoAdjustment[] // Ajustes recurrentes que ha creado
+  createdSignableDocuments  SignableDocument[] // Documentos firmables que ha creado
   approvedManualTimeEntries ManualTimeEntryRequest[] @relation("ManualTimeEntryApprover") // Solicitudes de fichaje manual que ha aprobado/rechazado
-  createdExpenses Expense[] @relation("ExpenseCreator") // Gastos creados
-  createdProcedures ExpenseProcedure[] @relation("ProcedureCreator") // Expedientes de gasto creados
-  reimbursedExpenses Expense[] @relation("ExpenseReimburser") // Gastos que he reembolsado
-  expenseApprovals ExpenseApproval[] // Aprobaciones de gastos
-  expenseApproverRoles ExpenseApprover[] @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
-  employeesIApprove Employee[] @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
-  geolocationConsents GeolocationConsent[] // Consentimientos de geolocalización dados
-  sensitiveDataAccess SensitiveDataAccess[] // Logs de acceso a datos sensibles
-  conversationsAsUserA Conversation[] @relation("ConversationUserA") // Conversaciones donde soy UserA
-  conversationsAsUserB Conversation[] @relation("ConversationUserB") // Conversaciones donde soy UserB
-  messagesSent Message[] // Mensajes enviados
-  dismissedNotifications DismissedNotification[] // Notificaciones descartadas por el usuario
-  createdExceptions ExceptionDayOverride[] @relation("CreatedExceptions") // Excepciones de horario que he creado
-  deletedExceptions ExceptionDayOverride[] @relation("DeletedExceptions") // Excepciones de horario que he eliminado
+  createdExpenses           Expense[]                @relation("ExpenseCreator") // Gastos creados
+  createdProcedures         ExpenseProcedure[]       @relation("ProcedureCreator") // Expedientes de gasto creados
+  reimbursedExpenses        Expense[]                @relation("ExpenseReimburser") // Gastos que he reembolsado
+  expenseApprovals          ExpenseApproval[] // Aprobaciones de gastos
+  expenseApproverRoles      ExpenseApprover[]        @relation("ExpenseApproverRoles") // Organizaciones donde soy aprobador de gastos
+  employeesIApprove         Employee[]               @relation("EmployeeExpenseApprover") // Empleados de los que soy aprobador específico
+  geolocationConsents       GeolocationConsent[] // Consentimientos de geolocalización dados
+  sensitiveDataAccess       SensitiveDataAccess[] // Logs de acceso a datos sensibles
+  conversationsAsUserA      Conversation[]           @relation("ConversationUserA") // Conversaciones donde soy UserA
+  conversationsAsUserB      Conversation[]           @relation("ConversationUserB") // Conversaciones donde soy UserB
+  messagesSent              Message[] // Mensajes enviados
+  dismissedNotifications    DismissedNotification[] // Notificaciones descartadas por el usuario
+  createdExceptions         ExceptionDayOverride[]   @relation("CreatedExceptions") // Excepciones de horario que he creado
+  deletedExceptions         ExceptionDayOverride[]   @relation("DeletedExceptions") // Excepciones de horario que he eliminado
 
   // Sistema de permisos y alertas
-  areaResponsibilities AreaResponsible[] @relation("UserAreaResponsibilities") // Áreas de las que es responsable
-  alertSubscriptions   AlertSubscription[] @relation("UserAlertSubscriptions") // Suscripciones a alertas
-  resolvedAlerts       Alert[] @relation("AlertResolver") // Alertas que ha resuelto
+  areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
+  alertSubscriptions   AlertSubscription[]       @relation("UserAlertSubscriptions") // Suscripciones a alertas
+  resolvedAlerts       Alert[]                   @relation("AlertResolver") // Alertas que ha resuelto
   activeContext        UserActiveContext? // Contexto activo seleccionado por el usuario
   procedureHistory     ExpenseProcedureHistory[] // Historial de expedientes donde ha actuado
 
@@ -196,25 +197,25 @@ model Session {
 
 // Tipos de jerarquía organizacional
 enum HierarchyType {
-  FLAT           // Sin jerarquía (todos al mismo nivel, organizaciones planas)
-  DEPARTMENTAL   // Por departamentos (managers de depto + empleados)
-  HIERARCHICAL   // Jerárquico completo (CEO → directores → managers → empleados)
+  FLAT // Sin jerarquía (todos al mismo nivel, organizaciones planas)
+  DEPARTMENTAL // Por departamentos (managers de depto + empleados)
+  HIERARCHICAL // Jerárquico completo (CEO → directores → managers → empleados)
 }
 
 // Roles básicos del sistema
 enum Role {
   SUPER_ADMIN // Super administrador (multi-org)
-  ORG_ADMIN   // Administrador de organización
-  HR_ADMIN    // RRHH
-  MANAGER     // Manager/Supervisor
-  EMPLOYEE    // Empleado básico
+  ORG_ADMIN // Administrador de organización
+  HR_ADMIN // RRHH
+  MANAGER // Manager/Supervisor
+  EMPLOYEE // Empleado básico
 }
 
 // Modos de gestión de gastos
 enum ExpenseMode {
   PRIVATE // Flujo clásico: Gasto -> Aprobación -> Reembolso
-  PUBLIC  // Flujo público: Expediente -> Autorización -> Gasto -> Justificación
-  MIXED   // Ambos permitidos
+  PUBLIC // Flujo público: Expediente -> Autorización -> Gasto -> Justificación
+  MIXED // Ambos permitidos
 }
 
 // ==================== SPRINT 1: MODELOS DE RRHH ====================
@@ -223,8 +224,8 @@ enum ExpenseMode {
 model CostCenter {
   id          String   @id @default(cuid())
   name        String
-  code        String?  // Código interno del centro
-  description String?  // Descripción del centro
+  code        String? // Código interno del centro
+  description String? // Descripción del centro
   address     String?
   timezone    String   @default("Europe/Madrid")
   active      Boolean  @default(true)
@@ -232,35 +233,35 @@ model CostCenter {
   updatedAt   DateTime @updatedAt
 
   // Geolocalización (opcional - para validar fichajes)
-  latitude             Decimal? @db.Decimal(10, 8) // Latitud del centro de trabajo
-  longitude            Decimal? @db.Decimal(11, 8) // Longitud del centro de trabajo
-  allowedRadiusMeters  Int?     @default(100)      // Radio permitido en metros para fichar
+  latitude            Decimal? @db.Decimal(10, 8) // Latitud del centro de trabajo
+  longitude           Decimal? @db.Decimal(11, 8) // Longitud del centro de trabajo
+  allowedRadiusMeters Int?     @default(100) // Radio permitido en metros para fichar
 
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones
-  departments        Department[]
+  departments         Department[]
   employmentContracts EmploymentContract[]
-  calendars          Calendar[]
-  timeClockTerminals TimeClockTerminal[]
-  expenses           Expense[]
-  exceptionOverrides ExceptionDayOverride[] // Excepciones por centro de costes
-  manualAssignments  ManualShiftAssignment[] // Asignaciones manuales en este centro
-  workZones          WorkZone[] // Zonas de trabajo del centro
+  calendars           Calendar[]
+  timeClockTerminals  TimeClockTerminal[]
+  expenses            Expense[]
+  exceptionOverrides  ExceptionDayOverride[] // Excepciones por centro de costes
+  manualAssignments   ManualShiftAssignment[] // Asignaciones manuales en este centro
+  workZones           WorkZone[] // Zonas de trabajo del centro
 
   // Sistema de permisos y alertas
-  areaResponsibles   AreaResponsible[] @relation("CostCenterResponsibles") // Responsables de este centro
+  areaResponsibles   AreaResponsible[]   @relation("CostCenterResponsibles") // Responsables de este centro
   alertSubscriptions AlertSubscription[] @relation("CostCenterAlertSubscriptions") // Suscripciones a alertas de este centro
-  alerts             Alert[] @relation("AlertCostCenter") // Alertas del centro (actuales)
-  originalAlerts     Alert[] @relation("AlertOriginalCostCenter") // Alertas históricas generadas cuando el empleado estaba aquí
+  alerts             Alert[]             @relation("AlertCostCenter") // Alertas del centro (actuales)
+  originalAlerts     Alert[]             @relation("AlertOriginalCostCenter") // Alertas históricas generadas cuando el empleado estaba aquí
 
   // NUEVO: Equipos del centro
-  teams              Team[]
+  teams Team[]
 
   // NUEVO: Contextos activos con este centro
-  activeContexts     UserActiveContext[] @relation("UserActiveCostCenter")
+  activeContexts UserActiveContext[] @relation("UserActiveCostCenter")
 
   @@index([orgId])
   @@map("cost_centers")
@@ -305,19 +306,19 @@ model Department {
 
 // Nivel de puesto - Jerarquía organizacional
 model PositionLevel {
-  id          String   @id @default(cuid())
-  name        String   // "Junior", "Mid", "Senior", "Lead", "Principal"
-  code        String?  // Código interno opcional (ej: "L1", "L2", "L3")
-  order       Int      @default(0) // Orden jerárquico (1=más bajo, 10=más alto)
-  description String?  // Descripción del nivel
+  id          String  @id @default(cuid())
+  name        String // "Junior", "Mid", "Senior", "Lead", "Principal"
+  code        String? // Código interno opcional (ej: "L1", "L2", "L3")
+  order       Int     @default(0) // Orden jerárquico (1=más bajo, 10=más alto)
+  description String? // Descripción del nivel
 
   // Rangos salariales opcionales
-  minSalary   Decimal? @db.Decimal(10, 2)
-  maxSalary   Decimal? @db.Decimal(10, 2)
+  minSalary Decimal? @db.Decimal(10, 2)
+  maxSalary Decimal? @db.Decimal(10, 2)
 
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -336,8 +337,8 @@ model PositionLevel {
 // Posición/Puesto de trabajo
 model Position {
   id          String   @id @default(cuid())
-  title       String   // Título del puesto
-  description String?  // Descripción del puesto
+  title       String // Título del puesto
+  description String? // Descripción del puesto
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -360,26 +361,26 @@ model Position {
 
 // Empleado - Datos personales y perfil del empleado
 model Employee {
-  id              String    @id @default(cuid())
-  employeeNumber  String?   // Número de empleado único en la org
-  requiresEmployeeNumberReview Boolean @default(false) // Flag: Número de empleado requiere revisión manual
-  firstName       String
-  lastName        String
-  secondLastName  String?
-  nifNie          String    // NIF/NIE
-  email           String?
-  phone           String?
-  mobilePhone     String?
-  address         String?
-  city            String?
-  postalCode      String?
-  province        String?
-  country         String    @default("ES")
-  birthDate       DateTime?
-  nationality     String?
+  id                           String    @id @default(cuid())
+  employeeNumber               String? // Número de empleado único en la org
+  requiresEmployeeNumberReview Boolean   @default(false) // Flag: Número de empleado requiere revisión manual
+  firstName                    String
+  lastName                     String
+  secondLastName               String?
+  nifNie                       String // NIF/NIE
+  email                        String?
+  phone                        String?
+  mobilePhone                  String?
+  address                      String?
+  city                         String?
+  postalCode                   String?
+  province                     String?
+  country                      String    @default("ES")
+  birthDate                    DateTime?
+  nationality                  String?
 
   // Datos bancarios (cifrados)
-  iban            String?   // Se cifrará a nivel de aplicación
+  iban                         String? // Se cifrará a nivel de aplicación
   preferredReimbursementMethod ReimbursementMethod? // Método preferido para reembolsos
 
   // Contacto de emergencia
@@ -391,11 +392,11 @@ model Employee {
   employmentStatus EmploymentStatus @default(PENDING_CONTRACT)
 
   // Metadatos
-  photoUrl        String?
-  notes           String?
-  active          Boolean   @default(true)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  photoUrl  String?
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -406,24 +407,24 @@ model Employee {
   user   User?   @relation(fields: [userId], references: [id])
 
   // Relaciones
-  employmentContracts EmploymentContract[]
-  documents          EmployeeDocument[]
-  managedContracts   EmploymentContract[] @relation("ManagerSubordinates")
-  managedDepartments Department[]         @relation("DepartmentManager")
-  timeEntries        TimeEntry[]
-  workdaySummaries   WorkdaySummary[]
-  ptoBalances        PtoBalance[]
-  ptoRequests        PtoRequest[]
+  employmentContracts     EmploymentContract[]
+  documents               EmployeeDocument[]
+  managedContracts        EmploymentContract[]     @relation("ManagerSubordinates")
+  managedDepartments      Department[]             @relation("DepartmentManager")
+  timeEntries             TimeEntry[]
+  workdaySummaries        WorkdaySummary[]
+  ptoBalances             PtoBalance[]
+  ptoRequests             PtoRequest[]
   recurringPtoAdjustments RecurringPtoAdjustment[]
-  signers            Signer[]
+  signers                 Signer[]
   manualTimeEntryRequests ManualTimeEntryRequest[]
-  expenses           Expense[]
-  expenseProcedures  ExpenseProcedure[]
-  expenseReports     ExpenseReport[]
+  expenses                Expense[]
+  expenseProcedures       ExpenseProcedure[]
+  expenseReports          ExpenseReport[]
 
   // Aprobador específico de gastos para este empleado (opcional, sobrescribe org)
-  expenseApproverId  String?
-  expenseApprover    User?   @relation("EmployeeExpenseApprover", fields: [expenseApproverId], references: [id], onDelete: SetNull)
+  expenseApproverId String?
+  expenseApprover   User?   @relation("EmployeeExpenseApprover", fields: [expenseApproverId], references: [id], onDelete: SetNull)
 
   // NUEVAS relaciones para Sistema de Horarios V2.0
   scheduleAssignments EmployeeScheduleAssignment[]
@@ -431,14 +432,14 @@ model Employee {
   exceptionDays       ExceptionDayOverride[]
 
   // Sistema de permisos y alertas
-  alerts              Alert[] @relation("EmployeeAlerts") // Alertas generadas para este empleado
+  alerts Alert[] @relation("EmployeeAlerts") // Alertas generadas para este empleado
 
   // NUEVO: Equipo al que pertenece (opcional)
   teamId String?
   team   Team?   @relation("EmployeeTeam", fields: [teamId], references: [id])
 
   @@unique([orgId, employeeNumber]) // Número único por organización
-  @@unique([orgId, nifNie])         // NIF único por organización
+  @@unique([orgId, nifNie]) // NIF único por organización
   @@index([orgId])
   @@index([email])
   @@index([expenseApproverId])
@@ -448,13 +449,13 @@ model Employee {
 
 // Contrato laboral - Datos contractuales del empleado
 model EmploymentContract {
-  id          String    @id @default(cuid())
-  contractType String   // INDEFINIDO, TEMPORAL, PRACTICAS, etc.
-  startDate   DateTime
-  endDate     DateTime? // null para indefinidos
-  weeklyHours Decimal   @db.Decimal(5,2) // Horas semanales pactadas
-  workingDaysPerWeek Decimal? @default(5) @db.Decimal(3,1) // Días laborables por semana (4, 5, 6, etc.)
-  grossSalary Decimal?  @db.Decimal(10,2) // Salario bruto anual
+  id                 String    @id @default(cuid())
+  contractType       String // INDEFINIDO, TEMPORAL, PRACTICAS, etc.
+  startDate          DateTime
+  endDate            DateTime? // null para indefinidos
+  weeklyHours        Decimal   @db.Decimal(5, 2) // Horas semanales pactadas
+  workingDaysPerWeek Decimal?  @default(5) @db.Decimal(3, 1) // Días laborables por semana (4, 5, 6, etc.)
+  grossSalary        Decimal?  @db.Decimal(10, 2) // Salario bruto anual
 
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos por jornada laboral
   workdayMinutes Int? // Jornada estándar en minutos (null = calcular automático: weeklyHours / workingDaysPerWeek * 60)
@@ -463,9 +464,9 @@ model EmploymentContract {
   // Ver modelos: ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, EmployeeScheduleAssignment
 
   // Metadatos
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -495,16 +496,16 @@ model EmploymentContract {
 
 // Documentos del empleado
 model EmployeeDocument {
-  id          String   @id @default(cuid())
+  id          String       @id @default(cuid())
   kind        DocumentKind // Tipo de documento
-  fileName    String   // Nombre original del archivo
-  storageUrl  String   // URL en Azure Blob o almacén
-  fileSize    Int      // Tamaño en bytes
-  mimeType    String   // Tipo MIME
-  version     Int      @default(1) // Versión del documento
-  description String?  // Descripción opcional
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  fileName    String // Nombre original del archivo
+  storageUrl  String // URL en Azure Blob o almacén
+  fileSize    Int // Tamaño en bytes
+  mimeType    String // Tipo MIME
+  version     Int          @default(1) // Versión del documento
+  description String? // Descripción opcional
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -516,7 +517,7 @@ model EmployeeDocument {
 
   // Usuario que subió el documento
   uploadedById String
-  uploadedBy   User @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
 
   @@index([orgId])
   @@index([employeeId])
@@ -525,24 +526,24 @@ model EmployeeDocument {
 
 // Tipos de documentos
 enum DocumentKind {
-  CONTRACT     // Contrato laboral
-  PAYSLIP      // Nómina
-  ID_DOCUMENT  // DNI/NIE
-  SS_DOCUMENT  // Documento Seguridad Social
-  CERTIFICATE  // Certificados (idiomas, formación, etc.)
-  MEDICAL      // Documentos médicos
-  OTHER        // Otros documentos
+  CONTRACT // Contrato laboral
+  PAYSLIP // Nómina
+  ID_DOCUMENT // DNI/NIE
+  SS_DOCUMENT // Documento Seguridad Social
+  CERTIFICATE // Certificados (idiomas, formación, etc.)
+  MEDICAL // Documentos médicos
+  OTHER // Otros documentos
 }
 
 // Estados laborales del empleado
 enum EmploymentStatus {
-  PENDING_CONTRACT  // Pendiente de contrato
-  ACTIVE           // Activo trabajando
-  ON_LEAVE         // De baja/permiso
-  VACATION         // Vacaciones
-  SUSPENDED        // Suspendido
-  TERMINATED       // Dado de baja
-  RETIRED          // Jubilado
+  PENDING_CONTRACT // Pendiente de contrato
+  ACTIVE // Activo trabajando
+  ON_LEAVE // De baja/permiso
+  VACATION // Vacaciones
+  SUSPENDED // Suspendido
+  TERMINATED // Dado de baja
+  RETIRED // Jubilado
 }
 
 // NOTA: ScheduleType enum eliminado - Ahora se usa Sistema de Horarios V2.0
@@ -552,29 +553,29 @@ enum EmploymentStatus {
 
 // Contraseñas temporales generadas para usuarios
 model TemporaryPassword {
-  id          String    @id @default(cuid())
-  password    String    // Contraseña encriptada
-  createdAt   DateTime  @default(now())
-  usedAt      DateTime? // Cuando fue usada por primera vez
-  expiresAt   DateTime  // Cuándo expira
-  active      Boolean   @default(true)
-  
+  id        String    @id @default(cuid())
+  password  String // Contraseña encriptada
+  createdAt DateTime  @default(now())
+  usedAt    DateTime? // Cuando fue usada por primera vez
+  expiresAt DateTime // Cuándo expira
+  active    Boolean   @default(true)
+
   // Notas administrativas
-  reason      String?   // Razón de la generación (ej: "Nuevo empleado", "Reset solicitado")
-  notes       String?   // Notas adicionales del administrador
-  
+  reason String? // Razón de la generación (ej: "Nuevo empleado", "Reset solicitado")
+  notes  String? // Notas adicionales del administrador
+
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  
+
   // Usuario al que pertenece la contraseña
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
+
   // Usuario que creó la contraseña temporal (admin/HR)
   createdById String
   createdBy   User   @relation("CreatedBy", fields: [createdById], references: [id])
-  
+
   @@index([userId])
   @@index([orgId])
   @@index([active])
@@ -586,15 +587,15 @@ model TemporaryPassword {
 
 // Calendario organizacional (festivos, eventos corporativos)
 model Calendar {
-  id          String   @id @default(cuid())
-  name        String   // "Festivos Nacionales 2024", "Festivos Barcelona 2024"
-  description String?
-  year        Int      // Año al que aplica
+  id           String       @id @default(cuid())
+  name         String // "Festivos Nacionales 2024", "Festivos Barcelona 2024"
+  description  String?
+  year         Int // Año al que aplica
   calendarType CalendarType @default(NATIONAL_HOLIDAY)
-  color       String   @default("#3b82f6") // Color hex para identificación visual
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  color        String       @default("#3b82f6") // Color hex para identificación visual
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -615,15 +616,15 @@ model Calendar {
 
 // Eventos del calendario (festivos, cierres, eventos)
 model CalendarEvent {
-  id          String   @id @default(cuid())
-  name        String   // "Día de Reyes", "Cierre de verano"
+  id          String            @id @default(cuid())
+  name        String // "Día de Reyes", "Cierre de verano"
   description String?
   date        DateTime // Fecha del evento
   endDate     DateTime? // Para eventos de varios días
   eventType   CalendarEventType @default(HOLIDAY)
-  isRecurring Boolean  @default(false) // Si se repite cada año
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isRecurring Boolean           @default(false) // Si se repite cada año
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
 
   // Relación con calendario
   calendarId String
@@ -636,34 +637,34 @@ model CalendarEvent {
 
 // Tipos de calendario
 enum CalendarType {
-  NATIONAL_HOLIDAY  // Festivos nacionales
-  LOCAL_HOLIDAY     // Festivos locales por centro
-  CORPORATE_EVENT   // Eventos corporativos
-  CUSTOM           // Personalizado
+  NATIONAL_HOLIDAY // Festivos nacionales
+  LOCAL_HOLIDAY // Festivos locales por centro
+  CORPORATE_EVENT // Eventos corporativos
+  CUSTOM // Personalizado
 }
 
 // Tipos de eventos
 enum CalendarEventType {
-  HOLIDAY          // Festivo
-  CLOSURE          // Cierre (oficina cerrada)
-  EVENT            // Evento corporativo
-  MEETING          // Reunión importante
-  DEADLINE         // Fecha límite
-  OTHER            // Otro
+  HOLIDAY // Festivo
+  CLOSURE // Cierre (oficina cerrada)
+  EVENT // Evento corporativo
+  MEETING // Reunión importante
+  DEADLINE // Fecha límite
+  OTHER // Otro
 }
 
 // ==================== SPRINT 2: SISTEMA DE FICHAJES ====================
 
 // Terminal de fichaje (opcional - para fichaje desde terminales físicos)
 model TimeClockTerminal {
-  id          String   @id @default(cuid())
-  name        String   // "Terminal Recepción", "Terminal Fábrica"
-  code        String   // Código único del terminal
-  location    String?  // Ubicación física
-  ipAddress   String?  // IP del terminal
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String // "Terminal Recepción", "Terminal Fábrica"
+  code      String // Código único del terminal
+  location  String? // Ubicación física
+  ipAddress String? // IP del terminal
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -684,23 +685,23 @@ model TimeClockTerminal {
 
 // Registro individual de fichaje (entrada, salida, pausa)
 model TimeEntry {
-  id          String        @id @default(cuid())
-  entryType   TimeEntryType // CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END
-  timestamp   DateTime      @default(now()) // Momento exacto del fichaje
-  location    String?       // Geolocalización o ubicación (texto legible, deprecated)
-  notes       String?       // Notas opcionales
-  ipAddress   String?       // IP desde donde se fichó
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id        String        @id @default(cuid())
+  entryType TimeEntryType // CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END
+  timestamp DateTime      @default(now()) // Momento exacto del fichaje
+  location  String? // Geolocalización o ubicación (texto legible, deprecated)
+  notes     String? // Notas opcionales
+  ipAddress String? // IP desde donde se fichó
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
   // Geolocalización estructurada (campos nuevos)
-  latitude              Decimal? @db.Decimal(10, 8) // Latitud del fichaje
-  longitude             Decimal? @db.Decimal(11, 8) // Longitud del fichaje
-  accuracy              Decimal? @db.Decimal(10, 2) // Precisión GPS en metros
-  isWithinAllowedArea   Boolean? // Si está dentro del área permitida del centro
-  distanceFromCenter    Decimal? @db.Decimal(10, 2) // Distancia al centro más cercano en metros
-  nearestCostCenterId   String?  // ID del centro de trabajo más cercano
-  requiresReview        Boolean  @default(false)    // Si requiere revisión por estar fuera de área
+  latitude            Decimal? @db.Decimal(10, 8) // Latitud del fichaje
+  longitude           Decimal? @db.Decimal(11, 8) // Longitud del fichaje
+  accuracy            Decimal? @db.Decimal(10, 2) // Precisión GPS en metros
+  isWithinAllowedArea Boolean? // Si está dentro del área permitida del centro
+  distanceFromCenter  Decimal? @db.Decimal(10, 2) // Distancia al centro más cercano en metros
+  nearestCostCenterId String? // ID del centro de trabajo más cercano
+  requiresReview      Boolean  @default(false) // Si requiere revisión por estar fuera de área
 
   // Multi-tenancy
   orgId        String
@@ -719,23 +720,23 @@ model TimeEntry {
   workday   WorkdaySummary? @relation(fields: [workdayId], references: [id])
 
   // Fichaje manual (si fue creado desde una solicitud aprobada)
-  isManual Boolean @default(false)
+  isManual        Boolean @default(false)
   manualRequestId String? // ID de la solicitud que lo creó
 
   // Validación contra horario (Schedule V2.0)
   validationWarnings String[] @default([]) // Warnings de validación (ej: "Fichaje tardío: 20 minutos")
   validationErrors   String[] @default([]) // Errores de validación (ej: "Día no laboral")
-  deviationMinutes   Int?     // Desviación en minutos respecto al horario esperado (+/-)
+  deviationMinutes   Int? // Desviación en minutos respecto al horario esperado (+/-)
 
   // Cancelación y auditoría de fichajes
-  isCancelled          Boolean @default(false) // Si este fichaje fue cancelado
-  cancellationReason   CancellationReason? // Motivo de la cancelación
-  cancelledAt          DateTime? // Fecha/hora de cancelación
-  originalDurationHours Decimal? @db.Decimal(6,2) // Duración original si fue cancelado por larga duración
-  cancellationNotes    String? // Notas adicionales sobre la cancelación
+  isCancelled           Boolean             @default(false) // Si este fichaje fue cancelado
+  cancellationReason    CancellationReason? // Motivo de la cancelación
+  cancelledAt           DateTime? // Fecha/hora de cancelación
+  originalDurationHours Decimal?            @db.Decimal(6, 2) // Duración original si fue cancelado por larga duración
+  cancellationNotes     String? // Notas adicionales sobre la cancelación
 
   // Sistema de permisos y alertas
-  alerts               Alert[] @relation("TimeEntryAlerts") // Alertas generadas por este fichaje
+  alerts Alert[] @relation("TimeEntryAlerts") // Alertas generadas por este fichaje
 
   @@index([orgId])
   @@index([employeeId])
@@ -748,22 +749,22 @@ model TimeEntry {
 
 // Resumen consolidado de un día laboral
 model WorkdaySummary {
-  id                String   @id @default(cuid())
-  date              DateTime // Fecha del día (sin hora)
-  clockIn           DateTime? // Primera entrada del día
-  clockOut          DateTime? // Última salida del día
-  totalWorkedMinutes Decimal  @default(0) @db.Decimal(10,2) // Minutos trabajados totales (con decimales para segundos)
-  totalBreakMinutes  Decimal  @default(0) @db.Decimal(10,2) // Minutos de pausa totales (con decimales para segundos)
-  status            WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
-  notes             String?  // Notas administrativas
-  excessiveTimeNotified Boolean @default(false) // Si se notificó fichaje excesivo (> 150% jornada)
+  id                    String        @id @default(cuid())
+  date                  DateTime // Fecha del día (sin hora)
+  clockIn               DateTime? // Primera entrada del día
+  clockOut              DateTime? // Última salida del día
+  totalWorkedMinutes    Decimal       @default(0) @db.Decimal(10, 2) // Minutos trabajados totales (con decimales para segundos)
+  totalBreakMinutes     Decimal       @default(0) @db.Decimal(10, 2) // Minutos de pausa totales (con decimales para segundos)
+  status                WorkdayStatus @default(IN_PROGRESS) // IN_PROGRESS, COMPLETED, INCOMPLETE
+  notes                 String? // Notas administrativas
+  excessiveTimeNotified Boolean       @default(false) // Si se notificó fichaje excesivo (> 150% jornada)
 
   // NUEVOS campos para Sistema de Horarios V2.0
-  expectedMinutes  Decimal? @db.Decimal(6,2) // Minutos esperados según horario asignado
-  deviationMinutes Decimal? @db.Decimal(6,2) // Desviación (real - esperado)
+  expectedMinutes  Decimal? @db.Decimal(6, 2) // Minutos esperados según horario asignado
+  deviationMinutes Decimal? @db.Decimal(6, 2) // Desviación (real - esperado)
 
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -777,7 +778,7 @@ model WorkdaySummary {
   timeEntries TimeEntry[]
 
   // Sistema de permisos y alertas
-  alerts      Alert[] @relation("WorkdayAlerts") // Alertas generadas por este día laboral
+  alerts Alert[] @relation("WorkdayAlerts") // Alertas generadas por este día laboral
 
   @@unique([orgId, employeeId, date]) // Un resumen por empleado por día
   @@index([orgId])
@@ -789,59 +790,59 @@ model WorkdaySummary {
 
 // Tipos de fichaje
 enum TimeEntryType {
-  CLOCK_IN     // Entrada
-  CLOCK_OUT    // Salida
-  BREAK_START  // Inicio de pausa
-  BREAK_END    // Fin de pausa
+  CLOCK_IN // Entrada
+  CLOCK_OUT // Salida
+  BREAK_START // Inicio de pausa
+  BREAK_END // Fin de pausa
 }
 
 // Estados del día laboral
 enum WorkdayStatus {
-  IN_PROGRESS  // Día en curso (aún no ha fichado salida)
-  COMPLETED    // Día completado correctamente
-  INCOMPLETE   // Día incompleto (falta salida o hay inconsistencias)
-  ABSENT       // Ausente (no fichó)
+  IN_PROGRESS // Día en curso (aún no ha fichado salida)
+  COMPLETED // Día completado correctamente
+  INCOMPLETE // Día incompleto (falta salida o hay inconsistencias)
+  ABSENT // Ausente (no fichó)
 }
 
 // Motivos de cancelación de fichajes
 enum CancellationReason {
-  EXCESSIVE_DURATION          // Fichaje de larga duración (> 150% jornada laboral)
-  USER_ERROR                  // Error del usuario al fichar
-  SYSTEM_ERROR                // Error técnico del sistema
-  ADMIN_CORRECTION            // Corrección administrativa
-  REPLACED_BY_MANUAL_REQUEST  // Reemplazado por solicitud manual aprobada
+  EXCESSIVE_DURATION // Fichaje de larga duración (> 150% jornada laboral)
+  USER_ERROR // Error del usuario al fichar
+  SYSTEM_ERROR // Error técnico del sistema
+  ADMIN_CORRECTION // Corrección administrativa
+  REPLACED_BY_MANUAL_REQUEST // Reemplazado por solicitud manual aprobada
 }
 
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
 
 // Tipos de ausencia configurables (Vacaciones, Asuntos personales, Baja médica, etc.)
 model AbsenceType {
-  id              String   @id @default(cuid())
-  name            String   // "Vacaciones", "Asuntos personales", "Baja médica"
-  code            String   // "VACATION", "PERSONAL", "SICK_LEAVE"
-  description     String?
-  color           String   @default("#3b82f6") // Color para identificación visual
-  isPaid          Boolean  @default(true) // Si es tiempo pagado o no
+  id               String  @id @default(cuid())
+  name             String // "Vacaciones", "Asuntos personales", "Baja médica"
+  code             String // "VACATION", "PERSONAL", "SICK_LEAVE"
+  description      String?
+  color            String  @default("#3b82f6") // Color para identificación visual
+  isPaid           Boolean @default(true) // Si es tiempo pagado o no
   requiresApproval Boolean @default(true) // Si requiere aprobación
-  minDaysAdvance  Int      @default(0) // Días de anticipación requeridos
-  affectsBalance  Boolean  @default(true) // Si descuenta del balance de PTO
-  active          Boolean  @default(true)
+  minDaysAdvance   Int     @default(0) // Días de anticipación requeridos
+  affectsBalance   Boolean @default(true) // Si descuenta del balance de PTO
+  active           Boolean @default(true)
 
   // 🆕 GRANULARIDAD - Para soportar ausencias en minutos/horas (sector privado/público)
   allowPartialDays       Boolean @default(false) // ¿Permite fracciones de día?
   countsCalendarDays     Boolean @default(false) // // Si cuenta días naturales (bajas médicas, permisos naturales)
-  granularityMinutes     Int     @default(480)   // Granularidad: 480=día, 60=hora, 30=media, 15=cuarto
-  minimumDurationMinutes Int     @default(480)   // Duración mínima en minutos
-  maxDurationMinutes     Int?                    // Duración máxima (null=sin límite)
+  granularityMinutes     Int     @default(480) // Granularidad: 480=día, 60=hora, 30=media, 15=cuarto
+  minimumDurationMinutes Int     @default(480) // Duración mínima en minutos
+  maxDurationMinutes     Int? // Duración máxima (null=sin límite)
 
   // 🆕 FUTURO - Factor de compensación para nocturnidad/festivos (policía, bomberos)
-  compensationFactor     Decimal @default(1.0) @db.Decimal(3,2) // 1.0=normal, 1.5=nocturno, 1.75=festivo
+  compensationFactor Decimal @default(1.0) @db.Decimal(3, 2) // 1.0=normal, 1.5=nocturno, 1.75=festivo
 
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - ¿A qué contador de balance afecta?
-  balanceType            String  @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
+  balanceType String @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
   orgId        String
@@ -858,28 +859,28 @@ model AbsenceType {
 
 // Balance de días de PTO por empleado y año
 model PtoBalance {
-  id                String   @id @default(cuid())
-  year              Int      // Año al que aplica el balance
+  id   String @id @default(cuid())
+  year Int // Año al que aplica el balance
 
   // ❌ DEPRECAR (mantener temporalmente para migración y reportes legacy)
-  annualAllowance   Decimal  @db.Decimal(5,2) // Días asignados este año (puede ser proporcional)
-  daysUsed          Decimal  @default(0) @db.Decimal(5,2) // Días ya usados (solicitudes aprobadas)
-  daysPending       Decimal  @default(0) @db.Decimal(5,2) // Días en solicitudes pendientes
-  daysAvailable     Decimal  @db.Decimal(5,2) // Disponibles = allowance - used - pending
+  annualAllowance Decimal @db.Decimal(5, 2) // Días asignados este año (puede ser proporcional)
+  daysUsed        Decimal @default(0) @db.Decimal(5, 2) // Días ya usados (solicitudes aprobadas)
+  daysPending     Decimal @default(0) @db.Decimal(5, 2) // Días en solicitudes pendientes
+  daysAvailable   Decimal @db.Decimal(5, 2) // Disponibles = allowance - used - pending
 
   // ✅ NUEVOS CAMPOS (en minutos) - PRINCIPAL
-  annualAllowanceMinutes  Int @default(0)  // 22 días × workdayMinutes
-  minutesUsed             Int @default(0)  // Vacaciones usadas
-  minutesPending          Int @default(0)  // Solicitudes pendientes
-  minutesAvailable        Int @default(0)  // Disponibles
+  annualAllowanceMinutes Int @default(0) // 22 días × workdayMinutes
+  minutesUsed            Int @default(0) // Vacaciones usadas
+  minutesPending         Int @default(0) // Solicitudes pendientes
+  minutesAvailable       Int @default(0) // Disponibles
 
   // ✅ NUEVOS: Contadores separados por tipo (Opción Rápida - v1)
-  compensatedMinutes      Int @default(0)  // Días compensados (festivos, nocturnos, guardias)
-  freeDisposalMinutes     Int @default(0)  // Horas de libre disposición (horas extra, etc.)
-  personalMattersMinutes  Int @default(0)  // Asuntos propios (separado de vacaciones)
+  compensatedMinutes     Int @default(0) // Días compensados (festivos, nocturnos, guardias)
+  freeDisposalMinutes    Int @default(0) // Horas de libre disposición (horas extra, etc.)
+  personalMattersMinutes Int @default(0) // Asuntos propios (separado de vacaciones)
 
   // ✅ SNAPSHOT: Minutos de jornada usados para el cálculo (histórico)
-  workdayMinutesSnapshot  Int @default(480) // Jornada en minutos del año calculado
+  workdayMinutesSnapshot Int @default(480) // Jornada en minutos del año calculado
 
   // Metadata para auditoría y cálculo proporcional
   calculationDate   DateTime @default(now())
@@ -908,40 +909,40 @@ model PtoBalance {
 
 // Solicitudes de ausencia (PTO)
 model PtoRequest {
-  id          String           @id @default(cuid())
+  id String @id @default(cuid())
 
   // Fechas y días
-  startDate   DateTime         // Fecha de inicio
-  endDate     DateTime         // Fecha de fin
-  workingDays Decimal          @db.Decimal(5,2) // Días hábiles calculados (excluyendo festivos y fines de semana)
+  startDate   DateTime // Fecha de inicio
+  endDate     DateTime // Fecha de fin
+  workingDays Decimal  @db.Decimal(5, 2) // Días hábiles calculados (excluyendo festivos y fines de semana)
 
   // 🆕 FRANJAS HORARIAS - Para ausencias parciales (sector privado: "30 min de 14:00 a 14:30")
-  startTime       Int?  // Minutos desde medianoche (540 = 09:00, null = día completo)
-  endTime         Int?  // Minutos desde medianoche (1020 = 17:00, null = día completo)
-  durationMinutes Int?  // Duración en minutos (para cálculos rápidos)
+  startTime       Int? // Minutos desde medianoche (540 = 09:00, null = día completo)
+  endTime         Int? // Minutos desde medianoche (1020 = 17:00, null = día completo)
+  durationMinutes Int? // Duración en minutos (para cálculos rápidos)
 
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos efectivos descontados del balance
   effectiveMinutes Int @default(0) // durationMinutes × compensationFactor (o workingDays × workdayMinutes × compensationFactor)
 
   // Estado de la solicitud
-  status      PtoRequestStatus @default(PENDING)
+  status PtoRequestStatus @default(PENDING)
 
   // Información adicional
-  reason      String?          // Motivo de la ausencia
-  attachmentUrl String?        // URL del archivo adjunto (opcional)
+  reason        String? // Motivo de la ausencia
+  attachmentUrl String? // URL del archivo adjunto (opcional)
 
   // Aprobación (UN solo aprobador)
-  approverId        String?
-  approver          User?    @relation("PtoApprover", fields: [approverId], references: [id])
-  approvedAt        DateTime?
-  approverComments  String?  // Comentarios del aprobador al aprobar
+  approverId       String?
+  approver         User?     @relation("PtoApprover", fields: [approverId], references: [id])
+  approvedAt       DateTime?
+  approverComments String? // Comentarios del aprobador al aprobar
 
   // Rechazo
-  rejectedAt        DateTime?
-  rejectionReason   String?  // Motivo del rechazo
+  rejectedAt      DateTime?
+  rejectionReason String? // Motivo del rechazo
 
   // Cancelación
-  cancelledAt       DateTime?
+  cancelledAt        DateTime?
   cancellationReason String? // Motivo de la cancelación
 
   // Timestamps
@@ -975,19 +976,19 @@ model PtoRequest {
 
 // Estados de solicitud de PTO
 enum PtoRequestStatus {
-  DRAFT          // Borrador (no enviada aún)
-  PENDING        // Pendiente de aprobación
-  APPROVED       // Aprobada
-  REJECTED       // Rechazada
-  CANCELLED      // Cancelada por el empleado
+  DRAFT // Borrador (no enviada aún)
+  PENDING // Pendiente de aprobación
+  APPROVED // Aprobada
+  REJECTED // Rechazada
+  CANCELLED // Cancelada por el empleado
 }
 
 // Notificaciones del sistema (PTO y futuras funcionalidades)
 model PtoNotification {
   id      String              @id @default(cuid())
   type    PtoNotificationType // Tipo de notificación
-  title   String              // Título corto
-  message String              // Mensaje descriptivo
+  title   String // Título corto
+  message String // Mensaje descriptivo
   isRead  Boolean             @default(false)
 
   // Solicitud relacionada (opcional)
@@ -1024,53 +1025,53 @@ model PtoNotification {
 
 // Tipos de notificaciones
 enum PtoNotificationType {
-  PTO_SUBMITTED         // Nueva solicitud enviada (notificar aprobador)
-  PTO_APPROVED          // Solicitud aprobada (notificar empleado)
-  PTO_REJECTED          // Solicitud rechazada (notificar empleado)
-  PTO_CANCELLED         // Solicitud cancelada (notificar aprobador)
-  PTO_REMINDER          // Recordatorio de solicitud sin revisar
-  DOCUMENT_UPLOADED     // Nuevo documento subido (futuro)
-  SYSTEM_ANNOUNCEMENT   // Anuncio del sistema (futuro)
-  SIGNATURE_PENDING     // Nueva solicitud de firma asignada
-  SIGNATURE_COMPLETED   // Documento firmado exitosamente
-  SIGNATURE_REJECTED    // Documento rechazado por firmante
-  SIGNATURE_EXPIRED     // Documento expirado sin firmar
-  MANUAL_TIME_ENTRY_SUBMITTED  // Nueva solicitud de fichaje manual enviada
-  MANUAL_TIME_ENTRY_APPROVED   // Solicitud de fichaje manual aprobada
-  MANUAL_TIME_ENTRY_REJECTED   // Solicitud de fichaje manual rechazada
-  TIME_ENTRY_EXCESSIVE         // Fichaje excede 150% de jornada laboral (requiere regularización)
-  EXPENSE_SUBMITTED            // Nueva solicitud de gasto
-  EXPENSE_APPROVED             // Gasto aprobado
-  EXPENSE_REJECTED             // Gasto rechazado
-  EXPENSE_REIMBURSED           // Gasto reembolsado
+  PTO_SUBMITTED // Nueva solicitud enviada (notificar aprobador)
+  PTO_APPROVED // Solicitud aprobada (notificar empleado)
+  PTO_REJECTED // Solicitud rechazada (notificar empleado)
+  PTO_CANCELLED // Solicitud cancelada (notificar aprobador)
+  PTO_REMINDER // Recordatorio de solicitud sin revisar
+  DOCUMENT_UPLOADED // Nuevo documento subido (futuro)
+  SYSTEM_ANNOUNCEMENT // Anuncio del sistema (futuro)
+  SIGNATURE_PENDING // Nueva solicitud de firma asignada
+  SIGNATURE_COMPLETED // Documento firmado exitosamente
+  SIGNATURE_REJECTED // Documento rechazado por firmante
+  SIGNATURE_EXPIRED // Documento expirado sin firmar
+  MANUAL_TIME_ENTRY_SUBMITTED // Nueva solicitud de fichaje manual enviada
+  MANUAL_TIME_ENTRY_APPROVED // Solicitud de fichaje manual aprobada
+  MANUAL_TIME_ENTRY_REJECTED // Solicitud de fichaje manual rechazada
+  TIME_ENTRY_EXCESSIVE // Fichaje excede 150% de jornada laboral (requiere regularización)
+  EXPENSE_SUBMITTED // Nueva solicitud de gasto
+  EXPENSE_APPROVED // Gasto aprobado
+  EXPENSE_REJECTED // Gasto rechazado
+  EXPENSE_REIMBURSED // Gasto reembolsado
 }
 
 // Ajustes manuales de balance de PTO (auditoría)
 model PtoBalanceAdjustment {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Tipo de ajuste
-  adjustmentType  PtoAdjustmentType
+  adjustmentType PtoAdjustmentType
 
   // Cantidad (positiva o negativa)
-  daysAdjusted    Decimal  @db.Decimal(5,2)
+  daysAdjusted Decimal @db.Decimal(5, 2)
 
   // Justificación
-  reason          String   // Motivo corto obligatorio
-  notes           String?  // Notas adicionales opcionales
+  reason String // Motivo corto obligatorio
+  notes  String? // Notas adicionales opcionales
 
   // Auditoría
-  createdAt       DateTime @default(now())
-  createdById     String
-  createdBy       User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Balance afectado
-  ptoBalanceId    String
-  ptoBalance      PtoBalance @relation(fields: [ptoBalanceId], references: [id], onDelete: Cascade)
+  ptoBalanceId String
+  ptoBalance   PtoBalance @relation(fields: [ptoBalanceId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([ptoBalanceId])
@@ -1081,37 +1082,37 @@ model PtoBalanceAdjustment {
 
 // Tipos de ajuste de balance
 enum PtoAdjustmentType {
-  MANUAL_ADD           // Añadir días manualmente
-  MANUAL_SUBTRACT      // Quitar días manualmente
-  SENIORITY_BONUS      // Días por antigüedad
+  MANUAL_ADD // Añadir días manualmente
+  MANUAL_SUBTRACT // Quitar días manualmente
+  SENIORITY_BONUS // Días por antigüedad
   COLLECTIVE_AGREEMENT // Días por convenio colectivo
-  COMPENSATION         // Compensación
-  CORRECTION           // Corrección de error
-  MATERNITY_LEAVE      // Baja maternal registrada
-  PATERNITY_LEAVE      // Baja paternal registrada
-  SICK_LEAVE           // Baja médica registrada
-  OTHER                // Otro tipo de ajuste
+  COMPENSATION // Compensación
+  CORRECTION // Corrección de error
+  MATERNITY_LEAVE // Baja maternal registrada
+  PATERNITY_LEAVE // Baja paternal registrada
+  SICK_LEAVE // Baja médica registrada
+  OTHER // Otro tipo de ajuste
 }
 
 // Configuración de PTO por organización
 model OrganizationPtoConfig {
-  id    String @id @default(cuid())
+  id String @id @default(cuid())
 
   // Multi-tenancy (relación 1:1)
   orgId        String       @unique
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Configuración de bajas legisladas (en semanas)
-  maternityLeaveWeeks  Int  @default(17) // Baja maternal
-  paternityLeaveWeeks  Int  @default(17) // Baja paternal
+  maternityLeaveWeeks Int @default(17) // Baja maternal
+  paternityLeaveWeeks Int @default(17) // Baja paternal
 
   // Días adicionales por antigüedad (JSON con reglas)
   // Formato: [{yearsFrom: 5, yearsTo: 10, extraDays: 2}, {yearsFrom: 10, yearsTo: null, extraDays: 4}]
-  seniorityRules       Json @default("[]")
+  seniorityRules Json @default("[]")
 
   // Otras configuraciones
-  allowNegativeBalance Boolean @default(false) // Permitir balance negativo
-  maxAdvanceRequestMonths Int  @default(12)    // Meses máximos de anticipación
+  allowNegativeBalance    Boolean @default(false) // Permitir balance negativo
+  maxAdvanceRequestMonths Int     @default(12) // Meses máximos de anticipación
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1121,32 +1122,32 @@ model OrganizationPtoConfig {
 
 // Ajustes recurrentes de PTO (se aplican automáticamente cada año)
 model RecurringPtoAdjustment {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Cantidad de días adicionales cada año
-  extraDays       Decimal  @db.Decimal(5,2)
+  extraDays Decimal @db.Decimal(5, 2)
 
   // Tipo y justificación
-  adjustmentType  PtoAdjustmentType
-  reason          String   // Motivo corto obligatorio
-  notes           String?  // Notas adicionales opcionales
+  adjustmentType PtoAdjustmentType
+  reason         String // Motivo corto obligatorio
+  notes          String? // Notas adicionales opcionales
 
   // Control
-  active          Boolean  @default(true)
-  startYear       Int      // Desde qué año aplica (ej: 2025)
+  active    Boolean @default(true)
+  startYear Int // Desde qué año aplica (ej: 2025)
 
   // Auditoría
-  createdAt       DateTime @default(now())
-  createdById     String
-  createdBy       User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Empleado
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([employeeId])
@@ -1159,32 +1160,32 @@ model RecurringPtoAdjustment {
 
 // Documento firmable - PDF que requiere firma(s)
 model SignableDocument {
-  id              String   @id @default(cuid())
-  title           String   // Título del documento
-  description     String?  // Descripción opcional
-  category        String   // CONTRATO, NOMINA, ACUERDO, POLITICA, OTRO
+  id          String  @id @default(cuid())
+  title       String // Título del documento
+  description String? // Descripción opcional
+  category    String // CONTRATO, NOMINA, ACUERDO, POLITICA, OTRO
 
   // Archivo original
-  originalFileUrl String   // URL en Azure Blob del PDF original
-  originalHash    String   // SHA-256 del archivo original
-  fileSize        Int      // Tamaño en bytes
-  mimeType        String   @default("application/pdf")
+  originalFileUrl String // URL en Azure Blob del PDF original
+  originalHash    String // SHA-256 del archivo original
+  fileSize        Int // Tamaño en bytes
+  mimeType        String @default("application/pdf")
 
   // Versión y metadatos
-  version         Int      @default(1)
-  expiresAt       DateTime? // Fecha de vencimiento opcional
+  version   Int       @default(1)
+  expiresAt DateTime? // Fecha de vencimiento opcional
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Creador del documento
-  createdById     String
-  createdBy       User @relation(fields: [createdById], references: [id])
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
 
   // Relaciones
   signatureRequests SignatureRequest[]
@@ -1197,32 +1198,32 @@ model SignableDocument {
 
 // Solicitud de firma - Workflow de firma con múltiples firmantes
 model SignatureRequest {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Estado general de la solicitud
-  status          SignatureRequestStatus @default(PENDING)
+  status SignatureRequestStatus @default(PENDING)
 
   // Política de firma aplicada
-  policy          String   @default("SES") // SES, SES_TOTP (futuro)
+  policy String @default("SES") // SES, SES_TOTP (futuro)
 
   // Fecha límite para completar todas las firmas
-  expiresAt       DateTime
+  expiresAt DateTime
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  completedAt     DateTime? // Cuando se completaron todas las firmas
+  createdAt   DateTime  @default(now())
+  completedAt DateTime? // Cuando se completaron todas las firmas
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Documento a firmar
-  documentId      String
-  document        SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  documentId String
+  document   SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   // Relaciones
-  signers         Signer[]
-  evidences       SignatureEvidence[]
+  signers   Signer[]
+  evidences SignatureEvidence[]
 
   @@index([orgId])
   @@index([documentId])
@@ -1233,45 +1234,45 @@ model SignatureRequest {
 
 // Firmante individual - Cada persona que debe firmar
 model Signer {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Orden de firma (1, 2, 3... para firma secuencial)
-  order           Int      @default(1)
+  order Int @default(1)
 
   // Estado del firmante
-  status          SignerStatus @default(PENDING)
+  status SignerStatus @default(PENDING)
 
   // Token único para acceder a la sesión de firma
-  signToken       String   @unique
+  signToken String @unique
 
   // Empleado que debe firmar
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // Datos de la firma
-  signedAt        DateTime? // Momento de la firma
-  signedFileUrl   String?   // URL del PDF firmado (solo el último firmante genera el final)
-  signedHash      String?   // Hash SHA-256 del PDF firmado
+  signedAt      DateTime? // Momento de la firma
+  signedFileUrl String? // URL del PDF firmado (solo el último firmante genera el final)
+  signedHash    String? // Hash SHA-256 del PDF firmado
 
   // Consentimiento (paso 1 del flujo)
-  consentGivenAt  DateTime? // Cuando marcó el checkbox de consentimiento
-  ipAddress       String?   // IP desde donde firmó
-  userAgent       String?   // User agent del navegador
+  consentGivenAt DateTime? // Cuando marcó el checkbox de consentimiento
+  ipAddress      String? // IP desde donde firmó
+  userAgent      String? // User agent del navegador
 
   // Rechazo
   rejectedAt      DateTime?
-  rejectionReason String?   // Motivo del rechazo
+  rejectionReason String? // Motivo del rechazo
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relación con la solicitud
-  requestId       String
-  request         SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  request   SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   // Relaciones
-  evidences       SignatureEvidence[]
+  evidences SignatureEvidence[]
 
   @@index([requestId])
   @@index([employeeId])
@@ -1282,35 +1283,35 @@ model Signer {
 
 // Evidencia de firma - Registro inmutable de auditoría
 model SignatureEvidence {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Timeline completo de eventos (JSON array)
   // Formato: [{event: "CREATED", timestamp: "...", user: "..."}, {...}]
-  timeline        Json
+  timeline Json
 
   // Hashes para verificación de integridad
-  preSignHash     String   // Hash del PDF antes de la firma
-  postSignHash    String?  // Hash del PDF después de la firma (null si rechazado)
+  preSignHash  String // Hash del PDF antes de la firma
+  postSignHash String? // Hash del PDF después de la firma (null si rechazado)
 
   // Metadatos del firmante (JSON)
   // Formato: {ip: "...", userAgent: "...", geolocation: {...}, sessionId: "..."}
-  signerMetadata  Json
+  signerMetadata Json
 
   // Política de firma aplicada
-  policy          String   // SES, SES_TOTP
+  policy String // SES, SES_TOTP
 
   // Resultado de la firma
-  result          SignatureResult
+  result SignatureResult
 
   // Timestamps
-  createdAt       DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // Relaciones
-  requestId       String
-  request         SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String
+  request   SignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  signerId        String
-  signer          Signer @relation(fields: [signerId], references: [id], onDelete: Cascade)
+  signerId String
+  signer   Signer @relation(fields: [signerId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([signerId])
@@ -1321,79 +1322,79 @@ model SignatureEvidence {
 
 // Estados de solicitud de firma
 enum SignatureRequestStatus {
-  PENDING        // Pendiente (ninguna firma completada)
-  IN_PROGRESS    // En progreso (algunas firmas completadas)
-  COMPLETED      // Completada (todas las firmas completadas)
-  REJECTED       // Rechazada (algún firmante rechazó)
-  EXPIRED        // Expirada (venció sin completarse)
+  PENDING // Pendiente (ninguna firma completada)
+  IN_PROGRESS // En progreso (algunas firmas completadas)
+  COMPLETED // Completada (todas las firmas completadas)
+  REJECTED // Rechazada (algún firmante rechazó)
+  EXPIRED // Expirada (venció sin completarse)
 }
 
 // Estados de firmante individual
 enum SignerStatus {
-  PENDING        // Pendiente de firmar
-  SIGNED         // Firmado exitosamente
-  REJECTED       // Rechazado por el firmante
+  PENDING // Pendiente de firmar
+  SIGNED // Firmado exitosamente
+  REJECTED // Rechazado por el firmante
 }
 
 // Resultado de la evidencia
 enum SignatureResult {
-  SUCCESS        // Firma exitosa
-  REJECTED       // Firma rechazada
-  EXPIRED        // Expiró sin firmar
-  ERROR          // Error durante el proceso
+  SUCCESS // Firma exitosa
+  REJECTED // Firma rechazada
+  EXPIRED // Expiró sin firmar
+  ERROR // Error durante el proceso
 }
 
 // ==================== SISTEMA DE FICHAJES MANUALES (A POSTERIORI) ====================
 
 // Solicitud de fichaje manual - Cuando un empleado olvidó fichar
 model ManualTimeEntryRequest {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Fechas y horas solicitadas
-  date            DateTime // Fecha del fichaje olvidado (sin hora, solo día)
-  clockInTime     DateTime // Hora de entrada solicitada
-  clockOutTime    DateTime // Hora de salida solicitada
+  date         DateTime // Fecha del fichaje olvidado (sin hora, solo día)
+  clockInTime  DateTime // Hora de entrada solicitada
+  clockOutTime DateTime // Hora de salida solicitada
 
   // Justificación
-  reason          String   // Motivo obligatorio
+  reason String // Motivo obligatorio
 
   // Estado de la solicitud
-  status          ManualTimeEntryStatus @default(PENDING)
+  status ManualTimeEntryStatus @default(PENDING)
 
   // Aprobación (UN solo aprobador - el manager del empleado)
-  approverId      String?
-  approver        User?    @relation("ManualTimeEntryApprover", fields: [approverId], references: [id])
-  approvedAt      DateTime?
-  approverComments String?  // Comentarios del aprobador al aprobar
+  approverId       String?
+  approver         User?     @relation("ManualTimeEntryApprover", fields: [approverId], references: [id])
+  approvedAt       DateTime?
+  approverComments String? // Comentarios del aprobador al aprobar
 
   // Rechazo
   rejectedAt      DateTime?
-  rejectionReason String?  // Motivo del rechazo
+  rejectionReason String? // Motivo del rechazo
 
   // TimeEntries creados (si se aprueba)
   createdClockInId  String? // ID del TimeEntry de entrada creado
   createdClockOutId String? // ID del TimeEntry de salida creado
 
   // Reemplazo de fichajes incompletos
-  replacesIncompleteEntry Boolean @default(false) // Indica si reemplaza un fichaje abierto
+  replacesIncompleteEntry Boolean  @default(false) // Indica si reemplaza un fichaje abierto
   replacedEntryIds        String[] @default([]) // IDs de las entradas que se reemplazan
   warningMessage          String? // Mensaje de advertencia mostrado al usuario
 
   // Timestamps
-  submittedAt     DateTime @default(now()) // Cuando se envió la solicitud
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  submittedAt DateTime @default(now()) // Cuando se envió la solicitud
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Empleado solicitante
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // Notificaciones relacionadas
-  notifications   PtoNotification[]
+  notifications PtoNotification[]
 
   @@index([orgId])
   @@index([employeeId])
@@ -1406,66 +1407,66 @@ model ManualTimeEntryRequest {
 
 // Estados de solicitud de fichaje manual
 enum ManualTimeEntryStatus {
-  PENDING   // Pendiente de aprobación
-  APPROVED  // Aprobado
-  REJECTED  // Rechazado
+  PENDING // Pendiente de aprobación
+  APPROVED // Aprobado
+  REJECTED // Rechazado
 }
 
 // ==================== MÓDULO DE GESTIÓN DE GASTOS ====================
 
 // Estados del expediente de gasto (Sector Público)
 enum ProcedureStatus {
-  DRAFT                 // Borrador
+  DRAFT // Borrador
   PENDING_AUTHORIZATION // Pendiente de autorización previa
-  AUTHORIZED            // Autorizado (listo para recibir gastos)
+  AUTHORIZED // Autorizado (listo para recibir gastos)
   JUSTIFICATION_PENDING // Gastos realizados, pendiente de revisar justificación
-  JUSTIFIED             // Justificación aprobada
-  CLOSED                // Cerrado
-  REJECTED              // Rechazado
+  JUSTIFIED // Justificación aprobada
+  CLOSED // Cerrado
+  REJECTED // Rechazado
 }
 
 // Quién paga el gasto
 enum ExpensePayer {
-  EMPLOYEE     // El empleado pagó (reembolsable)
+  EMPLOYEE // El empleado pagó (reembolsable)
   ORGANIZATION // La organización pagó (pago directo, tarjeta empresa, agencia)
 }
 
 // Expediente de Gasto (Comisión de servicio / Provisión de fondos)
 model ExpenseProcedure {
-  id          String          @id @default(cuid())
-  code        String?         // Código visual (ej: EXP-2024-001)
-  name        String          // Título (ej: "Viaje Congreso Madrid")
+  id          String  @id @default(cuid())
+  code        String? // Código visual (ej: EXP-2024-001)
+  name        String // Título (ej: "Viaje Congreso Madrid")
   description String?
 
-  status      ProcedureStatus @default(DRAFT)
-  
+  status ProcedureStatus @default(DRAFT)
+
   // Fechas del expediente (ej: fechas del viaje)
-  startDate   DateTime?
-  endDate     DateTime?
+  startDate DateTime?
+  endDate   DateTime?
 
   // Control económico
-  estimatedAmount Decimal?    @db.Decimal(10, 2) // Presupuesto estimado/autorizado
-  approvedAmount  Decimal?    @db.Decimal(10, 2) // Importe final aprobado
+  estimatedAmount Decimal? @db.Decimal(10, 2) // Presupuesto estimado/autorizado
+  approvedAmount  Decimal? @db.Decimal(10, 2) // Importe final aprobado
 
   // Multi-tenancy
-  orgId       String
+  orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Beneficiario (Empleado)
-  employeeId  String?
-  employee    Employee?       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // Creador (puede ser un administrativo, no necesariamente el empleado)
   createdById String
-  createdBy   User            @relation("ProcedureCreator", fields: [createdById], references: [id])
+  createdBy   User   @relation("ProcedureCreator", fields: [createdById], references: [id])
 
   // Auditoría
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relaciones
-  expenses    Expense[]       // Gastos imputados a este expediente
-  history     ExpenseProcedureHistory[] // Historial de cambios y estados
+  expenses Expense[] // Gastos imputados a este expediente
+  history  ExpenseProcedureHistory[] // Historial de cambios y estados
 
   @@index([orgId])
   @@index([employeeId])
@@ -1475,27 +1476,27 @@ model ExpenseProcedure {
 
 // Historial de cambios de estado del expediente (Auditoría)
 model ExpenseProcedureHistory {
-  id          String          @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   procedureId String
   procedure   ExpenseProcedure @relation(fields: [procedureId], references: [id], onDelete: Cascade)
 
   // Qué pasó
-  action      String          // "CREATED", "STATUS_CHANGE", "UPDATED", "ASSIGNED"
-  
+  action String // "CREATED", "STATUS_CHANGE", "UPDATED", "ASSIGNED"
+
   // Transición de estado (si aplica)
   previousStatus ProcedureStatus?
   newStatus      ProcedureStatus?
 
   // Detalles
-  comment     String?         // Comentario opcional (ej: motivo rechazo)
-  details     String?         // Detalles técnicos o resumen de cambios
-  
-  // Quién lo hizo
-  actorId     String
-  actor       User            @relation(fields: [actorId], references: [id])
+  comment String? // Comentario opcional (ej: motivo rechazo)
+  details String? // Detalles técnicos o resumen de cambios
 
-  createdAt   DateTime        @default(now())
+  // Quién lo hizo
+  actorId String
+  actor   User   @relation(fields: [actorId], references: [id])
+
+  createdAt DateTime @default(now())
 
   @@index([procedureId])
   @@index([actorId])
@@ -1504,16 +1505,16 @@ model ExpenseProcedureHistory {
 
 // Aprobadores organizacionales de gastos (sistema multi-aprobador flexible)
 model ExpenseApprover {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  userId    String
-  user      User     @relation("ExpenseApproverRoles", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("ExpenseApproverRoles", fields: [userId], references: [id], onDelete: Cascade)
 
-  orgId     String
+  orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  isPrimary Boolean  @default(false) // Marcar como aprobador principal (opcional)
-  order     Int      @default(0)     // Orden de prioridad para UI (drag & drop)
+  isPrimary Boolean @default(false) // Marcar como aprobador principal (opcional)
+  order     Int     @default(0) // Orden de prioridad para UI (drag & drop)
 
   createdAt DateTime @default(now())
 
@@ -1524,104 +1525,104 @@ model ExpenseApprover {
 }
 
 enum ExpenseStatus {
-  DRAFT          // Borrador (no enviado)
-  SUBMITTED      // Enviado a aprobación
-  APPROVED       // Aprobado por manager
-  REJECTED       // Rechazado
-  REIMBURSED     // Reembolsado
+  DRAFT // Borrador (no enviado)
+  SUBMITTED // Enviado a aprobación
+  APPROVED // Aprobado por manager
+  REJECTED // Rechazado
+  REIMBURSED // Reembolsado
 }
 
 enum ExpenseCategory {
-  FUEL           // Combustible
-  MILEAGE        // Kilometraje
-  MEAL           // Comidas
-  TOLL           // Peajes
-  PARKING        // Parking
-  LODGING        // Alojamiento
-  OTHER          // Otros
+  FUEL // Combustible
+  MILEAGE // Kilometraje
+  MEAL // Comidas
+  TOLL // Peajes
+  PARKING // Parking
+  LODGING // Alojamiento
+  OTHER // Otros
 }
 
 enum ApprovalDecision {
-  PENDING        // Pendiente
-  APPROVED       // Aprobado
-  REJECTED       // Rechazado
+  PENDING // Pendiente
+  APPROVED // Aprobado
+  REJECTED // Rechazado
 }
 
 enum ReimbursementMethod {
-  TRANSFER       // Transferencia bancaria
-  PAYROLL        // Nómina
-  CASH           // Efectivo
-  OTHER          // Otro método
+  TRANSFER // Transferencia bancaria
+  PAYROLL // Nómina
+  CASH // Efectivo
+  OTHER // Otro método
 }
 
 // Gasto individual
 model Expense {
-  id              String          @id @default(cuid())
+  id String @id @default(cuid())
 
   // Datos del gasto
-  date            DateTime        // Fecha del gasto
-  currency        String          @default("EUR")
-  amount          Decimal         @db.Decimal(10, 2) // Importe base sin IVA
-  vatPercent      Decimal?        @db.Decimal(5, 2)  // % IVA (ej: 21.00)
-  totalAmount     Decimal         @db.Decimal(10, 2) // Total = amount + IVA
-  category        ExpenseCategory
+  date        DateTime // Fecha del gasto
+  currency    String          @default("EUR")
+  amount      Decimal         @db.Decimal(10, 2) // Importe base sin IVA
+  vatPercent  Decimal?        @db.Decimal(5, 2) // % IVA (ej: 21.00)
+  totalAmount Decimal         @db.Decimal(10, 2) // Total = amount + IVA
+  category    ExpenseCategory
 
   // Kilometraje (solo si category = MILEAGE)
-  mileageKm       Decimal?        @db.Decimal(10, 2)
-  mileageRate     Decimal?        @db.Decimal(5, 3)  // €/km aplicado
+  mileageKm   Decimal? @db.Decimal(10, 2)
+  mileageRate Decimal? @db.Decimal(5, 3) // €/km aplicado
 
   // Clasificación
-  costCenterId    String?
-  costCenter      CostCenter?     @relation(fields: [costCenterId], references: [id])
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
   // Notas y metadata
-  notes           String?
-  merchantName    String?         // Nombre del comercio (OCR)
-  merchantVat     String?         // CIF/NIF del comercio (OCR)
-  ocrRawData      Json?           // Datos brutos del OCR para auditoría
+  notes        String?
+  merchantName String? // Nombre del comercio (OCR)
+  merchantVat  String? // CIF/NIF del comercio (OCR)
+  ocrRawData   Json? // Datos brutos del OCR para auditoría
 
   // Estado
-  status          ExpenseStatus   @default(DRAFT)
+  status ExpenseStatus @default(DRAFT)
 
   // Reembolso
-  reimbursedAt        DateTime?
-  reimbursedBy        String?
-  reimbursedByUser    User?                @relation("ExpenseReimburser", fields: [reimbursedBy], references: [id])
-  reimbursementMethod ReimbursementMethod?
-  reimbursementReference String?          // Nº transferencia o referencia
+  reimbursedAt           DateTime?
+  reimbursedBy           String?
+  reimbursedByUser       User?                @relation("ExpenseReimburser", fields: [reimbursedBy], references: [id])
+  reimbursementMethod    ReimbursementMethod?
+  reimbursementReference String? // Nº transferencia o referencia
 
   // Auditoría
-  createdBy       String
-  creator         User            @relation("ExpenseCreator", fields: [createdBy], references: [id])
-  updatedBy       String?
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdBy String
+  creator   User     @relation("ExpenseCreator", fields: [createdBy], references: [id])
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Empleado que crea el gasto
-  employeeId      String
-  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // Informe de gastos (opcional)
-  reportId        String?
-  report          ExpenseReport?  @relation(fields: [reportId], references: [id])
+  reportId String?
+  report   ExpenseReport? @relation(fields: [reportId], references: [id])
 
   // Relaciones
-  attachments     ExpenseAttachment[]
-  approvals       ExpenseApproval[]
-  
-  // Relación con Expediente (Sector Público)
-  procedureId     String?
-  procedure       ExpenseProcedure? @relation(fields: [procedureId], references: [id])
-  
-  // Quién pagó (Para distinguir reembolso vs pago directo)
-  paidBy          ExpensePayer      @default(EMPLOYEE)
+  attachments ExpenseAttachment[]
+  approvals   ExpenseApproval[]
 
-  policySnapshot  PolicySnapshot?
-  notifications   PtoNotification[]
+  // Relación con Expediente (Sector Público)
+  procedureId String?
+  procedure   ExpenseProcedure? @relation(fields: [procedureId], references: [id])
+
+  // Quién pagó (Para distinguir reembolso vs pago directo)
+  paidBy ExpensePayer @default(EMPLOYEE)
+
+  policySnapshot PolicySnapshot?
+  notifications  PtoNotification[]
 
   @@index([orgId])
   @@index([employeeId])
@@ -1634,15 +1635,15 @@ model Expense {
 
 // Adjuntos del gasto (tickets, facturas)
 model ExpenseAttachment {
-  id          String   @id @default(cuid())
-  url         String   // URL en storage
-  fileName    String
-  mimeType    String?
-  fileSize    Int
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  url       String // URL en storage
+  fileName  String
+  mimeType  String?
+  fileSize  Int
+  createdAt DateTime @default(now())
 
-  expenseId   String
-  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   @@index([expenseId])
   @@map("expense_attachments")
@@ -1650,17 +1651,17 @@ model ExpenseAttachment {
 
 // Aprobación de gasto (preparado para multi-nivel)
 model ExpenseApproval {
-  id              String            @id @default(cuid())
-  decision        ApprovalDecision  @default(PENDING)
-  comment         String?
-  decidedAt       DateTime?
-  level           Int               @default(1) // Nivel de aprobación (1, 2, 3...)
+  id        String           @id @default(cuid())
+  decision  ApprovalDecision @default(PENDING)
+  comment   String?
+  decidedAt DateTime?
+  level     Int              @default(1) // Nivel de aprobación (1, 2, 3...)
 
-  approverId      String
-  approver        User              @relation(fields: [approverId], references: [id])
+  approverId String
+  approver   User   @relation(fields: [approverId], references: [id])
 
-  expenseId       String
-  expense         Expense           @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   @@index([expenseId])
   @@index([approverId])
@@ -1678,19 +1679,19 @@ model ExpenseReport {
   status      String   @default("OPEN") // OPEN, SUBMITTED, APPROVED, REJECTED
   total       Decimal  @default(0) @db.Decimal(10, 2)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
-  orgId       String
+  orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Propietario del informe
-  ownerId     String
-  owner       Employee @relation(fields: [ownerId], references: [id])
+  ownerId String
+  owner   Employee @relation(fields: [ownerId], references: [id])
 
   // Gastos incluidos
-  expenses    Expense[]
+  expenses Expense[]
 
   @@index([orgId])
   @@index([ownerId])
@@ -1700,47 +1701,47 @@ model ExpenseReport {
 
 // Snapshot de política aplicada al gasto (auditoría)
 model PolicySnapshot {
-  id                      String   @id @default(cuid())
-  mileageRateEurPerKm     Decimal? @db.Decimal(5, 3)
-  mealDailyLimit          Decimal? @db.Decimal(10, 2)
-  lodgingDailyLimit       Decimal? @db.Decimal(10, 2)
-  fuelRequiresReceipt     Boolean  @default(true)
-  vatAllowed              Boolean  @default(true)
-  costCenterRequired      Boolean  @default(false)
+  id                  String   @id @default(cuid())
+  mileageRateEurPerKm Decimal? @db.Decimal(5, 3)
+  mealDailyLimit      Decimal? @db.Decimal(10, 2)
+  lodgingDailyLimit   Decimal? @db.Decimal(10, 2)
+  fuelRequiresReceipt Boolean  @default(true)
+  vatAllowed          Boolean  @default(true)
+  costCenterRequired  Boolean  @default(false)
 
-  expenseId               String   @unique
-  expense                 Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  expenseId String  @unique
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   @@map("policy_snapshots")
 }
 
 // Política de gastos por organización
 model ExpensePolicy {
-  id                      String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Tarifas y límites
-  mileageRateEurPerKm     Decimal  @default(0.26) @db.Decimal(5, 3)
-  mealDailyLimit          Decimal? @db.Decimal(10, 2)
-  lodgingDailyLimit       Decimal? @db.Decimal(10, 2)
+  mileageRateEurPerKm Decimal  @default(0.26) @db.Decimal(5, 3)
+  mealDailyLimit      Decimal? @db.Decimal(10, 2)
+  lodgingDailyLimit   Decimal? @db.Decimal(10, 2)
 
   // Requisitos por categoría (JSON)
   // Formato: { FUEL: { requiresReceipt: true, vatAllowed: true }, ... }
-  categoryRequirements    Json     @default("{}")
+  categoryRequirements Json @default("{}")
 
   // Configuración general
-  attachmentRequired      Boolean  @default(true)
-  costCenterRequired      Boolean  @default(false)
-  vatAllowed              Boolean  @default(true)
+  attachmentRequired Boolean @default(true)
+  costCenterRequired Boolean @default(false)
+  vatAllowed         Boolean @default(true)
 
   // Aprobación
-  approvalLevels          Int      @default(1) // Niveles de aprobación (1, 2, 3)
+  approvalLevels Int @default(1) // Niveles de aprobación (1, 2, 3)
 
-  createdAt               DateTime @default(now())
-  updatedAt               DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy (1:1 con Organization)
-  orgId                   String   @unique
-  organization            Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String       @unique
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   @@map("expense_policies")
 }
@@ -1749,25 +1750,25 @@ model ExpensePolicy {
 
 // Consentimiento de geolocalización del usuario (RGPD)
 model GeolocationConsent {
-  id               String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Consentimiento
-  consentGivenAt   DateTime @default(now()) // Fecha y hora del consentimiento
-  consentVersion   String   @default("1.0") // Versión del texto de consentimiento
-  ipAddress        String?  // IP desde donde se dio consentimiento
-  active           Boolean  @default(true)  // Si el consentimiento está activo (puede revocarse)
+  consentGivenAt DateTime @default(now()) // Fecha y hora del consentimiento
+  consentVersion String   @default("1.0") // Versión del texto de consentimiento
+  ipAddress      String? // IP desde donde se dio consentimiento
+  active         Boolean  @default(true) // Si el consentimiento está activo (puede revocarse)
 
   // Timestamps
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
-  orgId            String
-  organization     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Usuario que dio consentimiento
-  userId           String
-  user             User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, orgId]) // Un consentimiento activo por usuario por organización
   @@index([orgId])
@@ -1780,25 +1781,25 @@ model GeolocationConsent {
 
 // Log de auditoría para acceso a datos sensibles (IBAN, salario, etc.)
 model SensitiveDataAccess {
-  id           String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Tipo de dato sensible accedido
-  dataType     SensitiveDataType
+  dataType SensitiveDataType
 
   // Referencia al recurso (ID del empleado, etc.)
   resourceId   String
-  resourceType String   // "EMPLOYEE", "CONTRACT", etc.
+  resourceType String // "EMPLOYEE", "CONTRACT", etc.
 
   // Usuario que accedió
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Metadatos del acceso
-  ipAddress    String?
-  userAgent    String?
+  ipAddress String?
+  userAgent String?
 
   // Timestamp
-  accessedAt   DateTime @default(now())
+  accessedAt DateTime @default(now())
 
   // Multi-tenancy
   orgId        String
@@ -1814,26 +1815,26 @@ model SensitiveDataAccess {
 
 // Tipos de datos sensibles
 enum SensitiveDataType {
-  IBAN           // Datos bancarios
-  SALARY         // Salario
-  SSN            // Número seguridad social
-  MEDICAL_DATA   // Datos médicos
-  OTHER          // Otros datos sensibles
+  IBAN // Datos bancarios
+  SALARY // Salario
+  SSN // Número seguridad social
+  MEDICAL_DATA // Datos médicos
+  OTHER // Otros datos sensibles
 }
 
 // ==================== MÓDULO DE CHAT 1:1 ====================
 
 // Conversación 1:1 entre dos usuarios
 model Conversation {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Usuarios participantes (normalizados: userAId < userBId siempre para evitar duplicados)
-  userAId         String
-  userBId         String
+  userAId String
+  userBId String
 
   // Metadata
-  lastMessageAt   DateTime @default(now())
-  isBlocked       Boolean  @default(false)
+  lastMessageAt DateTime @default(now())
+  isBlocked     Boolean  @default(false)
 
   // Contadores de mensajes no leídos por usuario
   unreadCountUserA Int @default(0) // Mensajes no leídos para userA
@@ -1844,19 +1845,19 @@ model Conversation {
   hiddenByUserB Boolean @default(false) // UserB ocultó la conversación
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones con usuarios
-  userA           User @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB           User @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  userA User @relation("ConversationUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("ConversationUserB", fields: [userBId], references: [id], onDelete: Cascade)
 
   // Mensajes de la conversación
-  messages        Message[]
+  messages Message[]
 
   @@unique([orgId, userAId, userBId]) // Conversación única por par de usuarios en la organización
   @@index([orgId])
@@ -1868,30 +1869,30 @@ model Conversation {
 
 // Mensaje individual dentro de una conversación
 model Message {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Contenido (máximo 2KB según requisitos)
-  body            String   @db.Text
+  body String @db.Text
 
   // Estado del mensaje
-  status          MessageStatus @default(SENT)
+  status MessageStatus @default(SENT)
 
   // Timestamps
-  createdAt       DateTime @default(now())
-  editedAt        DateTime? // Si fue editado
-  deletedAt       DateTime? // Soft delete
+  createdAt DateTime  @default(now())
+  editedAt  DateTime? // Si fue editado
+  deletedAt DateTime? // Soft delete
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Conversación a la que pertenece
-  conversationId  String
-  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   // Remitente del mensaje
-  senderId        String
-  sender          User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([orgId])
   @@index([conversationId])
@@ -1903,8 +1904,8 @@ model Message {
 
 // Estados del mensaje
 enum MessageStatus {
-  SENT   // Enviado
-  READ   // Leído
+  SENT // Enviado
+  READ // Leído
 }
 
 // ==================== NOTIFICACIONES DESCARTADAS ====================
@@ -1912,8 +1913,8 @@ enum MessageStatus {
 // Sistema de descarte de notificaciones (fichajes incompletos, etc.)
 model DismissedNotification {
   id          String   @id @default(cuid())
-  type        String   // "INCOMPLETE_ENTRY", "EXCESSIVE_TIME", etc.
-  referenceId String   // ID del WorkdaySummary o TimeEntry
+  type        String // "INCOMPLETE_ENTRY", "EXCESSIVE_TIME", etc.
+  referenceId String // ID del WorkdaySummary o TimeEntry
   dismissedAt DateTime @default(now())
 
   // Multi-tenancy
@@ -1934,25 +1935,25 @@ model DismissedNotification {
 
 // Plantilla de horario base (Ej: "Horario Oficina", "Turno Noche", "Patrón Policía")
 model ScheduleTemplate {
-  id              String   @id @default(cuid())
-  name            String   // "Horario oficina central", "Turno 24h bomberos"
-  description     String?
-  templateType    ScheduleTemplateType // FIXED, SHIFT, ROTATION, FLEXIBLE
-  isActive        Boolean  @default(true)
+  id           String               @id @default(cuid())
+  name         String // "Horario oficina central", "Turno 24h bomberos"
+  description  String?
+  templateType ScheduleTemplateType // FIXED, SHIFT, ROTATION, FLEXIBLE
+  isActive     Boolean              @default(true)
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones
-  periods         SchedulePeriod[]
+  periods             SchedulePeriod[]
   employeeAssignments EmployeeScheduleAssignment[]
   manualAssignments   ManualShiftAssignment[]
-  rotationSteps   ShiftRotationStep[]
-  exceptionDays   ExceptionDayOverride[]
+  rotationSteps       ShiftRotationStep[]
+  exceptionDays       ExceptionDayOverride[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orgId])
   @@map("schedule_templates")
@@ -1960,22 +1961,22 @@ model ScheduleTemplate {
 
 // Periodo de vigencia (REGULAR, INTENSIVE/verano, SPECIAL/Semana Santa)
 model SchedulePeriod {
-  id              String   @id @default(cuid())
+  id                 String           @id @default(cuid())
   scheduleTemplateId String
-  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id], onDelete: Cascade)
+  scheduleTemplate   ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id], onDelete: Cascade)
 
-  periodType      SchedulePeriodType
-  name            String?  // "Verano 2025", "Semana Santa", "Campaña Navidad"
+  periodType SchedulePeriodType
+  name       String? // "Verano 2025", "Semana Santa", "Campaña Navidad"
 
   // Fechas de vigencia (null = permanente/REGULAR)
-  validFrom       DateTime? // null = desde siempre
-  validTo         DateTime? // null = hasta siempre
+  validFrom DateTime? // null = desde siempre
+  validTo   DateTime? // null = hasta siempre
 
   // Patrón de días laborables
   workDayPatterns WorkDayPattern[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([scheduleTemplateId])
   @@map("schedule_periods")
@@ -1983,15 +1984,15 @@ model SchedulePeriod {
 
 // Patrón de día de semana (L-V 9-18h, Sábados 10-14h, etc.)
 model WorkDayPattern {
-  id              String   @id @default(cuid())
+  id               String         @id @default(cuid())
   schedulePeriodId String
-  schedulePeriod  SchedulePeriod @relation(fields: [schedulePeriodId], references: [id], onDelete: Cascade)
+  schedulePeriod   SchedulePeriod @relation(fields: [schedulePeriodId], references: [id], onDelete: Cascade)
 
-  dayOfWeek       Int      // 0=Domingo, 1=Lunes, ..., 6=Sábado (ISO 8601)
-  isWorkingDay    Boolean  @default(true)
+  dayOfWeek    Int // 0=Domingo, 1=Lunes, ..., 6=Sábado (ISO 8601)
+  isWorkingDay Boolean @default(true)
 
   // Tramos horarios de ese día
-  timeSlots       TimeSlot[]
+  timeSlots TimeSlot[]
 
   @@index([schedulePeriodId])
   @@map("work_day_patterns")
@@ -1999,17 +2000,17 @@ model WorkDayPattern {
 
 // Tramo horario (09:00-14:00 WORK MANDATORY, 14:00-15:00 BREAK, etc.)
 model TimeSlot {
-  id              String   @id @default(cuid())
+  id               String         @id @default(cuid())
   workDayPatternId String
-  workDayPattern  WorkDayPattern @relation(fields: [workDayPatternId], references: [id], onDelete: Cascade)
+  workDayPattern   WorkDayPattern @relation(fields: [workDayPatternId], references: [id], onDelete: Cascade)
 
-  startTimeMinutes Int     // 0-1440 (minutos desde medianoche)
-  endTimeMinutes   Int     // 0-1440
+  startTimeMinutes Int // 0-1440 (minutos desde medianoche)
+  endTimeMinutes   Int // 0-1440
 
-  slotType        TimeSlotType
-  presenceType    PresenceType  // MANDATORY (presencia obligatoria) o FLEXIBLE
+  slotType     TimeSlotType
+  presenceType PresenceType // MANDATORY (presencia obligatoria) o FLEXIBLE
 
-  description     String?  // "Pausa comida", "Guardia localizada"
+  description String? // "Pausa comida", "Guardia localizada"
 
   @@index([workDayPatternId])
   @@map("time_slots")
@@ -2017,72 +2018,101 @@ model TimeSlot {
 
 // Asignación manual de turno (Planificación/Rostering)
 model ManualShiftAssignment {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Empleado asignado
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // Turno asignado (Plantilla)
-  scheduleTemplateId String
-  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+  scheduleTemplateId String?
+  scheduleTemplate   ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
 
   // Fecha de asignación
-  date            DateTime @db.Date
+  date DateTime @db.Date
 
   // Override opcional de horario (si es distinto al template)
   startTimeMinutes Int?
   endTimeMinutes   Int?
 
   // Ubicación específica para este turno (Multicentro)
-  costCenterId    String?
-  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
   // Zona específica dentro del centro (Barra, Cocina, etc.)
-  workZoneId      String?
-  workZone        WorkZone?   @relation(fields: [workZoneId], references: [id])
+  workZoneId String?
+  workZone   WorkZone? @relation(fields: [workZoneId], references: [id])
+
+  // Datos adicionales para planificación manual
+  breakMinutes Int?
+  customRole   String?
+  notes        String?
+  status       ManualShiftStatus @default(DRAFT)
+  publishedAt  DateTime?
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([employeeId, date]) // Un turno principal por día
   @@index([orgId])
   @@index([scheduleTemplateId])
   @@index([costCenterId])
   @@index([workZoneId])
+  @@index([status])
   @@index([date])
   @@map("manual_shift_assignments")
 }
 
-// Zona de trabajo (sub-ubicación dentro de un centro de coste)
-model WorkZone {
-  id              String   @id @default(cuid())
-  name            String   // "Barra", "Cocina", "Terraza"
-  description     String?
-  
-  // Configuración de cobertura (JSON)
-  // { morning: 2, afternoon: 3, night: 1 }
-  requiredCoverage Json    @default("{}")
-
-  isActive        Boolean  @default(true)
-
-  // Relación con centro de coste
-  costCenterId    String
-  costCenter      CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+// Plantilla simple de turnos manuales (patrones M-T-N-L, etc.)
+model ManualShiftTemplate {
+  id                   String   @id @default(cuid())
+  name                 String
+  description          String?
+  pattern              String[]
+  shiftDurationMinutes Int      @default(480)
+  color                String?
+  isActive             Boolean  @default(true)
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("manual_shift_templates")
+}
+
+// Zona de trabajo (sub-ubicación dentro de un centro de coste)
+model WorkZone {
+  id          String  @id @default(cuid())
+  name        String // "Barra", "Cocina", "Terraza"
+  description String?
+
+  // Configuración de cobertura (JSON)
+  // { morning: 2, afternoon: 3, night: 1 }
+  requiredCoverage Json @default("{}")
+
+  isActive Boolean @default(true)
+
+  // Relación con centro de coste
+  costCenterId String
+  costCenter   CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Relaciones
   manualAssignments ManualShiftAssignment[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orgId])
   @@index([costCenterId])
@@ -2091,20 +2121,20 @@ model WorkZone {
 
 // Patrón de rotación (para policía, bomberos, etc.)
 model ShiftRotationPattern {
-  id              String   @id @default(cuid())
-  name            String   // "Policía 6x6", "Bomberos 24x72"
-  description     String?
+  id          String  @id @default(cuid())
+  name        String // "Policía 6x6", "Bomberos 24x72"
+  description String?
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
   // Pasos de la rotación
-  steps           ShiftRotationStep[]
+  steps               ShiftRotationStep[]
   employeeAssignments EmployeeScheduleAssignment[]
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([orgId])
   @@map("shift_rotation_patterns")
@@ -2112,15 +2142,15 @@ model ShiftRotationPattern {
 
 // Paso de rotación (Ej: 6 días Turno Mañana → 6 días Descanso)
 model ShiftRotationStep {
-  id              String   @id @default(cuid())
+  id                String               @id @default(cuid())
   rotationPatternId String
-  rotationPattern ShiftRotationPattern @relation(fields: [rotationPatternId], references: [id], onDelete: Cascade)
+  rotationPattern   ShiftRotationPattern @relation(fields: [rotationPatternId], references: [id], onDelete: Cascade)
 
-  stepOrder       Int      // Orden en la rotación (1, 2, 3...)
-  durationDays    Int      // Duración en días
+  stepOrder    Int // Orden en la rotación (1, 2, 3...)
+  durationDays Int // Duración en días
 
   scheduleTemplateId String
-  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+  scheduleTemplate   ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
 
   @@index([rotationPatternId])
   @@map("shift_rotation_steps")
@@ -2128,30 +2158,30 @@ model ShiftRotationStep {
 
 // Asignación de horario a empleado
 model EmployeeScheduleAssignment {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  employeeId      String
-  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
-  assignmentType  ScheduleAssignmentType
+  assignmentType ScheduleAssignmentType
 
   // Para FIXED/SHIFT/FLEXIBLE
   scheduleTemplateId String?
-  scheduleTemplate ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
+  scheduleTemplate   ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
 
   // Para ROTATION
   rotationPatternId String?
-  rotationPattern ShiftRotationPattern? @relation(fields: [rotationPatternId], references: [id])
+  rotationPattern   ShiftRotationPattern? @relation(fields: [rotationPatternId], references: [id])
   rotationStartDate DateTime? // Fecha inicio de la rotación
 
   // Vigencia de la asignación
-  validFrom       DateTime  @default(now())
-  validTo         DateTime? // null = indefinido
+  validFrom DateTime  @default(now())
+  validTo   DateTime? // null = indefinido
 
-  isActive        Boolean   @default(true)
+  isActive Boolean @default(true)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([employeeId])
   @@map("employee_schedule_assignments")
@@ -2159,55 +2189,55 @@ model EmployeeScheduleAssignment {
 
 // Excepción de día (para días sueltos raros: "Viernes Santo 12:48h")
 model ExceptionDayOverride {
-  id              String   @id @default(cuid())
+  id String @id @default(cuid())
 
   // Alcance de la excepción (XOR: solo uno puede estar activo)
   // 1. Empleado específico
-  employeeId      String?
-  employee        Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   // 2. Plantilla de horario (afecta a todos los empleados asignados)
   scheduleTemplateId String?
-  scheduleTemplate ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
+  scheduleTemplate   ScheduleTemplate? @relation(fields: [scheduleTemplateId], references: [id])
 
   // 3. Excepción global (toda la organización)
-  isGlobal        Boolean  @default(false)
+  isGlobal Boolean @default(false)
 
   // 4. Por departamento
-  departmentId    String?
-  department      Department? @relation(fields: [departmentId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
 
   // 5. Por centro de costes
-  costCenterId    String?
-  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
 
-  date            DateTime  @db.Date // Día específico
-  endDate         DateTime? @db.Date // Para rangos de fechas (opcional)
-  reason          String?   // "Viernes Santo", "Cierre excepcional"
+  date    DateTime  @db.Date // Día específico
+  endDate DateTime? @db.Date // Para rangos de fechas (opcional)
+  reason  String? // "Viernes Santo", "Cierre excepcional"
 
   // Tipo de excepción
-  exceptionType   ExceptionType
+  exceptionType ExceptionType
 
   // Recurrencia anual (para festivos que se repiten cada año)
-  isRecurring     Boolean  @default(false)
+  isRecurring Boolean @default(false)
 
   // Slots específicos para ese día
-  overrideSlots   ExceptionTimeSlot[]
+  overrideSlots ExceptionTimeSlot[]
 
   // Soft delete y auditoría
-  deletedAt       DateTime?
-  deletedBy       String?
-  deletedByUser   User? @relation("DeletedExceptions", fields: [deletedBy], references: [id])
+  deletedAt     DateTime?
+  deletedBy     String?
+  deletedByUser User?     @relation("DeletedExceptions", fields: [deletedBy], references: [id])
 
-  createdBy       String
-  createdByUser   User @relation("CreatedExceptions", fields: [createdBy], references: [id])
+  createdBy     String
+  createdByUser User   @relation("CreatedExceptions", fields: [createdBy], references: [id])
 
   // Multi-tenancy
-  orgId           String
-  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([employeeId])
   @@index([scheduleTemplateId])
@@ -2224,14 +2254,14 @@ model ExceptionDayOverride {
 
 // Time slot para excepción
 model ExceptionTimeSlot {
-  id              String   @id @default(cuid())
-  exceptionDayId  String
-  exceptionDay    ExceptionDayOverride @relation(fields: [exceptionDayId], references: [id], onDelete: Cascade)
+  id             String               @id @default(cuid())
+  exceptionDayId String
+  exceptionDay   ExceptionDayOverride @relation(fields: [exceptionDayId], references: [id], onDelete: Cascade)
 
   startTimeMinutes Int
   endTimeMinutes   Int
-  slotType        TimeSlotType
-  presenceType    PresenceType
+  slotType         TimeSlotType
+  presenceType     PresenceType
 
   @@index([exceptionDayId])
   @@map("exception_time_slots")
@@ -2284,44 +2314,50 @@ model Team {
 // ==================== ENUMS PARA HORARIOS V2.0 ====================
 
 enum ScheduleTemplateType {
-  FIXED      // Horario fijo (oficina, tienda)
-  SHIFT      // Turno (mañana, tarde, noche)
-  ROTATION   // Rotación (policía 6x6, bomberos 24x72)
-  FLEXIBLE   // Flexible (teletrabajo, autónomos)
+  FIXED // Horario fijo (oficina, tienda)
+  SHIFT // Turno (mañana, tarde, noche)
+  ROTATION // Rotación (policía 6x6, bomberos 24x72)
+  FLEXIBLE // Flexible (teletrabajo, autónomos)
 }
 
 enum SchedulePeriodType {
-  REGULAR     // Horario habitual todo el año
-  INTENSIVE   // Jornada intensiva (verano)
-  SPECIAL     // Especial (Navidad, Semana Santa, campañas)
+  REGULAR // Horario habitual todo el año
+  INTENSIVE // Jornada intensiva (verano)
+  SPECIAL // Especial (Navidad, Semana Santa, campañas)
 }
 
 enum TimeSlotType {
-  WORK       // Tiempo de trabajo
-  BREAK      // Pausa/descanso
-  ON_CALL    // Guardia localizada
-  OTHER      // Otro
+  WORK // Tiempo de trabajo
+  BREAK // Pausa/descanso
+  ON_CALL // Guardia localizada
+  OTHER // Otro
 }
 
 enum PresenceType {
-  MANDATORY  // Presencia obligatoria (sector público: 9:00-14:30)
-  FLEXIBLE   // Flexible (sector público: 7:00-9:00 y 14:30-16:00)
+  MANDATORY // Presencia obligatoria (sector público: 9:00-14:30)
+  FLEXIBLE // Flexible (sector público: 7:00-9:00 y 14:30-16:00)
 }
 
 enum ScheduleAssignmentType {
-  FIXED      // Horario fijo asignado
-  SHIFT      // Turno asignado
-  ROTATION   // Rotación asignada
-  FLEXIBLE   // Flexible (sin horario fijo)
+  FIXED // Horario fijo asignado
+  SHIFT // Turno asignado
+  ROTATION // Rotación asignada
+  FLEXIBLE // Flexible (sin horario fijo)
+}
+
+enum ManualShiftStatus {
+  DRAFT
+  PUBLISHED
+  CONFLICT
 }
 
 enum ExceptionType {
-  HOLIDAY           // Festivo (día completo sin trabajo)
-  REDUCED_HOURS     // Jornada reducida
-  SPECIAL_SCHEDULE  // Horario especial
-  TRAINING          // Formación/Evento
-  EARLY_CLOSURE     // Cierre anticipado
-  CUSTOM            // Personalizado
+  HOLIDAY // Festivo (día completo sin trabajo)
+  REDUCED_HOURS // Jornada reducida
+  SPECIAL_SCHEDULE // Horario especial
+  TRAINING // Formación/Evento
+  EARLY_CLOSURE // Cierre anticipado
+  CUSTOM // Personalizado
 }
 
 // ==================== SISTEMA DE PERMISOS POR ÁMBITO Y ALERTAS ====================
@@ -2410,18 +2446,18 @@ model AlertSubscription {
   severityLevels String[] @default([]) // ["WARNING", "CRITICAL"]
 
   // Canales de notificación
-  notifyInApp   Boolean @default(true)  // Notificación en navbar
+  notifyInApp   Boolean @default(true) // Notificación en navbar
   notifyByEmail Boolean @default(false) // Email automático (futuro)
 
   // Control de volumen (futuro V2/V3)
-  maxAlertsPerDay Int? // Límite diario
-  digestMode Boolean @default(false) // Agrupar en resumen diario
-  digestTime String? // "09:00" - Hora del resumen
+  maxAlertsPerDay     Int? // Límite diario
+  digestMode          Boolean @default(false) // Agrupar en resumen diario
+  digestTime          String? // "09:00" - Hora del resumen
   onlyFirstOccurrence Boolean @default(false) // Solo notificar la primera vez
 
   // Sobrescritura de usuario (futuro)
   isUserOverride Boolean @default(false) // True si el usuario la modificó manualmente
-  isDisabled Boolean @default(false) // True si el usuario la desactivó explícitamente
+  isDisabled     Boolean @default(false) // True si el usuario la desactivó explícitamente
 
   // Estado
   isActive Boolean @default(true)
@@ -2455,7 +2491,7 @@ model Alert {
   severity String // "INFO" | "WARNING" | "CRITICAL"
 
   // Detalles
-  title       String  // "Entrada tarde: 35 minutos de retraso"
+  title       String // "Entrada tarde: 35 minutos de retraso"
   description String? // Descripción detallada
   date        DateTime // Fecha del evento (día sin hora)
 
@@ -2474,10 +2510,10 @@ model Alert {
   incidents Json? // { lateArrivals: [{time, deviation, severity}], earlyDepartures: [], etc. }
 
   // Ámbito de la alerta (para filtrado) - Centro/Depto en el MOMENTO de crear la alerta
-  costCenterId String? // Centro ACTUAL del empleado
+  costCenterId         String? // Centro ACTUAL del empleado
   originalCostCenterId String? // Centro en el momento de la alerta (histórico, inmutable)
 
-  costCenter   CostCenter? @relation("AlertCostCenter", fields: [costCenterId], references: [id])
+  costCenter         CostCenter? @relation("AlertCostCenter", fields: [costCenterId], references: [id])
   originalCostCenter CostCenter? @relation("AlertOriginalCostCenter", fields: [originalCostCenterId], references: [id])
 
   // Relación con departamento (para filtrado y suscripciones por departamento)
@@ -2503,7 +2539,6 @@ model Alert {
   // Constraint único para alertas resumen diarias
   // Solo puede haber UNA alerta DAILY_SUMMARY por empleado por día
   @@unique([employeeId, date, type])
-
   // Índices para rendimiento
   @@index([orgId])
   @@index([employeeId])
@@ -2517,13 +2552,11 @@ model Alert {
   @@index([severity])
   @@index([createdAt])
   @@index([timeEntryId])
-
   // Índices compuestos para queries comunes
   @@index([orgId, status, severity]) // Dashboard principal
   @@index([costCenterId, status, date]) // Dashboard de centro
   @@index([teamId, status, date]) // Dashboard de equipo
   @@index([employeeId, date, type]) // Deduplicación
-
   @@map("alerts")
 }
 
@@ -2559,7 +2592,6 @@ model UserActiveContext {
   @@index([userId])
   @@index([orgId])
   @@index([activeScope])
-
   @@map("user_active_contexts")
 }
 

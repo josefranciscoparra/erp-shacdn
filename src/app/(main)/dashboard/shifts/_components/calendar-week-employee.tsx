@@ -400,7 +400,7 @@ function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreat
   const containsActiveShift = shifts.some((s) => s.id === activeShiftId);
 
   // Determinar el tipo de día vacío (descanso vs sin planificar)
-  const emptyDayType = getEmptyDayType(date, allShifts);
+  const emptyDayType = getEmptyDayType(date, allShifts, { employeeId });
 
   return (
     <div

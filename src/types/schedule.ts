@@ -236,6 +236,11 @@ export interface CreateManualShiftAssignmentInput {
   startTimeMinutes?: number; // Override opcional
   endTimeMinutes?: number; // Override opcional
   costCenterId?: string; // Multicentro
+  workZoneId?: string;
+  breakMinutes?: number;
+  status?: ManualShiftStatus;
+  customRole?: string;
+  notes?: string;
 }
 
 /**
@@ -277,6 +282,8 @@ export interface ScheduleTemplateFilters {
   isActive?: boolean;
   search?: string;
 }
+
+export type ManualShiftStatus = "DRAFT" | "PUBLISHED" | "CONFLICT";
 
 /**
  * Filtros para buscar asignaciones de empleados

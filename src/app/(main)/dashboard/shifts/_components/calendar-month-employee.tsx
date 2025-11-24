@@ -179,6 +179,7 @@ export function CalendarMonthEmployee() {
                       hasShifts={hasShifts}
                       shifts={dayShifts}
                       allShifts={shifts}
+                      employeeId={employee.id}
                       onCreateShift={() =>
                         openShiftDialog(undefined, {
                           employeeId: employee.id,
@@ -210,14 +211,24 @@ interface MonthDayCellProps {
   allShifts: Shift[];
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
+  employeeId: string;
 }
 
-function MonthDayCell({ day, isToday, hasShifts, shifts, allShifts, onCreateShift, onEditShift }: MonthDayCellProps) {
+function MonthDayCell({
+  day,
+  isToday,
+  hasShifts,
+  shifts,
+  allShifts,
+  onCreateShift,
+  onEditShift,
+  employeeId,
+}: MonthDayCellProps) {
   const dayNumber = format(day, "d");
   const dateISO = formatDateISO(day);
 
   // Determinar el tipo de día vacío (descanso vs sin planificar)
-  const emptyDayType = getEmptyDayType(dateISO, allShifts);
+  const emptyDayType = getEmptyDayType(dateISO, allShifts, { employeeId });
 
   const getCellColor = () => {
     if (shifts.some((s) => s.status === "conflict")) {
