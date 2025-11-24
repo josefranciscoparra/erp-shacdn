@@ -15,7 +15,7 @@
  * 4. ScheduleTemplate base (REGULAR)
  */
 
-import type { ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot } from "@prisma/client";
+import type { ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, ManualShiftAssignment } from "@prisma/client";
 import { differenceInDays, startOfWeek, endOfWeek, addDays, differenceInMinutes } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
@@ -65,16 +65,49 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
     };
   }
 
-  // Si la ausencia es PARCIAL, continuar para obtener el horario y luego ajustarlo
-  // (se procesará al final de la función)
+  // 2. PRIORIDAD CRÍTICA: Asignación Manual (Rostering / Planificación Semanal)
+  // Sobrescribe excepciones, rotaciones y horarios fijos.
+  const manualAssignment = await getManualAssignmentForDate(employeeId, date);
+  if (manualAssignment) {
+    // Si hay ausencia parcial, se ajustará al final
+    const schedule = await buildScheduleFromManual(manualAssignment, date);
 
-  // 2. PRIORIDAD ALTA: Buscar excepciones de día (días específicos con horario especial)
-  const exception = await getExceptionForDate(employeeId, date);
-  if (exception) {
-    return buildScheduleFromException(exception, date);
+    // Aplicar ajuste de ausencia parcial si existe
+    if (absence && absence.isPartial && absence.durationMinutes) {
+      schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absence.durationMinutes);
+      schedule.absence = {
+        type: absence.type,
+        reason: absence.reason,
+        isPartial: true,
+        startTime: absence.startTime,
+        endTime: absence.endTime,
+        durationMinutes: absence.durationMinutes,
+      };
+    }
+    return schedule;
   }
 
-  // 3. PRIORIDAD MEDIA: Obtener asignación activa del empleado
+  // 3. PRIORIDAD ALTA: Buscar excepciones de día (días específicos con horario especial)
+  const exception = await getExceptionForDate(employeeId, date);
+  if (exception) {
+    const schedule = buildScheduleFromException(exception, date);
+
+    // Aplicar ajuste de ausencia parcial si existe
+    if (absence && absence.isPartial && absence.durationMinutes) {
+      schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absence.durationMinutes);
+      schedule.absence = {
+        type: absence.type,
+        reason: absence.reason,
+        isPartial: true,
+        startTime: absence.startTime,
+        endTime: absence.endTime,
+        durationMinutes: absence.durationMinutes,
+      };
+    }
+    return schedule;
+  }
+
+  // 4. PRIORIDAD MEDIA: Obtener asignación activa del empleado
   const assignment = await getActiveAssignment(employeeId, date);
   console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
     hasAssignment: !!assignment,
@@ -903,6 +936,148 @@ export async function getNextPeriodChange(employeeId: string, fromDate: Date): P
       type: nextPeriod.periodType,
       name: nextPeriod.name ?? undefined,
       startDate: nextPeriod.validFrom,
+    },
+  };
+}
+
+// ============================================================================
+// Asignaciones Manuales (Planificación / Rostering)
+// ============================================================================
+
+/**
+ * Busca una asignación manual para una fecha específica.
+ */
+async function getManualAssignmentForDate(employeeId: string, date: Date) {
+  // Normalizar fecha
+  const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
+  const dateStart = new Date(dateStr);
+
+  // Prisma Date types can be tricky. Using date object set to midnight/UTC usually works if @db.Date is used.
+  // We need to match the specific date.
+
+  return await prisma.manualShiftAssignment.findFirst({
+    where: {
+      employeeId,
+      date: dateStart, // Assuming the input date is already normalized or Prisma handles the Date object comparison correctly for @db.Date
+    },
+  });
+}
+
+/**
+ * Construye el horario efectivo basado en una asignación manual.
+ */
+async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: Date): Promise<EffectiveSchedule> {
+  // 1. Si hay overrides explícitos de hora, usarlos (Prioridad máxima dentro de manual)
+  if (assignment.startTimeMinutes !== null && assignment.endTimeMinutes !== null) {
+    const duration = assignment.endTimeMinutes - assignment.startTimeMinutes;
+    const effectiveSlots: EffectiveTimeSlot[] = [
+      {
+        startMinutes: assignment.startTimeMinutes,
+        endMinutes: assignment.endTimeMinutes,
+        slotType: "WORK",
+        presenceType: "MANDATORY",
+        isMandatory: true,
+        description: "Planificación Manual",
+      },
+    ];
+
+    return {
+      date,
+      isWorkingDay: true,
+      expectedMinutes: duration,
+      timeSlots: effectiveSlots,
+      source: "MANUAL",
+      manualAssignment: {
+        id: assignment.id,
+        scheduleTemplateId: assignment.scheduleTemplateId,
+        costCenterId: assignment.costCenterId,
+        startTimeMinutes: assignment.startTimeMinutes,
+        endTimeMinutes: assignment.endTimeMinutes,
+      },
+    };
+  }
+
+  // 2. Si no hay overrides, usar la plantilla referenciada
+  // Necesitamos cargar la plantilla completa con sus patrones
+  const template = await prisma.scheduleTemplate.findUnique({
+    where: { id: assignment.scheduleTemplateId },
+    include: {
+      periods: {
+        include: {
+          workDayPatterns: {
+            include: { timeSlots: true },
+          },
+        },
+      },
+    },
+  });
+
+  if (!template) {
+    console.error(`[MANUAL_SCHEDULE] Template ${assignment.scheduleTemplateId} not found`);
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "MANUAL", // Or ERROR
+    };
+  }
+
+  // Usar la lógica de período activo para determinar qué patrón aplica
+  // (Por si la plantilla de turno tiene versiones de verano/invierno)
+  const period = await getActivePeriod(template, date);
+
+  if (!period) {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "MANUAL",
+    };
+  }
+
+  const dayOfWeek = date.getDay();
+  const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === dayOfWeek);
+
+  if (!pattern || !pattern.isWorkingDay) {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "MANUAL",
+    };
+  }
+
+  const effectiveSlots: EffectiveTimeSlot[] = pattern.timeSlots.map((slot) => ({
+    startMinutes: slot.startTimeMinutes,
+    endMinutes: slot.endTimeMinutes,
+    slotType: slot.slotType,
+    presenceType: slot.presenceType,
+    isMandatory: slot.presenceType === "MANDATORY",
+    description: slot.description ?? undefined,
+  }));
+
+  // Calcular minutos esperados
+  let expectedMinutes = 0;
+  for (const slot of effectiveSlots) {
+    if (String(slot.slotType) !== "BREAK") {
+      expectedMinutes += slot.endMinutes - slot.startMinutes;
+    }
+  }
+
+  return {
+    date,
+    isWorkingDay: true,
+    expectedMinutes,
+    timeSlots: effectiveSlots,
+    source: "MANUAL",
+    periodName: period.name ?? period.periodType,
+    manualAssignment: {
+      id: assignment.id,
+      scheduleTemplateId: assignment.scheduleTemplateId,
+      costCenterId: assignment.costCenterId,
     },
   };
 }

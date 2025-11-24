@@ -25,6 +25,9 @@ import type {
   UpdateWorkDayPatternInput,
   CreateEmployeeScheduleAssignmentInput,
   ScheduleTemplateFilters,
+  CreateManualShiftAssignmentInput,
+  CreateShiftRotationPatternInput,
+  CreateShiftRotationStepInput,
 } from "@/types/schedule";
 
 // ============================================================================
@@ -1937,5 +1940,305 @@ export async function getCostCenters() {
   } catch (error) {
     console.error("Error getting cost centers:", error);
     return [];
+  }
+}
+
+// ============================================================================
+// GESTIÓN DE ROTACIONES (Fase 8)
+// ============================================================================
+
+export async function createShiftRotationPattern(
+  input: CreateShiftRotationPatternInput,
+): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const { orgId } = await requireOrg();
+
+    const pattern = await prisma.shiftRotationPattern.create({
+      data: {
+        orgId,
+        name: input.name,
+        description: input.description,
+        steps: {
+          create: input.steps.map((step) => ({
+            stepOrder: step.stepOrder,
+            durationDays: step.durationDays,
+            scheduleTemplateId: step.scheduleTemplateId,
+          })),
+        },
+      },
+    });
+
+    return { success: true, data: { id: pattern.id } };
+  } catch (error) {
+    console.error("Error creating rotation pattern:", error);
+    return { success: false, error: "Error al crear patrón de rotación" };
+  }
+}
+
+export async function updateShiftRotationPattern(
+  id: string,
+  input: Partial<CreateShiftRotationPatternInput>,
+): Promise<ActionResponse> {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Check ownership
+    const existing = await prisma.shiftRotationPattern.findUnique({
+      where: { id, orgId },
+    });
+    if (!existing) return { success: false, error: "Patrón no encontrado" };
+
+    // Update
+    await prisma.shiftRotationPattern.update({
+      where: { id },
+      data: {
+        name: input.name,
+        description: input.description,
+      },
+    });
+
+    // If steps provided, replace them (complex update)
+    if (input.steps) {
+      // Transaction to replace steps safely
+      await prisma.$transaction(async (tx) => {
+        await tx.shiftRotationStep.deleteMany({ where: { rotationPatternId: id } });
+        await tx.shiftRotationStep.createMany({
+          data: input.steps!.map((step) => ({
+            rotationPatternId: id,
+            stepOrder: step.stepOrder,
+            durationDays: step.durationDays,
+            scheduleTemplateId: step.scheduleTemplateId,
+          })),
+        });
+      });
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating rotation pattern:", error);
+    return { success: false, error: "Error al actualizar patrón de rotación" };
+  }
+}
+
+export async function deleteShiftRotationPattern(id: string): Promise<ActionResponse> {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Check usage in assignments
+    const count = await prisma.employeeScheduleAssignment.count({
+      where: { rotationPatternId: id, isActive: true },
+    });
+
+    if (count > 0) return { success: false, error: "No se puede eliminar: en uso por empleados activos" };
+
+    await prisma.shiftRotationPattern.delete({
+      where: { id, orgId },
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting rotation pattern:", error);
+    return { success: false, error: "Error al eliminar patrón de rotación" };
+  }
+}
+
+export async function getShiftRotationPatterns() {
+  try {
+    const { orgId } = await requireOrg();
+    return await prisma.shiftRotationPattern.findMany({
+      where: { orgId },
+      include: {
+        steps: {
+          include: { scheduleTemplate: { select: { id: true, name: true } } },
+          orderBy: { stepOrder: "asc" },
+        },
+        _count: { select: { employeeAssignments: { where: { isActive: true } } } },
+      },
+      orderBy: { name: "asc" },
+    });
+  } catch (error) {
+    console.error("Error getting rotation patterns:", error);
+    return [];
+  }
+}
+
+// ============================================================================
+// GESTIÓN DE ASIGNACIONES MANUALES (Rostering / Planificación)
+// ============================================================================
+
+export async function createManualShiftAssignment(
+  input: CreateManualShiftAssignmentInput,
+): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Validate inputs
+    const employee = await prisma.employee.findUnique({ where: { id: input.employeeId, orgId } });
+    if (!employee) return { success: false, error: "Empleado no encontrado" };
+
+    const template = await prisma.scheduleTemplate.findUnique({ where: { id: input.scheduleTemplateId, orgId } });
+    if (!template) return { success: false, error: "Plantilla no encontrada" };
+
+    // Normalizar fecha a mediodía UTC para evitar problemas de timezone
+    // Al ser un campo @db.Date, Prisma ignorará la hora, pero aseguramos que no caiga en el día anterior por UTC
+    const normalizedDate = new Date(input.date);
+    normalizedDate.setUTCHours(12, 0, 0, 0);
+
+    // Upsert
+    const assignment = await prisma.manualShiftAssignment.upsert({
+      where: {
+        employeeId_date: {
+          employeeId: input.employeeId,
+          date: normalizedDate,
+        },
+      },
+      update: {
+        scheduleTemplateId: input.scheduleTemplateId,
+        startTimeMinutes: input.startTimeMinutes,
+        endTimeMinutes: input.endTimeMinutes,
+        costCenterId: input.costCenterId,
+      },
+      create: {
+        orgId,
+        employeeId: input.employeeId,
+        date: normalizedDate,
+        scheduleTemplateId: input.scheduleTemplateId,
+        startTimeMinutes: input.startTimeMinutes,
+        endTimeMinutes: input.endTimeMinutes,
+        costCenterId: input.costCenterId,
+      },
+    });
+
+    return { success: true, data: { id: assignment.id } };
+  } catch (error) {
+    console.error("Error creating manual assignment:", error);
+    return { success: false, error: "Error al crear asignación manual" };
+  }
+}
+
+export async function deleteManualShiftAssignment(employeeId: string, date: Date): Promise<ActionResponse> {
+  try {
+    const { orgId } = await requireOrg();
+
+    const normalizedDate = new Date(date);
+    normalizedDate.setUTCHours(12, 0, 0, 0);
+
+    await prisma.manualShiftAssignment.deleteMany({
+      where: {
+        orgId,
+        employeeId,
+        date: normalizedDate,
+      },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting manual assignment:", error);
+    return { success: false, error: "Error al eliminar asignación manual" };
+  }
+}
+
+export async function getManualShiftAssignmentsForRange(employeeIds: string[], startDate: Date, endDate: Date) {
+  try {
+    const { orgId } = await requireOrg();
+
+    // Ajustar rango para cubrir todo el día UTC
+    const start = new Date(startDate);
+    start.setUTCHours(0, 0, 0, 0);
+
+    const end = new Date(endDate);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const assignments = await prisma.manualShiftAssignment.findMany({
+      where: {
+        orgId,
+        employeeId: { in: employeeIds },
+        date: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        scheduleTemplate: { select: { id: true, name: true, templateType: true } },
+        costCenter: { select: { id: true, name: true } },
+      },
+    });
+
+    return assignments;
+  } catch (error) {
+    console.error("Error getting manual assignments:", error);
+    return [];
+  }
+}
+
+// ============================================================================
+// UTILIDADES DE BÚSQUEDA
+// ============================================================================
+
+/**
+ * Busca empleados para autocompletado (nombre, email, puesto)
+ */
+export async function searchEmployees(term: string) {
+  try {
+    const { orgId } = await requireOrg();
+
+    if (!term || term.length < 2) return [];
+
+    const employees = await prisma.employee.findMany({
+      where: {
+        orgId,
+        active: true,
+        OR: [
+          { firstName: { contains: term, mode: "insensitive" } },
+          { lastName: { contains: term, mode: "insensitive" } },
+          { email: { contains: term, mode: "insensitive" } },
+        ],
+      },
+      take: 20,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        photoUrl: true, // Si existe en el modelo
+        employmentContracts: {
+          where: { active: true },
+          take: 1,
+          orderBy: { startDate: "desc" },
+          select: {
+            position: { select: { title: true } },
+            department: { select: { name: true } },
+            weeklyHours: true,
+          },
+        },
+      },
+    });
+
+    return employees.map((emp) => ({
+      id: emp.id,
+      fullName: `${emp.firstName} ${emp.lastName}`,
+      email: emp.email,
+      position: emp.employmentContracts[0]?.position?.title,
+      department: emp.employmentContracts[0]?.department?.name,
+      weeklyHours: emp.employmentContracts[0]?.weeklyHours?.toString(),
+      avatar: emp.photoUrl,
+    }));
+  } catch (error) {
+    console.error("Error searching employees:", error);
+    return [];
+  }
+}
+
+export async function deleteManualShiftAssignmentById(id: string): Promise<ActionResponse> {
+  try {
+    const { orgId } = await requireOrg();
+
+    await prisma.manualShiftAssignment.delete({
+      where: { id, orgId }, // orgId for security
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting manual assignment by ID:", error);
+    return { success: false, error: "Error al eliminar asignación manual" };
   }
 }

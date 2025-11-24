@@ -42,10 +42,19 @@ export interface EffectiveSchedule {
   timeSlots: EffectiveTimeSlot[];
 
   /** Origen de este horario (para debugging/UI) */
-  source: "EXCEPTION" | "PERIOD" | "TEMPLATE" | "ABSENCE" | "NO_ASSIGNMENT";
+  source: "MANUAL" | "EXCEPTION" | "PERIOD" | "TEMPLATE" | "ABSENCE" | "NO_ASSIGNMENT";
 
   /** Nombre del período (si aplica) */
   periodName?: string;
+
+  /** Información de asignación manual (si aplica) */
+  manualAssignment?: {
+    id: string;
+    scheduleTemplateId: string;
+    costCenterId?: string | null;
+    startTimeMinutes?: number | null;
+    endTimeMinutes?: number | null;
+  };
 
   /** Información de ausencia (si aplica) */
   absence?: {
@@ -215,6 +224,36 @@ export interface CreateEmployeeScheduleAssignmentInput {
   rotationStartDate?: Date;
   validFrom: Date;
   validTo?: Date;
+}
+
+/**
+ * Datos para crear una asignación manual de turno
+ */
+export interface CreateManualShiftAssignmentInput {
+  employeeId: string;
+  scheduleTemplateId: string;
+  date: Date;
+  startTimeMinutes?: number; // Override opcional
+  endTimeMinutes?: number; // Override opcional
+  costCenterId?: string; // Multicentro
+}
+
+/**
+ * Datos para crear un patrón de rotación
+ */
+export interface CreateShiftRotationPatternInput {
+  name: string;
+  description?: string;
+  steps: CreateShiftRotationStepInput[];
+}
+
+/**
+ * Datos para crear un paso de rotación
+ */
+export interface CreateShiftRotationStepInput {
+  stepOrder: number;
+  durationDays: number;
+  scheduleTemplateId: string;
 }
 
 // ============================================================================

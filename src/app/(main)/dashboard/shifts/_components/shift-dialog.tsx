@@ -9,7 +9,7 @@
 import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertTriangle, Clock, Loader2 } from "lucide-react";
+import { AlertTriangle, Check, ChevronsUpDown, Clock, Loader2, Briefcase, Mail } from "lucide-react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 
@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -27,11 +28,14 @@ import {
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
+import { shiftService } from "../_lib/shift-service"; // Importar servicio real
 import { formatDateISO, calculateDuration, formatDuration } from "../_lib/shift-utils";
-import type { Shift, ShiftInput } from "../_lib/types";
+import type { ShiftInput } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 // Schema de validación con Zod
@@ -43,7 +47,7 @@ const shiftFormSchema = z
     endTime: z.string().regex(/^\d{2}:\d{2}$/, "Formato de hora inválido (HH:mm)"),
     breakMinutes: z.coerce.number().min(0, "Los minutos de descanso no pueden ser negativos").optional(),
     costCenterId: z.string().min(1, "Selecciona un lugar"),
-    zoneId: z.string().min(1, "Selecciona una zona"),
+    zoneId: z.string().optional(), // Ahora opcional
     role: z.string().optional(),
     notes: z.string().optional(),
   })
@@ -66,12 +70,22 @@ const shiftFormSchema = z
 
 type ShiftFormValues = z.infer<typeof shiftFormSchema>;
 
+// Debounce simple
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
+
 export function ShiftDialog() {
   const {
     isShiftDialogOpen,
     selectedShift,
     shiftDialogPrefill,
-    employees,
+    employees: storeEmployees, // Mantenemos para fallback o edición
     costCenters,
     zones,
     closeShiftDialog,
@@ -80,6 +94,40 @@ export function ShiftDialog() {
   } = useShiftsStore();
 
   const isEditing = !!selectedShift;
+
+  // Estados para búsqueda asíncrona
+  const [openCombobox, setOpenCombobox] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Efecto para buscar empleados
+  useEffect(() => {
+    const search = async () => {
+      if (debouncedSearchTerm.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const results = await shiftService.searchEmployees(debouncedSearchTerm);
+        setSearchResults(results);
+      } catch (error) {
+        console.error("Error searching employees:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    search();
+  }, [debouncedSearchTerm]);
+
+  // Si estamos editando, asegurarnos de que el empleado actual esté en la lista "seleccionada" visualmente
+  // aunque searchResults esté vacío.
+  const currentEmployee =
+    isEditing && selectedShift ? storeEmployees.find((e) => e.id === selectedShift.employeeId) : null;
 
   const form = useForm<ShiftFormValues>({
     resolver: zodResolver(shiftFormSchema),
@@ -158,8 +206,8 @@ export function ShiftDialog() {
   // Filtrar empleados por centro (si hay centro seleccionado y checkbox desactivado)
   const filteredEmployees =
     searchOutsideCenter || !selectedCostCenterId
-      ? employees.filter((e) => e.usesShiftSystem)
-      : employees.filter((e) => e.usesShiftSystem && e.costCenterId === selectedCostCenterId);
+      ? storeEmployees.filter((e) => e.usesShiftSystem)
+      : storeEmployees.filter((e) => e.usesShiftSystem && e.costCenterId === selectedCostCenterId);
 
   // Calcular duración del turno en tiempo real
   const startTime = form.watch("startTime");
@@ -201,7 +249,7 @@ export function ShiftDialog() {
 
   // Obtener empleado seleccionado para mostrar info
   const selectedEmployeeId = form.watch("employeeId");
-  const selectedEmployee = employees.find((e) => e.id === selectedEmployeeId);
+  const selectedEmployee = storeEmployees.find((e) => e.id === selectedEmployeeId);
 
   return (
     <Dialog open={isShiftDialogOpen} onOpenChange={closeShiftDialog}>
@@ -217,35 +265,129 @@ export function ShiftDialog() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Empleado */}
+            {/* Empleado (Combobox Async) */}
             <FormField
               control={form.control}
               name="employeeId"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="flex flex-col">
                   <FormLabel>Empleado</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un empleado" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {filteredEmployees.map((employee) => (
-                        <SelectItem key={employee.id} value={employee.id}>
-                          {employee.firstName} {employee.lastName}
-                          {employee.contractHours && (
-                            <span className="text-muted-foreground ml-2 text-xs">
-                              ({employee.contractHours}h/semana)
-                            </span>
+                  <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCombobox}
+                          className={cn(
+                            "h-auto w-full justify-between py-2 font-normal",
+                            !field.value && "text-muted-foreground",
                           )}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                        >
+                          {field.value
+                            ? (() => {
+                                // Intentar encontrar en resultados de búsqueda o en store o usar el seleccionado actual
+                                const emp =
+                                  searchResults.find((e) => e.id === field.value) ??
+                                  storeEmployees.find((e) => e.id === field.value) ??
+                                  (currentEmployee?.id === field.value ? currentEmployee : null);
+
+                                if (emp) {
+                                  return (
+                                    <div className="flex flex-col items-start text-left">
+                                      <span className="font-medium">
+                                        {emp.firstName ?? emp.fullName?.split(" ")[0]}{" "}
+                                        {emp.lastName ?? emp.fullName?.split(" ").slice(1).join(" ")}
+                                      </span>
+                                      <span className="text-muted-foreground text-xs">
+                                        {/* Intentar mostrar email o puesto si está disponible */}
+                                        {emp.email ?? emp.position ?? "Empleado seleccionado"}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return "Empleado seleccionado";
+                              })()
+                            : "Buscar empleado (mín. 2 letras)..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        {" "}
+                        {/* Desactivar filtrado local */}
+                        <CommandInput
+                          placeholder="Escribe nombre, apellido o email..."
+                          value={searchTerm}
+                          onValueChange={setSearchTerm}
+                        />
+                        <CommandList>
+                          {isSearching && (
+                            <div className="text-muted-foreground flex items-center justify-center gap-2 py-6 text-center text-sm">
+                              <Loader2 className="h-4 w-4 animate-spin" /> Buscando...
+                            </div>
+                          )}
+
+                          {!isSearching && searchTerm.length < 2 && (
+                            <div className="text-muted-foreground py-6 text-center text-sm">
+                              Escribe al menos 2 caracteres para buscar.
+                            </div>
+                          )}
+
+                          {!isSearching && searchTerm.length >= 2 && searchResults.length === 0 && (
+                            <CommandEmpty>No se encontraron empleados.</CommandEmpty>
+                          )}
+
+                          <CommandGroup>
+                            {searchResults.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.id}
+                                onSelect={() => {
+                                  form.setValue("employeeId", employee.id);
+                                  setOpenCombobox(false);
+                                }}
+                                className="flex items-center justify-between py-2"
+                              >
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4 shrink-0",
+                                      employee.id === field.value ? "opacity-100" : "opacity-0",
+                                    )}
+                                  />
+                                  <div className="flex flex-col truncate">
+                                    <span className="truncate font-medium">{employee.fullName}</span>
+                                    <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                                      {employee.position && (
+                                        <span className="flex items-center gap-1 truncate">
+                                          <Briefcase className="h-3 w-3" /> {employee.position}
+                                        </span>
+                                      )}
+                                      {employee.email && (
+                                        <span className="flex items-center gap-1 truncate">
+                                          <Mail className="h-3 w-3" /> {employee.email}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                                {employee.weeklyHours && (
+                                  <Badge variant="secondary" className="shrink-0 text-[10px]">
+                                    {employee.weeklyHours}h
+                                  </Badge>
+                                )}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                   <FormMessage />
 
-                  {/* Checkbox para buscar fuera del centro */}
+                  {/* Checkbox para buscar fuera del centro (Legacy - mantenemos por si acaso) */}
                   {selectedCostCenterId && (
                     <div className="mt-2 flex items-center space-x-2">
                       <Checkbox
@@ -257,11 +399,11 @@ export function ShiftDialog() {
                         htmlFor="search-outside-center"
                         className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Buscar empleados de otros centros
+                        Mostrar lista completa (fallback)
                         <span className="text-muted-foreground ml-1">
                           (
                           {searchOutsideCenter
-                            ? employees.filter((e) => e.usesShiftSystem).length
+                            ? storeEmployees.filter((e) => e.usesShiftSystem).length
                             : filteredEmployees.length}{" "}
                           disponibles)
                         </span>
@@ -384,14 +526,15 @@ export function ShiftDialog() {
               name="zoneId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Zona</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={filteredZones.length === 0}>
+                  <FormLabel>Zona (opcional)</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value ?? "default"}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una zona" />
+                        <SelectValue placeholder="Sin zona específica" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      <SelectItem value="default">Sin zona específica</SelectItem>
                       {filteredZones.map((zone) => (
                         <SelectItem key={zone.id} value={zone.id}>
                           {zone.name}
@@ -399,9 +542,6 @@ export function ShiftDialog() {
                       ))}
                     </SelectContent>
                   </Select>
-                  {filteredZones.length === 0 && (
-                    <FormDescription>Selecciona primero un lugar de trabajo</FormDescription>
-                  )}
                   <FormMessage />
                 </FormItem>
               )}

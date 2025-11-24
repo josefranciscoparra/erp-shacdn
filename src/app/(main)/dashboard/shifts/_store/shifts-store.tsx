@@ -8,10 +8,11 @@
 
 "use client";
 
+import { endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { create } from "zustand";
 
-import { shiftService } from "../_lib/shift-service.mock"; // ← Solo cambiar esta línea para API real
+import { shiftService } from "../_lib/shift-service";
 import { getWeekStart, formatDateISO } from "../_lib/shift-utils";
 import type {
   Shift,
@@ -143,7 +144,21 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   fetchShifts: async () => {
     set({ isLoading: true, error: null });
     try {
-      const shifts = await shiftService.getShifts(get().filters);
+      const { filters, currentWeekStart } = get();
+
+      // Si no hay fechas en los filtros, usar la semana actual
+      let dateFrom = filters.dateFrom;
+      let dateTo = filters.dateTo;
+
+      if (!dateFrom || !dateTo) {
+        const weekStart = getWeekStart(currentWeekStart);
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        dateFrom = formatDateISO(weekStart);
+        dateTo = formatDateISO(weekEnd);
+      }
+
+      const activeFilters = { ...filters, dateFrom, dateTo };
+      const shifts = await shiftService.getShifts(activeFilters);
       set({ shifts, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al cargar turnos";
@@ -237,7 +252,11 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   moveShift: async (shiftId: string, newEmployeeId?: string, newDate?: string, newZoneId?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await shiftService.moveShift(shiftId, newEmployeeId, newDate, newZoneId);
+      const currentShift = get().shifts.find((s) => s.id === shiftId);
+      if (!currentShift) throw new Error("Turno no encontrado");
+
+      // @ts-expect-error - Adaptamos la llamada para pasar el shift completo
+      const result = await shiftService.moveShift(currentShift, newEmployeeId, newDate, newZoneId);
 
       if (result.success && result.updatedShift) {
         set((state) => ({
@@ -579,28 +598,35 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   setCalendarView: (view) => set({ calendarView: view }),
   setCalendarMode: (mode) => set({ calendarMode: mode }),
-  setCurrentWeek: (weekStart) => set({ currentWeekStart: weekStart }),
+  setCurrentWeek: (weekStart) => {
+    set({ currentWeekStart: weekStart });
+    get().fetchShifts();
+  },
 
   goToPreviousWeek: () => {
     const prev = new Date(get().currentWeekStart);
     prev.setDate(prev.getDate() - 7);
     set({ currentWeekStart: getWeekStart(prev) });
+    get().fetchShifts();
   },
 
   goToNextWeek: () => {
     const next = new Date(get().currentWeekStart);
     next.setDate(next.getDate() + 7);
     set({ currentWeekStart: getWeekStart(next) });
+    get().fetchShifts();
   },
 
   goToToday: () => {
     set({ currentWeekStart: getWeekStart(new Date()) });
+    get().fetchShifts();
   },
 
   setFilters: (newFilters) => {
     set((state) => ({
       filters: { ...state.filters, ...newFilters },
     }));
+    get().fetchShifts();
   },
 
   clearFilters: () => set({ filters: {} }),

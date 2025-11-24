@@ -107,6 +107,7 @@ model Organization {
 
   // NUEVAS relaciones para Sistema de Horarios V2.0
   scheduleTemplates   ScheduleTemplate[]
+  manualAssignments   ManualShiftAssignment[]
   rotationPatterns    ShiftRotationPattern[]
   exceptionDays       ExceptionDayOverride[]
 
@@ -245,6 +246,7 @@ model CostCenter {
   timeClockTerminals TimeClockTerminal[]
   expenses           Expense[]
   exceptionOverrides ExceptionDayOverride[] // Excepciones por centro de costes
+  manualAssignments  ManualShiftAssignment[] // Asignaciones manuales en este centro
 
   // Sistema de permisos y alertas
   areaResponsibles   AreaResponsible[] @relation("CostCenterResponsibles") // Responsables de este centro
@@ -423,6 +425,7 @@ model Employee {
 
   // NUEVAS relaciones para Sistema de Horarios V2.0
   scheduleAssignments EmployeeScheduleAssignment[]
+  manualAssignments   ManualShiftAssignment[]
   exceptionDays       ExceptionDayOverride[]
 
   // Sistema de permisos y alertas
@@ -1942,6 +1945,7 @@ model ScheduleTemplate {
   // Relaciones
   periods         SchedulePeriod[]
   employeeAssignments EmployeeScheduleAssignment[]
+  manualAssignments   ManualShiftAssignment[]
   rotationSteps   ShiftRotationStep[]
   exceptionDays   ExceptionDayOverride[]
 
@@ -2007,6 +2011,44 @@ model TimeSlot {
 
   @@index([workDayPatternId])
   @@map("time_slots")
+}
+
+// Asignación manual de turno (Planificación/Rostering)
+model ManualShiftAssignment {
+  id              String   @id @default(cuid())
+
+  // Empleado asignado
+  employeeId      String
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Turno asignado (Plantilla)
+  scheduleTemplateId String
+  scheduleTemplate ScheduleTemplate @relation(fields: [scheduleTemplateId], references: [id])
+
+  // Fecha de asignación
+  date            DateTime @db.Date
+
+  // Override opcional de horario (si es distinto al template)
+  startTimeMinutes Int?
+  endTimeMinutes   Int?
+
+  // Ubicación específica para este turno (Multicentro)
+  costCenterId    String?
+  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([employeeId, date]) // Un turno principal por día
+  @@index([orgId])
+  @@index([scheduleTemplateId])
+  @@index([costCenterId])
+  @@index([date])
+  @@map("manual_shift_assignments")
 }
 
 // Patrón de rotación (para policía, bomberos, etc.)
