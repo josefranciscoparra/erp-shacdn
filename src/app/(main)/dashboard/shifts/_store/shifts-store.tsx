@@ -52,6 +52,7 @@ interface ShiftsState {
   // Modales
   isShiftDialogOpen: boolean;
   selectedShift: Shift | null; // null = crear, Shift = editar
+  shiftDialogPrefill: Partial<ShiftInput> | null;
 
   isTemplateDialogOpen: boolean;
   selectedTemplate: ShiftTemplate | null;
@@ -101,7 +102,7 @@ interface ShiftsState {
   clearFilters: () => void;
 
   // Modales
-  openShiftDialog: (shift?: Shift) => void;
+  openShiftDialog: (shift?: Shift, prefill?: Partial<ShiftInput>) => void;
   closeShiftDialog: () => void;
   openTemplateDialog: (template?: ShiftTemplate) => void;
   closeTemplateDialog: () => void;
@@ -132,6 +133,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   isShiftDialogOpen: false,
   selectedShift: null,
+  shiftDialogPrefill: null,
 
   isTemplateDialogOpen: false,
   selectedTemplate: null,
@@ -632,8 +634,9 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   clearFilters: () => set({ filters: {} }),
 
   // Modales
-  openShiftDialog: (shift) => set({ isShiftDialogOpen: true, selectedShift: shift ?? null }),
-  closeShiftDialog: () => set({ isShiftDialogOpen: false, selectedShift: null }),
+  openShiftDialog: (shift, prefill) =>
+    set({ isShiftDialogOpen: true, selectedShift: shift ?? null, shiftDialogPrefill: prefill ?? null }),
+  closeShiftDialog: () => set({ isShiftDialogOpen: false, selectedShift: null, shiftDialogPrefill: null }),
 
   openTemplateDialog: (template) => set({ isTemplateDialogOpen: true, selectedTemplate: template ?? null }),
   closeTemplateDialog: () => set({ isTemplateDialogOpen: false, selectedTemplate: null }),

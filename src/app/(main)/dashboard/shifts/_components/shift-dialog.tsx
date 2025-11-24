@@ -124,10 +124,9 @@ export function ShiftDialog() {
     search();
   }, [debouncedSearchTerm]);
 
-  // Si estamos editando, asegurarnos de que el empleado actual esté en la lista "seleccionada" visualmente
-  // aunque searchResults esté vacío.
-  const currentEmployee =
-    isEditing && selectedShift ? storeEmployees.find((e) => e.id === selectedShift.employeeId) : null;
+  // Si estamos editando o hay un prefill, asegurarnos de que el empleado actual esté en la lista "seleccionada" visualmente
+  const currentEmployeeId = isEditing ? selectedShift?.employeeId : shiftDialogPrefill?.employeeId;
+  const currentEmployee = currentEmployeeId ? storeEmployees.find((e) => e.id === currentEmployeeId) : null;
 
   const form = useForm<ShiftFormValues>({
     resolver: zodResolver(shiftFormSchema),
@@ -296,8 +295,8 @@ export function ShiftDialog() {
                                   return (
                                     <div className="flex flex-col items-start text-left">
                                       <span className="font-medium">
-                                        {emp.firstName ?? emp.fullName?.split(" ")[0]}{" "}
-                                        {emp.lastName ?? emp.fullName?.split(" ").slice(1).join(" ")}
+                                        {emp.firstName ?? emp.fullName?.split(" ")[0] ?? "Desconocido"}{" "}
+                                        {emp.lastName ?? emp.fullName?.split(" ").slice(1).join(" ") ?? ""}
                                       </span>
                                       <span className="text-muted-foreground text-xs">
                                         {/* Intentar mostrar email o puesto si está disponible */}

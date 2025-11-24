@@ -62,7 +62,7 @@ export default function ShiftsPage() {
   } = useShiftsStore();
 
   // Estado local para tab activo
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("calendar");
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -89,20 +89,16 @@ export default function ShiftsPage() {
               <SelectValue placeholder="Seleccionar vista" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="dashboard">Dashboard</SelectItem>
               <SelectItem value="calendar">Cuadrante</SelectItem>
               <SelectItem value="templates">Plantillas</SelectItem>
               <SelectItem value="config">Configuración</SelectItem>
+              <SelectItem value="dashboard">Dashboard</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         {/* TabsList para desktop */}
         <TabsList className="hidden md:inline-flex">
-          <TabsTrigger value="dashboard">
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </TabsTrigger>
           <TabsTrigger value="calendar">Cuadrante</TabsTrigger>
           <TabsTrigger value="templates">
             <FileText className="mr-2 h-4 w-4" />
@@ -112,12 +108,11 @@ export default function ShiftsPage() {
             <Settings className="mr-2 h-4 w-4" />
             Configuración
           </TabsTrigger>
+          <TabsTrigger value="dashboard">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
         </TabsList>
-
-        {/* Tab: Dashboard */}
-        <TabsContent value="dashboard" className="space-y-6">
-          <ShiftsDashboard />
-        </TabsContent>
 
         {/* Tab: Cuadrante */}
         <TabsContent value="calendar" className="space-y-6">
@@ -196,6 +191,11 @@ export default function ShiftsPage() {
           <div className="hidden md:block">
             <ZonesTable />
           </div>
+        </TabsContent>
+
+        {/* Tab: Dashboard */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <ShiftsDashboard />
         </TabsContent>
       </Tabs>
 
