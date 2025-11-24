@@ -174,6 +174,7 @@ export interface ShiftFilters {
   role?: string; // Filtrar por rol
   status?: ShiftStatus; // Filtrar por estado
   employeeId?: string; // Filtrar por empleado específico
+  searchQuery?: string; // Búsqueda por nombre de empleado
   dateFrom?: string; // Formato: YYYY-MM-DD
   dateTo?: string; // Formato: YYYY-MM-DD
 }

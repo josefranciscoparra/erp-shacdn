@@ -7,10 +7,13 @@
 
 "use client";
 
-import { SlidersHorizontal, Calendar, CalendarDays, Users, Building2 } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { SlidersHorizontal, Calendar, CalendarDays, Users, Building2, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
@@ -18,8 +21,32 @@ import type { CalendarView, CalendarMode } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function ShiftsFiltersBar() {
-  const { filters, costCenters, zones, setFilters, calendarView, calendarMode, setCalendarView, setCalendarMode } =
-    useShiftsStore();
+  const {
+    filters,
+    costCenters,
+    zones,
+    setFilters,
+    fetchEmployees,
+    calendarView,
+    calendarMode,
+    setCalendarView,
+    setCalendarMode,
+  } = useShiftsStore();
+
+  const [searchTerm, setSearchTerm] = useState(filters.searchQuery ?? "");
+
+  // Debounce manual simple si no existe el hook
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== filters.searchQuery) {
+        setFilters({ searchQuery: searchTerm });
+        // Recargar empleados al cambiar búsqueda (reset a pág 1)
+        fetchEmployees(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm, filters.searchQuery, setFilters, fetchEmployees]);
 
   // Filtrar zonas por lugar seleccionado
   const filteredZones = filters.costCenterId ? zones.filter((z) => z.costCenterId === filters.costCenterId) : zones;
@@ -29,6 +56,17 @@ export function ShiftsFiltersBar() {
       <div className="flex min-h-[40px] flex-wrap items-center gap-4">
         {/* Grupo: Filtros */}
         <div className="flex flex-wrap items-center gap-3">
+          {/* Buscador */}
+          <div className="relative w-[200px]">
+            <Search className="text-muted-foreground absolute top-2.5 left-2 h-4 w-4" />
+            <Input
+              placeholder="Buscar empleado..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-9 pl-8"
+            />
+          </div>
+
           {/* Filtro Lugar */}
           <div className="flex items-center gap-2">
             <span className="text-muted-foreground text-xs font-medium whitespace-nowrap">Lugar:</span>

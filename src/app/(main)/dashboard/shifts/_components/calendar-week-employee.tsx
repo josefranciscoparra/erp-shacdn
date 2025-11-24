@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 
 import {
   DndContext,
@@ -21,7 +21,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { Plus, User } from "lucide-react";
+import { Plus, User, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,9 +43,21 @@ import { RestDayCard } from "./rest-day-card";
 import { ShiftBlock, ShiftDropZone } from "./shift-block";
 
 export function CalendarWeekEmployee() {
-  const { shifts, employees, currentWeekStart, filters, openShiftDialog, moveShift } = useShiftsStore();
+  const {
+    shifts,
+    employees,
+    currentWeekStart,
+    filters,
+    openShiftDialog,
+    moveShift,
+    fetchEmployees,
+    employeesPage,
+    hasMoreEmployees,
+    isLoadingMoreEmployees,
+  } = useShiftsStore();
 
   const [activeShift, setActiveShift] = useState<Shift | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // Configurar sensores para drag & drop
   const sensors = useSensors(
@@ -56,32 +68,50 @@ export function CalendarWeekEmployee() {
     }),
   );
 
+  // Scroll Infinito
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreEmployees && !isLoadingMoreEmployees) {
+          fetchEmployees(employeesPage + 1);
+        }
+      },
+      { threshold: 0.5, rootMargin: "100px" },
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreEmployees, isLoadingMoreEmployees, employeesPage, fetchEmployees]);
+
   // Obtener días de la semana actual
   const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
 
   // Filtrar empleados que usan sistema de turnos
   const filteredEmployees = useMemo(() => {
+    // IMPORTANTE: Si estamos filtrando localmente, la paginación del backend puede ser confusa
+    // porque podríamos traer 20 empleados y filtrar 18.
+    // Idealmente el filtro de CostCenter ya se aplica en backend.
+    // Mantenemos el filtro de "usesShiftSystem" por seguridad UI.
     return employees
       .filter((emp) => emp.usesShiftSystem)
       .filter((emp) => {
         // Aplicar filtro de lugar si está activo
         if (filters.costCenterId) {
-          // Condición 1: El empleado pertenece al centro
+          // Condición 1: El empleado pertenece al centro (ya filtrado en backend, pero validamos)
           const isBaseCenter = emp.costCenterId === filters.costCenterId;
 
-          // Condición 2: El empleado tiene AL MENOS un turno en este centro en la semana visible
-          const hasShiftInCenter = shifts.some(
-            (s) =>
-              s.employeeId === emp.id &&
-              s.costCenterId === filters.costCenterId &&
-              weekDays.some((d) => formatDateISO(d) === s.date),
-          );
-
-          return isBaseCenter || hasShiftInCenter;
+          // NOTA: Si filtramos por CostCenter en backend, 'isBaseCenter' debería ser true para la mayoría.
+          // La condición de "tener turno en el centro" es compleja con paginación porque los turnos
+          // pueden no haberse cargado si el empleado no está en la página actual.
+          // Asumimos que el backend hace el trabajo pesado.
+          return isBaseCenter;
         }
         return true;
       });
-  }, [employees, filters.costCenterId, shifts, weekDays]);
+  }, [employees, filters.costCenterId]);
 
   // Agrupar turnos por empleado y día
   const shiftsGrid = useMemo(() => {
@@ -321,6 +351,13 @@ export function CalendarWeekEmployee() {
                 </div>
               );
             })}
+
+            {/* Sentry & Loading Indicator */}
+            {hasMoreEmployees && (
+              <div ref={loadMoreRef} className="flex justify-center py-4">
+                {isLoadingMoreEmployees && <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />}
+              </div>
+            )}
           </div>
         </div>
       </div>

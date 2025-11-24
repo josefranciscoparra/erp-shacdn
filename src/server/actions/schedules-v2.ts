@@ -2171,6 +2171,91 @@ export async function getManualShiftAssignmentsForRange(employeeIds: string[], s
 }
 
 // ============================================================================
+// GESTIÓN DE ZONAS (ÁREAS)
+// ============================================================================
+
+export async function getWorkZones(costCenterId?: string) {
+  try {
+    const { orgId } = await requireOrg();
+
+    const zones = await prisma.workZone.findMany({
+      where: {
+        orgId,
+        ...(costCenterId ? { costCenterId } : {}),
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return zones;
+  } catch (error) {
+    console.error("Error fetching zones:", error);
+    return [];
+  }
+}
+
+export async function createWorkZone(data: { name: string; costCenterId: string; requiredCoverage?: any }) {
+  try {
+    const { orgId } = await requireOrg();
+
+    const zone = await prisma.workZone.create({
+      data: {
+        orgId,
+        name: data.name,
+        costCenterId: data.costCenterId,
+        requiredCoverage: data.requiredCoverage ?? {},
+      },
+    });
+
+    return zone;
+  } catch (error) {
+    console.error("Error creating zone:", error);
+    throw new Error("Error creating zone");
+  }
+}
+
+export async function updateWorkZone(
+  id: string,
+  data: {
+    name?: string;
+    isActive?: boolean;
+    requiredCoverage?: any;
+  },
+) {
+  try {
+    const { orgId } = await requireOrg();
+
+    const zone = await prisma.workZone.update({
+      where: { id, orgId },
+      data: {
+        ...(data.name && { name: data.name }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.requiredCoverage && { requiredCoverage: data.requiredCoverage }),
+      },
+    });
+
+    return zone;
+  } catch (error) {
+    console.error("Error updating zone:", error);
+    throw new Error("Error updating zone");
+  }
+}
+
+export async function deleteWorkZone(id: string) {
+  try {
+    const { orgId } = await requireOrg();
+
+    await prisma.workZone.delete({
+      where: { id, orgId },
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting zone:", error);
+    return { success: false, error: "Error deleting zone" };
+  }
+}
+
+// ============================================================================
 // UTILIDADES DE BÚSQUEDA
 // ============================================================================
 
@@ -2240,5 +2325,80 @@ export async function deleteManualShiftAssignmentById(id: string): Promise<Actio
   } catch (error) {
     console.error("Error deleting manual assignment by ID:", error);
     return { success: false, error: "Error al eliminar asignación manual" };
+  }
+}
+
+export async function getShiftEmployeesPaginated(
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: {
+    costCenterId?: string;
+    query?: string;
+  },
+) {
+  try {
+    const { orgId } = await requireOrg();
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {
+      orgId,
+      active: true,
+      ...(filters?.query && {
+        OR: [
+          { firstName: { contains: filters.query, mode: "insensitive" } },
+          { lastName: { contains: filters.query, mode: "insensitive" } },
+        ],
+      }),
+      ...(filters?.costCenterId && {
+        employmentContracts: {
+          some: {
+            active: true,
+            costCenterId: filters.costCenterId,
+          },
+        },
+      }),
+    };
+
+    const [employees, total] = await prisma.$transaction([
+      prisma.employee.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { lastName: "asc" },
+        include: {
+          employmentContracts: {
+            where: { active: true },
+            take: 1,
+            orderBy: { startDate: "desc" },
+            include: {
+              costCenter: { select: { id: true, name: true } },
+            },
+          },
+        },
+      }),
+      prisma.employee.count({ where }),
+    ]);
+
+    return {
+      data: employees.map((emp) => ({
+        id: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        contractHours: Number(emp.employmentContracts[0]?.weeklyHours || 40),
+        costCenterId: emp.employmentContracts[0]?.costCenterId,
+        costCenterName: emp.employmentContracts[0]?.costCenter?.name,
+        usesShiftSystem: true, // TODO: Add field to DB
+        absences: [], // TODO: Populate if needed
+      })),
+      metadata: {
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  } catch (error) {
+    console.error("Error fetching paginated employees:", error);
+    return { data: [], metadata: { total: 0, page: 1, pageSize, totalPages: 0 } };
   }
 }

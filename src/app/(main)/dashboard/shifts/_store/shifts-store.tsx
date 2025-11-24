@@ -37,6 +37,9 @@ interface ShiftsState {
   zones: Zone[];
   templates: ShiftTemplate[];
   employees: EmployeeShift[];
+  employeesPage: number;
+  hasMoreEmployees: boolean;
+  isLoadingMoreEmployees: boolean;
   costCenters: CostCenter[];
 
   // ========== UI STATE ==========
@@ -88,7 +91,7 @@ interface ShiftsState {
   deleteMultipleShifts: (shiftIds: string[]) => Promise<void>;
 
   // ========== ACCIONES - DATOS AUXILIARES ==========
-  fetchEmployees: () => Promise<void>;
+  fetchEmployees: (page?: number) => Promise<void>;
   fetchCostCenters: () => Promise<void>;
 
   // ========== ACCIONES - UI ==========
@@ -121,6 +124,9 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   zones: [],
   templates: [],
   employees: [],
+  employeesPage: 1,
+  hasMoreEmployees: true,
+  isLoadingMoreEmployees: false,
   costCenters: [],
 
   isLoading: false,
@@ -572,14 +578,36 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   // ========== DATOS AUXILIARES ==========
 
-  fetchEmployees: async () => {
-    set({ isLoading: true, error: null });
+  fetchEmployees: async (page = 1) => {
+    const isFirstPage = page === 1;
+    if (isFirstPage) {
+      set({ isLoading: true, error: null, employeesPage: 1, hasMoreEmployees: true });
+    } else {
+      set({ isLoadingMoreEmployees: true, error: null });
+    }
+
     try {
-      const employees = await shiftService.getShiftEmployees(get().filters.costCenterId);
-      set({ employees, isLoading: false });
+      const pageSize = 20;
+      const { costCenterId, searchQuery } = get().filters;
+      const newEmployees = await shiftService.getShiftEmployees(costCenterId, page, pageSize, searchQuery);
+
+      set((state) => {
+        const updatedEmployees = isFirstPage ? newEmployees : [...state.employees, ...newEmployees];
+
+        // Filtrar duplicados por si acaso
+        const uniqueEmployees = Array.from(new Map(updatedEmployees.map((e) => [e.id, e])).values());
+
+        return {
+          employees: uniqueEmployees,
+          employeesPage: page,
+          hasMoreEmployees: newEmployees.length === pageSize,
+          isLoading: false,
+          isLoadingMoreEmployees: false,
+        };
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al cargar empleados";
-      set({ error: errorMessage, isLoading: false });
+      set({ error: errorMessage, isLoading: false, isLoadingMoreEmployees: false });
       toast.error(errorMessage);
     }
   },

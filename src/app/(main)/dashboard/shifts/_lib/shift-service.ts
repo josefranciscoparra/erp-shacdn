@@ -14,6 +14,11 @@ import {
   getCostCentersForFilters,
   getEmployeesForBulkAssignment,
   searchEmployees as searchEmployeesAction,
+  getShiftEmployeesPaginated,
+  getWorkZones,
+  createWorkZone,
+  updateWorkZone,
+  deleteWorkZone as deleteWorkZoneAction,
 } from "@/server/actions/schedules-v2.ts";
 
 import { formatDateISO } from "./shift-utils";
@@ -235,19 +240,22 @@ export const shiftService = {
 
   // ========== EMPLEADOS Y CENTROS ==========
 
-  async getShiftEmployees(costCenterId?: string): Promise<EmployeeShift[]> {
-    const employees = await getEmployeesForBulkAssignment("dummy", {
-      costCenterIds: costCenterId ? [costCenterId] : undefined,
-    });
+  async getShiftEmployees(
+    costCenterId?: string,
+    page = 1,
+    pageSize = 20,
+    searchQuery?: string,
+  ): Promise<EmployeeShift[]> {
+    const result = await getShiftEmployeesPaginated(page, pageSize, { costCenterId, query: searchQuery });
 
-    return employees.map((e) => ({
+    return result.data.map((e) => ({
       id: e.id,
-      firstName: e.fullName.split(" ")[0],
-      lastName: e.fullName.split(" ").slice(1).join(" "),
-      contractHours: 40, // TODO: Sacar del contrato real
-      usesShiftSystem: true,
-      costCenterId: undefined, // TODO
-      absences: [],
+      firstName: e.firstName,
+      lastName: e.lastName,
+      contractHours: e.contractHours,
+      usesShiftSystem: e.usesShiftSystem,
+      costCenterId: e.costCenterId ?? undefined,
+      absences: e.absences,
     }));
   },
 
@@ -265,19 +273,60 @@ export const shiftService = {
     return await searchEmployeesAction(term);
   },
 
-  // ========== MOCKS / PLACEHOLDERS PARA FUNCIONES NO IMPLEMENTADAS EN BACKEND AÚN ==========
+  // ========== GESTIÓN DE ZONAS (ÁREAS) ==========
 
   async getZones(costCenterId?: string): Promise<Zone[]> {
-    return [];
+    const zones = await getWorkZones(costCenterId);
+    return zones.map((z) => ({
+      id: z.id,
+      name: z.name,
+      costCenterId: z.costCenterId,
+      requiredCoverage: (z.requiredCoverage as any) ?? { morning: 0, afternoon: 0, night: 0 },
+      active: z.isActive,
+      createdAt: z.createdAt,
+      updatedAt: z.updatedAt,
+    }));
   },
+
   async createZone(data: ZoneInput): Promise<Zone> {
-    throw new Error("Not implemented");
+    const newZone = await createWorkZone({
+      name: data.name,
+      costCenterId: data.costCenterId,
+      requiredCoverage: data.requiredCoverage,
+    });
+
+    return {
+      id: newZone.id,
+      name: newZone.name,
+      costCenterId: newZone.costCenterId,
+      requiredCoverage: (newZone.requiredCoverage as any) ?? { morning: 0, afternoon: 0, night: 0 },
+      active: newZone.isActive,
+      createdAt: newZone.createdAt,
+      updatedAt: newZone.updatedAt,
+    };
   },
+
   async updateZone(id: string, data: Partial<ZoneInput>): Promise<Zone> {
-    throw new Error("Not implemented");
+    const updatedZone = await updateWorkZone(id, {
+      name: data.name,
+      isActive: data.active,
+      requiredCoverage: data.requiredCoverage,
+    });
+
+    return {
+      id: updatedZone.id,
+      name: updatedZone.name,
+      costCenterId: updatedZone.costCenterId,
+      requiredCoverage: (updatedZone.requiredCoverage as any) ?? { morning: 0, afternoon: 0, night: 0 },
+      active: updatedZone.isActive,
+      createdAt: updatedZone.createdAt,
+      updatedAt: updatedZone.updatedAt,
+    };
   },
+
   async deleteZone(id: string): Promise<boolean> {
-    return true;
+    const result = await deleteWorkZoneAction(id);
+    return result.success;
   },
 
   async getTemplates(): Promise<ShiftTemplate[]> {

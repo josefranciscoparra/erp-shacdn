@@ -110,6 +110,7 @@ model Organization {
   manualAssignments   ManualShiftAssignment[]
   rotationPatterns    ShiftRotationPattern[]
   exceptionDays       ExceptionDayOverride[]
+  workZones           WorkZone[]
 
   // Sistema de permisos y alertas
   areaResponsibles    AreaResponsible[]
@@ -247,6 +248,7 @@ model CostCenter {
   expenses           Expense[]
   exceptionOverrides ExceptionDayOverride[] // Excepciones por centro de costes
   manualAssignments  ManualShiftAssignment[] // Asignaciones manuales en este centro
+  workZones          WorkZone[] // Zonas de trabajo del centro
 
   // Sistema de permisos y alertas
   areaResponsibles   AreaResponsible[] @relation("CostCenterResponsibles") // Responsables de este centro
@@ -2036,6 +2038,10 @@ model ManualShiftAssignment {
   costCenterId    String?
   costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
 
+  // Zona específica dentro del centro (Barra, Cocina, etc.)
+  workZoneId      String?
+  workZone        WorkZone?   @relation(fields: [workZoneId], references: [id])
+
   // Multi-tenancy
   orgId           String
   organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -2047,8 +2053,40 @@ model ManualShiftAssignment {
   @@index([orgId])
   @@index([scheduleTemplateId])
   @@index([costCenterId])
+  @@index([workZoneId])
   @@index([date])
   @@map("manual_shift_assignments")
+}
+
+// Zona de trabajo (sub-ubicación dentro de un centro de coste)
+model WorkZone {
+  id              String   @id @default(cuid())
+  name            String   // "Barra", "Cocina", "Terraza"
+  description     String?
+  
+  // Configuración de cobertura (JSON)
+  // { morning: 2, afternoon: 3, night: 1 }
+  requiredCoverage Json    @default("{}")
+
+  isActive        Boolean  @default(true)
+
+  // Relación con centro de coste
+  costCenterId    String
+  costCenter      CostCenter @relation(fields: [costCenterId], references: [id], onDelete: Cascade)
+
+  // Multi-tenancy
+  orgId           String
+  organization    Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  manualAssignments ManualShiftAssignment[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([orgId])
+  @@index([costCenterId])
+  @@map("work_zones")
 }
 
 // Patrón de rotación (para policía, bomberos, etc.)
