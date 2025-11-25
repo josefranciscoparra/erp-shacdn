@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
+import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 /**
@@ -175,6 +176,7 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   });
 
   if (entries.length === 0) {
+    await removeAutoTimeBankMovement(orgId, employeeId, dayStart);
     return null;
   }
 
@@ -253,6 +255,8 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
       status,
     },
   });
+
+  await syncTimeBankForWorkday(summary);
 
   return summary;
 }
@@ -1330,6 +1334,7 @@ export async function recalculateWorkdaySummary(date: Date) {
           date: dayStart,
         },
       });
+      await removeAutoTimeBankMovement(orgId, employeeId, dayStart);
 
       return {
         success: true,
@@ -1430,6 +1435,7 @@ export async function recalculateWorkdaySummary(date: Date) {
     });
 
     console.log("   ✅ WorkdaySummary actualizado correctamente");
+    await syncTimeBankForWorkday(summary);
 
     return {
       success: true,

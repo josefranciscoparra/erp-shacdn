@@ -21,6 +21,7 @@ import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 import { ManualTimeEntryDialog } from "../_components/manual-time-entry-dialog";
 
 import { TimeBalanceSidebar } from "./_components/time-balance-sidebar";
+import { TimeBankRequestsPanel } from "./_components/time-bank-requests-panel";
 import { TimeCalendarView } from "./_components/time-calendar-view";
 
 export default function MyManualTimeEntryRequestsPage() {
@@ -156,6 +157,7 @@ export default function MyManualTimeEntryRequestsPage() {
         <div className="flex flex-col gap-6">
           <TimeCalendarView />
           <TimeBalanceSidebar />
+          <TimeBankRequestsPanel />
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>

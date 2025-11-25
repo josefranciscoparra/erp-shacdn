@@ -1,0 +1,594 @@
+"use server";
+
+import { endOfDay, startOfDay } from "date-fns";
+import {
+  Prisma,
+  TimeBankMovementOrigin,
+  TimeBankMovementStatus,
+  TimeBankMovementType,
+  TimeBankRequestStatus,
+  TimeBankRequestType,
+  type TimeBankMovement,
+  type TimeBankRequest,
+  type TimeBankSettings,
+  type WorkdaySummary,
+} from "@prisma/client";
+
+import { prisma } from "@/lib/prisma";
+
+import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
+
+const DEFAULT_TIME_BANK_SETTINGS = {
+  maxPositiveMinutes: 4800, // 80h
+  maxNegativeMinutes: 480, // 8h
+  dailyExcessLimitMinutes: 120,
+  dailyDeficitLimitMinutes: 60,
+  roundingIncrementMinutes: 5,
+  deficitGraceMinutes: 10,
+  holidayCompensationFactor: 1.5,
+  allowFlexibleWindows: true,
+  requireOvertimeAuthorization: true,
+  autoCloseMissingClockOut: true,
+  allowCashConversion: false,
+} as const;
+
+type NormalizedTimeBankSettings = {
+  orgId: string;
+  maxPositiveMinutes: number;
+  maxNegativeMinutes: number;
+  dailyExcessLimitMinutes: number;
+  dailyDeficitLimitMinutes: number;
+  roundingIncrementMinutes: number;
+  deficitGraceMinutes: number;
+  holidayCompensationFactor: number;
+  allowFlexibleWindows: boolean;
+  requireOvertimeAuthorization: boolean;
+  autoCloseMissingClockOut: boolean;
+  allowCashConversion: boolean;
+};
+
+function decimalToNumber(value?: Prisma.Decimal | number | null): number {
+  if (value === null || value === undefined) {
+    return 0;
+  }
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  return Number(value);
+}
+
+function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): NormalizedTimeBankSettings {
+  return {
+    orgId,
+    maxPositiveMinutes: settings?.maxPositiveMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxPositiveMinutes,
+    maxNegativeMinutes: settings?.maxNegativeMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxNegativeMinutes,
+    dailyExcessLimitMinutes:
+      settings?.dailyExcessLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyExcessLimitMinutes,
+    dailyDeficitLimitMinutes:
+      settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
+    roundingIncrementMinutes:
+      settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
+    deficitGraceMinutes: settings?.deficitGraceMinutes ?? DEFAULT_TIME_BANK_SETTINGS.deficitGraceMinutes,
+    holidayCompensationFactor:
+      settings?.holidayCompensationFactor !== undefined
+        ? Number(settings.holidayCompensationFactor)
+        : DEFAULT_TIME_BANK_SETTINGS.holidayCompensationFactor,
+    allowFlexibleWindows: settings?.allowFlexibleWindows ?? DEFAULT_TIME_BANK_SETTINGS.allowFlexibleWindows,
+    requireOvertimeAuthorization:
+      settings?.requireOvertimeAuthorization ?? DEFAULT_TIME_BANK_SETTINGS.requireOvertimeAuthorization,
+    autoCloseMissingClockOut:
+      settings?.autoCloseMissingClockOut ?? DEFAULT_TIME_BANK_SETTINGS.autoCloseMissingClockOut,
+    allowCashConversion: settings?.allowCashConversion ?? DEFAULT_TIME_BANK_SETTINGS.allowCashConversion,
+  };
+}
+
+async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
+  const settings = await prisma.timeBankSettings.findUnique({
+    where: { orgId },
+  });
+
+  return normalizeSettings(orgId, settings);
+}
+
+function normalizeDeviationValue(value: number, settings: NormalizedTimeBankSettings): number {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  const rounded = (() => {
+    const increment = Math.max(1, settings.roundingIncrementMinutes);
+    return Math.round(value / increment) * increment;
+  })();
+
+  if (Math.abs(rounded) < settings.deficitGraceMinutes) {
+    return 0;
+  }
+
+  return Math.trunc(rounded);
+}
+
+export async function removeAutoTimeBankMovement(orgId: string, employeeId: string, date: Date, workdayId?: string | null) {
+  const dayStart = startOfDay(date);
+  const dayEnd = endOfDay(date);
+
+  const whereClause: Prisma.TimeBankMovementWhereInput = {
+    orgId,
+    employeeId,
+    origin: TimeBankMovementOrigin.AUTO_DAILY,
+  };
+
+  if (workdayId) {
+    whereClause.workdayId = workdayId;
+  } else {
+    whereClause.date = {
+      gte: dayStart,
+      lte: dayEnd,
+    };
+  }
+
+  await prisma.timeBankMovement.deleteMany({
+    where: whereClause,
+  });
+}
+
+type WorkdayForSync = Pick<WorkdaySummary, "id" | "orgId" | "employeeId" | "date" | "totalWorkedMinutes"> & {
+  expectedMinutes?: Prisma.Decimal | number | null;
+  deviationMinutes?: Prisma.Decimal | number | null;
+};
+
+export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
+  const hasExpected = workday.expectedMinutes !== null && workday.expectedMinutes !== undefined;
+
+  if (!hasExpected) {
+    await removeAutoTimeBankMovement(workday.orgId, workday.employeeId, workday.date, workday.id);
+    return null;
+  }
+
+  const deviation = (() => {
+    if (workday.deviationMinutes !== null && workday.deviationMinutes !== undefined) {
+      return decimalToNumber(workday.deviationMinutes);
+    }
+
+    const expected = decimalToNumber(workday.expectedMinutes);
+    const worked = decimalToNumber(workday.totalWorkedMinutes);
+    return worked - expected;
+  })();
+
+  const settings = await getTimeBankSettingsForOrg(workday.orgId);
+  const normalizedMinutes = normalizeDeviationValue(deviation, settings);
+
+  const existingMovement = await prisma.timeBankMovement.findFirst({
+    where: {
+      orgId: workday.orgId,
+      employeeId: workday.employeeId,
+      workdayId: workday.id,
+      origin: TimeBankMovementOrigin.AUTO_DAILY,
+    },
+  });
+
+  if (normalizedMinutes === 0) {
+    if (existingMovement) {
+      await prisma.timeBankMovement.delete({
+        where: { id: existingMovement.id },
+      });
+    }
+
+    return null;
+  }
+
+  const movementType = normalizedMinutes >= 0 ? TimeBankMovementType.EXTRA : TimeBankMovementType.DEFICIT;
+  const dayDate = startOfDay(workday.date);
+
+  if (existingMovement) {
+    if (existingMovement.minutes === normalizedMinutes) {
+      return existingMovement;
+    }
+
+    return prisma.timeBankMovement.update({
+      where: { id: existingMovement.id },
+      data: {
+        minutes: normalizedMinutes,
+        date: dayDate,
+        type: movementType,
+        status: TimeBankMovementStatus.SETTLED,
+        description: "Ajuste automático según resumen diario",
+      },
+    });
+  }
+
+  return prisma.timeBankMovement.create({
+    data: {
+      orgId: workday.orgId,
+      employeeId: workday.employeeId,
+      workdayId: workday.id,
+      date: dayDate,
+      minutes: normalizedMinutes,
+      type: movementType,
+      origin: TimeBankMovementOrigin.AUTO_DAILY,
+      status: TimeBankMovementStatus.SETTLED,
+      requiresApproval: false,
+      description: "Diferencia diaria automática",
+    },
+  });
+}
+
+export interface TimeBankSummaryResponse {
+  totalMinutes: number;
+  totalHours: number;
+  todaysMinutes: number;
+  pendingRequests: number;
+  breakdown: Array<{ type: TimeBankMovementType; minutes: number }>;
+  lastMovements: Array<Pick<TimeBankMovement, "id" | "date" | "minutes" | "type" | "origin" | "description" | "status">>;
+  limits: {
+    maxPositiveMinutes: number;
+    maxNegativeMinutes: number;
+  };
+}
+
+export async function getEmployeeTimeBankSummary(employeeId: string, orgId: string): Promise<TimeBankSummaryResponse> {
+  const [settings, aggregate, grouped, lastMovements, todayMovement, pendingRequests] = await Promise.all([
+    getTimeBankSettingsForOrg(orgId),
+    prisma.timeBankMovement.aggregate({
+      where: {
+        orgId,
+        employeeId,
+      },
+      _sum: {
+        minutes: true,
+      },
+    }),
+    prisma.timeBankMovement.groupBy({
+      by: ["type"],
+      where: {
+        orgId,
+        employeeId,
+      },
+      _sum: {
+        minutes: true,
+      },
+    }),
+    prisma.timeBankMovement.findMany({
+      where: {
+        orgId,
+        employeeId,
+      },
+      orderBy: [
+        { date: "desc" },
+        { createdAt: "desc" },
+      ],
+      take: 8,
+    }),
+    prisma.timeBankMovement.findFirst({
+      where: {
+        orgId,
+        employeeId,
+        origin: TimeBankMovementOrigin.AUTO_DAILY,
+        date: {
+          gte: startOfDay(new Date()),
+          lte: endOfDay(new Date()),
+        },
+      },
+    }),
+    prisma.timeBankRequest.count({
+      where: {
+        orgId,
+        employeeId,
+        status: "PENDING",
+      },
+    }),
+  ]);
+
+  const totalMinutes = aggregate._sum.minutes ?? 0;
+
+  return {
+    totalMinutes,
+    totalHours: totalMinutes / 60,
+    todaysMinutes: todayMovement?.minutes ?? 0,
+    pendingRequests,
+    breakdown: grouped.map((entry) => ({
+      type: entry.type,
+      minutes: entry._sum.minutes ?? 0,
+    })),
+    lastMovements: lastMovements.map((movement) => ({
+      id: movement.id,
+      date: movement.date,
+      minutes: movement.minutes,
+      type: movement.type,
+      origin: movement.origin,
+      description: movement.description,
+      status: movement.status,
+    })),
+    limits: {
+      maxPositiveMinutes: settings.maxPositiveMinutes,
+      maxNegativeMinutes: settings.maxNegativeMinutes,
+    },
+  };
+}
+
+export async function getMyTimeBankSummary(): Promise<TimeBankSummaryResponse> {
+  const { employeeId, orgId } = await getAuthenticatedEmployee();
+  return getEmployeeTimeBankSummary(employeeId, orgId);
+}
+
+// ============================================================================ //
+// Solicitudes de Bolsa de Horas (Empleado)
+// ============================================================================ //
+
+export type TimeBankRequestTotals = {
+  pending: number;
+  approved: number;
+  rejected: number;
+  cancelled: number;
+};
+
+export interface TimeBankRequestListResult {
+  requests: TimeBankRequest[];
+  totals: TimeBankRequestTotals;
+}
+
+function normalizeRequestDate(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+function ensurePositiveMinutes(minutes: number): number {
+  const normalized = Math.round(Math.abs(minutes));
+  if (!Number.isFinite(normalized) || normalized <= 0) {
+    throw new Error("Los minutos solicitados deben ser mayores que 0");
+  }
+  return normalized;
+}
+
+function ensureReviewerRole(role: string) {
+  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER"].includes(role)) {
+    throw new Error("No tienes permisos para revisar solicitudes de bolsa de horas");
+  }
+}
+
+function getMovementTypeForRequest(requestType: TimeBankRequestType): TimeBankMovementType {
+  switch (requestType) {
+    case "RECOVERY":
+      return TimeBankMovementType.RECOVERY;
+    case "FESTIVE_COMPENSATION":
+      return TimeBankMovementType.FESTIVE;
+    default:
+      return TimeBankMovementType.ADJUSTMENT;
+  }
+}
+
+function getMovementMinutesForRequest(requestType: TimeBankRequestType, requestedMinutes: number): number {
+  if (requestType === "RECOVERY") {
+    return requestedMinutes * -1; // Recuperar horas => restar saldo
+  }
+  return requestedMinutes;
+}
+
+async function getRequestTotals(orgId: string, employeeId: string) {
+  const [pending, approved, rejected, cancelled] = await Promise.all([
+    prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "PENDING" } }),
+    prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "APPROVED" } }),
+    prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "REJECTED" } }),
+    prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "CANCELLED" } }),
+  ]);
+
+  return { pending, approved, rejected, cancelled };
+}
+
+export async function getMyTimeBankRequests(status?: TimeBankRequestStatus): Promise<TimeBankRequestListResult> {
+  const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+  const [requests, totals] = await Promise.all([
+    prisma.timeBankRequest.findMany({
+      where: {
+        orgId,
+        employeeId,
+        ...(status ? { status } : {}),
+      },
+      orderBy: {
+        submittedAt: "desc",
+      },
+    }),
+    getRequestTotals(orgId, employeeId),
+  ]);
+
+  return { requests, totals };
+}
+
+interface CreateTimeBankRequestInput {
+  type: TimeBankRequestType;
+  date: Date;
+  minutes: number;
+  reason?: string;
+}
+
+export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
+  const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+  const normalizedDate = normalizeRequestDate(new Date(input.date));
+  const requestedMinutes = ensurePositiveMinutes(input.minutes);
+
+  if (input.type === "RECOVERY") {
+    const summary = await getEmployeeTimeBankSummary(employeeId, orgId);
+    if (summary.totalMinutes < requestedMinutes) {
+      throw new Error("No tienes saldo suficiente en la bolsa de horas");
+    }
+  }
+
+  const pendingRequest = await prisma.timeBankRequest.findFirst({
+    where: {
+      orgId,
+      employeeId,
+      date: normalizedDate,
+      status: "PENDING",
+    },
+  });
+
+  if (pendingRequest) {
+    throw new Error("Ya tienes una solicitud pendiente para esa fecha");
+  }
+
+  const request = await prisma.timeBankRequest.create({
+    data: {
+      orgId,
+      employeeId,
+      type: input.type,
+      date: normalizedDate,
+      requestedMinutes,
+      reason: input.reason?.trim() ?? null,
+      status: "PENDING",
+      submittedAt: new Date(),
+    },
+  });
+
+  return request;
+}
+
+export async function cancelTimeBankRequest(requestId: string) {
+  const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+  const request = await prisma.timeBankRequest.findUnique({
+    where: { id: requestId },
+  });
+
+  if (!request || request.orgId !== orgId || request.employeeId !== employeeId) {
+    throw new Error("Solicitud no encontrada");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Solo puedes cancelar solicitudes pendientes");
+  }
+
+  await prisma.timeBankRequest.update({
+    where: { id: requestId },
+    data: {
+      status: "CANCELLED",
+      updatedAt: new Date(),
+    },
+  });
+}
+
+// ============================================================================ //
+// Solicitudes de Bolsa de Horas (RRHH / Managers)
+// ============================================================================ //
+
+export interface TimeBankRequestWithEmployee extends TimeBankRequest {
+  employee: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    employeeNumber: string | null;
+  };
+}
+
+export async function getTimeBankRequestsForReview(
+  status: TimeBankRequestStatus = "PENDING",
+): Promise<TimeBankRequestWithEmployee[]> {
+  const { orgId, role } = await getAuthenticatedUser();
+  ensureReviewerRole(role);
+
+  const requests = await prisma.timeBankRequest.findMany({
+    where: {
+      orgId,
+      ...(status ? { status } : {}),
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeNumber: true,
+        },
+      },
+    },
+    orderBy: {
+      submittedAt: "desc",
+    },
+  });
+
+  return requests;
+}
+
+interface ReviewTimeBankRequestInput {
+  requestId: string;
+  action: "APPROVE" | "REJECT";
+  reviewerComments?: string;
+}
+
+export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
+  const { orgId, role, userId } = await getAuthenticatedUser();
+  ensureReviewerRole(role);
+
+  const request = await prisma.timeBankRequest.findUnique({
+    where: { id: input.requestId },
+  });
+
+  if (!request || request.orgId !== orgId) {
+    throw new Error("Solicitud no encontrada");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("La solicitud ya fue procesada");
+  }
+
+  if (input.action === "REJECT") {
+    await prisma.timeBankRequest.update({
+      where: { id: input.requestId },
+      data: {
+        status: "REJECTED",
+        rejectedAt: new Date(),
+        processedAt: new Date(),
+        reviewerId: userId,
+        processedById: userId,
+        metadata: input.reviewerComments ? { reviewerComments: input.reviewerComments } : Prisma.JsonNull,
+      },
+    });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.timeBankRequest.update({
+      where: { id: input.requestId },
+      data: {
+        status: "APPROVED",
+        approvedAt: new Date(),
+        processedAt: new Date(),
+        reviewerId: userId,
+        processedById: userId,
+        metadata: input.reviewerComments ? { reviewerComments: input.reviewerComments } : Prisma.JsonNull,
+      },
+    });
+
+    await tx.timeBankMovement.upsert({
+      where: {
+        requestId: input.requestId,
+      },
+      create: {
+        orgId,
+        employeeId: request.employeeId,
+        requestId: request.id,
+        date: normalizeRequestDate(request.date),
+        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
+        type: getMovementTypeForRequest(request.type),
+        origin: TimeBankMovementOrigin.EMPLOYEE_REQUEST,
+        status: TimeBankMovementStatus.APPROVED,
+        requiresApproval: false,
+        description: request.reason ?? "Solicitud aprobada",
+        createdById: userId,
+        approvedById: userId,
+        approvedAt: new Date(),
+      },
+      update: {
+        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
+        type: getMovementTypeForRequest(request.type),
+        status: TimeBankMovementStatus.APPROVED,
+        approvedById: userId,
+        approvedAt: new Date(),
+        description: request.reason ?? "Solicitud aprobada",
+      },
+    });
+  });
+}

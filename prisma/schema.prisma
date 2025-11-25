@@ -96,6 +96,10 @@ model Organization {
   expenseReports          ExpenseReport[]
   expensePolicy           ExpensePolicy?
   expenseApprovers        ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
+  timeBankSettings        TimeBankSettings?
+  timeBankMovements       TimeBankMovement[]
+  timeBankRequests        TimeBankRequest[]
+  overworkAuthorizations  OverworkAuthorization[]
 
   // Configuración de Gastos (Público vs Privado)
   expenseMode ExpenseMode @default(PRIVATE)
@@ -171,6 +175,14 @@ model User {
   dismissedNotifications    DismissedNotification[] // Notificaciones descartadas por el usuario
   createdExceptions         ExceptionDayOverride[]   @relation("CreatedExceptions") // Excepciones de horario que he creado
   deletedExceptions         ExceptionDayOverride[]   @relation("DeletedExceptions") // Excepciones de horario que he eliminado
+  createdTimeBankMovements  TimeBankMovement[]       @relation("TimeBankMovementCreator")
+  approvedTimeBankMovements TimeBankMovement[]       @relation("TimeBankMovementApprover")
+  reviewedTimeBankRequests  TimeBankRequest[]        @relation("TimeBankRequestReviewer")
+  processedTimeBankRequests TimeBankRequest[]        @relation("TimeBankRequestProcessor")
+  overworkRequestsCreated   OverworkAuthorization[]  @relation("OverworkAuthorizationRequester")
+  overworkRequestsApproved  OverworkAuthorization[]  @relation("OverworkAuthorizationApprover")
+  timeBankSettingsCreated   TimeBankSettings[]       @relation("TimeBankSettingsCreatedBy")
+  timeBankSettingsUpdated   TimeBankSettings[]       @relation("TimeBankSettingsUpdatedBy")
 
   // Sistema de permisos y alertas
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
@@ -419,6 +431,9 @@ model Employee {
   recurringPtoAdjustments RecurringPtoAdjustment[]
   signers                 Signer[]
   manualTimeEntryRequests ManualTimeEntryRequest[]
+  timeBankMovements       TimeBankMovement[]
+  timeBankRequests        TimeBankRequest[]
+  overworkAuthorizations  OverworkAuthorization[]
   expenses                Expense[]
   expenseProcedures       ExpenseProcedure[]
   expenseReports          ExpenseReport[]
@@ -782,7 +797,8 @@ model WorkdaySummary {
   timeEntries TimeEntry[]
 
   // Sistema de permisos y alertas
-  alerts Alert[] @relation("WorkdayAlerts") // Alertas generadas por este día laboral
+  alerts            Alert[]            @relation("WorkdayAlerts") // Alertas generadas por este día laboral
+  timeBankMovements TimeBankMovement[]
 
   @@unique([orgId, employeeId, date]) // Un resumen por empleado por día
   @@index([orgId])
@@ -815,6 +831,203 @@ enum CancellationReason {
   SYSTEM_ERROR // Error técnico del sistema
   ADMIN_CORRECTION // Corrección administrativa
   REPLACED_BY_MANUAL_REQUEST // Reemplazado por solicitud manual aprobada
+}
+
+// ==================== SISTEMA DE BOLSA DE HORAS ====================
+
+model TimeBankSettings {
+  id                           String   @id @default(cuid())
+  orgId                        String   @unique
+  maxPositiveMinutes           Int      @default(4800) // Límite recomendado 80h
+  maxNegativeMinutes           Int      @default(480) // Límite de déficit (minutos absolutos)
+  dailyExcessLimitMinutes      Int      @default(120) // Exceso máximo diario sin revisión
+  dailyDeficitLimitMinutes     Int      @default(60) // Déficit máximo diario sin alerta
+  roundingIncrementMinutes     Int      @default(5) // Redondeo automático
+  deficitGraceMinutes          Int      @default(10) // Diferencias que no computan
+  holidayCompensationFactor    Decimal  @default(1.50) @db.Decimal(4, 2)
+  allowFlexibleWindows         Boolean  @default(true)
+  requireOvertimeAuthorization Boolean  @default(true)
+  autoCloseMissingClockOut     Boolean  @default(true)
+  allowCashConversion          Boolean  @default(false)
+  metadata                     Json?
+  createdAt                    DateTime @default(now())
+  updatedAt                    DateTime @updatedAt
+
+  createdById String?
+  createdBy   User?   @relation("TimeBankSettingsCreatedBy", fields: [createdById], references: [id])
+
+  updatedById String?
+  updatedBy   User?   @relation("TimeBankSettingsUpdatedBy", fields: [updatedById], references: [id])
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@map("time_bank_settings")
+}
+
+model TimeBankMovement {
+  id               String                 @id @default(cuid())
+  date             DateTime // Día al que corresponde el movimiento
+  minutes          Int // Positivo = suma, negativo = resta
+  type             TimeBankMovementType   @default(EXTRA)
+  origin           TimeBankMovementOrigin @default(AUTO_DAILY)
+  status           TimeBankMovementStatus @default(SETTLED)
+  requiresApproval Boolean                @default(false)
+  description      String?
+  referenceId      String? // ID externo (fichaje, solicitud, regla)
+  metadata         Json?
+
+  workdayId String?
+  workday   WorkdaySummary? @relation(fields: [workdayId], references: [id], onDelete: SetNull)
+
+  requestId String?          @unique
+  request   TimeBankRequest? @relation("RequestMovement", fields: [requestId], references: [id], onDelete: SetNull)
+
+  overworkAuthorizationId String?                @unique
+  overworkAuthorization   OverworkAuthorization? @relation("OverworkMovement", fields: [overworkAuthorizationId], references: [id], onDelete: SetNull)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdById String?
+  createdBy   User?   @relation("TimeBankMovementCreator", fields: [createdById], references: [id])
+
+  approvedById String?
+  approvedBy   User?     @relation("TimeBankMovementApprover", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, employeeId, date])
+  @@index([workdayId])
+  @@index([requestId])
+  @@index([overworkAuthorizationId])
+  @@index([status])
+  @@map("time_bank_movements")
+}
+
+model TimeBankRequest {
+  id               String                @id @default(cuid())
+  type             TimeBankRequestType   @default(RECOVERY)
+  status           TimeBankRequestStatus @default(PENDING)
+  requestedMinutes Int // Minutos absolutos solicitados
+  date             DateTime // Fecha objetivo
+  reason           String?
+  attachments      String[]              @default([])
+  metadata         Json?
+  submittedAt      DateTime? // Fecha en la que el empleado la envió
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  processedAt      DateTime?
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  reviewerId String?
+  reviewer   User?   @relation("TimeBankRequestReviewer", fields: [reviewerId], references: [id])
+
+  processedById String?
+  processedBy   User?   @relation("TimeBankRequestProcessor", fields: [processedById], references: [id])
+
+  movement TimeBankMovement? @relation("RequestMovement")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, employeeId, status])
+  @@index([reviewerId])
+  @@index([submittedAt])
+  @@map("time_bank_requests")
+}
+
+model OverworkAuthorization {
+  id              String                      @id @default(cuid())
+  date            DateTime // Día autorizado
+  minutesApproved Int // Minutos autorizados
+  justification   String?
+  status          OverworkAuthorizationStatus @default(PENDING)
+  requestedAt     DateTime                    @default(now())
+  resolvedAt      DateTime?
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  requestedById String
+  requestedBy   User   @relation("OverworkAuthorizationRequester", fields: [requestedById], references: [id])
+
+  approvedById String?
+  approvedBy   User?   @relation("OverworkAuthorizationApprover", fields: [approvedById], references: [id])
+
+  movement TimeBankMovement? @relation("OverworkMovement")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId, employeeId, status])
+  @@index([requestedById])
+  @@index([approvedById])
+  @@map("overwork_authorizations")
+}
+
+enum TimeBankMovementType {
+  EXTRA // Horas extra
+  DEFICIT // Horas de menos
+  FESTIVE // Festivo trabajado/compensado
+  ADJUSTMENT // Ajuste manual o RRHH
+  RECOVERY // Recuperación/bolsa usada
+  FLEX // Jornada flexible / compactación
+  CORRECTION // Corrección automática
+}
+
+enum TimeBankMovementOrigin {
+  AUTO_DAILY // Diferencia automática (resumen diario)
+  AUTO_FESTIVE // Festivo detectado automáticamente
+  AUTO_DEFICIT // Penalización automática por déficit
+  MANUAL_ADMIN // Ajuste manual RRHH
+  EMPLOYEE_REQUEST // Solicitud del empleado
+  OVERTIME_AUTHORIZATION // Horas extra autorizadas
+  FLEX_WINDOW // Jornada flexible
+  CORRECTION // Corrección de fichaje
+}
+
+enum TimeBankMovementStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SETTLED
+}
+
+enum TimeBankRequestType {
+  RECOVERY // Solicitar salir antes usando bolsa
+  FESTIVE_COMPENSATION // Cambiar festivo trabajado por libre
+  CORRECTION // Corrección de fichaje que impacta saldo
+}
+
+enum TimeBankRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  APPLIED
+}
+
+enum OverworkAuthorizationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+  EXPIRED
 }
 
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
