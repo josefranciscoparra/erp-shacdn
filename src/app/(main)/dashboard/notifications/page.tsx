@@ -422,6 +422,17 @@ export default function NotificationsPage() {
         return;
       }
 
+      // Manejar Bolsa de Horas
+      if (
+        notification.type === "TIME_BANK_REQUEST_SUBMITTED" ||
+        notification.type === "TIME_BANK_REQUEST_APPROVED" ||
+        notification.type === "TIME_BANK_REQUEST_REJECTED"
+      ) {
+        router.push(`/dashboard/time-tracking/time-bank`);
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de PTO
       if (!notification.ptoRequestId) {
         router.push(`/dashboard/notifications?notification=${notification.id}`);
@@ -429,7 +440,7 @@ export default function NotificationsPage() {
         return;
       }
 
-      if (notification.type === "PTO_SUBMITTED" || notification.type === "TIME_BANK_REQUEST_SUBMITTED") {
+      if (notification.type === "PTO_SUBMITTED") {
         router.push(`/dashboard/approvals`);
       } else {
         router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
@@ -761,6 +772,7 @@ export default function NotificationsPage() {
                 !!selectedNotification.manualTimeEntryRequestId ||
                 !!selectedNotification.expenseId ||
                 selectedNotification.type.startsWith("EXPENSE_") ||
+                selectedNotification.type.startsWith("TIME_BANK_REQUEST_") ||
                 selectedNotification.type === "DOCUMENT_UPLOADED" ||
                 selectedNotification.type === "SIGNATURE_PENDING" ||
                 selectedNotification.type === "SIGNATURE_COMPLETED" ||
@@ -774,20 +786,22 @@ export default function NotificationsPage() {
                         selectedNotification.type === "EXPENSE_REJECTED" ||
                         selectedNotification.type === "EXPENSE_REIMBURSED"
                       ? "Ver mis gastos"
-                      : selectedNotification.type === "DOCUMENT_UPLOADED"
-                        ? "Ir a Mis Documentos"
-                        : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                          ? "Ir a revisar solicitud"
-                          : selectedNotification.type === "SIGNATURE_PENDING"
-                            ? "Ir a firmar"
-                            : selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                                selectedNotification.type === "SIGNATURE_REJECTED" ||
-                                selectedNotification.type === "SIGNATURE_EXPIRED"
-                              ? selectedNotification.title === "Documento completamente firmado" ||
-                                selectedNotification.title === "Documento rechazado por firmante"
-                                ? "Ver gestión de firmas"
-                                : "Ver mis firmas"
-                              : "Ir a la solicitud"}
+                      : selectedNotification.type.startsWith("TIME_BANK_REQUEST_")
+                        ? "Ir a Bolsa de Horas"
+                        : selectedNotification.type === "DOCUMENT_UPLOADED"
+                          ? "Ir a Mis Documentos"
+                          : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                            ? "Ir a revisar solicitud"
+                            : selectedNotification.type === "SIGNATURE_PENDING"
+                              ? "Ir a firmar"
+                              : selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                                  selectedNotification.type === "SIGNATURE_REJECTED" ||
+                                  selectedNotification.type === "SIGNATURE_EXPIRED"
+                                ? selectedNotification.title === "Documento completamente firmado" ||
+                                  selectedNotification.title === "Documento rechazado por firmante"
+                                  ? "Ver gestión de firmas"
+                                  : "Ver mis firmas"
+                                : "Ir a la solicitud"}
                 </Button>
               )}
           </DialogFooter>

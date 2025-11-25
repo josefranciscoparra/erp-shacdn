@@ -45,6 +45,9 @@ const notificationIcons = {
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
   EXPENSE_REIMBURSED: Banknote,
+  TIME_BANK_REQUEST_SUBMITTED: Calendar,
+  TIME_BANK_REQUEST_APPROVED: Check,
+  TIME_BANK_REQUEST_REJECTED: X,
 };
 
 interface NotificationListProps {
@@ -139,6 +142,12 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
                         "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                       notification.type === "EXPENSE_REIMBURSED" &&
                         "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
+                      notification.type === "TIME_BANK_REQUEST_SUBMITTED" &&
+                        "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                      notification.type === "TIME_BANK_REQUEST_APPROVED" &&
+                        "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                      notification.type === "TIME_BANK_REQUEST_REJECTED" &&
+                        "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
