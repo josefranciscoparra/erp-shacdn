@@ -5,7 +5,7 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/lib/schedule-engine";
 
 /**
  * Convierte minutos (ej: 540) a hora (ej: "09:00")
@@ -42,22 +42,11 @@ export async function getMyMonthlyShifts(date: Date): Promise<{ success: boolean
     const employeeId = employee.id;
     const monthStart = startOfMonth(date);
     const monthEnd = endOfMonth(date);
-    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
     const shifts: Shift[] = [];
 
-    // Calcular horario efectivo para cada día del mes
-    // TODO: Optimizar esto en el futuro para no hacer 30 llamadas a getEffectiveSchedule secuenciales
-    // Se podría hacer Promise.all, pero el motor hace muchas queries.
-    // Lo ideal sería una versión batch del motor getEffectiveScheduleForRange(employeeId, start, end)
-
-    // Usamos Promise.all con chunks o directo si el pool aguanta (30 días no es tanto)
-    const schedulePromises = daysInMonth.map((day) => {
-      const d = new Date(day);
-      d.setHours(12, 0, 0, 0); // Normalizar a mediodía para evitar problemas de timezone al convertir a UTC
-      return getEffectiveSchedule(employeeId, d);
-    });
-    const schedules = await Promise.all(schedulePromises);
+    // Calcular horario efectivo para todo el rango de una sola vez (Optimizado)
+    const schedules = await getEffectiveScheduleForRange(employeeId, monthStart, monthEnd);
 
     for (const schedule of schedules) {
       const dateKey = format(schedule.date, "yyyy-MM-dd");

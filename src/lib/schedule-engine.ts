@@ -16,7 +16,7 @@
  */
 
 import type { ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, ManualShiftAssignment } from "@prisma/client";
-import { differenceInDays, startOfWeek, endOfWeek, addDays, differenceInMinutes } from "date-fns";
+import { differenceInDays, startOfWeek, addDays } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
 import type {
@@ -26,6 +26,404 @@ import type {
   ValidationResult,
   PeriodChange,
 } from "@/types/schedule";
+
+// ============================================================================
+// Funciones Auxiliares para construcción de horarios
+// ============================================================================
+
+interface AbsenceData {
+  type: string;
+  reason?: string;
+  isPartial: boolean;
+  startTime?: number;
+  endTime?: number;
+  durationMinutes?: number;
+}
+
+interface PeriodWithPatterns {
+  name: string | null;
+  periodType: string;
+  workDayPatterns: Array<{
+    dayOfWeek: number;
+    isWorkingDay: boolean;
+    timeSlots: Array<{
+      startTimeMinutes: unknown;
+      endTimeMinutes: unknown;
+      slotType: string;
+      presenceType: string;
+      description: string | null;
+    }>;
+  }>;
+}
+
+/**
+ * Construye el horario efectivo para un día a partir de un período.
+ * Función auxiliar extraída para reducir la profundidad de anidamiento.
+ */
+function buildScheduleFromPeriod(
+  period: PeriodWithPatterns,
+  currentDate: Date,
+  absenceData: AbsenceData | null,
+): EffectiveSchedule {
+  const dayOfWeek = currentDate.getDay();
+  const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === dayOfWeek);
+
+  if (!pattern || !pattern.isWorkingDay) {
+    return {
+      date: new Date(currentDate),
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "PERIOD",
+      periodName: period.name ?? period.periodType,
+    };
+  }
+
+  const effectiveSlots: EffectiveTimeSlot[] = pattern.timeSlots.map((slot) => ({
+    startMinutes: Number(slot.startTimeMinutes),
+    endMinutes: Number(slot.endTimeMinutes),
+    slotType: slot.slotType,
+    presenceType: slot.presenceType,
+    isMandatory: slot.presenceType === "MANDATORY",
+    description: slot.description ?? undefined,
+  }));
+
+  let expectedMinutes = effectiveSlots.reduce((acc, slot) => {
+    if (String(slot.slotType).trim().toUpperCase() !== "BREAK") {
+      return acc + (slot.endMinutes - slot.startMinutes);
+    }
+    return acc;
+  }, 0);
+
+  if (absenceData?.isPartial && absenceData.durationMinutes) {
+    expectedMinutes = Math.max(0, expectedMinutes - absenceData.durationMinutes);
+  }
+
+  return {
+    date: new Date(currentDate),
+    isWorkingDay: true,
+    expectedMinutes,
+    timeSlots: effectiveSlots,
+    source: "PERIOD",
+    periodName: period.name ?? period.periodType,
+    ...(absenceData?.isPartial ? { absence: absenceData } : {}),
+  };
+}
+
+// ============================================================================
+// Función Principal: Obtener Horario Efectivo (Rango) - OPTIMIZADA
+// ============================================================================
+
+/**
+ * Obtiene el horario efectivo de un empleado para un rango de fechas.
+ * Realiza consultas en lote para optimizar el rendimiento (1 query por entidad vs N queries por día).
+ */
+export async function getEffectiveScheduleForRange(
+  employeeId: string,
+  startDate: Date,
+  endDate: Date,
+  options: { includeDrafts?: boolean } = {},
+): Promise<EffectiveSchedule[]> {
+  // 1. Normalizar fechas
+  const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(endDate);
+  end.setHours(23, 59, 59, 999);
+
+  // 2. Obtener datos en lote (Bulk Fetching)
+  const [absences, manualAssignments, assignments, exceptions, contracts, employee] = await Promise.all([
+    // Absences
+    prisma.ptoRequest.findMany({
+      where: {
+        employeeId,
+        status: "APPROVED",
+        OR: [{ startDate: { lte: end }, endDate: { gte: start } }],
+      },
+      include: {
+        absenceType: { select: { name: true, allowPartialDays: true } },
+      },
+    }),
+    // Manual Assignments
+    prisma.manualShiftAssignment.findMany({
+      where: {
+        employeeId,
+        date: { gte: start, lte: end },
+        ...(options.includeDrafts ? {} : { status: "PUBLISHED" }),
+      },
+    }),
+    // Active Assignments (Templates)
+    prisma.employeeScheduleAssignment.findMany({
+      where: {
+        employeeId,
+        isActive: true,
+        validFrom: { lte: end },
+        OR: [{ validTo: null }, { validTo: { gte: start } }],
+      },
+      include: {
+        scheduleTemplate: {
+          include: {
+            periods: {
+              include: {
+                workDayPatterns: {
+                  include: { timeSlots: true },
+                },
+              },
+            },
+          },
+        },
+        rotationPattern: {
+          include: {
+            steps: {
+              include: {
+                scheduleTemplate: {
+                  include: {
+                    periods: {
+                      include: {
+                        workDayPatterns: {
+                          include: { timeSlots: true },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+              orderBy: { stepOrder: "asc" },
+            },
+          },
+        },
+      },
+    }),
+    // Exceptions (Fetch potentially relevant ones)
+    prisma.exceptionDayOverride.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          // Rango de fechas
+          { date: { gte: start, lte: end } },
+          // Recurrentes (mismo mes/día, comprobar en memoria)
+          { isRecurring: true },
+        ],
+        // Filtros de alcance (se refinarán en memoria por día)
+        AND: [
+          {
+            OR: [
+              { employeeId },
+              { isGlobal: true },
+              { departmentId: { not: null } }, // Traemos todas las de dept/cc y filtramos en memoria
+              { costCenterId: { not: null } },
+              { scheduleTemplateId: { not: null } },
+            ],
+          },
+        ],
+      },
+      include: { overrideSlots: { orderBy: { startTimeMinutes: "asc" } } },
+    }),
+    // Contracts (for Dept/CC context)
+    prisma.employmentContract.findMany({
+      where: {
+        employeeId,
+        active: true,
+        startDate: { lte: end },
+        OR: [{ endDate: null }, { endDate: { gte: start } }],
+      },
+      orderBy: { startDate: "desc" },
+    }),
+    // Employee Info (OrgId)
+    prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { orgId: true },
+    }),
+  ]);
+
+  if (!employee) return [];
+
+  // 3. Procesar día por día
+  const schedules: EffectiveSchedule[] = [];
+  const currentDate = new Date(start);
+
+  while (currentDate <= end) {
+    // A. Contexto del día
+    const currentDayStart = new Date(currentDate);
+    currentDayStart.setHours(0, 0, 0, 0);
+    const currentDayEnd = new Date(currentDate);
+    currentDayEnd.setHours(23, 59, 59, 999);
+
+    // B. Buscar datos aplicables al día
+    // 1. Absence
+    const absence = absences.find((a) => a.startDate <= currentDayEnd && a.endDate >= currentDayStart);
+    const absenceData = absence
+      ? {
+          type: absence.absenceType.name,
+          reason: absence.reason ?? undefined,
+          isPartial:
+            absence.absenceType.allowPartialDays &&
+            absence.startTime !== null &&
+            absence.endTime !== null &&
+            absence.durationMinutes !== null,
+          startTime: absence.startTime ? Number(absence.startTime) : undefined,
+          endTime: absence.endTime ? Number(absence.endTime) : undefined,
+          durationMinutes: absence.durationMinutes ? Number(absence.durationMinutes) : undefined,
+        }
+      : null;
+
+    // 2. Manual Assignment (Prioridad Crítica)
+    const manualAssignment = manualAssignments.find((m) => {
+      const mDate = new Date(m.date);
+      mDate.setHours(0, 0, 0, 0);
+      return mDate.getTime() === currentDayStart.getTime();
+    });
+
+    if (manualAssignment) {
+      const schedule = await buildScheduleFromManual(manualAssignment, new Date(currentDate));
+      // Aplicar ausencia parcial si existe
+      if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
+        schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absenceData.durationMinutes);
+        schedule.absence = absenceData;
+      }
+      schedules.push(schedule);
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    // 3. Contract Context (para Dept/CC)
+    const contract = contracts.find(
+      (c) => c.startDate <= currentDayEnd && (!c.endDate || c.endDate >= currentDayStart),
+    );
+    const departmentId = contract?.departmentId;
+    const costCenterId = contract?.costCenterId;
+
+    // 4. Active Assignment (Template)
+    const assignment = assignments.find(
+      (a) => a.validFrom <= currentDayEnd && (!a.validTo || a.validTo >= currentDayStart),
+    );
+    let template = assignment?.scheduleTemplate;
+
+    if (assignment?.assignmentType === "ROTATION" && assignment.rotationPattern) {
+      const rotationStep = calculateRotationStep(
+        assignment.rotationPattern,
+        assignment.rotationStartDate!,
+        currentDate,
+      );
+      template = rotationStep.scheduleTemplate;
+    }
+    const templateId = template?.id;
+
+    // 5. Exception (Prioridad Alta)
+    // Filtrar excepciones aplicables
+    const validExceptions = exceptions.filter((e) => {
+      // Validar fecha/recurrencia
+      let matchesDate = false;
+      if (e.isRecurring) {
+        const eDate = new Date(e.date);
+        matchesDate = eDate.getMonth() === currentDate.getMonth() && eDate.getDate() === currentDate.getDate();
+      } else {
+        const eStart = new Date(e.date);
+        eStart.setHours(0, 0, 0, 0);
+        if (e.endDate) {
+          const eEnd = new Date(e.endDate);
+          eEnd.setHours(23, 59, 59, 999);
+          matchesDate = currentDayStart >= eStart && currentDayStart <= eEnd;
+        } else {
+          matchesDate = currentDayStart.getTime() === eStart.getTime();
+        }
+      }
+      if (!matchesDate) return false;
+
+      // Validar scope
+      if (e.employeeId && e.employeeId === employeeId) return true;
+      if (e.scheduleTemplateId && e.scheduleTemplateId === templateId) return true;
+      if (e.departmentId && e.departmentId === departmentId) return true;
+      if (e.costCenterId && e.costCenterId === costCenterId) return true;
+      if (e.isGlobal && e.orgId === employee.orgId) return true;
+      return false;
+    });
+
+    // Elegir excepción por prioridad
+    const prioritizedException =
+      validExceptions.find((e) => e.employeeId === employeeId) ??
+      validExceptions.find((e) => e.scheduleTemplateId === templateId) ??
+      validExceptions.find((e) => e.departmentId === departmentId) ??
+      validExceptions.find((e) => e.costCenterId === costCenterId) ??
+      validExceptions.find((e) => e.isGlobal);
+
+    if (prioritizedException) {
+      // Manejo especial de excepciones si hay ausencia total (DÍA COMPLETO)
+      if (absenceData && !absenceData.isPartial) {
+        schedules.push({
+          date: new Date(currentDate),
+          isWorkingDay: false,
+          expectedMinutes: 0,
+          timeSlots: [],
+          source: "ABSENCE",
+          absence: absenceData,
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
+      const schedule = buildScheduleFromException(prioritizedException, new Date(currentDate));
+      // Aplicar ausencia parcial si existe
+      if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
+        schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absenceData.durationMinutes);
+        schedule.absence = absenceData;
+      }
+      schedules.push(schedule);
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    // 6. Absence (Día completo - Prioridad Máxima si no hubo manual/excepción específica que lo anule, aunque ausencia suele ganar)
+    // Nota: La lógica original ponía Absence primero. Aquí lo chequeamos antes de entrar a Template.
+    if (absenceData && !absenceData.isPartial) {
+      schedules.push({
+        date: new Date(currentDate),
+        isWorkingDay: false,
+        expectedMinutes: 0,
+        timeSlots: [],
+        source: "ABSENCE",
+        absence: absenceData,
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    // 7. Template Resolution (Prioridad Media)
+    if (template) {
+      // Buscar período activo en memoria
+      // Reutilizamos la lógica de getActivePeriod pero en memoria
+      // getActivePeriod es async en el original pero solo filtra la lista que ya tenemos cargada en 'template'
+      // Así que podemos hacerlo síncrono aquí.
+      const applicablePeriods = template.periods.filter((period) => {
+        const pStart = period.validFrom;
+        const pEnd = period.validTo;
+        if (pStart && currentDate < pStart) return false;
+        if (pEnd && currentDate > pEnd) return false;
+        return true;
+      });
+      const priorityOrder: any = { SPECIAL: 3, INTENSIVE: 2, REGULAR: 1 };
+      applicablePeriods.sort((a, b) => (priorityOrder[b.periodType] ?? 0) - (priorityOrder[a.periodType] ?? 0));
+      const period = applicablePeriods[0];
+
+      if (period) {
+        const daySchedule = buildScheduleFromPeriod(period, currentDate, absenceData);
+        schedules.push(daySchedule);
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+    }
+
+    // 8. Fallback Contract (Si no hay template o periodo)
+    // Reutilizamos getContractBasedSchedule (esto hará 1 query por día, pero es fallback)
+    // Podríamos optimizarlo pasando el contrato ya fetcheado si quisiéramos refactorizar getContractBasedSchedule
+    // Por ahora, dejémoslo así para minimizar riesgo en fallback.
+    const contractSchedule = await getContractBasedSchedule(employeeId, new Date(currentDate));
+    schedules.push(contractSchedule);
+
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return schedules;
+}
 
 // ============================================================================
 // Función Principal: Obtener Horario Efectivo
@@ -720,25 +1118,22 @@ export async function calculateExpectedHours(employeeId: string, from: Date, to:
 }
 
 /**
- * Obtiene el horario de una semana completa (lunes a domingo).
- *
  * @param employeeId - ID del empleado
  * @param weekStart - Inicio de la semana (cualquier día de la semana)
+ * @param options - Opciones adicionales
  * @returns Horario completo de la semana con 7 días
  */
-export async function getWeekSchedule(employeeId: string, weekStart: Date): Promise<WeekSchedule> {
+export async function getWeekSchedule(
+  employeeId: string,
+  weekStart: Date,
+  options: { includeDrafts?: boolean } = {},
+): Promise<WeekSchedule> {
   const start = startOfWeek(weekStart, { weekStartsOn: 1 }); // Lunes
-  const end = endOfWeek(weekStart, { weekStartsOn: 1 }); // Domingo
+  const end = addDays(start, 6); // Domingo
 
-  const days: EffectiveSchedule[] = [];
-  let totalExpectedMinutes = 0;
+  const days: EffectiveSchedule[] = await getEffectiveScheduleForRange(employeeId, start, end, options);
 
-  for (let i = 0; i < 7; i++) {
-    const date = addDays(start, i);
-    const schedule = await getEffectiveSchedule(employeeId, date);
-    days.push(schedule);
-    totalExpectedMinutes += schedule.expectedMinutes;
-  }
+  const totalExpectedMinutes = days.reduce((sum, day) => sum + day.expectedMinutes, 0);
 
   return {
     weekStart: start,
