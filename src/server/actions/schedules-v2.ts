@@ -2723,7 +2723,13 @@ export async function publishManualShiftAssignments(
       statuses: filters?.statuses ?? ["DRAFT"],
     });
 
-    const assignments = await prisma.manualShiftAssignment.findMany({ where, select: { id: true } });
+    const assignments = await prisma.manualShiftAssignment.findMany({
+      where,
+      select: {
+        id: true,
+        employee: { select: { userId: true } },
+      },
+    });
     if (assignments.length === 0) {
       return { success: true, data: { published: 0 } };
     }
@@ -2733,6 +2739,27 @@ export async function publishManualShiftAssignments(
       where: { id: { in: assignments.map((a) => a.id) } },
       data: { status: "PUBLISHED", publishedAt: now },
     });
+
+    // Notificar a los empleados afectados
+    const userIdsToNotify = new Set<string>();
+    assignments.forEach((a) => {
+      if (a.employee?.userId) {
+        userIdsToNotify.add(a.employee.userId);
+      }
+    });
+
+    if (userIdsToNotify.size > 0) {
+      await prisma.ptoNotification.createMany({
+        data: Array.from(userIdsToNotify).map((userId) => ({
+          type: "SYSTEM_ANNOUNCEMENT",
+          title: "Nuevos turnos publicados",
+          message: `Se han publicado nuevos turnos para ti. Revisa tu calendario de turnos.`,
+          userId,
+          orgId,
+          isRead: false,
+        })),
+      });
+    }
 
     return { success: true, data: { published: assignments.length } };
   } catch (error) {
