@@ -512,6 +512,12 @@ export default function NotificationsPage() {
                     "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
                   type === "DOCUMENT_UPLOADED" &&
                     "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+                  type === "TIME_BANK_REQUEST_SUBMITTED" &&
+                    "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
+                  type === "TIME_BANK_REQUEST_APPROVED" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
+                  type === "TIME_BANK_REQUEST_REJECTED" &&
+                    "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400",
                 )}
                 title={label}
               >
