@@ -12,7 +12,6 @@ import {
   format,
   startOfWeek,
   endOfWeek,
-  addDays,
   addWeeks,
   subWeeks,
   eachDayOfInterval,
@@ -22,6 +21,7 @@ import {
   addMonths,
   subMonths,
   differenceInCalendarDays,
+  addMinutes,
 } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -115,6 +115,39 @@ export function getNextWeek(currentWeekStart: Date): Date {
  */
 export function parseDate(dateString: string): Date {
   return parseISO(dateString);
+}
+
+/**
+ * Combinar fecha (YYYY-MM-DD) y hora (HH:mm) en un Date
+ * @param dateString - Formato YYYY-MM-DD
+ * @param timeString - Formato HH:mm
+ * @returns Objeto Date
+ */
+export function getShiftDateTime(dateString: string, timeString: string): Date {
+  const date = parseISO(dateString);
+  const [hours, minutes] = timeString.split(":").map(Number);
+  return addMinutes(date, hours * 60 + minutes);
+}
+
+/**
+ * Obtener inicio y fin reales de un turno (manejando cruce de medianoche)
+ * @param shift - Objeto con date, startTime, endTime
+ * @returns Objeto con start y end como Date
+ */
+export function getShiftRange(shift: { date: string; startTime: string; endTime: string }): {
+  start: Date;
+  end: Date;
+} {
+  const start = getShiftDateTime(shift.date, shift.startTime);
+  let end = getShiftDateTime(shift.date, shift.endTime);
+
+  // Si end es anterior o igual a start, asumimos que cruzó la medianoche y es el día siguiente
+  // (A menos que sean iguales, que sería duración 0, pero la lógica de shift suele implicar día siguiente si es menor)
+  if (end <= start) {
+    end = addMinutes(end, 24 * 60);
+  }
+
+  return { start, end };
 }
 
 /**

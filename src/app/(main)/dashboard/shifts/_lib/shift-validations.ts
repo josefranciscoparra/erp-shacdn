@@ -5,7 +5,17 @@
  * Útiles para validaciones en tiempo real en la UI antes de enviar al servidor.
  */
 
-import { isDateInRange, doTimesOverlap, calculateDuration } from "./shift-utils";
+import { differenceInMinutes, parseISO } from "date-fns";
+
+import {
+  isDateInRange,
+  doTimesOverlap,
+  calculateDuration,
+  getShiftRange,
+  getWeekStart,
+  getWeekEnd,
+  formatDateISO,
+} from "./shift-utils";
 import type { Shift, ShiftInput, EmployeeShift, Conflict, ConflictType } from "./types";
 
 // ==================== CONFIGURACIÓN ====================
@@ -199,13 +209,24 @@ export function validateShiftConflicts(
   // Filtrar turno que estamos editando
   const otherShifts = employeeWeekShifts.filter((s) => s.id !== excludeShiftId);
 
-  // 1. Validar solapamiento
-  const overlapping = findOverlappingShift(data, otherShifts);
+  // Obtener rango real del nuevo turno
+  const { start: newStart, end: newEnd } = getShiftRange(data);
+
+  // Preparar rangos de otros turnos
+  const otherShiftRanges = otherShifts.map((s) => ({
+    id: s.id,
+    original: s,
+    ...getShiftRange(s),
+  }));
+
+  // 1. Validar solapamiento (usando fechas completas)
+  const overlapping = otherShiftRanges.find((s) => newStart < s.end && newEnd > s.start);
+
   if (overlapping) {
     conflicts.push(
       createConflict(
         "overlap",
-        `Solapa con turno ${overlapping.startTime}-${overlapping.endTime}`,
+        `Solapa con turno ${overlapping.original.startTime}-${overlapping.original.endTime} (${overlapping.original.date})`,
         "error",
         overlapping.id,
       ),
@@ -221,23 +242,42 @@ export function validateShiftConflicts(
   }
 
   // 3. Validar horas semanales
-  const currentWeeklyHours = calculateWeeklyHours(otherShifts);
+  // Filtrar turnos que pertenecen a la misma semana que el turno actual
+  const currentShiftDate = parseISO(data.date);
+  const weekStart = getWeekStart(currentShiftDate);
+  const weekEnd = getWeekEnd(currentShiftDate);
+  const weekStartStr = formatDateISO(weekStart);
+  const weekEndStr = formatDateISO(weekEnd);
+
+  const shiftsInWeek = otherShifts.filter((s) => isDateInRange(s.date, weekStartStr, weekEndStr));
+
+  const currentWeeklyHours = calculateWeeklyHours(shiftsInWeek);
   const newDuration = calculateDuration(data.startTime, data.endTime);
   const weeklyLimitError = validateWeeklyHoursLimit(currentWeeklyHours, newDuration, employee.contractHours);
   if (weeklyLimitError) {
     conflicts.push(createConflict("weekly_hours", weeklyLimitError));
   }
 
-  // 4. Validar descanso mínimo (buscar turno del día anterior)
-  const yesterday = new Date(data.date);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split("T")[0];
+  // 4. Validar descanso mínimo (usando fechas completas)
+  // Buscar el turno que termina inmediatamente antes de que empiece este
+  const prevShift = otherShiftRanges
+    .filter((s) => s.end <= newStart) // Turnos que terminan antes de que este empiece
+    .sort((a, b) => b.end.getTime() - a.end.getTime())[0]; // El más reciente
 
-  const previousDayShift = otherShifts.find((s) => s.date === yesterdayStr);
-  if (previousDayShift) {
-    const restError = validateMinimumRest(previousDayShift.endTime, data.startTime);
-    if (restError) {
-      conflicts.push(createConflict("min_rest", restError, "warning", previousDayShift.id));
+  if (prevShift) {
+    const restMinutes = differenceInMinutes(newStart, prevShift.end);
+    const minRestMinutes = DEFAULT_MIN_REST_HOURS * 60;
+
+    if (restMinutes < minRestMinutes) {
+      const restHours = (restMinutes / 60).toFixed(1);
+      conflicts.push(
+        createConflict(
+          "min_rest",
+          `Descanso insuficiente: ${restHours}h (Mínimo ${DEFAULT_MIN_REST_HOURS}h) tras turno del ${prevShift.original.date}`,
+          "warning",
+          prevShift.id,
+        ),
+      );
     }
   }
 

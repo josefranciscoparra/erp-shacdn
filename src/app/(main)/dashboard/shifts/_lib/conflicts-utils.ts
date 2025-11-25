@@ -4,12 +4,13 @@
  * Funciones para agregar, filtrar y paginar conflictos de turnos.
  */
 
+import { validateShiftConflicts } from "./shift-validations";
 import type {
   Shift,
+  ShiftInput,
   EmployeeShift,
   CostCenter,
   Zone,
-  Conflict,
   ConflictType,
   ShiftConflict,
   ConflictsState,
@@ -44,33 +45,58 @@ export function aggregateShiftConflicts(
   const costCenterMap = new Map(costCenters.map((c) => [c.id, c]));
   const zoneMap = new Map(zones.map((z) => [z.id, z]));
 
-  // Filtrar turnos con estado "conflict"
-  const conflictShifts = shifts.filter((s) => s.status === "conflict");
+  // Agrupar turnos por empleado para validación contextual
+  const shiftsByEmployee = new Map<string, Shift[]>();
+  shifts.forEach((s) => {
+    if (!shiftsByEmployee.has(s.employeeId)) {
+      shiftsByEmployee.set(s.employeeId, []);
+    }
+    shiftsByEmployee.get(s.employeeId)!.push(s);
+  });
 
-  // Crear ShiftConflict para cada turno con conflictos
-  const shiftConflicts: ShiftConflict[] = conflictShifts.map((shift) => {
+  const shiftConflicts: ShiftConflict[] = [];
+
+  // Validar cada turno
+  shifts.forEach((shift) => {
     const employee = employeeMap.get(shift.employeeId);
+    if (!employee) return;
+
     const costCenter = costCenterMap.get(shift.costCenterId);
     const zone = zoneMap.get(shift.zoneId);
+    const employeeShifts = shiftsByEmployee.get(shift.employeeId) ?? [];
 
-    // Por ahora, generamos conflictos mock basados en el status
-    // En el futuro, esto vendría del servidor o se calcularía con validateShiftConflicts
-    const conflicts = generateMockConflicts(shift);
-
-    return {
-      shiftId: shift.id,
+    // Preparar input para validación
+    const shiftInput: ShiftInput = {
       employeeId: shift.employeeId,
-      employeeName: employee ? `${employee.firstName} ${employee.lastName}` : "Empleado desconocido",
       date: shift.date,
       startTime: shift.startTime,
       endTime: shift.endTime,
-      costCenterName: costCenter?.name,
-      zoneName: zone?.name,
-      conflicts,
-      totalConflicts: conflicts.length,
-      hasErrors: conflicts.some((c) => c.severity === "error"),
-      hasWarnings: conflicts.some((c) => c.severity === "warning"),
+      costCenterId: shift.costCenterId,
+      zoneId: shift.zoneId,
+      status: shift.status,
+      role: shift.role,
+      notes: shift.notes,
     };
+
+    // Calcular conflictos REALES
+    const conflicts = validateShiftConflicts(shiftInput, employee, employeeShifts, shift.id);
+
+    if (conflicts.length > 0) {
+      shiftConflicts.push({
+        shiftId: shift.id,
+        employeeId: shift.employeeId,
+        employeeName: `${employee.firstName} ${employee.lastName}`,
+        date: shift.date,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        costCenterName: costCenter?.name,
+        zoneName: zone?.name,
+        conflicts,
+        totalConflicts: conflicts.length,
+        hasErrors: conflicts.some((c) => c.severity === "error"),
+        hasWarnings: conflicts.some((c) => c.severity === "warning"),
+      });
+    }
   });
 
   // Agrupar por tipo de conflicto
@@ -107,54 +133,6 @@ export function aggregateShiftConflicts(
     errorCount,
     warningCount,
   };
-}
-
-/**
- * Genera conflictos mock para un turno (temporal hasta integrar con backend)
- */
-function generateMockConflicts(shift: Shift): Conflict[] {
-  const conflicts: Conflict[] = [];
-
-  // Simulamos que los turnos con status "conflict" tienen algún tipo de conflicto
-  // En producción, esto vendría del servidor o se calcularía con las validaciones existentes
-
-  // Por ahora, asignamos conflictos aleatorios pero consistentes basados en el ID
-  const hash = shift.id.split("").reduce((a, b) => a + b.charCodeAt(0), 0);
-
-  if (hash % 3 === 0) {
-    conflicts.push({
-      type: "overlap",
-      message: "Solapamiento con otro turno del mismo día",
-      severity: "error",
-    });
-  }
-
-  if (hash % 4 === 0) {
-    conflicts.push({
-      type: "min_rest",
-      message: "No cumple el descanso mínimo de 12 horas entre turnos",
-      severity: "error",
-    });
-  }
-
-  if (hash % 5 === 0) {
-    conflicts.push({
-      type: "weekly_hours",
-      message: "Excede el máximo de horas semanales permitidas",
-      severity: "warning",
-    });
-  }
-
-  // Si no hay conflictos generados, añadimos uno genérico
-  if (conflicts.length === 0) {
-    conflicts.push({
-      type: "overlap",
-      message: "Conflicto detectado en el turno",
-      severity: "error",
-    });
-  }
-
-  return conflicts;
 }
 
 /**

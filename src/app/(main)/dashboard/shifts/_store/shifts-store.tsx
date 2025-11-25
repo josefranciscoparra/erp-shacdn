@@ -15,6 +15,7 @@ import { create } from "zustand";
 import { aggregateShiftConflicts, filterConflicts, sortConflicts, paginateConflicts } from "../_lib/conflicts-utils";
 import { shiftService } from "../_lib/shift-service";
 import { getWeekStart, formatDateISO } from "../_lib/shift-utils";
+import { validateShiftConflicts } from "../_lib/shift-validations";
 import type {
   Shift,
   ShiftInput,
@@ -184,7 +185,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   fetchShifts: async () => {
     set({ isLoading: true, error: null });
     try {
-      const { filters, currentWeekStart } = get();
+      const { filters, currentWeekStart, employees } = get();
 
       // Si no hay fechas en los filtros, usar la semana actual
       let dateFrom = filters.dateFrom;
@@ -199,7 +200,59 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
       const activeFilters = { ...filters, dateFrom, dateTo };
       const shifts = await shiftService.getShifts(activeFilters);
-      set({ shifts, isLoading: false });
+
+      // REHIDRATACIÓN DE VALIDACIONES:
+      // Recalcular conflictos localmente para restaurar warnings tras F5.
+      // Usamos un mapa de empleados para acceso rápido.
+      const employeeMap = new Map(employees.map((e) => [e.id, e]));
+
+      // Agrupar turnos por empleado
+      const shiftsByEmployee = new Map<string, Shift[]>();
+      shifts.forEach((s) => {
+        if (!shiftsByEmployee.has(s.employeeId)) {
+          shiftsByEmployee.set(s.employeeId, []);
+        }
+        shiftsByEmployee.get(s.employeeId)!.push(s);
+      });
+
+      const shiftsWithWarnings = shifts.map((shift) => {
+        // Si ya tiene status conflict, intentamos recuperar la razón
+        // O si queremos validar todo de nuevo para asegurar consistencia
+        const employeeShifts = shiftsByEmployee.get(shift.employeeId) ?? [];
+
+        // Si no tenemos el empleado cargado (paginación), usamos placeholder básico
+        // Esto permite validar solapamientos y descansos que solo dependen de los turnos
+        const employee: EmployeeShift = employeeMap.get(shift.employeeId) ?? {
+          id: shift.employeeId,
+          firstName: "",
+          lastName: "",
+          contractHours: 40,
+          usesShiftSystem: true,
+          absences: [],
+        };
+
+        const shiftInput: ShiftInput = {
+          employeeId: shift.employeeId,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          costCenterId: shift.costCenterId,
+          zoneId: shift.zoneId,
+          status: shift.status,
+          role: shift.role,
+          notes: shift.notes,
+        };
+
+        const conflicts = validateShiftConflicts(shiftInput, employee, employeeShifts, shift.id);
+
+        // Solo añadimos warnings si hay conflictos reales detectados
+        if (conflicts.length > 0) {
+          return { ...shift, warnings: conflicts };
+        }
+        return shift;
+      });
+
+      set({ shifts: shiftsWithWarnings, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al cargar turnos";
       set({ error: errorMessage, isLoading: false });

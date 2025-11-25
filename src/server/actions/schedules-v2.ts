@@ -2156,6 +2156,7 @@ async function validateManualAssignmentInput(
         orgId: params.orgId,
         employeeId: params.employeeId,
         date: { lt: normalizedDate },
+        ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
       },
       orderBy: { date: "desc" },
     });
@@ -2184,6 +2185,7 @@ async function validateManualAssignmentInput(
         orgId: params.orgId,
         employeeId: params.employeeId,
         date: { gt: normalizedDate },
+        ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
       },
       orderBy: { date: "asc" },
     });
