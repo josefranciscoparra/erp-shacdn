@@ -1,6 +1,6 @@
 "use server";
 
-import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { auth } from "@/lib/auth";
@@ -45,7 +45,7 @@ export async function getMyMonthlyShifts(date: Date): Promise<{ success: boolean
 
     const shifts: Shift[] = [];
 
-    // Calcular horario efectivo para todo el rango de una sola vez (Optimizado)
+    // Usar la función optimizada que hace batch queries (4 queries totales en vez de 30*N)
     const schedules = await getEffectiveScheduleForRange(employeeId, monthStart, monthEnd);
 
     for (const schedule of schedules) {

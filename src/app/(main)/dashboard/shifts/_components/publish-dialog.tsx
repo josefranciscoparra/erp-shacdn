@@ -72,12 +72,19 @@ export function PublishDialog({ open, onOpenChange }: PublishDialogProps) {
     return Array.from(employeesMap.values());
   }, [shifts]);
 
-  // Al abrir, seleccionar todos por defecto
+  // Al abrir, seleccionar todos por defecto y actualizar fechas
   useEffect(() => {
     if (open) {
+      // Sincronizar fechas con la vista actual al abrir
+      setDateRange({
+        from: getWeekStart(currentWeekStart),
+        to: getWeekEnd(currentWeekStart),
+      });
+
       setSelectedEmployeeIds(draftEmployees.map((e) => e.id));
     }
-  }, [open, draftEmployees]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Obtener nombres de empleados (cruce con store)
   const { employees } = useShiftsStore();

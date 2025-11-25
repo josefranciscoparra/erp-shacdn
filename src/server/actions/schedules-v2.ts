@@ -2727,14 +2727,9 @@ export async function publishManualShiftAssignments(
       where,
       select: {
         id: true,
-        employee: {
-          select: {
-            userId: true,
-          },
-        },
+        employee: { select: { userId: true } },
       },
     });
-
     if (assignments.length === 0) {
       return { success: true, data: { published: 0 } };
     }
@@ -2754,12 +2749,11 @@ export async function publishManualShiftAssignments(
     });
 
     if (userIdsToNotify.size > 0) {
-      // Usamos SYSTEM_ANNOUNCEMENT como fallback ya que no hay un tipo específico para turnos aún
       await prisma.ptoNotification.createMany({
         data: Array.from(userIdsToNotify).map((userId) => ({
           type: "SYSTEM_ANNOUNCEMENT",
           title: "Nuevos turnos publicados",
-          message: `Se han publicado nuevos turnos para la semana del ${dateFrom.toLocaleDateString("es-ES")}.`,
+          message: `Se han publicado nuevos turnos para ti. Revisa tu calendario de turnos.`,
           userId,
           orgId,
           isRead: false,
