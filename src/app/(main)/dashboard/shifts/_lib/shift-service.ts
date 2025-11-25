@@ -495,13 +495,16 @@ export const shiftService = {
     return response.success;
   },
 
-  async publishShifts(filters: ShiftFilters): Promise<PublishShiftsResponse> {
+  async publishShifts(filters: ShiftFilters, employeeIds?: string[]): Promise<PublishShiftsResponse> {
     if (!filters.dateFrom || !filters.dateTo) {
       return { success: false, publishedCount: 0, error: "Faltan fechas" };
     }
 
+    // Priorizar la lista explícita de IDs, sino usar el filtro singular
+    const targetEmployeeIds = employeeIds ?? (filters.employeeId ? [filters.employeeId] : undefined);
+
     const response = await publishManualShiftAssignments(toDate(filters.dateFrom), toDate(filters.dateTo), {
-      employeeIds: filters.employeeId ? [filters.employeeId] : undefined,
+      employeeIds: targetEmployeeIds,
       costCenterId: filters.costCenterId,
       workZoneId: filters.zoneId,
       statuses: filters.status ? [STATUS_TO_SERVER[filters.status]] : undefined,

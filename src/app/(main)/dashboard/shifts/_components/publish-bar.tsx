@@ -12,11 +12,13 @@ import { formatWeekRange } from "../_lib/shift-utils";
 import { useShiftsStore } from "../_store/shifts-store";
 
 import { CopyWeekDialog } from "./copy-week-dialog";
+import { PublishDialog } from "./publish-dialog";
 
 export function PublishBar() {
-  const { shifts, copyPreviousWeek, publishShifts, openConflictsPanel, isLoading, undoLastCopy, previousShiftsBackup } =
+  const { shifts, copyPreviousWeek, openConflictsPanel, isLoading, undoLastCopy, previousShiftsBackup } =
     useShiftsStore();
   const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
 
   // Contar turnos en borrador para la semana actual
   const draftShiftsCount = useMemo(() => {
@@ -102,7 +104,7 @@ export function PublishBar() {
               </p>
             </div>
 
-            <Button variant="default" size="sm" onClick={() => publishShifts()} className="gap-2">
+            <Button variant="default" size="sm" onClick={() => setIsPublishDialogOpen(true)} className="gap-2">
               <Send className="h-4 w-4" />
               Publicar Turnos
             </Button>
@@ -116,6 +118,8 @@ export function PublishBar() {
         shiftCount={shifts.length}
         onConfirm={() => copyPreviousWeek(true)}
       />
+
+      <PublishDialog open={isPublishDialogOpen} onOpenChange={setIsPublishDialogOpen} />
     </div>
   );
 }

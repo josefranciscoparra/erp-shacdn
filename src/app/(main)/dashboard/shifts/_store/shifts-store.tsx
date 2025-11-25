@@ -724,10 +724,36 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
     }
   },
 
-  publishShifts: async () => {
+  publishShifts: async (employeeIds?: string[], dateRange?: { start: string; end: string }) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await shiftService.publishShifts(get().filters);
+      const { filters, currentWeekStart } = get();
+
+      // Determinar fechas: Argumento > Filtro > Semana Actual
+      let dateFrom = dateRange?.start ?? filters.dateFrom;
+      let dateTo = dateRange?.end ?? filters.dateTo;
+
+      if (!dateFrom || !dateTo) {
+        const weekStart = getWeekStart(currentWeekStart);
+        const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+        dateFrom = formatDateISO(weekStart);
+        dateTo = formatDateISO(weekEnd);
+      }
+
+      // Preparar filtros para el servicio
+      const publishFilters = {
+        ...filters,
+        dateFrom,
+        dateTo,
+        // Si se pasan IDs específicos, sobrescribir el filtro de empleado
+        ...(employeeIds ? { employeeId: undefined } : {}), // Limpiar employeeId singular si usamos plural (aunque el servicio espera array en backend, el type del frontend filter es singular, hay que adaptar el servicio)
+      };
+
+      // NOTA: Necesitamos adaptar shiftService.publishShifts para aceptar employeeIds array explícito
+      // Por ahora, pasamos un hack o modificamos el servicio.
+      // Mejor opción: Modificar el servicio para aceptar employeeIds array en el payload directo.
+
+      const response = await shiftService.publishShifts(publishFilters, employeeIds);
 
       if (!response.success) {
         throw new Error(response.error ?? "Error al publicar turnos");
