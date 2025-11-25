@@ -29,6 +29,7 @@ import {
   updateManualShiftTemplate,
   deleteManualShiftTemplate,
   applyManualShiftTemplate,
+  restoreManualShiftAssignments,
 } from "@/server/actions/schedules-v2.ts";
 
 import { formatDateISO } from "./shift-utils";
@@ -478,14 +479,20 @@ export const shiftService = {
     };
   },
 
-  async copyWeek(from: string, to: string, filters: ShiftFilters): Promise<number> {
+  async copyWeek(from: string, to: string, filters: ShiftFilters, overwrite = false): Promise<number> {
     const response = await copyManualShiftAssignmentsFromWeek(toDate(from), toDate(to), {
       employeeIds: filters.employeeId ? [filters.employeeId] : undefined,
       costCenterId: filters.costCenterId,
       workZoneId: filters.zoneId,
+      shouldOverwrite: overwrite,
     });
 
     return response.success ? (response.data?.copied ?? 0) : 0;
+  },
+
+  async restoreWeek(shifts: any[]): Promise<boolean> {
+    const response = await restoreManualShiftAssignments(shifts);
+    return response.success;
   },
 
   async publishShifts(filters: ShiftFilters): Promise<PublishShiftsResponse> {

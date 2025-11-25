@@ -14,7 +14,7 @@ import { create } from "zustand";
 
 import { aggregateShiftConflicts, filterConflicts, sortConflicts, paginateConflicts } from "../_lib/conflicts-utils";
 import { shiftService } from "../_lib/shift-service";
-import { getWeekStart, formatDateISO } from "../_lib/shift-utils";
+import { getWeekStart, formatDateISO, timeToMinutes } from "../_lib/shift-utils";
 import { validateShiftConflicts } from "../_lib/shift-validations";
 import type {
   Shift,
@@ -97,13 +97,17 @@ interface ShiftsState {
   applyTemplate: (input: ApplyTemplateInput) => Promise<void>;
 
   // ========== ACCIONES - OPERACIONES MASIVAS ==========
-  copyPreviousWeek: () => Promise<void>;
+  copyPreviousWeek: (overwrite?: boolean) => Promise<void>;
+  undoLastCopy: () => Promise<void>;
   publishShifts: () => Promise<void>;
   deleteMultipleShifts: (shiftIds: string[]) => Promise<void>;
 
   // ========== ACCIONES - DATOS AUXILIARES ==========
   fetchEmployees: (page?: number) => Promise<void>;
   fetchCostCenters: () => Promise<void>;
+
+  // Estado interno para undo
+  previousShiftsBackup: any[] | null;
 
   // ========== ACCIONES - UI ==========
   setCalendarView: (view: CalendarView) => void;
@@ -179,6 +183,9 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   conflictsFilter: { type: "all", severity: "all", search: "" },
   conflictsPage: 0,
   highlightedShiftId: null,
+
+  // Undo
+  previousShiftsBackup: null,
 
   // ========== CRUD TURNOS ==========
 
@@ -640,20 +647,78 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   // ========== OPERACIONES MASIVAS ==========
 
-  copyPreviousWeek: async () => {
+  copyPreviousWeek: async (overwrite = false) => {
     set({ isLoading: true, error: null });
     try {
-      const currentWeek = formatDateISO(get().currentWeekStart);
-      const previousWeek = formatDateISO(getPreviousWeek(get().currentWeekStart));
+      const { shifts, currentWeekStart, filters } = get();
 
-      const copiedCount = await shiftService.copyWeek(previousWeek, currentWeek, get().filters);
+      // Guardar backup si vamos a sobreescribir
+      if (overwrite && shifts.length > 0) {
+        // Mapear shifts actuales a formato compatible con restore (ManualAssignmentRecord structure approximations)
+        // Nota: Idealmente shiftService devolvería el raw data, pero reconstruimos lo esencial
+        const backup = shifts.map((s) => ({
+          employeeId: s.employeeId,
+          date: s.date,
+          startTimeMinutes: timeToMinutes(s.startTime),
+          endTimeMinutes: timeToMinutes(s.endTime),
+          scheduleTemplateId: s.scheduleTemplateId,
+          costCenterId: s.costCenterId,
+          workZoneId: s.zoneId,
+          breakMinutes: s.breakMinutes,
+          customRole: s.role,
+          notes: s.notes,
+          status: s.status === "published" ? "PUBLISHED" : "DRAFT",
+          publishedAt: s.publishedAt,
+        }));
+        set({ previousShiftsBackup: backup });
+      } else {
+        set({ previousShiftsBackup: null });
+      }
+
+      const currentWeek = formatDateISO(currentWeekStart);
+      const previousWeek = formatDateISO(getPreviousWeek(currentWeekStart));
+
+      const copiedCount = await shiftService.copyWeek(previousWeek, currentWeek, filters, overwrite);
 
       // Refrescar turnos
       await get().fetchShifts();
 
-      toast.success(`${copiedCount} turnos copiados desde la semana anterior`);
+      const message = overwrite
+        ? `Semana sobreescrita: ${copiedCount} turnos copiados`
+        : `${copiedCount} turnos copiados desde la semana anterior`;
+
+      toast.success(message, {
+        action: overwrite
+          ? {
+              label: "Deshacer",
+              onClick: () => get().undoLastCopy(),
+            }
+          : undefined,
+        duration: 5000,
+      });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al copiar semana";
+      set({ error: errorMessage, isLoading: false });
+      toast.error(errorMessage);
+    }
+  },
+
+  undoLastCopy: async () => {
+    const { previousShiftsBackup } = get();
+    if (!previousShiftsBackup) return;
+
+    set({ isLoading: true });
+    try {
+      const success = await shiftService.restoreWeek(previousShiftsBackup);
+      if (success) {
+        await get().fetchShifts();
+        toast.success("Cambios deshechos correctamente");
+        set({ previousShiftsBackup: null });
+      } else {
+        throw new Error("No se pudo restaurar la copia de seguridad");
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error al deshacer cambios";
       set({ error: errorMessage, isLoading: false });
       toast.error(errorMessage);
     }

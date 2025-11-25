@@ -2533,7 +2533,7 @@ export async function getManualShiftAssignmentsForRange(
 export async function copyManualShiftAssignmentsFromWeek(
   sourceWeekStart: Date,
   targetWeekStart: Date,
-  filters?: Omit<ManualShiftFilters, "statuses">,
+  filters?: Omit<ManualShiftFilters, "statuses"> & { shouldOverwrite?: boolean },
 ): Promise<ActionResponse<{ copied: number; skipped: number }>> {
   try {
     const { orgId } = await requireOrg();
@@ -2541,6 +2541,7 @@ export async function copyManualShiftAssignmentsFromWeek(
     const sourceStart = getRangeBoundary(sourceWeekStart);
     const sourceEnd = getRangeBoundary(addDays(sourceWeekStart, 6), true);
     const targetStart = getRangeBoundary(targetWeekStart);
+    const targetEnd = getRangeBoundary(addDays(targetWeekStart, 6), true);
     const diff = differenceInDays(targetStart, sourceStart);
 
     const assignments = await getManualShiftAssignmentsForRange(filters?.employeeIds, sourceStart, sourceEnd, {
@@ -2552,7 +2553,18 @@ export async function copyManualShiftAssignmentsFromWeek(
       return { success: true, data: { copied: 0 } };
     }
 
-    const operations: Array<ReturnType<typeof prisma.manualShiftAssignment.upsert>> = [];
+    const operations: Array<any> = [];
+
+    // 1. Si se solicita sobreescribir, añadir operación de borrado al principio
+    if (filters?.shouldOverwrite) {
+      const deleteWhere = buildManualAssignmentWhere(orgId, targetStart, targetEnd, {
+        employeeIds: filters?.employeeIds,
+        costCenterId: filters?.costCenterId,
+        workZoneId: filters?.workZoneId,
+      });
+      operations.push(prisma.manualShiftAssignment.deleteMany({ where: deleteWhere }));
+    }
+
     let skipped = 0;
     const validationConflicts: ScheduleValidationConflict[] = [];
 
@@ -2613,15 +2625,84 @@ export async function copyManualShiftAssignmentsFromWeek(
       );
     }
 
-    const results = operations.length > 0 ? await prisma.$transaction(operations) : [];
+    if (operations.length === 0) {
+      return { success: true, data: { copied: 0, skipped } };
+    }
+
+    const results = await prisma.$transaction(operations);
+
+    // Ajustar el conteo si hubo operación de borrado (el primer resultado es el deleteMany)
+    const copiedCount = filters?.shouldOverwrite ? results.length - 1 : results.length;
+
     return {
       success: true,
-      data: { copied: results.length, skipped },
+      data: { copied: copiedCount, skipped },
       ...(validationConflicts.length > 0 ? { validation: { conflicts: validationConflicts } } : {}),
     };
   } catch (error) {
     console.error("Error copying manual assignments:", error);
     return { success: false, error: "Error al copiar turnos" };
+  }
+}
+
+/**
+ * Restaura un conjunto de turnos (Para funcionalidad Deshacer)
+ * Primero limpia el rango de fechas afectado y luego recrea los turnos.
+ */
+export async function restoreManualShiftAssignments(shifts: any[]): Promise<ActionResponse> {
+  try {
+    const { orgId } = await requireOrg();
+
+    if (shifts.length === 0) return { success: true };
+
+    // Identificar rango de fechas para limpiar antes de restaurar
+    const dates = shifts.map((s) => new Date(s.date)).sort((a, b) => a.getTime() - b.getTime());
+    const startDate = dates[0];
+    const endDate = dates[dates.length - 1];
+
+    // Normalizar límites
+    const start = getRangeBoundary(startDate);
+    const end = getRangeBoundary(endDate, true);
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Limpiar el rango
+      await tx.manualShiftAssignment.deleteMany({
+        where: {
+          orgId,
+          date: { gte: start, lte: end },
+        },
+      });
+
+      // 2. Recrear los turnos
+      for (const shift of shifts) {
+        // Convertir string dates a Date objects si es necesario
+        const shiftDate = typeof shift.date === "string" ? new Date(shift.date) : shift.date;
+        const normalizedDate = normalizeAssignmentDate(shiftDate);
+
+        await tx.manualShiftAssignment.create({
+          data: {
+            orgId,
+            employeeId: shift.employeeId,
+            date: normalizedDate,
+            startTimeMinutes: shift.startTimeMinutes,
+            endTimeMinutes: shift.endTimeMinutes,
+            scheduleTemplateId: shift.scheduleTemplateId,
+            costCenterId: shift.costCenterId,
+            workZoneId: shift.workZoneId,
+            breakMinutes: shift.breakMinutes,
+            customRole: shift.customRole,
+            notes: shift.notes,
+            status: shift.status === "PUBLISHED" ? "PUBLISHED" : "DRAFT", // Mantener estado original si es posible
+            publishedAt: shift.publishedAt ? new Date(shift.publishedAt) : null,
+          },
+        });
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error restoring assignments:", error);
+    return { success: false, error: "Error al restaurar turnos" };
   }
 }
 

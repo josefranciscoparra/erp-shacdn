@@ -1,14 +1,8 @@
-/**
- * Barra de Acciones Masivas para Turnos
- *
- * Permite copiar turnos de la semana anterior y publicar turnos pendientes.
- */
-
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
-import { Copy, Send, AlertCircle, AlertTriangle } from "lucide-react";
+import { Copy, Send, AlertCircle, AlertTriangle, RotateCcw } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +11,12 @@ import { Button } from "@/components/ui/button";
 import { formatWeekRange } from "../_lib/shift-utils";
 import { useShiftsStore } from "../_store/shifts-store";
 
+import { CopyWeekDialog } from "./copy-week-dialog";
+
 export function PublishBar() {
-  const { shifts, currentWeekStart, copyPreviousWeek, publishShifts, openConflictsPanel } = useShiftsStore();
+  const { shifts, copyPreviousWeek, publishShifts, openConflictsPanel, isLoading, undoLastCopy, previousShiftsBackup } =
+    useShiftsStore();
+  const [isCopyDialogOpen, setIsCopyDialogOpen] = useState(false);
 
   // Contar turnos en borrador para la semana actual
   const draftShiftsCount = useMemo(() => {
@@ -30,14 +28,17 @@ export function PublishBar() {
     return shifts.filter((s) => s.status === "conflict").length;
   }, [shifts]);
 
-  // Turnos ya publicados
-  const publishedShiftsCount = useMemo(() => {
-    return shifts.filter((s) => s.status === "published").length;
-  }, [shifts]);
-
-  const hasShifts = shifts.length > 0;
   const hasDrafts = draftShiftsCount > 0;
   const hasConflicts = conflictShiftsCount > 0;
+  const hasShifts = shifts.length > 0;
+
+  const handleCopyClick = () => {
+    if (hasShifts) {
+      setIsCopyDialogOpen(true);
+    } else {
+      copyPreviousWeek(false);
+    }
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -67,10 +68,24 @@ export function PublishBar() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-3">
           {/* Botón: Copiar semana anterior */}
-          <Button variant="outline" size="sm" onClick={() => copyPreviousWeek()} disabled={hasShifts}>
+          <Button variant="outline" size="sm" onClick={handleCopyClick} disabled={isLoading}>
             <Copy className="mr-2 h-4 w-4" />
             Copiar Semana Anterior
           </Button>
+
+          {/* Botón: Deshacer última copia */}
+          {previousShiftsBackup && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => undoLastCopy()}
+              disabled={isLoading}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" />
+              Deshacer copia
+            </Button>
+          )}
 
           {hasShifts && !hasDrafts && (
             <p className="text-muted-foreground text-sm">✓ Todos los turnos están publicados</p>
@@ -94,6 +109,13 @@ export function PublishBar() {
           </div>
         )}
       </div>
+
+      <CopyWeekDialog
+        open={isCopyDialogOpen}
+        onOpenChange={setIsCopyDialogOpen}
+        shiftCount={shifts.length}
+        onConfirm={() => copyPreviousWeek(true)}
+      />
     </div>
   );
 }
