@@ -1,3 +1,5 @@
+import { TimeBankApprovalFlow } from "@prisma/client";
+
 import { Permission } from "@/lib/permissions/scope-helpers";
 import { prisma } from "@/lib/prisma";
 
@@ -20,6 +22,64 @@ export type AuthorizedApprover = {
   source: "DIRECT_MANAGER" | "TEAM_LEAD" | "DEPARTMENT_MANAGER" | "COST_CENTER_MANAGER" | "HR_ADMIN" | "ORG_ADMIN";
   level: number; // 1=Directo, 2=Equipo, 3=Depto, 4=Centro, 5=HR/Admin
 };
+
+async function getOrgApprovalFlow(orgId: string): Promise<TimeBankApprovalFlow> {
+  const settings = await prisma.timeBankSettings.findUnique({
+    where: { orgId },
+    select: { approvalFlow: true },
+  });
+
+  return settings?.approvalFlow ?? "MIRROR_PTO";
+}
+
+async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const hrUsers = await prisma.user.findMany({
+    where: {
+      orgId,
+      active: true,
+      role: { in: ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"] },
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+  });
+
+  return hrUsers.map((user) => ({
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    source: user.role === "HR_ADMIN" ? "HR_ADMIN" : "ORG_ADMIN",
+    level: 5,
+  }));
+}
+
+/**
+ * Devuelve la lista de aprobadores según el flujo configurado para la organización.
+ * - MIRROR_PTO: jerarquía (manager > equipo > centro > HR/Admin)
+ * - HR_ONLY: siempre HR/Admin (ignora jerarquía)
+ */
+export async function resolveApproverUsers(employeeId: string, orgId: string): Promise<AuthorizedApprover[]> {
+  const flow = await getOrgApprovalFlow(orgId);
+
+  if (flow === "HR_ONLY") {
+    const hrOnly = await getHrApprovers(orgId);
+    if (hrOnly.length > 0) {
+      return hrOnly;
+    }
+  }
+
+  const approvers = await getAuthorizedApprovers(employeeId, "PTO");
+  if (approvers.length > 0) {
+    return approvers;
+  }
+
+  const fallback = await getHrApprovers(orgId);
+  return fallback;
+}
 
 /**
  * Mapeo de tipos de solicitud a permisos requeridos

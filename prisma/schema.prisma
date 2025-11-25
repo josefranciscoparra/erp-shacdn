@@ -849,6 +849,7 @@ model TimeBankSettings {
   requireOvertimeAuthorization Boolean  @default(true)
   autoCloseMissingClockOut     Boolean  @default(true)
   allowCashConversion          Boolean  @default(false)
+  approvalFlow                 TimeBankApprovalFlow @default(MIRROR_PTO)
   metadata                     Json?
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
@@ -1028,6 +1029,11 @@ enum OverworkAuthorizationStatus {
   REJECTED
   CANCELLED
   EXPIRED
+}
+
+enum TimeBankApprovalFlow {
+  MIRROR_PTO
+  HR_ONLY
 }
 
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
@@ -1261,6 +1267,9 @@ enum PtoNotificationType {
   EXPENSE_APPROVED // Gasto aprobado
   EXPENSE_REJECTED // Gasto rechazado
   EXPENSE_REIMBURSED // Gasto reembolsado
+  TIME_BANK_REQUEST_SUBMITTED // Nueva solicitud de bolsa enviada
+  TIME_BANK_REQUEST_APPROVED // Solicitud de bolsa aprobada
+  TIME_BANK_REQUEST_REJECTED // Solicitud de bolsa rechazada
 }
 
 // Ajustes manuales de balance de PTO (auditoría)

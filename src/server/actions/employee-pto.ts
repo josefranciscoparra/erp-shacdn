@@ -2,6 +2,7 @@
 
 import { Decimal } from "@prisma/client/runtime/library";
 
+import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
 import { getEffectiveScheduleForRange } from "@/lib/schedule-engine";
@@ -11,46 +12,13 @@ import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balanc
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 /**
- * Obtiene el aprobador por defecto para un empleado
- * Prioridad: Manager del contrato > HR_ADMIN
+ * Obtiene el aprobador por defecto para un empleado según el flujo configurado
  */
-async function getDefaultApprover(employeeId: string, orgId: string): Promise<string> {
-  // Buscar el manager del empleado en su contrato activo
-  const contract = await prisma.employmentContract.findFirst({
-    where: {
-      employeeId,
-      orgId,
-      active: true,
-      weeklyHours: {
-        gt: new Decimal(0),
-      },
-    },
-    include: {
-      manager: {
-        include: {
-          user: true,
-        },
-      },
-    },
-  });
-
-  if (contract?.manager?.user) {
-    return contract.manager.user.id;
+export async function getDefaultApprover(employeeId: string, orgId: string): Promise<string> {
+  const approvers = await resolveApproverUsers(employeeId, orgId);
+  if (approvers[0]) {
+    return approvers[0].userId;
   }
-
-  // Si no tiene manager, buscar un usuario con rol HR_ADMIN
-  const hrAdmin = await prisma.user.findFirst({
-    where: {
-      orgId,
-      role: "HR_ADMIN",
-      active: true,
-    },
-  });
-
-  if (hrAdmin) {
-    return hrAdmin.id;
-  }
-
   throw new Error("No se encontró un aprobador disponible");
 }
 
@@ -495,11 +463,19 @@ export async function createPtoRequest(data: {
       }
     }
 
-    // Obtener aprobador
-    // Si requiere aprobación O si forzamos revisión manual por conflicto
+    // Resolver destinatarios de aprobación según el flujo configurado
+    const approverUsers = await resolveApproverUsers(employeeId, orgId);
+    const approverIds = approverUsers.map((a) => a.userId);
+
+    // Obtener aprobador principal (para guardar en la solicitud)
+    // Solo aplica si requiere aprobación o forzamos revisión manual
     let approverId: string | undefined;
-    if (absenceType.requiresApproval || forceManualReview) {
-      approverId = await getDefaultApprover(employeeId, orgId);
+    const requiresRouting = absenceType.requiresApproval || forceManualReview;
+    if (requiresRouting) {
+      approverId = approverIds[0];
+      if (!approverId) {
+        throw new Error("No se encontró un aprobador disponible");
+      }
     }
 
     // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
@@ -521,7 +497,7 @@ export async function createPtoRequest(data: {
     // Si forceManualReview es true -> PENDING
     // Si requiresApproval es true -> PENDING
     // Si requiresApproval es false y no forceManualReview -> APPROVED
-    const finalStatus = absenceType.requiresApproval || forceManualReview ? "PENDING" : "APPROVED";
+    const finalStatus = requiresRouting ? "PENDING" : "APPROVED";
     const finalApprovedAt = finalStatus === "APPROVED" ? new Date() : undefined;
 
     // Crear la solicitud
@@ -559,20 +535,19 @@ export async function createPtoRequest(data: {
     const currentYear = new Date().getFullYear();
     await recalculatePtoBalance(employeeId, orgId, currentYear);
 
-    // Crear notificación para el aprobador
-    // Si está PENDING (por configuración o forzado), notificamos
-    if (finalStatus === "PENDING" && approverId) {
-      await createNotification(
-        approverId,
-        orgId,
-        "PTO_SUBMITTED",
-        "Nueva solicitud de vacaciones",
-        `${employee.firstName} ${employee.lastName} ha solicitado ${workingDays} días de ${absenceType.name}` +
-          (forceManualReview ? " (Conflicto detectado)" : ""),
-        request.id,
-      );
-    } else if (finalStatus === "APPROVED") {
-      // Auto-aprobado sin conflictos
+    // Notificaciones a todos los destinatarios del flujo
+    if (approverIds.length > 0) {
+      const requesterName = [employee.firstName, employee.lastName].filter(Boolean).join(" ") || "El empleado";
+      const daysText = absenceType.allowPartialDays ? `${Math.round(minutesToDiscount / 60)}h` : `${workingDays} días`;
+      const title = finalStatus === "PENDING" ? "Nueva solicitud de ausencia" : "Ausencia registrada";
+      const message =
+        `${requesterName} ha solicitado ${daysText} de ${absenceType.name}` +
+        (finalStatus === "APPROVED" ? " (aprobada automáticamente)" : "") +
+        (forceManualReview ? " (conflicto detectado)" : "");
+
+      for (const recipientId of approverIds) {
+        await createNotification(recipientId, orgId, "PTO_SUBMITTED", title, message, request.id);
+      }
     }
 
     return {

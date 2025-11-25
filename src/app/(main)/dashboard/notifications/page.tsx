@@ -111,6 +111,9 @@ const notificationIcons = {
   EXPENSE_APPROVED: Check,
   EXPENSE_REJECTED: X,
   EXPENSE_REIMBURSED: Banknote,
+  TIME_BANK_REQUEST_SUBMITTED: Calendar,
+  TIME_BANK_REQUEST_APPROVED: Check,
+  TIME_BANK_REQUEST_REJECTED: X,
 };
 
 const notificationTypeLabels = {
@@ -132,6 +135,9 @@ const notificationTypeLabels = {
   EXPENSE_APPROVED: "Gasto aprobado",
   EXPENSE_REJECTED: "Gasto rechazado",
   EXPENSE_REIMBURSED: "Gasto reembolsado",
+  TIME_BANK_REQUEST_SUBMITTED: "Bolsa: solicitud enviada",
+  TIME_BANK_REQUEST_APPROVED: "Bolsa: solicitud aprobada",
+  TIME_BANK_REQUEST_REJECTED: "Bolsa: solicitud rechazada",
 };
 
 export default function NotificationsPage() {
@@ -423,7 +429,7 @@ export default function NotificationsPage() {
         return;
       }
 
-      if (notification.type === "PTO_SUBMITTED") {
+      if (notification.type === "PTO_SUBMITTED" || notification.type === "TIME_BANK_REQUEST_SUBMITTED") {
         router.push(`/dashboard/approvals`);
       } else {
         router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);

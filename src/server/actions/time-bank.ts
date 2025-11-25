@@ -1,8 +1,8 @@
 "use server";
 
-import { endOfDay, startOfDay } from "date-fns";
 import {
   Prisma,
+  TimeBankApprovalFlow,
   TimeBankMovementOrigin,
   TimeBankMovementStatus,
   TimeBankMovementType,
@@ -13,9 +13,12 @@ import {
   type TimeBankSettings,
   type WorkdaySummary,
 } from "@prisma/client";
+import { endOfDay, startOfDay } from "date-fns";
 
+import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 
+import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 const DEFAULT_TIME_BANK_SETTINGS = {
@@ -30,6 +33,7 @@ const DEFAULT_TIME_BANK_SETTINGS = {
   requireOvertimeAuthorization: true,
   autoCloseMissingClockOut: true,
   allowCashConversion: false,
+  approvalFlow: "MIRROR_PTO" as TimeBankApprovalFlow,
 } as const;
 
 type NormalizedTimeBankSettings = {
@@ -45,6 +49,7 @@ type NormalizedTimeBankSettings = {
   requireOvertimeAuthorization: boolean;
   autoCloseMissingClockOut: boolean;
   allowCashConversion: boolean;
+  approvalFlow: TimeBankApprovalFlow;
 };
 
 function decimalToNumber(value?: Prisma.Decimal | number | null): number {
@@ -64,12 +69,9 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     orgId,
     maxPositiveMinutes: settings?.maxPositiveMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxPositiveMinutes,
     maxNegativeMinutes: settings?.maxNegativeMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxNegativeMinutes,
-    dailyExcessLimitMinutes:
-      settings?.dailyExcessLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyExcessLimitMinutes,
-    dailyDeficitLimitMinutes:
-      settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
-    roundingIncrementMinutes:
-      settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
+    dailyExcessLimitMinutes: settings?.dailyExcessLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyExcessLimitMinutes,
+    dailyDeficitLimitMinutes: settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
+    roundingIncrementMinutes: settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
     deficitGraceMinutes: settings?.deficitGraceMinutes ?? DEFAULT_TIME_BANK_SETTINGS.deficitGraceMinutes,
     holidayCompensationFactor:
       settings?.holidayCompensationFactor !== undefined
@@ -78,13 +80,13 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     allowFlexibleWindows: settings?.allowFlexibleWindows ?? DEFAULT_TIME_BANK_SETTINGS.allowFlexibleWindows,
     requireOvertimeAuthorization:
       settings?.requireOvertimeAuthorization ?? DEFAULT_TIME_BANK_SETTINGS.requireOvertimeAuthorization,
-    autoCloseMissingClockOut:
-      settings?.autoCloseMissingClockOut ?? DEFAULT_TIME_BANK_SETTINGS.autoCloseMissingClockOut,
+    autoCloseMissingClockOut: settings?.autoCloseMissingClockOut ?? DEFAULT_TIME_BANK_SETTINGS.autoCloseMissingClockOut,
     allowCashConversion: settings?.allowCashConversion ?? DEFAULT_TIME_BANK_SETTINGS.allowCashConversion,
+    approvalFlow: settings?.approvalFlow ?? DEFAULT_TIME_BANK_SETTINGS.approvalFlow,
   };
 }
 
-async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
+export async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
   const settings = await prisma.timeBankSettings.findUnique({
     where: { orgId },
   });
@@ -109,7 +111,12 @@ function normalizeDeviationValue(value: number, settings: NormalizedTimeBankSett
   return Math.trunc(rounded);
 }
 
-export async function removeAutoTimeBankMovement(orgId: string, employeeId: string, date: Date, workdayId?: string | null) {
+export async function removeAutoTimeBankMovement(
+  orgId: string,
+  employeeId: string,
+  date: Date,
+  workdayId?: string | null,
+) {
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
@@ -220,7 +227,9 @@ export interface TimeBankSummaryResponse {
   todaysMinutes: number;
   pendingRequests: number;
   breakdown: Array<{ type: TimeBankMovementType; minutes: number }>;
-  lastMovements: Array<Pick<TimeBankMovement, "id" | "date" | "minutes" | "type" | "origin" | "description" | "status">>;
+  lastMovements: Array<
+    Pick<TimeBankMovement, "id" | "date" | "minutes" | "type" | "origin" | "description" | "status">
+  >;
   limits: {
     maxPositiveMinutes: number;
     maxNegativeMinutes: number;
@@ -254,10 +263,7 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
         orgId,
         employeeId,
       },
-      orderBy: [
-        { date: "desc" },
-        { createdAt: "desc" },
-      ],
+      orderBy: [{ date: "desc" }, { createdAt: "desc" }],
       take: 8,
     }),
     prisma.timeBankMovement.findFirst({
@@ -280,6 +286,7 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
     }),
   ]);
 
+  // eslint-disable-next-line no-underscore-dangle
   const totalMinutes = aggregate._sum.minutes ?? 0;
 
   return {
@@ -287,10 +294,8 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
     totalHours: totalMinutes / 60,
     todaysMinutes: todayMovement?.minutes ?? 0,
     pendingRequests,
-    breakdown: grouped.map((entry) => ({
-      type: entry.type,
-      minutes: entry._sum.minutes ?? 0,
-    })),
+    // eslint-disable-next-line no-underscore-dangle
+    breakdown: grouped.map((entry) => ({ type: entry.type, minutes: entry._sum.minutes ?? 0 })),
     lastMovements: lastMovements.map((movement) => ({
       id: movement.id,
       date: movement.date,
@@ -366,6 +371,40 @@ function getMovementMinutesForRequest(requestType: TimeBankRequestType, requeste
   return requestedMinutes;
 }
 
+async function applyApprovedRequestMovement(
+  tx: Prisma.TransactionClient,
+  request: TimeBankRequest,
+  actorUserId: string | null,
+) {
+  await tx.timeBankMovement.upsert({
+    where: {
+      requestId: request.id,
+    },
+    create: {
+      orgId: request.orgId,
+      employeeId: request.employeeId,
+      requestId: request.id,
+      date: normalizeRequestDate(request.date),
+      minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
+      type: getMovementTypeForRequest(request.type),
+      origin: TimeBankMovementOrigin.EMPLOYEE_REQUEST,
+      status: TimeBankMovementStatus.APPROVED,
+      requiresApproval: false,
+      description: request.reason ?? "Solicitud aprobada",
+      createdById: actorUserId ?? undefined,
+      approvedById: actorUserId ?? undefined,
+      approvedAt: new Date(),
+    },
+    update: {
+      minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
+      type: getMovementTypeForRequest(request.type),
+      status: TimeBankMovementStatus.APPROVED,
+      approvedById: actorUserId ?? undefined,
+      approvedAt: new Date(),
+    },
+  });
+}
+
 async function getRequestTotals(orgId: string, employeeId: string) {
   const [pending, approved, rejected, cancelled] = await Promise.all([
     prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "PENDING" } }),
@@ -405,7 +444,15 @@ interface CreateTimeBankRequestInput {
 }
 
 export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
-  const { employeeId, orgId } = await getAuthenticatedEmployee();
+  const { employeeId, orgId, employee } = await getAuthenticatedEmployee({
+    employeeInclude: {
+      user: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
 
   const normalizedDate = normalizeRequestDate(new Date(input.date));
   const requestedMinutes = ensurePositiveMinutes(input.minutes);
@@ -430,20 +477,88 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
     throw new Error("Ya tienes una solicitud pendiente para esa fecha");
   }
 
-  const request = await prisma.timeBankRequest.create({
-    data: {
-      orgId,
-      employeeId,
-      type: input.type,
-      date: normalizedDate,
-      requestedMinutes,
-      reason: input.reason?.trim() ?? null,
-      status: "PENDING",
-      submittedAt: new Date(),
-    },
+  const approverUsers = await resolveApproverUsers(employeeId, orgId);
+  const approverIds = approverUsers.map((a) => a.userId);
+  const reviewerId: string | null = approverIds[0] ?? null;
+  const requiresApproval = approverIds.length > 0;
+  const now = new Date();
+
+  const requestWithEmployee = await prisma.$transaction(async (tx) => {
+    const created = await tx.timeBankRequest.create({
+      data: {
+        orgId,
+        employeeId,
+        type: input.type,
+        date: normalizedDate,
+        requestedMinutes,
+        reason: input.reason?.trim() ?? null,
+        status: requiresApproval ? "PENDING" : "APPROVED",
+        reviewerId: requiresApproval ? reviewerId : null,
+        submittedAt: now,
+        approvedAt: requiresApproval ? null : now,
+        processedAt: requiresApproval ? null : now,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            user: {
+              select: {
+                id: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!requiresApproval) {
+      await applyApprovedRequestMovement(tx, created, created.employee.user?.id ?? null);
+    }
+
+    return created;
   });
 
-  return request;
+  if (approverIds.length > 0) {
+    const requesterName = [employee.firstName, employee.lastName].filter(Boolean).join(" ") || "El empleado";
+    const hours = requestedMinutes / 60;
+    const message =
+      `${requesterName} ha solicitado ${hours}h (${input.type === "RECOVERY" ? "recuperación" : "compensación"})` +
+      (requiresApproval ? "" : " (aprobada automáticamente)");
+
+    for (const recipientId of approverIds) {
+      await createNotification(
+        recipientId,
+        orgId,
+        "TIME_BANK_REQUEST_SUBMITTED",
+        "Nueva solicitud de Bolsa de Horas",
+        message,
+        undefined,
+        undefined,
+      );
+    }
+  }
+
+  if (!requiresApproval && requestWithEmployee.employee.user?.id) {
+    const hours = requestedMinutes / 60;
+    await createNotification(
+      requestWithEmployee.employee.user.id,
+      orgId,
+      "TIME_BANK_REQUEST_APPROVED",
+      "Solicitud de Bolsa aprobada",
+      `Tu solicitud de ${hours}h (${input.type === "RECOVERY" ? "recuperación" : "compensación"}) se aprobó automáticamente.`,
+      undefined,
+      undefined,
+    );
+  }
+
+  const { employee: _employeeInfo, ...plainRequest } = requestWithEmployee as typeof requestWithEmployee & {
+    employee: any;
+  };
+
+  return plainRequest as TimeBankRequest;
 }
 
 export async function cancelTimeBankRequest(requestId: string) {
@@ -524,6 +639,19 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
 
   const request = await prisma.timeBankRequest.findUnique({
     where: { id: input.requestId },
+    include: {
+      employee: {
+        select: {
+          firstName: true,
+          lastName: true,
+          user: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!request || request.orgId !== orgId) {
@@ -546,6 +674,22 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
         metadata: input.reviewerComments ? { reviewerComments: input.reviewerComments } : Prisma.JsonNull,
       },
     });
+
+    const employeeUserId = request.employee?.user?.id;
+    if (employeeUserId) {
+      const hours = request.requestedMinutes / 60;
+      const reasonSuffix = input.reviewerComments ? ` Motivo: ${input.reviewerComments}` : "";
+      await createNotification(
+        employeeUserId,
+        orgId,
+        "TIME_BANK_REQUEST_REJECTED",
+        "Solicitud de Bolsa rechazada",
+        `Tu solicitud de ${hours}h fue rechazada.${reasonSuffix}`,
+        undefined,
+        undefined,
+      );
+    }
+
     return;
   }
 
@@ -562,33 +706,20 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
       },
     });
 
-    await tx.timeBankMovement.upsert({
-      where: {
-        requestId: input.requestId,
-      },
-      create: {
-        orgId,
-        employeeId: request.employeeId,
-        requestId: request.id,
-        date: normalizeRequestDate(request.date),
-        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
-        type: getMovementTypeForRequest(request.type),
-        origin: TimeBankMovementOrigin.EMPLOYEE_REQUEST,
-        status: TimeBankMovementStatus.APPROVED,
-        requiresApproval: false,
-        description: request.reason ?? "Solicitud aprobada",
-        createdById: userId,
-        approvedById: userId,
-        approvedAt: new Date(),
-      },
-      update: {
-        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
-        type: getMovementTypeForRequest(request.type),
-        status: TimeBankMovementStatus.APPROVED,
-        approvedById: userId,
-        approvedAt: new Date(),
-        description: request.reason ?? "Solicitud aprobada",
-      },
-    });
+    await applyApprovedRequestMovement(tx, request, userId);
   });
+
+  const employeeUserId = request.employee?.user?.id;
+  if (employeeUserId) {
+    const hours = request.requestedMinutes / 60;
+    await createNotification(
+      employeeUserId,
+      orgId,
+      "TIME_BANK_REQUEST_APPROVED",
+      "Solicitud de Bolsa aprobada",
+      `Tu solicitud de ${hours}h fue aprobada.`,
+      undefined,
+      undefined,
+    );
+  }
 }
