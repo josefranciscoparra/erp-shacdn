@@ -5,10 +5,22 @@ import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 
 import {
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type ColumnDef,
+  type SortingState,
+} from "@tanstack/react-table";
+import {
+  ArrowUpDown,
   Clock,
   Loader2,
   PiggyBank,
   RefreshCw,
+  Search,
   TrendingDown,
   TrendingUp,
   Users,
@@ -18,14 +30,8 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import {
   getTimeBankAdminStats,
@@ -81,48 +87,187 @@ function StatCard({
   );
 }
 
-function EmployeeRow({ employee }: { employee: TimeBankEmployeeSummary }) {
-  const isPositive = employee.totalMinutes >= 0;
-
-  return (
-    <TableRow>
-      <TableCell>
-        <Link
-          href={`/dashboard/employees/${employee.employeeId}`}
-          className="hover:underline"
-        >
+const columns: ColumnDef<TimeBankEmployeeSummary>[] = [
+  {
+    accessorKey: "fullName",
+    header: ({ column }) => (
+      <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-ml-4">
+        Empleado
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    accessorFn: (row) => `${row.firstName} ${row.lastName}`,
+    cell: ({ row }) => {
+      const employee = row.original;
+      return (
+        <Link href={`/dashboard/employees/${employee.employeeId}`} className="hover:underline">
           <span className="font-medium">
             {employee.firstName} {employee.lastName}
           </span>
-        </Link>
-        {employee.employeeNumber && (
-          <span className="text-muted-foreground ml-2 text-xs">
-            ({employee.employeeNumber})
-          </span>
-        )}
-      </TableCell>
-      <TableCell className="text-right">
-        <span
-          className={cn(
-            "font-semibold",
-            isPositive
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-red-600 dark:text-red-400"
+          {employee.employeeNumber && (
+            <span className="text-muted-foreground ml-2 text-xs">({employee.employeeNumber})</span>
           )}
-        >
-          {formatMinutes(employee.totalMinutes)}
-        </span>
-      </TableCell>
-      <TableCell className="text-center">
-        {employee.pendingRequests > 0 ? (
-          <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-            {employee.pendingRequests}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground text-xs">-</span>
-        )}
-      </TableCell>
-    </TableRow>
+        </Link>
+      );
+    },
+    filterFn: (row, _, filterValue) => {
+      const employee = row.original;
+      const searchValue = filterValue.toLowerCase();
+      const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+      const empNumber = employee.employeeNumber?.toLowerCase() ?? "";
+      return fullName.includes(searchValue) || empNumber.includes(searchValue);
+    },
+  },
+  {
+    accessorKey: "totalMinutes",
+    header: ({ column }) => (
+      <div className="text-right">
+        <Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")} className="-mr-4">
+          Saldo
+          <ArrowUpDown className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    ),
+    cell: ({ row }) => {
+      const minutes = row.getValue("totalMinutes");
+      const isPositive = minutes >= 0;
+      return (
+        <div className="text-right">
+          <span
+            className={cn(
+              "font-semibold",
+              isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+            )}
+          >
+            {formatMinutes(minutes)}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "pendingRequests",
+    header: () => <div className="text-center">Pendientes</div>,
+    cell: ({ row }) => {
+      const pending = row.getValue("pendingRequests");
+      return (
+        <div className="text-center">
+          {pending > 0 ? (
+            <Badge variant="secondary" className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+              {pending}
+            </Badge>
+          ) : (
+            <span className="text-muted-foreground text-xs">-</span>
+          )}
+        </div>
+      );
+    },
+  },
+];
+
+function EmployeeBalanceTable({ data }: { data: TimeBankEmployeeSummary[] }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
+
+  const table = useReactTable({
+    data,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _, filterValue) => {
+      const employee = row.original;
+      const searchValue = filterValue.toLowerCase();
+      const fullName = `${employee.firstName} ${employee.lastName}`.toLowerCase();
+      const empNumber = employee.employeeNumber?.toLowerCase() ?? "";
+      return fullName.includes(searchValue) || empNumber.includes(searchValue);
+    },
+    state: {
+      sorting,
+      globalFilter,
+    },
+    initialState: {
+      pagination: {
+        pageSize: 10,
+      },
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Buscador */}
+      <div className="relative">
+        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+        <Input
+          placeholder="Buscar por nombre o número de empleado..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Tabla */}
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id}>
+                    {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows?.length ? (
+              table.getRowModel().rows.map((row) => (
+                <TableRow key={row.id}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={columns.length} className="h-24 text-center">
+                  {globalFilter ? "No se encontraron empleados." : "No hay empleados con saldo."}
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Paginación - solo si hay más de 10 */}
+      {table.getFilteredRowModel().rows.length > 10 && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-muted-foreground text-sm">
+            Mostrando {table.getRowModel().rows.length} de {table.getFilteredRowModel().rows.length} empleados
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Anterior
+            </Button>
+            <span className="text-sm">
+              Página {table.getState().pagination.pageIndex + 1} de {table.getPageCount()}
+            </span>
+            <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+              Siguiente
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -148,7 +293,6 @@ export function TimeBankStats() {
 
   useEffect(() => {
     loadStats();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (isLoading && !stats) {
@@ -159,10 +303,10 @@ export function TimeBankStats() {
             <Card key={i} className="animate-pulse">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 rounded-full bg-muted" />
+                  <div className="bg-muted size-10 rounded-full" />
                   <div className="space-y-2">
-                    <div className="h-3 w-20 rounded bg-muted" />
-                    <div className="h-5 w-16 rounded bg-muted" />
+                    <div className="bg-muted h-3 w-20 rounded" />
+                    <div className="bg-muted h-5 w-16 rounded" />
                   </div>
                 </div>
               </CardContent>
@@ -181,12 +325,7 @@ export function TimeBankStats() {
     <div className="space-y-6">
       {/* Tarjetas de estadísticas */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Empleados con saldo"
-          value={stats.totalEmployeesWithBalance}
-          icon={Users}
-          variant="default"
-        />
+        <StatCard title="Empleados con saldo" value={stats.totalEmployeesWithBalance} icon={Users} variant="default" />
         <StatCard
           title="Horas acumuladas (+)"
           value={formatMinutes(stats.totalPositiveMinutes)}
@@ -215,21 +354,10 @@ export function TimeBankStats() {
               <PiggyBank className="h-5 w-5" />
               Saldos por Empleado
             </CardTitle>
-            <p className="text-muted-foreground text-sm">
-              Vista general de la bolsa de horas de cada empleado.
-            </p>
+            <p className="text-muted-foreground text-sm">Vista general de la bolsa de horas de cada empleado.</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadStats}
-            disabled={isPending}
-          >
-            {isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
+          <Button variant="outline" size="sm" onClick={loadStats} disabled={isPending}>
+            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Actualizar
           </Button>
         </CardHeader>
@@ -239,22 +367,7 @@ export function TimeBankStats() {
               No hay empleados con movimientos en la bolsa de horas.
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Empleado</TableHead>
-                    <TableHead className="text-right">Saldo</TableHead>
-                    <TableHead className="text-center">Pendientes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.employeeSummaries.map((employee) => (
-                    <EmployeeRow key={employee.employeeId} employee={employee} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <EmployeeBalanceTable data={stats.employeeSummaries} />
           )}
         </CardContent>
       </Card>

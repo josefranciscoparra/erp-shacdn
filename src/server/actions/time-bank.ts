@@ -1,14 +1,8 @@
 "use server";
 
-<<<<<<< Updated upstream
 import {
   Prisma,
   TimeBankApprovalFlow,
-=======
-import { endOfDay, startOfDay } from "date-fns";
-import {
-  Prisma,
->>>>>>> Stashed changes
   TimeBankMovementOrigin,
   TimeBankMovementStatus,
   TimeBankMovementType,
@@ -19,18 +13,12 @@ import {
   type TimeBankSettings,
   type WorkdaySummary,
 } from "@prisma/client";
-<<<<<<< Updated upstream
 import { endOfDay, startOfDay } from "date-fns";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
-=======
-
-import { prisma } from "@/lib/prisma";
-
->>>>>>> Stashed changes
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
 const DEFAULT_TIME_BANK_SETTINGS = {
@@ -45,10 +33,7 @@ const DEFAULT_TIME_BANK_SETTINGS = {
   requireOvertimeAuthorization: true,
   autoCloseMissingClockOut: true,
   allowCashConversion: false,
-<<<<<<< Updated upstream
   approvalFlow: "MIRROR_PTO" as TimeBankApprovalFlow,
-=======
->>>>>>> Stashed changes
 } as const;
 
 type NormalizedTimeBankSettings = {
@@ -64,10 +49,7 @@ type NormalizedTimeBankSettings = {
   requireOvertimeAuthorization: boolean;
   autoCloseMissingClockOut: boolean;
   allowCashConversion: boolean;
-<<<<<<< Updated upstream
   approvalFlow: TimeBankApprovalFlow;
-=======
->>>>>>> Stashed changes
 };
 
 function decimalToNumber(value?: Prisma.Decimal | number | null): number {
@@ -87,18 +69,9 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     orgId,
     maxPositiveMinutes: settings?.maxPositiveMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxPositiveMinutes,
     maxNegativeMinutes: settings?.maxNegativeMinutes ?? DEFAULT_TIME_BANK_SETTINGS.maxNegativeMinutes,
-<<<<<<< Updated upstream
     dailyExcessLimitMinutes: settings?.dailyExcessLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyExcessLimitMinutes,
     dailyDeficitLimitMinutes: settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
     roundingIncrementMinutes: settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
-=======
-    dailyExcessLimitMinutes:
-      settings?.dailyExcessLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyExcessLimitMinutes,
-    dailyDeficitLimitMinutes:
-      settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
-    roundingIncrementMinutes:
-      settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
->>>>>>> Stashed changes
     deficitGraceMinutes: settings?.deficitGraceMinutes ?? DEFAULT_TIME_BANK_SETTINGS.deficitGraceMinutes,
     holidayCompensationFactor:
       settings?.holidayCompensationFactor !== undefined
@@ -107,7 +80,6 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     allowFlexibleWindows: settings?.allowFlexibleWindows ?? DEFAULT_TIME_BANK_SETTINGS.allowFlexibleWindows,
     requireOvertimeAuthorization:
       settings?.requireOvertimeAuthorization ?? DEFAULT_TIME_BANK_SETTINGS.requireOvertimeAuthorization,
-<<<<<<< Updated upstream
     autoCloseMissingClockOut: settings?.autoCloseMissingClockOut ?? DEFAULT_TIME_BANK_SETTINGS.autoCloseMissingClockOut,
     allowCashConversion: settings?.allowCashConversion ?? DEFAULT_TIME_BANK_SETTINGS.allowCashConversion,
     approvalFlow: settings?.approvalFlow ?? DEFAULT_TIME_BANK_SETTINGS.approvalFlow,
@@ -115,15 +87,6 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
 }
 
 export async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
-=======
-    autoCloseMissingClockOut:
-      settings?.autoCloseMissingClockOut ?? DEFAULT_TIME_BANK_SETTINGS.autoCloseMissingClockOut,
-    allowCashConversion: settings?.allowCashConversion ?? DEFAULT_TIME_BANK_SETTINGS.allowCashConversion,
-  };
-}
-
-async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
->>>>>>> Stashed changes
   const settings = await prisma.timeBankSettings.findUnique({
     where: { orgId },
   });
@@ -148,16 +111,12 @@ function normalizeDeviationValue(value: number, settings: NormalizedTimeBankSett
   return Math.trunc(rounded);
 }
 
-<<<<<<< Updated upstream
 export async function removeAutoTimeBankMovement(
   orgId: string,
   employeeId: string,
   date: Date,
   workdayId?: string | null,
 ) {
-=======
-export async function removeAutoTimeBankMovement(orgId: string, employeeId: string, date: Date, workdayId?: string | null) {
->>>>>>> Stashed changes
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
 
@@ -268,13 +227,9 @@ export interface TimeBankSummaryResponse {
   todaysMinutes: number;
   pendingRequests: number;
   breakdown: Array<{ type: TimeBankMovementType; minutes: number }>;
-<<<<<<< Updated upstream
   lastMovements: Array<
     Pick<TimeBankMovement, "id" | "date" | "minutes" | "type" | "origin" | "description" | "status">
   >;
-=======
-  lastMovements: Array<Pick<TimeBankMovement, "id" | "date" | "minutes" | "type" | "origin" | "description" | "status">>;
->>>>>>> Stashed changes
   limits: {
     maxPositiveMinutes: number;
     maxNegativeMinutes: number;
@@ -308,14 +263,7 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
         orgId,
         employeeId,
       },
-<<<<<<< Updated upstream
       orderBy: [{ date: "desc" }, { createdAt: "desc" }],
-=======
-      orderBy: [
-        { date: "desc" },
-        { createdAt: "desc" },
-      ],
->>>>>>> Stashed changes
       take: 8,
     }),
     prisma.timeBankMovement.findFirst({
@@ -338,10 +286,7 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
     }),
   ]);
 
-<<<<<<< Updated upstream
   // eslint-disable-next-line no-underscore-dangle
-=======
->>>>>>> Stashed changes
   const totalMinutes = aggregate._sum.minutes ?? 0;
 
   return {
@@ -349,15 +294,8 @@ export async function getEmployeeTimeBankSummary(employeeId: string, orgId: stri
     totalHours: totalMinutes / 60,
     todaysMinutes: todayMovement?.minutes ?? 0,
     pendingRequests,
-<<<<<<< Updated upstream
     // eslint-disable-next-line no-underscore-dangle
     breakdown: grouped.map((entry) => ({ type: entry.type, minutes: entry._sum.minutes ?? 0 })),
-=======
-    breakdown: grouped.map((entry) => ({
-      type: entry.type,
-      minutes: entry._sum.minutes ?? 0,
-    })),
->>>>>>> Stashed changes
     lastMovements: lastMovements.map((movement) => ({
       id: movement.id,
       date: movement.date,
@@ -433,7 +371,6 @@ function getMovementMinutesForRequest(requestType: TimeBankRequestType, requeste
   return requestedMinutes;
 }
 
-<<<<<<< Updated upstream
 async function applyApprovedRequestMovement(
   tx: Prisma.TransactionClient,
   request: TimeBankRequest,
@@ -468,8 +405,6 @@ async function applyApprovedRequestMovement(
   });
 }
 
-=======
->>>>>>> Stashed changes
 async function getRequestTotals(orgId: string, employeeId: string) {
   const [pending, approved, rejected, cancelled] = await Promise.all([
     prisma.timeBankRequest.count({ where: { orgId, employeeId, status: "PENDING" } }),
@@ -509,7 +444,6 @@ interface CreateTimeBankRequestInput {
 }
 
 export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
-<<<<<<< Updated upstream
   const { employeeId, orgId, employee } = await getAuthenticatedEmployee({
     employeeInclude: {
       user: {
@@ -519,9 +453,6 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
       },
     },
   });
-=======
-  const { employeeId, orgId } = await getAuthenticatedEmployee();
->>>>>>> Stashed changes
 
   const normalizedDate = normalizeRequestDate(new Date(input.date));
   const requestedMinutes = ensurePositiveMinutes(input.minutes);
@@ -546,7 +477,6 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
     throw new Error("Ya tienes una solicitud pendiente para esa fecha");
   }
 
-<<<<<<< Updated upstream
   const approverUsers = await resolveApproverUsers(employeeId, orgId);
   const approverIds = approverUsers.map((a) => a.userId);
   const reviewerId: string | null = approverIds[0] ?? null;
@@ -629,22 +559,6 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
   };
 
   return plainRequest as TimeBankRequest;
-=======
-  const request = await prisma.timeBankRequest.create({
-    data: {
-      orgId,
-      employeeId,
-      type: input.type,
-      date: normalizedDate,
-      requestedMinutes,
-      reason: input.reason?.trim() ?? null,
-      status: "PENDING",
-      submittedAt: new Date(),
-    },
-  });
-
-  return request;
->>>>>>> Stashed changes
 }
 
 export async function cancelTimeBankRequest(requestId: string) {
@@ -719,7 +633,6 @@ interface ReviewTimeBankRequestInput {
   reviewerComments?: string;
 }
 
-<<<<<<< Updated upstream
 // ============================================================================ //
 // Estadísticas para RRHH
 // ============================================================================ //
@@ -826,15 +739,12 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
   };
 }
 
-=======
->>>>>>> Stashed changes
 export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
   const { orgId, role, userId } = await getAuthenticatedUser();
   ensureReviewerRole(role);
 
   const request = await prisma.timeBankRequest.findUnique({
     where: { id: input.requestId },
-<<<<<<< Updated upstream
     include: {
       employee: {
         select: {
@@ -848,8 +758,6 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
         },
       },
     },
-=======
->>>>>>> Stashed changes
   });
 
   if (!request || request.orgId !== orgId) {
@@ -872,7 +780,6 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
         metadata: input.reviewerComments ? { reviewerComments: input.reviewerComments } : Prisma.JsonNull,
       },
     });
-<<<<<<< Updated upstream
 
     const employeeUserId = request.employee?.user?.id;
     if (employeeUserId) {
@@ -889,8 +796,6 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
       );
     }
 
-=======
->>>>>>> Stashed changes
     return;
   }
 
@@ -907,7 +812,6 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
       },
     });
 
-<<<<<<< Updated upstream
     await applyApprovedRequestMovement(tx, request, userId);
   });
 
@@ -924,35 +828,4 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
       undefined,
     );
   }
-=======
-    await tx.timeBankMovement.upsert({
-      where: {
-        requestId: input.requestId,
-      },
-      create: {
-        orgId,
-        employeeId: request.employeeId,
-        requestId: request.id,
-        date: normalizeRequestDate(request.date),
-        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
-        type: getMovementTypeForRequest(request.type),
-        origin: TimeBankMovementOrigin.EMPLOYEE_REQUEST,
-        status: TimeBankMovementStatus.APPROVED,
-        requiresApproval: false,
-        description: request.reason ?? "Solicitud aprobada",
-        createdById: userId,
-        approvedById: userId,
-        approvedAt: new Date(),
-      },
-      update: {
-        minutes: getMovementMinutesForRequest(request.type, request.requestedMinutes),
-        type: getMovementTypeForRequest(request.type),
-        status: TimeBankMovementStatus.APPROVED,
-        approvedById: userId,
-        approvedAt: new Date(),
-        description: request.reason ?? "Solicitud aprobada",
-      },
-    });
-  });
->>>>>>> Stashed changes
 }
