@@ -213,14 +213,20 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const response = await shiftService.createShift(data);
 
       if (response.success && response.data) {
+        // Guardar warnings en el shift para mostrar borde naranja/rojo
+        const newShiftWithWarnings = {
+          ...response.data,
+          warnings: response.validation?.conflicts ?? [],
+        };
+
         set((state) => ({
-          shifts: [...state.shifts, response.data!],
+          shifts: [...state.shifts, newShiftWithWarnings],
           isLoading: false,
         }));
 
         toast.success("Turno creado correctamente");
 
-        // Mostrar warnings si existen
+        // Mostrar warnings como toast
         if (response.validation && response.validation.conflicts.length > 0) {
           const warnings = response.validation.conflicts.filter((c) => c.severity === "warning");
           warnings.forEach((w) => toast.warning(w.message));
@@ -243,14 +249,20 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const response = await shiftService.updateShift(id, data);
 
       if (response.success && response.data) {
+        // Guardar warnings en el shift para mostrar borde naranja/rojo
+        const updatedShiftWithWarnings = {
+          ...response.data,
+          warnings: response.validation?.conflicts ?? [],
+        };
+
         set((state) => ({
-          shifts: state.shifts.map((s) => (s.id === id ? response.data! : s)),
+          shifts: state.shifts.map((s) => (s.id === id ? updatedShiftWithWarnings : s)),
           isLoading: false,
         }));
 
         toast.success("Turno actualizado correctamente");
 
-        // Mostrar warnings
+        // Mostrar warnings como toast
         if (response.validation && response.validation.conflicts.length > 0) {
           const warnings = response.validation.conflicts.filter((c) => c.severity === "warning");
           warnings.forEach((w) => toast.warning(w.message));
@@ -299,14 +311,20 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const result = await shiftService.moveShift(currentShift, newEmployeeId, newDate, newZoneId);
 
       if (result.success && result.updatedShift) {
+        // Guardar warnings en el shift para mostrar borde naranja/rojo
+        const updatedShiftWithWarnings = {
+          ...result.updatedShift,
+          warnings: result.conflicts ?? [],
+        };
+
         set((state) => ({
-          shifts: state.shifts.map((s) => (s.id === shiftId ? result.updatedShift! : s)),
+          shifts: state.shifts.map((s) => (s.id === shiftId ? updatedShiftWithWarnings : s)),
           isLoading: false,
         }));
 
         toast.success("Turno movido correctamente");
 
-        // Mostrar warnings si hay conflictos
+        // Mostrar warnings como toast
         if (result.conflicts && result.conflicts.length > 0) {
           result.conflicts.forEach((c) => {
             if (c.severity === "warning") {
@@ -335,14 +353,20 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const result = await shiftService.copyShift(shiftId, newEmployeeId, newDate, newZoneId);
 
       if (result.success && result.updatedShift) {
+        // Guardar warnings en el shift para mostrar borde naranja/rojo
+        const newShiftWithWarnings = {
+          ...result.updatedShift,
+          warnings: result.conflicts ?? [],
+        };
+
         set((state) => ({
-          shifts: [...state.shifts, result.updatedShift!],
+          shifts: [...state.shifts, newShiftWithWarnings],
           isLoading: false,
         }));
 
         toast.success("Turno copiado correctamente");
 
-        // Mostrar warnings si hay conflictos
+        // Mostrar warnings como toast
         if (result.conflicts && result.conflicts.length > 0) {
           result.conflicts.forEach((c) => {
             if (c.severity === "warning") {

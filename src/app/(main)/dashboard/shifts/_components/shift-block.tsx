@@ -3,6 +3,7 @@
  *
  * Representa visualmente un turno en el calendario.
  * Soporta drag & drop y muestra información relevante.
+ * Muestra borde naranja/rojo si hay warnings.
  */
 
 "use client";
@@ -15,14 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import {
-  formatShiftTime,
-  formatDuration,
-  calculateDuration,
-  getShiftStatusColor,
-  getShiftStatusBadgeVariant,
-  getShiftStatusText,
-} from "../_lib/shift-utils";
+import { formatShiftTime, formatDuration, calculateDuration, getShiftStatusColor } from "../_lib/shift-utils";
 import type { Shift } from "../_lib/types";
 
 interface ShiftBlockProps {
@@ -57,6 +51,25 @@ export function ShiftBlock({
   const duration = calculateDuration(shift.startTime, shift.endTime);
   const isConflict = shift.status === "conflict";
 
+  // Determinar estado de warnings
+  const hasWarnings = shift.warnings && shift.warnings.length > 0;
+  const hasErrors = shift.warnings?.some((w) => w.severity === "error");
+  const hasOnlyWarnings = hasWarnings && !hasErrors;
+
+  // Determinar color del borde basado en warnings
+  const getBorderColor = () => {
+    if (isConflict || hasErrors) return "border-l-red-500";
+    if (hasOnlyWarnings) return "border-l-amber-500";
+    return "";
+  };
+
+  // Determinar color de fondo basado en warnings
+  const getBgColor = () => {
+    if (isConflict || hasErrors) return "bg-red-50 dark:bg-red-950/30";
+    if (hasOnlyWarnings) return "bg-amber-50 dark:bg-amber-950/30";
+    return getShiftStatusColor(shift.status);
+  };
+
   return (
     <TooltipProvider>
       <Tooltip>
@@ -72,12 +85,27 @@ export function ShiftBlock({
             }}
             className={cn(
               "group relative cursor-pointer rounded-md border-l-4 p-2 shadow-sm transition-all hover:shadow-md",
-              getShiftStatusColor(shift.status),
+              hasWarnings ? getBgColor() : getShiftStatusColor(shift.status),
+              hasWarnings ? getBorderColor() : "",
               isDragging && "ring-primary opacity-50 ring-2",
               !isDraggable && "cursor-default",
               "hover:brightness-110",
             )}
           >
+            {/* Badge de warning (esquina superior derecha) */}
+            {hasWarnings && !isConflict && (
+              <Badge
+                variant={hasErrors ? "destructive" : "outline"}
+                className={cn(
+                  "absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center gap-0.5 px-1 text-[10px]",
+                  hasOnlyWarnings &&
+                    "border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
+                )}
+              >
+                <AlertTriangle className="h-2.5 w-2.5" />
+              </Badge>
+            )}
+
             {/* Header: Tiempo + Badge estado */}
             <div className="mb-1 flex items-center justify-between gap-2">
               <div className="text-foreground flex items-center gap-1 text-sm font-medium">
@@ -129,6 +157,23 @@ export function ShiftBlock({
                 <AlertTriangle className="h-3 w-3" />
                 Turno con conflictos
               </p>
+            )}
+            {/* Mostrar warnings en el tooltip */}
+            {hasWarnings && !isConflict && (
+              <div className="border-t border-white/20 pt-1">
+                {shift.warnings!.map((w, i) => (
+                  <p
+                    key={i}
+                    className={cn(
+                      "flex items-center gap-1 text-xs",
+                      w.severity === "error" ? "text-red-300" : "text-amber-300",
+                    )}
+                  >
+                    <AlertTriangle className="h-3 w-3" />
+                    {w.message}
+                  </p>
+                ))}
+              </div>
             )}
           </div>
         </TooltipContent>

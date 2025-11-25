@@ -85,6 +85,8 @@ export interface Shift {
   publishedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  // Warnings/conflictos detectados al crear o mover el turno
+  warnings?: Conflict[];
 }
 
 /**
