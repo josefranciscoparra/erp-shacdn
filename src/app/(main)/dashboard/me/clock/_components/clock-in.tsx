@@ -28,6 +28,7 @@ import { detectIncompleteEntries, clockOut } from "@/server/actions/time-trackin
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 
+import { TimeBankWidget } from "./time-bank-widget";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
 import { TodaySchedule } from "./today-schedule";
@@ -934,6 +935,9 @@ export function ClockIn() {
 
         {/* Resumen del día con desviaciones */}
         <TodaySummary />
+
+        {/* Widget de Bolsa de Horas */}
+        <TimeBankWidget />
       </div>
 
       {/* Historial de fichajes del día */}

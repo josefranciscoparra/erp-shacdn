@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
+import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 

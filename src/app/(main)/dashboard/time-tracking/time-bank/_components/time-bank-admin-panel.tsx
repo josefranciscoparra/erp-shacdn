@@ -10,7 +10,21 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+<<<<<<< Updated upstream
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+=======
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+>>>>>>> Stashed changes
 import {
   getTimeBankRequestsForReview,
   reviewTimeBankRequest,
@@ -35,6 +49,14 @@ export function TimeBankAdminPanel() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
 
+<<<<<<< Updated upstream
+  // Estado para el Dialog de rechazo
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null);
+  const [rejectComment, setRejectComment] = useState("");
+
+=======
+>>>>>>> Stashed changes
   const loadRequests = async (status: TimeBankRequestStatus) => {
     setIsLoading(true);
     try {
@@ -66,11 +88,47 @@ export function TimeBankAdminPanel() {
     return summary;
   }, [requests]);
 
+<<<<<<< Updated upstream
+  const handleApprove = (requestId: string) => {
+    startTransition(async () => {
+      try {
+        await reviewTimeBankRequest({ requestId, action: "APPROVE" });
+        toast.success("Solicitud aprobada");
+        await loadRequests(statusFilter);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "No se pudo procesar";
+        toast.error(message);
+      }
+    });
+  };
+
+  const openRejectDialog = (requestId: string) => {
+    setRejectingRequestId(requestId);
+    setRejectComment("");
+    setRejectDialogOpen(true);
+  };
+
+  const handleReject = () => {
+    if (!rejectingRequestId) return;
+
+    startTransition(async () => {
+      try {
+        await reviewTimeBankRequest({
+          requestId: rejectingRequestId,
+          action: "REJECT",
+          reviewerComments: rejectComment.trim() || undefined,
+        });
+        toast.success("Solicitud rechazada");
+        setRejectDialogOpen(false);
+        setRejectingRequestId(null);
+        setRejectComment("");
+=======
   const handleReview = (requestId: string, action: "APPROVE" | "REJECT") => {
     startTransition(async () => {
       try {
         await reviewTimeBankRequest({ requestId, action });
         toast.success(action === "APPROVE" ? "Solicitud aprobada" : "Solicitud rechazada");
+>>>>>>> Stashed changes
         await loadRequests(statusFilter);
       } catch (error) {
         const message = error instanceof Error ? error.message : "No se pudo procesar";
@@ -141,13 +199,29 @@ export function TimeBankAdminPanel() {
                       </div>
                     </div>
                     {request.reason && <p className="text-muted-foreground mt-3 text-sm">{request.reason}</p>}
+<<<<<<< Updated upstream
+                    {request.status === "REJECTED" &&
+                      (request.metadata as Record<string, string> | null)?.reviewerComments && (
+                        <div className="mt-3 rounded-md bg-red-50 p-3 dark:bg-red-950/30">
+                          <p className="text-sm font-medium text-red-700 dark:text-red-400">Motivo del rechazo:</p>
+                          <p className="text-sm text-red-600 dark:text-red-300">
+                            {(request.metadata as Record<string, string>).reviewerComments}
+                          </p>
+                        </div>
+                      )}
+=======
+>>>>>>> Stashed changes
 
                     {request.status === "PENDING" && (
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           className="gap-2"
+<<<<<<< Updated upstream
+                          onClick={() => handleApprove(request.id)}
+=======
                           onClick={() => handleReview(request.id, "APPROVE")}
+>>>>>>> Stashed changes
                           disabled={isPending}
                         >
                           <CheckCircle className="h-4 w-4" /> Aprobar
@@ -156,7 +230,11 @@ export function TimeBankAdminPanel() {
                           size="sm"
                           variant="outline"
                           className="gap-2"
+<<<<<<< Updated upstream
+                          onClick={() => openRejectDialog(request.id)}
+=======
                           onClick={() => handleReview(request.id, "REJECT")}
+>>>>>>> Stashed changes
                           disabled={isPending}
                         >
                           <XCircle className="h-4 w-4" /> Rechazar
@@ -176,6 +254,63 @@ export function TimeBankAdminPanel() {
           </div>
         )}
       </CardContent>
+<<<<<<< Updated upstream
+
+      {/* Dialog de rechazo con comentario */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-destructive" />
+              Rechazar solicitud
+            </DialogTitle>
+            <DialogDescription>
+              ¿Estás seguro de que deseas rechazar esta solicitud? Puedes añadir un comentario para informar al empleado
+              del motivo.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="reject-comment">Motivo del rechazo (opcional)</Label>
+              <Textarea
+                id="reject-comment"
+                placeholder="Ej: No se dispone de saldo suficiente, el día solicitado no es válido..."
+                value={rejectComment}
+                onChange={(e) => setRejectComment(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setRejectDialogOpen(false)}
+              disabled={isPending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleReject}
+              disabled={isPending}
+            >
+              {isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Rechazando...
+                </>
+              ) : (
+                "Confirmar rechazo"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+=======
+>>>>>>> Stashed changes
     </Card>
   );
 }

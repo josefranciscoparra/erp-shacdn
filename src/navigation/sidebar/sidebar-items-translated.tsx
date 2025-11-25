@@ -85,6 +85,11 @@ export function useSidebarItems(): NavGroup[] {
           icon: Clock,
         },
         {
+          title: "Mi Bolsa de Horas",
+          url: "/dashboard/me/time-bank",
+          icon: PiggyBank,
+        },
+        {
           title: "Mis Vacaciones",
           url: "/dashboard/me/pto",
           icon: CalendarDays,
