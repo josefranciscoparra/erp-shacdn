@@ -9,6 +9,7 @@ import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
 // Schema de validación para el wizard completo
+// NOTA: Los horarios se gestionan en Sistema de Horarios V2.0, no en el wizard
 const wizardSchema = z.object({
   // Datos del empleado
   employee: z.object({
@@ -36,7 +37,7 @@ const wizardSchema = z.object({
     expenseApproverId: z.string().optional().nullable(),
     createUser: z.boolean().default(false),
   }),
-  // Datos del contrato
+  // Datos del contrato (solo campos del modelo EmploymentContract)
   contract: z.object({
     contractType: z.string().min(1),
     startDate: z.string(),
@@ -48,94 +49,7 @@ const wizardSchema = z.object({
     managerId: z.string().optional().nullable(),
     weeklyHours: z.number().default(40),
     workingDaysPerWeek: z.number().default(5),
-    hasIntensiveSchedule: z.boolean().default(false),
-    intensiveStartDate: z.string().optional().nullable(),
-    intensiveEndDate: z.string().optional().nullable(),
-    intensiveWeeklyHours: z.number().optional().nullable(),
-    hasCustomWeeklyPattern: z.boolean().default(false),
-    mondayHours: z.number().optional().nullable(),
-    tuesdayHours: z.number().optional().nullable(),
-    wednesdayHours: z.number().optional().nullable(),
-    thursdayHours: z.number().optional().nullable(),
-    fridayHours: z.number().optional().nullable(),
-    saturdayHours: z.number().optional().nullable(),
-    sundayHours: z.number().optional().nullable(),
-    intensiveMondayHours: z.number().optional().nullable(),
-    intensiveTuesdayHours: z.number().optional().nullable(),
-    intensiveWednesdayHours: z.number().optional().nullable(),
-    intensiveThursdayHours: z.number().optional().nullable(),
-    intensiveFridayHours: z.number().optional().nullable(),
-    intensiveSaturdayHours: z.number().optional().nullable(),
-    intensiveSundayHours: z.number().optional().nullable(),
-    // Schedule type FIXED
-    scheduleType: z.enum(["FLEXIBLE", "FIXED", "SHIFTS"]).optional().nullable(),
-    workMonday: z.boolean().optional().nullable(),
-    workTuesday: z.boolean().optional().nullable(),
-    workWednesday: z.boolean().optional().nullable(),
-    workThursday: z.boolean().optional().nullable(),
-    workFriday: z.boolean().optional().nullable(),
-    workSaturday: z.boolean().optional().nullable(),
-    workSunday: z.boolean().optional().nullable(),
-    hasFixedTimeSlots: z.boolean().optional().nullable(),
-    mondayStartTime: z.string().optional().nullable(),
-    mondayEndTime: z.string().optional().nullable(),
-    tuesdayStartTime: z.string().optional().nullable(),
-    tuesdayEndTime: z.string().optional().nullable(),
-    wednesdayStartTime: z.string().optional().nullable(),
-    wednesdayEndTime: z.string().optional().nullable(),
-    thursdayStartTime: z.string().optional().nullable(),
-    thursdayEndTime: z.string().optional().nullable(),
-    fridayStartTime: z.string().optional().nullable(),
-    fridayEndTime: z.string().optional().nullable(),
-    saturdayStartTime: z.string().optional().nullable(),
-    saturdayEndTime: z.string().optional().nullable(),
-    sundayStartTime: z.string().optional().nullable(),
-    sundayEndTime: z.string().optional().nullable(),
-    // Breaks
-    mondayBreakStartTime: z.string().optional().nullable(),
-    mondayBreakEndTime: z.string().optional().nullable(),
-    tuesdayBreakStartTime: z.string().optional().nullable(),
-    tuesdayBreakEndTime: z.string().optional().nullable(),
-    wednesdayBreakStartTime: z.string().optional().nullable(),
-    wednesdayBreakEndTime: z.string().optional().nullable(),
-    thursdayBreakStartTime: z.string().optional().nullable(),
-    thursdayBreakEndTime: z.string().optional().nullable(),
-    fridayBreakStartTime: z.string().optional().nullable(),
-    fridayBreakEndTime: z.string().optional().nullable(),
-    saturdayBreakStartTime: z.string().optional().nullable(),
-    saturdayBreakEndTime: z.string().optional().nullable(),
-    sundayBreakStartTime: z.string().optional().nullable(),
-    sundayBreakEndTime: z.string().optional().nullable(),
-    // Intensive time slots
-    intensiveMondayStartTime: z.string().optional().nullable(),
-    intensiveMondayEndTime: z.string().optional().nullable(),
-    intensiveTuesdayStartTime: z.string().optional().nullable(),
-    intensiveTuesdayEndTime: z.string().optional().nullable(),
-    intensiveWednesdayStartTime: z.string().optional().nullable(),
-    intensiveWednesdayEndTime: z.string().optional().nullable(),
-    intensiveThursdayStartTime: z.string().optional().nullable(),
-    intensiveThursdayEndTime: z.string().optional().nullable(),
-    intensiveFridayStartTime: z.string().optional().nullable(),
-    intensiveFridayEndTime: z.string().optional().nullable(),
-    intensiveSaturdayStartTime: z.string().optional().nullable(),
-    intensiveSaturdayEndTime: z.string().optional().nullable(),
-    intensiveSundayStartTime: z.string().optional().nullable(),
-    intensiveSundayEndTime: z.string().optional().nullable(),
-    // Intensive breaks
-    intensiveMondayBreakStartTime: z.string().optional().nullable(),
-    intensiveMondayBreakEndTime: z.string().optional().nullable(),
-    intensiveTuesdayBreakStartTime: z.string().optional().nullable(),
-    intensiveTuesdayBreakEndTime: z.string().optional().nullable(),
-    intensiveWednesdayBreakStartTime: z.string().optional().nullable(),
-    intensiveWednesdayBreakEndTime: z.string().optional().nullable(),
-    intensiveThursdayBreakStartTime: z.string().optional().nullable(),
-    intensiveThursdayBreakEndTime: z.string().optional().nullable(),
-    intensiveFridayBreakStartTime: z.string().optional().nullable(),
-    intensiveFridayBreakEndTime: z.string().optional().nullable(),
-    intensiveSaturdayBreakStartTime: z.string().optional().nullable(),
-    intensiveSaturdayBreakEndTime: z.string().optional().nullable(),
-    intensiveSundayBreakStartTime: z.string().optional().nullable(),
-    intensiveSundayBreakEndTime: z.string().optional().nullable(),
+    scheduleType: z.enum(["FLEXIBLE", "FIXED", "SHIFT"]).optional().nullable(),
   }),
 });
 
@@ -150,7 +64,10 @@ export async function POST(request: Request) {
     const currentUser = session.user;
 
     const body = await request.json();
+    console.log("🔍 [WIZARD API] Body recibido:", JSON.stringify(body, null, 2));
+
     const data = wizardSchema.parse(body);
+    console.log("✅ [WIZARD API] Datos validados:", JSON.stringify(data, null, 2));
 
     // TRANSACCIÓN ATÓMICA: Todo o nada
     const result = await prisma.$transaction(async (tx) => {
@@ -158,6 +75,7 @@ export async function POST(request: Request) {
       let temporaryPassword: string | null = null;
 
       // 1. Crear usuario de sistema (SIEMPRE obligatorio para cada empleado)
+      console.log("👤 [WIZARD API] Creando usuario...");
       const tempPassword = generateTemporaryPassword();
       const hashedPassword = await hash(tempPassword, 10);
 
@@ -206,6 +124,7 @@ export async function POST(request: Request) {
       }
 
       // 3. Crear empleado
+      console.log("👷 [WIZARD API] Creando empleado...");
       const employee = await tx.employee.create({
         data: {
           employeeNumber: numberResult.employeeNumber,
@@ -237,106 +156,28 @@ export async function POST(request: Request) {
         },
       });
 
-      // 4. Crear contrato
+      // 4. Crear contrato (solo campos del modelo EmploymentContract)
+      // NOTA: Los horarios se gestionan en Sistema de Horarios V2.0, no en el contrato
+      console.log("📄 [WIZARD API] Creando contrato...");
+      const contractPayload = {
+        employeeId: employee.id,
+        orgId: currentUser.orgId,
+        contractType: data.contract.contractType,
+        startDate: new Date(data.contract.startDate),
+        endDate: data.contract.endDate ? new Date(data.contract.endDate) : null,
+        grossSalary: data.contract.grossSalary ?? null,
+        positionId: data.contract.positionId ?? null,
+        departmentId: data.contract.departmentId ?? null,
+        costCenterId: data.contract.costCenterId ?? null,
+        managerId: data.contract.managerId ?? null,
+        weeklyHours: data.contract.weeklyHours ?? 40,
+        workingDaysPerWeek: data.contract.workingDaysPerWeek ?? 5,
+        workScheduleType: (data.contract.scheduleType as any) ?? "FIXED",
+      };
+      console.log("📋 [WIZARD API] Payload contrato:", JSON.stringify(contractPayload, null, 2));
+
       const contract = await tx.employmentContract.create({
-        data: {
-          employeeId: employee.id,
-          orgId: currentUser.orgId,
-          contractType: data.contract.contractType,
-          startDate: new Date(data.contract.startDate),
-          endDate: data.contract.endDate ? new Date(data.contract.endDate) : null,
-          grossSalary: data.contract.grossSalary,
-          positionId: data.contract.positionId,
-          departmentId: data.contract.departmentId,
-          costCenterId: data.contract.costCenterId,
-          managerId: data.contract.managerId,
-          weeklyHours: data.contract.weeklyHours,
-          workingDaysPerWeek: data.contract.workingDaysPerWeek,
-          hasIntensiveSchedule: data.contract.hasIntensiveSchedule,
-          intensiveStartDate: data.contract.intensiveStartDate,
-          intensiveEndDate: data.contract.intensiveEndDate,
-          intensiveWeeklyHours: data.contract.intensiveWeeklyHours,
-          hasCustomWeeklyPattern: data.contract.hasCustomWeeklyPattern,
-          mondayHours: data.contract.mondayHours,
-          tuesdayHours: data.contract.tuesdayHours,
-          wednesdayHours: data.contract.wednesdayHours,
-          thursdayHours: data.contract.thursdayHours,
-          fridayHours: data.contract.fridayHours,
-          saturdayHours: data.contract.saturdayHours,
-          sundayHours: data.contract.sundayHours,
-          intensiveMondayHours: data.contract.intensiveMondayHours,
-          intensiveTuesdayHours: data.contract.intensiveTuesdayHours,
-          intensiveWednesdayHours: data.contract.intensiveWednesdayHours,
-          intensiveThursdayHours: data.contract.intensiveThursdayHours,
-          intensiveFridayHours: data.contract.intensiveFridayHours,
-          intensiveSaturdayHours: data.contract.intensiveSaturdayHours,
-          intensiveSundayHours: data.contract.intensiveSundayHours,
-          scheduleType: data.contract.scheduleType,
-          workMonday: data.contract.workMonday,
-          workTuesday: data.contract.workTuesday,
-          workWednesday: data.contract.workWednesday,
-          workThursday: data.contract.workThursday,
-          workFriday: data.contract.workFriday,
-          workSaturday: data.contract.workSaturday,
-          workSunday: data.contract.workSunday,
-          hasFixedTimeSlots: data.contract.hasFixedTimeSlots,
-          mondayStartTime: data.contract.mondayStartTime,
-          mondayEndTime: data.contract.mondayEndTime,
-          tuesdayStartTime: data.contract.tuesdayStartTime,
-          tuesdayEndTime: data.contract.tuesdayEndTime,
-          wednesdayStartTime: data.contract.wednesdayStartTime,
-          wednesdayEndTime: data.contract.wednesdayEndTime,
-          thursdayStartTime: data.contract.thursdayStartTime,
-          thursdayEndTime: data.contract.thursdayEndTime,
-          fridayStartTime: data.contract.fridayStartTime,
-          fridayEndTime: data.contract.fridayEndTime,
-          saturdayStartTime: data.contract.saturdayStartTime,
-          saturdayEndTime: data.contract.saturdayEndTime,
-          sundayStartTime: data.contract.sundayStartTime,
-          sundayEndTime: data.contract.sundayEndTime,
-          mondayBreakStartTime: data.contract.mondayBreakStartTime,
-          mondayBreakEndTime: data.contract.mondayBreakEndTime,
-          tuesdayBreakStartTime: data.contract.tuesdayBreakStartTime,
-          tuesdayBreakEndTime: data.contract.tuesdayBreakEndTime,
-          wednesdayBreakStartTime: data.contract.wednesdayBreakStartTime,
-          wednesdayBreakEndTime: data.contract.wednesdayBreakEndTime,
-          thursdayBreakStartTime: data.contract.thursdayBreakStartTime,
-          thursdayBreakEndTime: data.contract.thursdayBreakEndTime,
-          fridayBreakStartTime: data.contract.fridayBreakStartTime,
-          fridayBreakEndTime: data.contract.fridayBreakEndTime,
-          saturdayBreakStartTime: data.contract.saturdayBreakStartTime,
-          saturdayBreakEndTime: data.contract.saturdayBreakEndTime,
-          sundayBreakStartTime: data.contract.sundayBreakStartTime,
-          sundayBreakEndTime: data.contract.sundayBreakEndTime,
-          intensiveMondayStartTime: data.contract.intensiveMondayStartTime,
-          intensiveMondayEndTime: data.contract.intensiveMondayEndTime,
-          intensiveTuesdayStartTime: data.contract.intensiveTuesdayStartTime,
-          intensiveTuesdayEndTime: data.contract.intensiveTuesdayEndTime,
-          intensiveWednesdayStartTime: data.contract.intensiveWednesdayStartTime,
-          intensiveWednesdayEndTime: data.contract.intensiveWednesdayEndTime,
-          intensiveThursdayStartTime: data.contract.intensiveThursdayStartTime,
-          intensiveThursdayEndTime: data.contract.intensiveThursdayEndTime,
-          intensiveFridayStartTime: data.contract.intensiveFridayStartTime,
-          intensiveFridayEndTime: data.contract.intensiveFridayEndTime,
-          intensiveSaturdayStartTime: data.contract.intensiveSaturdayStartTime,
-          intensiveSaturdayEndTime: data.contract.intensiveSaturdayEndTime,
-          intensiveSundayStartTime: data.contract.intensiveSundayStartTime,
-          intensiveSundayEndTime: data.contract.intensiveSundayEndTime,
-          intensiveMondayBreakStartTime: data.contract.intensiveMondayBreakStartTime,
-          intensiveMondayBreakEndTime: data.contract.intensiveMondayBreakEndTime,
-          intensiveTuesdayBreakStartTime: data.contract.intensiveTuesdayBreakStartTime,
-          intensiveTuesdayBreakEndTime: data.contract.intensiveTuesdayBreakEndTime,
-          intensiveWednesdayBreakStartTime: data.contract.intensiveWednesdayBreakStartTime,
-          intensiveWednesdayBreakEndTime: data.contract.intensiveWednesdayBreakEndTime,
-          intensiveThursdayBreakStartTime: data.contract.intensiveThursdayBreakStartTime,
-          intensiveThursdayBreakEndTime: data.contract.intensiveThursdayBreakEndTime,
-          intensiveFridayBreakStartTime: data.contract.intensiveFridayBreakStartTime,
-          intensiveFridayBreakEndTime: data.contract.intensiveFridayBreakEndTime,
-          intensiveSaturdayBreakStartTime: data.contract.intensiveSaturdayBreakStartTime,
-          intensiveSaturdayBreakEndTime: data.contract.intensiveSaturdayBreakEndTime,
-          intensiveSundayBreakStartTime: data.contract.intensiveSundayBreakStartTime,
-          intensiveSundayBreakEndTime: data.contract.intensiveSundayBreakEndTime,
-        },
+        data: contractPayload,
       });
 
       return {

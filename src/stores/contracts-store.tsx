@@ -3,7 +3,7 @@
 import { create } from "zustand";
 
 // Tipo de horario (escalable a 3 modos)
-export type ScheduleType = "FLEXIBLE" | "FIXED" | "SHIFTS";
+export type ScheduleType = "FLEXIBLE" | "FIXED" | "SHIFT";
 
 export interface Position {
   id: string;

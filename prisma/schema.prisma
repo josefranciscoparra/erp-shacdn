@@ -461,6 +461,9 @@ model EmploymentContract {
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - Minutos por jornada laboral
   workdayMinutes Int? // Jornada estándar en minutos (null = calcular automático: weeklyHours / workingDaysPerWeek * 60)
 
+  // Tipo de horario contractual (NUEVO: Para distinguir lógica de fichajes)
+  workScheduleType ScheduleAssignmentType @default(FIXED)
+
   // NOTA: Los horarios ahora se gestionan en el nuevo Sistema de Horarios V2.0
   // Ver modelos: ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot, EmployeeScheduleAssignment
 

@@ -115,14 +115,9 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
   });
 
   if (!assignment) {
-    console.log("❌ [GET_EFFECTIVE_SCHEDULE] No hay asignación activa");
-    return {
-      date,
-      isWorkingDay: false,
-      expectedMinutes: 0,
-      timeSlots: [],
-      source: "NO_ASSIGNMENT",
-    };
+    // 4b. FALLBACK CONTRATO: Si no hay asignación explícita, mirar el tipo de horario en el contrato
+    console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Sin asignación explícita, consultando contrato...");
+    return await getContractBasedSchedule(employeeId, date);
   }
 
   // 4. RESOLUCIÓN DE PLANTILLA: Obtener la plantilla correcta según el tipo
@@ -1089,5 +1084,223 @@ async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: 
       scheduleTemplateId: assignment.scheduleTemplateId,
       costCenterId: assignment.costCenterId,
     },
+  };
+}
+
+/**
+ * Obtiene el horario efectivo basado en la configuración del contrato (Fallback)
+ */
+async function getContractBasedSchedule(employeeId: string, date: Date): Promise<EffectiveSchedule> {
+  const contract = await prisma.employmentContract.findFirst({
+    where: {
+      employeeId,
+      active: true,
+    },
+    orderBy: { startDate: "desc" },
+  });
+
+  if (!contract) {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "NO_CONTRACT",
+    };
+  }
+
+  // Si es tipo TURNO y no se encontró asignación manual (paso 2), entonces es DESCANSO
+  if (contract.workScheduleType === "SHIFT") {
+    return {
+      date,
+      isWorkingDay: false,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: "CONTRACT",
+      periodName: "Descanso (Sin turno asignado)",
+    };
+  }
+
+  // Si es FLEXIBLE, devolver promedio sin slots fijos
+  if (contract.workScheduleType === "FLEXIBLE") {
+    const weeklyHours = Number(contract.weeklyHours ?? 40);
+    const daysPerWeek = Number(contract.workingDaysPerWeek ?? 5);
+    const dailyMinutes = (weeklyHours / daysPerWeek) * 60;
+
+    // Asumimos laborable L-V por defecto para flexible si no hay más datos
+    const dayOfWeek = date.getDay();
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+    if (isWeekend) {
+      return { date, isWorkingDay: false, expectedMinutes: 0, timeSlots: [], source: "CONTRACT" };
+    }
+
+    return {
+      date,
+      isWorkingDay: true,
+      expectedMinutes: dailyMinutes,
+      timeSlots: [
+        {
+          startMinutes: 540, // 09:00
+          endMinutes: 540 + dailyMinutes,
+          slotType: "WORK",
+          presenceType: "FLEXIBLE",
+          isMandatory: false,
+          description: "Horario Flexible",
+        },
+      ],
+      source: "CONTRACT",
+      periodName: "Flexible",
+    };
+  }
+
+  // Si es FIXED, construir horario desde campos legacy
+  if (contract.workScheduleType === "FIXED") {
+    const dayOfWeek = date.getDay(); // 0=Dom, 1=Lun...
+
+    // Mapeo de día a campos del contrato
+    const dayMap = [
+      {
+        work: contract.workSunday,
+        start: contract.sundayStartTime,
+        end: contract.sundayEndTime,
+        bStart: contract.sundayBreakStartTime,
+        bEnd: contract.sundayBreakEndTime,
+      }, // 0
+      {
+        work: contract.workMonday,
+        start: contract.mondayStartTime,
+        end: contract.mondayEndTime,
+        bStart: contract.mondayBreakStartTime,
+        bEnd: contract.mondayBreakEndTime,
+      }, // 1
+      {
+        work: contract.workTuesday,
+        start: contract.tuesdayStartTime,
+        end: contract.tuesdayEndTime,
+        bStart: contract.tuesdayBreakStartTime,
+        bEnd: contract.tuesdayBreakEndTime,
+      }, // 2
+      {
+        work: contract.workWednesday,
+        start: contract.wednesdayStartTime,
+        end: contract.wednesdayEndTime,
+        bStart: contract.wednesdayBreakStartTime,
+        bEnd: contract.wednesdayBreakEndTime,
+      }, // 3
+      {
+        work: contract.workThursday,
+        start: contract.thursdayStartTime,
+        end: contract.thursdayEndTime,
+        bStart: contract.thursdayBreakStartTime,
+        bEnd: contract.thursdayBreakEndTime,
+      }, // 4
+      {
+        work: contract.workFriday,
+        start: contract.fridayStartTime,
+        end: contract.fridayEndTime,
+        bStart: contract.fridayBreakStartTime,
+        bEnd: contract.fridayBreakEndTime,
+      }, // 5
+      {
+        work: contract.workSaturday,
+        start: contract.saturdayStartTime,
+        end: contract.saturdayEndTime,
+        bStart: contract.saturdayBreakStartTime,
+        bEnd: contract.saturdayBreakEndTime,
+      }, // 6
+    ];
+
+    const config = dayMap[dayOfWeek];
+
+    if (!config?.work || !config.start || !config.end) {
+      return {
+        date,
+        isWorkingDay: false,
+        expectedMinutes: 0,
+        timeSlots: [],
+        source: "CONTRACT",
+        periodName: "Descanso Semanal",
+      };
+    }
+
+    // Parsear horas
+    const parseTime = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+
+    const startMinutes = parseTime(config.start);
+    const endMinutes = parseTime(config.end);
+
+    const timeSlots: EffectiveTimeSlot[] = [];
+    let expectedMinutes = 0;
+
+    if (config.bStart && config.bEnd) {
+      const breakStart = parseTime(config.bStart);
+      const breakEnd = parseTime(config.bEnd);
+
+      // Tramo 1: Inicio -> Pausa
+      if (breakStart > startMinutes) {
+        timeSlots.push({
+          startMinutes,
+          endMinutes: breakStart,
+          slotType: "WORK",
+          presenceType: "MANDATORY",
+          isMandatory: true,
+        });
+        expectedMinutes += breakStart - startMinutes;
+      }
+
+      // Pausa
+      timeSlots.push({
+        startMinutes: breakStart,
+        endMinutes: breakEnd,
+        slotType: "BREAK",
+        presenceType: "MANDATORY",
+        isMandatory: true,
+        description: "Pausa",
+      });
+
+      // Tramo 2: Pausa -> Fin
+      if (endMinutes > breakEnd) {
+        timeSlots.push({
+          startMinutes: breakEnd,
+          endMinutes,
+          slotType: "WORK",
+          presenceType: "MANDATORY",
+          isMandatory: true,
+        });
+        expectedMinutes += endMinutes - breakEnd;
+      }
+    } else {
+      // Jornada continua
+      timeSlots.push({
+        startMinutes,
+        endMinutes,
+        slotType: "WORK",
+        presenceType: "MANDATORY",
+        isMandatory: true,
+      });
+      expectedMinutes += endMinutes - startMinutes;
+    }
+
+    return {
+      date,
+      isWorkingDay: true,
+      expectedMinutes,
+      timeSlots,
+      source: "CONTRACT",
+      periodName: "Horario Fijo",
+    };
+  }
+
+  // Default fallback
+  return {
+    date,
+    isWorkingDay: false,
+    expectedMinutes: 0,
+    timeSlots: [],
+    source: "CONTRACT",
   };
 }

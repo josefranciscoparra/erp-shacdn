@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ScheduleType } from "@/stores/contracts-store";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 const MONTHS = [
   { value: "01", label: "Enero" },
@@ -54,6 +55,14 @@ export function WizardStep3Schedule({
 }: WizardStep3ScheduleProps) {
   const [skipSchedule, setSkipSchedule] = useState(false);
   const [scheduleType, setScheduleType] = useState<ScheduleType>("FLEXIBLE");
+  const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
+
+  // Resetear a FLEXIBLE si se seleccionó SHIFTS pero se deshabilitó la feature
+  useEffect(() => {
+    if (scheduleType === "SHIFT" && !shiftsEnabled) {
+      setScheduleType("FLEXIBLE");
+    }
+  }, [scheduleType, shiftsEnabled]);
 
   // Estados para FIXED - días laborables
   const [workDays, setWorkDays] = useState({
@@ -645,7 +654,7 @@ export function WizardStep3Schedule({
                     <Calendar className="mr-2 h-4 w-4" />
                     Fijo
                   </TabsTrigger>
-                  <TabsTrigger value="SHIFTS" disabled>
+                  <TabsTrigger value="SHIFT" disabled={!shiftsEnabled}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     Turnos
                   </TabsTrigger>
@@ -671,11 +680,12 @@ export function WizardStep3Schedule({
                 </Alert>
               )}
 
-              {scheduleType === "SHIFTS" && (
+              {scheduleType === "SHIFT" && (
                 <Alert className="border-purple-500 bg-purple-50 dark:bg-purple-950/20">
                   <Info className="h-4 w-4 text-purple-600" />
                   <AlertDescription className="text-purple-800 dark:text-purple-200">
-                    Sistema de turnos rotativos (disponible próximamente).
+                    El empleado no tendrá horario fijo. Sus días y horas de trabajo se planificarán semanalmente desde
+                    el módulo de Gestión de Turnos.
                   </AlertDescription>
                 </Alert>
               )}
@@ -1431,28 +1441,22 @@ export function WizardStep3Schedule({
             </div>
           )}
 
-          {/* Mensaje SHIFTS (deshabilitado) */}
-          {scheduleType === "SHIFTS" && (
-            <Card>
-              <CardContent className="p-8">
-                <div className="space-y-4 text-center">
-                  <RefreshCw className="text-muted-foreground mx-auto h-12 w-12 opacity-50" />
-                  <div>
-                    <h3 className="text-muted-foreground text-lg font-semibold">Sistema de Turnos (Próximamente)</h3>
-                    <p className="text-muted-foreground mt-2 text-sm">
-                      Esta funcionalidad estará disponible en una actualización futura.
-                    </p>
-                  </div>
-                  <Alert className="border-purple-500 bg-purple-50 dark:bg-purple-950/20">
-                    <Info className="h-4 w-4 text-purple-600" />
-                    <AlertDescription className="text-purple-800 dark:text-purple-200">
-                      Por ahora, el empleado se creará con horario flexible (40h/semana). Podrás configurar turnos
-                      rotativos desde la ficha del empleado cuando esta funcionalidad esté lista.
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Formulario oculto para SHIFT (Turnos) */}
+          {scheduleType === "SHIFT" && (
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await onSubmit({
+                  scheduleType: "SHIFT",
+                  weeklyHours: 40, // Valor por defecto
+                  workingDaysPerWeek: 5, // Valor por defecto
+                  hasIntensiveSchedule: false,
+                  hasCustomWeeklyPattern: false,
+                });
+              }}
+              id="wizard-step-3-form"
+              className="hidden"
+            />
           )}
         </>
       )}
@@ -1468,6 +1472,15 @@ export function WizardStep3Schedule({
                 await handleScheduleSubmit({} as ScheduleFormData);
               } else if (scheduleType === "FIXED") {
                 await handleFixedSubmit();
+              } else if (scheduleType === "SHIFT") {
+                // Para turnos, guardamos con tipo SHIFT y valores por defecto
+                await onSubmit({
+                  scheduleType: "SHIFT",
+                  weeklyHours: 40,
+                  workingDaysPerWeek: 5,
+                  hasIntensiveSchedule: false,
+                  hasCustomWeeklyPattern: false,
+                });
               }
             }}
             disabled={isLoading}

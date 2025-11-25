@@ -114,6 +114,11 @@ export function EmployeeWizard() {
       const result = await response.json();
 
       if (!response.ok) {
+        // Si hay detalles de validación (Zod), mostrarlos
+        if (result.details && Array.isArray(result.details)) {
+          const detailsMsg = result.details.map((d: any) => `• ${d.path.join(".")}: ${d.message}`).join("\n");
+          throw new Error(`Datos inválidos:\n${detailsMsg}`);
+        }
         throw new Error(result.error ?? "Error al crear empleado");
       }
 

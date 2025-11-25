@@ -3153,6 +3153,16 @@ export async function getShiftEmployeesPaginated(
           some: {
             active: true,
             costCenterId: filters.costCenterId,
+            workScheduleType: "SHIFT",
+          },
+        },
+      }),
+      // Si no hay filtro de costCenter, igual debemos filtrar por tipo de horario
+      ...(!filters?.costCenterId && {
+        employmentContracts: {
+          some: {
+            active: true,
+            workScheduleType: "SHIFT",
           },
         },
       }),
@@ -3166,7 +3176,7 @@ export async function getShiftEmployeesPaginated(
         orderBy: { lastName: "asc" },
         include: {
           employmentContracts: {
-            where: { active: true },
+            where: { active: true, workScheduleType: "SHIFT" }, // Asegurar que traemos el contrato correcto
             take: 1,
             orderBy: { startDate: "desc" },
             include: {
