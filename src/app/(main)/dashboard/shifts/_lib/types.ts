@@ -111,6 +111,9 @@ export interface EmployeeShift {
   id: string;
   firstName: string;
   lastName: string;
+  email?: string | null;
+  employeeNumber?: string | null;
+  position?: string | null;
   contractHours: number; // Horas semanales pactadas
   usesShiftSystem: boolean; // TRUE = usa turnos, FALSE = jornada fija
   costCenterId?: string; // Lugar de trabajo por defecto

@@ -21,10 +21,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { Plus, User, Loader2 } from "lucide-react";
+import { Plus, User, Loader2, Mail, Hash, Briefcase, Clock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -299,9 +300,41 @@ export function CalendarWeekEmployee() {
                   {/* Columna: Nombre del empleado + Estadísticas */}
                   <div className="bg-card flex flex-col justify-between rounded-lg border p-3">
                     <div>
-                      <p className="text-sm font-semibold">
-                        {employee.firstName} {employee.lastName}
-                      </p>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="cursor-pointer text-left text-sm font-semibold hover:underline focus:outline-none">
+                            {employee.firstName} {employee.lastName}
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="start">
+                          <div className="grid gap-4">
+                            <div className="space-y-2">
+                              <h4 className="text-lg leading-none font-medium">
+                                {employee.firstName} {employee.lastName}
+                              </h4>
+                              <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                                <Briefcase className="h-4 w-4" />
+                                <span>{employee.position ?? "Sin puesto definido"}</span>
+                              </div>
+                            </div>
+                            <div className="grid gap-3 border-t pt-3">
+                              <div className="flex items-center gap-3 text-sm">
+                                <Mail className="text-muted-foreground h-4 w-4" />
+                                <span className="truncate">{employee.email ?? "Sin email"}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <Hash className="text-muted-foreground h-4 w-4" />
+                                <span>ID: {employee.employeeNumber ?? "N/A"}</span>
+                              </div>
+                              <div className="flex items-center gap-3 text-sm">
+                                <Clock className="text-muted-foreground h-4 w-4" />
+                                <span>Contrato: {employee.contractHours}h / semana</span>
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
                       {employee.costCenterId && (
                         <p className="text-muted-foreground mt-1 text-xs">
                           {/* Aquí podríamos mostrar el nombre del lugar */}

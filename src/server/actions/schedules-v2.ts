@@ -3171,6 +3171,7 @@ export async function getShiftEmployeesPaginated(
             orderBy: { startDate: "desc" },
             include: {
               costCenter: { select: { id: true, name: true } },
+              position: { select: { title: true } },
             },
           },
         },
@@ -3183,6 +3184,9 @@ export async function getShiftEmployeesPaginated(
         id: emp.id,
         firstName: emp.firstName,
         lastName: emp.lastName,
+        email: emp.email,
+        employeeNumber: emp.employeeNumber,
+        position: emp.employmentContracts[0]?.position?.title,
         contractHours: Number(emp.employmentContracts[0]?.weeklyHours || 40),
         costCenterId: emp.employmentContracts[0]?.costCenterId,
         costCenterName: emp.employmentContracts[0]?.costCenter?.name,
