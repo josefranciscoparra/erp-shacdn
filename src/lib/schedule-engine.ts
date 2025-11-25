@@ -53,7 +53,7 @@ export async function getEffectiveScheduleForRange(
     select: {
       id: true,
       orgId: true,
-      contracts: {
+      employmentContracts: {
         where: { active: true },
         orderBy: { startDate: "desc" },
         take: 1,
@@ -71,7 +71,7 @@ export async function getEffectiveScheduleForRange(
     return [];
   }
 
-  const contract = employee.contracts[0];
+  const contract = employee.employmentContracts[0];
   const departmentId = contract?.departmentId;
   const costCenterId = contract?.costCenterId;
 
@@ -192,6 +192,19 @@ export async function getEffectiveScheduleForRange(
     });
 
     if (manualAssignment) {
+      if (absenceData && !absenceData.isPartial) {
+        schedules.push({
+          date: new Date(currentDate),
+          isWorkingDay: false,
+          expectedMinutes: 0,
+          timeSlots: [],
+          source: "ABSENCE",
+          absence: absenceData,
+        });
+        currentDate.setDate(currentDate.getDate() + 1);
+        continue;
+      }
+
       const schedule = await buildScheduleFromManual(manualAssignment, new Date(currentDate));
       if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
         schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absenceData.durationMinutes);

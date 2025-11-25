@@ -4,6 +4,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
+import { getEffectiveScheduleForRange } from "@/lib/schedule-engine";
 
 import { createNotification } from "./notifications";
 import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";
@@ -369,22 +370,51 @@ export async function createPtoRequest(data: {
       }
     }
 
+    let forceManualReview = false;
+    let systemWarningReason = "";
+
+    const countsCalendarDays = Boolean(
+      (absenceType as unknown as { countsCalendarDays?: boolean }).countsCalendarDays ?? false,
+    );
+
     // Calcular días hábiles o fracción de día para ausencias parciales
-    let workingDays: number;
+    let workingDays = 0;
     let holidays: Array<{ date: Date; name: string }> = [];
+    let scheduledMinutesInRange = 0;
 
     if (absenceType.allowPartialDays && data.durationMinutes) {
       // Para ausencias parciales: convertir minutos a fracción de día
       // Asumiendo jornada laboral de 8 horas = 480 minutos
       const MINUTES_PER_WORKDAY = 480;
       workingDays = data.durationMinutes / MINUTES_PER_WORKDAY;
+      scheduledMinutesInRange = data.durationMinutes;
     } else {
       // Para días completos: calcular días hábiles excluyendo festivos (o naturales si aplica)
-      // @ts-expect-error - TS no detecta el campo nuevo en AbsenceType hasta regenerar cliente, pero en runtime funciona
-      const countsCalendarDays = (absenceType as Record<string, unknown>).countsCalendarDays ?? false;
       const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId, countsCalendarDays);
-      workingDays = result.workingDays;
       holidays = result.holidays;
+
+      if (countsCalendarDays) {
+        workingDays = result.workingDays;
+      } else {
+        const schedules = await getEffectiveScheduleForRange(employeeId, data.startDate, data.endDate);
+
+        if (schedules.length === 0) {
+          throw new Error("No se pudo resolver tu horario para las fechas seleccionadas.");
+        }
+
+        const workingScheduleDays = schedules.filter((day) => day.isWorkingDay && day.expectedMinutes > 0);
+        workingDays = workingScheduleDays.length;
+        scheduledMinutesInRange = workingScheduleDays.reduce((sum, day) => sum + day.expectedMinutes, 0);
+
+        if (workingDays === 0) {
+          throw new Error("No tienes turnos planificados en las fechas seleccionadas.");
+        }
+
+        const skippedDays = schedules.length - workingScheduleDays.length;
+        if (skippedDays > 0) {
+          systemWarningReason += ` [ℹ️ ${skippedDays} día(s) del rango no tienen turnos asignados y no se descontarán.]`;
+        }
+      }
     }
 
     // Validar días de anticipación
@@ -416,10 +446,6 @@ export async function createPtoRequest(data: {
       },
     });
 
-    // Flag para forzar revisión manual si hay conflicto de prioridades
-    let forceManualReview = false;
-    let systemWarningReason = "";
-
     if (overlappingRequests.length > 0) {
       // LÓGICA DE PRIORIDAD DE AUSENCIAS:
       // Definir códigos de alta prioridad
@@ -442,7 +468,7 @@ export async function createPtoRequest(data: {
           // En lugar de cancelar automáticamente, forzamos estado PENDING.
           // El responsable verá el conflicto y al aprobar se ejecutará la cancelación (en approvePtoRequest).
           forceManualReview = true;
-          systemWarningReason = ` [⚠️ AVISO SISTEMA: Esta baja coincide con vacaciones aprobadas. Su aprobación cancelará las vacaciones existentes.]`;
+          systemWarningReason += ` [⚠️ AVISO SISTEMA: Esta baja coincide con vacaciones aprobadas. Su aprobación cancelará las vacaciones existentes.]`;
 
           // No lanzamos error, permitimos continuar
         } else {
@@ -478,16 +504,18 @@ export async function createPtoRequest(data: {
 
     // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
     const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
-    let effectiveMinutes: number;
+    let minutesToDiscount: number;
 
     if (absenceType.allowPartialDays && data.durationMinutes) {
-      // Ausencia parcial: usar durationMinutes directamente
-      effectiveMinutes = applyCompensationFactor(data.durationMinutes, absenceType.compensationFactor);
+      minutesToDiscount = data.durationMinutes;
+    } else if (countsCalendarDays) {
+      minutesToDiscount = daysToMinutes(workingDays, workdayMinutes);
     } else {
-      // Ausencia de días completos: convertir workingDays a minutos
-      const baseMinutes = daysToMinutes(workingDays, workdayMinutes);
-      effectiveMinutes = applyCompensationFactor(baseMinutes, absenceType.compensationFactor);
+      minutesToDiscount =
+        scheduledMinutesInRange > 0 ? scheduledMinutesInRange : daysToMinutes(workingDays, workdayMinutes);
     }
+
+    const effectiveMinutes = applyCompensationFactor(minutesToDiscount, absenceType.compensationFactor);
 
     // Determinar estado final
     // Si forceManualReview es true -> PENDING

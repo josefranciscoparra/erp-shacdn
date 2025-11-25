@@ -177,8 +177,11 @@ export function TimeClockValidationsTab() {
           </div>
 
           <div className="space-y-4">
-            {/* Permitir fichajes en días no laborables */}
-            <div className="flex items-center justify-between rounded-lg border p-4">
+            {/**
+             * Temporalmente oculto: la API aún permite el fichaje siempre y solo guarda el warning,
+             * así que mostramos únicamente la opción de alerta hasta que el backend haga cumplir esta regla.
+             */}
+            {/* <div className="flex items-center justify-between rounded-lg border p-4">
               <div className="space-y-0.5">
                 <Label htmlFor="nonWorkdayAllowed">Permitir fichajes en días no laborables</Label>
                 <p className="text-muted-foreground text-sm">
@@ -190,7 +193,7 @@ export function TimeClockValidationsTab() {
                 checked={config.nonWorkdayClockInAllowed}
                 onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, nonWorkdayClockInAllowed: checked }))}
               />
-            </div>
+            </div> */}
 
             {/* Mostrar warning en días no laborables */}
             <div className="flex items-center justify-between rounded-lg border p-4">
@@ -274,8 +277,11 @@ export function TimeClockValidationsTab() {
                 />
               </div>
 
-              {/* Notificaciones automáticas */}
-              <div className="flex items-center justify-between rounded-lg border p-4">
+              {/**
+               * Sin efecto por ahora: no existe lógica para enviar notificaciones automáticas,
+               * así que dejamos el bloque comentado hasta que se implemente el flujo real.
+               */}
+              {/* <div className="flex items-center justify-between rounded-lg border p-4">
                 <div className="space-y-0.5">
                   <Label htmlFor="alertNotifications">Enviar Notificaciones Automáticas</Label>
                   <p className="text-muted-foreground text-sm">
@@ -288,7 +294,7 @@ export function TimeClockValidationsTab() {
                   onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertNotificationsEnabled: checked }))}
                   disabled={!config.alertsEnabled}
                 />
-              </div>
+              </div> */}
             </div>
           </div>
 
