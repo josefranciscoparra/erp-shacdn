@@ -6,16 +6,20 @@
  * - Barra de duración proporcional
  * - Acciones visibles solo en hover
  * - Border radius 12px
+ * - Badge de conflictos cuando status="conflict"
  */
 
 "use client";
 
-import { Copy, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Copy, Pencil, Trash2 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { Shift } from "../../_lib/types";
+import { useShiftsStore } from "../../_store/shifts-store";
 
 import { DurationBar } from "./duration-bar";
 
@@ -23,9 +27,14 @@ interface ShiftCardV2Props {
   shift: Shift;
   onClick?: () => void;
   isCompact?: boolean;
+  conflictCount?: number; // Número de conflictos (si se pasa explícitamente)
 }
 
-export function ShiftCardV2({ shift, onClick, isCompact = false }: ShiftCardV2Props) {
+export function ShiftCardV2({ shift, onClick, isCompact = false, conflictCount }: ShiftCardV2Props) {
+  // Estado de resaltado desde el store
+  const highlightedShiftId = useShiftsStore((s) => s.highlightedShiftId);
+  const isHighlighted = highlightedShiftId === shift.id;
+
   // Calcular duración en horas
   const startHour = parseInt(shift.startTime.split(":")[0]);
   const startMin = parseInt(shift.startTime.split(":")[1]);
@@ -40,8 +49,12 @@ export function ShiftCardV2({ shift, onClick, isCompact = false }: ShiftCardV2Pr
   const percentage = (netHours / 12) * 100;
 
   // Colores según estado
-  const bgColor = shift.status === "conflict" ? "bg-red-50" : "bg-[#F5E8FF]";
-  const borderColor = shift.status === "conflict" ? "border-red-300" : "border-primary/20";
+  const isConflict = shift.status === "conflict";
+  const bgColor = isConflict ? "bg-red-50 dark:bg-red-950/30" : "bg-[#F5E8FF] dark:bg-primary/10";
+  const borderColor = isConflict ? "border-red-300 dark:border-red-800" : "border-primary/20";
+
+  // Número de conflictos (usar el prop si se pasa, si no default a 1 para turnos con conflict)
+  const displayConflictCount = conflictCount ?? (isConflict ? 1 : 0);
 
   return (
     <div className="group relative">
@@ -52,8 +65,33 @@ export function ShiftCardV2({ shift, onClick, isCompact = false }: ShiftCardV2Pr
           bgColor,
           borderColor,
           isCompact ? "p-2" : "p-3",
+          // Animación de resaltado cuando se navega desde el panel de conflictos
+          isHighlighted && "animate-pulse ring-2 ring-red-500 ring-offset-2",
         )}
       >
+        {/* Badge de conflictos (esquina superior derecha) */}
+        {isConflict && displayConflictCount > 0 && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center gap-0.5 px-1.5 text-xs"
+                >
+                  <AlertTriangle className="h-3 w-3" />
+                  {displayConflictCount > 1 && <span>{displayConflictCount}</span>}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="top">
+                <p>
+                  {displayConflictCount} conflicto{displayConflictCount !== 1 ? "s" : ""} detectado
+                  {displayConflictCount !== 1 ? "s" : ""}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+
         {/* Rango horario */}
         <div className={cn("font-semibold", isCompact ? "text-xs" : "text-sm")}>
           {shift.startTime} – {shift.endTime}
@@ -70,7 +108,7 @@ export function ShiftCardV2({ shift, onClick, isCompact = false }: ShiftCardV2Pr
 
         {/* Acciones (solo visible en hover) */}
         <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm">
+          <div className="flex gap-1 rounded-lg bg-white p-1 shadow-sm dark:bg-gray-900">
             <Button
               size="icon"
               variant="ghost"

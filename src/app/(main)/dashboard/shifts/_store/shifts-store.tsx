@@ -12,6 +12,7 @@ import { endOfWeek } from "date-fns";
 import { toast } from "sonner";
 import { create } from "zustand";
 
+import { aggregateShiftConflicts, filterConflicts, sortConflicts, paginateConflicts } from "../_lib/conflicts-utils";
 import { shiftService } from "../_lib/shift-service";
 import { getWeekStart, formatDateISO } from "../_lib/shift-utils";
 import type {
@@ -27,6 +28,8 @@ import type {
   CostCenter,
   CalendarView,
   CalendarMode,
+  ConflictsFilter,
+  ConflictsState,
 } from "../_lib/types";
 
 // ==================== TIPOS DEL STORE ====================
@@ -63,6 +66,12 @@ interface ShiftsState {
 
   isZoneDialogOpen: boolean;
   selectedZone: Zone | null;
+
+  // Panel de conflictos
+  isConflictsPanelOpen: boolean;
+  conflictsFilter: ConflictsFilter;
+  conflictsPage: number;
+  highlightedShiftId: string | null; // Para resaltar turno al navegar desde el panel
 
   // ========== ACCIONES - CRUD TURNOS ==========
   fetchShifts: () => Promise<void>;
@@ -115,6 +124,19 @@ interface ShiftsState {
   openZoneDialog: (zone?: Zone) => void;
   closeZoneDialog: () => void;
 
+  // Panel de conflictos
+  openConflictsPanel: () => void;
+  closeConflictsPanel: () => void;
+  setConflictsFilter: (filter: Partial<ConflictsFilter>) => void;
+  setConflictsPage: (page: number) => void;
+  navigateToShift: (shiftId: string) => void;
+  clearHighlightedShift: () => void;
+
+  // Selectores de conflictos
+  getConflictsState: () => ConflictsState;
+  getFilteredConflicts: () => ReturnType<typeof paginateConflicts>;
+  getTotalConflictsCount: () => number;
+
   // ========== HELPERS ==========
   setError: (error: string | null) => void;
 }
@@ -150,6 +172,12 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   isZoneDialogOpen: false,
   selectedZone: null,
+
+  // Panel de conflictos
+  isConflictsPanelOpen: false,
+  conflictsFilter: { type: "all", severity: "all", search: "" },
+  conflictsPage: 0,
+  highlightedShiftId: null,
 
   // ========== CRUD TURNOS ==========
 
@@ -287,6 +315,11 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
           });
         }
       } else {
+        // Mostrar el mensaje específico del conflicto si existe
+        if (result.conflicts && result.conflicts.length > 0) {
+          const errorConflict = result.conflicts.find((c) => c.severity === "error");
+          throw new Error(errorConflict?.message ?? "No se pudo mover el turno debido a conflictos");
+        }
         throw new Error("Error al mover turno");
       }
     } catch (error) {
@@ -683,6 +716,49 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   openZoneDialog: (zone) => set({ isZoneDialogOpen: true, selectedZone: zone ?? null }),
   closeZoneDialog: () => set({ isZoneDialogOpen: false, selectedZone: null }),
+
+  // Panel de conflictos
+  openConflictsPanel: () => set({ isConflictsPanelOpen: true, conflictsPage: 0 }),
+  closeConflictsPanel: () => set({ isConflictsPanelOpen: false }),
+
+  setConflictsFilter: (filter) =>
+    set((state) => ({
+      conflictsFilter: { ...state.conflictsFilter, ...filter },
+      conflictsPage: 0, // Reset página al cambiar filtros
+    })),
+
+  setConflictsPage: (page) => set({ conflictsPage: page }),
+
+  navigateToShift: (shiftId) => {
+    // Cerrar panel y resaltar el turno
+    set({ isConflictsPanelOpen: false, highlightedShiftId: shiftId });
+
+    // Quitar el resaltado después de 3 segundos
+    setTimeout(() => {
+      set({ highlightedShiftId: null });
+    }, 3000);
+  },
+
+  clearHighlightedShift: () => set({ highlightedShiftId: null }),
+
+  // Selectores de conflictos
+  getConflictsState: () => {
+    const { shifts, employees, costCenters, zones } = get();
+    return aggregateShiftConflicts(shifts, employees, costCenters, zones);
+  },
+
+  getFilteredConflicts: () => {
+    const { shifts, employees, costCenters, zones, conflictsFilter, conflictsPage } = get();
+    const conflictsState = aggregateShiftConflicts(shifts, employees, costCenters, zones);
+    const filtered = filterConflicts(conflictsState.all, conflictsFilter);
+    const sorted = sortConflicts(filtered);
+    return paginateConflicts(sorted, conflictsPage, 20);
+  },
+
+  getTotalConflictsCount: () => {
+    const { shifts } = get();
+    return shifts.filter((s) => s.status === "conflict").length;
+  },
 
   // Helpers
   setError: (error) => set({ error }),

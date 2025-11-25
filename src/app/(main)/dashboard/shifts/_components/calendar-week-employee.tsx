@@ -190,15 +190,31 @@ export function CalendarWeekEmployee() {
     const targetShifts = shiftsGrid[dropTarget.employeeId]?.[dropTarget.date] ?? [];
 
     if (targetShifts.length > 0) {
-      // INTERCAMBIAR: mover todos los turnos de la celda destino a la celda origen
-      const swapPromises = targetShifts.map((targetShift) => moveShift(targetShift.id, shift.employeeId, shift.date));
+      // INTERCAMBIAR: Estrategia de 3 pasos para evitar violación de constraint UNIQUE(employeeId, date)
+      // El problema es que no podemos mover B a la posición de A si A todavía está allí (y viceversa).
+      // Solución: A -> Temp, B -> A, Temp -> B
 
-      // Esperar a que se completen todos los swaps
-      await Promise.all(swapPromises);
+      const tempDate = "2000-01-01"; // Fecha segura temporal (lejana a la actual)
+      const targetShift = targetShifts[0]; // Asumimos 1 turno por día por constraint
+
+      try {
+        // 1. Mover turno Origen (A) a fecha temporal
+        // Mantenemos el mismo empleado para el paso temporal para minimizar cambios
+        await moveShift(shift.id, shift.employeeId, tempDate);
+
+        // 2. Mover turno Destino (B) a la posición Original de A
+        await moveShift(targetShift.id, shift.employeeId, shift.date);
+
+        // 3. Mover turno Origen (A) (desde Temp) a la posición Destino de B
+        await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
+      } catch (error) {
+        console.error("Error during shift swap:", error);
+        // TODO: Manejar rollback si es necesario, aunque el estado UI debería reflejar el error
+      }
+    } else {
+      // Mover el turno arrastrado a la celda destino (Celda vacía)
+      await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
     }
-
-    // Mover el turno arrastrado a la celda destino
-    await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
   };
 
   // Handler para crear turno en celda vacía

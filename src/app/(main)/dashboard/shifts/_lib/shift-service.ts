@@ -229,7 +229,7 @@ export const shiftService = {
         updatedShift: updated ? mapAssignmentToShift(updated as ManualAssignmentRecord) : undefined,
         conflicts: validation?.conflicts,
       };
-    } catch (error) {
+    } catch {
       return { success: false, conflicts: [] };
     }
   },

@@ -8,18 +8,17 @@
 
 import { useMemo } from "react";
 
-import { Copy, Send, Loader2, AlertCircle } from "lucide-react";
+import { Copy, Send, AlertCircle, AlertTriangle } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 import { formatWeekRange } from "../_lib/shift-utils";
 import { useShiftsStore } from "../_store/shifts-store";
 
 export function PublishBar() {
-  const { shifts, currentWeekStart, copyPreviousWeek, publishShifts } = useShiftsStore();
+  const { shifts, currentWeekStart, copyPreviousWeek, publishShifts, openConflictsPanel } = useShiftsStore();
 
   // Contar turnos en borrador para la semana actual
   const draftShiftsCount = useMemo(() => {
@@ -84,9 +83,20 @@ export function PublishBar() {
       {hasConflicts && (
         <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
-            <strong>Atención:</strong> Hay {conflictShiftsCount} {conflictShiftsCount === 1 ? "turno" : "turnos"} con
-            conflictos. Revisa los turnos marcados antes de publicar la semana.
+          <AlertDescription className="flex items-center justify-between gap-4 text-sm">
+            <span>
+              <strong>Atención:</strong> Hay {conflictShiftsCount} {conflictShiftsCount === 1 ? "turno" : "turnos"} con
+              conflictos. Revisa los turnos marcados antes de publicar la semana.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openConflictsPanel}
+              className="shrink-0 gap-2 border-red-300 bg-white text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-800 dark:bg-red-950/50 dark:text-red-400 dark:hover:bg-red-950"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Ver conflictos
+            </Button>
           </AlertDescription>
         </Alert>
       )}

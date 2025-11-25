@@ -2129,44 +2129,27 @@ async function validateManualAssignmentInput(
   const normalizedDate = normalizeAssignmentDate(params.date);
   const newRange = getAssignmentDateRange(normalizedDate, params.startTimeMinutes, params.endTimeMinutes);
 
-  // Overlaps (solo si conocemos start/end)
-  if (newRange) {
-    const overlappingAssignments = await prisma.manualShiftAssignment.findMany({
-      where: {
-        orgId: params.orgId,
-        employeeId: params.employeeId,
-        date: normalizedDate,
-        ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
-      },
-      select: {
-        id: true,
-        startTimeMinutes: true,
-        endTimeMinutes: true,
-      },
+  // 1. Validar unicidad por día (Schema Constraint: un solo turno por empleado y día)
+  const existingOnDate = await prisma.manualShiftAssignment.findFirst({
+    where: {
+      orgId: params.orgId,
+      employeeId: params.employeeId,
+      date: normalizedDate,
+      ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (existingOnDate) {
+    conflicts.push({
+      type: "overlap",
+      severity: "error",
+      message: "El empleado ya tiene un turno asignado en esta fecha.",
+      relatedAssignmentId: existingOnDate.id,
     });
-
-    for (const assignment of overlappingAssignments) {
-      const existingRange = getAssignmentDateRange(
-        normalizedDate,
-        assignment.startTimeMinutes,
-        assignment.endTimeMinutes,
-      );
-      if (!existingRange) continue;
-
-      const overlap = newRange.start < existingRange.end && existingRange.start < newRange.end;
-      if (overlap) {
-        conflicts.push({
-          type: "overlap",
-          severity: "error",
-          message: "El empleado ya tiene un turno asignado en ese horario.",
-          relatedAssignmentId: assignment.id,
-        });
-        break;
-      }
-    }
   }
 
-  // Descanso mínimo (prev/next)
+  // 2. Descanso mínimo (prev/next)
   if (newRange) {
     const prevAssignment = await prisma.manualShiftAssignment.findFirst({
       where: {
@@ -2225,7 +2208,7 @@ async function validateManualAssignmentInput(
     }
   }
 
-  // PTO / ausencias
+  // 3. PTO / ausencias
   const absence = await prisma.ptoRequest.findFirst({
     where: {
       orgId: params.orgId,
@@ -2401,7 +2384,9 @@ export async function updateManualShiftAssignment(
       return { success: false, error: "Turno no encontrado" };
     }
 
-    const targetDate = data.date ? normalizeAssignmentDate(data.date) : existing.date;
+    // Validar y normalizar fecha
+    const targetDate = data.date ? normalizeAssignmentDate(new Date(data.date)) : existing.date;
+
     const finalEmployeeId = data.employeeId ?? existing.employeeId;
     const finalStartMinutes = data.startTimeMinutes ?? existing.startTimeMinutes ?? undefined;
     const finalEndMinutes = data.endTimeMinutes ?? existing.endTimeMinutes ?? undefined;
@@ -2430,46 +2415,16 @@ export async function updateManualShiftAssignment(
 
     const payload: any = {};
 
-    if (data.employeeId) {
-      payload.employeeId = data.employeeId;
-    }
-
-    if (data.date) {
-      payload.date = targetDate;
-    }
-
-    if (data.scheduleTemplateId !== undefined) {
-      payload.scheduleTemplateId = data.scheduleTemplateId;
-    }
-
-    if (data.startTimeMinutes !== undefined) {
-      payload.startTimeMinutes = data.startTimeMinutes;
-    }
-
-    if (data.endTimeMinutes !== undefined) {
-      payload.endTimeMinutes = data.endTimeMinutes;
-    }
-
-    if (data.costCenterId !== undefined) {
-      payload.costCenterId = data.costCenterId;
-    }
-
-    if (data.workZoneId !== undefined) {
-      payload.workZoneId = data.workZoneId;
-    }
-
-    if (data.breakMinutes !== undefined) {
-      payload.breakMinutes = data.breakMinutes;
-    }
-
-    if (data.customRole !== undefined) {
-      payload.customRole = data.customRole;
-    }
-
-    if (data.notes !== undefined) {
-      payload.notes = data.notes;
-    }
-
+    if (data.employeeId) payload.employeeId = data.employeeId;
+    if (data.date) payload.date = targetDate;
+    if (data.scheduleTemplateId !== undefined) payload.scheduleTemplateId = data.scheduleTemplateId;
+    if (data.startTimeMinutes !== undefined) payload.startTimeMinutes = data.startTimeMinutes;
+    if (data.endTimeMinutes !== undefined) payload.endTimeMinutes = data.endTimeMinutes;
+    if (data.costCenterId !== undefined) payload.costCenterId = data.costCenterId;
+    if (data.workZoneId !== undefined) payload.workZoneId = data.workZoneId;
+    if (data.breakMinutes !== undefined) payload.breakMinutes = data.breakMinutes;
+    if (data.customRole !== undefined) payload.customRole = data.customRole;
+    if (data.notes !== undefined) payload.notes = data.notes;
     if (data.status) {
       const resolved = resolveStatus(data.status);
       payload.status = resolved.status;
@@ -2482,8 +2437,8 @@ export async function updateManualShiftAssignment(
     });
 
     return { success: true, data: { id: assignment.id }, validation: { conflicts: validationConflicts } };
-  } catch (error) {
-    console.error("Error updating manual assignment:", error);
+  } catch (error: any) {
+    console.error("[updateManualShiftAssignment] Error:", error?.message ?? error);
     return { success: false, error: "Error al actualizar asignación manual" };
   }
 }

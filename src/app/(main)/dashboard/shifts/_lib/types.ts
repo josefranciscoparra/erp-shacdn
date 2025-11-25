@@ -380,3 +380,54 @@ export interface ShiftsModuleConfig {
   enableConflictWarnings: boolean; // Mostrar warnings de conflictos
   enableDragAndDrop: boolean; // Activar drag & drop
 }
+
+// ==================== PANEL DE CONFLICTOS ====================
+
+/**
+ * Turno con sus conflictos agregados (para el panel de conflictos)
+ */
+export interface ShiftConflict {
+  shiftId: string;
+  employeeId: string;
+  employeeName: string;
+  date: string; // Formato: YYYY-MM-DD
+  startTime: string; // Formato: HH:mm
+  endTime: string; // Formato: HH:mm
+  costCenterName?: string;
+  zoneName?: string;
+  conflicts: Conflict[];
+  totalConflicts: number;
+  hasErrors: boolean; // true si tiene conflictos de severidad "error"
+  hasWarnings: boolean; // true si tiene conflictos de severidad "warning"
+}
+
+/**
+ * Estado agregado de todos los conflictos
+ */
+export interface ConflictsState {
+  all: ShiftConflict[];
+  byType: Record<ConflictType, ShiftConflict[]>;
+  totalCount: number;
+  errorCount: number;
+  warningCount: number;
+}
+
+/**
+ * Filtros para el panel de conflictos
+ */
+export interface ConflictsFilter {
+  type: ConflictType | "all";
+  severity: "all" | "error" | "warning";
+  search: string; // Búsqueda por nombre de empleado
+}
+
+/**
+ * Resultado paginado de conflictos
+ */
+export interface PaginatedConflicts {
+  data: ShiftConflict[];
+  page: number;
+  pageSize: number;
+  total: number;
+  hasMore: boolean;
+}

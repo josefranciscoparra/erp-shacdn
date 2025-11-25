@@ -36,6 +36,7 @@ import { CalendarMonthArea } from "./_components/calendar-month-area";
 import { CalendarMonthEmployee } from "./_components/calendar-month-employee";
 import { CalendarWeekArea } from "./_components/calendar-week-area";
 import { CalendarWeekEmployee } from "./_components/calendar-week-employee";
+import { ConflictsPanel } from "./_components/conflicts-panel";
 import { EmptyState, EmptyFiltersState, EmptyStateLoading } from "./_components/empty-states";
 import { MobileViewWarning } from "./_components/mobile-view-warning";
 import { PublishBar } from "./_components/publish-bar";
@@ -239,6 +240,9 @@ export default function ShiftsPage() {
       <TemplateDialog />
       <TemplateApplyDialog />
       <ZoneDialog />
+
+      {/* Panel de conflictos */}
+      <ConflictsPanel />
     </div>
   );
 }
