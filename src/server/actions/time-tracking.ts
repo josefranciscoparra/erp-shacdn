@@ -7,8 +7,8 @@ import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
-import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
+import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 
 /**
  * Helper para serializar TimeEntry convirtiendo Decimals a números
@@ -188,9 +188,11 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   // Obtener horario efectivo del día usando el motor de cálculo V2.0
   let expectedMinutes: number | null = null;
   let deviationMinutes: number | null = null;
+  let scheduleSource: string | null = null;
 
   try {
     const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+    scheduleSource = effectiveSchedule.source ?? null;
     expectedMinutes = effectiveSchedule.expectedMinutes;
 
     // Calcular desviación: (trabajado - esperado)
@@ -200,6 +202,14 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   } catch (error) {
     console.error("Error al obtener horario efectivo:", error);
     // Continuar sin expectedMinutes si falla (datos opcionales)
+  }
+
+  if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0) {
+    const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
+    if (fallbackMinutes) {
+      expectedMinutes = fallbackMinutes;
+      deviationMinutes = worked - fallbackMinutes;
+    }
   }
 
   // Determinar el estado basándose en horas trabajadas vs esperadas
@@ -630,6 +640,42 @@ function calculateAverageHours(
   const hours = isIntensivePeriod && intensiveWeeklyHours ? Number(intensiveWeeklyHours) : Number(weeklyHours);
   const days = Number(workingDaysPerWeek ?? 5);
   return hours / days;
+}
+
+async function getFallbackExpectedMinutes(employeeId: string, orgId: string): Promise<number | null> {
+  const contract = await prisma.employmentContract.findFirst({
+    where: {
+      employeeId,
+      orgId,
+      active: true,
+      weeklyHours: {
+        gt: 0,
+      },
+    },
+    orderBy: {
+      startDate: "desc",
+    },
+  });
+
+  if (!contract) {
+    return null;
+  }
+
+  if (typeof contract.workdayMinutes === "number" && contract.workdayMinutes > 0) {
+    return contract.workdayMinutes;
+  }
+
+  const weeklyHours = contract.weeklyHours ? Number(contract.weeklyHours) : 0;
+  if (weeklyHours <= 0) {
+    return null;
+  }
+
+  const workingDaysPerWeek = contract.workingDaysPerWeek ? Number(contract.workingDaysPerWeek) : 5;
+  if (workingDaysPerWeek <= 0) {
+    return null;
+  }
+
+  return Math.round((weeklyHours / workingDaysPerWeek) * 60);
 }
 
 // Helper: Calcular horas para un día en horario FIXED
@@ -1361,9 +1407,11 @@ export async function recalculateWorkdaySummary(date: Date) {
     // 3. Obtener horario efectivo usando el motor de cálculo V2.0
     let expectedMinutes: number | null = null;
     let deviationMinutes: number | null = null;
+    let scheduleSource: string | null = null;
 
     try {
       const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+      scheduleSource = effectiveSchedule.source ?? null;
       expectedMinutes = effectiveSchedule.expectedMinutes;
       deviationMinutes = worked - expectedMinutes;
 
@@ -1373,6 +1421,14 @@ export async function recalculateWorkdaySummary(date: Date) {
       );
     } catch (error) {
       console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
+    }
+
+    if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0) {
+      const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
+      if (fallbackMinutes) {
+        expectedMinutes = fallbackMinutes;
+        deviationMinutes = worked - fallbackMinutes;
+      }
     }
 
     // 4. Determinar clockIn y clockOut

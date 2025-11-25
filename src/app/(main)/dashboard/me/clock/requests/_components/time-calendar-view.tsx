@@ -15,12 +15,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { type DayCalendarData } from "@/server/actions/time-calendar";
 import { recalculateWorkdaySummary } from "@/server/actions/time-tracking";
+import { useTimeBankStore } from "@/stores/time-bank-store";
 import { useTimeCalendarStore } from "@/stores/time-calendar-store";
 
 import { ManualTimeEntryDialog } from "../../_components/manual-time-entry-dialog";
 
 export function TimeCalendarView() {
   const { monthlyData, selectedMonth, selectedYear, isLoading, loadMonthlyData } = useTimeCalendarStore();
+  const refreshTimeBank = useTimeBankStore((state) => state.refresh);
 
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -42,6 +44,7 @@ export function TimeCalendarView() {
 
       // Recargar los datos del mes para reflejar el cambio
       await loadMonthlyData(selectedYear, selectedMonth);
+      await refreshTimeBank();
     } catch (error) {
       console.error("Error al recalcular:", error);
       toast.error("Error al recalcular horas", {
@@ -578,7 +581,7 @@ export function TimeCalendarView() {
                   )}
 
                   {/* Botón de recalcular */}
-                  {dayData.entries && dayData.entries.length > 0 && (
+                  {timeEntries.length > 0 && (
                     <Button
                       variant="outline"
                       size="sm"

@@ -49,21 +49,64 @@ export interface MonthlyCalendarData {
 }
 
 // Helper: Obtener horas esperadas para un día usando Schedule V2.0
-async function getExpectedHoursForDay(employeeId: string, date: Date): Promise<number> {
+interface ScheduleInfo {
+  expectedMinutes: number;
+  isWorkday: boolean;
+  source?: string | null;
+}
+
+async function getScheduleInfoForDay(employeeId: string, date: Date): Promise<ScheduleInfo> {
   try {
     const schedule = await getEffectiveSchedule(employeeId, date);
 
-    // Si es ausencia, no hay horario, o no es día laboral → 0 horas
-    if (schedule.source === "ABSENCE" || schedule.source === "NO_ASSIGNMENT" || !schedule.isWorkingDay) {
-      return 0;
-    }
-
-    // Convertir minutos esperados a horas
-    return schedule.expectedMinutes / 60;
+    return {
+      expectedMinutes: schedule.expectedMinutes ?? 0,
+      isWorkday: schedule.isWorkingDay,
+      source: schedule.source,
+    };
   } catch (error) {
     console.error(`Error al obtener horario para ${date.toISOString()}:`, error);
-    return 0;
+    return {
+      expectedMinutes: 0,
+      isWorkday: false,
+    };
   }
+}
+
+async function getContractFallbackMinutes(employeeId: string, orgId: string): Promise<number | null> {
+  const contract = await prisma.employmentContract.findFirst({
+    where: {
+      employeeId,
+      orgId,
+      active: true,
+      weeklyHours: {
+        gt: 0,
+      },
+    },
+    orderBy: {
+      startDate: "desc",
+    },
+  });
+
+  if (!contract) {
+    return null;
+  }
+
+  if (typeof contract.workdayMinutes === "number" && contract.workdayMinutes > 0) {
+    return contract.workdayMinutes;
+  }
+
+  const weeklyHours = contract.weeklyHours ? Number(contract.weeklyHours) : 0;
+  if (weeklyHours <= 0) {
+    return null;
+  }
+
+  const workingDaysPerWeek = contract.workingDaysPerWeek ? Number(contract.workingDaysPerWeek) : 5;
+  if (workingDaysPerWeek <= 0) {
+    return null;
+  }
+
+  return Math.round((weeklyHours / workingDaysPerWeek) * 60);
 }
 
 // Obtener datos del calendario mensual
@@ -153,19 +196,27 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
     });
 
     // Procesar cada día del mes - calcular expected hours usando Schedule V2.0
+    const fallbackMinutes = await getContractFallbackMinutes(employeeId, orgId);
+
     const daysWithSchedules = await Promise.all(
       daysInMonth.map(async (date) => {
-        const expectedHours = await getExpectedHoursForDay(employeeId, date);
-        return { date, expectedHours };
+        const scheduleInfo = await getScheduleInfoForDay(employeeId, date);
+        return { date, scheduleInfo };
       }),
     );
 
     // Procesar cada día del mes
-    const days: DayCalendarData[] = daysWithSchedules.map(({ date, expectedHours }) => {
+    const days: DayCalendarData[] = daysWithSchedules.map(({ date, scheduleInfo }) => {
       const dateKey = format(date, "yyyy-MM-dd");
-      const isWorkday = expectedHours > 0;
-
       const summary = summaryMap.get(dateKey);
+      const summaryExpectedMinutes =
+        summary?.expectedMinutes !== null && summary?.expectedMinutes !== undefined
+          ? Number(summary.expectedMinutes)
+          : null;
+      let expectedMinutes = summaryExpectedMinutes ?? scheduleInfo.expectedMinutes ?? 0;
+      let expectedHours = expectedMinutes / 60;
+      let isWorkday = scheduleInfo.isWorkday || Boolean(summaryExpectedMinutes);
+
       const fallbackEntries = timeEntriesByDay.get(dateKey)?.map((entry) => ({ ...entry })) ?? [];
       const workedHours = summary ? Number(summary.totalWorkedMinutes) / 60 : 0;
       const summaryEntries = (summary?.timeEntries ?? []).map((entry) => ({
@@ -181,16 +232,35 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
       }));
       const mergedTimeEntries = summaryEntries.length > 0 ? summaryEntries : fallbackEntries;
 
+      if ((!isWorkday || expectedMinutes === 0) && mergedTimeEntries.length > 0 && fallbackMinutes) {
+        expectedMinutes = fallbackMinutes;
+        expectedHours = expectedMinutes / 60;
+        isWorkday = true;
+      }
+
       // Determinar estado del día
       let status: DayCalendarData["status"];
       if (!isWorkday) {
         status = "NON_WORKDAY";
-      } else if (!summary) {
-        status = "ABSENT";
+      } else if (summary) {
+        switch (summary.status) {
+          case "COMPLETED":
+            status = "COMPLETED";
+            break;
+          case "INCOMPLETE":
+          case "IN_PROGRESS":
+            status = "INCOMPLETE";
+            break;
+          case "ABSENT":
+            status = "ABSENT";
+            break;
+          default: {
+            const compliance = expectedHours > 0 ? (workedHours / expectedHours) * 100 : 0;
+            status = compliance >= 95 ? "COMPLETED" : "INCOMPLETE";
+          }
+        }
       } else {
-        // Calcular cumplimiento (95% o más = COMPLETED)
-        const compliance = expectedHours > 0 ? (workedHours / expectedHours) * 100 : 0;
-        status = compliance >= 95 ? "COMPLETED" : "INCOMPLETE";
+        status = "ABSENT";
       }
 
       return {

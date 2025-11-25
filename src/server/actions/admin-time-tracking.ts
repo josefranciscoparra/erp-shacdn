@@ -17,6 +17,14 @@ import {
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+function getLocalDateKey(date: Date): string {
+  const localDate = new Date(date);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, "0");
+  const day = String(localDate.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // Helper: Calcular días laborables en un período
 // Considera: inicio de contrato, patrón de días laborables, festivos
 async function calculateWorkableDays(
@@ -1618,13 +1626,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     type SummaryType = (typeof summaries)[number];
     const summariesByDate = new Map<string, SummaryType>();
     summaries.forEach((summary) => {
-      // Normalizar fecha a UTC antes de agrupar
-      const date = new Date(summary.date);
-      const year = date.getUTCFullYear();
-      const month = date.getUTCMonth();
-      const day = date.getUTCDate();
-      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const dateKey = normalizedDate.toISOString();
+      const dateKey = getLocalDateKey(summary.date);
       summariesByDate.set(dateKey, summary);
     });
 
@@ -1655,13 +1657,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     // IMPORTANTE: Normalizar timestamps a UTC antes de agrupar
     const entriesByDay = new Map<string, typeof allTimeEntries>();
     allTimeEntries.forEach((entry) => {
-      // Normalizar timestamp a UTC antes de agrupar por día
-      const timestamp = new Date(entry.timestamp);
-      const year = timestamp.getUTCFullYear();
-      const month = timestamp.getUTCMonth();
-      const day = timestamp.getUTCDate();
-      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const dayKey = normalizedDate.toISOString();
+      const dayKey = getLocalDateKey(entry.timestamp);
       if (!entriesByDay.has(dayKey)) {
         entriesByDay.set(dayKey, []);
       }
@@ -1676,12 +1672,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
     // IMPORTANTE: Normalizar fechas a UTC antes de crear keys
     const dayInfoMap = new Map<string, Awaited<ReturnType<typeof getExpectedHoursForDay>>>();
     allDaysInRange.forEach((dayDate, index) => {
-      // Normalizar fecha a UTC antes de crear key
-      const year = dayDate.getFullYear();
-      const month = dayDate.getMonth();
-      const day = dayDate.getDate();
-      const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-      const dayKey = normalizedDate.toISOString();
+      const dayKey = getLocalDateKey(dayDate);
       dayInfoMap.set(dayKey, dayInfos[index]);
     });
 
@@ -1695,12 +1686,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       days: allDaysInRange
         .reverse() // Ordenar de más reciente a más antiguo
         .map((dayDate) => {
-          // IMPORTANTE: Normalizar fecha a UTC para buscar en los Maps (misma lógica de arriba)
-          const year = dayDate.getFullYear();
-          const month = dayDate.getMonth();
-          const day = dayDate.getDate();
-          const normalizedDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
-          const dayKey = normalizedDate.toISOString();
+          const dayKey = getLocalDateKey(dayDate);
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
           const dayInfo = dayInfoMap.get(dayKey)!;
@@ -1712,7 +1698,7 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
             return {
               id: summary.id,
-              date: summary.date,
+              date: dayDate,
               clockIn: summary.clockIn,
               clockOut: summary.clockOut,
               totalWorkedMinutes: Number(summary.totalWorkedMinutes),
