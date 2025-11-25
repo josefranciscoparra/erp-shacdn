@@ -165,6 +165,9 @@ export default function ShiftsPage() {
             {/* Filtros con selector de vista integrado */}
             <ShiftsFiltersBar />
 
+            {/* Barra de acciones masivas (Copiar/Publicar) */}
+            <PublishBar />
+
             {/* Área de calendario */}
             <div className="overflow-hidden rounded-lg border">
               {/* Navegación de semana - sticky arriba del calendario */}
@@ -192,8 +195,7 @@ export default function ShiftsPage() {
               )}
             </div>
 
-            {/* Barra de acciones masivas */}
-            <PublishBar />
+            {/* Barra de acciones masivas (movida al filtro superior) */}
           </div>
         </TabsContent>
 
