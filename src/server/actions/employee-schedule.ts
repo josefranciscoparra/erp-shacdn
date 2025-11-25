@@ -45,7 +45,7 @@ export async function getTodaySchedule(): Promise<{
 
     // Obtener horario efectivo de hoy
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+    today.setHours(12, 0, 0, 0); // Normalizar a mediodía para evitar problemas de timezone
 
     const schedule = await getEffectiveSchedule(employee.id, today);
 
@@ -170,7 +170,9 @@ export async function getTodaySummary(): Promise<{
     // La BD puede tener un snapshot obsoleto si se aprobaron vacaciones después de fichar
     let expectedMinutes = 0;
     try {
-      const freshSchedule = await getEffectiveSchedule(employee.id, today);
+      const scheduleDate = new Date(today);
+      scheduleDate.setHours(12, 0, 0, 0); // Usar mediodía para el motor de horarios
+      const freshSchedule = await getEffectiveSchedule(employee.id, scheduleDate);
       expectedMinutes = freshSchedule.expectedMinutes;
     } catch (e) {
       console.warn("Error getting fresh schedule for summary:", e);

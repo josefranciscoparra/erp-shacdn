@@ -52,7 +52,11 @@ export async function getMyMonthlyShifts(date: Date): Promise<{ success: boolean
     // Lo ideal sería una versión batch del motor getEffectiveScheduleForRange(employeeId, start, end)
 
     // Usamos Promise.all con chunks o directo si el pool aguanta (30 días no es tanto)
-    const schedulePromises = daysInMonth.map((day) => getEffectiveSchedule(employeeId, day));
+    const schedulePromises = daysInMonth.map((day) => {
+      const d = new Date(day);
+      d.setHours(12, 0, 0, 0); // Normalizar a mediodía para evitar problemas de timezone al convertir a UTC
+      return getEffectiveSchedule(employeeId, d);
+    });
     const schedules = await Promise.all(schedulePromises);
 
     for (const schedule of schedules) {
