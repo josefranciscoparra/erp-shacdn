@@ -39,6 +39,7 @@ import type {
  *
  * @param employeeId - ID del empleado
  * @param date - Fecha para la cual obtener el horario
+ * @param options - Opciones adicionales (ej: incluir borradores)
  * @returns Horario efectivo con franjas horarias, minutos esperados, etc.
  *
  * @example
@@ -46,7 +47,11 @@ import type {
  * console.log(horario.expectedMinutes) // 480 (8 horas)
  * console.log(horario.timeSlots) // [{ startMinutes: 540, endMinutes: 1020, ... }]
  */
-export async function getEffectiveSchedule(employeeId: string, date: Date): Promise<EffectiveSchedule> {
+export async function getEffectiveSchedule(
+  employeeId: string,
+  date: Date,
+  options: { includeDrafts?: boolean } = {},
+): Promise<EffectiveSchedule> {
   // 1. PRIORIDAD MÁXIMA: Verificar ausencias (vacaciones, permisos, bajas)
   const absence = await getAbsenceForDate(employeeId, date);
 
@@ -67,7 +72,7 @@ export async function getEffectiveSchedule(employeeId: string, date: Date): Prom
 
   // 2. PRIORIDAD CRÍTICA: Asignación Manual (Rostering / Planificación Semanal)
   // Sobrescribe excepciones, rotaciones y horarios fijos.
-  const manualAssignment = await getManualAssignmentForDate(employeeId, date);
+  const manualAssignment = await getManualAssignmentForDate(employeeId, date, options);
   if (manualAssignment) {
     // Si hay ausencia parcial, se ajustará al final
     const schedule = await buildScheduleFromManual(manualAssignment, date);
@@ -724,9 +729,14 @@ export async function calculateExpectedHours(employeeId: string, from: Date, to:
  *
  * @param employeeId - ID del empleado
  * @param weekStart - Inicio de la semana (cualquier día de la semana)
+ * @param options - Opciones adicionales
  * @returns Horario completo de la semana con 7 días
  */
-export async function getWeekSchedule(employeeId: string, weekStart: Date): Promise<WeekSchedule> {
+export async function getWeekSchedule(
+  employeeId: string,
+  weekStart: Date,
+  options: { includeDrafts?: boolean } = {},
+): Promise<WeekSchedule> {
   const start = startOfWeek(weekStart, { weekStartsOn: 1 }); // Lunes
   const end = endOfWeek(weekStart, { weekStartsOn: 1 }); // Domingo
 
@@ -735,7 +745,7 @@ export async function getWeekSchedule(employeeId: string, weekStart: Date): Prom
 
   for (let i = 0; i < 7; i++) {
     const date = addDays(start, i);
-    const schedule = await getEffectiveSchedule(employeeId, date);
+    const schedule = await getEffectiveSchedule(employeeId, date, options);
     days.push(schedule);
     totalExpectedMinutes += schedule.expectedMinutes;
   }
@@ -942,19 +952,25 @@ export async function getNextPeriodChange(employeeId: string, fromDate: Date): P
 /**
  * Busca una asignación manual para una fecha específica.
  */
-async function getManualAssignmentForDate(employeeId: string, date: Date) {
+async function getManualAssignmentForDate(employeeId: string, date: Date, options: { includeDrafts?: boolean } = {}) {
   // Normalizar fecha
   const dateStr = date.toISOString().split("T")[0]; // YYYY-MM-DD
   const dateStart = new Date(dateStr);
 
-  // Prisma Date types can be tricky. Using date object set to midnight/UTC usually works if @db.Date is used.
-  // We need to match the specific date.
+  // Construir filtro
+  const where: any = {
+    employeeId,
+    date: dateStart,
+  };
+
+  // Si NO se piden borradores, filtrar solo los publicados
+  // NOTA: Status CONFLICT tampoco se considera "Efectivo" para el empleado
+  if (!options.includeDrafts) {
+    where.status = "PUBLISHED";
+  }
 
   return await prisma.manualShiftAssignment.findFirst({
-    where: {
-      employeeId,
-      date: dateStart, // Assuming the input date is already normalized or Prisma handles the Date object comparison correctly for @db.Date
-    },
+    where,
   });
 }
 
