@@ -2,17 +2,91 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-import { ArrowLeft, Clock, Calendar, AlertCircle, Pencil, Sun, CalendarDays } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import {
+  ArrowLeft,
+  Clock,
+  Calendar,
+  AlertCircle,
+  Pencil,
+  Sun,
+  CalendarDays,
+  ExternalLink,
+  RotateCcw,
+  CheckCircle,
+  Info,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getEmployeeCurrentAssignment, getScheduleTemplates } from "@/server/actions/schedules-v2";
+
+// Tipos para la asignación V2
+interface TimeSlot {
+  id: string;
+  startTimeMinutes: number;
+  endTimeMinutes: number;
+  slotType: "WORK" | "BREAK" | "ON_CALL" | "OTHER";
+  presenceType: "MANDATORY" | "FLEXIBLE" | "REMOTE_ALLOWED";
+  description: string | null;
+}
+
+interface WorkDayPattern {
+  id: string;
+  dayOfWeek: number;
+  isWorkingDay: boolean;
+  timeSlots: TimeSlot[];
+}
+
+interface SchedulePeriod {
+  id: string;
+  periodType: "REGULAR" | "INTENSIVE" | "SPECIAL";
+  name: string;
+  description: string | null;
+  startMonthDay: string | null;
+  endMonthDay: string | null;
+  workDayPatterns: WorkDayPattern[];
+}
+
+interface ScheduleTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  templateType: "FIXED" | "SHIFT" | "ROTATION" | "FLEXIBLE";
+  weeklyHours: number | null;
+  periods: SchedulePeriod[];
+}
+
+interface ScheduleAssignment {
+  id: string;
+  employeeId: string;
+  assignmentType: "FIXED" | "SHIFT" | "ROTATION" | "FLEXIBLE";
+  scheduleTemplateId: string | null;
+  validFrom: Date;
+  validTo: Date | null;
+  isActive: boolean;
+  scheduleTemplate: ScheduleTemplate | null;
+  rotationPattern: {
+    id: string;
+    name: string;
+    steps: Array<{
+      id: string;
+      stepOrder: number;
+      durationDays: number;
+      scheduleTemplate: { id: string; name: string } | null;
+    }>;
+  } | null;
+}
 
 interface Employee {
   id: string;
@@ -20,156 +94,66 @@ interface Employee {
   firstName: string;
   lastName: string;
   secondLastName: string | null;
-  employmentContracts: Array<{
-    id: string;
-    active: boolean;
-    scheduleType: "FLEXIBLE" | "FIXED" | "SHIFTS";
-    weeklyHours: number;
-    workingDaysPerWeek: number | null;
-
-    // FIXED schedule fields
-    hasFixedTimeSlots: boolean | null;
-    workMonday: boolean | null;
-    workTuesday: boolean | null;
-    workWednesday: boolean | null;
-    workThursday: boolean | null;
-    workFriday: boolean | null;
-    workSaturday: boolean | null;
-    workSunday: boolean | null;
-
-    // Time slots
-    mondayStartTime: string | null;
-    mondayEndTime: string | null;
-    tuesdayStartTime: string | null;
-    tuesdayEndTime: string | null;
-    wednesdayStartTime: string | null;
-    wednesdayEndTime: string | null;
-    thursdayStartTime: string | null;
-    thursdayEndTime: string | null;
-    fridayStartTime: string | null;
-    fridayEndTime: string | null;
-    saturdayStartTime: string | null;
-    saturdayEndTime: string | null;
-    sundayStartTime: string | null;
-    sundayEndTime: string | null;
-
-    // Breaks
-    mondayBreakStartTime: string | null;
-    mondayBreakEndTime: string | null;
-    tuesdayBreakStartTime: string | null;
-    tuesdayBreakEndTime: string | null;
-    wednesdayBreakStartTime: string | null;
-    wednesdayBreakEndTime: string | null;
-    thursdayBreakStartTime: string | null;
-    thursdayBreakEndTime: string | null;
-    fridayBreakStartTime: string | null;
-    fridayBreakEndTime: string | null;
-    saturdayBreakStartTime: string | null;
-    saturdayBreakEndTime: string | null;
-    sundayBreakStartTime: string | null;
-    sundayBreakEndTime: string | null;
-
-    // Intensive schedule
-    hasIntensiveSchedule: boolean | null;
-    intensiveStartDate: string | null;
-    intensiveEndDate: string | null;
-    intensiveWeeklyHours: number | null;
-
-    // Intensive time slots
-    intensiveMondayStartTime: string | null;
-    intensiveMondayEndTime: string | null;
-    intensiveTuesdayStartTime: string | null;
-    intensiveTuesdayEndTime: string | null;
-    intensiveWednesdayStartTime: string | null;
-    intensiveWednesdayEndTime: string | null;
-    intensiveThursdayStartTime: string | null;
-    intensiveThursdayEndTime: string | null;
-    intensiveFridayStartTime: string | null;
-    intensiveFridayEndTime: string | null;
-    intensiveSaturdayStartTime: string | null;
-    intensiveSaturdayEndTime: string | null;
-    intensiveSundayStartTime: string | null;
-    intensiveSundayEndTime: string | null;
-
-    // Intensive breaks
-    intensiveMondayBreakStartTime: string | null;
-    intensiveMondayBreakEndTime: string | null;
-    intensiveTuesdayBreakStartTime: string | null;
-    intensiveTuesdayBreakEndTime: string | null;
-    intensiveWednesdayBreakStartTime: string | null;
-    intensiveWednesdayBreakEndTime: string | null;
-    intensiveThursdayBreakStartTime: string | null;
-    intensiveThursdayBreakEndTime: string | null;
-    intensiveFridayBreakStartTime: string | null;
-    intensiveFridayBreakEndTime: string | null;
-    intensiveSaturdayBreakStartTime: string | null;
-    intensiveSaturdayBreakEndTime: string | null;
-    intensiveSundayBreakStartTime: string | null;
-    intensiveSundayBreakEndTime: string | null;
-
-    // Legacy fields (for backward compatibility)
-    hasCustomWeeklyPattern: boolean | null;
-    mondayHours: number | null;
-    tuesdayHours: number | null;
-    wednesdayHours: number | null;
-    thursdayHours: number | null;
-    fridayHours: number | null;
-    saturdayHours: number | null;
-    sundayHours: number | null;
-    intensiveMondayHours: number | null;
-    intensiveTuesdayHours: number | null;
-    intensiveWednesdayHours: number | null;
-    intensiveThursdayHours: number | null;
-    intensiveFridayHours: number | null;
-    intensiveSaturdayHours: number | null;
-    intensiveSundayHours: number | null;
-  }>;
 }
 
 const DAYS = [
-  { key: "monday", label: "Lunes", short: "L" },
-  { key: "tuesday", label: "Martes", short: "M" },
-  { key: "wednesday", label: "Miércoles", short: "X" },
-  { key: "thursday", label: "Jueves", short: "J" },
-  { key: "friday", label: "Viernes", short: "V" },
-  { key: "saturday", label: "Sábado", short: "S" },
-  { key: "sunday", label: "Domingo", short: "D" },
+  { dayOfWeek: 1, label: "Lunes", short: "L" },
+  { dayOfWeek: 2, label: "Martes", short: "M" },
+  { dayOfWeek: 3, label: "Miércoles", short: "X" },
+  { dayOfWeek: 4, label: "Jueves", short: "J" },
+  { dayOfWeek: 5, label: "Viernes", short: "V" },
+  { dayOfWeek: 6, label: "Sábado", short: "S" },
+  { dayOfWeek: 0, label: "Domingo", short: "D" },
 ] as const;
 
-// Helper function to calculate hours from time slots (HH:MM format)
-function calculateHoursFromTimeSlot(
-  startTime: string | null,
-  endTime: string | null,
-  breakStart: string | null = null,
-  breakEnd: string | null = null,
-): number {
-  if (!startTime || !endTime) return 0;
-
-  const [startHour, startMin] = startTime.split(":").map(Number);
-  const [endHour, endMin] = endTime.split(":").map(Number);
-
-  const totalMinutes = endHour * 60 + endMin - (startHour * 60 + startMin);
-
-  // Subtract break time if exists
-  let breakMinutes = 0;
-  if (breakStart && breakEnd) {
-    const [breakStartHour, breakStartMin] = breakStart.split(":").map(Number);
-    const [breakEndHour, breakEndMin] = breakEnd.split(":").map(Number);
-    breakMinutes = breakEndHour * 60 + breakEndMin - (breakStartHour * 60 + breakStartMin);
-  }
-
-  return (totalMinutes - breakMinutes) / 60; // Convert to hours
+// Convertir minutos a formato HH:MM
+function minutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}`;
 }
 
-// Get schedule type label and color
-function getScheduleTypeConfig(scheduleType: "FLEXIBLE" | "FIXED" | "SHIFTS") {
-  switch (scheduleType) {
+// Calcular horas de trabajo de un día
+function calculateDayWorkHours(pattern: WorkDayPattern): number {
+  if (!pattern.isWorkingDay) return 0;
+  return pattern.timeSlots
+    .filter((slot) => slot.slotType === "WORK")
+    .reduce((sum, slot) => sum + (slot.endTimeMinutes - slot.startTimeMinutes) / 60, 0);
+}
+
+// Obtener configuración del tipo de asignación
+function getAssignmentTypeConfig(assignmentType: string) {
+  switch (assignmentType) {
     case "FIXED":
-      return { label: "Horario Fijo", variant: "default" as const, color: "text-blue-600" };
+      return { label: "Horario Fijo", variant: "default" as const, color: "text-blue-600", icon: Clock };
+    case "SHIFT":
+      return { label: "Turnos", variant: "outline" as const, color: "text-purple-600", icon: RotateCcw };
+    case "ROTATION":
+      return { label: "Rotación", variant: "secondary" as const, color: "text-orange-600", icon: RotateCcw };
     case "FLEXIBLE":
-      return { label: "Horario Flexible", variant: "secondary" as const, color: "text-green-600" };
-    case "SHIFTS":
-      return { label: "Turnos", variant: "outline" as const, color: "text-purple-600" };
+      return { label: "Flexible", variant: "outline" as const, color: "text-green-600", icon: Clock };
+    default:
+      return { label: assignmentType, variant: "outline" as const, color: "text-gray-600", icon: Clock };
+  }
+}
+
+// Obtener configuración del tipo de período
+function getPeriodTypeConfig(periodType: string) {
+  switch (periodType) {
+    case "REGULAR":
+      return { label: "Horario Regular", color: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200" };
+    case "INTENSIVE":
+      return {
+        label: "Jornada Intensiva",
+        color: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      };
+    case "SPECIAL":
+      return {
+        label: "Período Especial",
+        color: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      };
+    default:
+      return { label: periodType, color: "bg-gray-100 text-gray-800" };
   }
 }
 
@@ -177,33 +161,38 @@ export default function EmployeeSchedulesPage() {
   const params = useParams();
   const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [assignment, setAssignment] = useState<ScheduleAssignment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchEmployee = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`/api/employees/${params.id}`, {
-          cache: "no-store", // IMPORTANTE: Fuerza fetch sin cache
-          headers: {
-            "Cache-Control": "no-cache", // Evita cache del navegador
-          },
+        // Obtener datos del empleado
+        const employeeResponse = await fetch(`/api/employees/${params.id}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
         });
-        if (!response.ok) {
+        if (!employeeResponse.ok) {
           throw new Error("Empleado no encontrado");
         }
-        const data = await response.json();
-        setEmployee(data);
-      } catch (error: any) {
-        setError(error.message);
-        toast.error("Error", { description: error.message });
+        const employeeData = await employeeResponse.json();
+        setEmployee(employeeData);
+
+        // Obtener asignación de horario V2
+        const assignmentData = await getEmployeeCurrentAssignment(params.id as string);
+        setAssignment(assignmentData as ScheduleAssignment | null);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        toast.error("Error", { description: errorMessage });
       } finally {
         setIsLoading(false);
       }
     };
 
     if (params.id) {
-      fetchEmployee();
+      fetchData();
     }
   }, [params.id]);
 
@@ -244,12 +233,145 @@ export default function EmployeeSchedulesPage() {
   }
 
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
-  const activeContract = employee.employmentContracts.find((c) => c.active);
+  const assignmentTypeConfig = assignment ? getAssignmentTypeConfig(assignment.assignmentType) : null;
 
-  // Get schedule type configuration
-  const scheduleTypeConfig = activeContract ? getScheduleTypeConfig(activeContract.scheduleType) : null;
+  // Si no tiene asignación V2
+  if (!assignment) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Horarios"
+          description={`Gestión de horarios laborales de ${fullName}`}
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+          badge={
+            employee.employeeNumber && (
+              <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+            )
+          }
+        />
 
-  if (!activeContract) {
+        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+          <Info className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800 dark:text-amber-200">
+            Este empleado no tiene un horario asignado. Puedes asignarle una plantilla de horario existente.
+          </AlertDescription>
+        </Alert>
+
+        <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <Clock className="mr-2 h-5 w-5" />
+              Sin Horario Asignado
+            </CardTitle>
+            <CardDescription>
+              Asigna una plantilla de horario para definir la jornada laboral de este empleado.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Asignar Horario
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href="/dashboard/schedules" target="_blank">
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Ver Plantillas Disponibles
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Si es tipo SHIFT (turnos), mostrar mensaje especial
+  if (assignment.assignmentType === "SHIFT") {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Horarios"
+          description={`Gestión de horarios laborales de ${fullName}`}
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+          badge={
+            <div className="flex items-center gap-2">
+              {employee.employeeNumber && (
+                <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+              )}
+              <Badge variant="outline" className="text-purple-600">
+                <RotateCcw className="mr-1 h-3 w-3" />
+                Turnos
+              </Badge>
+            </div>
+          }
+        />
+
+        <Card className="to-card rounded-lg border bg-gradient-to-t from-purple-50/50 shadow-xs dark:from-purple-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg">
+              <RotateCcw className="mr-2 h-5 w-5 text-purple-600" />
+              Empleado de Turnos
+            </CardTitle>
+            <CardDescription>
+              Los turnos de este empleado se gestionan desde el módulo de Gestión de Turnos.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 @4xl/main:grid-cols-2">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Tipo de asignación:</span>
+                <Badge variant="outline" className="text-purple-600">
+                  Turnos Variables
+                </Badge>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground text-sm">Válido desde:</span>
+                <span className="font-semibold">
+                  {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
+                </span>
+              </div>
+            </div>
+
+            <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/30">
+              <Info className="h-4 w-4 text-purple-600" />
+              <AlertDescription className="text-purple-800 dark:text-purple-200">
+                Los turnos se asignan semanalmente desde{" "}
+                <Link href="/dashboard/shifts" className="font-medium underline">
+                  Gestión de Turnos
+                </Link>
+                . Allí podrás ver y modificar los turnos asignados a este empleado.
+              </AlertDescription>
+            </Alert>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Button asChild>
+                <Link href="/dashboard/shifts">
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Ir a Gestión de Turnos
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Cambiar Tipo de Horario
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Horario FIXED con plantilla asignada
+  const template = assignment.scheduleTemplate;
+
+  if (!template) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
@@ -260,27 +382,27 @@ export default function EmployeeSchedulesPage() {
             label: "Volver al empleado",
           }}
         />
-        <EmptyState
-          icon={<Clock className="text-muted-foreground mx-auto h-12 w-12" />}
-          title="Sin contrato activo"
-          description="Este empleado no tiene un contrato activo. Crea un contrato antes de gestionar horarios."
-        />
+        <Alert className="border-red-500 bg-red-50 dark:bg-red-950/20">
+          <AlertCircle className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-800 dark:text-red-200">
+            Error: La asignación existe pero no se encontró la plantilla de horario asociada.
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
 
-  // Calculate working days from FIXED schedule if applicable
-  const getWorkingDays = () => {
-    if (activeContract.scheduleType === "FIXED") {
-      return DAYS.filter(
-        (day) =>
-          activeContract[`work${day.key.charAt(0).toUpperCase() + day.key.slice(1)}` as keyof typeof activeContract],
-      ).length;
-    }
-    return activeContract.workingDaysPerWeek ?? 5;
+  // Calcular horas semanales del período REGULAR
+  const regularPeriod = template.periods.find((p) => p.periodType === "REGULAR");
+  const intensivePeriod = template.periods.find((p) => p.periodType === "INTENSIVE");
+
+  const calculateWeeklyHours = (period: SchedulePeriod | undefined): number => {
+    if (!period) return 0;
+    return period.workDayPatterns.reduce((sum, pattern) => sum + calculateDayWorkHours(pattern), 0);
   };
 
-  const workingDaysCount = getWorkingDays();
+  const regularWeeklyHours = calculateWeeklyHours(regularPeriod);
+  const intensiveWeeklyHours = calculateWeeklyHours(intensivePeriod);
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -296,321 +418,261 @@ export default function EmployeeSchedulesPage() {
             {employee.employeeNumber && (
               <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
             )}
-            {scheduleTypeConfig && (
-              <Badge variant={scheduleTypeConfig.variant} className={scheduleTypeConfig.color}>
-                {scheduleTypeConfig.label}
+            {assignmentTypeConfig && (
+              <Badge variant={assignmentTypeConfig.variant} className={assignmentTypeConfig.color}>
+                {assignmentTypeConfig.label}
               </Badge>
             )}
           </div>
         }
       />
 
-      <div className="flex justify-end">
-        <Button onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
-          <Pencil className="mr-2 h-4 w-4" />
-          Editar Horario
-        </Button>
-      </div>
+      {/* Información de la asignación */}
+      <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="text-primary h-5 w-5" />
+              <CardTitle className="text-lg">Plantilla Asignada</CardTitle>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Cambiar
+            </Button>
+          </div>
+          <CardDescription>{template.description ?? "Sin descripción"}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 @4xl/main:grid-cols-4">
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground text-xs">Plantilla</span>
+              <span className="font-semibold">{template.name}</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground text-xs">Horas semanales</span>
+              <span className="font-semibold">{template.weeklyHours ?? regularWeeklyHours.toFixed(1)}h</span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground text-xs">Válido desde</span>
+              <span className="font-semibold">
+                {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-muted-foreground text-xs">Válido hasta</span>
+              <span className="font-semibold">
+                {assignment.validTo ? format(new Date(assignment.validTo), "dd/MM/yyyy", { locale: es }) : "Indefinido"}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      <Tabs defaultValue="normal" className="w-full">
+      {/* Tabs para períodos */}
+      <Tabs defaultValue="regular" className="w-full">
         <TabsList>
-          <TabsTrigger value="normal">Horario Normal</TabsTrigger>
-          {activeContract.hasIntensiveSchedule && <TabsTrigger value="intensive">Horario Intensivo</TabsTrigger>}
+          <TabsTrigger value="regular">Horario Regular</TabsTrigger>
+          {intensivePeriod && <TabsTrigger value="intensive">Jornada Intensiva</TabsTrigger>}
+          {template.periods
+            .filter((p) => p.periodType === "SPECIAL")
+            .map((period) => (
+              <TabsTrigger key={period.id} value={period.id}>
+                {period.name}
+              </TabsTrigger>
+            ))}
         </TabsList>
 
-        {/* Horario Normal */}
-        <TabsContent value="normal" className="space-y-6">
-          <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
-            <CardHeader>
-              <CardTitle className="flex items-center text-lg">
-                <Clock className="mr-2 h-5 w-5" />
-                Jornada Normal
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-4 @4xl/main:grid-cols-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Horas semanales:</span>
-                  <span className="font-semibold">{activeContract.weeklyHours}h</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Días laborables:</span>
-                  <span className="font-semibold">{workingDaysCount}</span>
-                </div>
-                {activeContract.scheduleType === "FIXED" && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">Tipo de horario:</span>
-                    <Badge variant="outline">
-                      {activeContract.hasFixedTimeSlots ? "Horarios fijos" : "Horarios flexibles"}
-                    </Badge>
-                  </div>
-                )}
-              </div>
-
-              {/* FIXED Schedule Visualization */}
-              {activeContract.scheduleType === "FIXED" && (
-                <div className="space-y-4 border-t pt-4">
-                  {/* Working Days Visual Indicator */}
-                  <div>
-                    <div className="mb-3 flex items-center gap-2">
-                      <CalendarDays className="text-primary h-5 w-5" />
-                      <h4 className="font-semibold">Días Laborables</h4>
-                    </div>
-                    <div className="flex gap-2">
-                      {DAYS.map((day) => {
-                        const isWorking =
-                          activeContract[
-                            `work${day.key.charAt(0).toUpperCase() + day.key.slice(1)}` as keyof typeof activeContract
-                          ];
-                        return (
-                          <div
-                            key={day.key}
-                            className={`flex size-10 items-center justify-center rounded-full border-2 font-semibold ${
-                              isWorking
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-muted bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {day.short}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Time Slots Table */}
-                  {activeContract.hasFixedTimeSlots && (
-                    <div>
-                      <div className="mb-3 flex items-center gap-2">
-                        <Clock className="text-primary h-5 w-5" />
-                        <h4 className="font-semibold">Horarios por Día</h4>
-                      </div>
-                      <div className="overflow-hidden rounded-lg border">
-                        <table className="w-full">
-                          <thead className="bg-muted/50">
-                            <tr>
-                              <th className="p-3 text-left text-sm font-semibold">Día</th>
-                              <th className="p-3 text-left text-sm font-semibold">Entrada</th>
-                              <th className="p-3 text-left text-sm font-semibold">Salida</th>
-                              <th className="p-3 text-left text-sm font-semibold">Descanso</th>
-                              <th className="p-3 text-right text-sm font-semibold">Horas</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {DAYS.map((day) => {
-                              const isWorking =
-                                activeContract[
-                                  `work${day.key.charAt(0).toUpperCase() + day.key.slice(1)}` as keyof typeof activeContract
-                                ];
-                              if (!isWorking) return null;
-
-                              const startTime = activeContract[`${day.key}StartTime` as keyof typeof activeContract] as
-                                | string
-                                | null;
-                              const endTime = activeContract[`${day.key}EndTime` as keyof typeof activeContract] as
-                                | string
-                                | null;
-                              const breakStart = activeContract[
-                                `${day.key}BreakStartTime` as keyof typeof activeContract
-                              ] as string | null;
-                              const breakEnd = activeContract[
-                                `${day.key}BreakEndTime` as keyof typeof activeContract
-                              ] as string | null;
-                              const hours = calculateHoursFromTimeSlot(startTime, endTime, breakStart, breakEnd);
-
-                              return (
-                                <tr key={day.key} className="hover:bg-muted/30">
-                                  <td className="p-3 font-medium">{day.label}</td>
-                                  <td className="p-3 font-mono text-sm">{startTime ?? "--:--"}</td>
-                                  <td className="p-3 font-mono text-sm">{endTime ?? "--:--"}</td>
-                                  <td className="p-3 font-mono text-sm">
-                                    {breakStart && breakEnd ? `${breakStart} - ${breakEnd}` : "Sin descanso"}
-                                  </td>
-                                  <td className="text-primary p-3 text-right font-semibold">{hours.toFixed(2)}h</td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* FLEXIBLE Schedule Visualization (Legacy) */}
-              {activeContract.scheduleType === "FLEXIBLE" && activeContract.hasCustomWeeklyPattern && (
-                <div className="border-t pt-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <CalendarDays className="text-primary h-5 w-5" />
-                    <h4 className="font-semibold">Distribución Semanal</h4>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 @4xl/main:grid-cols-4">
-                    {DAYS.map((day) => {
-                      const hours = activeContract[`${day.key}Hours` as keyof typeof activeContract] as number | null;
-                      return (
-                        <div key={day.key} className="bg-muted/30 flex justify-between rounded-md border p-2">
-                          <span className="text-muted-foreground text-sm">{day.label}:</span>
-                          <span className="font-medium">{hours ?? 0}h</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        {/* Período Regular */}
+        <TabsContent value="regular" className="space-y-6">
+          {regularPeriod ? (
+            <PeriodCard period={regularPeriod} weeklyHours={regularWeeklyHours} />
+          ) : (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>No hay período regular configurado en esta plantilla.</AlertDescription>
+            </Alert>
+          )}
         </TabsContent>
 
-        {/* Horario Intensivo */}
-        {activeContract.hasIntensiveSchedule &&
-          (() => {
-            // Calculate total intensive hours from time slots
-            const totalIntensiveHours = DAYS.reduce((total, day) => {
-              const isWorking =
-                activeContract[
-                  `work${day.key.charAt(0).toUpperCase() + day.key.slice(1)}` as keyof typeof activeContract
-                ];
-              if (!isWorking) return total;
+        {/* Período Intensivo */}
+        {intensivePeriod && (
+          <TabsContent value="intensive" className="space-y-6">
+            <PeriodCard period={intensivePeriod} weeklyHours={intensiveWeeklyHours} isIntensive />
+          </TabsContent>
+        )}
 
-              const startTime = activeContract[
-                `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}StartTime` as keyof typeof activeContract
-              ] as string | null;
-              const endTime = activeContract[
-                `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}EndTime` as keyof typeof activeContract
-              ] as string | null;
-              const breakStart = activeContract[
-                `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}BreakStartTime` as keyof typeof activeContract
-              ] as string | null;
-              const breakEnd = activeContract[
-                `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}BreakEndTime` as keyof typeof activeContract
-              ] as string | null;
-
-              return total + calculateHoursFromTimeSlot(startTime, endTime, breakStart, breakEnd);
-            }, 0);
-
-            return (
-              <TabsContent value="intensive" className="space-y-6">
-                <Card className="to-card rounded-lg border bg-gradient-to-t from-orange-50/50 shadow-xs dark:from-orange-950/20">
-                  <CardHeader>
-                    <CardTitle className="flex items-center text-lg">
-                      <Sun className="mr-2 h-5 w-5 text-orange-600" />
-                      Jornada Intensiva
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid gap-4 @4xl/main:grid-cols-3">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Período:</span>
-                        <Badge variant="outline" className="border-orange-300 text-orange-700">
-                          {activeContract.intensiveStartDate} a {activeContract.intensiveEndDate}
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Horas semanales:</span>
-                        <span className="font-semibold">{totalIntensiveHours.toFixed(0)}h</span>
-                      </div>
-                      {activeContract.scheduleType === "FIXED" && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground text-sm">Tipo de horario:</span>
-                          <Badge variant="outline">
-                            {activeContract.hasFixedTimeSlots ? "Horarios fijos" : "Horarios flexibles"}
-                          </Badge>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* FIXED Intensive Schedule Visualization */}
-                    {activeContract.scheduleType === "FIXED" && activeContract.hasFixedTimeSlots && (
-                      <div className="border-t pt-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <Clock className="h-5 w-5 text-orange-600" />
-                          <h4 className="font-semibold">Horarios Intensivos por Día</h4>
-                        </div>
-                        <div className="overflow-hidden rounded-lg border border-orange-200">
-                          <table className="w-full">
-                            <thead className="bg-orange-50/50 dark:bg-orange-950/30">
-                              <tr>
-                                <th className="p-3 text-left text-sm font-semibold">Día</th>
-                                <th className="p-3 text-left text-sm font-semibold">Entrada</th>
-                                <th className="p-3 text-left text-sm font-semibold">Salida</th>
-                                <th className="p-3 text-left text-sm font-semibold">Descanso</th>
-                                <th className="p-3 text-right text-sm font-semibold">Horas</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-orange-100 dark:divide-orange-900">
-                              {DAYS.map((day) => {
-                                const isWorking =
-                                  activeContract[
-                                    `work${day.key.charAt(0).toUpperCase() + day.key.slice(1)}` as keyof typeof activeContract
-                                  ];
-                                if (!isWorking) return null;
-
-                                const startTime = activeContract[
-                                  `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}StartTime` as keyof typeof activeContract
-                                ] as string | null;
-                                const endTime = activeContract[
-                                  `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}EndTime` as keyof typeof activeContract
-                                ] as string | null;
-                                const breakStart = activeContract[
-                                  `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}BreakStartTime` as keyof typeof activeContract
-                                ] as string | null;
-                                const breakEnd = activeContract[
-                                  `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}BreakEndTime` as keyof typeof activeContract
-                                ] as string | null;
-                                const hours = calculateHoursFromTimeSlot(startTime, endTime, breakStart, breakEnd);
-
-                                return (
-                                  <tr key={day.key} className="hover:bg-orange-50/30 dark:hover:bg-orange-950/20">
-                                    <td className="p-3 font-medium">{day.label}</td>
-                                    <td className="p-3 font-mono text-sm">{startTime ?? "--:--"}</td>
-                                    <td className="p-3 font-mono text-sm">{endTime ?? "--:--"}</td>
-                                    <td className="p-3 font-mono text-sm">
-                                      {breakStart && breakEnd ? `${breakStart} - ${breakEnd}` : "Sin descanso"}
-                                    </td>
-                                    <td className="p-3 text-right font-semibold text-orange-600">
-                                      {hours.toFixed(2)}h
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* FLEXIBLE Intensive Schedule Visualization (Legacy) */}
-                    {activeContract.scheduleType === "FLEXIBLE" && activeContract.hasCustomWeeklyPattern && (
-                      <div className="border-t pt-4">
-                        <div className="mb-3 flex items-center gap-2">
-                          <CalendarDays className="h-5 w-5 text-orange-600" />
-                          <h4 className="font-semibold">Distribución Semanal Intensiva</h4>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 @4xl/main:grid-cols-4">
-                          {DAYS.map((day) => {
-                            const hours = activeContract[
-                              `intensive${day.key.charAt(0).toUpperCase() + day.key.slice(1)}Hours` as keyof typeof activeContract
-                            ] as number | null;
-                            return (
-                              <div
-                                key={day.key}
-                                className="flex justify-between rounded-md border border-orange-200 bg-orange-50/50 p-2 dark:border-orange-800 dark:bg-orange-950/30"
-                              >
-                                <span className="text-muted-foreground text-sm">{day.label}:</span>
-                                <span className="font-medium">{hours ?? 0}h</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </TabsContent>
-            );
-          })()}
+        {/* Períodos Especiales */}
+        {template.periods
+          .filter((p) => p.periodType === "SPECIAL")
+          .map((period) => (
+            <TabsContent key={period.id} value={period.id} className="space-y-6">
+              <PeriodCard period={period} weeklyHours={calculateWeeklyHours(period)} isSpecial />
+            </TabsContent>
+          ))}
       </Tabs>
+
+      {/* Link a gestión de plantillas */}
+      <div className="text-center">
+        <p className="text-muted-foreground text-sm">
+          Para modificar los horarios de esta plantilla, ve a{" "}
+          <Link href={`/dashboard/schedules/${template.id}`} className="text-primary hover:underline">
+            Gestión de Plantillas
+          </Link>
+        </p>
+      </div>
     </div>
+  );
+}
+
+// Componente para mostrar un período
+function PeriodCard({
+  period,
+  weeklyHours,
+  isIntensive = false,
+  isSpecial = false,
+}: {
+  period: SchedulePeriod;
+  weeklyHours: number;
+  isIntensive?: boolean;
+  isSpecial?: boolean;
+}) {
+  const periodConfig = getPeriodTypeConfig(period.periodType);
+  const workingDays = period.workDayPatterns.filter((p) => p.isWorkingDay);
+
+  const bgClass = isIntensive
+    ? "from-orange-50/50 to-card dark:from-orange-950/20"
+    : isSpecial
+      ? "from-purple-50/50 to-card dark:from-purple-950/20"
+      : "from-primary/5 to-card";
+
+  const iconColor = isIntensive ? "text-orange-600" : isSpecial ? "text-purple-600" : "text-primary";
+
+  return (
+    <Card className={`rounded-lg border bg-gradient-to-t shadow-xs ${bgClass}`}>
+      <CardHeader>
+        <CardTitle className="flex items-center text-lg">
+          {isIntensive ? (
+            <Sun className={`mr-2 h-5 w-5 ${iconColor}`} />
+          ) : (
+            <Clock className={`mr-2 h-5 w-5 ${iconColor}`} />
+          )}
+          {period.name}
+          <Badge className={`ml-2 ${periodConfig.color}`}>{periodConfig.label}</Badge>
+        </CardTitle>
+        {period.description && <CardDescription>{period.description}</CardDescription>}
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Resumen */}
+        <div className="grid gap-4 @4xl/main:grid-cols-3">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground text-sm">Horas semanales:</span>
+            <span className="font-semibold">{weeklyHours.toFixed(1)}h</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground text-sm">Días laborables:</span>
+            <span className="font-semibold">{workingDays.length}</span>
+          </div>
+          {period.startMonthDay && period.endMonthDay && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground text-sm">Período:</span>
+              <span className="font-semibold">
+                {period.startMonthDay} - {period.endMonthDay}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Días de la semana */}
+        <div className="border-t pt-4">
+          <div className="mb-3 flex items-center gap-2">
+            <CalendarDays className={`h-5 w-5 ${iconColor}`} />
+            <h4 className="font-semibold">Días Laborables</h4>
+          </div>
+          <div className="flex gap-2">
+            {DAYS.map((day) => {
+              const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === day.dayOfWeek);
+              const isWorking = pattern?.isWorkingDay ?? false;
+              return (
+                <div
+                  key={day.dayOfWeek}
+                  className={`flex size-10 items-center justify-center rounded-full border-2 font-semibold ${
+                    isWorking
+                      ? isIntensive
+                        ? "border-orange-500 bg-orange-500 text-white"
+                        : isSpecial
+                          ? "border-purple-500 bg-purple-500 text-white"
+                          : "border-primary bg-primary text-primary-foreground"
+                      : "border-muted bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {day.short}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Tabla de horarios */}
+        {workingDays.length > 0 && (
+          <div className="border-t pt-4">
+            <div className="mb-3 flex items-center gap-2">
+              <Clock className={`h-5 w-5 ${iconColor}`} />
+              <h4 className="font-semibold">Horarios por Día</h4>
+            </div>
+            <div className="overflow-hidden rounded-lg border">
+              <table className="w-full">
+                <thead className={isIntensive ? "bg-orange-50/50 dark:bg-orange-950/30" : "bg-muted/50"}>
+                  <tr>
+                    <th className="p-3 text-left text-sm font-semibold">Día</th>
+                    <th className="p-3 text-left text-sm font-semibold">Entrada</th>
+                    <th className="p-3 text-left text-sm font-semibold">Salida</th>
+                    <th className="p-3 text-left text-sm font-semibold">Descansos</th>
+                    <th className="p-3 text-right text-sm font-semibold">Horas</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {DAYS.map((day) => {
+                    const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === day.dayOfWeek);
+                    if (!pattern?.isWorkingDay) return null;
+
+                    const workSlots = pattern.timeSlots.filter((s) => s.slotType === "WORK");
+                    const breakSlots = pattern.timeSlots.filter((s) => s.slotType === "BREAK");
+                    const dayHours = calculateDayWorkHours(pattern);
+
+                    // Encontrar entrada y salida (primer y último slot de trabajo)
+                    const firstWork = workSlots[0];
+                    const lastWork = workSlots[workSlots.length - 1];
+
+                    return (
+                      <tr key={day.dayOfWeek} className="hover:bg-muted/30">
+                        <td className="p-3 font-medium">{day.label}</td>
+                        <td className="p-3 font-mono text-sm">
+                          {firstWork ? minutesToTime(firstWork.startTimeMinutes) : "--:--"}
+                        </td>
+                        <td className="p-3 font-mono text-sm">
+                          {lastWork ? minutesToTime(lastWork.endTimeMinutes) : "--:--"}
+                        </td>
+                        <td className="p-3 font-mono text-sm">
+                          {breakSlots.length > 0
+                            ? breakSlots
+                                .map((b) => `${minutesToTime(b.startTimeMinutes)}-${minutesToTime(b.endTimeMinutes)}`)
+                                .join(", ")
+                            : "Sin descanso"}
+                        </td>
+                        <td className={`p-3 text-right font-semibold ${iconColor}`}>{dayHours.toFixed(2)}h</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -6,7 +6,10 @@
  * - Conversión de tiempo a minutos
  * - Cálculos de duración
  * - Formateo de horas
+ * - Helpers para schedule-engine.ts (Refactorización V2.0)
  */
+
+import type { EffectiveSchedule } from "@/types/schedule";
 
 // ============================================================================
 // Conversión de Tiempo
@@ -256,4 +259,80 @@ export function dayOfWeekToShortString(dayOfWeek: number): string {
   }
 
   return days[dayOfWeek] ?? "???";
+}
+
+// ============================================================================
+// Helpers para schedule-engine.ts (Refactorización V2.0)
+// ============================================================================
+
+/**
+ * Normaliza una fecha al inicio del día (00:00:00.000)
+ * Usado frecuentemente en schedule-engine.ts para comparaciones de fecha
+ *
+ * @param date Fecha a normalizar
+ * @returns Nueva fecha normalizada al inicio del día
+ *
+ * @example
+ * normalizeToStartOfDay(new Date("2025-01-15T14:30:00")) // 2025-01-15T00:00:00.000
+ */
+export function normalizeToStartOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+}
+
+/**
+ * Normaliza una fecha al final del día (23:59:59.999)
+ * Usado para rangos de búsqueda en schedule-engine.ts
+ *
+ * @param date Fecha a normalizar
+ * @returns Nueva fecha normalizada al final del día
+ *
+ * @example
+ * normalizeToEndOfDay(new Date("2025-01-15T14:30:00")) // 2025-01-15T23:59:59.999
+ */
+export function normalizeToEndOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setHours(23, 59, 59, 999);
+  return normalized;
+}
+
+/**
+ * Crea un horario efectivo vacío (día no laboral)
+ * Extrae el patrón repetido ~13 veces en schedule-engine.ts
+ *
+ * NOTA: Esta función NO cambia ninguna lógica existente.
+ * Solo consolida el patrón { isWorkingDay: false, expectedMinutes: 0, timeSlots: [] }
+ *
+ * @param date Fecha del horario
+ * @param source Origen del horario (ABSENCE, EXCEPTION, PERIOD, etc.)
+ * @param options Opciones adicionales
+ * @returns EffectiveSchedule vacío
+ *
+ * @example
+ * createEmptySchedule(date, "ABSENCE", { reason: "Vacaciones" })
+ * createEmptySchedule(date, "PERIOD", { periodName: "Verano" })
+ */
+export function createEmptySchedule(
+  date: Date,
+  source: EffectiveSchedule["source"],
+  options?: {
+    periodName?: string;
+    exceptionType?: string;
+    exceptionReason?: string;
+    reason?: string;
+    absence?: EffectiveSchedule["absence"];
+  },
+): EffectiveSchedule {
+  return {
+    date: new Date(date),
+    isWorkingDay: false,
+    expectedMinutes: 0,
+    timeSlots: [],
+    source,
+    ...(options?.periodName && { periodName: options.periodName }),
+    ...(options?.exceptionType && { exceptionType: options.exceptionType }),
+    ...(options?.exceptionReason && { exceptionReason: options.exceptionReason }),
+    ...(options?.absence && { absence: options.absence }),
+  };
 }

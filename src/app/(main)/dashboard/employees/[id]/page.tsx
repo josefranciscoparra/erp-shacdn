@@ -45,6 +45,7 @@ import { features } from "@/config/features";
 import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
+import { getEmployeeCurrentAssignment } from "@/server/actions/schedules-v2";
 import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/stores/documents-store";
 
 import { EmployeeExpenseApprover } from "./_components/employee-expense-approver";
@@ -158,6 +159,10 @@ export default function EmployeeProfilePage() {
   const [isPtoLoading, setIsPtoLoading] = useState(false);
   const [canManagePto, setCanManagePto] = useState(false);
 
+  // Estado para asignación de horario V2
+  const [scheduleAssignment, setScheduleAssignment] = useState<any>(null);
+  const [isScheduleLoading, setIsScheduleLoading] = useState(false);
+
   // Estado para documentos
   const {
     documents,
@@ -247,6 +252,19 @@ export default function EmployeeProfilePage() {
     await fetchDocuments(params.id as string);
   };
 
+  const loadScheduleAssignment = async () => {
+    if (!params.id) return;
+    setIsScheduleLoading(true);
+    try {
+      const assignment = await getEmployeeCurrentAssignment(params.id as string);
+      setScheduleAssignment(assignment);
+    } catch (error) {
+      console.error("Error al cargar asignación de horario:", error);
+    } finally {
+      setIsScheduleLoading(false);
+    }
+  };
+
   const handleMainTabChange = (value: string) => {
     const matchedTab = availableMainTabs.find((tab) => tab.value === value);
     const fallbackValue: MainTabValue = availableMainTabs[0]?.value ?? "information";
@@ -263,6 +281,9 @@ export default function EmployeeProfilePage() {
     }
     if (nextValue === "documents" && documents.length === 0) {
       loadDocuments();
+    }
+    if (nextValue === "contract" && !scheduleAssignment) {
+      loadScheduleAssignment();
     }
   };
 
@@ -611,69 +632,170 @@ export default function EmployeeProfilePage() {
           {activeContract ? (
             <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg">
-                  <Building2 className="mr-2 inline h-5 w-5" />
-                  Contrato Vigente
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">
+                    <Building2 className="mr-2 inline h-5 w-5" />
+                    Situación Laboral
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => router.push(`/dashboard/employees/${employee.id}/schedules`)}
+                  >
+                    <Clock className="mr-2 h-4 w-4" />
+                    Gestionar Horario
+                  </Button>
+                </div>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-4 @4xl/main:grid-cols-2">
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Tipo:</span>
-                      <Badge variant="outline">{activeContract.contractType}</Badge>
-                    </div>
-
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Inicio:</span>
-                      <span className="text-sm">{formatDate(activeContract.startDate)}</span>
-                    </div>
-
-                    {activeContract.endDate && (
+              <CardContent className="space-y-6">
+                {/* Grid de 3 columnas en desktop */}
+                <div className="grid gap-6 @2xl/main:grid-cols-3">
+                  {/* Columna 1: Contrato */}
+                  <div className="space-y-4">
+                    <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Contrato</h4>
+                    <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Fin:</span>
-                        <span className="text-sm">{formatDate(activeContract.endDate)}</span>
+                        <span className="text-muted-foreground text-sm">Tipo:</span>
+                        <Badge variant="outline">{activeContract.contractType}</Badge>
                       </div>
-                    )}
-
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground text-sm">Jornada:</span>
-                      <span className="text-sm">{activeContract.weeklyHours}h/semana</span>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground text-sm">Inicio:</span>
+                        <span className="text-sm">{formatDate(activeContract.startDate)}</span>
+                      </div>
+                      {activeContract.endDate && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Fin:</span>
+                          <span className="text-sm">{formatDate(activeContract.endDate)}</span>
+                        </div>
+                      )}
+                      {activeContract.grossSalary && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Salario bruto:</span>
+                          <span className="text-sm font-medium text-green-600">
+                            {formatCurrency(activeContract.grossSalary)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    {activeContract.position && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Puesto:</span>
-                        <span className="text-sm font-medium">{activeContract.position.title}</span>
-                      </div>
-                    )}
+                  {/* Columna 2: Organización */}
+                  <div className="space-y-4">
+                    <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">
+                      Organización
+                    </h4>
+                    <div className="space-y-3">
+                      {activeContract.position ? (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Puesto:</span>
+                          <span className="text-sm font-medium">{activeContract.position.title}</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Puesto:</span>
+                          <span className="text-muted-foreground text-sm">—</span>
+                        </div>
+                      )}
+                      {activeContract.department ? (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Departamento:</span>
+                          <span className="text-sm">{activeContract.department.name}</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Departamento:</span>
+                          <span className="text-muted-foreground text-sm">—</span>
+                        </div>
+                      )}
+                      {activeContract.costCenter ? (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Centro:</span>
+                          <span className="text-sm">{activeContract.costCenter.name}</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Centro:</span>
+                          <span className="text-muted-foreground text-sm">—</span>
+                        </div>
+                      )}
+                      {employee.team && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Equipo:</span>
+                          <span className="text-sm font-medium">{employee.team.name}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
 
-                    {activeContract.department && (
+                  {/* Columna 3: Jornada y Horario */}
+                  <div className="space-y-4">
+                    <h4 className="text-muted-foreground text-xs font-semibold tracking-wider uppercase">Jornada</h4>
+                    <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Departamento:</span>
-                        <span className="text-sm">{activeContract.department.name}</span>
+                        <span className="text-muted-foreground text-sm">Horas/semana:</span>
+                        <span className="text-sm font-medium">{activeContract.weeklyHours}h</span>
                       </div>
-                    )}
-
-                    {activeContract.costCenter && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Centro:</span>
-                        <span className="text-sm">{activeContract.costCenter.name}</span>
-                      </div>
-                    )}
-
-                    {activeContract.grossSalary && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground text-sm">Salario bruto:</span>
-                        <span className="text-sm font-medium text-green-600">
-                          {formatCurrency(activeContract.grossSalary)}
-                        </span>
-                      </div>
-                    )}
+                      {isScheduleLoading ? (
+                        <div className="flex items-center justify-end">
+                          <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground ml-2 text-xs">Cargando...</span>
+                        </div>
+                      ) : scheduleAssignment ? (
+                        <>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground text-sm">Tipo horario:</span>
+                            <Badge variant="outline" className="text-xs">
+                              {scheduleAssignment.assignmentType === "FIXED"
+                                ? "Fijo"
+                                : scheduleAssignment.assignmentType === "SHIFT"
+                                  ? "Turnos"
+                                  : scheduleAssignment.assignmentType}
+                            </Badge>
+                          </div>
+                          {scheduleAssignment.scheduleTemplate && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground text-sm">Plantilla:</span>
+                              <span className="text-sm">{scheduleAssignment.scheduleTemplate.name}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground text-sm">Desde:</span>
+                            <span className="text-sm">{formatDate(scheduleAssignment.validFrom)}</span>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground text-sm">Horario:</span>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="text-primary h-auto p-0 text-sm"
+                            onClick={() => router.push(`/dashboard/employees/${employee.id}/schedules/edit`)}
+                          >
+                            Asignar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Aviso de turnos (solo si es SHIFT) */}
+                {scheduleAssignment?.assignmentType === "SHIFT" && (
+                  <div className="rounded-lg border border-purple-200 bg-purple-50 p-3 dark:bg-purple-950/30">
+                    <p className="text-sm text-purple-700 dark:text-purple-300">
+                      Los turnos se gestionan desde{" "}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-purple-700 underline dark:text-purple-300"
+                        onClick={() => router.push("/dashboard/shifts")}
+                      >
+                        Gestión de Turnos
+                      </Button>
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -682,30 +804,6 @@ export default function EmployeeProfilePage() {
               title="Sin contrato activo"
               description="Este empleado no tiene un contrato laboral activo"
             />
-          )}
-
-          {/* Equipo de Trabajo */}
-          {employee.team && (
-            <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg">
-                  <Users className="mr-2 inline h-5 w-5" />
-                  Equipo de Trabajo
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground text-sm">Equipo:</span>
-                  <span className="text-sm font-medium">{employee.team.name}</span>
-                </div>
-                {employee.team.code && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground text-sm">Código:</span>
-                    <Badge variant="outline">{employee.team.code}</Badge>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           )}
         </TabsContent>
 

@@ -18,6 +18,7 @@ import { AssignEmployeesDialog } from "./_components/assign-employees-dialog";
 import { AssignedEmployeesList } from "./_components/assigned-employees-list";
 import { BulkAssignEmployeesDialog } from "./_components/bulk-assign-employees-dialog";
 import { CreatePeriodDialog } from "./_components/create-period-dialog";
+import { EditTemplateDialog } from "./_components/edit-template-dialog";
 import { ExceptionsTab } from "./_components/exceptions-tab";
 import { WeekScheduleEditor } from "./_components/week-schedule-editor";
 
@@ -97,9 +98,7 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
           <div className="flex gap-2">
             <AssignEmployeesDialog templateId={template.id} templateName={template.name} />
             <BulkAssignEmployeesDialog templateId={template.id} templateName={template.name} />
-            <Button variant="outline" size="sm">
-              Configuración
-            </Button>
+            <EditTemplateDialog template={template} />
           </div>
         </div>
       </div>

@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { type ScheduleFormData } from "@/components/schedules/schedule-form";
 import { StickyActionBar } from "@/components/wizard/sticky-action-bar";
 import { WizardSteps } from "@/components/wizard/wizard-steps";
 import { cn } from "@/lib/utils";
@@ -17,7 +16,7 @@ import { useEmployeesStore } from "@/stores/employees-store";
 
 import { WizardStep1Employee } from "./wizard-step-1-employee";
 import { WizardStep2Contract } from "./wizard-step-2-contract";
-import { WizardStep3Schedule } from "./wizard-step-3-schedule";
+import { type ScheduleAssignmentData, WizardStep3ScheduleV2 } from "./wizard-step-3-schedule-v2";
 
 const WIZARD_STEPS = [
   { label: "Empleado", description: "Datos personales" },
@@ -37,7 +36,7 @@ export function EmployeeWizard() {
   // Estado local para datos de cada paso (no se crean en BD hasta el final)
   const [employeeData, setEmployeeData] = useState<CreateEmployeeInput | null>(null);
   const [contractData, setContractData] = useState<CreateContractData | null>(null);
-  const [scheduleData, setScheduleData] = useState<ScheduleFormData | null>(null);
+  const [scheduleData, setScheduleData] = useState<ScheduleAssignmentData | null>(null);
 
   // Referencias a las funciones de submit de cada paso
   const step1SubmitRef = useRef<(() => void) | null>(null);
@@ -80,7 +79,7 @@ export function EmployeeWizard() {
   };
 
   // Paso 3: Guardar horarios y CREAR TODO en la base de datos
-  const handleScheduleSubmit = async (data: ScheduleFormData | null) => {
+  const handleScheduleSubmit = async (data: ScheduleAssignmentData | null) => {
     if (!employeeData) {
       toast.error("Error", { description: "No se encontraron los datos del empleado" });
       return;
@@ -93,14 +92,22 @@ export function EmployeeWizard() {
 
     setIsLoading(true);
     try {
-      // Combinar todos los datos en un único payload
+      // Combinar todos los datos en un unico payload
       const wizardPayload = {
         employee: employeeData,
         contract: {
           ...contractData,
-          // Añadir datos de horarios si existen
-          ...(data ?? {}),
+          // Sobreescribir scheduleType si se seleccionó en el paso 3
+          scheduleType: data?.scheduleType ?? contractData.scheduleType,
         },
+        // Asignacion de horario V2 (si se selecciono una plantilla FIXED)
+        schedule: data?.scheduleTemplateId
+          ? {
+              scheduleTemplateId: data.scheduleTemplateId,
+              validFrom: data.validFrom?.toISOString() ?? new Date().toISOString(),
+              assignmentType: data.scheduleType ?? "FIXED",
+            }
+          : null,
       };
 
       // CREAR TODO EN UNA TRANSACCIÓN ATÓMICA
@@ -249,7 +256,7 @@ export function EmployeeWizard() {
         )}
 
         {currentStep === 3 && (
-          <WizardStep3Schedule
+          <WizardStep3ScheduleV2
             onSubmit={handleScheduleSubmit}
             isLoading={isLoading}
             initialData={scheduleData ?? undefined}

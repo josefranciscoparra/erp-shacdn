@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ChevronDown, ChevronUp, Mail, Phone, User, CreditCard, Calendar as CalendarIcon } from "lucide-react";
@@ -29,6 +29,9 @@ export function WizardStep1Employee({
   initialData,
 }: WizardStep1EmployeeProps) {
   const [showMoreFields, setShowMoreFields] = useState(false);
+
+  // Ref para hacer scroll a los campos adicionales
+  const moreFieldsRef = useRef<HTMLDivElement>(null);
 
   const form = useForm<CreateEmployeeInput>({
     resolver: zodResolver(createEmployeeSchema),
@@ -86,6 +89,19 @@ export function WizardStep1Employee({
       });
     }
   }, [onTriggerSubmit, form]);
+
+  // Scroll suave a campos adicionales cuando se muestran
+  useEffect(() => {
+    if (showMoreFields && moreFieldsRef.current) {
+      // Pequeño delay para que el contenido se renderice primero
+      setTimeout(() => {
+        moreFieldsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }, 100);
+    }
+  }, [showMoreFields]);
 
   const handleSubmit = async (data: CreateEmployeeInput) => {
     await onSubmit(data);
@@ -307,7 +323,7 @@ export function WizardStep1Employee({
 
         {/* Campos Opcionales (colapsables) */}
         {showMoreFields && (
-          <div className="animate-in slide-in-from-top-4 space-y-6">
+          <div ref={moreFieldsRef} className="animate-in slide-in-from-top-4 space-y-6">
             {/* Nacionalidad */}
             <Card className="rounded-lg border shadow-xs">
               <CardHeader>

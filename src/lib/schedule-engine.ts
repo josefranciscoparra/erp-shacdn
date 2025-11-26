@@ -28,6 +28,23 @@ import type {
 } from "@/types/schedule";
 
 // ============================================================================
+// Debug Logger - Solo activo en desarrollo con DEBUG_SCHEDULE=true
+// ============================================================================
+
+/**
+ * Logger condicional para debugging del motor de horarios.
+ * Solo se activa si:
+ * - NODE_ENV === 'development' Y
+ * - DEBUG_SCHEDULE === 'true'
+ *
+ * Uso: DEBUG_SCHEDULE=true npm run dev
+ */
+const DEBUG_SCHEDULE = process.env.NODE_ENV === "development" && process.env.DEBUG_SCHEDULE === "true";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
+const scheduleLog = DEBUG_SCHEDULE ? console.log.bind(console) : (..._args: any[]) => {};
+
+// ============================================================================
 // Función Principal: Obtener Horario Efectivo (Rango) - OPTIMIZADA
 // ============================================================================
 
@@ -473,14 +490,14 @@ export async function getEffectiveSchedule(
 
   // 4. PRIORIDAD MEDIA: Obtener asignación activa del empleado
   const assignment = await getActiveAssignment(employeeId, date);
-  console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
+  scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
     hasAssignment: !!assignment,
     assignmentType: assignment?.assignmentType,
   });
 
   if (!assignment) {
     // 4b. FALLBACK CONTRATO: Si no hay asignación explícita, mirar el tipo de horario en el contrato
-    console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Sin asignación explícita, consultando contrato...");
+    scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Sin asignación explícita, consultando contrato...");
     return await getContractBasedSchedule(employeeId, date);
   }
 
@@ -521,7 +538,7 @@ export async function getEffectiveSchedule(
 
   // 6. OBTENER PATRÓN DEL DÍA DE LA SEMANA (0=Domingo, 1=Lunes, ..., 6=Sábado)
   const dayOfWeek = date.getDay();
-  console.log("🔍 [GET_EFFECTIVE_SCHEDULE] Buscando patrón del día:", {
+  scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Buscando patrón del día:", {
     date: date.toISOString(),
     dayOfWeek,
     dayName: ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"][dayOfWeek],
@@ -534,14 +551,14 @@ export async function getEffectiveSchedule(
 
   const pattern = period.workDayPatterns.find((p) => p.dayOfWeek === dayOfWeek);
 
-  console.log("📋 [GET_EFFECTIVE_SCHEDULE] Pattern encontrado:", {
+  scheduleLog("📋 [GET_EFFECTIVE_SCHEDULE] Pattern encontrado:", {
     found: !!pattern,
     isWorkingDay: pattern?.isWorkingDay,
     slotsCount: pattern?.timeSlots.length,
   });
 
   if (!pattern || !pattern.isWorkingDay) {
-    console.log("❌ [GET_EFFECTIVE_SCHEDULE] Sin patrón o día no laborable, retornando schedule vacío");
+    scheduleLog("❌ [GET_EFFECTIVE_SCHEDULE] Sin patrón o día no laborable, retornando schedule vacío");
     // Día no laboral (fin de semana, etc.)
     return {
       date,
@@ -564,6 +581,10 @@ export async function getEffectiveSchedule(
   }));
 
   // Calcular minutos esperados (suma de slots que NO sean descanso)
+  // ⚠️ NOTA IMPORTANTE: En HORARIOS NORMALES usamos !== "BREAK" intencionalmente
+  // para INCLUIR slots ON_CALL como tiempo computado (guardias cuentan).
+  // Esto es diferente a excepciones donde usamos === "WORK" para excluir ON_CALL.
+  // NO CAMBIAR esta lógica - afectaría cálculos históricos de vacaciones y banco de horas.
   let expectedMinutes = 0;
   for (const slot of effectiveSlots) {
     // Normalización defensiva para asegurar comparación correcta
@@ -818,6 +839,11 @@ function buildScheduleFromException(exception: any, date: Date): EffectiveSchedu
     }));
 
     // Calcular minutos esperados (suma de slots tipo WORK)
+    // ⚠️ NOTA IMPORTANTE: En EXCEPCIONES usamos === "WORK" intencionalmente
+    // para EXCLUIR slots ON_CALL de días festivos/especiales.
+    // Esto es diferente a horarios normales donde usamos !== "BREAK"
+    // para INCLUIR ON_CALL como tiempo computado.
+    // NO CAMBIAR esta lógica - afectaría cálculos históricos de vacaciones y banco de horas.
     const expectedMinutes = effectiveSlots
       .filter((slot) => slot.slotType === "WORK")
       .reduce((sum, slot) => sum + (slot.endMinutes - slot.startMinutes), 0);
@@ -870,7 +896,7 @@ async function getActiveAssignment(employeeId: string, date: Date) {
   const dateEnd = new Date(date);
   dateEnd.setHours(23, 59, 59, 999);
 
-  console.log("🔍 [GET_ASSIGNMENT] Buscando asignación:", {
+  scheduleLog("🔍 [GET_ASSIGNMENT] Buscando asignación:", {
     employeeId,
     date: date.toISOString(),
     dateStart: dateStart.toISOString(),
@@ -926,7 +952,7 @@ async function getActiveAssignment(employeeId: string, date: Date) {
   });
 
   if (assignment?.scheduleTemplate) {
-    console.log("📋 [GET_ASSIGNMENT] Template encontrado:", {
+    scheduleLog("📋 [GET_ASSIGNMENT] Template encontrado:", {
       templateId: assignment.scheduleTemplate.id,
       templateName: assignment.scheduleTemplate.name,
       templateType: assignment.scheduleTemplate.templateType,
@@ -935,7 +961,7 @@ async function getActiveAssignment(employeeId: string, date: Date) {
       firstPeriod: assignment.scheduleTemplate.periods?.[0],
     });
   } else {
-    console.log("❌ [GET_ASSIGNMENT] Template NO cargado a pesar de tener scheduleTemplateId");
+    scheduleLog("❌ [GET_ASSIGNMENT] Template NO cargado a pesar de tener scheduleTemplateId");
   }
 
   return assignment;
@@ -1012,7 +1038,7 @@ async function getActivePeriod(
   },
   date: Date,
 ) {
-  console.log("🔍 [GET_ACTIVE_PERIOD] Buscando período activo:", {
+  scheduleLog("🔍 [GET_ACTIVE_PERIOD] Buscando período activo:", {
     templateId: template.id,
     templateName: template.name,
     date: date.toISOString(),
@@ -1040,10 +1066,10 @@ async function getActivePeriod(
     return true;
   });
 
-  console.log("📋 [GET_ACTIVE_PERIOD] Períodos aplicables:", applicablePeriods.length);
+  scheduleLog("📋 [GET_ACTIVE_PERIOD] Períodos aplicables:", applicablePeriods.length);
 
   if (applicablePeriods.length === 0) {
-    console.log("❌ [GET_ACTIVE_PERIOD] No se encontraron períodos aplicables");
+    scheduleLog("❌ [GET_ACTIVE_PERIOD] No se encontraron períodos aplicables");
     return null;
   }
 

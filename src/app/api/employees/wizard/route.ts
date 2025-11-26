@@ -9,7 +9,7 @@ import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 
 // Schema de validación para el wizard completo
-// NOTA: Los horarios se gestionan en Sistema de Horarios V2.0, no en el wizard
+// NOTA: Los horarios se gestionan en Sistema de Horarios V2.0
 const wizardSchema = z.object({
   // Datos del empleado
   employee: z.object({
@@ -51,6 +51,15 @@ const wizardSchema = z.object({
     workingDaysPerWeek: z.number().default(5),
     scheduleType: z.enum(["FLEXIBLE", "FIXED", "SHIFT"]).optional().nullable(),
   }),
+  // Asignacion de horario V2 (opcional)
+  schedule: z
+    .object({
+      scheduleTemplateId: z.string(),
+      validFrom: z.string(), // ISO date string
+      assignmentType: z.enum(["FIXED", "SHIFT", "ROTATION", "FLEXIBLE"]).optional(),
+    })
+    .optional()
+    .nullable(),
 });
 
 export async function POST(request: Request) {
@@ -180,12 +189,48 @@ export async function POST(request: Request) {
         data: contractPayload,
       });
 
+      // 5. Crear asignacion de horario V2 (si se proporciono)
+      let scheduleAssignmentId: string | null = null;
+      console.log("📅 [WIZARD API] Verificando schedule data:", JSON.stringify(data.schedule, null, 2));
+      if (data.schedule?.scheduleTemplateId) {
+        console.log("📅 [WIZARD API] Creando asignacion de horario V2...");
+        // Determinar el tipo de asignación (por defecto FIXED si no se especifica)
+        const assignmentType = data.schedule.assignmentType ?? "FIXED";
+        console.log("📅 [WIZARD API] assignmentType:", assignmentType);
+        console.log("📅 [WIZARD API] scheduleTemplateId:", data.schedule.scheduleTemplateId);
+        console.log("📅 [WIZARD API] validFrom:", data.schedule.validFrom);
+        console.log("📅 [WIZARD API] employeeId:", employee.id);
+        console.log("📅 [WIZARD API] orgId:", currentUser.orgId);
+
+        try {
+          const scheduleAssignment = await tx.employeeScheduleAssignment.create({
+            data: {
+              employeeId: employee.id,
+              scheduleTemplateId: data.schedule.scheduleTemplateId,
+              assignmentType,
+              validFrom: new Date(data.schedule.validFrom),
+              isActive: true,
+            },
+          });
+          scheduleAssignmentId = scheduleAssignment.id;
+          console.log("✅ [WIZARD API] Asignacion de horario creada:", scheduleAssignmentId);
+        } catch (scheduleError: any) {
+          console.error("❌ [WIZARD API] Error creando asignacion de horario:", scheduleError);
+          console.error("❌ [WIZARD API] Error code:", scheduleError.code);
+          console.error("❌ [WIZARD API] Error message:", scheduleError.message);
+          throw scheduleError;
+        }
+      } else {
+        console.log("📅 [WIZARD API] No se creará asignación de horario (schedule es null o no tiene templateId)");
+      }
+
       return {
         employeeId: employee.id,
         contractId: contract.id,
         userId,
         temporaryPassword,
         userWasCreated: !!userId,
+        scheduleAssignmentId,
       };
     });
 

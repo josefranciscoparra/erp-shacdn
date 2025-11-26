@@ -2,15 +2,53 @@
 
 import { useEffect, useState } from "react";
 
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
-import { Loader2, AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Calendar as CalendarIcon,
+  Clock,
+  ExternalLink,
+  Info,
+  Loader2,
+  RotateCcw,
+  Save,
+  Users,
+} from "lucide-react";
 import { toast } from "sonner";
 
-import { WizardStep3Schedule } from "@/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { useContractsStore } from "@/stores/contracts-store";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
+import {
+  assignScheduleToEmployee,
+  endEmployeeAssignment,
+  getEmployeeCurrentAssignment,
+  getScheduleTemplates,
+} from "@/server/actions/schedules-v2";
+
+interface ScheduleTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  templateType: "FIXED" | "SHIFT" | "ROTATION" | "FLEXIBLE";
+  weeklyHours: number | null;
+  isActive: boolean;
+  _count?: {
+    employeeAssignments: number;
+  };
+}
 
 interface Employee {
   id: string;
@@ -18,60 +56,63 @@ interface Employee {
   firstName: string;
   lastName: string;
   secondLastName: string | null;
-  employmentContracts: Array<{
-    id: string;
-    active: boolean;
-  }>;
 }
 
-export default function EditSchedulePage() {
+interface CurrentAssignment {
+  id: string;
+  assignmentType: string;
+  scheduleTemplateId: string | null;
+  validFrom: Date;
+  validTo: Date | null;
+  scheduleTemplate: { id: string; name: string } | null;
+}
+
+export default function EditEmployeeSchedulePage() {
   const params = useParams();
   const router = useRouter();
+
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [contract, setContract] = useState<any>(null);
+  const [currentAssignment, setCurrentAssignment] = useState<CurrentAssignment | null>(null);
+  const [templates, setTemplates] = useState<ScheduleTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { updateContract, isUpdating } = useContractsStore();
+
+  // Form state
+  const [scheduleType, setScheduleType] = useState<"FIXED" | "SHIFT" | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [validFrom, setValidFrom] = useState<Date>(new Date());
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setIsLoading(true);
-
-        // Cargar empleado
-        const employeeRes = await fetch(`/api/employees/${params.id}`, {
-          cache: "no-store", // Fuerza fetch sin cache
-          headers: {
-            "Cache-Control": "no-cache",
-          },
+        // Fetch employee data
+        const employeeResponse = await fetch(`/api/employees/${params.id}`, {
+          cache: "no-store",
+          headers: { "Cache-Control": "no-cache" },
         });
-        if (!employeeRes.ok) {
+        if (!employeeResponse.ok) {
           throw new Error("Empleado no encontrado");
         }
-        const employeeData = await employeeRes.json();
+        const employeeData = await employeeResponse.json();
         setEmployee(employeeData);
 
-        // Encontrar contrato activo
-        const activeContract = employeeData.employmentContracts?.find((c: any) => c.active);
-        if (!activeContract) {
-          throw new Error("No hay contrato activo");
+        // Fetch current assignment
+        const assignmentData = await getEmployeeCurrentAssignment(params.id as string);
+        if (assignmentData) {
+          setCurrentAssignment(assignmentData as CurrentAssignment);
+          setScheduleType(assignmentData.assignmentType as "FIXED" | "SHIFT");
+          setSelectedTemplateId(assignmentData.scheduleTemplateId);
         }
 
-        // Cargar contrato completo
-        const contractRes = await fetch(`/api/contracts/${activeContract.id}`, {
-          cache: "no-store", // Fuerza fetch sin cache
-          headers: {
-            "Cache-Control": "no-cache",
-          },
-        });
-        if (!contractRes.ok) {
-          throw new Error("Error al cargar contrato");
-        }
-        const contractData = await contractRes.json();
-        setContract(contractData);
-      } catch (error: any) {
-        setError(error.message);
-        toast.error("Error", { description: error.message });
+        // Fetch available templates (only FIXED type)
+        const templatesData = await getScheduleTemplates({ isActive: true });
+        const fixedTemplates = templatesData.filter((t: ScheduleTemplate) => t.templateType === "FIXED");
+        setTemplates(fixedTemplates);
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+        setError(errorMessage);
+        toast.error("Error", { description: errorMessage });
       } finally {
         setIsLoading(false);
       }
@@ -82,37 +123,47 @@ export default function EditSchedulePage() {
     }
   }, [params.id]);
 
-  const handleSubmit = async (data: any) => {
-    console.log("🔴 handleSubmit EDIT PAGE - data recibida:", data);
-    if (!contract) return;
+  const handleSave = async () => {
+    if (!scheduleType) {
+      toast.error("Error", { description: "Selecciona un tipo de horario" });
+      return;
+    }
 
+    setIsSaving(true);
     try {
-      // Preparar payload con TODOS los campos del wizard (incluyendo FIXED)
-      const payload = {
-        // Mantener campos existentes del contrato
-        contractType: contract.contractType,
-        startDate: contract.startDate?.split("T")[0] ?? "",
-        endDate: contract.endDate ? contract.endDate.split("T")[0] : null,
-        grossSalary: contract.grossSalary ? Number(contract.grossSalary) : null,
-        positionId: contract.position?.id ?? null,
-        departmentId: contract.department?.id ?? null,
-        costCenterId: contract.costCenter?.id ?? null,
-        managerId: contract.manager?.id ?? null,
-        // Actualizar TODOS los campos de horarios del wizard
-        ...data,
-      };
+      // If there's a current assignment, end it first
+      if (currentAssignment) {
+        const endResult = await endEmployeeAssignment(
+          currentAssignment.id,
+          new Date(validFrom.getTime() - 24 * 60 * 60 * 1000), // Day before new assignment
+        );
+        if (!endResult.success) {
+          throw new Error(endResult.error ?? "Error al finalizar asignacion anterior");
+        }
+      }
 
-      console.log("🟠 Payload a enviar al servidor:", payload);
-      console.log("🟠 Contract ID:", contract.id);
-      await updateContract(contract.id, payload);
-      console.log("🟢 updateContract completado");
-      toast.success("Horarios actualizados exitosamente");
-      router.push(`/dashboard/employees/${params.id}/schedules`);
-    } catch (error: any) {
-      console.error("❌ Error en handleSubmit:", error);
-      toast.error("Error al actualizar horarios", {
-        description: error.message ?? "Ocurrió un error inesperado",
+      // Create new assignment
+      const result = await assignScheduleToEmployee({
+        employeeId: params.id as string,
+        assignmentType: scheduleType,
+        scheduleTemplateId: scheduleType === "FIXED" ? (selectedTemplateId ?? undefined) : undefined,
+        validFrom,
       });
+
+      if (!result.success) {
+        throw new Error(result.error ?? "Error al asignar horario");
+      }
+
+      toast.success("Horario actualizado", {
+        description: "El horario del empleado ha sido actualizado correctamente",
+      });
+
+      router.push(`/dashboard/employees/${params.id}/schedules`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Error desconocido";
+      toast.error("Error", { description: errorMessage });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -133,7 +184,7 @@ export default function EditSchedulePage() {
     );
   }
 
-  if (error || !employee || !contract) {
+  if (error || !employee) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
@@ -145,8 +196,8 @@ export default function EditSchedulePage() {
         />
         <EmptyState
           icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
-          title="Error al cargar horarios"
-          description={error ?? "No se pudieron cargar los horarios"}
+          title="Error al cargar datos"
+          description={error ?? "No se pudieron cargar los datos del empleado"}
         />
       </div>
     );
@@ -154,129 +205,210 @@ export default function EditSchedulePage() {
 
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
-  // Convertir datos del contrato a formato del formulario
-  const toNumber = (value: any): number | undefined => {
-    if (value === null || value === undefined || value === "") return undefined;
-    const num = Number(value);
-    return Number.isNaN(num) ? undefined : num;
-  };
-
-  // Preparar TODOS los datos iniciales del contrato (incluye campos FIXED)
-  const initialData = {
-    // Tipo de horario
-    scheduleType: contract.scheduleType ?? "FLEXIBLE",
-    // Campos FLEXIBLE
-    weeklyHours: toNumber(contract.weeklyHours) ?? 40,
-    workingDaysPerWeek: toNumber(contract.workingDaysPerWeek) ?? 5,
-    hasCustomWeeklyPattern: contract.hasCustomWeeklyPattern ?? false,
-    mondayHours: toNumber(contract.mondayHours),
-    tuesdayHours: toNumber(contract.tuesdayHours),
-    wednesdayHours: toNumber(contract.wednesdayHours),
-    thursdayHours: toNumber(contract.thursdayHours),
-    fridayHours: toNumber(contract.fridayHours),
-    saturdayHours: toNumber(contract.saturdayHours),
-    sundayHours: toNumber(contract.sundayHours),
-    // Campos FIXED - Días laborables
-    workMonday: contract.workMonday ?? false,
-    workTuesday: contract.workTuesday ?? false,
-    workWednesday: contract.workWednesday ?? false,
-    workThursday: contract.workThursday ?? false,
-    workFriday: contract.workFriday ?? false,
-    workSaturday: contract.workSaturday ?? false,
-    workSunday: contract.workSunday ?? false,
-    hasFixedTimeSlots: contract.hasFixedTimeSlots ?? false,
-    // Campos FIXED - Franjas horarias normales
-    mondayStartTime: contract.mondayStartTime ?? null,
-    mondayEndTime: contract.mondayEndTime ?? null,
-    tuesdayStartTime: contract.tuesdayStartTime ?? null,
-    tuesdayEndTime: contract.tuesdayEndTime ?? null,
-    wednesdayStartTime: contract.wednesdayStartTime ?? null,
-    wednesdayEndTime: contract.wednesdayEndTime ?? null,
-    thursdayStartTime: contract.thursdayStartTime ?? null,
-    thursdayEndTime: contract.thursdayEndTime ?? null,
-    fridayStartTime: contract.fridayStartTime ?? null,
-    fridayEndTime: contract.fridayEndTime ?? null,
-    saturdayStartTime: contract.saturdayStartTime ?? null,
-    saturdayEndTime: contract.saturdayEndTime ?? null,
-    sundayStartTime: contract.sundayStartTime ?? null,
-    sundayEndTime: contract.sundayEndTime ?? null,
-    // Campos FIXED - Pausas normales
-    mondayBreakStartTime: contract.mondayBreakStartTime ?? null,
-    mondayBreakEndTime: contract.mondayBreakEndTime ?? null,
-    tuesdayBreakStartTime: contract.tuesdayBreakStartTime ?? null,
-    tuesdayBreakEndTime: contract.tuesdayBreakEndTime ?? null,
-    wednesdayBreakStartTime: contract.wednesdayBreakStartTime ?? null,
-    wednesdayBreakEndTime: contract.wednesdayBreakEndTime ?? null,
-    thursdayBreakStartTime: contract.thursdayBreakStartTime ?? null,
-    thursdayBreakEndTime: contract.thursdayBreakEndTime ?? null,
-    fridayBreakStartTime: contract.fridayBreakStartTime ?? null,
-    fridayBreakEndTime: contract.fridayBreakEndTime ?? null,
-    saturdayBreakStartTime: contract.saturdayBreakStartTime ?? null,
-    saturdayBreakEndTime: contract.saturdayBreakEndTime ?? null,
-    sundayBreakStartTime: contract.sundayBreakStartTime ?? null,
-    sundayBreakEndTime: contract.sundayBreakEndTime ?? null,
-    // Jornada intensiva
-    hasIntensiveSchedule: contract.hasIntensiveSchedule ?? false,
-    intensiveStartDate: contract.intensiveStartDate ?? "",
-    intensiveEndDate: contract.intensiveEndDate ?? "",
-    intensiveWeeklyHours: toNumber(contract.intensiveWeeklyHours),
-    // Campos FLEXIBLE intensiva (legacy)
-    intensiveMondayHours: toNumber(contract.intensiveMondayHours),
-    intensiveTuesdayHours: toNumber(contract.intensiveTuesdayHours),
-    intensiveWednesdayHours: toNumber(contract.intensiveWednesdayHours),
-    intensiveThursdayHours: toNumber(contract.intensiveThursdayHours),
-    intensiveFridayHours: toNumber(contract.intensiveFridayHours),
-    intensiveSaturdayHours: toNumber(contract.intensiveSaturdayHours),
-    intensiveSundayHours: toNumber(contract.intensiveSundayHours),
-    // Campos FIXED - Franjas horarias intensivas
-    intensiveMondayStartTime: contract.intensiveMondayStartTime ?? null,
-    intensiveMondayEndTime: contract.intensiveMondayEndTime ?? null,
-    intensiveTuesdayStartTime: contract.intensiveTuesdayStartTime ?? null,
-    intensiveTuesdayEndTime: contract.intensiveTuesdayEndTime ?? null,
-    intensiveWednesdayStartTime: contract.intensiveWednesdayStartTime ?? null,
-    intensiveWednesdayEndTime: contract.intensiveWednesdayEndTime ?? null,
-    intensiveThursdayStartTime: contract.intensiveThursdayStartTime ?? null,
-    intensiveThursdayEndTime: contract.intensiveThursdayEndTime ?? null,
-    intensiveFridayStartTime: contract.intensiveFridayStartTime ?? null,
-    intensiveFridayEndTime: contract.intensiveFridayEndTime ?? null,
-    intensiveSaturdayStartTime: contract.intensiveSaturdayStartTime ?? null,
-    intensiveSaturdayEndTime: contract.intensiveSaturdayEndTime ?? null,
-    intensiveSundayStartTime: contract.intensiveSundayStartTime ?? null,
-    intensiveSundayEndTime: contract.intensiveSundayEndTime ?? null,
-    // Campos FIXED - Pausas intensivas
-    intensiveMondayBreakStartTime: contract.intensiveMondayBreakStartTime ?? null,
-    intensiveMondayBreakEndTime: contract.intensiveMondayBreakEndTime ?? null,
-    intensiveTuesdayBreakStartTime: contract.intensiveTuesdayBreakStartTime ?? null,
-    intensiveTuesdayBreakEndTime: contract.intensiveTuesdayBreakEndTime ?? null,
-    intensiveWednesdayBreakStartTime: contract.intensiveWednesdayBreakStartTime ?? null,
-    intensiveWednesdayBreakEndTime: contract.intensiveWednesdayBreakEndTime ?? null,
-    intensiveThursdayBreakStartTime: contract.intensiveThursdayBreakStartTime ?? null,
-    intensiveThursdayBreakEndTime: contract.intensiveThursdayBreakEndTime ?? null,
-    intensiveFridayBreakStartTime: contract.intensiveFridayBreakStartTime ?? null,
-    intensiveFridayBreakEndTime: contract.intensiveFridayBreakEndTime ?? null,
-    intensiveSaturdayBreakStartTime: contract.intensiveSaturdayBreakStartTime ?? null,
-    intensiveSaturdayBreakEndTime: contract.intensiveSaturdayBreakEndTime ?? null,
-    intensiveSundayBreakStartTime: contract.intensiveSundayBreakStartTime ?? null,
-    intensiveSundayBreakEndTime: contract.intensiveSundayBreakEndTime ?? null,
-  };
-
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
-        title="Editar Horarios"
-        description={`Modificar horarios laborales de ${fullName}`}
+        title="Editar Horario"
+        description={`Cambiar la asignacion de horario de ${fullName}`}
         backButton={{
           href: `/dashboard/employees/${params.id}/schedules`,
           label: "Volver a horarios",
         }}
         badge={
-          employee.employeeNumber ? (
+          employee.employeeNumber && (
             <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
-          ) : undefined
+          )
         }
       />
 
-      <WizardStep3Schedule initialData={initialData} onSubmit={handleSubmit} isLoading={isUpdating} isEditMode={true} />
+      {/* Current assignment info */}
+      {currentAssignment && (
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertTitle>Asignacion Actual</AlertTitle>
+          <AlertDescription>
+            {currentAssignment.scheduleTemplate
+              ? `Plantilla: ${currentAssignment.scheduleTemplate.name}`
+              : `Tipo: ${currentAssignment.assignmentType}`}{" "}
+            (desde {format(new Date(currentAssignment.validFrom), "dd/MM/yyyy", { locale: es })})
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Schedule type selector */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Clock className="h-5 w-5" />
+            Tipo de Jornada
+          </CardTitle>
+          <CardDescription>Selecciona como trabaja este empleado</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <RadioGroup
+            value={scheduleType ?? ""}
+            onValueChange={(value) => {
+              setScheduleType(value as "FIXED" | "SHIFT");
+              if (value === "SHIFT") {
+                setSelectedTemplateId(null);
+              }
+            }}
+            className="grid grid-cols-2 gap-4"
+          >
+            {/* Fixed schedule option */}
+            <div
+              className={cn(
+                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 p-6 transition-all",
+                scheduleType === "FIXED" ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40",
+              )}
+              onClick={() => setScheduleType("FIXED")}
+            >
+              <Clock className={cn("h-8 w-8", scheduleType === "FIXED" ? "text-primary" : "text-muted-foreground")} />
+              <div className="text-center">
+                <Label className="cursor-pointer text-base font-semibold">Horario Fijo</Label>
+                <p className="text-muted-foreground mt-1 text-xs">Mismo horario cada semana</p>
+              </div>
+              <RadioGroupItem value="FIXED" className="sr-only" />
+            </div>
+
+            {/* Shifts option */}
+            <div
+              className={cn(
+                "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 p-6 transition-all",
+                scheduleType === "SHIFT" ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40",
+              )}
+              onClick={() => {
+                setScheduleType("SHIFT");
+                setSelectedTemplateId(null);
+              }}
+            >
+              <RotateCcw
+                className={cn("h-8 w-8", scheduleType === "SHIFT" ? "text-primary" : "text-muted-foreground")}
+              />
+              <div className="text-center">
+                <Label className="cursor-pointer text-base font-semibold">Turnos</Label>
+                <p className="text-muted-foreground mt-1 text-xs">Turnos rotativos o variables</p>
+              </div>
+              <RadioGroupItem value="SHIFT" className="sr-only" />
+            </div>
+          </RadioGroup>
+        </CardContent>
+      </Card>
+
+      {/* Template selection for FIXED */}
+      {scheduleType === "FIXED" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Plantilla de Horario</CardTitle>
+            <CardDescription>Selecciona una plantilla de horario semanal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {templates.length === 0 ? (
+              <div className="py-8 text-center">
+                <p className="text-muted-foreground text-sm">No hay plantillas de horario fijo disponibles.</p>
+                <Button variant="outline" size="sm" className="mt-4" asChild>
+                  <Link href="/dashboard/schedules" target="_blank">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Crear Plantilla
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <RadioGroup value={selectedTemplateId ?? ""} onValueChange={setSelectedTemplateId} className="space-y-3">
+                {templates.map((template) => (
+                  <div
+                    key={template.id}
+                    className={cn(
+                      "flex items-start space-x-3 rounded-lg border p-4 transition-colors",
+                      selectedTemplateId === template.id && "border-primary bg-primary/5",
+                    )}
+                  >
+                    <RadioGroupItem value={template.id} id={template.id} className="mt-0.5" />
+                    <Label htmlFor={template.id} className="flex-1 cursor-pointer space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{template.name}</span>
+                        <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                          <Users className="h-3 w-3" />
+                          {template._count?.employeeAssignments ?? 0}
+                        </div>
+                      </div>
+                      {template.description && <p className="text-muted-foreground text-sm">{template.description}</p>}
+                      {template.weeklyHours && (
+                        <p className="text-muted-foreground text-xs">{template.weeklyHours}h semanales</p>
+                      )}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Shift type info */}
+      {scheduleType === "SHIFT" && (
+        <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/30">
+          <RotateCcw className="h-4 w-4 text-purple-600" />
+          <AlertTitle className="text-purple-800 dark:text-purple-200">Empleado de Turnos</AlertTitle>
+          <AlertDescription className="text-purple-700 dark:text-purple-300">
+            El empleado aparecera en{" "}
+            <Link href="/dashboard/shifts" target="_blank" className="font-medium underline">
+              Gestion de Turnos
+            </Link>{" "}
+            donde podras asignarle turnos semanalmente.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Valid from date */}
+      {scheduleType && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Fecha de Inicio</CardTitle>
+            <CardDescription>Indica desde que fecha aplica esta asignacion de horario</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full max-w-sm justify-start text-left font-normal",
+                    !validFrom && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {validFrom ? format(validFrom, "PPP", { locale: es }) : "Selecciona una fecha"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={validFrom}
+                  onSelect={(date) => date && setValidFrom(date)}
+                  initialFocus
+                  locale={es}
+                />
+              </PopoverContent>
+            </Popover>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={() => router.push(`/dashboard/employees/${params.id}/schedules`)}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Cancelar
+        </Button>
+        <Button
+          onClick={handleSave}
+          disabled={!scheduleType || (scheduleType === "FIXED" && !selectedTemplateId) || isSaving}
+        >
+          {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Guardar Cambios
+        </Button>
+      </div>
     </div>
   );
 }

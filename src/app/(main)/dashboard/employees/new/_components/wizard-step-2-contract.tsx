@@ -136,75 +136,79 @@ export function WizardStep2Contract({
         </div>
       )}
 
-      {/* Selector de Equipo - Siempre visible */}
-      <Card className="rounded-lg border shadow-xs">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Equipo de Trabajo
-          </CardTitle>
-          <CardDescription>Asigna el empleado a un equipo (opcional)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col gap-2">
-            <Label>Equipo (opcional)</Label>
-            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  role="combobox"
-                  className={cn("w-full justify-between", !teamId && "text-muted-foreground")}
-                >
-                  {teamId ? teams.find((team) => team.id === teamId)?.name : "Seleccionar equipo"}
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-full p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Buscar equipo..." />
-                  <CommandList>
-                    <CommandEmpty>{isTeamsLoading ? "Cargando equipos..." : "No se encontraron equipos"}</CommandEmpty>
-                    <CommandGroup>
-                      {/* Opción para limpiar selección */}
-                      {teamId && (
-                        <CommandItem
-                          value="__clear__"
-                          onSelect={() => {
-                            setTeamId("");
-                            setComboboxOpen(false);
-                          }}
-                        >
-                          <span className="text-muted-foreground italic">Sin equipo</span>
-                        </CommandItem>
-                      )}
-                      {teams.map((team) => (
-                        <CommandItem
-                          value={team.name}
-                          key={team.id}
-                          onSelect={() => {
-                            setTeamId(team.id);
-                            setComboboxOpen(false);
-                          }}
-                        >
-                          <Check className={cn("mr-2 h-4 w-4", team.id === teamId ? "opacity-100" : "opacity-0")} />
-                          <Users className="mr-2 h-4 w-4 opacity-50" />
-                          <div className="flex flex-col">
-                            <span>{team.name}</span>
-                            {team.code && <span className="text-muted-foreground text-xs">{team.code}</span>}
-                          </div>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-            <p className="text-muted-foreground text-sm">
-              El equipo ayuda a organizar empleados dentro de un mismo centro de coste
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Selector de Equipo - Solo visible si no se omite */}
+      {!skipContract && (
+        <Card className="rounded-lg border shadow-xs">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Equipo de Trabajo
+            </CardTitle>
+            <CardDescription>Asigna el empleado a un equipo (opcional)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-2">
+              <Label>Equipo (opcional)</Label>
+              <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className={cn("w-full justify-between", !teamId && "text-muted-foreground")}
+                  >
+                    {teamId ? teams.find((team) => team.id === teamId)?.name : "Seleccionar equipo"}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar equipo..." />
+                    <CommandList>
+                      <CommandEmpty>
+                        {isTeamsLoading ? "Cargando equipos..." : "No se encontraron equipos"}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {/* Opción para limpiar selección */}
+                        {teamId && (
+                          <CommandItem
+                            value="__clear__"
+                            onSelect={() => {
+                              setTeamId("");
+                              setComboboxOpen(false);
+                            }}
+                          >
+                            <span className="text-muted-foreground italic">Sin equipo</span>
+                          </CommandItem>
+                        )}
+                        {teams.map((team) => (
+                          <CommandItem
+                            value={team.name}
+                            key={team.id}
+                            onSelect={() => {
+                              setTeamId(team.id);
+                              setComboboxOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", team.id === teamId ? "opacity-100" : "opacity-0")} />
+                            <Users className="mr-2 h-4 w-4 opacity-50" />
+                            <div className="flex flex-col">
+                              <span>{team.name}</span>
+                              {team.code && <span className="text-muted-foreground text-xs">{team.code}</span>}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              <p className="text-muted-foreground text-sm">
+                El equipo ayuda a organizar empleados dentro de un mismo centro de coste
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Formulario oculto para manejar el submit cuando skipContract está true */}
       {skipContract && (
