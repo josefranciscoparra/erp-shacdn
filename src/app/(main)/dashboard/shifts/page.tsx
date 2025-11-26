@@ -37,16 +37,14 @@ import { CalendarMonthEmployee } from "./_components/calendar-month-employee";
 import { CalendarWeekArea } from "./_components/calendar-week-area";
 import { CalendarWeekEmployee } from "./_components/calendar-week-employee";
 import { ConflictsPanel } from "./_components/conflicts-panel";
-import { EmptyState, EmptyFiltersState, EmptyStateLoading } from "./_components/empty-states";
+import { EmptyStateLoading } from "./_components/empty-states";
 import { MobileViewWarning } from "./_components/mobile-view-warning";
-import { PublishBar } from "./_components/publish-bar";
 import { ShiftDialog } from "./_components/shift-dialog";
 import { ShiftsDashboard } from "./_components/shifts-dashboard";
-import { ShiftsFiltersBar } from "./_components/shifts-filters-bar";
+import { ShiftsHeader } from "./_components/shifts-header";
 import { TemplateApplyDialog } from "./_components/template-apply-dialog";
 import { TemplateDialog } from "./_components/template-dialog";
 import { TemplatesTable } from "./_components/templates-table";
-import { WeekNavigator } from "./_components/week-navigator";
 import { ZoneDialog } from "./_components/zone-dialog";
 import { ZonesTable } from "./_components/zones-table";
 import { useShiftsStore } from "./_store/shifts-store";
@@ -110,79 +108,83 @@ export default function ShiftsPage() {
   }
 
   return (
-    <div className="@container/main flex flex-col gap-6">
-      <SectionHeader
-        title="Gestión de Turnos"
-        description="Organiza los turnos rotativos de tu equipo de forma eficiente."
-      />
-
+    <div className="flex h-[calc(100vh-4rem)] flex-col gap-6">
       {/* Tabs principales */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        {/* Select para móvil */}
-        <div className="block md:hidden">
-          <Select value={activeTab} onValueChange={setActiveTab}>
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Seleccionar vista" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="calendar">Cuadrante</SelectItem>
-              <SelectItem value="templates">Plantillas</SelectItem>
-              <SelectItem value="config">Configuración</SelectItem>
-              <SelectItem value="dashboard">Dashboard</SelectItem>
-            </SelectContent>
-          </Select>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold tracking-tight">Gestión de Turnos</h1>
+
+            {/* TabsList para desktop */}
+            <TabsList className="hidden h-9 md:inline-flex">
+              <TabsTrigger value="calendar" className="text-xs">
+                Cuadrante
+              </TabsTrigger>
+              <TabsTrigger value="templates" className="text-xs">
+                <FileText className="mr-2 h-3.5 w-3.5" />
+                Plantillas
+              </TabsTrigger>
+              <TabsTrigger value="config" className="text-xs">
+                <Settings className="mr-2 h-3.5 w-3.5" />
+                Configuración
+              </TabsTrigger>
+              <TabsTrigger value="dashboard" className="text-xs">
+                <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
+                Dashboard
+              </TabsTrigger>
+            </TabsList>
+          </div>
+
+          {/* Select para móvil */}
+          <div className="block w-[150px] md:hidden">
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Seleccionar vista" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="calendar">Cuadrante</SelectItem>
+                <SelectItem value="templates">Plantillas</SelectItem>
+                <SelectItem value="config">Configuración</SelectItem>
+                <SelectItem value="dashboard">Dashboard</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
-        {/* TabsList para desktop */}
-        <TabsList className="hidden md:inline-flex">
-          <TabsTrigger value="calendar">Cuadrante</TabsTrigger>
-          <TabsTrigger value="templates">
-            <FileText className="mr-2 h-4 w-4" />
-            Plantillas
-          </TabsTrigger>
-          <TabsTrigger value="config">
-            <Settings className="mr-2 h-4 w-4" />
-            Configuración
-          </TabsTrigger>
-          <TabsTrigger value="dashboard">
-            <LayoutDashboard className="mr-2 h-4 w-4" />
-            Dashboard
-          </TabsTrigger>
-        </TabsList>
-
         {/* Tab: Cuadrante */}
-        <TabsContent value="calendar" className="space-y-6">
+        <TabsContent value="calendar" className="flex min-h-0 flex-1 flex-col space-y-0 pb-4">
           {/* Vista móvil: Aviso */}
-          <div className="block md:hidden">
+          <div className="mb-4 block md:hidden">
             <MobileViewWarning
               title="Cuadrante disponible solo en PC"
-              description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente. Por favor, accede desde un ordenador o tablet."
+              description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente."
             />
           </div>
 
           {/* Vista desktop: Contenido completo */}
-          <div className="hidden space-y-6 md:block">
-            {/* Filtros con selector de vista integrado */}
-            <ShiftsFiltersBar />
-
-            {/* Barra de acciones masivas (Copiar/Publicar) */}
-            <PublishBar />
+          <div className="bg-background hidden min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-lg border shadow-sm md:flex">
+            {/* Nuevo Header Unificado */}
+            <ShiftsHeader />
 
             {/* Área de calendario */}
-            <div className="overflow-hidden rounded-lg border">
-              {/* Navegación de semana - sticky arriba del calendario */}
-              <WeekNavigator />
-
+            <div className="bg-muted/5 relative flex-1 overflow-hidden">
               {isLoading ? (
-                <div className="p-6">
+                <div className="flex justify-center p-6">
                   <EmptyStateLoading />
                 </div>
-              ) : shifts.length === 0 ? (
-                <div className="p-6">
-                  <EmptyState variant="shifts" onAction={() => openShiftDialog()} />
+              ) : shifts.length === 0 && !isLoading ? (
+                // Si no hay turnos, mostramos el EmptyState, pero el Header ya está visible para crear/filtrar
+                // Quizás queramos mostrar el grid vacío en lugar del EmptyState completo, para que puedan añadir.
+                // Vamos a mostrar el Grid directamente, el usuario puede añadir con el botón +
+                // Solo si no hay empleados mostramos empty state de empleados (manejado dentro del componente)
+                <div className="h-full w-full overflow-hidden p-4">
+                  {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
+                  {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
+                  {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+                  {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
                 </div>
               ) : (
-                <div className="p-6">
+                <div className="h-full w-full overflow-hidden p-4">
                   {/* Vistas de calendario */}
                   {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
 
@@ -194,22 +196,11 @@ export default function ShiftsPage() {
                 </div>
               )}
             </div>
-
-            {/* Barra de acciones masivas (movida al filtro superior) */}
           </div>
         </TabsContent>
 
         {/* Tab: Plantillas */}
         <TabsContent value="templates" className="space-y-6">
-          {/* Vista móvil: Aviso */}
-          <div className="block md:hidden">
-            <MobileViewWarning
-              title="Plantillas disponibles solo en PC"
-              description="La gestión de plantillas requiere una pantalla más grande para poder ver y editar los detalles correctamente. Por favor, accede desde un ordenador o tablet."
-            />
-          </div>
-
-          {/* Vista desktop: Contenido completo */}
           <div className="hidden md:block">
             <TemplatesTable />
           </div>
@@ -217,15 +208,6 @@ export default function ShiftsPage() {
 
         {/* Tab: Configuración */}
         <TabsContent value="config" className="space-y-6">
-          {/* Vista móvil: Aviso */}
-          <div className="block md:hidden">
-            <MobileViewWarning
-              title="Configuración disponible solo en PC"
-              description="La configuración de zonas y áreas requiere una pantalla más grande para poder gestionar los ajustes correctamente. Por favor, accede desde un ordenador o tablet."
-            />
-          </div>
-
-          {/* Vista desktop: Contenido completo */}
           <div className="hidden md:block">
             <ZonesTable />
           </div>

@@ -3,6 +3,7 @@
  *
  * Grid interactivo que muestra empleados en filas y días de la semana en columnas.
  * Soporta drag & drop de turnos entre empleados y días.
+ * Diseño optimizado con CSS Grid y Sticky Headers/Columns.
  */
 
 "use client";
@@ -21,11 +22,11 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { restrictToWindowEdges } from "@dnd-kit/modifiers";
-import { Plus, User, Loader2, Mail, Hash, Briefcase, Clock } from "lucide-react";
+import { Plus, User, Loader2, Briefcase, Mail, Hash } from "lucide-react";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -41,7 +42,7 @@ import type { Shift, EmployeeShift } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 import { RestDayCard } from "./rest-day-card";
-import { ShiftBlock, ShiftDropZone } from "./shift-block";
+import { ShiftBlock } from "./shift-block";
 
 export function CalendarWeekEmployee() {
   const {
@@ -64,7 +65,7 @@ export function CalendarWeekEmployee() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // Requiere arrastrar 8px antes de activar
+        distance: 8,
       },
     }),
   );
@@ -77,7 +78,7 @@ export function CalendarWeekEmployee() {
           fetchEmployees(employeesPage + 1);
         }
       },
-      { threshold: 0.5, rootMargin: "100px" },
+      { threshold: 0.1, rootMargin: "200px" },
     );
 
     if (loadMoreRef.current) {
@@ -90,31 +91,19 @@ export function CalendarWeekEmployee() {
   // Obtener días de la semana actual
   const weekDays = useMemo(() => getWeekDays(currentWeekStart), [currentWeekStart]);
 
-  // Filtrar empleados que usan sistema de turnos
+  // Filtrar empleados
   const filteredEmployees = useMemo(() => {
-    // IMPORTANTE: Si estamos filtrando localmente, la paginación del backend puede ser confusa
-    // porque podríamos traer 20 empleados y filtrar 18.
-    // Idealmente el filtro de CostCenter ya se aplica en backend.
-    // Mantenemos el filtro de "usesShiftSystem" por seguridad UI.
     return employees
       .filter((emp) => emp.usesShiftSystem)
       .filter((emp) => {
-        // Aplicar filtro de lugar si está activo
         if (filters.costCenterId) {
-          // Condición 1: El empleado pertenece al centro (ya filtrado en backend, pero validamos)
-          const isBaseCenter = emp.costCenterId === filters.costCenterId;
-
-          // NOTA: Si filtramos por CostCenter en backend, 'isBaseCenter' debería ser true para la mayoría.
-          // La condición de "tener turno en el centro" es compleja con paginación porque los turnos
-          // pueden no haberse cargado si el empleado no está en la página actual.
-          // Asumimos que el backend hace el trabajo pesado.
-          return isBaseCenter;
+          return emp.costCenterId === filters.costCenterId;
         }
         return true;
       });
   }, [employees, filters.costCenterId]);
 
-  // Agrupar turnos por empleado y día
+  // Agrupar turnos
   const shiftsGrid = useMemo(() => {
     const grid: Record<string, Record<string, Shift[]>> = {};
 
@@ -127,19 +116,18 @@ export function CalendarWeekEmployee() {
             (s) =>
               s.employeeId === emp.id &&
               s.date === dateISO &&
-              // Aplicar filtros adicionales
               (!filters.zoneId || s.zoneId === filters.zoneId) &&
               (!filters.role || s.role?.toLowerCase().includes(filters.role.toLowerCase())) &&
               (!filters.status || s.status === filters.status),
           )
-          .sort((a, b) => a.startTime.localeCompare(b.startTime)); // Ordenar por hora
+          .sort((a, b) => a.startTime.localeCompare(b.startTime));
       });
     });
 
     return grid;
   }, [filteredEmployees, weekDays, shifts, filters]);
 
-  // Calcular estadísticas por empleado (horas semanales)
+  // Estadísticas por empleado
   const employeeWeekStats = useMemo(() => {
     const stats: Record<string, { totalHours: number; shiftCount: number }> = {};
 
@@ -162,7 +150,7 @@ export function CalendarWeekEmployee() {
     return stats;
   }, [filteredEmployees, weekDays, shiftsGrid]);
 
-  // Handlers de drag & drop
+  // Handlers Drag & Drop
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     const shift = active.data.current?.shift as Shift | undefined;
@@ -182,48 +170,32 @@ export function CalendarWeekEmployee() {
 
     if (!shift || !dropTarget) return;
 
-    // Si es la misma celda, no hacer nada
     if (shift.employeeId === dropTarget.employeeId && shift.date === dropTarget.date) {
       return;
     }
 
-    // Buscar si hay turnos en la celda destino
     const targetShifts = shiftsGrid[dropTarget.employeeId]?.[dropTarget.date] ?? [];
 
     if (targetShifts.length > 0) {
-      // INTERCAMBIAR: Estrategia de 3 pasos para evitar violación de constraint UNIQUE(employeeId, date)
-      // El problema es que no podemos mover B a la posición de A si A todavía está allí (y viceversa).
-      // Solución: A -> Temp, B -> A, Temp -> B
-
-      const tempDate = "2000-01-01"; // Fecha segura temporal (lejana a la actual)
-      const targetShift = targetShifts[0]; // Asumimos 1 turno por día por constraint
+      // Swap Logic (Simplificada)
+      const tempDate = "2000-01-01";
+      const targetShift = targetShifts[0];
 
       try {
-        // 1. Mover turno Origen (A) a fecha temporal
-        // Mantenemos el mismo empleado para el paso temporal para minimizar cambios
         await moveShift(shift.id, shift.employeeId, tempDate);
-
-        // 2. Mover turno Destino (B) a la posición Original de A
         await moveShift(targetShift.id, shift.employeeId, shift.date);
-
-        // 3. Mover turno Origen (A) (desde Temp) a la posición Destino de B
         await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
       } catch (error) {
         console.error("Error during shift swap:", error);
-        // TODO: Manejar rollback si es necesario, aunque el estado UI debería reflejar el error
       }
     } else {
-      // Mover el turno arrastrado a la celda destino (Celda vacía)
       await moveShift(shift.id, dropTarget.employeeId, dropTarget.date);
     }
   };
 
-  // Handler para crear turno en celda vacía
   const handleCreateShift = (employeeId: string, date: string) => {
     const employee = filteredEmployees.find((e) => e.id === employeeId);
     if (!employee) return;
-
-    // Pre-rellenar datos con empleado y fecha
     openShiftDialog(undefined, {
       employeeId,
       date,
@@ -233,14 +205,14 @@ export function CalendarWeekEmployee() {
 
   if (filteredEmployees.length === 0) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed p-8 text-center">
-        <User className="text-muted-foreground h-12 w-12" />
+      <div className="bg-muted/10 flex min-h-[400px] flex-col items-center justify-center gap-4 rounded-lg border border-dashed p-8 text-center">
+        <User className="text-muted-foreground h-12 w-12 opacity-20" />
         <div>
-          <h3 className="text-lg font-semibold">No hay empleados con sistema de turnos</h3>
+          <h3 className="text-lg font-semibold">No hay empleados disponibles</h3>
           <p className="text-muted-foreground mt-1 text-sm">
             {filters.costCenterId
-              ? "No hay empleados en el lugar seleccionado que usen turnos."
-              : "No hay empleados configurados para usar el sistema de turnos."}
+              ? "No hay empleados en el centro seleccionado."
+              : "No se encontraron empleados que coincidan con los filtros."}
           </p>
         </div>
       </div>
@@ -255,166 +227,129 @@ export function CalendarWeekEmployee() {
       onDragEnd={handleDragEnd}
       modifiers={[restrictToWindowEdges]}
     >
-      <div className="overflow-x-auto">
-        <div className="min-w-[900px]">
-          {/* Header: Días de la semana */}
-          <div className="bg-background sticky top-0 z-10 grid grid-cols-8 gap-2 pb-2">
-            {/* Columna de empleados */}
-            <div className="flex items-center px-3 py-2">
-              <span className="text-sm font-semibold">Empleado</span>
-            </div>
-
-            {/* Columnas de días */}
-            {weekDays.map((day) => {
-              const isToday = formatDateISO(day) === formatDateISO(new Date());
-              return (
-                <div
-                  key={day.toString()}
-                  className={cn(
-                    "flex flex-col items-center justify-center rounded-lg border p-2 text-center",
-                    isToday && "border-primary bg-primary/5",
-                  )}
-                >
-                  <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
-                    {formatDateShort(day).split(" ")[0]}
-                  </span>
-                  <span className={cn("text-lg font-bold", isToday && "text-primary")}>
-                    {formatDateShort(day).split(" ")[1]}
-                  </span>
-                </div>
-              );
-            })}
+      <div className="bg-background relative h-[calc(100vh-220px)] w-full overflow-auto rounded-lg border shadow-sm">
+        {/* Grid Container */}
+        <div
+          className="grid min-w-max"
+          style={{
+            gridTemplateColumns: "260px repeat(7, minmax(160px, 1fr))",
+          }}
+        >
+          {/* HEADER ROW */}
+          <div className="bg-background sticky top-0 left-0 z-30 flex h-14 items-center border-r border-b px-4 text-sm font-semibold shadow-sm">
+            <span className="text-muted-foreground">Empleados ({filteredEmployees.length})</span>
           </div>
 
-          {/* Filas: Empleados */}
-          <div className="space-y-2">
-            {filteredEmployees.map((employee) => {
-              const stats = employeeWeekStats[employee.id];
-              const hasConflicts = weekDays.some((day) => {
-                const dayShifts = shiftsGrid[employee.id]?.[formatDateISO(day)] ?? [];
-                return dayShifts.some((s) => s.status === "conflict");
-              });
+          {weekDays.map((day) => {
+            const isToday = formatDateISO(day) === formatDateISO(new Date());
+            return (
+              <div
+                key={day.toString()}
+                className={cn(
+                  "bg-background sticky top-0 z-20 flex flex-col items-center justify-center border-r border-b p-2 text-center transition-colors",
+                  isToday && "bg-primary/5 shadow-[inset_0_-2px_0_0_hsl(var(--primary))]",
+                )}
+              >
+                <span className="text-muted-foreground text-[10px] font-medium tracking-wider uppercase">
+                  {formatDateShort(day).split(" ")[0]}
+                </span>
+                <span className={cn("text-lg leading-none font-semibold", isToday && "text-primary")}>
+                  {formatDateShort(day).split(" ")[1]}
+                </span>
+              </div>
+            );
+          })}
 
-              return (
-                <div key={employee.id} className="grid grid-cols-8 gap-2">
-                  {/* Columna: Nombre del empleado + Estadísticas */}
-                  <div className="bg-card flex flex-col justify-between rounded-lg border p-3">
-                    <div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button className="cursor-pointer text-left text-sm font-semibold hover:underline focus:outline-none">
-                            {employee.firstName} {employee.lastName}
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80" align="start">
-                          <div className="grid gap-4">
-                            <div className="space-y-2">
-                              <h4 className="text-lg leading-none font-medium">
-                                {employee.firstName} {employee.lastName}
-                              </h4>
-                              <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                                <Briefcase className="h-4 w-4" />
-                                <span>{employee.position ?? "Sin puesto definido"}</span>
-                              </div>
-                            </div>
-                            <div className="grid gap-3 border-t pt-3">
-                              <div className="flex items-center gap-3 text-sm">
-                                <Mail className="text-muted-foreground h-4 w-4" />
-                                <span className="truncate">{employee.email ?? "Sin email"}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-sm">
-                                <Hash className="text-muted-foreground h-4 w-4" />
-                                <span>ID: {employee.employeeNumber ?? "N/A"}</span>
-                              </div>
-                              <div className="flex items-center gap-3 text-sm">
-                                <Clock className="text-muted-foreground h-4 w-4" />
-                                <span>Contrato: {employee.contractHours}h / semana</span>
-                              </div>
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+          {/* EMPLOYEE ROWS */}
+          {filteredEmployees.map((employee) => {
+            const stats = employeeWeekStats[employee.id];
+            const initials = `${employee.firstName[0]}${employee.lastName[0]}`;
 
-                      {employee.costCenterId && (
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          {/* Aquí podríamos mostrar el nombre del lugar */}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Estadísticas de la semana */}
-                    <div className="mt-2 space-y-1">
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant={
-                                  stats.totalHours < employee.contractHours
-                                    ? "destructive"
-                                    : stats.totalHours > employee.contractHours * 1.1
-                                      ? "secondary"
-                                      : "default"
-                                }
-                                className="text-xs"
-                              >
-                                {formatDuration(stats.totalHours)}/{formatDuration(employee.contractHours)}
-                              </Badge>
-                              {hasConflicts && (
-                                <Badge variant="destructive" className="text-xs">
-                                  ⚠️
-                                </Badge>
-                              )}
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <div className="text-xs">
-                              <p>Total semana: {formatDuration(stats.totalHours)}</p>
-                              <p>Contrato: {formatDuration(employee.contractHours)}</p>
-                              <p>Turnos: {stats.shiftCount}</p>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+            return (
+              <>
+                {/* Employee Column (Sticky Left) */}
+                <div className="bg-background hover:bg-muted/50 group sticky left-0 z-10 flex flex-col justify-center border-r border-b px-4 py-3 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9 border">
+                      <AvatarImage src={employee.avatarUrl ?? undefined} />
+                      <AvatarFallback className="bg-primary/10 text-primary text-xs">{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col overflow-hidden">
+                      <span className="truncate text-sm leading-none font-medium">
+                        {employee.firstName} {employee.lastName}
+                      </span>
+                      <span className="text-muted-foreground mt-1 truncate text-xs">
+                        {employee.position ?? "Sin puesto"}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Columnas: Días (celdas de turnos) */}
-                  {weekDays.map((day) => {
-                    const dateISO = formatDateISO(day);
-                    const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
+                  <div className="mt-3 flex items-center justify-between text-xs">
+                    <div className="text-muted-foreground flex items-center gap-1.5" title="Horas Contrato">
+                      <Briefcase className="h-3 w-3" />
+                      <span>{employee.contractHours}h</span>
+                    </div>
 
-                    return (
-                      <ShiftCell
-                        key={`${employee.id}-${dateISO}`}
-                        employeeId={employee.id}
-                        date={dateISO}
-                        shifts={dayShifts}
-                        allShifts={shifts}
-                        activeShiftId={activeShift?.id}
-                        onCreateShift={() => handleCreateShift(employee.id, dateISO)}
-                        onEditShift={(shift) => openShiftDialog(shift)}
-                      />
-                    );
-                  })}
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Badge
+                            variant="secondary"
+                            className={cn(
+                              "h-5 px-1.5 font-normal",
+                              stats.totalHours < employee.contractHours
+                                ? "bg-orange-50 text-orange-600 dark:bg-orange-950/30 dark:text-orange-400"
+                                : stats.totalHours > employee.contractHours
+                                  ? "bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400"
+                                  : "bg-green-50 text-green-600 dark:bg-green-950/30 dark:text-green-400",
+                            )}
+                          >
+                            {formatDuration(stats.totalHours)}
+                          </Badge>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                          <p>Total semana: {formatDuration(stats.totalHours)}</p>
+                          <p>Contrato: {formatDuration(employee.contractHours)}</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
                 </div>
-              );
-            })}
 
-            {/* Sentry & Loading Indicator */}
-            {hasMoreEmployees && (
-              <div ref={loadMoreRef} className="flex justify-center py-4">
-                {isLoadingMoreEmployees && <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />}
-              </div>
-            )}
-          </div>
+                {/* Day Cells */}
+                {weekDays.map((day) => {
+                  const dateISO = formatDateISO(day);
+                  const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
+
+                  return (
+                    <ShiftCell
+                      key={`${employee.id}-${dateISO}`}
+                      employeeId={employee.id}
+                      date={dateISO}
+                      shifts={dayShifts}
+                      allShifts={shifts}
+                      activeShiftId={activeShift?.id}
+                      onCreateShift={() => handleCreateShift(employee.id, dateISO)}
+                      onEditShift={(shift) => openShiftDialog(shift)}
+                    />
+                  );
+                })}
+              </>
+            );
+          })}
+
+          {/* Loading Skeleton / Infinite Scroll Trigger */}
+          {hasMoreEmployees && (
+            <div ref={loadMoreRef} className="col-span-full flex justify-center border-t py-8">
+              {isLoadingMoreEmployees && <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Overlay de drag (muestra el turno mientras se arrastra) */}
       <DragOverlay>
         {activeShift ? (
-          <div className="rotate-2 opacity-90">
+          <div className="w-[150px] rotate-2 cursor-grabbing opacity-90">
             <ShiftBlock shift={activeShift} onClick={() => {}} isDraggable={false} />
           </div>
         ) : null}
@@ -424,7 +359,7 @@ export function CalendarWeekEmployee() {
 }
 
 /**
- * Celda individual del calendario (un día para un empleado)
+ * Celda individual del calendario
  */
 interface ShiftCellProps {
   employeeId: string;
@@ -445,40 +380,41 @@ function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreat
     },
   });
 
-  // Determinar si esta celda contiene el shift que se está arrastrando
   const containsActiveShift = shifts.some((s) => s.id === activeShiftId);
-
-  // Determinar el tipo de día vacío (descanso vs sin planificar)
   const emptyDayType = getEmptyDayType(date, allShifts, { employeeId });
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative min-h-[100px] rounded-lg border-2 p-2 transition-all",
-        isOver ? "border-primary bg-primary/5" : "bg-muted/30 border-transparent",
-        shifts.length === 0 && "hover:border-primary/50 hover:border-dashed",
-        (isOver || containsActiveShift) && "opacity-50",
+        "group relative flex min-h-[100px] flex-col gap-1 border-r border-b p-1.5 transition-colors",
+        isOver ? "bg-primary/5 ring-primary/20 ring-2 ring-inset" : "bg-background",
+        !isOver && shifts.length === 0 && "hover:bg-muted/30",
+        (isOver || containsActiveShift) && "opacity-60",
       )}
     >
-      {/* Turnos existentes */}
       {shifts.length > 0 ? (
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1.5">
           {shifts.map((shift) => (
             <ShiftBlock key={shift.id} shift={shift} onClick={() => onEditShift(shift)} isDraggable />
           ))}
         </div>
       ) : (
-        /* Celda vacía con tarjeta de descanso o sin planificar */
-        <div className="flex h-full min-h-[80px] flex-col items-center justify-center gap-2">
-          <RestDayCard type={emptyDayType} />
+        /* Empty State / Add Button */
+        <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 py-2">
+          {emptyDayType === "rest" && (
+            <div className="flex flex-col items-center justify-center opacity-40">
+              <span className="text-muted-foreground text-xs font-medium">Descanso</span>
+            </div>
+          )}
+
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
+            className="hover:bg-primary/10 hover:text-primary h-7 w-7 rounded-full opacity-0 transition-all group-hover:opacity-100"
             onClick={onCreateShift}
-            className="text-muted-foreground h-8 w-full opacity-0 transition-opacity group-hover:opacity-100"
           >
-            <Plus className="h-3 w-3" />
+            <Plus className="h-4 w-4" />
           </Button>
         </div>
       )}

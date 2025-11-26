@@ -3,20 +3,20 @@
  *
  * Representa visualmente un turno en el calendario.
  * Soporta drag & drop y muestra información relevante.
- * Muestra borde naranja/rojo si hay warnings.
+ * Diseño tipo "Pill" moderno (Factorial/Workday).
  */
 
 "use client";
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, Clock, Coffee } from "lucide-react";
+import { AlertTriangle, Clock, Coffee, Info } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { formatShiftTime, formatDuration, calculateDuration, getShiftStatusColor } from "../_lib/shift-utils";
+import { formatShiftTime, formatDuration, calculateDuration } from "../_lib/shift-utils";
 import type { Shift } from "../_lib/types";
 
 interface ShiftBlockProps {
@@ -50,24 +50,33 @@ export function ShiftBlock({
 
   const duration = calculateDuration(shift.startTime, shift.endTime);
   const isConflict = shift.status === "conflict";
+  const isDraft = shift.status === "draft";
 
   // Determinar estado de warnings
   const hasWarnings = shift.warnings && shift.warnings.length > 0;
   const hasErrors = shift.warnings?.some((w) => w.severity === "error");
   const hasOnlyWarnings = hasWarnings && !hasErrors;
 
-  // Determinar color del borde basado en warnings
-  const getBorderColor = () => {
-    if (isConflict || hasErrors) return "border-l-red-500";
-    if (hasOnlyWarnings) return "border-l-amber-500";
-    return "";
+  // Diseño de colores (Moderno)
+  // Draft: Gris/Outline con fondo suave
+  // Published: Color solido (Indigo/Blue)
+  // Conflict: Rojo solido o borde rojo fuerte
+
+  const getBaseClasses = () => {
+    if (isConflict || hasErrors) {
+      return "bg-red-100 border-red-200 text-red-900 hover:bg-red-200 dark:bg-red-900/40 dark:border-red-800 dark:text-red-100";
+    }
+    if (isDraft) {
+      return "bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 border-dashed border";
+    }
+    // Published (Default)
+    return "bg-indigo-100 border-indigo-200 text-indigo-900 hover:bg-indigo-200 dark:bg-indigo-900/40 dark:border-indigo-800 dark:text-indigo-100";
   };
 
-  // Determinar color de fondo basado en warnings
-  const getBgColor = () => {
-    if (isConflict || hasErrors) return "bg-red-50 dark:bg-red-950/30";
-    if (hasOnlyWarnings) return "bg-amber-50 dark:bg-amber-950/30";
-    return getShiftStatusColor(shift.status);
+  // Indicador de warning (borde o glow)
+  const getWarningClasses = () => {
+    if (hasOnlyWarnings) return "ring-1 ring-amber-400 ring-inset";
+    return "";
   };
 
   return (
@@ -84,92 +93,87 @@ export function ShiftBlock({
               onClick();
             }}
             className={cn(
-              "group relative cursor-pointer rounded-md border-l-4 p-2 shadow-sm transition-all hover:shadow-md",
-              hasWarnings ? getBgColor() : getShiftStatusColor(shift.status),
-              hasWarnings ? getBorderColor() : "",
-              isDragging && "ring-primary opacity-50 ring-2",
+              "group relative flex min-h-[3rem] w-full cursor-pointer flex-col justify-center rounded-md border px-2 py-1.5 text-xs shadow-sm transition-all",
+              getBaseClasses(),
+              getWarningClasses(),
+              isDragging && "ring-primary z-50 scale-105 opacity-50 shadow-lg ring-2",
               !isDraggable && "cursor-default",
-              "hover:brightness-110",
             )}
           >
-            {/* Badge de warning (esquina superior derecha) */}
-            {hasWarnings && !isConflict && (
-              <Badge
-                variant={hasErrors ? "destructive" : "outline"}
-                className={cn(
-                  "absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center gap-0.5 px-1 text-[10px]",
-                  hasOnlyWarnings &&
-                    "border-amber-500 bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300",
-                )}
-              >
-                <AlertTriangle className="h-2.5 w-2.5" />
-              </Badge>
-            )}
+            {/* Header: Hora */}
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-semibold tracking-tight">{formatShiftTime(shift.startTime, shift.endTime)}</span>
 
-            {/* Header: Tiempo + Badge estado */}
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <div className="text-foreground flex items-center gap-1 text-sm font-medium">
-                <Clock className="h-3 w-3" />
-                <span>{formatShiftTime(shift.startTime, shift.endTime)}</span>
-                {shift.breakMinutes && shift.breakMinutes > 0 && (
-                  <Coffee className="h-3 w-3" title={`${shift.breakMinutes} min descanso`} />
-                )}
+              {/* Iconos de estado mini */}
+              <div className="flex items-center gap-0.5">
+                {shift.breakMinutes && shift.breakMinutes > 0 && <Coffee className="h-3 w-3 opacity-70" />}
+                {isConflict && <AlertTriangle className="h-3.5 w-3.5 text-red-600 dark:text-red-400" />}
+                {hasOnlyWarnings && <Info className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />}
               </div>
-
-              {isConflict && <AlertTriangle className="text-destructive h-4 w-4" />}
             </div>
 
-            {/* Nombre empleado (si aplica) */}
-            {showEmployeeName && employeeName && (
-              <p className="text-foreground mb-1 text-xs font-medium">{employeeName}</p>
-            )}
+            {/* Details */}
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 opacity-90">
+              {/* Nombre empleado (si aplica) */}
+              {showEmployeeName && employeeName && (
+                <span className="block max-w-full truncate font-medium">{employeeName}</span>
+              )}
 
-            {/* Rol o zona */}
-            {shift.role && <p className="text-foreground line-clamp-1 text-xs">{shift.role}</p>}
+              {/* Rol/Zona */}
+              {shift.role && <span className="truncate opacity-80">{shift.role}</span>}
 
-            {/* Duración */}
-            <p className="text-foreground mt-1 text-xs">{formatDuration(duration)}</p>
-
-            {/* Badge de estado (solo conflictos, no mostrar draft) */}
-            {shift.status === "conflict" && (
-              <Badge variant="destructive" className="absolute top-1 right-1 text-xs">
-                Conflicto
-              </Badge>
-            )}
+              {/* Duración */}
+              {/* <span className="opacity-70">{formatDuration(duration)}</span> */}
+            </div>
           </div>
         </TooltipTrigger>
 
-        <TooltipContent side="top" className="max-w-xs">
-          <div className="space-y-1 text-sm">
-            <p className="font-semibold text-white">
-              {formatShiftTime(shift.startTime, shift.endTime)} ({formatDuration(duration)})
-            </p>
+        <TooltipContent side="right" className="z-50 max-w-xs p-3">
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between border-b pb-2">
+              <span className="font-semibold">{formatShiftTime(shift.startTime, shift.endTime)}</span>
+              <Badge variant="outline" className="h-5 text-[10px]">
+                {formatDuration(duration)}
+              </Badge>
+            </div>
+
             {shift.breakMinutes && shift.breakMinutes > 0 && (
-              <p className="flex items-center gap-1 text-xs text-white">
-                <Coffee className="h-3 w-3" />
+              <p className="text-muted-foreground flex items-center gap-2 text-xs">
+                <Coffee className="h-3.5 w-3.5" />
                 {shift.breakMinutes} min de descanso
               </p>
             )}
-            {shift.role && <p className="text-white">{shift.role}</p>}
-            {shift.notes && <p className="text-white italic">{shift.notes}</p>}
-            {isConflict && (
-              <p className="text-destructive flex items-center gap-1 font-medium">
-                <AlertTriangle className="h-3 w-3" />
-                Turno con conflictos
-              </p>
+
+            {shift.role && (
+              <div className="text-xs">
+                <span className="text-muted-foreground">Rol:</span> {shift.role}
+              </div>
             )}
-            {/* Mostrar warnings en el tooltip */}
-            {hasWarnings && !isConflict && (
-              <div className="border-t border-white/20 pt-1">
-                {shift.warnings!.map((w, i) => (
+
+            {shift.notes && (
+              <div className="bg-muted/50 text-muted-foreground rounded p-2 text-xs italic">
+                &ldquo;{shift.notes}&rdquo;
+              </div>
+            )}
+
+            {/* Conflicts/Warnings */}
+            {/* eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing */}
+            {(hasWarnings || isConflict) && (
+              <div className="space-y-1 pt-1">
+                {isConflict && (
+                  <p className="text-destructive flex items-center gap-1 text-xs font-medium">
+                    <AlertTriangle className="h-3 w-3" /> Conflicto grave
+                  </p>
+                )}
+                {shift.warnings?.map((w, i) => (
                   <p
                     key={i}
                     className={cn(
                       "flex items-center gap-1 text-xs",
-                      w.severity === "error" ? "text-red-300" : "text-amber-300",
+                      w.severity === "error" ? "text-destructive" : "text-amber-600 dark:text-amber-400",
                     )}
                   >
-                    <AlertTriangle className="h-3 w-3" />
+                    <Info className="h-3 w-3" />
                     {w.message}
                   </p>
                 ))}
@@ -194,13 +198,11 @@ export function ShiftDropZone({ isOver, canDrop }: ShiftDropZoneProps) {
   return (
     <div
       className={cn(
-        "flex h-full min-h-[60px] items-center justify-center rounded-md border-2 border-dashed transition-colors",
-        isOver && canDrop && "border-primary bg-primary/10",
+        "flex h-full min-h-[3rem] w-full items-center justify-center rounded-md border border-dashed transition-colors",
+        isOver && canDrop && "border-primary bg-primary/10 ring-primary/20 ring-1",
         isOver && !canDrop && "border-destructive bg-destructive/10",
         !isOver && "border-transparent",
       )}
-    >
-      {isOver && <p className="text-muted-foreground text-xs">{canDrop ? "Soltar aquí" : "No permitido"}</p>}
-    </div>
+    />
   );
 }
