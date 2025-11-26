@@ -177,9 +177,9 @@ export function NavMain({ items }: NavMainProps) {
     }
 
     // Caso especial para "Fichar": activo en /dashboard/me/clock y /dashboard/me/clock/requests
-    if (url === "/dashboard/me/clock") {
-      return path === "/dashboard/me/clock" || path.startsWith("/dashboard/me/clock/");
-    }
+    // if (url === "/dashboard/me/clock") {
+    //  return path === "/dashboard/me/clock" || path.startsWith("/dashboard/me/clock/");
+    // }
 
     // Para el resto: solo match exacto
     return path === url;
