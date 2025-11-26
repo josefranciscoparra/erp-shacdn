@@ -227,14 +227,14 @@ export function ShiftsHeader() {
               <ToggleGroupItem
                 value="week"
                 size="sm"
-                className="data-[state=on]:bg-background h-6 rounded-sm px-2 text-[10px] data-[state=on]:shadow-sm sm:text-xs"
+                className="dark:data-[state=on]:bg-background data-[state=on]:text-foreground text-muted-foreground hover:text-foreground h-6 rounded-sm px-2 text-[10px] transition-all data-[state=on]:bg-white data-[state=on]:font-medium data-[state=on]:shadow-sm sm:text-xs"
               >
                 Semana
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="month"
                 size="sm"
-                className="data-[state=on]:bg-background h-6 rounded-sm px-2 text-[10px] data-[state=on]:shadow-sm sm:text-xs"
+                className="dark:data-[state=on]:bg-background data-[state=on]:text-foreground text-muted-foreground hover:text-foreground h-6 rounded-sm px-2 text-[10px] transition-all data-[state=on]:bg-white data-[state=on]:font-medium data-[state=on]:shadow-sm sm:text-xs"
               >
                 Mes
               </ToggleGroupItem>
@@ -329,14 +329,14 @@ export function ShiftsHeader() {
             <ToggleGroupItem
               value="employee"
               size="sm"
-              className="data-[state=on]:bg-background h-7 rounded-sm px-2 text-xs data-[state=on]:shadow-sm"
+              className="dark:data-[state=on]:bg-background data-[state=on]:text-foreground text-muted-foreground hover:text-foreground h-7 rounded-sm px-2 text-xs transition-all data-[state=on]:bg-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
             >
               <Users className="mr-1 h-3.5 w-3.5" /> Empleados
             </ToggleGroupItem>
             <ToggleGroupItem
               value="area"
               size="sm"
-              className="data-[state=on]:bg-background h-7 rounded-sm px-2 text-xs data-[state=on]:shadow-sm"
+              className="dark:data-[state=on]:bg-background data-[state=on]:text-foreground text-muted-foreground hover:text-foreground h-7 rounded-sm px-2 text-xs transition-all data-[state=on]:bg-white data-[state=on]:font-medium data-[state=on]:shadow-sm"
             >
               <Building2 className="mr-1 h-3.5 w-3.5" /> Áreas
             </ToggleGroupItem>

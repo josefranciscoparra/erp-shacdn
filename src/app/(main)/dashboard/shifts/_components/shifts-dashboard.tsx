@@ -6,62 +6,115 @@
  * 2. ¿Dónde hay problemas urgentes? → Alertas
  * 3. ¿Qué tengo que hacer ahora? → Resumen por Centro
  *
- * ⚠️ Usa datos MOCK para demostración visual
- * ⚠️ NO conectado a API ni base de datos
+ * ✅ Usa datos REALES del store Zustand
  */
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
-import { getAlertsByCenter, getCentersSummary, getStatsByCenter } from "../_lib/dashboard-mock-data";
+import { calculateDuration } from "../_lib/shift-utils";
+import { useShiftsStore } from "../_store/shifts-store";
 
 import { DashboardCenterSummaryV2 } from "./dashboard-center-summary-v2";
 import { DashboardCriticalAlertsV2 } from "./dashboard-critical-alerts-v2";
-import { DashboardFilterBar } from "./dashboard-filter-bar";
 import { DashboardStatsCardsV2 } from "./dashboard-stats-cards-v2";
 
 export function ShiftsDashboard() {
-  // Estados de filtros (solo UI, datos MOCK)
-  const [selectedCenter, setSelectedCenter] = useState<string>("all");
-  const [periodType, setPeriodType] = useState<"week" | "month">("week");
+  const { shifts, employees, costCenters, isLoading } = useShiftsStore();
 
-  // Simular loading (en producción vendría del store)
-  const isLoading = false;
-
-  // Obtener datos MOCK según filtros
+  // --- 1. Calcular Stats Globales ---
   const stats = useMemo(() => {
-    return getStatsByCenter(selectedCenter);
-  }, [selectedCenter]);
+    const totalShifts = shifts.length;
+    const conflictShifts = shifts.filter((s) => s.status === "conflict").length;
 
+    // Empleados únicos con al menos un turno
+    const employeesWithShifts = new Set(shifts.map((s) => s.employeeId)).size;
+    const totalEmployees = employees.length;
+    const employeesWithoutShifts = Math.max(0, totalEmployees - employeesWithShifts);
+
+    // Horas
+    let hoursAssigned = 0;
+    shifts.forEach((s) => {
+      hoursAssigned += calculateDuration(s.startTime, s.endTime);
+    });
+
+    // Horas contratadas (sumar contractHours de todos los empleados visibles)
+    const hoursContracted = employees.reduce((acc, emp) => acc + (emp.contractHours || 0), 0);
+
+    // Cobertura (Simple: % de horas asignadas vs contratadas, o algún KPI de negocio)
+    // Si hoursContracted es 0, evitar NaN
+    const coverage = hoursContracted > 0 ? Math.min(100, Math.round((hoursAssigned / hoursContracted) * 100)) : 0;
+
+    return {
+      coverage,
+      totalShifts,
+      conflictShifts,
+      employeesWithoutShifts,
+      totalEmployees,
+      hoursAssigned,
+      hoursContracted,
+    };
+  }, [shifts, employees]);
+
+  // --- 2. Calcular Alertas (Conflictos Reales) ---
   const alerts = useMemo(() => {
-    return getAlertsByCenter(selectedCenter);
-  }, [selectedCenter]);
+    // Mapear conflictos reales a estructura de alertas
+    return shifts
+      .filter((s) => s.status === "conflict")
+      .map((s) => ({
+        id: s.id,
+        title: "Conflicto de Turno", // Podríamos mejorar esto si guardamos el tipo de conflicto
+        description: `Conflicto detectado para el empleado ${s.employeeId}`, // Idealmente buscar nombre
+        severity: "high" as const,
+        date: s.date,
+        centerId: s.costCenterId,
+      }));
+  }, [shifts]);
 
-  const centers = useMemo(() => {
-    return getCentersSummary(selectedCenter);
-  }, [selectedCenter]);
+  // --- 3. Calcular Resumen por Centro ---
+  const centersSummary = useMemo(() => {
+    return costCenters
+      .map((center) => {
+        const centerShifts = shifts.filter((s) => s.costCenterId === center.id);
+
+        // Calcular cobertura específica del centro
+        // Necesitamos empleados de este centro para saber horas contratadas
+        const centerEmployees = employees.filter((e) => e.costCenterId === center.id);
+        const centerHoursContracted = centerEmployees.reduce((acc, emp) => acc + (emp.contractHours || 0), 0);
+
+        let centerHoursAssigned = 0;
+        centerShifts.forEach((s) => (centerHoursAssigned += calculateDuration(s.startTime, s.endTime)));
+
+        const coverage =
+          centerHoursContracted > 0
+            ? Math.min(100, Math.round((centerHoursAssigned / centerHoursContracted) * 100))
+            : 0;
+
+        const alertsCount = centerShifts.filter((s) => s.status === "conflict").length;
+
+        return {
+          id: center.id,
+          name: center.name,
+          coverage,
+          totalShifts: centerShifts.length,
+          alerts: alertsCount,
+        };
+      })
+      .sort((a, b) => b.alerts - a.alerts); // Ordenar por alertas primero
+  }, [costCenters, shifts, employees]);
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Barra de Filtros Compacta */}
-      <DashboardFilterBar
-        selectedCenter={selectedCenter}
-        onCenterChange={setSelectedCenter}
-        periodType={periodType}
-        onPeriodChange={setPeriodType}
-      />
-
-      {/* 1️⃣ Pregunta: ¿Estamos bien cubiertos? → Hero Card Compacta */}
+    <div className="@container/main flex flex-col gap-4 pt-2 md:gap-6">
+      {/* Hero Card con Datos Reales */}
       <DashboardStatsCardsV2 stats={stats} isLoading={isLoading} />
 
-      {/* 2️⃣ y 3️⃣ Preguntas: ¿Problemas urgentes? ¿Qué hacer? */}
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
-        {/* Alertas Críticas - Problemas que requieren atención */}
+        {/* Alertas Reales */}
         <DashboardCriticalAlertsV2 alerts={alerts} isLoading={isLoading} />
 
-        {/* Resumen por Centro - Vista general de cada centro */}
-        <DashboardCenterSummaryV2 centers={centers} isLoading={isLoading} />
+        {/* Resumen por Centro Real */}
+        <DashboardCenterSummaryV2 centers={centersSummary} isLoading={isLoading} />
       </div>
     </div>
   );

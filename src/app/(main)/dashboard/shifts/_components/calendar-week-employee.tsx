@@ -8,7 +8,7 @@
 
 "use client";
 
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, Fragment } from "react";
 
 import {
   DndContext,
@@ -266,7 +266,7 @@ export function CalendarWeekEmployee() {
             const initials = `${employee.firstName[0]}${employee.lastName[0]}`;
 
             return (
-              <>
+              <Fragment key={employee.id}>
                 {/* Employee Column (Sticky Left) */}
                 <div className="bg-background hover:bg-muted/50 group sticky left-0 z-10 flex flex-col justify-center border-r border-b px-4 py-3 transition-colors">
                   <div className="flex items-center gap-3">
@@ -334,7 +334,7 @@ export function CalendarWeekEmployee() {
                     />
                   );
                 })}
-              </>
+              </Fragment>
             );
           })}
 
