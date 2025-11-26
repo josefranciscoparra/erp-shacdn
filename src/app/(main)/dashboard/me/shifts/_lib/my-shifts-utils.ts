@@ -55,6 +55,22 @@ export function calculateMyShiftsMetrics(shifts: Shift[], employee: Employee): M
     // Sumar horas de cada día (mergeando solapamientos)
     let weekTotal = 0;
     shiftsByDay.forEach((dayShifts) => {
+      // Detección de Ausencia de Día Completo
+      // Si hay un turno de tipo vacaciones/ausencia que cubre todo el día (00:00-00:00),
+      // lo contamos como jornada estándar (contrato/5) en lugar de 24h.
+      const isFullDayAbsence = dayShifts.some((s) => {
+        const role = s.role?.toLowerCase() ?? "";
+        return (
+          (role.includes("vacaciones") || role.includes("ausencia")) && s.startTime === "00:00" && s.endTime === "00:00"
+        );
+      });
+
+      if (isFullDayAbsence) {
+        const dailyHours = (employee.contractHours ?? 40) / 5;
+        weekTotal += dailyHours;
+        return;
+      }
+
       // Convertir a minutos [start, end]
       const ranges = dayShifts
         .map((s) => {

@@ -22,11 +22,11 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { getMyMonthlyShifts, getMyEmployeeProfile } from "@/server/actions/my-shifts";
+import { getMyMonthlyShifts, getMyEmployeeProfile, getMyShiftsDashboardMetrics } from "@/server/actions/my-shifts";
 
 import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
-import { calculateMyShiftsMetrics } from "./_lib/my-shifts-utils";
+import type { MyShiftsMetrics } from "./_lib/my-shifts-types";
 
 // Helper: Determinar tipo de turno según hora de inicio
 function getShiftType(shift: Shift): "morning" | "afternoon" | "night" | "vacation" {
@@ -79,13 +79,22 @@ export default function MyShiftsPage() {
 
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [currentEmployee, setCurrentEmployee] = useState<EmployeeShift | null>(null);
+  const [serverMetrics, setServerMetrics] = useState<MyShiftsMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Cargar perfil de empleado
+  // Cargar datos iniciales
   useEffect(() => {
-    getMyEmployeeProfile().then((emp) => {
-      if (emp) setCurrentEmployee(emp as unknown as EmployeeShift);
-    });
+    const loadData = async () => {
+      try {
+        const [emp, metrics] = await Promise.all([getMyEmployeeProfile(), getMyShiftsDashboardMetrics()]);
+
+        if (emp) setCurrentEmployee(emp as unknown as EmployeeShift);
+        if (metrics) setServerMetrics(metrics);
+      } catch (error) {
+        console.error("Error loading initial data:", error);
+      }
+    };
+    loadData();
   }, []);
 
   // Cargar turnos al cambiar de mes
@@ -102,12 +111,6 @@ export default function MyShiftsPage() {
 
   // Filtrar solo MIS turnos (ya vienen filtrados del server, pero mantenemos consistencia)
   const myShifts = shifts;
-
-  // Calcular métricas personales
-  const metrics = useMemo(() => {
-    if (!currentEmployee) return null;
-    return calculateMyShiftsMetrics(shifts, currentEmployee);
-  }, [shifts, currentEmployee]);
 
   // Obtener días del mes actual seleccionado
   const monthStart = startOfMonth(currentMonth);
@@ -165,7 +168,7 @@ export default function MyShiftsPage() {
       />
 
       {/* Métricas */}
-      <MyShiftsMetricsCards metrics={metrics} isLoading={isLoading} />
+      <MyShiftsMetricsCards metrics={serverMetrics} isLoading={isLoading} />
 
       {/* Calendario de Turnos Mensual */}
       <Card>
