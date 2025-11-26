@@ -4,7 +4,6 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
-import { AlertsBell } from "@/components/alerts/alerts-bell";
 import { PasswordGuard } from "@/components/auth/password-guard";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget";
@@ -80,7 +79,6 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <QuickClockWidget />
               <Separator orientation="vertical" className="mx-2 hidden data-[orientation=vertical]:h-4 md:block" />
               <div className="flex items-center gap-2">
-                <AlertsBell />
                 <NotificationBell />
                 <LayoutControls />
               </div>

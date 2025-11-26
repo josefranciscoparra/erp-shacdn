@@ -1,5 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { format } from "date-fns";
@@ -20,10 +23,13 @@ import {
   Clock,
   Receipt,
   Banknote,
+  AlertTriangle,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { getActiveAlertsCount } from "@/server/actions/alert-detection";
 import { useNotificationsStore } from "@/stores/notifications-store";
 
 const notificationIcons = {
@@ -57,6 +63,19 @@ interface NotificationListProps {
 export function NotificationList({ onClose }: NotificationListProps = {}) {
   const router = useRouter();
   const { notifications, isLoading, markAllAsRead } = useNotificationsStore();
+  const [alertsCount, setAlertsCount] = useState(0);
+
+  useEffect(() => {
+    const loadAlerts = async () => {
+      try {
+        const count = await getActiveAlertsCount();
+        setAlertsCount(count);
+      } catch {
+        // Silenciar error
+      }
+    };
+    loadAlerts();
+  }, []);
 
   const handleNotificationClick = (notification: any) => {
     // Solo redirigir, no marcar como leída
@@ -70,16 +89,35 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
       {/* Header */}
       <div className="flex items-center justify-between border-b p-3 sm:p-4">
         <h3 className="font-semibold">Notificaciones</h3>
-        {(isLoading || notifications.some((n) => !n.isRead)) && (
-          <div className="flex items-center gap-2">
-            {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
-            {notifications.some((n) => !n.isRead) && (
-              <Button variant="ghost" size="sm" onClick={() => markAllAsRead()}>
-                <CheckCheck className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-1">
+          {isLoading && <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />}
+          {notifications.some((n) => !n.isRead) && (
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => markAllAsRead()}>
+              <CheckCheck className="h-3.5 w-3.5" />
+            </Button>
+          )}
+          {alertsCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/dashboard/time-tracking/alerts"
+                  onClick={() => onClose?.()}
+                  className="text-muted-foreground relative flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:text-amber-600 dark:hover:text-amber-400"
+                >
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-amber-500 text-[9px] font-medium text-white">
+                    {alertsCount > 9 ? "9+" : alertsCount}
+                  </span>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p>
+                  {alertsCount} {alertsCount === 1 ? "alerta activa" : "alertas activas"}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {/* Lista de notificaciones */}
