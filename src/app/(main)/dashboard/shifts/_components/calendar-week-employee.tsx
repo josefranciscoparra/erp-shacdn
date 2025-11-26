@@ -228,7 +228,7 @@ export function CalendarWeekEmployee() {
       onDragEnd={handleDragEnd}
       modifiers={[restrictToWindowEdges]}
     >
-      <div className="bg-background relative h-[calc(100vh-220px)] w-full overflow-auto rounded-lg border shadow-sm">
+      <div className="bg-background relative h-full w-full overflow-auto rounded-lg border shadow-sm">
         {/* Grid Container */}
         <div
           className="grid min-w-max"

@@ -72,6 +72,8 @@ export interface RequiredCoverage {
 export interface Shift {
   id: string;
   employeeId: string;
+  employeeName?: string; // Nombre denormalizado para vistas masivas
+  employeeAvatar?: string;
   date: string; // Formato: YYYY-MM-DD
   startTime: string; // Formato: HH:mm (ej: "08:00")
   endTime: string; // Formato: HH:mm (ej: "16:00")

@@ -2519,6 +2519,13 @@ export async function getManualShiftAssignmentsForRange(
       include: {
         scheduleTemplate: { select: { id: true, name: true } },
         workZone: true,
+        employee: {
+          select: {
+            firstName: true,
+            lastName: true,
+            photoUrl: true,
+          },
+        },
       },
       orderBy: [{ date: "asc" }],
     });

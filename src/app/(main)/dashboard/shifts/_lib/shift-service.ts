@@ -74,6 +74,7 @@ interface ManualAssignmentRecord {
   publishedAt: Date | null;
   scheduleTemplate?: { id: string; name: string } | null;
   workZone?: { id: string; name: string } | null;
+  employee?: { firstName: string; lastName: string; photoUrl?: string | null } | null;
 }
 
 const STATUS_TO_UI: Record<ServerShiftStatus, ShiftStatus> = {
@@ -556,6 +557,8 @@ function mapAssignmentToShift(assignment: ManualAssignmentRecord): Shift {
   return {
     id: assignment.id,
     employeeId: assignment.employeeId,
+    employeeName: assignment.employee ? `${assignment.employee.firstName} ${assignment.employee.lastName}` : undefined,
+    employeeAvatar: assignment.employee?.photoUrl ?? undefined,
     date: formatDateISO(assignment.date),
     startTime: minutesToTime(start),
     endTime: minutesToTime(end),

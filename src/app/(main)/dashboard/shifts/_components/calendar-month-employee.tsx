@@ -6,11 +6,11 @@
 
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useEffect, useRef } from "react";
 
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameMonth, addMonths, subMonths } from "date-fns";
 import { es } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, User } from "lucide-react";
+import { ChevronLeft, ChevronRight, User, Loader2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,37 @@ import { useShiftsStore } from "../_store/shifts-store";
 import { RestDayCard } from "./rest-day-card";
 
 export function CalendarMonthEmployee() {
-  const { shifts, employees, currentWeekStart, filters, openShiftDialog } = useShiftsStore();
+  const {
+    shifts,
+    employees,
+    currentWeekStart,
+    filters,
+    openShiftDialog,
+    fetchEmployees,
+    employeesPage,
+    hasMoreEmployees,
+    isLoadingMoreEmployees,
+  } = useShiftsStore();
+
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Scroll Infinito
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreEmployees && !isLoadingMoreEmployees) {
+          fetchEmployees(employeesPage + 1);
+        }
+      },
+      { threshold: 0.1, rootMargin: "200px" },
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMoreEmployees, isLoadingMoreEmployees, employeesPage, fetchEmployees]);
 
   // Usar currentWeekStart para derivar el mes actual
   const currentMonth = useMemo(() => startOfMonth(currentWeekStart), [currentWeekStart]);
@@ -110,9 +140,9 @@ export function CalendarMonthEmployee() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-4">
       {/* Header: Navegación de mes */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-none items-center justify-between px-1">
         <h3 className="text-xl font-bold capitalize">{format(currentMonth, "MMMM yyyy", { locale: es })}</h3>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">
@@ -121,80 +151,89 @@ export function CalendarMonthEmployee() {
         </div>
       </div>
 
-      {/* Grid de empleados */}
-      <div className="space-y-4">
-        {filteredEmployees.map((employee) => {
-          const totals = employeeMonthTotals[employee.id];
+      {/* Grid de empleados (Scrollable) */}
+      <div className="flex-1 overflow-y-auto pr-2">
+        <div className="space-y-4 pb-4">
+          {filteredEmployees.map((employee) => {
+            const totals = employeeMonthTotals[employee.id];
 
-          return (
-            <div key={employee.id} className="bg-card rounded-lg border p-4">
-              {/* Header del empleado */}
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold">
-                    {employee.firstName} {employee.lastName}
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    {formatDuration(totals.hours)} • {totals.shifts} {totals.shifts === 1 ? "turno" : "turnos"}
-                  </p>
+            return (
+              <div key={employee.id} className="bg-card rounded-lg border p-4">
+                {/* Header del empleado */}
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold">
+                      {employee.firstName} {employee.lastName}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {formatDuration(totals.hours)} • {totals.shifts} {totals.shifts === 1 ? "turno" : "turnos"}
+                    </p>
+                  </div>
+
+                  <Badge
+                    variant={
+                      totals.hours < employee.contractHours * 4
+                        ? "destructive"
+                        : totals.hours > employee.contractHours * 4.4
+                          ? "secondary"
+                          : "default"
+                    }
+                  >
+                    {((totals.hours / (employee.contractHours * 4)) * 100).toFixed(0)}%
+                  </Badge>
                 </div>
 
-                <Badge
-                  variant={
-                    totals.hours < employee.contractHours * 4
-                      ? "destructive"
-                      : totals.hours > employee.contractHours * 4.4
-                        ? "secondary"
-                        : "default"
-                  }
-                >
-                  {((totals.hours / (employee.contractHours * 4)) * 100).toFixed(0)}%
-                </Badge>
+                {/* Calendario del mes */}
+                <div className="grid grid-cols-7 gap-1">
+                  {/* Headers de días de la semana */}
+                  {["L", "M", "X", "J", "V", "S", "D"].map((day, idx) => (
+                    <div
+                      key={idx}
+                      className="text-muted-foreground flex h-6 items-center justify-center text-xs font-medium"
+                    >
+                      {day}
+                    </div>
+                  ))}
+
+                  {/* Días del mes */}
+                  {monthDays.map((day) => {
+                    const dateISO = formatDateISO(day);
+                    const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
+                    const isToday = dateISO === formatDateISO(new Date());
+                    const hasShifts = dayShifts.length > 0;
+
+                    return (
+                      <MonthDayCell
+                        key={dateISO}
+                        day={day}
+                        isToday={isToday}
+                        hasShifts={hasShifts}
+                        shifts={dayShifts}
+                        allShifts={shifts}
+                        employeeId={employee.id}
+                        onCreateShift={() =>
+                          openShiftDialog(undefined, {
+                            employeeId: employee.id,
+                            date: dateISO,
+                            costCenterId: employee.costCenterId,
+                          })
+                        }
+                        onEditShift={(shift) => openShiftDialog(shift)}
+                      />
+                    );
+                  })}
+                </div>
               </div>
+            );
+          })}
 
-              {/* Calendario del mes */}
-              <div className="grid grid-cols-7 gap-1">
-                {/* Headers de días de la semana */}
-                {["L", "M", "X", "J", "V", "S", "D"].map((day, idx) => (
-                  <div
-                    key={idx}
-                    className="text-muted-foreground flex h-6 items-center justify-center text-xs font-medium"
-                  >
-                    {day}
-                  </div>
-                ))}
-
-                {/* Días del mes */}
-                {monthDays.map((day) => {
-                  const dateISO = formatDateISO(day);
-                  const dayShifts = shiftsGrid[employee.id]?.[dateISO] ?? [];
-                  const isToday = dateISO === formatDateISO(new Date());
-                  const hasShifts = dayShifts.length > 0;
-
-                  return (
-                    <MonthDayCell
-                      key={dateISO}
-                      day={day}
-                      isToday={isToday}
-                      hasShifts={hasShifts}
-                      shifts={dayShifts}
-                      allShifts={shifts}
-                      employeeId={employee.id}
-                      onCreateShift={() =>
-                        openShiftDialog(undefined, {
-                          employeeId: employee.id,
-                          date: dateISO,
-                          costCenterId: employee.costCenterId,
-                        })
-                      }
-                      onEditShift={(shift) => openShiftDialog(shift)}
-                    />
-                  );
-                })}
-              </div>
+          {/* Loading Indicator */}
+          {hasMoreEmployees && (
+            <div ref={loadMoreRef} className="flex justify-center py-4">
+              {isLoadingMoreEmployees && <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />}
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
     </div>
   );

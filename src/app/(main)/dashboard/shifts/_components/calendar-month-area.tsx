@@ -110,21 +110,21 @@ export function CalendarMonthArea() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-4">
       {/* Header con nombre del mes */}
-      <div className="bg-card flex items-center justify-center rounded-lg border p-3">
+      <div className="bg-card flex flex-none items-center justify-center rounded-lg border p-3">
         <h3 className="text-lg font-semibold capitalize">{formatMonthRange(monthStart)}</h3>
       </div>
 
-      <div className="overflow-x-auto">
+      <div className="bg-background flex-1 overflow-auto rounded-lg border shadow-sm">
         <div className="min-w-[1800px]">
           {/* Header: Días del mes */}
           <div
-            className="bg-background sticky top-0 z-10 mb-2 grid gap-1 pb-2"
+            className="bg-background sticky top-0 z-20 mb-2 grid gap-1 pt-2 pb-2 shadow-sm"
             style={{ gridTemplateColumns: `180px repeat(${monthDays.length}, 50px)` }}
           >
             {/* Columna de zonas */}
-            <div className="flex items-center px-3 py-2">
+            <div className="bg-background sticky left-0 z-30 flex items-center px-3 py-2 shadow-[1px_0_0_0_hsl(var(--border))]">
               <span className="text-sm font-semibold">Zona / Día</span>
             </div>
 
@@ -157,10 +157,10 @@ export function CalendarMonthArea() {
             const centerName = getCostCenterName(costCenterId);
 
             return (
-              <div key={costCenterId} className="mb-6">
+              <div key={costCenterId} className="mb-6 px-2">
                 {/* Header del lugar */}
                 {!filters.costCenterId && (
-                  <div className="bg-muted/50 mb-2 rounded-lg px-4 py-2">
+                  <div className="bg-muted/50 sticky left-0 z-10 mb-2 rounded-lg px-4 py-2">
                     <h3 className="text-sm font-semibold">{centerName}</h3>
                   </div>
                 )}
@@ -174,7 +174,7 @@ export function CalendarMonthArea() {
                       style={{ gridTemplateColumns: `180px repeat(${monthDays.length}, 50px)` }}
                     >
                       {/* Columna: Nombre de la zona */}
-                      <div className="bg-card flex flex-col justify-center rounded-lg border px-3 py-2">
+                      <div className="bg-card sticky left-0 z-10 flex flex-col justify-center rounded-lg border px-3 py-2 shadow-sm">
                         <p className="text-sm font-semibold">{zone.name}</p>
                         <p className="text-muted-foreground text-[10px]">
                           Req: {zone.requiredCoverage.morning}/{zone.requiredCoverage.afternoon}/
@@ -209,7 +209,7 @@ export function CalendarMonthArea() {
           })}
 
           {/* Leyenda de colores */}
-          <div className="bg-card mt-6 flex flex-wrap items-center gap-4 rounded-lg border p-4">
+          <div className="bg-card mt-6 flex flex-wrap items-center gap-4 p-4">
             <span className="text-sm font-semibold">Leyenda:</span>
             <div className="flex items-center gap-2">
               <div className="h-4 w-4 rounded bg-emerald-500" />

@@ -114,8 +114,9 @@ export function CalendarWeekArea() {
   }, [filteredZones, weekDays, shifts, filters]);
 
   // Obtener nombre del empleado
-  const getEmployeeName = (employeeId: string) => {
-    const employee = employees.find((e) => e.id === employeeId);
+  const getEmployeeName = (shift: Shift) => {
+    if (shift.employeeName) return shift.employeeName;
+    const employee = employees.find((e) => e.id === shift.employeeId);
     return employee ? `${employee.firstName} ${employee.lastName.charAt(0)}.` : "Desconocido";
   };
 
@@ -235,7 +236,7 @@ export function CalendarWeekArea() {
       onDragCancel={() => setActiveShift(null)}
     >
       <div
-        className="overflow-x-auto"
+        className="bg-background h-full w-full overflow-auto rounded-lg border shadow-sm"
         onKeyDown={(e) => {
           if (e.key === "Control" || e.key === "Meta") {
             setIsControlPressed(true);
@@ -248,11 +249,13 @@ export function CalendarWeekArea() {
         }}
         tabIndex={-1}
       >
-        <div className="min-w-[900px] overflow-auto rounded-lg border">
+        <div className="min-w-[900px]">
           <table className="w-full border-collapse">
-            <thead>
+            <thead className="bg-background sticky top-0 z-20 shadow-sm">
               <tr className="bg-muted/50 border-b">
-                <th className="border-r p-3 text-left text-sm font-semibold">Zona / Día</th>
+                <th className="bg-background sticky left-0 z-30 border-r p-3 text-left text-sm font-semibold shadow-[1px_0_0_0_hsl(var(--border))]">
+                  Zona / Día
+                </th>
                 {weekDays.map((day) => {
                   const isToday = formatDateISO(day) === formatDateISO(new Date());
                   return (
@@ -287,7 +290,7 @@ export function CalendarWeekArea() {
                     {/* Header del lugar */}
                     {!filters.costCenterId && (
                       <tr key={`header-${costCenterId}`}>
-                        <td colSpan={8} className="bg-muted/30 border-b px-4 py-2">
+                        <td colSpan={8} className="bg-muted/30 sticky left-0 z-10 border-b px-4 py-2">
                           <h3 className="text-sm font-semibold">{centerName}</h3>
                         </td>
                       </tr>
@@ -297,7 +300,7 @@ export function CalendarWeekArea() {
                     {zonesInCenter.map((zone) => (
                       <tr key={zone.id} className="border-b last:border-b-0">
                         {/* Columna: Nombre de zona */}
-                        <td className="bg-muted/20 border-r p-3">
+                        <td className="bg-muted/20 sticky left-0 z-10 border-r p-3">
                           <div>
                             <p className="text-sm font-semibold">{zone.name}</p>
                             <p className="text-muted-foreground text-[10px]">
@@ -335,7 +338,7 @@ export function CalendarWeekArea() {
           </table>
 
           {/* Leyenda de colores */}
-          <div className="bg-card mt-6 flex flex-wrap items-center gap-4 rounded-lg border p-4">
+          <div className="bg-card mt-6 flex flex-wrap items-center gap-4 p-4">
             <span className="text-sm font-semibold">Leyenda:</span>
             <div className="flex items-center gap-2">
               <div className="h-4 w-4 rounded bg-emerald-500" />
@@ -361,7 +364,7 @@ export function CalendarWeekArea() {
       <DragOverlay>
         {activeShift && (
           <div className="bg-primary/10 rounded px-3 py-2 text-sm font-medium shadow-lg">
-            {getEmployeeName(activeShift.employeeId)} - {activeShift.startTime}-{activeShift.endTime}
+            {getEmployeeName(activeShift)} - {activeShift.startTime}-{activeShift.endTime}
           </div>
         )}
       </DragOverlay>
@@ -379,7 +382,7 @@ interface DayCellProps {
   stats: { morning: number; afternoon: number; night: number };
   totalAssigned: number;
   totalRequired: number;
-  getEmployeeName: (id: string) => string;
+  getEmployeeName: (shift: Shift) => string;
   onEditShift: (shift: Shift) => void;
 }
 
@@ -564,7 +567,7 @@ function DayCell({
  */
 interface DraggableShiftBlockProps {
   shift: Shift;
-  getEmployeeName: (id: string) => string;
+  getEmployeeName: (shift: Shift) => string;
   onEdit: (shift: Shift) => void;
 }
 
@@ -598,7 +601,7 @@ function DraggableShiftBlock({ shift, getEmployeeName, onEdit }: DraggableShiftB
 
         {/* Nombre y horario */}
         <div className="flex flex-1 items-center justify-between gap-1">
-          <span className="truncate">{getEmployeeName(shift.employeeId)}</span>
+          <span className="truncate">{getEmployeeName(shift)}</span>
           <span className="text-muted-foreground shrink-0 text-[10px]">
             {shift.startTime}-{shift.endTime}
           </span>
