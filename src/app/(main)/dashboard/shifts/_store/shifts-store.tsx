@@ -306,12 +306,16 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   updateShift: async (id: string, data: Partial<ShiftInput>) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await shiftService.updateShift(id, data);
+      // Forzar cambio a borrador al editar
+      const dataWithDraft = { ...data, status: "draft" as const };
+      const response = await shiftService.updateShift(id, dataWithDraft);
 
       if (response.success && response.data) {
         // Guardar warnings en el shift para mostrar borde naranja/rojo
+        // Y asegurar que el estado sea draft en la UI
         const updatedShiftWithWarnings = {
           ...response.data,
+          status: "draft" as const, // Forzar estado visual
           warnings: response.validation?.conflicts ?? [],
         };
 
@@ -374,6 +378,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
         // Guardar warnings en el shift para mostrar borde naranja/rojo
         const updatedShiftWithWarnings = {
           ...result.updatedShift,
+          status: "draft" as const, // Forzar estado draft al mover
           warnings: result.conflicts ?? [],
         };
 
@@ -450,8 +455,13 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const response = await shiftService.resizeShift(shiftId, newStartTime, newEndTime);
 
       if (response.success && response.data) {
+        const updatedShiftWithWarnings = {
+          ...response.data,
+          status: "draft" as const, // Forzar estado draft al redimensionar
+        };
+
         set((state) => ({
-          shifts: state.shifts.map((s) => (s.id === shiftId ? response.data! : s)),
+          shifts: state.shifts.map((s) => (s.id === shiftId ? updatedShiftWithWarnings : s)),
           isLoading: false,
         }));
 
@@ -741,12 +751,16 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       }
 
       // Preparar filtros para el servicio
+      // IMPORTANTE: Limpiamos filtros de UI (estado, centro, zona) para asegurar que
+      // encontramos todos los borradores de los empleados seleccionados.
       const publishFilters = {
         ...filters,
         dateFrom,
         dateTo,
-        // Si se pasan IDs específicos, sobrescribir el filtro de empleado
-        ...(employeeIds ? { employeeId: undefined } : {}), // Limpiar employeeId singular si usamos plural (aunque el servicio espera array en backend, el type del frontend filter es singular, hay que adaptar el servicio)
+        status: undefined,
+        costCenterId: undefined,
+        zoneId: undefined,
+        ...(employeeIds ? { employeeId: undefined } : {}),
       };
 
       // NOTA: Necesitamos adaptar shiftService.publishShifts para aceptar employeeIds array explícito
@@ -761,7 +775,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
       await get().fetchShifts();
       set({ isLoading: false });
-      toast.success(`${response.publishedCount} turnos publicados correctamente`);
+      toast.success("Turnos publicados correctamente");
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al publicar turnos";
       set({ error: errorMessage, isLoading: false });
