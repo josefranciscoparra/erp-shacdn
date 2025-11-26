@@ -20,19 +20,18 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { formatDuration } from "@/lib/schedule-helpers";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
-import { getTodaySchedule } from "@/server/actions/employee-schedule";
+import { getTodaySchedule, getTodaySummary } from "@/server/actions/employee-schedule";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 
-import { TimeBankWidget } from "./time-bank-widget";
+import { MinifiedDailyInfo } from "./minified-daily-info";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
-import { TodaySchedule } from "./today-schedule";
-import { TodaySummary } from "./today-summary";
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -40,6 +39,7 @@ export function ClockIn() {
   const [shouldAnimateChart, setShouldAnimateChart] = useState(false);
   const [todaySchedule, setTodaySchedule] = useState<EffectiveSchedule | null>(null);
   const [scheduleExpectedMinutes, setScheduleExpectedMinutes] = useState<number | null>(null);
+  const [todayDeviation, setTodayDeviation] = useState<number | null>(null);
   const [isScheduleLoading, setIsScheduleLoading] = useState(true);
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
@@ -169,22 +169,27 @@ export function ClockIn() {
     load();
   }, [loadInitialData]);
 
-  // Cargar horario esperado del Schedule V2.0
+  // Cargar horario esperado del Schedule V2.0 y Resumen
   useEffect(() => {
-    async function loadScheduleExpectedHours() {
+    async function loadScheduleAndSummary() {
       try {
-        const result = await getTodaySchedule();
-        if (result.success && result.schedule) {
-          setTodaySchedule(result.schedule);
-          setScheduleExpectedMinutes(result.schedule.expectedMinutes);
+        const [scheduleResult, summaryResult] = await Promise.all([getTodaySchedule(), getTodaySummary()]);
+
+        if (scheduleResult.success && scheduleResult.schedule) {
+          setTodaySchedule(scheduleResult.schedule);
+          setScheduleExpectedMinutes(scheduleResult.schedule.expectedMinutes);
+        }
+
+        if (summaryResult.success && summaryResult.summary) {
+          setTodayDeviation(summaryResult.summary.deviationMinutes);
         }
       } catch (error) {
-        console.error("Error loading schedule:", error);
+        console.error("Error loading schedule/summary:", error);
       } finally {
         setIsScheduleLoading(false);
       }
     }
-    loadScheduleExpectedHours();
+    loadScheduleAndSummary();
   }, []);
 
   const restartChartAnimation = useCallback(() => {
@@ -846,8 +851,24 @@ export function ClockIn() {
         </Card>
 
         {/* Card de resumen del día */}
-        <Card className="h-full">
-          <CardContent className="space-y-2 pb-0">
+        <Card className="relative h-full">
+          <CardContent className="relative space-y-2 pb-0">
+            {todayDeviation !== null && todayDeviation !== 0 && (
+              <div className="absolute top-0 right-0 z-10">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "bg-background/80 h-5 border px-1.5 text-[10px] font-medium backdrop-blur-sm",
+                    todayDeviation > 0
+                      ? "border-green-200 text-green-700 dark:border-green-900 dark:text-green-400"
+                      : "border-red-200 text-red-700 dark:border-red-900 dark:text-red-400",
+                  )}
+                >
+                  {todayDeviation > 0 ? "+" : ""}
+                  {formatDuration(Math.round(Math.abs(todayDeviation)))}
+                </Badge>
+              </div>
+            )}
             {isLoading || isScheduleLoading ? (
               <div className="bg-muted relative mx-auto aspect-square max-h-[270px] overflow-hidden rounded-lg">
                 <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -929,16 +950,10 @@ export function ClockIn() {
             )}
           </CardFooter>
         </Card>
-
-        {/* Horario esperado del día */}
-        <TodaySchedule />
-
-        {/* Resumen del día con desviaciones */}
-        <TodaySummary />
-
-        {/* Widget de Bolsa de Horas */}
-        <TimeBankWidget />
       </div>
+
+      {/* Información resumida diaria */}
+      <MinifiedDailyInfo schedule={todaySchedule} />
 
       {/* Historial de fichajes del día */}
       <Card>
