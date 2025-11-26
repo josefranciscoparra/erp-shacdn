@@ -3242,3 +3242,51 @@ export async function getShiftEmployeesPaginated(
     return { data: [], metadata: { total: 0, page: 1, pageSize, totalPages: 0 } };
   }
 }
+
+// ============================================================================
+// GESTIÓN DE AUSENCIAS (Para Calendario de Turnos)
+// ============================================================================
+
+export async function getAbsencesForRange(startDate: Date, endDate: Date, employeeIds?: string[]) {
+  try {
+    const { orgId } = await requireOrg();
+    const start = getRangeBoundary(startDate);
+    const end = getRangeBoundary(endDate, true);
+
+    const where: any = {
+      orgId,
+      status: "APPROVED",
+      startDate: { lte: end },
+      endDate: { gte: start },
+    };
+
+    if (employeeIds && employeeIds.length > 0) {
+      where.employeeId = { in: employeeIds };
+    }
+
+    const absences = await prisma.ptoRequest.findMany({
+      where,
+      include: {
+        absenceType: {
+          select: {
+            name: true,
+            code: true,
+          },
+        },
+      },
+      orderBy: { startDate: "asc" },
+    });
+
+    return absences.map((abs) => ({
+      id: abs.id,
+      employeeId: abs.employeeId,
+      startDate: abs.startDate,
+      endDate: abs.endDate,
+      type: abs.absenceType.name,
+      code: abs.absenceType.code,
+    }));
+  } catch (error) {
+    console.error("Error getting absences:", error);
+    return [];
+  }
+}

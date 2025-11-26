@@ -124,9 +124,12 @@ export interface EmployeeShift {
  * Ausencia de un empleado
  */
 export interface Absence {
-  start: string; // Formato: YYYY-MM-DD
-  end: string; // Formato: YYYY-MM-DD
-  reason: string; // "Vacaciones", "Baja médica", etc.
+  id: string;
+  employeeId: string;
+  startDate: string; // Formato: YYYY-MM-DD (ISO)
+  endDate: string; // Formato: YYYY-MM-DD (ISO)
+  type: string; // "Vacaciones", "Baja médica", etc. (name)
+  code: string; // "VACATION", "SICK_LEAVE", etc.
 }
 
 /**

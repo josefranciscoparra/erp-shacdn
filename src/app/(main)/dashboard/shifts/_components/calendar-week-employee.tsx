@@ -38,7 +38,7 @@ import {
   formatDuration,
   getEmptyDayType,
 } from "../_lib/shift-utils";
-import type { Shift, EmployeeShift } from "../_lib/types";
+import type { Shift, EmployeeShift, Absence } from "../_lib/types";
 import { useShiftsStore } from "../_store/shifts-store";
 
 import { RestDayCard } from "./rest-day-card";
@@ -47,6 +47,7 @@ import { ShiftBlock } from "./shift-block";
 export function CalendarWeekEmployee() {
   const {
     shifts,
+    absences,
     employees,
     currentWeekStart,
     filters,
@@ -327,6 +328,7 @@ export function CalendarWeekEmployee() {
                       employeeId={employee.id}
                       date={dateISO}
                       shifts={dayShifts}
+                      absences={absences}
                       allShifts={shifts}
                       activeShiftId={activeShift?.id}
                       onCreateShift={() => handleCreateShift(employee.id, dateISO)}
@@ -365,13 +367,23 @@ interface ShiftCellProps {
   employeeId: string;
   date: string;
   shifts: Shift[];
+  absences: Absence[];
   allShifts: Shift[];
   activeShiftId?: string;
   onCreateShift: () => void;
   onEditShift: (shift: Shift) => void;
 }
 
-function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreateShift, onEditShift }: ShiftCellProps) {
+function ShiftCell({
+  employeeId,
+  date,
+  shifts,
+  absences,
+  allShifts,
+  activeShiftId,
+  onCreateShift,
+  onEditShift,
+}: ShiftCellProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `cell-${employeeId}-${date}`,
     data: {
@@ -383,16 +395,29 @@ function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreat
   const containsActiveShift = shifts.some((s) => s.id === activeShiftId);
   const emptyDayType = getEmptyDayType(date, allShifts, { employeeId });
 
+  // Filtrar ausencias para este día y empleado
+  const cellAbsences = absences.filter((a) => a.employeeId === employeeId && date >= a.startDate && date <= a.endDate);
+
   return (
     <div
       ref={setNodeRef}
       className={cn(
         "group relative flex min-h-[100px] flex-col gap-1 border-r border-b p-1.5 transition-colors",
         isOver ? "bg-primary/5 ring-primary/20 ring-2 ring-inset" : "bg-background",
-        !isOver && shifts.length === 0 && "hover:bg-muted/30",
+        !isOver && shifts.length === 0 && cellAbsences.length === 0 && "hover:bg-muted/30",
         (isOver || containsActiveShift) && "opacity-60",
       )}
     >
+      {/* Renderizar Ausencias */}
+      {cellAbsences.map((absence) => (
+        <div
+          key={absence.id}
+          className="mb-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+        >
+          <span className="line-clamp-1 font-medium">{absence.type}</span>
+        </div>
+      ))}
+
       {shifts.length > 0 ? (
         <div className="flex flex-col gap-1.5">
           {shifts.map((shift) => (
@@ -402,7 +427,7 @@ function ShiftCell({ employeeId, date, shifts, allShifts, activeShiftId, onCreat
       ) : (
         /* Empty State / Add Button */
         <div className="flex h-full flex-1 flex-col items-center justify-center gap-2 py-2">
-          {emptyDayType === "rest" && (
+          {emptyDayType === "rest" && cellAbsences.length === 0 && (
             <div className="flex flex-col items-center justify-center opacity-40">
               <span className="text-muted-foreground text-xs font-medium">Descanso</span>
             </div>

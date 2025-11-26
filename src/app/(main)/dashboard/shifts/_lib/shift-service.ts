@@ -30,6 +30,7 @@ import {
   deleteManualShiftTemplate,
   applyManualShiftTemplate,
   restoreManualShiftAssignments,
+  getAbsencesForRange,
 } from "@/server/actions/schedules-v2.ts";
 
 import { formatDateISO } from "./shift-utils";
@@ -50,6 +51,7 @@ import type {
   Conflict,
   ConflictType,
   ShiftStatus,
+  Absence,
 } from "./types";
 
 type ServerShiftStatus = "DRAFT" | "PUBLISHED" | "CONFLICT";
@@ -87,6 +89,28 @@ const STATUS_TO_SERVER: Record<ShiftStatus, ServerShiftStatus> = {
 };
 
 export const shiftService = {
+  /**
+   * Obtiene ausencias (vacaciones/bajas)
+   */
+  async getAbsences(filters: ShiftFilters): Promise<Absence[]> {
+    if (!filters.dateFrom || !filters.dateTo) return [];
+
+    const absences = await getAbsencesForRange(
+      toDate(filters.dateFrom),
+      toDate(filters.dateTo),
+      filters.employeeId ? [filters.employeeId] : undefined,
+    );
+
+    return absences.map((abs) => ({
+      id: abs.id,
+      employeeId: abs.employeeId,
+      startDate: formatDateISO(abs.startDate),
+      endDate: formatDateISO(abs.endDate),
+      type: abs.type,
+      code: abs.code,
+    }));
+  },
+
   /**
    * Obtiene turnos según filtros activos
    */

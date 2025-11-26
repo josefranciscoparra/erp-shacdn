@@ -16,6 +16,8 @@ import {
   Building2,
   Copy,
   RotateCcw,
+  Undo2,
+  X,
   AlertTriangle,
   MoreHorizontal,
 } from "lucide-react";
@@ -61,6 +63,9 @@ export function ShiftsHeader() {
     copyPreviousWeek,
     undoLastCopy,
     previousShiftsBackup,
+    undoLastAction,
+    discardAllChanges,
+    undoStack,
     isLoading,
   } = useShiftsStore();
 
@@ -153,11 +158,25 @@ export function ShiftsHeader() {
               )}
             </div>
           </div>
+
+          {/* Copiar Semana (Moved to Left) */}
+          <div className="ml-2 hidden items-center gap-2 md:flex">
+            <Separator orientation="vertical" className="h-6" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCopyClick}
+              disabled={isLoading}
+              className="text-muted-foreground hover:text-foreground h-8 text-xs"
+            >
+              <Copy className="mr-2 h-3.5 w-3.5" /> Copiar Semana
+            </Button>
+          </div>
         </div>
 
         {/* Right: Actions & View Toggle */}
         <div className="ml-auto flex items-center gap-2">
-          {/* Undo Copy */}
+          {/* Undo Copy (Bulk) */}
           {previousShiftsBackup && (
             <Button
               variant="ghost"
@@ -170,16 +189,32 @@ export function ShiftsHeader() {
             </Button>
           )}
 
-          {/* Copy Week */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCopyClick}
-            disabled={isLoading}
-            className="hidden h-8 text-xs md:flex"
-          >
-            <Copy className="mr-2 h-3.5 w-3.5" /> Copiar Semana
-          </Button>
+          {/* Change Management (Undo/Discard) */}
+          {undoStack.length > 0 && (
+            <div className="bg-muted/30 hover:border-border/50 mr-2 flex items-center gap-1 rounded-md border border-transparent p-0.5 transition-colors">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => undoLastAction()}
+                disabled={isLoading}
+                className="text-muted-foreground hover:text-foreground h-7 text-xs"
+              >
+                <Undo2 className="mr-2 h-3.5 w-3.5" /> Deshacer
+              </Button>
+
+              <Separator orientation="vertical" className="h-4" />
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => discardAllChanges()}
+                disabled={isLoading}
+                className="h-7 text-xs text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950/30"
+              >
+                <X className="mr-2 h-3.5 w-3.5" /> Descartar
+              </Button>
+            </div>
+          )}
 
           {/* Publish */}
           <Button

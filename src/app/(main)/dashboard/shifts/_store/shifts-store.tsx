@@ -20,6 +20,7 @@ import type {
   Shift,
   ShiftInput,
   ShiftFilters,
+  Absence,
   Zone,
   ZoneInput,
   ShiftTemplate,
@@ -35,9 +36,15 @@ import type {
 
 // ==================== TIPOS DEL STORE ====================
 
+interface HistoryItem {
+  action: "update" | "move" | "resize";
+  shift: Shift;
+}
+
 interface ShiftsState {
   // ========== DATOS ==========
   shifts: Shift[];
+  absences: Absence[];
   zones: Zone[];
   templates: ShiftTemplate[];
   employees: EmployeeShift[];
@@ -49,6 +56,7 @@ interface ShiftsState {
   // ========== UI STATE ==========
   isLoading: boolean;
   error: string | null;
+  undoStack: HistoryItem[];
 
   // Vista de calendario
   calendarView: CalendarView; // 'week' | 'month'
@@ -99,6 +107,8 @@ interface ShiftsState {
   // ========== ACCIONES - OPERACIONES MASIVAS ==========
   copyPreviousWeek: (overwrite?: boolean) => Promise<void>;
   undoLastCopy: () => Promise<void>;
+  undoLastAction: () => Promise<void>;
+  discardAllChanges: () => Promise<void>;
   publishShifts: () => Promise<void>;
   deleteMultipleShifts: (shiftIds: string[]) => Promise<void>;
 
@@ -151,6 +161,7 @@ interface ShiftsState {
 export const useShiftsStore = create<ShiftsState>((set, get) => ({
   // ========== ESTADO INICIAL ==========
   shifts: [],
+  absences: [],
   zones: [],
   templates: [],
   employees: [],
@@ -161,6 +172,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
 
   isLoading: false,
   error: null,
+  undoStack: [],
 
   calendarView: "week",
   calendarMode: "employee",
@@ -206,7 +218,10 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       }
 
       const activeFilters = { ...filters, dateFrom, dateTo };
-      const shifts = await shiftService.getShifts(activeFilters);
+      const [shifts, absences] = await Promise.all([
+        shiftService.getShifts(activeFilters),
+        shiftService.getAbsences(activeFilters),
+      ]);
 
       // REHIDRATACIÓN DE VALIDACIONES:
       // Recalcular conflictos localmente para restaurar warnings tras F5.
@@ -259,7 +274,7 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
         return shift;
       });
 
-      set({ shifts: shiftsWithWarnings, isLoading: false });
+      set({ shifts: shiftsWithWarnings, absences, isLoading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al cargar turnos";
       set({ error: errorMessage, isLoading: false });
@@ -306,6 +321,12 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   updateShift: async (id: string, data: Partial<ShiftInput>) => {
     set({ isLoading: true, error: null });
     try {
+      // Guardar estado actual para deshacer
+      const currentShift = get().shifts.find((s) => s.id === id);
+      if (currentShift) {
+        set((state) => ({ undoStack: [...state.undoStack, { action: "update", shift: currentShift }] }));
+      }
+
       // Forzar cambio a borrador al editar
       const dataWithDraft = { ...data, status: "draft" as const };
       const response = await shiftService.updateShift(id, dataWithDraft);
@@ -370,6 +391,9 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
     try {
       const currentShift = get().shifts.find((s) => s.id === shiftId);
       if (!currentShift) throw new Error("Turno no encontrado");
+
+      // Guardar estado para deshacer
+      set((state) => ({ undoStack: [...state.undoStack, { action: "move", shift: currentShift }] }));
 
       // @ts-expect-error - Adaptamos la llamada para pasar el shift completo
       const result = await shiftService.moveShift(currentShift, newEmployeeId, newDate, newZoneId);
@@ -452,6 +476,11 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
   resizeShift: async (shiftId: string, newStartTime: string, newEndTime: string) => {
     set({ isLoading: true, error: null });
     try {
+      const currentShift = get().shifts.find((s) => s.id === shiftId);
+      if (currentShift) {
+        set((state) => ({ undoStack: [...state.undoStack, { action: "resize", shift: currentShift }] }));
+      }
+
       const response = await shiftService.resizeShift(shiftId, newStartTime, newEndTime);
 
       if (response.success && response.data) {
@@ -731,6 +760,99 @@ export const useShiftsStore = create<ShiftsState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : "Error al deshacer cambios";
       set({ error: errorMessage, isLoading: false });
       toast.error(errorMessage);
+    }
+  },
+
+  undoLastAction: async () => {
+    const { undoStack } = get();
+    if (undoStack.length === 0) return;
+
+    const lastItem = undoStack[undoStack.length - 1];
+    const remainingStack = undoStack.slice(0, -1);
+
+    // Optimistic update of stack
+    set({ isLoading: true, undoStack: remainingStack });
+
+    try {
+      const shift = lastItem.shift;
+
+      // Reconstruir payload para restaurar el estado anterior
+      const payload: Partial<ShiftInput> = {
+        employeeId: shift.employeeId,
+        date: shift.date,
+        startTime: shift.startTime,
+        endTime: shift.endTime,
+        costCenterId: shift.costCenterId,
+        zoneId: shift.zoneId,
+        scheduleTemplateId: shift.scheduleTemplateId,
+        role: shift.role,
+        notes: shift.notes,
+        status: shift.status, // Restaurar estado original (importante si era published)
+      };
+
+      const response = await shiftService.updateShift(shift.id, payload);
+
+      if (response.success && response.data) {
+        // Actualizar estado local
+        set((state) => ({
+          shifts: state.shifts.map((s) => (s.id === shift.id ? response.data! : s)),
+          isLoading: false,
+        }));
+        toast.success("Cambio deshecho");
+      } else {
+        throw new Error("Error al deshacer");
+      }
+    } catch (error) {
+      // Si falla, restaurar el item al stack
+      set((state) => ({ undoStack: [...state.undoStack, lastItem], isLoading: false }));
+      toast.error("No se pudo deshacer el cambio");
+    }
+  },
+
+  discardAllChanges: async () => {
+    const { undoStack } = get();
+    if (undoStack.length === 0) return;
+
+    set({ isLoading: true });
+
+    try {
+      // 1. Identificar el estado ORIGINAL de cada turno afectado
+      // Recorremos el stack desde el principio (los cambios más antiguos)
+      const originalStates = new Map<string, Shift>();
+
+      undoStack.forEach((item) => {
+        if (!originalStates.has(item.shift.id)) {
+          originalStates.set(item.shift.id, item.shift);
+        }
+      });
+
+      // 2. Restaurar cada turno a su estado original
+      const promises = Array.from(originalStates.values()).map(async (shift) => {
+        const payload: Partial<ShiftInput> = {
+          employeeId: shift.employeeId,
+          date: shift.date,
+          startTime: shift.startTime,
+          endTime: shift.endTime,
+          costCenterId: shift.costCenterId,
+          zoneId: shift.zoneId,
+          scheduleTemplateId: shift.scheduleTemplateId,
+          role: shift.role,
+          notes: shift.notes,
+          status: shift.status,
+        };
+        return shiftService.updateShift(shift.id, payload);
+      });
+
+      await Promise.all(promises);
+
+      // 3. Actualizar estado local
+      await get().fetchShifts();
+
+      set({ undoStack: [], isLoading: false });
+      toast.success("Todos los cambios han sido descartados");
+    } catch (error) {
+      set({ isLoading: false });
+      toast.error("Error al descartar cambios");
     }
   },
 
