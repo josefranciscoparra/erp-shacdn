@@ -18,9 +18,7 @@ import {
   MessageSquare,
   CalendarClock,
   Banknote,
-  AlertCircle,
   ClipboardList,
-  PiggyBank,
   type LucideIcon,
 } from "lucide-react";
 
@@ -329,14 +327,12 @@ export function useSidebarItems(): NavGroup[] {
             {
               title: "Alertas",
               url: "/dashboard/time-tracking/alerts",
-              icon: AlertCircle,
               permission: "view_time_tracking",
               isNew: true,
             },
             {
               title: "Bolsa de Horas",
               url: "/dashboard/time-tracking/time-bank",
-              icon: PiggyBank,
               permission: "view_time_tracking",
               isNew: true,
             },

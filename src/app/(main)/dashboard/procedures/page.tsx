@@ -20,6 +20,11 @@ export default async function ProceduresPage({ searchParams }: { searchParams: P
     ...p,
     estimatedAmount: p.estimatedAmount ? Number(p.estimatedAmount) : null,
     approvedAmount: p.approvedAmount ? Number(p.approvedAmount) : null,
+    // Serializar también los expenses anidados que tienen totalAmount Decimal
+    expenses: p.expenses.map((e) => ({
+      ...e,
+      totalAmount: e.totalAmount ? Number(e.totalAmount) : null,
+    })),
   }));
 
   return (
