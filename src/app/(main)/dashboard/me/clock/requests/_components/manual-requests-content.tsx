@@ -4,313 +4,178 @@ import { useEffect, useState } from "react";
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle, Clock, XCircle, Trash2, Calendar as CalendarIcon, List } from "lucide-react";
+import { ChevronLeft, ChevronRight, Clock, Loader2, MoreHorizontal, Plus, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { useManualTimeEntryStore } from "@/stores/manual-time-entry-store";
 
 import { ManualTimeEntryDialog } from "../../_components/manual-time-entry-dialog";
 
-import { TimeBankRequestsPanel } from "./time-bank-requests-panel";
-import { TimeCalendarView } from "./time-calendar-view";
+const ITEMS_PER_PAGE = 5;
 
 export function ManualRequestsContent() {
-  const { requests, totals, isLoading, loadRequests, cancelRequest } = useManualTimeEntryStore();
-  const [activeTab, setActiveTab] = useState<"PENDING" | "APPROVED" | "REJECTED">("PENDING");
-  const [manualDialogOpen, setManualDialogOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
-
-  const getStatusText = (status: "PENDING" | "APPROVED" | "REJECTED") => {
-    switch (status) {
-      case "PENDING":
-        return "pendientes";
-      case "APPROVED":
-        return "aprobadas";
-      case "REJECTED":
-        return "rechazadas";
-    }
-  };
+  const { requests, isLoading, loadRequests, cancelRequest } = useManualTimeEntryStore();
 
   useEffect(() => {
-    loadRequests(activeTab);
-    setCurrentPage(1); // Reset página al cambiar tab
-  }, [activeTab, loadRequests]);
+    loadRequests();
+  }, [loadRequests]);
 
-  const handleCancelRequest = async (requestId: string) => {
-    if (!confirm("¿Estás seguro de que quieres cancelar esta solicitud?")) {
-      return;
-    }
-
+  const handleCancel = async (id: string) => {
     try {
-      await cancelRequest(requestId);
+      await cancelRequest(id);
       toast.success("Solicitud cancelada");
     } catch {
-      toast.error("Error al cancelar solicitud");
+      toast.error("Error al cancelar la solicitud");
     }
   };
 
-  const getStatusBadge = (status: "PENDING" | "APPROVED" | "REJECTED") => {
-    switch (status) {
-      case "PENDING":
-        return (
-          <Badge
-            variant="secondary"
-            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300"
-          >
-            <Clock className="h-3 w-3" />
-            Pendiente
-          </Badge>
-        );
-      case "APPROVED":
-        return (
-          <Badge
-            variant="secondary"
-            className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
-          >
-            <CheckCircle className="h-3 w-3" />
-            Aprobado
-          </Badge>
-        );
-      case "REJECTED":
-        return (
-          <Badge
-            variant="secondary"
-            className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-300"
-          >
-            <XCircle className="h-3 w-3" />
-            Rechazado
-          </Badge>
-        );
-    }
-  };
-
-  const formatTime = (date: Date) => {
-    return format(new Date(date), "HH:mm", { locale: es });
-  };
-
-  const formatDate = (date: Date) => {
-    return format(new Date(date), "dd MMM yyyy", { locale: es });
-  };
-
-  // Calcular paginación
-  const totalPages = Math.ceil(requests.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
+  // Paginacion
+  const totalPages = Math.ceil(requests.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
   const paginatedRequests = requests.slice(startIndex, endIndex);
 
+  // Reset page when requests change
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [requests.length, currentPage, totalPages]);
+
   return (
-    <div className="flex flex-col gap-4 md:gap-6">
-      <div className="flex flex-col gap-4 @xl/main:flex-row @xl/main:items-start @xl/main:justify-between">
-        <div></div> {/* Spacer to push buttons to right if needed, or removed if handled by parent */}
-        <div className="ml-auto flex gap-2">
-          <Button
-            variant={viewMode === "calendar" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setViewMode("calendar")}
-          >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            Calendario
-          </Button>
-          <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
-            <List className="mr-2 h-4 w-4" />
-            Solicitudes
-          </Button>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <div className="flex items-center gap-3">
+          <CardTitle className="text-base font-semibold">Solicitudes de Fichaje</CardTitle>
+          {requests.length > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              {requests.length}
+            </Badge>
+          )}
         </div>
-      </div>
-
-      <ManualTimeEntryDialog open={manualDialogOpen} onOpenChange={setManualDialogOpen} />
-
-      {viewMode === "calendar" ? (
-        <div className="flex flex-col gap-6">
-          <TimeCalendarView />
-          <TimeBankRequestsPanel />
-        </div>
-      ) : (
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
-              {/* Select para móvil */}
-              <div className="flex @4xl/main:hidden">
-                <Select value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="PENDING">
-                      Pendientes
-                      {totals.pending > 0 && <Badge className="ml-2">{totals.pending}</Badge>}
-                    </SelectItem>
-                    <SelectItem value="APPROVED">
-                      Aprobadas
-                      {totals.approved > 0 && <Badge className="ml-2">{totals.approved}</Badge>}
-                    </SelectItem>
-                    <SelectItem value="REJECTED">
-                      Rechazadas
-                      {totals.rejected > 0 && <Badge className="ml-2">{totals.rejected}</Badge>}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Tabs para desktop */}
-              <TabsList className="hidden @4xl/main:flex">
-                <TabsTrigger value="PENDING" className="gap-2">
-                  Pendientes
-                  {totals.pending > 0 && <Badge variant="secondary">{totals.pending}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger value="APPROVED" className="gap-2">
-                  Aprobadas
-                  {totals.approved > 0 && <Badge variant="secondary">{totals.approved}</Badge>}
-                </TabsTrigger>
-                <TabsTrigger value="REJECTED" className="gap-2">
-                  Rechazadas
-                  {totals.rejected > 0 && <Badge variant="secondary">{totals.rejected}</Badge>}
-                </TabsTrigger>
-              </TabsList>
-
-              {/* Botón nueva solicitud */}
-              <Button onClick={() => setManualDialogOpen(true)} className="w-full @4xl/main:w-auto">
-                Nueva solicitud
-              </Button>
-            </div>
+        <Button size="sm" onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nueva Solicitud
+        </Button>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
           </div>
-
-          {/* Contenido de tabs */}
-          <TabsContent value={activeTab} className="space-y-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-muted-foreground text-sm">Cargando solicitudes...</div>
-              </div>
-            ) : requests.length === 0 ? (
-              <Card className="flex flex-col items-center justify-center py-12">
-                <Clock className="text-muted-foreground mb-4 h-12 w-12" />
-                <p className="text-muted-foreground text-sm">No hay solicitudes {getStatusText(activeTab)}</p>
-              </Card>
-            ) : (
-              <>
-                <div className="grid gap-3">
-                  {paginatedRequests.map((request) => (
-                    <Card
-                      key={request.id}
-                      className="group border-border/60 hover:bg-muted/30 dark:bg-card dark:hover:bg-muted/20 rounded-xl bg-white p-4 shadow-sm transition-colors duration-150"
-                    >
-                      <div className="space-y-3.5">
-                        {/* Fila superior: Fecha + Badge + Botón cancelar */}
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-3">
-                            <h3 className="text-[15px] leading-none font-semibold">{formatDate(request.date)}</h3>
-                            {getStatusBadge(request.status)}
-                          </div>
-
-                          {/* Botón cancelar más discreto */}
-                          {request.status === "PENDING" && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleCancelRequest(request.id)}
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 px-2"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              <span className="ml-1.5 text-xs">Cancelar</span>
-                            </Button>
-                          )}
-                        </div>
-
-                        {/* Segunda fila: Entrada y Salida en misma línea */}
-                        <div className="flex items-center gap-6">
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-muted-foreground text-xs">Entrada:</span>
-                            <span className="text-sm font-medium">{formatTime(request.clockInTime)}</span>
-                          </div>
-                          <div className="flex items-baseline gap-1.5">
-                            <span className="text-muted-foreground text-xs">Salida:</span>
-                            <span className="text-sm font-medium">{formatTime(request.clockOutTime)}</span>
-                          </div>
-                        </div>
-
-                        {/* Motivo sin fondo gris */}
-                        <div>
-                          <p className="text-muted-foreground mb-1 text-xs">Motivo</p>
-                          <p className="text-sm leading-relaxed">{request.reason}</p>
-                        </div>
-
-                        {/* Información de aprobación/rechazo */}
-                        {request.status === "APPROVED" && request.approverComments && (
-                          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900 dark:bg-emerald-950">
-                            <p className="text-xs font-medium text-emerald-700 dark:text-emerald-300">
-                              Comentario del aprobador
-                            </p>
-                            <p className="mt-1 text-sm text-emerald-900/80 dark:text-emerald-100/80">
-                              {request.approverComments}
-                            </p>
-                          </div>
-                        )}
-
-                        {request.status === "REJECTED" && request.rejectionReason && (
-                          <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900 dark:bg-red-950">
-                            <p className="text-xs font-medium text-red-700 dark:text-red-300">Motivo del rechazo</p>
-                            <p className="mt-1 text-sm text-red-900/80 dark:text-red-100/80">
-                              {request.rejectionReason}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* Metadata discreta al final */}
-                        <div className="text-muted-foreground flex flex-wrap items-center gap-3 text-xs">
-                          <span>Solicitado {formatDate(request.submittedAt)}</span>
-                          {request.approverName && (
-                            <>
-                              <span className="text-border">•</span>
-                              <span>Aprobador: {request.approverName}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
+        ) : requests.length === 0 ? (
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12 text-center">
+            <Clock className="text-muted-foreground/20 h-8 w-8" />
+            <p className="text-muted-foreground mt-2 text-sm">No hay solicitudes registradas</p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Pulsa en &quot;Nueva Solicitud&quot; para solicitar un fichaje manual
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {paginatedRequests.map((request) => (
+              <div
+                key={request.id}
+                className="bg-card flex items-center justify-between rounded-lg border p-4 shadow-sm transition-all hover:shadow-md"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="bg-muted/50 flex h-9 w-9 items-center justify-center rounded-full">
+                    <Clock className="text-muted-foreground h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium capitalize">
+                      {format(new Date(request.date), "EEEE d MMMM", { locale: es })}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {format(new Date(request.clockInTime), "HH:mm")} -{" "}
+                      {format(new Date(request.clockOutTime), "HH:mm")}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Paginación */}
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-between gap-2 pt-2">
-                    <div className="text-muted-foreground text-sm">
-                      Mostrando {startIndex + 1}-{Math.min(endIndex, requests.length)} de {requests.length}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Anterior
-                      </Button>
-                      <div className="text-sm">
-                        Página {currentPage} de {totalPages}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        Siguiente
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </TabsContent>
-        </Tabs>
+                <div className="flex items-center gap-3">
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "h-6 px-2 text-xs font-medium",
+                      request.status === "APPROVED" &&
+                        "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300",
+                      request.status === "REJECTED" &&
+                        "bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950 dark:text-red-300",
+                      request.status === "PENDING" &&
+                        "bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950 dark:text-amber-300",
+                    )}
+                  >
+                    {request.status === "APPROVED" && "Aprobada"}
+                    {request.status === "REJECTED" && "Rechazada"}
+                    {request.status === "PENDING" && "Pendiente"}
+                  </Badge>
+
+                  {request.status === "PENDING" && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleCancel(request.id)} className="text-red-600">
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Cancelar solicitud
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      {/* Paginacion */}
+      {totalPages > 1 && (
+        <CardFooter className="flex items-center justify-between border-t pt-4">
+          <p className="text-muted-foreground text-sm">
+            Mostrando {startIndex + 1}-{Math.min(endIndex, requests.length)} de {requests.length}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-muted-foreground px-2 text-sm">
+              {currentPage} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardFooter>
       )}
-    </div>
+
+      <ManualTimeEntryDialog open={dialogOpen} onOpenChange={setDialogOpen} />
+    </Card>
   );
 }
