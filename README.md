@@ -117,4 +117,6 @@ Once running, the app will be available at [http://localhost:3000](http://localh
 Feel free to open issues, feature requests, or start a discussion if you'd like to contribute or suggest improvements.
 
 
-**Happy Vibe Coding!**
+**Happy Vibe Coding!** 
+
+VERSION 2.0
