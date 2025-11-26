@@ -4,8 +4,8 @@ import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveSchedule, getWeekSchedule } from "@/lib/schedule-engine";
 
-import { getExpectedHoursForDay } from "./admin-time-tracking";
 import { getMyMonthEvents } from "./employee-calendars";
 import { getMyPtoBalance } from "./employee-pto";
 import { getAllMyNotifications } from "./notifications";
@@ -110,22 +110,14 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
 
     // Calcular horas esperadas para HOY (compatible con FLEXIBLE, FIXED, SHIFTS)
     const today = new Date();
-    const todayExpectedInfo = await getExpectedHoursForDay(employee.id, today);
-    const expectedDailyMinutes = todayExpectedInfo.hoursExpected * 60;
+    // Usar el motor de horarios v2 para obtener el horario efectivo real
+    const todaySchedule = await getEffectiveSchedule(employee.id, today);
+    const expectedDailyMinutes = todaySchedule.expectedMinutes;
 
     // Calcular horas esperadas para la SEMANA (suma de cada día laborable)
-    // getExpectedHoursForDay() maneja automáticamente FLEXIBLE/FIXED/SHIFTS
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Lunes
-
-    const weekDays = Array.from({ length: 7 }, (_, i) => {
-      const day = new Date(startOfWeek);
-      day.setDate(startOfWeek.getDate() + i);
-      return day;
-    });
-
-    const weekExpectedHours = await Promise.all(weekDays.map((day) => getExpectedHoursForDay(employee.id, day)));
-    const expectedWeeklyMinutes = weekExpectedHours.reduce((total, dayInfo) => total + dayInfo.hoursExpected * 60, 0);
+    // Usar el motor de horarios v2 para obtener la semana completa
+    const weekSchedule = await getWeekSchedule(employee.id, today);
+    const expectedWeeklyMinutes = weekSchedule.totalExpectedMinutes;
 
     // 2. Obtener balance de vacaciones
     let ptoBalance = null;
