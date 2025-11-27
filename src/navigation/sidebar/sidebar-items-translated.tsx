@@ -19,6 +19,7 @@ import {
   CalendarClock,
   Banknote,
   ClipboardList,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -85,7 +86,7 @@ export function useSidebarItems(): NavGroup[] {
         {
           title: "Mis Fichajes",
           url: "/dashboard/me/clock/requests",
-          icon: Clock,
+          icon: History,
         },
         // "Mi Bolsa de Horas" REMOVED from here (Merged into Mis Fichajes)
         {
