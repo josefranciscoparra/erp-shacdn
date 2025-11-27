@@ -13,6 +13,26 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
 };
 
 /**
+ * Roles que pueden ser asignados como responsables de área.
+ *
+ * Estos roles tienen acceso a la UI de alertas (view_time_tracking)
+ * y pueden gestionar alertas de sus áreas asignadas.
+ *
+ * ⚠️ IMPORTANTE: Añadir "TEAM_LEAD" aquí cuando se implemente ese rol.
+ *
+ * @see /docs/PLAN_ALERTAS_V2.md para documentación completa
+ */
+export const ALLOWED_RESPONSIBLE_ROLES = [
+  "MANAGER",
+  "HR_ADMIN",
+  "ORG_ADMIN",
+  "SUPER_ADMIN",
+  // TODO: Añadir "TEAM_LEAD" cuando se implemente
+] as const;
+
+export type AllowedResponsibleRole = (typeof ALLOWED_RESPONSIBLE_ROLES)[number];
+
+/**
  * Nombres legibles de roles en español
  */
 export const ROLE_DISPLAY_NAMES: Record<Role, string> = {

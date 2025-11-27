@@ -10,7 +10,6 @@ import { z } from "zod";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Dialog,
@@ -54,23 +53,23 @@ const scopeLabels: Record<Scope, string> = {
   TEAM: "equipo",
 };
 
-// Permisos disponibles
-const availablePermissions = [
-  { value: "VIEW_EMPLOYEES" as const, label: "Ver Empleados" },
-  { value: "MANAGE_EMPLOYEES" as const, label: "Gestionar Empleados" },
-  { value: "VIEW_TIME_ENTRIES" as const, label: "Ver Fichajes" },
-  { value: "MANAGE_TIME_ENTRIES" as const, label: "Gestionar Fichajes" },
-  { value: "VIEW_ALERTS" as const, label: "Ver Alertas" },
-  { value: "RESOLVE_ALERTS" as const, label: "Resolver Alertas" },
-  { value: "VIEW_SCHEDULES" as const, label: "Ver Horarios" },
-  { value: "MANAGE_SCHEDULES" as const, label: "Gestionar Horarios" },
-  { value: "VIEW_PTO_REQUESTS" as const, label: "Ver Ausencias" },
-  { value: "APPROVE_PTO_REQUESTS" as const, label: "Aprobar Ausencias" },
+// Permisos que se asignan automáticamente a todo responsable
+// El responsable tiene control total sobre su área de responsabilidad
+const ALL_PERMISSIONS: Permission[] = [
+  "VIEW_EMPLOYEES",
+  "MANAGE_EMPLOYEES",
+  "VIEW_TIME_ENTRIES",
+  "MANAGE_TIME_ENTRIES",
+  "VIEW_ALERTS",
+  "RESOLVE_ALERTS",
+  "VIEW_SCHEDULES",
+  "MANAGE_SCHEDULES",
+  "VIEW_PTO_REQUESTS",
+  "APPROVE_PTO_REQUESTS",
 ];
 
 const formSchema = z.object({
   userId: z.string().min(1, "Debes seleccionar un usuario"),
-  permissions: z.array(z.string()).min(1, "Debes seleccionar al menos un permiso"),
   createSubscription: z.boolean().default(true),
 });
 
@@ -89,7 +88,6 @@ export function AddResponsibleDialog({ scope, scopeId, scopeName }: AddResponsib
     resolver: zodResolver(formSchema),
     defaultValues: {
       userId: "",
-      permissions: [],
       createSubscription: true,
     },
   });
@@ -117,11 +115,12 @@ export function AddResponsibleDialog({ scope, scopeId, scopeName }: AddResponsib
   async function onSubmit(data: FormData) {
     setSubmitting(true);
     try {
+      // Asignar todos los permisos automáticamente
       const { success, error } = await assignResponsibility({
         userId: data.userId,
         scope,
         scopeId,
-        permissions: data.permissions as Permission[],
+        permissions: ALL_PERMISSIONS,
         createSubscription: data.createSubscription,
       });
 
@@ -244,49 +243,15 @@ export function AddResponsibleDialog({ scope, scopeId, scopeName }: AddResponsib
               )}
             />
 
-            {/* Checkboxes de permisos (grid 2 columnas) */}
-            <FormField
-              control={form.control}
-              name="permissions"
-              render={() => (
-                <FormItem>
-                  <div className="mb-4">
-                    <FormLabel className="text-base">Permisos</FormLabel>
-                    <FormDescription>
-                      Selecciona los permisos que tendrá el responsable en este {scopeLabel}
-                    </FormDescription>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {availablePermissions.map((perm) => (
-                      <FormField
-                        key={perm.value}
-                        control={form.control}
-                        name="permissions"
-                        render={({ field }) => (
-                          <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-3">
-                            <FormControl>
-                              <Checkbox
-                                checked={field.value?.includes(perm.value)}
-                                onCheckedChange={(checked) => {
-                                  const current = field.value ?? [];
-                                  if (checked) {
-                                    field.onChange([...current, perm.value]);
-                                  } else {
-                                    field.onChange(current.filter((v) => v !== perm.value));
-                                  }
-                                }}
-                              />
-                            </FormControl>
-                            <FormLabel className="text-sm font-normal">{perm.label}</FormLabel>
-                          </FormItem>
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            {/* Información de permisos */}
+            <div className="bg-muted/50 rounded-lg border p-4">
+              <p className="text-sm font-medium">El responsable podrá:</p>
+              <ul className="text-muted-foreground mt-2 list-inside list-disc space-y-1 text-sm">
+                <li>Aprobar solicitudes de ausencias y fichajes manuales</li>
+                <li>Ver y resolver alertas de incidencias</li>
+                <li>Gestionar empleados, horarios y fichajes</li>
+              </ul>
+            </div>
 
             {/* Switch suscripción automática */}
             <FormField

@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { validateScopeOwnership, type Permission, type Scope } from "@/lib/permissions/scope-helpers";
 import { prisma } from "@/lib/prisma";
+import { ALLOWED_RESPONSIBLE_ROLES, type AllowedResponsibleRole } from "@/lib/role-hierarchy";
 
 /**
  * Server Actions para gestión de responsabilidades de áreas
@@ -135,13 +136,22 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
         id: data.userId,
         orgId: session.user.orgId,
       },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, role: true },
     });
 
     if (!targetUser) {
       return {
         success: false,
         error: "Usuario no encontrado o no pertenece a la organización",
+      };
+    }
+
+    // Validar que el usuario tiene un rol permitido para ser responsable
+    // Solo MANAGER y superiores pueden ser responsables (tienen acceso a view_time_tracking)
+    if (!ALLOWED_RESPONSIBLE_ROLES.includes(targetUser.role as AllowedResponsibleRole)) {
+      return {
+        success: false,
+        error: "Solo usuarios con rol Manager o superior pueden ser asignados como responsables de área",
       };
     }
 
@@ -596,14 +606,14 @@ export async function searchUsersForResponsibility(searchTerm: string): Promise<
     }
 
     // 🎯 FILTRO DE ROLES: Solo MANAGER y superiores pueden ser responsables
-    // Para añadir nuevos roles en el futuro (ej: "TEAM_LEAD"), añádelos aquí:
-    const allowedRoles = ["MANAGER", "HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
+    // Usa la constante centralizada ALLOWED_RESPONSIBLE_ROLES de @/lib/role-hierarchy
+    // Para añadir nuevos roles en el futuro (ej: "TEAM_LEAD"), modifica esa constante
 
     const users = await prisma.user.findMany({
       where: {
         orgId: session.user.orgId,
         active: true,
-        role: { in: allowedRoles }, // ⭐ Filtro por rol
+        role: { in: [...ALLOWED_RESPONSIBLE_ROLES] }, // ⭐ Usa constante centralizada
         OR: [
           { name: { contains: searchTerm, mode: "insensitive" } },
           { email: { contains: searchTerm, mode: "insensitive" } },

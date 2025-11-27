@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { getActiveAlerts, getActiveAlertsCount } from "@/server/actions/alert-detection";
 
@@ -31,36 +32,53 @@ type AlertSimple = {
 
 export function AlertsBell() {
   const pathname = usePathname();
+  const { hasPermission } = usePermissions();
   const [alertsCount, setAlertsCount] = useState(0);
   const [recentAlerts, setRecentAlerts] = useState<AlertSimple[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
 
-  // Función para cargar datos
-  const loadData = async () => {
-    try {
-      const [count, alerts] = await Promise.all([
-        getActiveAlertsCount(),
-        getActiveAlerts({}), // Traemos todas y filtramos las 5 primeras en cliente
-      ]);
+  // No mostrar campana si no tiene permiso view_time_tracking
+  // Solo usuarios MANAGER y superiores pueden ver alertas
+  const canViewAlerts = hasPermission("view_time_tracking");
 
-      setAlertsCount(count);
-      // Tomar solo las 5 más recientes
-      setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
-    } catch (error) {
-      console.error("Error al cargar alertas:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Cargar al montar y al cambiar ruta
+  // Cargar al montar y al cambiar ruta (solo si tiene permiso)
   useEffect(() => {
+    if (!canViewAlerts) return;
+
+    const loadData = async () => {
+      try {
+        const [count, alerts] = await Promise.all([getActiveAlertsCount(), getActiveAlerts({})]);
+
+        setAlertsCount(count);
+        setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
+      } catch (error) {
+        console.error("Error al cargar alertas:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     loadData();
-  }, [pathname]);
+  }, [pathname, canViewAlerts]);
 
-  // Auto-refresh cada 2 minutos
+  // Auto-refresh cada 2 minutos (solo si tiene permiso)
   useEffect(() => {
+    if (!canViewAlerts) return;
+
+    const loadData = async () => {
+      try {
+        const [count, alerts] = await Promise.all([getActiveAlertsCount(), getActiveAlerts({})]);
+
+        setAlertsCount(count);
+        setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
+      } catch (error) {
+        console.error("Error al cargar alertas:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     const interval = setInterval(
       () => {
         if (!document.hidden && !isOpen) {
@@ -71,7 +89,12 @@ export function AlertsBell() {
     );
 
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, [isOpen, canViewAlerts]);
+
+  // Si no tiene permiso, no renderizar nada (después de los hooks)
+  if (!canViewAlerts) {
+    return null;
+  }
 
   const severityConfig = {
     INFO: { icon: Info, color: "text-blue-500" },
