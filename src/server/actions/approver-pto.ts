@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
+import { recalculateWorkdaySummaryForRetroactivePto } from "./time-tracking";
 
 // ==========================================================================
 // ACTIONS DE APROBACIÓN DE PTO (SISTEMA CENTRALIZADO)
@@ -135,6 +136,16 @@ export async function approvePtoRequest(requestId: string, comments?: string) {
     // 4. Recalcular balance y notificar
     const currentYear = new Date().getFullYear();
     await recalculatePtoBalance(request.employeeId, request.orgId, currentYear);
+
+    // 5. FASE 3.2: Recalcular WorkdaySummary si el PTO tiene fechas en el pasado
+    // Esto asegura que expectedMinutes se actualice a 0 para los días de ausencia
+    await recalculateWorkdaySummaryForRetroactivePto(
+      request.employeeId,
+      request.orgId,
+      request.startDate,
+      request.endDate,
+      request.absenceType.name,
+    );
 
     if (request.employee.user) {
       await createNotification(

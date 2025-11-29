@@ -763,6 +763,10 @@ model TimeEntry {
   @@index([entryType])
   @@index([workdayId])
   @@index([isCancelled])
+  // Índices compuestos para consultas frecuentes (FASE 4 - Robustez)
+  @@index([employeeId, orgId, timestamp])
+  @@index([employeeId, orgId, entryType, timestamp])
+  @@index([employeeId, orgId, isCancelled, timestamp])
   @@map("time_entries")
 }
 
@@ -849,10 +853,7 @@ model TimeBankSettings {
   requireOvertimeAuthorization Boolean  @default(true)
   autoCloseMissingClockOut     Boolean  @default(true)
   allowCashConversion          Boolean  @default(false)
-<<<<<<< Updated upstream
   approvalFlow                 TimeBankApprovalFlow @default(MIRROR_PTO)
-=======
->>>>>>> Stashed changes
   metadata                     Json?
   createdAt                    DateTime @default(now())
   updatedAt                    DateTime @updatedAt
@@ -1034,14 +1035,11 @@ enum OverworkAuthorizationStatus {
   EXPIRED
 }
 
-<<<<<<< Updated upstream
 enum TimeBankApprovalFlow {
   MIRROR_PTO
   HR_ONLY
 }
 
-=======
->>>>>>> Stashed changes
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
 
 // Tipos de ausencia configurables (Vacaciones, Asuntos personales, Baja médica, etc.)
@@ -2416,6 +2414,8 @@ model EmployeeScheduleAssignment {
   updatedAt DateTime @updatedAt
 
   @@index([employeeId])
+  // Índice compuesto para consultas de asignaciones activas (FASE 4 - Robustez)
+  @@index([employeeId, isActive, validFrom, validTo])
   @@map("employee_schedule_assignments")
 }
 

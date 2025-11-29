@@ -169,11 +169,21 @@ export async function getTodaySummary(): Promise<{
     // CONSISTENCIA UI: Siempre obtener el horario fresco del motor
     // La BD puede tener un snapshot obsoleto si se aprobaron vacaciones después de fichar
     let expectedMinutes = 0;
+    let needsDbSync = false;
     try {
       const scheduleDate = new Date(today);
       scheduleDate.setHours(12, 0, 0, 0); // Usar mediodía para el motor de horarios
       const freshSchedule = await getEffectiveSchedule(employee.id, scheduleDate);
       expectedMinutes = freshSchedule.expectedMinutes;
+
+      // FASE 3.3: Detectar si la BD tiene un valor diferente al motor
+      const dbExpectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : 0;
+      if (dbExpectedMinutes !== expectedMinutes) {
+        needsDbSync = true;
+        console.log(
+          `🔄 SYNC expectedMinutes: BD=${dbExpectedMinutes} → Motor=${expectedMinutes} (empleado=${employee.id})`,
+        );
+      }
     } catch (e) {
       console.warn("Error getting fresh schedule for summary:", e);
       // Fallback a BD si falla el motor
@@ -182,6 +192,25 @@ export async function getTodaySummary(): Promise<{
 
     // Recalcular desviación siempre con el valor fresco
     const deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
+
+    // FASE 3.3: Sincronizar BD si hay diferencia (fire and forget para no bloquear la UI)
+    if (needsDbSync) {
+      prisma.workdaySummary
+        .update({
+          where: {
+            orgId_employeeId_date: {
+              orgId: session.user.orgId,
+              employeeId: employee.id,
+              date: today,
+            },
+          },
+          data: {
+            expectedMinutes,
+            deviationMinutes,
+          },
+        })
+        .catch((err) => console.error("Error syncing expectedMinutes to DB:", err));
+    }
 
     return {
       success: true,

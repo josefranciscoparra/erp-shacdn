@@ -1,9 +1,9 @@
 # Plan de Robustez: Sistema de Horarios, Turnos y Fichajes
 
-> **Versión**: 1.0
+> **Versión**: 1.3
 > **Fecha**: 2025-11-29
 > **Tag inicial**: `v2.3.0-pre-robustness`
-> **Estado**: En progreso
+> **Estado**: ✅ TODAS LAS FASES COMPLETADAS (12/12 tareas)
 
 ---
 
@@ -19,28 +19,28 @@ Llevar el sistema de fichajes y horarios a nivel de **produccion estable** corri
 
 | # | Problema | Impacto | Estado |
 |---|----------|---------|--------|
-| 1 | Race conditions sin transacciones | Multiples CLOCK_IN posibles | [ ] Pendiente |
-| 2 | Fichajes que cruzan medianoche | Minutos calculados incorrectamente | [ ] Pendiente |
-| 3 | Pausas abiertas usan `new Date()` | Tiempo de pausa incorrecto | [ ] Pendiente |
-| 4 | Sin validacion de maquina de estados | BREAK_END sin BREAK_START | [ ] Pendiente |
-| 5 | Sin transacciones atomicas | Operaciones parciales posibles | [ ] Pendiente |
+| 1 | Race conditions sin transacciones | Multiples CLOCK_IN posibles | [x] COMPLETADO |
+| 2 | Fichajes que cruzan medianoche | Minutos calculados incorrectamente | [x] COMPLETADO |
+| 3 | Pausas abiertas usan `new Date()` | Tiempo de pausa incorrecto | [x] COMPLETADO |
+| 4 | Sin validacion de maquina de estados | BREAK_END sin BREAK_START | [x] COMPLETADO |
+| 5 | Sin transacciones atomicas | Operaciones parciales posibles | [x] COMPLETADO |
 
 ### Motor de Horarios (4 problemas)
 
 | # | Problema | Impacto | Estado |
 |---|----------|---------|--------|
-| 6 | Rotaciones con fecha anterior | `(-5) % 4 = -1` en JS (incorrecto) | [ ] Pendiente |
-| 7 | Plantillas sin periodos | Retorna 0 silenciosamente | [ ] Pendiente |
-| 8 | Periodos superpuestos | Comportamiento no deterministico | [ ] Pendiente |
-| 9 | Timezone en comparaciones | Dia incorrecto en edge cases | [ ] Pendiente |
+| 6 | Rotaciones con fecha anterior | `(-5) % 4 = -1` en JS (incorrecto) | [x] COMPLETADO |
+| 7 | Plantillas sin periodos | Retorna 0 silenciosamente | [x] COMPLETADO |
+| 8 | Periodos superpuestos | Comportamiento no deterministico | [x] COMPLETADO |
+| 9 | Timezone en comparaciones | Dia incorrecto en edge cases | [x] COMPLETADO |
 
 ### Integracion (3 problemas)
 
 | # | Problema | Impacto | Estado |
 |---|----------|---------|--------|
-| 10 | Multiples asignaciones activas | Solo se usa una | [ ] Pendiente |
-| 11 | PTO retroactivo | WorkdaySummary no se recalcula | [ ] Pendiente |
-| 12 | expectedMinutes inconsistente | BD vs motor difieren | [ ] Pendiente |
+| 10 | Multiples asignaciones activas | Solo se usa una | [x] COMPLETADO |
+| 11 | PTO retroactivo | WorkdaySummary no se recalcula | [x] COMPLETADO |
+| 12 | expectedMinutes inconsistente | BD vs motor difieren | [x] COMPLETADO |
 
 ---
 
@@ -184,18 +184,18 @@ Mostrar alerta cuando el horario tiene `source: "CONFIGURATION_ERROR"` o `source
 
 | # | Tarea | Archivo | Prioridad | Estado |
 |---|-------|---------|-----------|--------|
-| 1 | Maquina de estados | `/src/lib/time-entry-state-machine.ts` | P0 | [ ] |
-| 2 | Transacciones fichajes | `/src/server/actions/time-tracking.ts` | P0 | [ ] |
-| 3 | Medianoche | `/src/server/actions/time-tracking.ts` | P0 | [ ] |
-| 4 | Rotaciones negativas | `/src/lib/schedule-engine.ts` | P0 | [ ] |
-| 5 | Validar plantillas | `/src/lib/schedule-engine.ts` | P0 | [ ] |
-| 6 | Periodos superpuestos | `/src/server/actions/schedules-v2.ts` | P0 | [ ] |
-| 7 | Asignaciones multiples | `/src/server/actions/schedules-v2.ts` | P0 | [ ] |
-| 8 | UTC normalizado | `/src/lib/schedule-engine.ts` | P0 | [ ] |
-| 9 | PTO retroactivo | `/src/server/actions/pto.ts` | P1 | [ ] |
-| 10 | Sync expectedMinutes | `/src/server/actions/employee-schedule.ts` | P1 | [ ] |
-| 11 | Indices BD | `/prisma/schema.prisma` | P1 | [ ] |
-| 12 | Validaciones UI | Varios componentes | P2 | [ ] |
+| 1 | Maquina de estados | `/src/lib/time-entry-state-machine.ts` | P0 | [x] HECHO |
+| 2 | Transacciones fichajes | `/src/server/actions/time-tracking.ts` | P0 | [x] HECHO |
+| 3 | Medianoche | `/src/server/actions/time-tracking.ts` | P0 | [x] HECHO |
+| 4 | Rotaciones negativas | `/src/lib/schedule-engine.ts` | P0 | [x] HECHO |
+| 5 | Validar plantillas | `/src/lib/schedule-engine.ts` | P0 | [x] HECHO |
+| 6 | Periodos superpuestos | `/src/server/actions/schedules-v2.ts` | P0 | [x] HECHO |
+| 7 | Asignaciones multiples | `/src/server/actions/schedules-v2.ts` | P0 | [x] HECHO |
+| 8 | UTC normalizado | `/src/lib/schedule-engine.ts` | P0 | [x] HECHO |
+| 9 | PTO retroactivo | `/src/server/actions/approver-pto.ts` | P1 | [x] HECHO |
+| 10 | Sync expectedMinutes | `/src/server/actions/employee-schedule.ts` | P1 | [x] HECHO |
+| 11 | Indices BD | `/prisma/schema.prisma` | P1 | [x] HECHO |
+| 12 | Validaciones UI | Varios componentes | P2 | [x] HECHO |
 
 ---
 
@@ -235,8 +235,118 @@ npx prisma db push
 
 ---
 
+## Guia de Pruebas Manuales
+
+### FASE 1: Sistema de Fichajes
+
+#### Prueba 1: Race conditions (transacciones)
+- Abre 2 pestanas en `/dashboard/me/clock`
+- Intenta hacer CLOCK_IN en ambas simultaneamente
+- **Esperado**: Solo 1 debe pasar, la otra debe dar error
+
+#### Prueba 2: Fichajes que cruzan medianoche
+- Ficha entrada a las 23:50
+- Espera a que pase medianoche (o cambia la hora del sistema)
+- Ficha salida a las 00:10
+- **Esperado**: Los minutos deben calcularse correctamente para ambos dias
+
+#### Prueba 3: Pausas abiertas
+- CLOCK_IN → BREAK_START → CLOCK_OUT (sin BREAK_END)
+- **Esperado**: La pausa debe calcularse hasta el momento del CLOCK_OUT
+
+#### Prueba 4: Maquina de estados
+- Intenta hacer BREAK_END sin haber hecho BREAK_START
+- **Esperado**: Debe dar error de "transicion no permitida"
+
+### FASE 2: Motor de Horarios
+
+#### Prueba 5: Rotaciones con fecha anterior
+- Asigna un patron de rotacion a un empleado
+- Consulta el horario de una fecha ANTERIOR al inicio de la rotacion
+- **Esperado**: No debe crashear, debe mostrar horario correcto
+
+#### Prueba 6: Plantilla sin periodos
+- Crea una plantilla nueva sin anadir periodos
+- Intenta asignarla a un empleado
+- **Esperado**: Debe dar error descriptivo (FASE 5.1)
+
+### FASE 3: Integridad de Datos
+
+#### Prueba 7: Asignaciones multiples
+- Asigna un horario A a un empleado (vigente desde hoy)
+- Asigna un horario B al mismo empleado
+- **Esperado**: El horario A debe cerrarse automaticamente al dia anterior
+
+#### Prueba 8: PTO retroactivo
+- Ficha entrada/salida un dia normal
+- Al dia siguiente, aprueba una solicitud de vacaciones para el dia anterior
+- **Esperado**: El WorkdaySummary debe recalcularse (expectedMinutes = 0)
+
+#### Prueba 9: Sync expectedMinutes
+- Ve a `/dashboard/me/clock` despues de cambiar el horario asignado
+- **Esperado**: El resumen debe mostrar los minutos esperados actualizados
+
+### FASE 5: Validaciones de UI
+
+#### Prueba 10: Validar plantilla antes de asignar
+- Crea plantilla → Anade periodo → NO anadas franjas horarias
+- Intenta asignarla
+- **Esperado**: Error "El periodo X no tiene franjas horarias configuradas"
+
+#### Prueba 11: Warning CONFIGURATION_ERROR en UI
+- Si tienes una plantilla con errores asignada, ve a `/dashboard/me/clock`
+- **Esperado**: Card roja "Error de Configuracion" con mensaje explicativo
+
+#### Prueba 12: Warning NO_ASSIGNMENT en UI
+- Crea un empleado sin asignarle horario
+- Inicia sesion como ese empleado y ve a `/dashboard/me/clock`
+- **Esperado**: Card naranja "Sin horario asignado"
+
+### Checklist Rapido
+
+| # | Prueba | Ubicacion | Prioridad |
+|---|--------|-----------|-----------|
+| 1 | Race condition CLOCK_IN | 2 tabs → `/dashboard/me/clock` | CRITICA |
+| 2 | Medianoche | Fichaje 23:50 → 00:10 | CRITICA |
+| 3 | Pausa abierta | CLOCK_IN → BREAK_START → CLOCK_OUT | CRITICA |
+| 4 | Maquina estados | BREAK_END sin BREAK_START | ALTA |
+| 5 | Rotacion historica | Consultar fecha anterior | MEDIA |
+| 6 | Plantilla vacia | Crear y asignar | CRITICA |
+| 7 | Doble asignacion | Asignar 2 horarios | CRITICA |
+| 8 | PTO retroactivo | Aprobar PTO de ayer | CRITICA |
+| 9 | Sync minutos | Cambiar horario y ver resumen | MEDIA |
+| 10 | Periodo sin franjas | Crear y asignar | ALTA |
+| 11 | Error config UI | Ver `/dashboard/me/clock` | MEDIA |
+| 12 | Sin asignacion UI | Empleado nuevo | MEDIA |
+
+---
+
+## Archivos Modificados (Referencia de Commits)
+
+### Commit: `feat(robustness): implementar plan de robustez completo para fichajes y horarios`
+
+**Archivos modificados:**
+
+| Archivo | Descripcion del cambio |
+|---------|----------------------|
+| `src/lib/time-entry-state-machine.ts` | **NUEVO** - Maquina de estados para validar transiciones de fichajes |
+| `src/server/actions/time-tracking.ts` | Transacciones atomicas, manejo de medianoche, pausas abiertas, recalculo PTO retroactivo |
+| `src/lib/schedule-engine.ts` | Modulo positivo para rotaciones, validacion de plantillas, normalizacion UTC |
+| `src/server/actions/schedules-v2.ts` | Validacion de periodos superpuestos, transaccion atomica para asignaciones, validacion de plantilla completa |
+| `src/server/actions/approver-pto.ts` | Llamada a recalculo de WorkdaySummary en aprobacion de PTO retroactivo |
+| `src/server/actions/employee-schedule.ts` | Sincronizacion automatica de expectedMinutes BD vs motor |
+| `src/app/(main)/dashboard/me/clock/_components/today-schedule.tsx` | Warning UI para CONFIGURATION_ERROR |
+| `prisma/schema.prisma` | Indices compuestos para TimeEntry, EmployeeScheduleAssignment, WorkdaySummary |
+| `src/types/schedule.ts` | Tipo CONFIGURATION_ERROR en EffectiveSchedule.source |
+| `docs/PLAN_ROBUSTEZ_FICHAJES.md` | Documentacion completa del plan |
+
+---
+
 ## Historial de Cambios
 
 | Fecha | Version | Cambios |
 |-------|---------|---------|
 | 2025-11-29 | 1.0 | Creacion del plan inicial |
+| 2025-11-29 | 1.1 | FASES 1-4 completadas: fichajes, motor horarios, integridad, indices |
+| 2025-11-29 | 1.2 | FASE 5 completada: validaciones UI (plantilla completa + warnings CONFIGURATION_ERROR) |
+| 2025-11-29 | 1.3 | Anadida guia de pruebas manuales y referencia de commits |

@@ -42,7 +42,7 @@ export interface EffectiveSchedule {
   timeSlots: EffectiveTimeSlot[];
 
   /** Origen de este horario (para debugging/UI) */
-  source: "MANUAL" | "EXCEPTION" | "PERIOD" | "TEMPLATE" | "ABSENCE" | "NO_ASSIGNMENT";
+  source: "MANUAL" | "EXCEPTION" | "PERIOD" | "TEMPLATE" | "ABSENCE" | "NO_ASSIGNMENT" | "CONFIGURATION_ERROR" | "CONTRACT" | "NO_CONTRACT";
 
   /** Nombre del período (si aplica) */
   periodName?: string;
@@ -72,6 +72,9 @@ export interface EffectiveSchedule {
 
   /** Razón de la excepción (si aplica) */
   exceptionReason?: string;
+
+  /** Mensaje de error de configuración (si source es CONFIGURATION_ERROR) */
+  configurationError?: string;
 }
 
 /**

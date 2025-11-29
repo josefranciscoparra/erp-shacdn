@@ -1,14 +1,21 @@
 "use server";
 
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from "date-fns";
 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
+import {
+  validateTransition,
+  mapStatusToState,
+  getTransitionError,
+  type TimeEntryState,
+  type TimeEntryAction,
+} from "@/lib/time-entry-state-machine";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
-import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
+import { removeAutoTimeBankMovement, syncTimeBankForWorkday } from "./time-bank";
 
 /**
  * Helper para serializar TimeEntry convirtiendo Decimals a números
@@ -155,6 +162,7 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
 }
 
 // Helper para actualizar el resumen del día
+// MEJORADO: Maneja fichajes que cruzan medianoche (turnos de noche)
 async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
   const dayStart = startOfDay(date);
   const dayEnd = endOfDay(date);
@@ -175,12 +183,89 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
     },
   });
 
-  if (entries.length === 0) {
+  // ========== FASE 1.3: MANEJO DE FICHAJES QUE CRUZAN MEDIANOCHE ==========
+  // Buscar CLOCK_IN del día anterior que NO tenga CLOCK_OUT correspondiente
+  // Esto ocurre en turnos de noche: entrada 23:00, salida 07:00 del día siguiente
+  let midnightCrossingMinutes = 0;
+  let hasMidnightCrossing = false;
+
+  const previousDay = subDays(dayStart, 1);
+  const previousDayStart = startOfDay(previousDay);
+  const previousDayEnd = endOfDay(previousDay);
+
+  // Buscar último fichaje del día anterior
+  const lastEntryYesterday = await prisma.timeEntry.findFirst({
+    where: {
+      employeeId,
+      orgId,
+      isCancelled: false,
+      timestamp: {
+        gte: previousDayStart,
+        lte: previousDayEnd,
+      },
+    },
+    orderBy: {
+      timestamp: "desc",
+    },
+  });
+
+  // Si el último fichaje del día anterior fue CLOCK_IN o BREAK_END (estaba trabajando),
+  // y el primer fichaje del día actual es CLOCK_OUT o no existe,
+  // entonces hay un cruce de medianoche
+  if (lastEntryYesterday) {
+    const wasWorkingAtMidnight =
+      lastEntryYesterday.entryType === "CLOCK_IN" || lastEntryYesterday.entryType === "BREAK_END";
+
+    if (wasWorkingAtMidnight) {
+      // Verificar si hay CLOCK_OUT del día anterior después del CLOCK_IN
+      const hadClockOutYesterday = await prisma.timeEntry.findFirst({
+        where: {
+          employeeId,
+          orgId,
+          isCancelled: false,
+          entryType: "CLOCK_OUT",
+          timestamp: {
+            gt: lastEntryYesterday.timestamp,
+            lte: previousDayEnd,
+          },
+        },
+      });
+
+      // Si NO fichó salida ayer, hay cruce de medianoche
+      if (!hadClockOutYesterday) {
+        hasMidnightCrossing = true;
+
+        // Buscar el primer evento del día actual
+        const firstEntryToday = entries.length > 0 ? entries[0] : null;
+
+        if (firstEntryToday) {
+          // Calcular minutos desde medianoche (00:00) hasta el primer evento de hoy
+          // Solo si el primer evento es CLOCK_OUT, BREAK_START, o BREAK_END
+          if (
+            firstEntryToday.entryType === "CLOCK_OUT" ||
+            firstEntryToday.entryType === "BREAK_START" ||
+            firstEntryToday.entryType === "BREAK_END"
+          ) {
+            midnightCrossingMinutes = (firstEntryToday.timestamp.getTime() - dayStart.getTime()) / (1000 * 60);
+            console.log(
+              `🌙 Fichaje cruzando medianoche detectado: +${midnightCrossingMinutes.toFixed(2)} min desde 00:00`,
+            );
+          }
+        }
+      }
+    }
+  }
+  // ========== FIN FASE 1.3 ==========
+
+  if (entries.length === 0 && !hasMidnightCrossing) {
     await removeAutoTimeBankMovement(orgId, employeeId, dayStart);
     return null;
   }
 
-  const { worked, break: breakTime } = calculateWorkedMinutes(entries);
+  const { worked: workedFromEntries, break: breakTime } = calculateWorkedMinutes(entries);
+
+  // Agregar minutos del cruce de medianoche
+  const worked = workedFromEntries + midnightCrossingMinutes;
 
   const firstEntry = entries.find((e) => e.entryType === "CLOCK_IN");
   const lastExit = entries.reverse().find((e) => e.entryType === "CLOCK_OUT");
@@ -326,42 +411,83 @@ export async function getCurrentStatus() {
 }
 
 // Fichar entrada
+// REFACTORIZADO: Usa transacción Serializable + máquina de estados para prevenir race conditions
 export async function clockIn(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
-    // Validar que no haya fichado ya
-    const currentStatus = await getCurrentStatus();
-    if (currentStatus.status !== "CLOCKED_OUT") {
-      throw new Error("Ya has fichado entrada");
-    }
-
-    // Procesar datos de geolocalización
+    // Procesar datos de geolocalización ANTES de la transacción (operación de lectura)
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
     const now = new Date();
 
-    // Validar fichaje según horario y configuraciones de la organización
+    // Validar fichaje según horario ANTES de la transacción (operación de lectura)
     const validation = await validateTimeEntry(employeeId, now, "CLOCK_IN");
 
-    // Crear el fichaje
-    const entry = await prisma.timeEntry.create({
-      data: {
-        orgId,
-        employeeId,
-        entryType: "CLOCK_IN",
-        timestamp: now,
-        validationWarnings: validation.warnings ?? [],
-        validationErrors: validation.errors ?? [],
-        deviationMinutes: validation.deviationMinutes ?? null,
-        ...geoData,
+    // TRANSACCIÓN ATÓMICA: Previene race conditions
+    const entry = await prisma.$transaction(
+      async (tx) => {
+        // 1. Obtener último fichaje del día DENTRO de la transacción
+        const dayStart = startOfDay(now);
+        const dayEnd = endOfDay(now);
+
+        const lastEntry = await tx.timeEntry.findFirst({
+          where: {
+            employeeId,
+            orgId,
+            isCancelled: false,
+            timestamp: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+        });
+
+        // 2. Derivar estado actual usando máquina de estados
+        let currentState: TimeEntryState = "CLOCKED_OUT";
+        if (lastEntry) {
+          currentState = mapStatusToState(
+            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
+              ? "CLOCKED_IN"
+              : lastEntry.entryType === "BREAK_START"
+                ? "ON_BREAK"
+                : "CLOCKED_OUT",
+          );
+        }
+
+        // 3. Validar transición con máquina de estados
+        const action: TimeEntryAction = "CLOCK_IN";
+        if (!validateTransition(currentState, action)) {
+          throw new Error(getTransitionError(currentState, action));
+        }
+
+        // 4. Crear el fichaje (dentro de la transacción)
+        return tx.timeEntry.create({
+          data: {
+            orgId,
+            employeeId,
+            entryType: "CLOCK_IN",
+            timestamp: now,
+            validationWarnings: validation.warnings ?? [],
+            validationErrors: validation.errors ?? [],
+            deviationMinutes: validation.deviationMinutes ?? null,
+            ...geoData,
+          },
+        });
       },
-    });
+      {
+        isolationLevel: "Serializable", // Máximo nivel de aislamiento
+        timeout: 10000, // 10 segundos timeout
+      },
+    );
 
-    // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    // Actualizar el resumen del día (FUERA de la transacción, no es crítico)
+    await updateWorkdaySummary(employeeId, orgId, now);
 
-    // Detectar alertas en tiempo real
+    // Detectar alertas en tiempo real (FUERA de la transacción, no es crítico)
     console.log("🚨 [CLOCK_IN] Iniciando detección de alertas para entry:", entry.id);
     let alerts: any[] = [];
     try {
@@ -369,7 +495,6 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
       console.log("🚨 [CLOCK_IN] Alertas detectadas:", alerts.length, alerts);
     } catch (alertError) {
       console.error("🚨 [CLOCK_IN] Error al detectar alertas (no crítico):", alertError);
-      // No fallar el fichaje si falla la detección de alertas
     }
 
     return { success: true, entry: serializeTimeEntry(entry), alerts };
@@ -380,6 +505,8 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
 }
 
 // Fichar salida
+// REFACTORIZADO: Usa transacción Serializable + máquina de estados para prevenir race conditions
+// CORREGIDO: Usa timestamp de CLOCK_OUT para BREAK_END automático (FASE 1.4)
 export async function clockOut(
   latitude?: number,
   longitude?: number,
@@ -395,104 +522,140 @@ export async function clockOut(
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
-    // Validar que haya fichado entrada
-    const currentStatus = await getCurrentStatus();
-    if (currentStatus.status === "CLOCKED_OUT") {
-      throw new Error("No has fichado entrada");
-    }
-
-    // Si está en pausa, finalizarla primero
-    if (currentStatus.status === "ON_BREAK") {
-      await prisma.timeEntry.create({
-        data: {
-          orgId,
-          employeeId,
-          entryType: "BREAK_END",
-          timestamp: new Date(),
-        },
-      });
-    }
-
-    // Procesar datos de geolocalización
+    // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
     const now = new Date();
 
-    // Si se solicita cancelación, marcar CLOCK_IN correspondiente como cancelado
-    if (cancelAsClosed && cancellationInfo) {
-      console.log(`⚠️ Cancelando fichaje de larga duración (${cancellationInfo.originalDurationHours.toFixed(1)}h)`);
-
-      // Marcar CLOCK_IN como cancelado
-      await prisma.timeEntry.update({
-        where: { id: cancellationInfo.clockInId },
-        data: {
-          isCancelled: true,
-          cancellationReason: cancellationInfo.reason,
-          cancelledAt: now,
-          cancellationNotes: cancellationInfo.notes,
-        },
-      });
-
-      // Crear CLOCK_OUT cancelado
-      const entry = await prisma.timeEntry.create({
-        data: {
-          orgId,
-          employeeId,
-          entryType: "CLOCK_OUT",
-          timestamp: now,
-          isCancelled: true,
-          cancellationReason: cancellationInfo.reason,
-          cancelledAt: now,
-          originalDurationHours: cancellationInfo.originalDurationHours,
-          cancellationNotes: cancellationInfo.notes,
-          ...geoData,
-        },
-      });
-
-      // Actualizar resumen del día (sin contar horas canceladas)
-      await updateWorkdaySummary(employeeId, orgId, now);
-
-      // Detectar alertas en tiempo real (incluso para fichajes cancelados)
-      let alerts: any[] = [];
-      try {
-        alerts = await detectAlertsForTimeEntry(entry.id);
-      } catch (alertError) {
-        console.error("Error al detectar alertas (no crítico):", alertError);
-      }
-
-      return { success: true, entry: serializeTimeEntry(entry), cancelled: true, alerts };
-    }
-
-    // Validar fichaje según horario y configuraciones de la organización
+    // Validar fichaje según horario ANTES de la transacción
     const validation = await validateTimeEntry(employeeId, now, "CLOCK_OUT");
 
-    // Fichaje normal (sin cancelación)
-    const entry = await prisma.timeEntry.create({
-      data: {
-        orgId,
-        employeeId,
-        entryType: "CLOCK_OUT",
-        timestamp: now,
-        validationWarnings: validation.warnings ?? [],
-        validationErrors: validation.errors ?? [],
-        deviationMinutes: validation.deviationMinutes ?? null,
-        ...geoData,
-      },
-    });
+    // TRANSACCIÓN ATÓMICA: Previene race conditions
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // 1. Obtener último fichaje del día DENTRO de la transacción
+        const dayStart = startOfDay(now);
+        const dayEnd = endOfDay(now);
 
-    // Actualizar el resumen del día
+        const lastEntry = await tx.timeEntry.findFirst({
+          where: {
+            employeeId,
+            orgId,
+            isCancelled: false,
+            timestamp: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+        });
+
+        // 2. Derivar estado actual usando máquina de estados
+        let currentState: TimeEntryState = "CLOCKED_OUT";
+        if (lastEntry) {
+          currentState = mapStatusToState(
+            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
+              ? "CLOCKED_IN"
+              : lastEntry.entryType === "BREAK_START"
+                ? "ON_BREAK"
+                : "CLOCKED_OUT",
+          );
+        }
+
+        // 3. Validar que pueda fichar salida
+        if (currentState === "CLOCKED_OUT") {
+          throw new Error(getTransitionError(currentState, "CLOCK_OUT"));
+        }
+
+        // 4. Si está en pausa, cerrarla primero con el MISMO timestamp del CLOCK_OUT
+        // IMPORTANTE: Usar `now` en lugar de `new Date()` para cálculo correcto de pausa
+        let breakEndEntry = null;
+        if (currentState === "ON_BREAK") {
+          breakEndEntry = await tx.timeEntry.create({
+            data: {
+              orgId,
+              employeeId,
+              entryType: "BREAK_END",
+              timestamp: now, // ✅ CORREGIDO: Usa timestamp del CLOCK_OUT
+            },
+          });
+        }
+
+        // 5. Manejar cancelación si es necesario
+        if (cancelAsClosed && cancellationInfo) {
+          console.log(`⚠️ Cancelando fichaje de larga duración (${cancellationInfo.originalDurationHours.toFixed(1)}h)`);
+
+          // Marcar CLOCK_IN como cancelado
+          await tx.timeEntry.update({
+            where: { id: cancellationInfo.clockInId },
+            data: {
+              isCancelled: true,
+              cancellationReason: cancellationInfo.reason,
+              cancelledAt: now,
+              cancellationNotes: cancellationInfo.notes,
+            },
+          });
+
+          // Crear CLOCK_OUT cancelado
+          const cancelledEntry = await tx.timeEntry.create({
+            data: {
+              orgId,
+              employeeId,
+              entryType: "CLOCK_OUT",
+              timestamp: now,
+              isCancelled: true,
+              cancellationReason: cancellationInfo.reason,
+              cancelledAt: now,
+              originalDurationHours: cancellationInfo.originalDurationHours,
+              cancellationNotes: cancellationInfo.notes,
+              ...geoData,
+            },
+          });
+
+          return { entry: cancelledEntry, cancelled: true, breakEndEntry };
+        }
+
+        // 6. Fichaje normal (sin cancelación)
+        const entry = await tx.timeEntry.create({
+          data: {
+            orgId,
+            employeeId,
+            entryType: "CLOCK_OUT",
+            timestamp: now,
+            validationWarnings: validation.warnings ?? [],
+            validationErrors: validation.errors ?? [],
+            deviationMinutes: validation.deviationMinutes ?? null,
+            ...geoData,
+          },
+        });
+
+        return { entry, cancelled: false, breakEndEntry };
+      },
+      {
+        isolationLevel: "Serializable",
+        timeout: 10000,
+      },
+    );
+
+    // Actualizar el resumen del día (FUERA de la transacción)
     await updateWorkdaySummary(employeeId, orgId, now);
 
-    // Detectar alertas en tiempo real
+    // Detectar alertas en tiempo real (FUERA de la transacción)
     let alerts: any[] = [];
     try {
-      alerts = await detectAlertsForTimeEntry(entry.id);
+      alerts = await detectAlertsForTimeEntry(result.entry.id);
     } catch (alertError) {
       console.error("Error al detectar alertas (no crítico):", alertError);
-      // No fallar el fichaje si falla la detección de alertas
     }
 
-    return { success: true, entry: serializeTimeEntry(entry), alerts };
+    return {
+      success: true,
+      entry: serializeTimeEntry(result.entry),
+      cancelled: result.cancelled,
+      alerts,
+    };
   } catch (error) {
     console.error("Error al fichar salida:", error);
     throw error;
@@ -500,32 +663,75 @@ export async function clockOut(
 }
 
 // Iniciar descanso
+// REFACTORIZADO: Usa transacción Serializable + máquina de estados para prevenir race conditions
 export async function startBreak(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
-    // Validar que esté trabajando
-    const currentStatus = await getCurrentStatus();
-    if (currentStatus.status !== "CLOCKED_IN") {
-      throw new Error("Debes estar trabajando para iniciar un descanso");
-    }
-
-    // Procesar datos de geolocalización
+    // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
-    // Crear el fichaje
-    const entry = await prisma.timeEntry.create({
-      data: {
-        orgId,
-        employeeId,
-        entryType: "BREAK_START",
-        timestamp: new Date(),
-        ...geoData,
-      },
-    });
+    const now = new Date();
 
-    // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    // TRANSACCIÓN ATÓMICA: Previene race conditions
+    const entry = await prisma.$transaction(
+      async (tx) => {
+        // 1. Obtener último fichaje del día DENTRO de la transacción
+        const dayStart = startOfDay(now);
+        const dayEnd = endOfDay(now);
+
+        const lastEntry = await tx.timeEntry.findFirst({
+          where: {
+            employeeId,
+            orgId,
+            isCancelled: false,
+            timestamp: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+        });
+
+        // 2. Derivar estado actual usando máquina de estados
+        let currentState: TimeEntryState = "CLOCKED_OUT";
+        if (lastEntry) {
+          currentState = mapStatusToState(
+            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
+              ? "CLOCKED_IN"
+              : lastEntry.entryType === "BREAK_START"
+                ? "ON_BREAK"
+                : "CLOCKED_OUT",
+          );
+        }
+
+        // 3. Validar transición con máquina de estados
+        const action: TimeEntryAction = "BREAK_START";
+        if (!validateTransition(currentState, action)) {
+          throw new Error(getTransitionError(currentState, action));
+        }
+
+        // 4. Crear el fichaje (dentro de la transacción)
+        return tx.timeEntry.create({
+          data: {
+            orgId,
+            employeeId,
+            entryType: "BREAK_START",
+            timestamp: now,
+            ...geoData,
+          },
+        });
+      },
+      {
+        isolationLevel: "Serializable",
+        timeout: 10000,
+      },
+    );
+
+    // Actualizar el resumen del día (FUERA de la transacción)
+    await updateWorkdaySummary(employeeId, orgId, now);
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -535,32 +741,75 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
 }
 
 // Finalizar descanso
+// REFACTORIZADO: Usa transacción Serializable + máquina de estados para prevenir race conditions
 export async function endBreak(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
-    // Validar que esté en pausa
-    const currentStatus = await getCurrentStatus();
-    if (currentStatus.status !== "ON_BREAK") {
-      throw new Error("No estás en descanso");
-    }
-
-    // Procesar datos de geolocalización
+    // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
-    // Crear el fichaje
-    const entry = await prisma.timeEntry.create({
-      data: {
-        orgId,
-        employeeId,
-        entryType: "BREAK_END",
-        timestamp: new Date(),
-        ...geoData,
-      },
-    });
+    const now = new Date();
 
-    // Actualizar el resumen del día
-    await updateWorkdaySummary(employeeId, orgId, new Date());
+    // TRANSACCIÓN ATÓMICA: Previene race conditions
+    const entry = await prisma.$transaction(
+      async (tx) => {
+        // 1. Obtener último fichaje del día DENTRO de la transacción
+        const dayStart = startOfDay(now);
+        const dayEnd = endOfDay(now);
+
+        const lastEntry = await tx.timeEntry.findFirst({
+          where: {
+            employeeId,
+            orgId,
+            isCancelled: false,
+            timestamp: {
+              gte: dayStart,
+              lte: dayEnd,
+            },
+          },
+          orderBy: {
+            timestamp: "desc",
+          },
+        });
+
+        // 2. Derivar estado actual usando máquina de estados
+        let currentState: TimeEntryState = "CLOCKED_OUT";
+        if (lastEntry) {
+          currentState = mapStatusToState(
+            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
+              ? "CLOCKED_IN"
+              : lastEntry.entryType === "BREAK_START"
+                ? "ON_BREAK"
+                : "CLOCKED_OUT",
+          );
+        }
+
+        // 3. Validar transición con máquina de estados
+        const action: TimeEntryAction = "BREAK_END";
+        if (!validateTransition(currentState, action)) {
+          throw new Error(getTransitionError(currentState, action));
+        }
+
+        // 4. Crear el fichaje (dentro de la transacción)
+        return tx.timeEntry.create({
+          data: {
+            orgId,
+            employeeId,
+            entryType: "BREAK_END",
+            timestamp: now,
+            ...geoData,
+          },
+        });
+      },
+      {
+        isolationLevel: "Serializable",
+        timeout: 10000,
+      },
+    );
+
+    // Actualizar el resumen del día (FUERA de la transacción)
+    await updateWorkdaySummary(employeeId, orgId, now);
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -1506,4 +1755,103 @@ export async function recalculateWorkdaySummary(date: Date) {
     console.error("❌ Error al recalcular WorkdaySummary:", error);
     throw error;
   }
+}
+
+/**
+ * FASE 3.2: Recalcula WorkdaySummary para un rango de fechas cuando se aprueba un PTO retroactivo
+ *
+ * Cuando se aprueba un PTO con fechas en el pasado, los WorkdaySummary existentes
+ * deben recalcularse para reflejar que ahora esos días son ausencia (expectedMinutes = 0)
+ *
+ * @param employeeId ID del empleado
+ * @param orgId ID de la organización
+ * @param startDate Fecha de inicio del PTO
+ * @param endDate Fecha de fin del PTO
+ * @param absenceType Tipo de ausencia para el log
+ */
+export async function recalculateWorkdaySummaryForRetroactivePto(
+  employeeId: string,
+  orgId: string,
+  startDate: Date,
+  endDate: Date,
+  absenceType?: string,
+): Promise<{ success: boolean; recalculatedDays: number }> {
+  const today = startOfDay(new Date());
+  const ptoStart = startOfDay(startDate);
+  const ptoEnd = startOfDay(endDate);
+
+  // Solo procesar días que ya pasaron (hasta ayer incluido)
+  const effectiveEnd = ptoEnd < today ? ptoEnd : addDays(today, -1);
+
+  // Si el PTO empieza en el futuro, no hay nada que recalcular
+  if (ptoStart >= today) {
+    console.log("🔄 PTO retroactivo: Todas las fechas son futuras, no hay recálculo necesario");
+    return { success: true, recalculatedDays: 0 };
+  }
+
+  console.log("🔄 Recalculando WorkdaySummary para PTO retroactivo...");
+  console.log(`   Empleado: ${employeeId}`);
+  console.log(`   Tipo: ${absenceType ?? "PTO"}`);
+  console.log(`   Rango: ${ptoStart.toLocaleDateString("es-ES")} - ${effectiveEnd.toLocaleDateString("es-ES")}`);
+
+  let recalculatedDays = 0;
+  let currentDate = ptoStart;
+
+  while (currentDate <= effectiveEnd) {
+    const dayStart = startOfDay(currentDate);
+
+    // Buscar si existe un WorkdaySummary para este día
+    const existingSummary = await prisma.workdaySummary.findUnique({
+      where: {
+        orgId_employeeId_date: {
+          orgId,
+          employeeId,
+          date: dayStart,
+        },
+      },
+    });
+
+    if (existingSummary) {
+      // Recalcular usando el motor de horarios (ahora retornará source: "ABSENCE")
+      const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+
+      // Actualizar expectedMinutes y deviationMinutes
+      const newExpectedMinutes = effectiveSchedule.expectedMinutes;
+      const newDeviationMinutes = existingSummary.totalWorkedMinutes - newExpectedMinutes;
+
+      // Determinar nuevo status
+      let newStatus: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = existingSummary.status as
+        | "IN_PROGRESS"
+        | "COMPLETED"
+        | "INCOMPLETE";
+      if (existingSummary.clockOut) {
+        if (newExpectedMinutes === 0) {
+          // Día de ausencia: cualquier trabajo es bonus
+          newStatus = "COMPLETED";
+        } else {
+          const compliance = (existingSummary.totalWorkedMinutes / newExpectedMinutes) * 100;
+          newStatus = compliance >= 95 ? "COMPLETED" : "INCOMPLETE";
+        }
+      }
+
+      await prisma.workdaySummary.update({
+        where: { id: existingSummary.id },
+        data: {
+          expectedMinutes: newExpectedMinutes,
+          deviationMinutes: newDeviationMinutes,
+          status: newStatus,
+        },
+      });
+
+      console.log(
+        `   ✅ ${dayStart.toLocaleDateString("es-ES")}: expectedMinutes ${existingSummary.expectedMinutes} → ${newExpectedMinutes}`,
+      );
+      recalculatedDays++;
+    }
+
+    currentDate = addDays(currentDate, 1);
+  }
+
+  console.log(`   📊 Total días recalculados: ${recalculatedDays}`);
+  return { success: true, recalculatedDays };
 }

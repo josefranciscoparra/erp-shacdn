@@ -45,6 +45,97 @@ const DEBUG_SCHEDULE = process.env.NODE_ENV === "development" && process.env.DEB
 const scheduleLog = DEBUG_SCHEDULE ? console.log.bind(console) : (..._args: any[]) => {};
 
 // ============================================================================
+// FASE 2.4: Helpers de Normalización UTC
+// ============================================================================
+
+/**
+ * Normaliza una fecha a medianoche UTC (00:00:00.000)
+ * Usado para comparaciones de fechas sin problemas de timezone
+ *
+ * @param date Fecha a normalizar
+ * @returns Nueva fecha con hora 00:00:00.000 UTC
+ */
+export function normalizeToUTCMidnight(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setUTCHours(0, 0, 0, 0);
+  return normalized;
+}
+
+/**
+ * Normaliza una fecha al final del día UTC (23:59:59.999)
+ * Usado para comparaciones inclusivas de fechas
+ *
+ * @param date Fecha a normalizar
+ * @returns Nueva fecha con hora 23:59:59.999 UTC
+ */
+export function normalizeToUTCEndOfDay(date: Date): Date {
+  const normalized = new Date(date);
+  normalized.setUTCHours(23, 59, 59, 999);
+  return normalized;
+}
+
+/**
+ * Compara dos fechas ignorando la hora (solo día, mes, año en UTC)
+ * Devuelve true si son el mismo día UTC
+ *
+ * @param date1 Primera fecha
+ * @param date2 Segunda fecha
+ * @returns true si son el mismo día UTC
+ */
+export function isSameUTCDay(date1: Date, date2: Date): boolean {
+  return (
+    date1.getUTCFullYear() === date2.getUTCFullYear() &&
+    date1.getUTCMonth() === date2.getUTCMonth() &&
+    date1.getUTCDate() === date2.getUTCDate()
+  );
+}
+
+/**
+ * Verifica si una fecha está dentro de un rango (inclusive) usando UTC
+ * Normaliza ambas fechas del rango a medianoche y fin de día para comparación precisa
+ *
+ * @param date Fecha a verificar
+ * @param startDate Inicio del rango (puede ser null = sin límite inferior)
+ * @param endDate Fin del rango (puede ser null = sin límite superior)
+ * @returns true si la fecha está dentro del rango
+ */
+export function isDateInUTCRange(
+  date: Date,
+  startDate: Date | null,
+  endDate: Date | null
+): boolean {
+  const normalizedDate = normalizeToUTCMidnight(date);
+
+  // Si no hay fecha de inicio, solo verificamos el fin
+  if (!startDate) {
+    if (!endDate) return true; // Sin límites
+    return normalizedDate <= normalizeToUTCEndOfDay(endDate);
+  }
+
+  // Si no hay fecha de fin, solo verificamos el inicio
+  if (!endDate) {
+    return normalizedDate >= normalizeToUTCMidnight(startDate);
+  }
+
+  // Ambos límites definidos
+  return (
+    normalizedDate >= normalizeToUTCMidnight(startDate) &&
+    normalizedDate <= normalizeToUTCEndOfDay(endDate)
+  );
+}
+
+/**
+ * Obtiene el día de la semana en UTC (0 = domingo, 6 = sábado)
+ * Evita problemas cuando la fecha local difiere del día UTC
+ *
+ * @param date Fecha
+ * @returns Día de la semana en UTC (0-6)
+ */
+export function getUTCDayOfWeek(date: Date): number {
+  return date.getUTCDay();
+}
+
+// ============================================================================
 // Función Principal: Obtener Horario Efectivo (Rango) - OPTIMIZADA
 // ============================================================================
 
@@ -527,12 +618,17 @@ export async function getEffectiveSchedule(
 
   if (!period) {
     // No hay período configurado para esta plantilla (error de configuración)
+    // FASE 2.2: Marcar como CONFIGURATION_ERROR en lugar de retornar 0 silenciosamente
+    console.warn(
+      `[SCHEDULE_ENGINE] Template "${template.name}" (${template.id}) no tiene períodos configurados para la fecha ${date.toISOString()}`
+    );
     return {
       date,
       isWorkingDay: false,
       expectedMinutes: 0,
       timeSlots: [],
-      source: "NO_ASSIGNMENT",
+      source: "CONFIGURATION_ERROR",
+      configurationError: `Plantilla "${template.name}" sin períodos configurados para esta fecha`,
     };
   }
 
@@ -1003,7 +1099,10 @@ function calculateRotationStep(rotationPattern: any, rotationStartDate: Date, da
   }
 
   // Posición en el ciclo actual (0 a cycleDuration-1)
-  const positionInCycle = daysSinceStart % cycleDuration;
+  // CORREGIDO: Usar módulo positivo para manejar fechas anteriores al inicio de la rotación
+  // En JavaScript, (-5) % 4 = -1, pero necesitamos resultado positivo
+  // Fórmula: ((n % m) + m) % m garantiza resultado positivo
+  const positionInCycle = ((daysSinceStart % cycleDuration) + cycleDuration) % cycleDuration;
 
   // Encontrar qué step corresponde
   let accumulatedDays = 0;

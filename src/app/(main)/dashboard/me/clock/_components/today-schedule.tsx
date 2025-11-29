@@ -102,6 +102,34 @@ function TodayScheduleComponent() {
     );
   }
 
+  // FASE 5.2: Si hay error de configuración en la plantilla asignada
+  if (schedule.source === "CONFIGURATION_ERROR") {
+    return (
+      <Card className="@container/card border-red-200 bg-red-50/30 dark:border-red-900 dark:bg-red-950/20">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-4 w-4 text-red-600 dark:text-red-400" />
+            Error de Configuración
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-3">
+            <Badge
+              variant="outline"
+              className="w-fit border-red-200 bg-red-50/50 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400"
+            >
+              Plantilla incompleta
+            </Badge>
+            <p className="text-sm text-red-700 dark:text-red-400">
+              {schedule.configurationError ??
+                "Tu plantilla de horario tiene errores de configuración. Contacta con tu administrador para que complete la configuración."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   // Si es ausencia
   if (schedule.source === "ABSENCE") {
     return (

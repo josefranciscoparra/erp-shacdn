@@ -67,6 +67,76 @@ async function requireOrg() {
   return { session, orgId: session.user.orgId };
 }
 
+/**
+ * FASE 2.3: Verifica si hay solapamiento entre períodos de una plantilla
+ *
+ * Dos períodos se solapan si sus rangos de fechas se intersecan.
+ * Los períodos sin fecha de fin (null) se consideran "infinitos" hacia el futuro.
+ *
+ * @param templateId ID de la plantilla
+ * @param newPeriod Datos del nuevo período
+ * @param excludePeriodId ID del período a excluir (para updates)
+ * @returns null si no hay solapamiento, o el período que se solapa
+ */
+async function checkPeriodOverlap(
+  templateId: string,
+  newPeriod: { validFrom?: Date | null; validTo?: Date | null; periodType: string },
+  excludePeriodId?: string
+): Promise<{ id: string; name: string | null; periodType: string; validFrom: Date | null; validTo: Date | null } | null> {
+  // Obtener todos los períodos existentes de la plantilla
+  const existingPeriods = await prisma.schedulePeriod.findMany({
+    where: {
+      scheduleTemplateId: templateId,
+      ...(excludePeriodId ? { id: { not: excludePeriodId } } : {}),
+    },
+    select: {
+      id: true,
+      name: true,
+      periodType: true,
+      validFrom: true,
+      validTo: true,
+    },
+  });
+
+  for (const existing of existingPeriods) {
+    // Solo verificar solapamiento entre períodos del MISMO tipo
+    if (existing.periodType !== newPeriod.periodType) {
+      continue;
+    }
+
+    // Verificar solapamiento de rangos de fechas
+    // Un período sin fechas (REGULAR permanente) no se solapa porque es el fallback
+    const newStart = newPeriod.validFrom;
+    const newEnd = newPeriod.validTo;
+    const existStart = existing.validFrom;
+    const existEnd = existing.validTo;
+
+    // Si el nuevo período no tiene fechas, no debería haber otro REGULAR sin fechas
+    if (!newStart && !newEnd && !existStart && !existEnd) {
+      return existing; // Ya existe un período permanente del mismo tipo
+    }
+
+    // Si alguno no tiene fechas, continuar (son períodos especiales vs permanentes)
+    if ((!newStart && !newEnd) || (!existStart && !existEnd)) {
+      continue;
+    }
+
+    // Ambos tienen fechas - verificar solapamiento
+    // Dos rangos [A, B] y [C, D] se solapan si: A <= D && C <= B
+    // Considerando null como infinito hacia el futuro
+    const newEndEffective = newEnd ?? new Date(9999, 11, 31);
+    const existEndEffective = existEnd ?? new Date(9999, 11, 31);
+    const newStartEffective = newStart ?? new Date(0);
+    const existStartEffective = existStart ?? new Date(0);
+
+    if (newStartEffective <= existEndEffective && existStartEffective <= newEndEffective) {
+      return existing; // Hay solapamiento
+    }
+  }
+
+  return null; // No hay solapamiento
+}
+
 // ============================================================================
 // RESOLUCIÓN DE HORARIO EFECTIVO (Core Logic)
 // ============================================================================
@@ -622,6 +692,7 @@ export async function getScheduleTemplateById(id: string) {
 
 /**
  * Crea un nuevo período en una plantilla
+ * FASE 2.3: Incluye validación de solapamiento entre períodos del mismo tipo
  */
 export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Promise<ActionResponse<{ id: string }>> {
   try {
@@ -634,6 +705,34 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
 
     if (!template) {
       return { success: false, error: "Plantilla no encontrada" };
+    }
+
+    // FASE 2.3: Verificar solapamiento con períodos existentes del mismo tipo
+    const overlappingPeriod = await checkPeriodOverlap(data.scheduleTemplateId, {
+      validFrom: data.validFrom,
+      validTo: data.validTo,
+      periodType: data.periodType,
+    });
+
+    if (overlappingPeriod) {
+      const periodName = overlappingPeriod.name ?? `Período ${overlappingPeriod.periodType}`;
+      const dateRange = overlappingPeriod.validFrom && overlappingPeriod.validTo
+        ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
+        : "";
+      return {
+        success: false,
+        error: `Las fechas se solapan con el período existente: "${periodName}"${dateRange}`,
+        validation: {
+          conflicts: [
+            {
+              type: "overlap",
+              message: `Solapamiento con período "${periodName}"`,
+              severity: "error",
+              relatedAssignmentId: overlappingPeriod.id,
+            },
+          ],
+        },
+      };
     }
 
     const period = await prisma.schedulePeriod.create({
@@ -655,6 +754,7 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
 
 /**
  * Actualiza un período existente
+ * FASE 2.3: Incluye validación de solapamiento entre períodos del mismo tipo
  */
 export async function updateSchedulePeriod(
   id: string,
@@ -662,6 +762,49 @@ export async function updateSchedulePeriod(
 ): Promise<ActionResponse> {
   try {
     await requireOrg();
+
+    // Obtener el período actual para conocer su plantilla y tipo actual
+    const currentPeriod = await prisma.schedulePeriod.findUnique({
+      where: { id },
+      select: { scheduleTemplateId: true, periodType: true, validFrom: true, validTo: true },
+    });
+
+    if (!currentPeriod) {
+      return { success: false, error: "Período no encontrado" };
+    }
+
+    // FASE 2.3: Verificar solapamiento con períodos existentes del mismo tipo
+    // Usar los valores nuevos o los actuales si no se proporcionan
+    const periodType = data.periodType ?? currentPeriod.periodType;
+    const validFrom = data.validFrom !== undefined ? data.validFrom : currentPeriod.validFrom;
+    const validTo = data.validTo !== undefined ? data.validTo : currentPeriod.validTo;
+
+    const overlappingPeriod = await checkPeriodOverlap(
+      currentPeriod.scheduleTemplateId,
+      { validFrom, validTo, periodType },
+      id // Excluir el período actual de la verificación
+    );
+
+    if (overlappingPeriod) {
+      const periodName = overlappingPeriod.name ?? `Período ${overlappingPeriod.periodType}`;
+      const dateRange = overlappingPeriod.validFrom && overlappingPeriod.validTo
+        ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
+        : "";
+      return {
+        success: false,
+        error: `Las fechas se solapan con el período existente: "${periodName}"${dateRange}`,
+        validation: {
+          conflicts: [
+            {
+              type: "overlap",
+              message: `Solapamiento con período "${periodName}"`,
+              severity: "error",
+              relatedAssignmentId: overlappingPeriod.id,
+            },
+          ],
+        },
+      };
+    }
 
     await prisma.schedulePeriod.update({
       where: { id },
@@ -817,6 +960,8 @@ export async function copyWorkDayPattern(
 
 /**
  * Asigna un horario a un empleado
+ * FASE 3.1: Usa transacción atómica para prevenir múltiples asignaciones activas
+ * Las operaciones de cierre y creación son atómicas para evitar estados inconsistentes
  */
 export async function assignScheduleToEmployee(
   data: CreateEmployeeScheduleAssignmentInput,
@@ -831,6 +976,66 @@ export async function assignScheduleToEmployee(
 
     if (!employee) {
       return { success: false, error: "Empleado no encontrado" };
+    }
+
+    // FASE 5.1: Validar que la plantilla está completa antes de asignar
+    // Esto previene asignar plantillas sin periodos/patrones/franjas que causarían CONFIGURATION_ERROR
+    if (data.scheduleTemplateId) {
+      const templateValidation = await prisma.scheduleTemplate.findUnique({
+        where: { id: data.scheduleTemplateId },
+        select: {
+          name: true,
+          templateType: true,
+          periods: {
+            select: {
+              id: true,
+              name: true,
+              workDayPatterns: {
+                select: {
+                  id: true,
+                  timeSlots: {
+                    select: { id: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!templateValidation) {
+        return { success: false, error: "Plantilla no encontrada" };
+      }
+
+      // Validar que tiene al menos un período
+      if (templateValidation.periods.length === 0) {
+        return {
+          success: false,
+          error: `La plantilla "${templateValidation.name}" no tiene períodos configurados. Configure al menos un período antes de asignarla.`,
+        };
+      }
+
+      // Validar cada período
+      for (const period of templateValidation.periods) {
+        // Validar que tiene patrones de días
+        if (period.workDayPatterns.length === 0) {
+          const periodName = period.name ?? "Período sin nombre";
+          return {
+            success: false,
+            error: `El período "${periodName}" de la plantilla "${templateValidation.name}" no tiene patrones de días configurados.`,
+          };
+        }
+
+        // Validar que al menos un patrón tiene franjas horarias (para días laborables)
+        const hasTimeSlots = period.workDayPatterns.some((pattern) => pattern.timeSlots.length > 0);
+        if (!hasTimeSlots) {
+          const periodName = period.name ?? "Período sin nombre";
+          return {
+            success: false,
+            error: `El período "${periodName}" no tiene franjas horarias configuradas. Defina al menos una franja de trabajo.`,
+          };
+        }
+      }
     }
 
     // Si se está asignando una plantilla, inferir el assignmentType del templateType
@@ -851,46 +1056,50 @@ export async function assignScheduleToEmployee(
       assignmentType = "FIXED" as any;
     }
 
-    // Cerrar fecha de asignaciones anteriores que se solapen
-    // En lugar de desactivarlas (isActive: false), ajustamos su validTo
-    // al día anterior del nuevo horario para mantener el historial correcto
-    const dayBeforeNew = new Date(data.validFrom);
-    dayBeforeNew.setDate(dayBeforeNew.getDate() - 1);
-    dayBeforeNew.setHours(23, 59, 59, 999);
+    // FASE 3.1: Usar transacción atómica para cierre + creación
+    // Esto garantiza que no quedan múltiples asignaciones activas para el mismo rango
+    const assignment = await prisma.$transaction(async (tx) => {
+      // Cerrar fecha de asignaciones anteriores que se solapen
+      // En lugar de desactivarlas (isActive: false), ajustamos su validTo
+      // al día anterior del nuevo horario para mantener el historial correcto
+      const dayBeforeNew = new Date(data.validFrom);
+      dayBeforeNew.setDate(dayBeforeNew.getDate() - 1);
+      dayBeforeNew.setHours(23, 59, 59, 999);
 
-    await prisma.employeeScheduleAssignment.updateMany({
-      where: {
-        employeeId: data.employeeId,
-        isActive: true,
-        OR: [
-          {
-            validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
-            validTo: { gte: data.validFrom },
-          },
-          {
-            validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
-            validTo: null,
-          },
-        ],
-      },
-      data: {
-        validTo: dayBeforeNew,
-        // Mantenemos isActive: true para que las consultas históricas funcionen
-      },
-    });
+      await tx.employeeScheduleAssignment.updateMany({
+        where: {
+          employeeId: data.employeeId,
+          isActive: true,
+          OR: [
+            {
+              validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
+              validTo: { gte: data.validFrom },
+            },
+            {
+              validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
+              validTo: null,
+            },
+          ],
+        },
+        data: {
+          validTo: dayBeforeNew,
+          // Mantenemos isActive: true para que las consultas históricas funcionen
+        },
+      });
 
-    // Crear nueva asignación
-    const assignment = await prisma.employeeScheduleAssignment.create({
-      data: {
-        employeeId: data.employeeId,
-        assignmentType: assignmentType,
-        scheduleTemplateId: data.scheduleTemplateId,
-        rotationPatternId: data.rotationPatternId,
-        rotationStartDate: data.rotationStartDate,
-        validFrom: data.validFrom,
-        validTo: data.validTo,
-        isActive: true,
-      },
+      // Crear nueva asignación dentro de la misma transacción
+      return tx.employeeScheduleAssignment.create({
+        data: {
+          employeeId: data.employeeId,
+          assignmentType: assignmentType,
+          scheduleTemplateId: data.scheduleTemplateId,
+          rotationPatternId: data.rotationPatternId,
+          rotationStartDate: data.rotationStartDate,
+          validFrom: data.validFrom,
+          validTo: data.validTo,
+          isActive: true,
+        },
+      });
     });
 
     return { success: true, data: { id: assignment.id } };
