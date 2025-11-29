@@ -10,6 +10,7 @@ import {
   type GetObjectCommandOutput,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 
 import {
   StorageProvider,
@@ -28,6 +29,10 @@ interface R2ProviderConfig {
   endpoint?: string;
   publicUrl?: string;
 }
+
+// Timeout de 15 segundos para conexión y 30 segundos para request
+const REQUEST_TIMEOUT_MS = 30_000;
+const CONNECTION_TIMEOUT_MS = 15_000;
 
 const ALLOWED_MIME_TYPES = [
   "application/pdf",
@@ -52,6 +57,12 @@ export class R2StorageProvider extends StorageProvider {
 
     const endpoint = config.endpoint ?? `https://${config.accountId}.r2.cloudflarestorage.com`;
 
+    // Configurar handler con timeouts para evitar que el servidor se cuelgue
+    const requestHandler = new NodeHttpHandler({
+      connectionTimeout: CONNECTION_TIMEOUT_MS,
+      requestTimeout: REQUEST_TIMEOUT_MS,
+    });
+
     this.client = new S3Client({
       region: "auto",
       endpoint,
@@ -60,11 +71,16 @@ export class R2StorageProvider extends StorageProvider {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
+      requestHandler,
+      // Reintentos máximos y tiempo de espera entre reintentos
+      maxAttempts: 2,
     });
 
     this.bucket = config.bucket;
     this.accountId = config.accountId;
     this.publicUrl = config.publicUrl?.replace(/\/$/, "");
+
+    console.log("🔵 R2StorageProvider: Cliente inicializado con timeouts (conexión: 15s, request: 30s)");
   }
 
   async upload(file: File | Buffer, path: string, options?: UploadOptions): Promise<UploadResult> {
@@ -85,22 +101,54 @@ export class R2StorageProvider extends StorageProvider {
       size = body.length;
     }
 
-    await this.client.send(
-      new PutObjectCommand({
-        Bucket: this.bucket,
-        Key: path,
-        Body: body,
-        ContentType: mimeType,
-        Metadata: this.sanitizeMetadata(options?.metadata),
-      }),
-    );
+    console.log(`🔵 R2: Subiendo archivo a ${path} (${size} bytes, ${mimeType})...`);
 
-    return {
-      url: this.buildObjectUrl(path),
-      path,
-      size,
-      mimeType,
-    };
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: path,
+          Body: body,
+          ContentType: mimeType,
+          Metadata: this.sanitizeMetadata(options?.metadata),
+        }),
+      );
+
+      console.log(`✅ R2: Archivo subido correctamente a ${path}`);
+
+      return {
+        url: this.buildObjectUrl(path),
+        path,
+        size,
+        mimeType,
+      };
+    } catch (error: any) {
+      const errorMessage = error?.message ?? "Error desconocido";
+      const errorCode = error?.Code ?? error?.name ?? "UNKNOWN";
+
+      // Detectar errores de timeout
+      if (errorMessage.includes("timeout") || errorMessage.includes("ETIMEDOUT") || errorCode === "TimeoutError") {
+        console.error(`❌ R2: Timeout al subir archivo - La conexión a Cloudflare R2 tardó demasiado`);
+        throw new Error(
+          `Error de conexión con R2: Timeout después de ${REQUEST_TIMEOUT_MS / 1000}s. Verifica tu conexión a internet y las credenciales de R2.`,
+        );
+      }
+
+      // Detectar errores de credenciales
+      if (errorCode === "InvalidAccessKeyId" || errorCode === "SignatureDoesNotMatch" || errorCode === "AccessDenied") {
+        console.error(`❌ R2: Error de credenciales - ${errorCode}`);
+        throw new Error(`Error de credenciales R2: ${errorCode}. Verifica R2_ACCESS_KEY_ID y R2_SECRET_ACCESS_KEY.`);
+      }
+
+      // Detectar errores de bucket
+      if (errorCode === "NoSuchBucket") {
+        console.error(`❌ R2: Bucket no encontrado - ${this.bucket}`);
+        throw new Error(`Bucket R2 no encontrado: ${this.bucket}. Verifica R2_BUCKET en tu .env.`);
+      }
+
+      console.error(`❌ R2: Error al subir archivo - ${errorCode}: ${errorMessage}`);
+      throw new Error(`Error al subir a R2: ${errorMessage}`);
+    }
   }
 
   async download(path: string, _options?: DownloadOptions): Promise<Blob> {
