@@ -9,6 +9,7 @@
 ## Resumen Ejecutivo
 
 El sistema de horarios tiene dos versiones coexistentes:
+
 - **V1 (Legacy)**: `wizard-step-3-schedule.tsx` (1514 líneas) - Usado en wizard de empleados
 - **V2 (Nuevo)**: `schedule-engine.ts` (1682 líneas) - Motor centralizado
 
@@ -22,12 +23,13 @@ El motor V2 funciona correctamente. Este plan es **conservador** para evitar rom
 
 Existen 4 tipos de `TimeSlotType`: `WORK`, `BREAK`, `ON_CALL`, `OTHER`
 
-| Contexto | Lógica usada | Incluye ON_CALL | Razón |
-|----------|--------------|-----------------|-------|
-| Horarios normales | `!== "BREAK"` | ✅ Sí | Guardias localizadas cuentan como tiempo |
-| Excepciones/festivos | `=== "WORK"` | ❌ No | En festivos no trabajas aunque estés localizable |
+| Contexto             | Lógica usada  | Incluye ON_CALL | Razón                                            |
+| -------------------- | ------------- | --------------- | ------------------------------------------------ |
+| Horarios normales    | `!== "BREAK"` | ✅ Sí           | Guardias localizadas cuentan como tiempo         |
+| Excepciones/festivos | `=== "WORK"`  | ❌ No           | En festivos no trabajas aunque estés localizable |
 
 **NO CAMBIAR esta lógica** - rompería cálculos de:
+
 - Vacaciones (`effectiveMinutes` ya calculados en histórico)
 - Banco de horas (movimientos históricos)
 - WorkdaySummary (compliance histórico)
@@ -35,6 +37,7 @@ Existen 4 tipos de `TimeSlotType`: `WORK`, `BREAK`, `ON_CALL`, `OTHER`
 ### Impacto de expectedMinutes
 
 El campo `expectedMinutes` se usa en:
+
 1. **Fichajes (TimeEntry)** → `deviationMinutes`, validaciones
 2. **Vacaciones (PtoRequest)** → `effectiveMinutes`, balance
 3. **WorkdaySummary** → status COMPLETED/INCOMPLETE (>= 95% compliance)
@@ -55,13 +58,15 @@ El campo `expectedMinutes` se usa en:
 **Ubicación**: `/src/lib/schedule-engine.ts`
 
 **Código a añadir al inicio del archivo**:
+
 ```typescript
 // Logger condicional para debugging
-const DEBUG_SCHEDULE = process.env.NODE_ENV === 'development' && process.env.DEBUG_SCHEDULE === 'true';
+const DEBUG_SCHEDULE = process.env.NODE_ENV === "development" && process.env.DEBUG_SCHEDULE === "true";
 const log = DEBUG_SCHEDULE ? console.log : () => {};
 ```
 
 **Líneas a modificar** (reemplazar `console.log` por `log`):
+
 - L.476, L.483, L.524, L.537, L.544
 - L.873, L.929, L.938
 - L.1015, L.1043, L.1046
@@ -99,7 +104,7 @@ export function createEmptySchedule(
     periodName?: string;
     exceptionType?: string;
     exceptionReason?: string;
-  }
+  },
 ): EffectiveSchedule {
   return {
     date,
@@ -149,15 +154,16 @@ const expectedMinutes = effectiveSlots
 
 ### 1.2 Cambios que NO HACER
 
-| Cambio | Razón para NO hacerlo |
-|--------|----------------------|
+| Cambio                                        | Razón para NO hacerlo             |
+| --------------------------------------------- | --------------------------------- |
 | Unificar lógica `!== "BREAK"` vs `=== "WORK"` | Es intencional, rompería cálculos |
-| Cambiar orden de prioridades | Ya funciona correctamente |
-| Optimizar búsquedas O(n) a Map | Sin tests, muy arriesgado |
-| Marcar funciones como privadas | Podrían usarse en otros sitios |
-| Eliminar funciones "duplicadas" | Cada una tiene contexto diferente |
+| Cambiar orden de prioridades                  | Ya funciona correctamente         |
+| Optimizar búsquedas O(n) a Map                | Sin tests, muy arriesgado         |
+| Marcar funciones como privadas                | Podrían usarse en otros sitios    |
+| Eliminar funciones "duplicadas"               | Cada una tiene contexto diferente |
 
 ### Estimación Fase 1
+
 - **Líneas modificadas**: ~50
 - **Líneas nuevas** (helpers): ~50
 - **Riesgo**: BAJO (no cambia comportamiento funcional)
@@ -168,17 +174,17 @@ const expectedMinutes = effectiveSlots
 
 ### 2.1 Estado Actual de la UI
 
-| Funcionalidad | Estado | Archivo |
-|--------------|--------|---------|
-| Crear plantilla | ✅ Completo | `create-template-dialog.tsx` |
-| Editar metadatos | ⚠️ Verificar | ¿Existe `edit-template-dialog.tsx`? |
-| Crear/editar período | ✅ Completo | `create-period-dialog.tsx`, `edit-period-dialog.tsx` |
-| Editor FIXED | ✅ Completo | `week-schedule-editor.tsx` |
-| Editor SHIFT | ⚠️ Verificar | Usuario dice que funciona |
-| Editor ROTATION | ⚠️ Verificar | Usuario dice que funciona |
-| Editor FLEXIBLE | ⚠️ Verificar | Usuario dice que funciona |
-| Asignar empleados | ✅ Completo | `assign-employees-dialog.tsx` |
-| Excepciones | ✅ Completo | `exceptions-tab.tsx` |
+| Funcionalidad        | Estado       | Archivo                                              |
+| -------------------- | ------------ | ---------------------------------------------------- |
+| Crear plantilla      | ✅ Completo  | `create-template-dialog.tsx`                         |
+| Editar metadatos     | ⚠️ Verificar | ¿Existe `edit-template-dialog.tsx`?                  |
+| Crear/editar período | ✅ Completo  | `create-period-dialog.tsx`, `edit-period-dialog.tsx` |
+| Editor FIXED         | ✅ Completo  | `week-schedule-editor.tsx`                           |
+| Editor SHIFT         | ⚠️ Verificar | Usuario dice que funciona                            |
+| Editor ROTATION      | ⚠️ Verificar | Usuario dice que funciona                            |
+| Editor FLEXIBLE      | ⚠️ Verificar | Usuario dice que funciona                            |
+| Asignar empleados    | ✅ Completo  | `assign-employees-dialog.tsx`                        |
+| Excepciones          | ✅ Completo  | `exceptions-tab.tsx`                                 |
 
 ### 2.2 Tareas
 
@@ -187,10 +193,12 @@ const expectedMinutes = effectiveSlots
 3. **Verificar** editores SHIFT/ROTATION/FLEXIBLE guardan en BD
 
 ### Archivos clave:
+
 - `/src/app/(main)/dashboard/schedules/[id]/page.tsx`
 - `/src/app/(main)/dashboard/schedules/[id]/_components/week-schedule-editor.tsx`
 
 ### Estimación Fase 2
+
 - **Riesgo**: BAJO (usuario confirma que funciona)
 
 ---
@@ -200,6 +208,7 @@ const expectedMinutes = effectiveSlots
 ### 3.1 Estado Actual
 
 El wizard usa `wizard-step-3-schedule.tsx` (V1, 1514 líneas):
+
 - Formulario monolítico
 - No reutilizable
 - Acoplado al flujo de creación
@@ -217,13 +226,7 @@ El wizard usa `wizard-step-3-schedule.tsx` (V1, 1514 líneas):
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -238,9 +241,7 @@ interface WizardStep3ScheduleProps {
 
 export function WizardStep3Schedule({ onComplete, initialData }: WizardStep3ScheduleProps) {
   const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-    initialData?.scheduleTemplateId ?? null
-  );
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(initialData?.scheduleTemplateId ?? null);
   const [validFrom, setValidFrom] = useState<Date>(initialData?.validFrom ?? new Date());
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -277,19 +278,13 @@ export function WizardStep3Schedule({ onComplete, initialData }: WizardStep3Sche
             <Clock className="h-5 w-5" />
             Plantilla de Horario
           </CardTitle>
-          <CardDescription>
-            Selecciona una plantilla de horario existente o crea una nueva.
-          </CardDescription>
+          <CardDescription>Selecciona una plantilla de horario existente o crea una nueva.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Selector de plantilla */}
           <div className="space-y-2">
             <label className="text-sm font-medium">Plantilla</label>
-            <Select
-              value={selectedTemplateId ?? undefined}
-              onValueChange={setSelectedTemplateId}
-              disabled={loading}
-            >
+            <Select value={selectedTemplateId ?? undefined} onValueChange={setSelectedTemplateId} disabled={loading}>
               <SelectTrigger>
                 <SelectValue placeholder={loading ? "Cargando..." : "Seleccionar plantilla"} />
               </SelectTrigger>
@@ -310,23 +305,16 @@ export function WizardStep3Schedule({ onComplete, initialData }: WizardStep3Sche
 
           {/* Fecha de inicio */}
           <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-medium">
               <Calendar className="h-4 w-4" />
               Válido desde
             </label>
-            <DatePicker
-              value={validFrom}
-              onChange={(date) => date && setValidFrom(date)}
-            />
+            <DatePicker value={validFrom} onChange={(date) => date && setValidFrom(date)} />
           </div>
 
           {/* Botón crear nueva plantilla */}
-          <Button
-            variant="outline"
-            className="w-full"
-            onClick={() => setShowCreateDialog(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
+          <Button variant="outline" className="w-full" onClick={() => setShowCreateDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
             Crear nueva plantilla
           </Button>
 
@@ -334,13 +322,11 @@ export function WizardStep3Schedule({ onComplete, initialData }: WizardStep3Sche
           {selectedTemplate && (
             <Card className="bg-muted/50">
               <CardContent className="pt-4">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-muted-foreground text-sm">
                   <strong>{selectedTemplate.name}</strong>
                   {selectedTemplate.description && ` - ${selectedTemplate.description}`}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Tipo: {selectedTemplate.templateType}
-                </p>
+                <p className="text-muted-foreground mt-1 text-xs">Tipo: {selectedTemplate.templateType}</p>
               </CardContent>
             </Card>
           )}
@@ -385,10 +371,12 @@ await assignScheduleToEmployee({
 ```
 
 ### Archivos a modificar:
+
 - `/src/app/(main)/dashboard/employees/new/_components/wizard-step-3-schedule.tsx` - Reescribir
 - `/src/app/(main)/dashboard/employees/new/_components/employee-wizard.tsx` - Ajustar integración
 
 ### Estimación Fase 3
+
 - **Líneas eliminadas**: ~1400
 - **Líneas nuevas**: ~150
 - **Riesgo**: MEDIO (requiere testing manual del flujo de creación)
@@ -420,20 +408,24 @@ grep -r "wizard-step-3-schedule" src/
 ## Checklist de Verificación Post-Implementación
 
 ### Fase 1 (Motor)
+
 - [ ] Console.logs solo aparecen con `DEBUG_SCHEDULE=true`
 - [ ] Helpers funcionan igual que código original
 - [ ] No hay errores en `npm run lint`
 
 ### Fase 2 (UI)
+
 - [ ] Editar plantilla funciona
 - [ ] SHIFT/ROTATION/FLEXIBLE guardan correctamente
 
 ### Fase 3 (Wizard)
+
 - [ ] Crear empleado con plantilla existente funciona
 - [ ] Crear empleado con nueva plantilla funciona
 - [ ] La asignación se crea correctamente en `EmployeeScheduleAssignment`
 
 ### Regresión (NO debe cambiar)
+
 - [ ] Fichajes calculan `deviationMinutes` igual que antes
 - [ ] Vacaciones calculan `effectiveMinutes` igual que antes
 - [ ] WorkdaySummary muestra status correcto
@@ -443,17 +435,17 @@ grep -r "wizard-step-3-schedule" src/
 
 ## Archivos Críticos (Referencia Rápida)
 
-| Archivo | Propósito |
-|---------|-----------|
-| `/src/lib/schedule-engine.ts` | Motor de cálculo (1682 líneas) |
-| `/src/lib/schedule-helpers.ts` | Helpers nuevos (crear) |
-| `/src/types/schedule.ts` | Tipos TypeScript |
-| `/src/server/actions/schedules-v2.ts` | Server actions V2 |
-| `/src/server/actions/time-tracking.ts` | Usa expectedMinutes |
-| `/src/server/actions/employee-pto.ts` | Usa getEffectiveScheduleForRange |
-| `/src/app/.../schedules/[id]/_components/week-schedule-editor.tsx` | Editor UI |
-| `/src/app/.../employees/new/_components/wizard-step-3-schedule.tsx` | Wizard V1 (a migrar) |
-| `/src/app/.../employees/new/_components/employee-wizard.tsx` | Contenedor wizard |
+| Archivo                                                             | Propósito                        |
+| ------------------------------------------------------------------- | -------------------------------- |
+| `/src/lib/schedule-engine.ts`                                       | Motor de cálculo (1682 líneas)   |
+| `/src/lib/schedule-helpers.ts`                                      | Helpers nuevos (crear)           |
+| `/src/types/schedule.ts`                                            | Tipos TypeScript                 |
+| `/src/server/actions/schedules-v2.ts`                               | Server actions V2                |
+| `/src/server/actions/time-tracking.ts`                              | Usa expectedMinutes              |
+| `/src/server/actions/employee-pto.ts`                               | Usa getEffectiveScheduleForRange |
+| `/src/app/.../schedules/[id]/_components/week-schedule-editor.tsx`  | Editor UI                        |
+| `/src/app/.../employees/new/_components/wizard-step-3-schedule.tsx` | Wizard V1 (a migrar)             |
+| `/src/app/.../employees/new/_components/employee-wizard.tsx`        | Contenedor wizard                |
 
 ---
 

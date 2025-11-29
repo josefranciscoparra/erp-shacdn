@@ -16,14 +16,15 @@ Unificar todos los sistemas de permisos de la aplicación en un único modelo co
 
 ### Sistemas de permisos fragmentados:
 
-| Módulo | Sistema Actual | Problema |
-|--------|----------------|----------|
-| **Ausencias (PTO)** | `AreaResponsible` + jerarquía | ✅ Funciona bien |
-| **Fichajes manuales** | `AreaResponsible` + jerarquía | ✅ Funciona bien |
-| **Alertas** | `AreaResponsible` + scope | ✅ Funciona bien |
-| **Gastos** | `ExpenseApprover` (separado) | ❌ Sistema diferente, sin jerarquía |
+| Módulo                | Sistema Actual                | Problema                            |
+| --------------------- | ----------------------------- | ----------------------------------- |
+| **Ausencias (PTO)**   | `AreaResponsible` + jerarquía | ✅ Funciona bien                    |
+| **Fichajes manuales** | `AreaResponsible` + jerarquía | ✅ Funciona bien                    |
+| **Alertas**           | `AreaResponsible` + scope     | ✅ Funciona bien                    |
+| **Gastos**            | `ExpenseApprover` (separado)  | ❌ Sistema diferente, sin jerarquía |
 
 ### Código actual de gastos (`approval-engine.ts` línea 90):
+
 ```typescript
 EXPENSE: "MANAGE_EMPLOYEES", // Temporal, debería ser APPROVE_EXPENSES si existiera
 ```
@@ -35,11 +36,13 @@ EXPENSE: "MANAGE_EMPLOYEES", // Temporal, debería ser APPROVE_EXPENSES si exist
 ### 1. Modelo de Permisos Público vs Privado
 
 #### Modelo Público (Cloud/SaaS)
+
 - Permisos predefinidos por rol
 - Jerarquía estándar: Manager → HR → Admin
 - Configuración limitada por plan de suscripción
 
 #### Modelo Privado (On-Premise/Enterprise)
+
 - Permisos 100% configurables
 - Jerarquía personalizable por organización
 - Sin restricciones de plan
@@ -63,6 +66,7 @@ Recursos Humanos / Finanzas
 ### 3. Modos de Aprobación Configurables
 
 #### Opción A: Aprobación Única
+
 El gasto/ausencia requiere **UNA sola aprobación**:
 
 ```
@@ -77,11 +81,13 @@ El gasto/ausencia requiere **UNA sola aprobación**:
 ```
 
 **Flujo:**
+
 ```
 Solicitud → Aprobador elegido → ✅ Aprobado / ❌ Rechazado
 ```
 
 #### Opción B: Aprobación Doble
+
 El gasto/ausencia requiere **DOS aprobaciones** en secuencia:
 
 ```
@@ -96,6 +102,7 @@ El gasto/ausencia requiere **DOS aprobaciones** en secuencia:
 ```
 
 **Flujo:**
+
 ```
 Solicitud → Manager aprueba → RRHH/Finanzas aprueba → ✅ Aprobado final
                 ↓                      ↓
@@ -108,12 +115,12 @@ Solicitud → Manager aprueba → RRHH/Finanzas aprueba → ✅ Aprobado final
 
 Cada tipo de solicitud puede tener su propia configuración:
 
-| Tipo | Modo por defecto | Configurable |
-|------|------------------|--------------|
-| **Ausencias** | Única (Jerarquía) | ✅ |
-| **Fichajes manuales** | Única (Jerarquía) | ✅ |
-| **Gastos** | Doble (Jerarquía + Finanzas) | ✅ |
-| **Horas extra** | Doble (Jerarquía + RRHH) | ✅ |
+| Tipo                  | Modo por defecto             | Configurable |
+| --------------------- | ---------------------------- | ------------ |
+| **Ausencias**         | Única (Jerarquía)            | ✅           |
+| **Fichajes manuales** | Única (Jerarquía)            | ✅           |
+| **Gastos**            | Doble (Jerarquía + Finanzas) | ✅           |
+| **Horas extra**       | Doble (Jerarquía + RRHH)     | ✅           |
 
 ---
 
@@ -224,21 +231,25 @@ model ExpenseApproval {
 ## Fases de Implementación
 
 ### Fase 1: Preparación (Estimación: 1 sprint)
+
 - [ ] Crear modelo `ApprovalConfiguration`
 - [ ] Migrar `ExpenseApprover` a usar `AreaResponsible`
 - [ ] Añadir permiso `APPROVE_EXPENSES`
 
 ### Fase 2: Backend (Estimación: 2 sprints)
+
 - [ ] Modificar `approval-engine.ts` para leer configuración
 - [ ] Implementar lógica de doble aprobación
 - [ ] Crear server actions para gestionar configuración
 
 ### Fase 3: UI (Estimación: 1 sprint)
+
 - [ ] Crear página `/dashboard/settings/approvals`
 - [ ] Actualizar flujos de aprobación existentes
 - [ ] Añadir indicadores visuales de "pendiente 2ª aprobación"
 
 ### Fase 4: Migración (Estimación: 1 sprint)
+
 - [ ] Script de migración de datos existentes
 - [ ] Testing completo
 - [ ] Documentación
@@ -325,11 +336,11 @@ Solicitud de gasto
 
 ### Ejemplo de Uso
 
-| Organización | RRHH Total | Aprobadores Gastos | Aprobadores Nóminas |
-|--------------|------------|-------------------|---------------------|
-| Pequeña (10 emp) | 1 | 1 (mismo RRHH) | 1 (mismo RRHH) |
-| Mediana (100 emp) | 5 | 2 designados | 1 designado |
-| Grande (1000 emp) | 50 | 5 designados | 3 designados |
+| Organización      | RRHH Total | Aprobadores Gastos | Aprobadores Nóminas |
+| ----------------- | ---------- | ------------------ | ------------------- |
+| Pequeña (10 emp)  | 1          | 1 (mismo RRHH)     | 1 (mismo RRHH)      |
+| Mediana (100 emp) | 5          | 2 designados       | 1 designado         |
+| Grande (1000 emp) | 50         | 5 designados       | 3 designados        |
 
 ---
 

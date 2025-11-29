@@ -29,23 +29,23 @@ Esto significa que una solicitud es visible y aprobable por **cualquier persona*
 
 ### A. Motor de Lógica (`src/lib/approvals/approval-engine.ts`)
 
--   `getAuthorizedApprovers(employeeId, type)`: Retorna la lista de usuarios que pueden aprobar.
--   `canUserApprove(userId, employeeId, type)`: Booleano rápido para verificar permisos.
+- `getAuthorizedApprovers(employeeId, type)`: Retorna la lista de usuarios que pueden aprobar.
+- `canUserApprove(userId, employeeId, type)`: Booleano rápido para verificar permisos.
 
 ### B. Bandeja Unificada (`src/server/actions/approvals.ts`)
 
--   `getMyPendingApprovals()`: Server Action principal.
-    -   Busca TODAS las solicitudes pendientes (PTO, Fichajes, Gastos).
-    -   Filtra en memoria usando `getAuthorizedApprovers` para devolver solo las que el usuario puede ver.
--   `approveRequest` / `rejectRequest`: Actions unificadas que delegan en los módulos específicos.
+- `getMyPendingApprovals()`: Server Action principal.
+  - Busca TODAS las solicitudes pendientes (PTO, Fichajes, Gastos).
+  - Filtra en memoria usando `getAuthorizedApprovers` para devolver solo las que el usuario puede ver.
+- `approveRequest` / `rejectRequest`: Actions unificadas que delegan en los módulos específicos.
 
 ### C. Interfaz de Usuario (`/dashboard/approvals`)
 
--   **Diseño:** Clonado de "Mis Vacaciones" para consistencia (KPIs, Tabs, Tabla limpia).
--   **Funcionalidad:**
-    -   Lista unificada de tareas.
-    -   Filtros por tipo (Ausencia, Gasto, Fichaje).
-    -   **Modal Integrado:** Permite ver detalles y aprobar/rechazar sin navegar a páginas antiguas.
+- **Diseño:** Clonado de "Mis Vacaciones" para consistencia (KPIs, Tabs, Tabla limpia).
+- **Funcionalidad:**
+  - Lista unificada de tareas.
+  - Filtros por tipo (Ausencia, Gasto, Fichaje).
+  - **Modal Integrado:** Permite ver detalles y aprobar/rechazar sin navegar a páginas antiguas.
 
 ## 4. Flujo de Datos
 
@@ -61,5 +61,5 @@ Esto significa que una solicitud es visible y aprobable por **cualquier persona*
 
 ## 5. Notas de Implementación
 
--   **Compatibilidad Legacy:** Se mantienen (marcados como deprecated) algunos endpoints antiguos para no romper enlaces externos o vistas antiguas, pero redirigen a la lógica nueva o devuelven estructuras compatibles.
--   **Performance:** La verificación de permisos se hace en tiempo de lectura. Para organizaciones masivas (>1000 empleados), se recomienda migrar a un modelo de persistencia (`ApprovalRequest` table) en el futuro.
+- **Compatibilidad Legacy:** Se mantienen (marcados como deprecated) algunos endpoints antiguos para no romper enlaces externos o vistas antiguas, pero redirigen a la lógica nueva o devuelven estructuras compatibles.
+- **Performance:** La verificación de permisos se hace en tiempo de lectura. Para organizaciones masivas (>1000 empleados), se recomienda migrar a un modelo de persistencia (`ApprovalRequest` table) en el futuro.

@@ -99,11 +99,7 @@ export function isSameUTCDay(date1: Date, date2: Date): boolean {
  * @param endDate Fin del rango (puede ser null = sin límite superior)
  * @returns true si la fecha está dentro del rango
  */
-export function isDateInUTCRange(
-  date: Date,
-  startDate: Date | null,
-  endDate: Date | null
-): boolean {
+export function isDateInUTCRange(date: Date, startDate: Date | null, endDate: Date | null): boolean {
   const normalizedDate = normalizeToUTCMidnight(date);
 
   // Si no hay fecha de inicio, solo verificamos el fin
@@ -118,10 +114,7 @@ export function isDateInUTCRange(
   }
 
   // Ambos límites definidos
-  return (
-    normalizedDate >= normalizeToUTCMidnight(startDate) &&
-    normalizedDate <= normalizeToUTCEndOfDay(endDate)
-  );
+  return normalizedDate >= normalizeToUTCMidnight(startDate) && normalizedDate <= normalizeToUTCEndOfDay(endDate);
 }
 
 /**
@@ -620,7 +613,7 @@ export async function getEffectiveSchedule(
     // No hay período configurado para esta plantilla (error de configuración)
     // FASE 2.2: Marcar como CONFIGURATION_ERROR en lugar de retornar 0 silenciosamente
     console.warn(
-      `[SCHEDULE_ENGINE] Template "${template.name}" (${template.id}) no tiene períodos configurados para la fecha ${date.toISOString()}`
+      `[SCHEDULE_ENGINE] Template "${template.name}" (${template.id}) no tiene períodos configurados para la fecha ${date.toISOString()}`,
     );
     return {
       date,

@@ -39,7 +39,8 @@ export function TimeBankWidget() {
   const pendingRequests = summary?.pendingRequests ?? 0;
 
   // Calcular progreso como porcentaje del máximo permitido
-  const progress = totalMinutes >= 0 ? (totalMinutes / maxPositive) * 100 : (Math.abs(totalMinutes) / maxNegative) * 100;
+  const progress =
+    totalMinutes >= 0 ? (totalMinutes / maxPositive) * 100 : (Math.abs(totalMinutes) / maxNegative) * 100;
   const isPositive = totalMinutes >= 0;
   const isNearLimit = progress >= 80;
 

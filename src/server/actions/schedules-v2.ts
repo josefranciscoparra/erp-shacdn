@@ -81,8 +81,14 @@ async function requireOrg() {
 async function checkPeriodOverlap(
   templateId: string,
   newPeriod: { validFrom?: Date | null; validTo?: Date | null; periodType: string },
-  excludePeriodId?: string
-): Promise<{ id: string; name: string | null; periodType: string; validFrom: Date | null; validTo: Date | null } | null> {
+  excludePeriodId?: string,
+): Promise<{
+  id: string;
+  name: string | null;
+  periodType: string;
+  validFrom: Date | null;
+  validTo: Date | null;
+} | null> {
   // Obtener todos los períodos existentes de la plantilla
   const existingPeriods = await prisma.schedulePeriod.findMany({
     where: {
@@ -716,9 +722,10 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
 
     if (overlappingPeriod) {
       const periodName = overlappingPeriod.name ?? `Período ${overlappingPeriod.periodType}`;
-      const dateRange = overlappingPeriod.validFrom && overlappingPeriod.validTo
-        ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
-        : "";
+      const dateRange =
+        overlappingPeriod.validFrom && overlappingPeriod.validTo
+          ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
+          : "";
       return {
         success: false,
         error: `Las fechas se solapan con el período existente: "${periodName}"${dateRange}`,
@@ -782,14 +789,15 @@ export async function updateSchedulePeriod(
     const overlappingPeriod = await checkPeriodOverlap(
       currentPeriod.scheduleTemplateId,
       { validFrom, validTo, periodType },
-      id // Excluir el período actual de la verificación
+      id, // Excluir el período actual de la verificación
     );
 
     if (overlappingPeriod) {
       const periodName = overlappingPeriod.name ?? `Período ${overlappingPeriod.periodType}`;
-      const dateRange = overlappingPeriod.validFrom && overlappingPeriod.validTo
-        ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
-        : "";
+      const dateRange =
+        overlappingPeriod.validFrom && overlappingPeriod.validTo
+          ? ` (${overlappingPeriod.validFrom.toLocaleDateString()} - ${overlappingPeriod.validTo.toLocaleDateString()})`
+          : "";
       return {
         success: false,
         error: `Las fechas se solapan con el período existente: "${periodName}"${dateRange}`,

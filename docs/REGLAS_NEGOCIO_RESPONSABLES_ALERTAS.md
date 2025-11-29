@@ -70,7 +70,7 @@ Define quién **RECIBE NOTIFICACIONES** de alertas.
 ### Scopes Disponibles
 
 ```typescript
-type Scope = "ORGANIZATION" | "COST_CENTER" | "TEAM"
+type Scope = "ORGANIZATION" | "COST_CENTER" | "TEAM";
 ```
 
 - `ORGANIZATION`: Alcance global (RRHH)
@@ -234,10 +234,10 @@ Cuando se construye el filtro de Prisma, se usa **OR** entre todos los scopes de
 // buildScopeFilter(userId) retorna:
 {
   OR: [
-    { orgId: "org_123" },                    // Si tiene ORGANIZATION
+    { orgId: "org_123" }, // Si tiene ORGANIZATION
     { costCenterId: { in: ["madrid", "bcn"] } }, // Si tiene COST_CENTER
-    { teamId: { in: ["equipo_a"] } }         // Si tiene TEAM
-  ]
+    { teamId: { in: ["equipo_a"] } }, // Si tiene TEAM
+  ];
 }
 ```
 
@@ -253,12 +253,12 @@ async function hasPermission(userId: string, permission: Permission, resourceId?
     where: {
       userId,
       isActive: true,
-      permissions: { has: permission }
-    }
+      permissions: { has: permission },
+    },
   });
 
   // Si tiene el permiso en CUALQUIER scope que cubra el recurso, retorna true
-  return responsibilities.some(r => {
+  return responsibilities.some((r) => {
     if (r.scope === "ORGANIZATION") return true; // Global
     if (resourceId) {
       // Verificar si el recurso pertenece a ese scope
@@ -287,7 +287,7 @@ export async function resolveAlert(alertId: string, comment: string) {
   // 1. Obtener alerta
   const alert = await prisma.alert.findUnique({
     where: { id: alertId },
-    include: { employee: true }
+    include: { employee: true },
   });
 
   if (!alert) throw new Error("Alerta no encontrada");
@@ -302,8 +302,8 @@ export async function resolveAlert(alertId: string, comment: string) {
   const hasAccess = await prisma.employee.findFirst({
     where: {
       id: alert.employeeId,
-      ...scopeFilter
-    }
+      ...scopeFilter,
+    },
   });
 
   if (!hasAccess) {
@@ -323,8 +323,8 @@ export async function resolveAlert(alertId: string, comment: string) {
       status: "RESOLVED",
       resolvedAt: new Date(),
       resolvedBy: session.user.id,
-      resolutionComment: comment
-    }
+      resolutionComment: comment,
+    },
   });
 
   return { success: true };
@@ -335,11 +335,7 @@ export async function resolveAlert(alertId: string, comment: string) {
 
 ```typescript
 // Helper obligatorio
-async function validateScopeOwnership(
-  userId: string,
-  scope: Scope,
-  scopeId: string | null
-): Promise<boolean> {
+async function validateScopeOwnership(userId: string, scope: Scope, scopeId: string | null): Promise<boolean> {
   const session = await auth();
   if (!session?.user) return false;
 
@@ -347,7 +343,7 @@ async function validateScopeOwnership(
   if (scope === "COST_CENTER" && scopeId) {
     const center = await prisma.costCenter.findUnique({
       where: { id: scopeId },
-      select: { orgId: true }
+      select: { orgId: true },
     });
     if (!center || center.orgId !== session.user.orgId) {
       return false;
@@ -357,7 +353,7 @@ async function validateScopeOwnership(
   if (scope === "TEAM" && scopeId) {
     const team = await prisma.team.findUnique({
       where: { id: scopeId },
-      select: { orgId: true }
+      select: { orgId: true },
     });
     if (!team || team.orgId !== session.user.orgId) {
       return false;
@@ -397,14 +393,14 @@ async function detectLateArrival(employeeId: string, date: Date, minutes: number
       employeeId_date_type: {
         employeeId,
         date: startOfDay(date),
-        type: alertType
-      }
+        type: alertType,
+      },
     },
     update: {
       // Si ya existe, actualiza desviación
       deviationMinutes: minutes,
       title: `Entrada tarde: ${minutes} minutos de retraso`,
-      status: "ACTIVE" // Reactivar si estaba cerrada
+      status: "ACTIVE", // Reactivar si estaba cerrada
     },
     create: {
       employeeId,
@@ -415,8 +411,8 @@ async function detectLateArrival(employeeId: string, date: Date, minutes: number
       title: `Entrada tarde: ${minutes} minutos de retraso`,
       orgId: session.user.orgId,
       costCenterId: employee.contract?.costCenterId,
-      teamId: employee.teamId
-    }
+      teamId: employee.teamId,
+    },
   });
 
   return alert;
@@ -440,6 +436,7 @@ async function detectLateArrival(employeeId: string, date: Date, minutes: number
 #### 1. Corrección de Fichaje Manual
 
 **Escenario:**
+
 1. Empleado llega tarde (10:35 en lugar de 09:00) → Alerta `LATE_ARRIVAL` creada
 2. Manager aprueba solicitud de fichaje manual con entrada a 09:00
 3. Al crear el fichaje manual, se cierra la alerta automáticamente
@@ -474,6 +471,7 @@ async function approveManualTimeEntry(requestId: string) {
 #### 2. Aprobación de Solicitud de PTO
 
 **Escenario:**
+
 1. Empleado ausente sin justificar → Alerta `ABSENCE_NO_JUSTIFY` creada
 2. Se aprueba solicitud de PTO retroactiva
 3. Alerta cerrada automáticamente
@@ -505,6 +503,7 @@ async function approvePtoRequest(requestId: string) {
 #### 3. Corrección de Fichaje de Salida
 
 **Escenario:**
+
 1. Empleado sale temprano (16:00 en lugar de 18:00) → Alerta `EARLY_DEPARTURE`
 2. Manager edita fichaje de salida a 18:00
 3. Alerta cerrada automáticamente
@@ -521,13 +520,13 @@ async function updateTimeEntry(entryId: string, newTimestamp: Date) {
     await prisma.alert.updateMany({
       where: {
         workdaySummaryId: summary.id,
-        status: "ACTIVE"
+        status: "ACTIVE",
       },
       data: {
         status: "RESOLVED",
         resolvedAt: new Date(),
-        resolutionComment: "Cerrada automáticamente: fichaje corregido"
-      }
+        resolutionComment: "Cerrada automáticamente: fichaje corregido",
+      },
     });
   }
 }
@@ -574,6 +573,7 @@ async function updateTimeEntry(entryId: string, newTimestamp: Date) {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve TODAS las alertas de Madrid Norte en dashboard (incluye WARNING, INFO)
 - ✅ Puede resolver CUALQUIER alerta de Madrid Norte
 - ✅ Recibe notificaciones solo de alertas CRITICAL
@@ -600,6 +600,7 @@ async function updateTimeEntry(entryId: string, newTimestamp: Date) {
 ```
 
 **Comportamiento:**
+
 - ✅ Recibe notificaciones de fichajes excesivos en TODA la organización
 - ❌ NO puede acceder al dashboard de alertas (no tiene `VIEW_ALERTS`)
 - ❌ NO puede ver empleados (no tiene `VIEW_EMPLOYEES`)
@@ -629,6 +630,7 @@ async function updateTimeEntry(entryId: string, newTimestamp: Date) {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve TODAS las alertas de TODA la organización en dashboard
 - ✅ Puede resolver CUALQUIER alerta
 - ❌ NO recibe notificaciones en navbar (prefiere revisión activa)
@@ -675,6 +677,7 @@ async function updateTimeEntry(entryId: string, newTimestamp: Date) {
 ```
 
 **Comportamiento:**
+
 - ✅ Ve alertas de Equipo A y Equipo B mezcladas en dashboard
 - ✅ Puede filtrar manualmente: "Equipo: Equipo A" o "Equipo: Equipo B"
 - ✅ Recibe notificaciones de ambos equipos
@@ -731,14 +734,14 @@ import { prisma } from "@/lib/prisma";
 export async function buildScopeFilter(userId: string) {
   const responsibilities = await prisma.areaResponsible.findMany({
     where: { userId, isActive: true },
-    select: { scope: true, costCenterId: true, teamId: true }
+    select: { scope: true, costCenterId: true, teamId: true },
   });
 
   if (responsibilities.length === 0) {
     return { id: "never" }; // Sin acceso
   }
 
-  const filters = responsibilities.map(r => {
+  const filters = responsibilities.map((r) => {
     if (r.scope === "ORGANIZATION") {
       return {}; // Ve todo
     }
@@ -760,30 +763,26 @@ export async function buildScopeFilter(userId: string) {
 export async function getUserScopes(userId: string) {
   return await prisma.areaResponsible.findMany({
     where: { userId, isActive: true },
-    include: { costCenter: true, team: true }
+    include: { costCenter: true, team: true },
   });
 }
 
 /**
  * Verifica si el usuario tiene un permiso específico
  */
-export async function hasPermission(
-  userId: string,
-  permission: string,
-  resourceId?: string
-): Promise<boolean> {
+export async function hasPermission(userId: string, permission: string, resourceId?: string): Promise<boolean> {
   const responsibilities = await prisma.areaResponsible.findMany({
     where: {
       userId,
       isActive: true,
-      permissions: { has: permission }
-    }
+      permissions: { has: permission },
+    },
   });
 
   if (responsibilities.length === 0) return false;
 
   // Si tiene permiso a nivel ORGANIZATION, retorna true
-  if (responsibilities.some(r => r.scope === "ORGANIZATION")) {
+  if (responsibilities.some((r) => r.scope === "ORGANIZATION")) {
     return true;
   }
 
@@ -802,24 +801,20 @@ export async function hasPermission(
 export async function getUserAlertSubscriptions(userId: string) {
   return await prisma.alertSubscription.findMany({
     where: { userId, isActive: true },
-    include: { costCenter: true, team: true }
+    include: { costCenter: true, team: true },
   });
 }
 
 /**
  * Valida que un scope pertenece a la organización del usuario
  */
-export async function validateScopeOwnership(
-  orgId: string,
-  scope: string,
-  scopeId: string | null
-): Promise<boolean> {
+export async function validateScopeOwnership(orgId: string, scope: string, scopeId: string | null): Promise<boolean> {
   if (scope === "ORGANIZATION") return true;
 
   if (scope === "COST_CENTER" && scopeId) {
     const center = await prisma.costCenter.findUnique({
       where: { id: scopeId },
-      select: { orgId: true }
+      select: { orgId: true },
     });
     return center?.orgId === orgId;
   }
@@ -827,7 +822,7 @@ export async function validateScopeOwnership(
   if (scope === "TEAM" && scopeId) {
     const team = await prisma.team.findUnique({
       where: { id: scopeId },
-      select: { orgId: true }
+      select: { orgId: true },
     });
     return team?.orgId === orgId;
   }
@@ -840,14 +835,14 @@ export async function validateScopeOwnership(
 
 ## 🎯 Resumen de Reglas
 
-| Regla | Descripción | Impacto |
-|-------|-------------|---------|
+| Regla                              | Descripción                             | Impacto                                       |
+| ---------------------------------- | --------------------------------------- | --------------------------------------------- |
 | **1. Independencia Ver/Notificar** | `AreaResponsible` ≠ `AlertSubscription` | Puedes ver sin recibir, recibir sin gestionar |
-| **2. Vista Unificada** | Múltiples scopes → Vista mezclada | NO hay selector de contexto |
-| **3. Prioridad de Scopes** | OR entre todos los scopes | No hay jerarquía, se mezclan |
-| **4. Multi-Tenant** | SIEMPRE validar `orgId` | Seguridad crítica |
-| **5. Idempotencia** | `@@unique([employeeId, date, type])` | Solo UNA alerta por tipo/día |
-| **6. Cierre Automático** | Corregir causa → Cerrar alerta | UX fluida |
+| **2. Vista Unificada**             | Múltiples scopes → Vista mezclada       | NO hay selector de contexto                   |
+| **3. Prioridad de Scopes**         | OR entre todos los scopes               | No hay jerarquía, se mezclan                  |
+| **4. Multi-Tenant**                | SIEMPRE validar `orgId`                 | Seguridad crítica                             |
+| **5. Idempotencia**                | `@@unique([employeeId, date, type])`    | Solo UNA alerta por tipo/día                  |
+| **6. Cierre Automático**           | Corregir causa → Cerrar alerta          | UX fluida                                     |
 
 ---
 

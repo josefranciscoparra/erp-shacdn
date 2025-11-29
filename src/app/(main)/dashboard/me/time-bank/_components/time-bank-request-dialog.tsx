@@ -10,13 +10,7 @@ import { toast } from "sonner";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -158,10 +152,10 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                             htmlFor={inputId}
                             className={cn(
                               "border-input hover:bg-muted/40 flex cursor-pointer flex-col gap-1.5 rounded-lg border p-3 text-left transition-colors",
-                              isSelected && "border-primary bg-primary/5 ring-1 ring-primary",
+                              isSelected && "border-primary bg-primary/5 ring-primary ring-1",
                             )}
                           >
-                            <RadioGroupItem value={option.value} id={inputId} className="sr-only peer" />
+                            <RadioGroupItem value={option.value} id={inputId} className="peer sr-only" />
                             <div className="flex items-center gap-2">
                               <div
                                 className={cn(
@@ -196,7 +190,7 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                     <FormControl>
                       <div className="relative">
                         <Input type="date" {...field} />
-                        <CalendarIcon className="text-muted-foreground pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2" />
+                        <CalendarIcon className="text-muted-foreground pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2" />
                       </div>
                     </FormControl>
                     <FormMessage />
@@ -236,10 +230,7 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                   type="button"
                   variant="outline"
                   size="sm"
-                  className={cn(
-                    "h-8 px-3 text-xs",
-                    form.watch("hours") === hours && "border-primary bg-primary/10",
-                  )}
+                  className={cn("h-8 px-3 text-xs", form.watch("hours") === hours && "border-primary bg-primary/10")}
                   onClick={() => setPresetHours(hours)}
                 >
                   {hours}h
@@ -249,10 +240,7 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                 type="button"
                 variant="outline"
                 size="sm"
-                className={cn(
-                  "h-8 px-3 text-xs",
-                  form.watch("hours") === 0.5 && "border-primary bg-primary/10",
-                )}
+                className={cn("h-8 px-3 text-xs", form.watch("hours") === 0.5 && "border-primary bg-primary/10")}
                 onClick={() => setPresetHours(0.5)}
               >
                 30min

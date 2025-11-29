@@ -118,7 +118,9 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Solicitar uso de la Bolsa de Horas</DialogTitle>
-          <DialogDescription>Envía una solicitud para recuperar horas o compensar un festivo trabajado.</DialogDescription>
+          <DialogDescription>
+            Envía una solicitud para recuperar horas o compensar un festivo trabajado.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -150,9 +152,9 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                               isSelected && "border-primary bg-primary/5",
                             )}
                           >
-                            <RadioGroupItem value={option.value} id={inputId} className="sr-only peer" />
+                            <RadioGroupItem value={option.value} id={inputId} className="peer sr-only" />
                             <div className="text-sm font-semibold">{option.title}</div>
-                            <p className="text-xs text-muted-foreground">{option.description}</p>
+                            <p className="text-muted-foreground text-xs">{option.description}</p>
                           </label>
                         );
                       })}
@@ -172,7 +174,7 @@ export function TimeBankRequestDialog({ open, onOpenChange }: TimeBankRequestDia
                     <FormControl>
                       <div className="relative">
                         <Input type="date" {...field} />
-                        <CalendarIcon className="text-muted-foreground absolute right-3 top-3 h-4 w-4" />
+                        <CalendarIcon className="text-muted-foreground absolute top-3 right-3 h-4 w-4" />
                       </div>
                     </FormControl>
                     <FormMessage />

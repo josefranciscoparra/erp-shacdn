@@ -1,30 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { getCoreRowModel, getSortedRowModel, useReactTable, type SortingState } from "@tanstack/react-table";
 import { Loader2, ShieldAlert, Users } from "lucide-react";
+import { toast } from "sonner";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { getTeams, type TeamListItem } from "@/server/actions/teams";
+import {
+  deleteTeam,
+  getTeamById,
+  getTeams,
+  toggleTeamStatus,
+  type TeamDetail,
+  type TeamListItem,
+} from "@/server/actions/teams";
 
 import { CreateTeamDialog } from "./_components/create-team-dialog";
-import { teamsColumns } from "./_components/teams-columns";
+import { EditTeamDialog } from "./_components/edit-team-dialog";
+import { createTeamsColumns } from "./_components/teams-columns";
 
 export default function TeamsPage() {
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [editingTeam, setEditingTeam] = useState<TeamDetail | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  useEffect(() => {
-    loadTeams();
-  }, []);
-
-  async function loadTeams() {
+  const loadTeams = useCallback(async () => {
     setIsLoading(true);
     try {
       const { success, teams: data, error: err } = await getTeams();
@@ -37,11 +44,76 @@ export default function TeamsPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    loadTeams();
+  }, [loadTeams]);
+
+  const handleEdit = useCallback(async (team: TeamListItem) => {
+    // Cargar los detalles completos del equipo para el dialog de edición
+    const { success, team: teamDetail } = await getTeamById(team.id);
+    if (success && teamDetail) {
+      setEditingTeam(teamDetail);
+      setIsEditDialogOpen(true);
+    } else {
+      toast.error("Error al cargar los datos del equipo");
+    }
+  }, []);
+
+  const handleToggleStatus = useCallback(
+    async (team: TeamListItem) => {
+      const { success, error: err } = await toggleTeamStatus(team.id);
+      if (success) {
+        toast.success(`Equipo ${team.isActive ? "desactivado" : "activado"} correctamente`);
+        loadTeams();
+      } else {
+        toast.error(err ?? "Error al cambiar el estado del equipo");
+      }
+    },
+    [loadTeams],
+  );
+
+  const handleDelete = useCallback(
+    async (team: TeamListItem) => {
+      const { success, error: err } = await deleteTeam(team.id);
+      if (success) {
+        toast.success("Equipo eliminado correctamente");
+        loadTeams();
+      } else {
+        toast.error(err ?? "Error al eliminar el equipo");
+      }
+    },
+    [loadTeams],
+  );
+
+  const handleTeamUpdated = useCallback(() => {
+    setIsEditDialogOpen(false);
+    setEditingTeam(null);
+    loadTeams();
+    toast.success("Equipo actualizado correctamente");
+  }, [loadTeams]);
+
+  const handleEditDialogClose = useCallback((open: boolean) => {
+    setIsEditDialogOpen(open);
+    if (!open) {
+      setEditingTeam(null);
+    }
+  }, []);
+
+  const columns = useMemo(
+    () =>
+      createTeamsColumns({
+        onEdit: handleEdit,
+        onToggleStatus: handleToggleStatus,
+        onDelete: handleDelete,
+      }),
+    [handleEdit, handleToggleStatus, handleDelete],
+  );
 
   const table = useReactTable({
     data: teams,
-    columns: teamsColumns,
+    columns,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
@@ -99,7 +171,7 @@ export default function TeamsPage() {
         {hasTeams ? (
           <div className="space-y-4">
             <div className="overflow-hidden rounded-lg border">
-              <DataTable table={table} columns={teamsColumns} />
+              <DataTable table={table} columns={columns} />
             </div>
           </div>
         ) : (
@@ -110,6 +182,16 @@ export default function TeamsPage() {
           />
         )}
       </div>
+
+      {/* Dialog de edición con estado controlado */}
+      {editingTeam && (
+        <EditTeamDialog
+          team={editingTeam}
+          open={isEditDialogOpen}
+          onOpenChange={handleEditDialogClose}
+          onTeamUpdated={handleTeamUpdated}
+        />
+      )}
     </PermissionGuard>
   );
 }

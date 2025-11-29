@@ -163,12 +163,7 @@ export default function ApprovalsPage() {
           onSuccess={handleSuccess}
         />
       ) : (
-        <ApprovalDialog
-          item={selectedItem}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onSuccess={handleSuccess}
-        />
+        <ApprovalDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={handleSuccess} />
       )}
     </div>
   );

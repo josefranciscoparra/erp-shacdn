@@ -7,6 +7,7 @@ import { es } from "date-fns/locale";
 import { Check, X, Loader2, FileText, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
+import { AuditTimeline, type TimelineEvent } from "@/components/ui/audit-timeline";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +20,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { AuditTimeline, type TimelineEvent } from "@/components/ui/audit-timeline";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
 
 const expenseCategories: Record<string, string> = {
@@ -49,16 +48,29 @@ function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
 
   // 2. Decisión (si existe en audit)
   const audit = item.details?.audit;
-  if (audit?.decidedAt || audit?.approvedAt || audit?.rejectedAt || (item.type === "ALERT" && item.status !== "ACTIVE")) {
+  if (
+    audit?.decidedAt ??
+    audit?.approvedAt ??
+    audit?.rejectedAt ??
+    (item.type === "ALERT" && item.status !== "ACTIVE")
+  ) {
     // Para alertas, usamos resolvedAt si está disponible, o updatedAt del item como fallback
-    const date = audit?.decidedAt || audit?.approvedAt || audit?.rejectedAt || item.createdAt; // TODO: Backend should send resolvedAt in audit for alerts
+    const date = audit?.decidedAt ?? audit?.approvedAt ?? audit?.rejectedAt ?? item.createdAt; // TODO: Backend should send resolvedAt in audit for alerts
 
     let type: TimelineEvent["type"] = "COMMENT";
     switch (item.status) {
-        case "APPROVED": type = "APPROVED"; break;
-        case "REJECTED": type = "REJECTED"; break;
-        case "RESOLVED": type = "RESOLVED"; break;
-        case "DISMISSED": type = "DISMISSED"; break;
+      case "APPROVED":
+        type = "APPROVED";
+        break;
+      case "REJECTED":
+        type = "REJECTED";
+        break;
+      case "RESOLVED":
+        type = "RESOLVED";
+        break;
+      case "DISMISSED":
+        type = "DISMISSED";
+        break;
     }
 
     events.push({
@@ -67,7 +79,7 @@ function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
       actorName: audit?.approverName ?? "Sistema/Usuario",
       actorImage: audit?.approverImage,
       date,
-      comment: (item.details?.approverComments as string) || (item.details?.rejectionReason as string),
+      comment: (item.details?.approverComments as string) ?? (item.details?.rejectionReason as string),
     });
   }
 
@@ -324,8 +336,8 @@ export function ApprovalDialog({ item, open, onOpenChange, onSuccess }: Approval
 
           {/* Timeline de Auditoría */}
           <div className="mt-6">
-            <h4 className="text-sm font-medium text-muted-foreground mb-4">Historial de Actividad</h4>
-            <div className="rounded-lg border bg-muted/10 p-4">
+            <h4 className="text-muted-foreground mb-4 text-sm font-medium">Historial de Actividad</h4>
+            <div className="bg-muted/10 rounded-lg border p-4">
               <AuditTimeline events={buildTimelineEvents(item)} />
             </div>
           </div>

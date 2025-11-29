@@ -102,7 +102,9 @@ export function TimeBankRequestsPanel() {
                         <p className="text-sm font-semibold">
                           {format(new Date(request.date), "dd MMM yyyy", { locale: es })}
                         </p>
-                        <p className="text-xs text-muted-foreground">{request.type === "RECOVERY" ? "Recuperar horas" : "Compensar festivo"}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {request.type === "RECOVERY" ? "Recuperar horas" : "Compensar festivo"}
+                        </p>
                       </div>
                       <div className="text-right">
                         <p
@@ -112,7 +114,7 @@ export function TimeBankRequestsPanel() {
                         >
                           {formatMinutes(request.requestedMinutes, request.type)}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-muted-foreground text-xs">
                           {request.status === "PENDING"
                             ? "Pendiente de revisión"
                             : request.status === "APPROVED"
@@ -123,12 +125,11 @@ export function TimeBankRequestsPanel() {
                         </p>
                       </div>
                     </div>
-                    {request.reason && (
-                      <p className="text-muted-foreground mt-2 text-sm">{request.reason}</p>
-                    )}
-                    <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+                    {request.reason && <p className="text-muted-foreground mt-2 text-sm">{request.reason}</p>}
+                    <div className="text-muted-foreground mt-3 flex items-center justify-between text-xs">
                       <span>
-                        Enviado el {format(new Date(request.submittedAt ?? request.createdAt), "dd/MM HH:mm", { locale: es })}
+                        Enviado el{" "}
+                        {format(new Date(request.submittedAt ?? request.createdAt), "dd/MM HH:mm", { locale: es })}
                       </span>
                       {request.status === "APPROVED" && request.approvedAt && (
                         <span>Aprobado el {format(new Date(request.approvedAt), "dd/MM HH:mm", { locale: es })}</span>
@@ -163,7 +164,7 @@ export function TimeBankRequestsPanel() {
         </Tabs>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+          <div className="border-destructive/40 bg-destructive/5 text-destructive flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
             <AlertCircle className="h-4 w-4" />
             {error}
           </div>

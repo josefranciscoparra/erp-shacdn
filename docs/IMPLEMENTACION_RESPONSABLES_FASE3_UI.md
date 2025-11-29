@@ -26,6 +26,7 @@ export async function getCostCenterById(id: string): Promise<{
 ```
 
 **Características**:
+
 - ✅ Validación de sesión y orgId
 - ✅ Conteos agregados (`_count` de employees y areaResponsibles)
 - ✅ Retorna datos listos para UI (fechas, contadores, etc.)
@@ -60,14 +61,10 @@ export async function getCostCenterById(id: string): Promise<{
     <Tabs defaultValue="info">
       <TabsList>
         <TabsTrigger value="info">Información</TabsTrigger>
-        <TabsTrigger value="responsibles">
-          Responsables ({responsibleCount})
-        </TabsTrigger>
+        <TabsTrigger value="responsibles">Responsables ({responsibleCount})</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="info">
-        {/* Card con info readonly del centro */}
-      </TabsContent>
+      <TabsContent value="info">{/* Card con info readonly del centro */}</TabsContent>
 
       <TabsContent value="responsibles">
         <ResponsiblesTab costCenterId={costCenter.id} />
@@ -78,6 +75,7 @@ export async function getCostCenterById(id: string): Promise<{
 ```
 
 **Características**:
+
 - ✅ PermissionGuard con fallback de acceso denegado
 - ✅ Suspense para carga async
 - ✅ LoadingState con Skeletons
@@ -106,6 +104,7 @@ export function ResponsiblesTab({ costCenterId }: { costCenterId: string }) {
 ```
 
 **Características**:
+
 - ✅ Botón "Añadir Responsable" alineado a la derecha
 - ✅ Lista de responsables con gestión completa
 
@@ -153,6 +152,7 @@ export function ResponsiblesList({ costCenterId }: { costCenterId: string }) {
 ```
 
 **Características**:
+
 - ✅ TanStack Table con sorting
 - ✅ Estado de carga
 - ✅ EmptyState cuando no hay responsables
@@ -210,6 +210,7 @@ const permissionLabels: Record<string, string> = {
 ```
 
 **Características**:
+
 - ✅ DataTableColumnHeader con sorting
 - ✅ Labels en español para permisos
 - ✅ Badges de permisos (primeros 3 visibles)
@@ -264,15 +265,13 @@ export function AddResponsibleDialog({ costCenterId }: { costCenterId: string })
 **Componentes del Dialog**:
 
 1. **Combobox de búsqueda de usuarios**:
+
    ```tsx
    <Popover>
      <Command shouldFilter={false}>
-       <CommandInput
-         placeholder="Buscar usuario..."
-         onValueChange={handleSearch}
-       />
+       <CommandInput placeholder="Buscar usuario..." onValueChange={handleSearch} />
        <CommandList>
-         {searchResults.map(user => (
+         {searchResults.map((user) => (
            <CommandItem key={user.id} value={user.id}>
              <Check />
              <div>
@@ -287,17 +286,18 @@ export function AddResponsibleDialog({ costCenterId }: { costCenterId: string })
    ```
 
 2. **Grid 2 columnas de permisos**:
+
    ```tsx
    <div className="grid grid-cols-2 gap-3">
-     {availablePermissions.map(perm => (
-       <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-3">
+     {availablePermissions.map((perm) => (
+       <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-3">
          <Checkbox
            checked={field.value?.includes(perm.value)}
            onCheckedChange={(checked) => {
              if (checked) {
                field.onChange([...field.value, perm.value]);
              } else {
-               field.onChange(field.value.filter(v => v !== perm.value));
+               field.onChange(field.value.filter((v) => v !== perm.value));
              }
            }}
          />
@@ -313,8 +313,7 @@ export function AddResponsibleDialog({ costCenterId }: { costCenterId: string })
      <div>
        <FormLabel>Suscripción automática a alertas</FormLabel>
        <FormDescription>
-         El usuario recibirá notificaciones de alertas de este centro
-         (solo WARNING y CRITICAL)
+         El usuario recibirá notificaciones de alertas de este centro (solo WARNING y CRITICAL)
        </FormDescription>
      </div>
      <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -322,6 +321,7 @@ export function AddResponsibleDialog({ costCenterId }: { costCenterId: string })
    ```
 
 **Características**:
+
 - ✅ Dialog con DialogTrigger (botón "Añadir Responsable")
 - ✅ React Hook Form + Zod validation
 - ✅ Combobox con búsqueda dinámica (Command component)
@@ -339,12 +339,7 @@ export function AddResponsibleDialog({ costCenterId }: { costCenterId: string })
 **Funcionalidad**:
 
 ```tsx
-export function EditPermissionsDialog({
-  responsibility,
-  open,
-  onClose,
-  onSuccess,
-}: EditPermissionsDialogProps) {
+export function EditPermissionsDialog({ responsibility, open, onClose, onSuccess }: EditPermissionsDialogProps) {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -374,6 +369,7 @@ export function EditPermissionsDialog({
 ```
 
 **Características**:
+
 - ✅ Usuario readonly (nombre + email) - No se puede cambiar
 - ✅ Grid de 2 columnas de checkboxes de permisos
 - ✅ Permisos preseleccionados del responsable actual
@@ -398,10 +394,11 @@ import { Eye } from "lucide-react";
     <Eye className="mr-2 h-4 w-4" />
     Ver Detalle
   </Link>
-</DropdownMenuItem>
+</DropdownMenuItem>;
 ```
 
 **Características**:
+
 - ✅ Link a página de detalle
 - ✅ Icono Eye (ojo) para "Ver Detalle"
 - ✅ Primera opción del dropdown (antes de "Copiar ID")
@@ -465,22 +462,26 @@ import { Eye } from "lucide-react";
 ### ✅ Checklist de Testing
 
 **Navegación**:
+
 - [ ] Ir a `/dashboard/cost-centers`
 - [ ] Click "Ver Detalle" en un centro
 - [ ] Verificar que se muestra la página de detalle
 - [ ] Click "Volver a Centros de Coste" funciona
 
 **Tab Información**:
+
 - [ ] Ver toda la información del centro
 - [ ] Verificar formato de fechas (dd/MM/yyyy)
 - [ ] Verificar badges de estado (Activo/Inactivo)
 
 **Tab Responsables (sin responsables)**:
+
 - [ ] Ir a tab "Responsables"
 - [ ] Verificar que muestra EmptyState
 - [ ] Botón "Añadir Responsable" visible
 
 **Añadir Responsable**:
+
 - [ ] Click "Añadir Responsable"
 - [ ] Dialog se abre correctamente
 - [ ] Buscar usuario (escribir nombre o email)
@@ -496,6 +497,7 @@ import { Eye } from "lucide-react";
 - [ ] Verificar que responsable aparece en lista
 
 **Tab Responsables (con responsables)**:
+
 - [ ] Verificar que contador de tab se actualiza
 - [ ] Tabla muestra columnas: Usuario, Permisos, Fecha, Acciones
 - [ ] Columna Usuario muestra nombre + email
@@ -506,6 +508,7 @@ import { Eye } from "lucide-react";
 - [ ] Columna Acciones muestra dropdown (...)
 
 **Editar Permisos**:
+
 - [ ] Click dropdown (...) en un responsable
 - [ ] Click "Editar Permisos"
 - [ ] Dialog se abre con permisos actuales preseleccionados
@@ -517,6 +520,7 @@ import { Eye } from "lucide-react";
 - [ ] Verificar que permisos se actualizaron
 
 **Eliminar Responsable**:
+
 - [ ] Click dropdown (...) en un responsable
 - [ ] Click "Eliminar Responsable" (opción roja)
 - [ ] AlertDialog de confirmación aparece
@@ -528,11 +532,13 @@ import { Eye } from "lucide-react";
 - [ ] Contador de tab se actualiza
 
 **Validaciones Multi-tenant**:
+
 - [ ] Intentar acceder a un centro de otra organización → 404
 - [ ] Intentar añadir responsable de otra organización → Error
 - [ ] Solo se pueden buscar usuarios de la misma organización
 
 **Permisos**:
+
 - [ ] Usuario sin `view_cost_centers` → EmptyState "Acceso denegado"
 - [ ] ADMIN/HR_ADMIN puede ver todo sin restricciones
 

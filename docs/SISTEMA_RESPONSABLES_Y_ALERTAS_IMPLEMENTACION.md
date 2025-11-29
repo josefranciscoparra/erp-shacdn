@@ -23,13 +23,13 @@
 
 **Última actualización:** 2025-11-20
 
-| Fase | Estado | Descripción | Tiempo |
-|------|--------|-------------|--------|
-| **FASE 1** | ✅ **COMPLETADO** | Modelo de datos (Team, relaciones, migración) | 3h |
-| **FASE 2** | ✅ **COMPLETADO** | Sistema de visibilidad y filtrado (scope helpers, UI) | 5h |
-| **FASE 3** | ✅ **COMPLETADO** | Asignación de Responsables - Centros (server + UI) | 4h |
-| **FASE 4** | 🔄 **SIGUIENTE** | Asignación de Responsables - Equipos | 2h est. |
-| **FASE 5** | ⏸️ PENDIENTE | Notificaciones In-App | 3h est. |
+| Fase       | Estado            | Descripción                                           | Tiempo  |
+| ---------- | ----------------- | ----------------------------------------------------- | ------- |
+| **FASE 1** | ✅ **COMPLETADO** | Modelo de datos (Team, relaciones, migración)         | 3h      |
+| **FASE 2** | ✅ **COMPLETADO** | Sistema de visibilidad y filtrado (scope helpers, UI) | 5h      |
+| **FASE 3** | ✅ **COMPLETADO** | Asignación de Responsables - Centros (server + UI)    | 4h      |
+| **FASE 4** | 🔄 **SIGUIENTE**  | Asignación de Responsables - Equipos                  | 2h est. |
+| **FASE 5** | ⏸️ PENDIENTE      | Notificaciones In-App                                 | 3h est. |
 
 ### 📄 Documentación Técnica
 
@@ -41,11 +41,13 @@
 ### ✅ Completado
 
 **FASE 1 - Modelo de Datos:**
+
 - ✅ Modelo `Team` con relaciones completas
 - ✅ Migración aplicada con `prisma db push`
 - ✅ Extensión de modelos: Employee, CostCenter, Alert
 
 **FASE 2 - Sistema de Visibilidad:**
+
 - ✅ Helpers de permisos (`scope-helpers.ts`)
   - `buildScopeFilter()` - Filtrado por scope con bypass ADMIN/RRHH
   - `getUserAccessibleCostCenters()` - Centros accesibles
@@ -61,6 +63,7 @@
   - Bypass automático para roles globales
 
 **FASE 3 - Asignación de Responsables (Centros) ✅ COMPLETADA:**
+
 - ✅ Server actions genéricas (`area-responsibilities.ts`)
   - `assignResponsibility()` - Asignar con suscripción opcional
   - `removeResponsibility()` - Soft delete
@@ -95,18 +98,21 @@
 ### ⏸️ Pendiente
 
 **FASE 4: Responsables de Equipos (~2h)**
+
 - Reutilizar server actions (sin cambios necesarios)
 - Crear página `/teams/[id]` con tabs
 - Crear componentes similares a cost-centers
 - Testing completo
 
 **FASE 5: Notificaciones In-App (~3h)**
+
 - Sistema de notificaciones para responsables
 - Bell icon con badge de conteo
 - Dropdown de notificaciones
 - Marcar como leído
 
 **Otras tareas:**
+
 - CRUD de Equipos (prioridad media)
 
 ---

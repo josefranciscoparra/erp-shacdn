@@ -133,6 +133,7 @@ Descanso
 Esta jerarquía debe estar centralizada y ser reutilizada.
 
 🧩 4. Buenas Prácticas y Principios Técnicos
+
 1. Reutilización
 
 Ni turnos rotativos ni manuales deben duplicar lógica de ScheduleTemplate.
@@ -170,7 +171,6 @@ Añadir nuevos modelos (rotación + planificación).
 Implementar función única:
 
 getEffectiveSchedule(employeeId, date)
-
 
 con la jerarquía establecida.
 

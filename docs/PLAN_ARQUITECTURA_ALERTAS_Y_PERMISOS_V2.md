@@ -23,33 +23,39 @@ Mejorar y documentar el sistema de alertas de fichajes y permisos granulares par
 ## ⚠️ Problemas Actuales (Detectados en Revisión)
 
 ### 1. **Jerarquía Team → Department ambigua**
+
 - ❌ No está claro que `Team.departmentId` es **OPCIONAL**
 - ❌ Falta validación: si existe `departmentId`, debe pertenecer al mismo `costCenter`
 - ❌ No se documenta el caso de equipos transversales (sin departamento)
 
 ### 2. **Scope DEPARTMENT no implementado**
+
 - ❌ `AreaResponsible` solo tiene: ORGANIZATION | COST_CENTER | TEAM
 - ❌ `AlertSubscription` solo tiene: ORGANIZATION | COST_CENTER | TEAM
 - ❌ No existe relación `departmentId` en estos modelos
 - ❌ Falta el nivel de granularidad departamental
 
 ### 3. **Alertas sin idempotencia**
+
 - ❌ No hay clave única para evitar duplicados
 - ❌ Puede generarse la misma alerta múltiples veces
 - ❌ No está documentado qué pasa si se corrige un fichaje
 - ❌ No hay historial de cambios de alertas
 
 ### 4. **Prioridad de suscripciones no definida**
+
 - ❌ Si un usuario tiene varias suscripciones (ORG + TEAM), ¿qué ve?
 - ❌ No está claro si es acumulativo o jerárquico
 - ❌ Puede causar confusión en RRHH
 
 ### 5. **Contexto activo no implementado**
+
 - ❌ Si un usuario es responsable de Equipo A + Centro B, ve TODO mezclado
 - ❌ No hay forma de filtrar por contexto específico
 - ❌ UX confusa para managers de múltiples áreas
 
 ### 6. **Visibilidad vs Notificaciones no documentado**
+
 - ❌ No está claro que `AreaResponsible` (visibilidad) ≠ `AlertSubscription` (notificaciones)
 - ❌ Un usuario puede VER algo sin SER NOTIFICADO
 - ❌ Un usuario puede SER NOTIFICADO sin tener acceso a la página
@@ -260,9 +266,11 @@ model Department {
 #### FASE 1: Actualización del Schema Prisma ✅ COMPLETADO (2025-11-20)
 
 **Archivos modificados:**
+
 - ✅ `prisma/schema.prisma`
 
 **Cambios implementados:**
+
 1. ✅ Añadido `departmentId` opcional a `Team`
    - Relación `department Department? @relation("DepartmentTeams")`
    - Comentarios documentando validación de costCenterId
@@ -295,6 +303,7 @@ model Department {
    - `alerts Alert[] @relation("DepartmentAlerts")`
 
 **Migración ejecutada:**
+
 ```bash
 npx prisma db push --accept-data-loss
 # Base de datos sincronizada exitosamente
@@ -302,6 +311,7 @@ npx prisma db push --accept-data-loss
 ```
 
 **Commit:**
+
 - `db51cc1` - feat(schema): Sprint 1 FASE 1 - Sistema de Alertas y Permisos v2.0
 
 ---
@@ -309,6 +319,7 @@ npx prisma db push --accept-data-loss
 #### FASE 1.5: Actualización de Server Actions Existentes ✅ COMPLETADO (2025-11-20)
 
 **Archivos modificados:**
+
 - ✅ `/src/lib/permissions/scope-helpers.ts`
 - ✅ `/src/server/actions/area-responsibilities.ts`
 - ✅ `/src/server/actions/teams.ts`
@@ -352,6 +363,7 @@ npx prisma db push --accept-data-loss
      - Pasa `departmentId` al crear/actualizar Alert
 
 **Validación:**
+
 ```bash
 npm run lint
 # ✅ Exit code: 0 (sin errores)
@@ -359,6 +371,7 @@ npm run lint
 ```
 
 **Resultado:**
+
 - ✅ Todo funcionando correctamente
 - ✅ Backwards compatible (campos opcionales)
 - ✅ Sin errores de TypeScript
@@ -366,9 +379,11 @@ npm run lint
 - ✅ Prisma Client regenerado automáticamente
 
 **Commit:**
+
 - `5b6d96d` - feat(alerts): Sprint 1 FASE 1.5 - Actualizar server actions para scope DEPARTMENT
 
 **Próximos pasos (Sprint 2):**
+
 - Implementar Motor de Alertas con Idempotencia (`/src/lib/alert-engine.ts`)
 - Implementar Server Actions de Alertas (`/src/server/actions/alerts.ts`)
 
@@ -379,9 +394,11 @@ npm run lint
 #### FASE 2: Sistema de Alertas con Idempotencia ✅ COMPLETADO (2025-11-20)
 
 **Archivo creado:**
+
 - ✅ `/src/lib/alert-engine.ts`
 
 **Funciones implementadas:**
+
 ```typescript
 // ✅ Crear o actualizar alerta (idempotente con UPSERT)
 export async function createOrUpdateAlert(params: CreateOrUpdateAlertParams)
@@ -397,18 +414,21 @@ export async function dismissAlert(alertId: string, userId: string, comment?: st
 ```
 
 **Implementación:**
+
 1. ✅ Idempotencia mediante `prisma.alert.upsert()` con constraint `@@unique([employeeId, date, type])`
 2. ✅ Suscripciones acumulativas con `OR[]` query y Map para usuarios únicos
 3. ✅ Filtrado por severidad y tipo de alerta en `getAlertSubscribers()`
 4. ✅ Estados de alerta: `ACTIVE`, `RESOLVED`, `DISMISSED`
 
 **Reglas implementadas:**
+
 - Clave única: `(employeeId, date, type)`
 - Si existe → `UPDATE` (severity, description, timeEntryId, updatedAt)
 - Si no existe → `CREATE` (status="ACTIVE")
 - Resolución: `status="RESOLVED"`, `resolvedAt`, `resolvedBy`, `resolutionComment`
 
 **Validación:**
+
 ```bash
 npx eslint src/lib/alert-engine.ts --fix
 # ✅ Sin errores, solo warning de formato (auto-corregido)
@@ -419,34 +439,36 @@ npx eslint src/lib/alert-engine.ts --fix
 #### FASE 3: Server Actions de Alertas ✅ COMPLETADO (2025-11-20)
 
 **Archivo creado:**
+
 - ✅ `/src/server/actions/alerts.ts` (501 líneas)
 
 **Server Actions implementadas:**
+
 ```typescript
 // ✅ Obtener alertas del usuario según suscripciones acumulativas
-export async function getMyAlerts(filters?: AlertFilters)
+export async function getMyAlerts(filters?: AlertFilters);
 
 // ✅ Obtener estadísticas agregadas (reutiliza getMyAlerts)
-export async function getMyAlertStats(dateFrom?: Date, dateTo?: Date): Promise<AlertStats>
+export async function getMyAlertStats(dateFrom?: Date, dateTo?: Date): Promise<AlertStats>;
 
 // ✅ Crear suscripción a alertas con opciones personalizadas
 export async function subscribeToAlerts(
   scope: "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM",
   scopeId: string | null,
-  options?: { severityLevels?: string[]; alertTypes?: string[]; notifyByEmail?: boolean; }
-)
+  options?: { severityLevels?: string[]; alertTypes?: string[]; notifyByEmail?: boolean },
+);
 
 // ✅ Eliminar suscripción (soft delete)
-export async function unsubscribeFromAlerts(subscriptionId: string)
+export async function unsubscribeFromAlerts(subscriptionId: string);
 
 // ✅ Obtener suscripciones activas del usuario con relaciones
-export async function getMySubscriptions()
+export async function getMySubscriptions();
 
 // ✅ Resolver alerta (llama a motor de alertas)
-export async function resolveAlertAction(alertId: string, resolution?: string)
+export async function resolveAlertAction(alertId: string, resolution?: string);
 
 // ✅ Descartar alerta (falso positivo)
-export async function dismissAlertAction(alertId: string, comment?: string)
+export async function dismissAlertAction(alertId: string, comment?: string);
 ```
 
 **Funcionalidades implementadas:**
@@ -484,6 +506,7 @@ export async function dismissAlertAction(alertId: string, comment?: string)
    - Contadores por estado (active, resolved, dismissed)
 
 **Relaciones incluidas:**
+
 - ✅ `employee` (firstName, lastName, email)
 - ✅ `costCenter` (name)
 - ✅ `department` (name) - **Nuevo con scope DEPARTMENT**
@@ -491,6 +514,7 @@ export async function dismissAlertAction(alertId: string, comment?: string)
 - ✅ `resolver` (name)
 
 **Validación:**
+
 ```bash
 npx eslint src/server/actions/alerts.ts --fix
 # ✅ 0 errores, 24 warnings (complexity, max-lines, unnecessary optional chain)
@@ -499,9 +523,11 @@ npx eslint src/server/actions/alerts.ts --fix
 ```
 
 **Commit:**
+
 - `aa091be` - feat(alerts): Sprint 2 FASE 3 - Server Actions de Alertas
 
 **Próximos pasos (Sprint 2 FASE 4):**
+
 - Implementar Sistema de Contexto Activo
 - Crear modelo `UserActiveContext`
 - Implementar `setActiveContext()` y `getActiveContext()`
@@ -511,21 +537,24 @@ npx eslint src/server/actions/alerts.ts --fix
 #### FASE 4: Sistema de Contexto Activo ✅ COMPLETADO (2025-11-20)
 
 **Modelo creado:**
+
 - ✅ `/prisma/schema.prisma`: Modelo `UserActiveContext` añadido
 
 **Server Actions creadas:**
+
 - ✅ `/src/server/actions/user-context.ts` (339 líneas)
 
 **Server Actions implementadas:**
+
 ```typescript
 // ✅ Obtiene contexto activo del usuario (retorna null si no configurado)
-export async function getActiveContext(): Promise<UserActiveContextData | null>
+export async function getActiveContext(): Promise<UserActiveContextData | null>;
 
 // ✅ Establece contexto activo con validaciones completas
 export async function setActiveContext(
   scope: ActiveScope,
-  options?: { departmentId?: string; costCenterId?: string; teamId?: string }
-): Promise<UserActiveContextData>
+  options?: { departmentId?: string; costCenterId?: string; teamId?: string },
+): Promise<UserActiveContextData>;
 
 // ✅ Obtiene ámbitos disponibles según responsabilidades del usuario
 export async function getAvailableScopes(): Promise<{
@@ -533,10 +562,11 @@ export async function getAvailableScopes(): Promise<{
   departments: Array<{ id: string; name: string }>;
   costCenters: Array<{ id: string; name: string; code: string | null }>;
   teams: Array<{ id: string; name: string; code: string | null }>;
-}>
+}>;
 ```
 
 **Modelo implementado:**
+
 ```prisma
 model UserActiveContext {
   id        String   @id @default(cuid())
@@ -600,6 +630,7 @@ model UserActiveContext {
    - `Team.activeContexts`
 
 **Validación:**
+
 ```bash
 npx eslint src/server/actions/user-context.ts --fix
 # ✅ 0 errores, 10 warnings (complexity, unnecessary optional chain)
@@ -610,10 +641,12 @@ npx prisma db push
 ```
 
 **Commits:**
+
 - `efb5620` - feat(alerts): Sprint 2 FASE 4 - Modelo UserActiveContext
 - `7f4dc2b` - feat(alerts): Sprint 2 FASE 4 - Server Actions de Contexto Activo
 
 **Próximos pasos (Sprint 3 - UI):**
+
 - Implementar UI de gestión de suscripciones a alertas
 - Dashboard de alertas mejorado con filtros
 - Selector de contexto global en header (dropdown)
@@ -626,13 +659,16 @@ npx prisma db push
 #### FASE 5: UI de Gestión de Suscripciones ✅ COMPLETADO (2025-11-21)
 
 **Ruta:**
+
 - `/dashboard/settings` → Tab "Alertas"
 
 **Componentes creados:**
+
 - ✅ `/src/app/(main)/dashboard/settings/_components/alert-subscriptions-tab.tsx` (185 líneas)
 - ✅ `/src/app/(main)/dashboard/settings/_components/add-subscription-dialog.tsx` (287 líneas)
 
 **Componentes modificados:**
+
 - ✅ `/src/app/(main)/dashboard/settings/page.tsx` - Añadido tab "Alertas"
 
 **Funcionalidades implementadas:**
@@ -661,6 +697,7 @@ npx prisma db push
    - Recarga automática después de crear/eliminar suscripciones
 
 **Patrones de diseño aplicados:**
+
 - EmptyState con icono Bell y CTA
 - Card-based layout con badges
 - Dialog pattern para creación
@@ -668,6 +705,7 @@ npx prisma db push
 - Loading/Error handling con try-catch
 
 **Validación:**
+
 ```bash
 npm run lint
 # ✅ 0 errores
@@ -678,9 +716,11 @@ git status
 ```
 
 **Commit:**
+
 - `c5e3bc3` - feat(alerts): Sprint 3 FASE 5 - UI de Gestión de Suscripciones
 
 **Próximos pasos (Sprint 3 FASE 6):**
+
 - Mejorar dashboard de alertas existente
 - Añadir selector de contexto en header
 - Añadir filtros avanzados (tipo, severidad, estado, fecha)
@@ -691,9 +731,11 @@ git status
 #### FASE 6: Dashboard de Alertas Mejorado ✅ COMPLETADO (2025-11-21)
 
 **Ruta:**
+
 - `/dashboard/time-tracking/alerts` (mejorado)
 
 **Componentes modificados:**
+
 - ✅ `/src/app/(main)/dashboard/time-tracking/alerts/page.tsx` (+141 líneas, -12 líneas)
 
 **Funcionalidades implementadas:**
@@ -730,6 +772,7 @@ git status
    - Estado de carga visual
 
 **Validación:**
+
 ```bash
 npx eslint src/app/(main)/dashboard/time-tracking/alerts/page.tsx --fix
 # ✅ 0 errores, 17 warnings (complexity, max-lines - aceptables)
@@ -737,14 +780,17 @@ npx eslint src/app/(main)/dashboard/time-tracking/alerts/page.tsx --fix
 ```
 
 **Commit:**
+
 - `02893de` - feat(alerts): Sprint 3 FASE 6 - Dashboard de Alertas Mejorado
 
 **Próximos pasos (Sprint 3 FASE 7):**
+
 - Crear selector de contexto global en header principal
 - Integrar cambio de contexto en todos los dashboards
 - Dropdown "Ver: Todo | Mi Equipo | Mi Centro | Mi Departamento"
 
 **Pendientes para futuras mejoras:**
+
 - ⏳ Acción masiva: resolver múltiples alertas
 - ⏳ Historial de cambios de alertas
 
@@ -753,12 +799,15 @@ npx eslint src/app/(main)/dashboard/time-tracking/alerts/page.tsx --fix
 #### FASE 7: Selector de Contexto Global
 
 **Componente:**
+
 - `/src/components/layout/context-selector.tsx`
 
 **Ubicación:**
+
 - Header principal (junto a notificaciones)
 
 **Lógica:**
+
 - Obtener todas las `AreaResponsible` del usuario
 - Mostrar dropdown: "Ver Todo" | "Equipo X" | "Centro Y" | "Departamento Z"
 - Al cambiar → `setActiveContext()` → refresh de datos
@@ -770,15 +819,17 @@ npx eslint src/app/(main)/dashboard/time-tracking/alerts/page.tsx --fix
 #### FASE 8: Validaciones de Team → Department
 
 **Archivo:**
+
 - `/src/server/actions/teams.ts`
 
 **Validación:**
+
 ```typescript
 // Al crear/editar Team
 if (departmentId) {
   const dept = await prisma.department.findUnique({
     where: { id: departmentId },
-    select: { costCenterId: true }
+    select: { costCenterId: true },
   });
 
   if (!dept) {
@@ -796,26 +847,28 @@ if (departmentId) {
 #### FASE 9: Server Actions de AreaResponsible
 
 **Archivo:**
+
 - `/src/server/actions/area-responsibilities.ts`
 
 **Actions:**
+
 ```typescript
 // Asignar responsabilidad de área
 export async function assignAreaResponsibility(
   userId: string,
   scope: Scope,
   scopeId: string | null,
-  permissions: Permission[]
-): Promise<AreaResponsible>
+  permissions: Permission[],
+): Promise<AreaResponsible>;
 
 // Eliminar responsabilidad
-export async function removeAreaResponsibility(id: string): Promise<void>
+export async function removeAreaResponsibility(id: string): Promise<void>;
 
 // Obtener áreas del usuario
-export async function getMyAreaResponsibilities(): Promise<AreaResponsible[]>
+export async function getMyAreaResponsibilities(): Promise<AreaResponsible[]>;
 
 // Obtener empleados visibles según contexto activo
-export async function getVisibleEmployees(contextId?: string): Promise<Employee[]>
+export async function getVisibleEmployees(contextId?: string): Promise<Employee[]>;
 ```
 
 ---
@@ -937,6 +990,7 @@ export async function getVisibleEmployees(contextId?: string): Promise<Employee[
 ### 🎯 Problema Detectado
 
 **Arquitectura actual INCORRECTA:**
+
 - ❌ Suscripciones a alertas están en **Settings** (pantalla de configuración organizacional)
 - ❌ Settings está diseñado para RRHH/ADMIN, no para usuarios finales
 - ❌ Managers tienen que entrar a una pantalla de "administración" para gestionar sus notificaciones personales
@@ -944,6 +998,7 @@ export async function getVisibleEmployees(contextId?: string): Promise<Employee[
 
 **Problema de UX:**
 Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
+
 1. Crear manualmente una suscripción
 2. Elegir el scope (TEAM)
 3. Elegir qué equipo (de una lista)
@@ -955,6 +1010,7 @@ Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
 **Ruta:** `/dashboard/me/responsibilities`
 
 **Concepto:**
+
 - Vista personal de TODAS las áreas donde el usuario es responsable
 - Gestión de suscripciones POR ÁREA (no global)
 - Acceso directo al dashboard de cada área
@@ -963,6 +1019,7 @@ Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
 ### 🏗️ Arquitectura Propuesta
 
 #### 1. **Nueva Página**
+
 ```
 /src/app/(main)/dashboard/me/responsibilities/
   ├── page.tsx                           # Página principal
@@ -973,6 +1030,7 @@ Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
 ```
 
 #### 2. **Nuevo Server Action**
+
 ```typescript
 // /src/server/actions/responsibilities.ts
 
@@ -980,10 +1038,11 @@ Un manager responsable de 2 equipos entra a Settings → Alerts y tiene que:
  * Obtiene todas las áreas de responsabilidad del usuario autenticado
  * con información de suscripciones activas
  */
-export async function getMyResponsibilities(): Promise<ResponsibilityWithSubscription[]>
+export async function getMyResponsibilities(): Promise<ResponsibilityWithSubscription[]>;
 ```
 
 #### 3. **Estructura de Datos**
+
 ```typescript
 type ResponsibilityWithSubscription = {
   // Datos de AreaResponsible
@@ -1006,14 +1065,15 @@ type ResponsibilityWithSubscription = {
   } | null;
 
   // Metadatos
-  employeesCount: number;  // Cuántos empleados están bajo esta responsabilidad
-  activeAlertsCount: number;  // Alertas activas actualmente
+  employeesCount: number; // Cuántos empleados están bajo esta responsabilidad
+  activeAlertsCount: number; // Alertas activas actualmente
 };
 ```
 
 #### 4. **UI/UX Mejorada**
 
 **Card de Responsabilidad:**
+
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ 🏢 Organización: ACME Corp                              │
@@ -1040,6 +1100,7 @@ type ResponsibilityWithSubscription = {
 ```
 
 **Dialog de Suscripción (Mejorado):**
+
 - ✅ **Scope pre-seleccionado** (no se elige, viene del área)
 - ✅ Solo configurar: Severidades, Tipos de alerta, Email
 - ✅ Preview de "qué alertas recibirás"
@@ -1048,6 +1109,7 @@ type ResponsibilityWithSubscription = {
 #### 5. **Cambios en Settings**
 
 **ANTES (Incorrecto):**
+
 ```
 Settings (RRHH/ADMIN)
 ├── Profile
@@ -1058,6 +1120,7 @@ Settings (RRHH/ADMIN)
 ```
 
 **DESPUÉS (Correcto):**
+
 ```
 Settings (RRHH/ADMIN)
 ├── Profile
@@ -1068,6 +1131,7 @@ Settings (RRHH/ADMIN)
 ```
 
 **Mis Responsabilidades (Todos los usuarios):**
+
 ```
 /dashboard/me/
 ├── clock           # Fichaje
@@ -1078,6 +1142,7 @@ Settings (RRHH/ADMIN)
 ### 🎨 Navegación Actualizada
 
 **Sidebar → Sección "Mi Espacio":**
+
 ```
 Mi Espacio
 ├── 🕐 Fichar
@@ -1096,6 +1161,7 @@ Mi Espacio
 ### 🔄 Flujo de Usuario Mejorado
 
 **ANTES:**
+
 1. Usuario entra a Settings (confuso, ¿por qué estoy en "ajustes"?)
 2. Ve tab "Alerts" (no está claro qué es)
 3. Click "Añadir Suscripción"
@@ -1104,6 +1170,7 @@ Mi Espacio
 6. No ve contexto de sus otras responsabilidades
 
 **DESPUÉS:**
+
 1. Usuario entra a "Mis Responsabilidades" (claro y personal)
 2. Ve lista de TODAS sus áreas con estado visual
 3. Por cada área: empleados, alertas activas, estado de suscripción
@@ -1126,6 +1193,7 @@ Mi Espacio
 ### 🗂️ Archivos Afectados
 
 **Crear:**
+
 - `/src/app/(main)/dashboard/me/responsibilities/page.tsx`
 - `/src/app/(main)/dashboard/me/responsibilities/_components/responsibilities-list.tsx`
 - `/src/app/(main)/dashboard/me/responsibilities/_components/responsibility-card.tsx`
@@ -1133,10 +1201,12 @@ Mi Espacio
 - `/src/server/actions/responsibilities.ts`
 
 **Modificar:**
+
 - `/src/app/(main)/dashboard/settings/page.tsx` (eliminar tab Alerts)
 - `/src/navigation/sidebar-nav.tsx` (agregar link a Mis Responsabilidades)
 
 **Eliminar:**
+
 - `/src/app/(main)/dashboard/settings/_components/alert-subscriptions-tab.tsx` (mover lógica)
 - `/src/app/(main)/dashboard/settings/_components/add-subscription-dialog.tsx` (adaptar y mover)
 

@@ -585,7 +585,9 @@ export async function clockOut(
 
         // 5. Manejar cancelación si es necesario
         if (cancelAsClosed && cancellationInfo) {
-          console.log(`⚠️ Cancelando fichaje de larga duración (${cancellationInfo.originalDurationHours.toFixed(1)}h)`);
+          console.log(
+            `⚠️ Cancelando fichaje de larga duración (${cancellationInfo.originalDurationHours.toFixed(1)}h)`,
+          );
 
           // Marcar CLOCK_IN como cancelado
           await tx.timeEntry.update({

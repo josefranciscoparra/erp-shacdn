@@ -11,6 +11,7 @@
 Este documento detalla la implementación técnica de las **FASE 1** y **FASE 2** del Sistema de Responsables y Alertas.
 
 **Fases completadas:**
+
 - ✅ **FASE 1:** Modelo de Datos (Team + relaciones)
 - ✅ **FASE 2:** Sistema de Visibilidad y Filtrado (scope helpers + UI)
 
@@ -67,6 +68,7 @@ model Team {
 ```
 
 **Decisiones técnicas:**
+
 - `costCenterId` **obligatorio**: Todo equipo pertenece a un centro (jerarquía 2 niveles)
 - `code` único por organización: Para búsquedas rápidas (ej: "LOG-001")
 - Sin `teamLeaderId`: Se gestiona con `AreaResponsible` (más flexible)
@@ -114,16 +116,19 @@ model Alert {
 ### Migración
 
 **Comando ejecutado:**
+
 ```bash
 npx prisma db push
 ```
 
 **Razón de usar `db push` en lugar de `migrate dev`:**
+
 - Desarrollo activo con cambios frecuentes
 - Evita acumulación de migraciones durante iteración
 - Permite sincronizar sin perder datos de desarrollo
 
 **⚠️ IMPORTANTE:** Antes de merge a `main`, crear migración formal:
+
 ```bash
 npx prisma migrate dev --name add_teams_and_scope_system
 ```
@@ -153,12 +158,14 @@ Implementar sistema de permisos por ámbitos (scopes) con filtrado automático e
 **Propósito:** Construye filtro de Prisma para queries basado en los scopes del usuario.
 
 **Características:**
+
 - ✅ **Bypass automático para roles globales:** ORG_ADMIN, SUPER_ADMIN, HR_ADMIN
 - ✅ **Sin AreaResponsible = sin acceso:** Retorna `{ id: "never" }` si no tiene responsabilidades
 - ✅ **Vista unificada:** Combina múltiples scopes con `OR`
 - ✅ **Scope ORGANIZATION:** Retorna `{}` (sin restricciones)
 
 **Uso:**
+
 ```typescript
 const filter = await buildScopeFilter(userId);
 
@@ -166,16 +173,18 @@ const alerts = await prisma.alert.findMany({
   where: {
     orgId: session.user.orgId,
     // Solo aplicar si NO está vacío (bypass RRHH)
-    ...(Object.keys(filter).length > 0 && { employee: filter })
-  }
+    ...(Object.keys(filter).length > 0 && { employee: filter }),
+  },
 });
 ```
 
 **DECISIÓN CRÍTICA:**
+
 ```typescript
 // ❌ INCORRECTO - causa queries vacías en Prisma
 where: {
-  employee: {}  // Prisma no entiende esto
+  employee: {
+  } // Prisma no entiende esto
 }
 
 // ✅ CORRECTO - aplicar condicionalmente
@@ -189,6 +198,7 @@ if (Object.keys(scopeFilter).length > 0) {
 **Propósito:** Obtiene centros de coste accesibles para el usuario (para filtros de UI).
 
 **Bypass ADMIN/RRHH:**
+
 ```typescript
 if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "HR_ADMIN") {
   return await prisma.costCenter.findMany({
@@ -200,6 +210,7 @@ if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role ===
 ```
 
 **Para otros roles:**
+
 - Scope ORGANIZATION → Todos los centros
 - Scope COST_CENTER → Solo centros asignados
 - Sin responsabilidades → Array vacío `[]`
@@ -209,6 +220,7 @@ if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role ===
 **Propósito:** Obtiene equipos accesibles para el usuario.
 
 **Lógica:**
+
 - ADMIN/RRHH → Todos los equipos
 - Scope ORGANIZATION → Todos los equipos
 - Scope COST_CENTER → Equipos de esos centros
@@ -229,11 +241,13 @@ if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role ===
 **Cambios principales:**
 
 1. **Import del helper:**
+
 ```typescript
 import { buildScopeFilter } from "@/lib/permissions/scope-helpers";
 ```
 
 2. **`getActiveAlerts()` - Con scope filtering:**
+
 ```typescript
 export async function getActiveAlerts(filters?: { ... }) {
   const session = await auth();
@@ -263,6 +277,7 @@ export async function getActiveAlerts(filters?: { ... }) {
 ```
 
 3. **`getAlertStats()` - Con scope filtering:**
+
 ```typescript
 export async function getAlertStats() {
   const session = await auth();
@@ -281,6 +296,7 @@ export async function getAlertStats() {
 ```
 
 4. **`getAvailableAlertFilters()` - NUEVO:**
+
 ```typescript
 export async function getAvailableAlertFilters() {
   const session = await auth();
@@ -304,6 +320,7 @@ export async function getAvailableAlertFilters() {
 **Cambios principales:**
 
 1. **Estado de filtros disponibles:**
+
 ```typescript
 const [availableFilters, setAvailableFilters] = useState<AvailableFilters>({
   costCenters: [],
@@ -313,6 +330,7 @@ const [availableFilters, setAvailableFilters] = useState<AvailableFilters>({
 ```
 
 2. **Carga asíncrona de filtros:**
+
 ```typescript
 useEffect(() => {
   const loadFilters = async () => {
@@ -324,6 +342,7 @@ useEffect(() => {
 ```
 
 3. **Grid de 4 filtros:**
+
 ```tsx
 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
   {/* Filtro por Centro */}
@@ -352,15 +371,12 @@ useEffect(() => {
   </Select>
 
   {/* Búsqueda por Empleado */}
-  <Input
-    placeholder="Buscar empleado..."
-    value={employeeSearch}
-    onChange={(e) => setEmployeeSearch(e.target.value)}
-  />
+  <Input placeholder="Buscar empleado..." value={employeeSearch} onChange={(e) => setEmployeeSearch(e.target.value)} />
 </div>
 ```
 
 4. **Filtrado combinado (server + client):**
+
 ```typescript
 // Server-side filtering
 const loadAlerts = useCallback(async () => {
@@ -410,6 +426,7 @@ const filteredAlerts = useMemo(() => {
 **Cambios principales:**
 
 1. **Añadir `teamId` al tipo `AlertRow`:**
+
 ```typescript
 export type AlertRow = {
   // ... campos existentes ...
@@ -422,6 +439,7 @@ export type AlertRow = {
 ```
 
 2. **Mostrar equipo en columna de empleado:**
+
 ```tsx
 {
   accessorKey: "employee",
@@ -452,6 +470,7 @@ export type AlertRow = {
 ```
 
 3. **Fixes de ESLint:**
+
 ```typescript
 // ❌ ANTES (causa error de type assertion)
 const type = row.getValue("type") as string;
@@ -475,6 +494,7 @@ const label = alertTypeLabels[type] ?? type;
 **Problema:** RRHH y ADMIN deberían ver TODO sin necesidad de crear `AreaResponsible`.
 
 **Solución:**
+
 ```typescript
 // En TODOS los helpers
 if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role === "HR_ADMIN") {
@@ -489,6 +509,7 @@ if (user?.role === "ORG_ADMIN" || user?.role === "SUPER_ADMIN" || user?.role ===
 **Problema:** `buildScopeFilter()` retorna `{}` para RRHH, lo que causa `employee: {}` (query inválida).
 
 **Solución:**
+
 ```typescript
 if (Object.keys(scopeFilter).length > 0) {
   whereClause.employee = scopeFilter;
@@ -496,6 +517,7 @@ if (Object.keys(scopeFilter).length > 0) {
 ```
 
 **Antes (INCORRECTO):**
+
 ```typescript
 // Causa query vacía para RRHH
 where: {
@@ -505,6 +527,7 @@ where: {
 ```
 
 **Después (CORRECTO):**
+
 ```typescript
 // Solo añade employee si hay restricciones
 where: {
@@ -548,6 +571,7 @@ const type = row.original.type;
 ## 📦 Commits Realizados
 
 ### Commit 1: Sistema de Responsables (FASE 1 + 2)
+
 ```bash
 commit 0a96e86
 feat: implementar sistema de responsables y visibilidad por ámbito
@@ -562,6 +586,7 @@ feat: implementar sistema de responsables y visibilidad por ámbito
 ```
 
 ### Commit 2: Fixes de ESLint
+
 ```bash
 commit 222f67b
 fix(lint): corregir errores de ESLint en dashboard de alertas
@@ -617,12 +642,14 @@ fix(lint): corregir errores de ESLint en dashboard de alertas
 **Objetivo:** Implementar UI de asignación de responsables en centros de coste.
 
 **Pendiente:**
+
 1. Server actions genéricas: `area-responsibilities.ts`
 2. Pestaña "Responsables" en `/dashboard/cost-centers/[id]`
 3. Dialog "Añadir Responsable" con permisos
 4. Opción de crear suscripción automática
 
 **Referencia:**
+
 - [Plan Original](./SISTEMA_RESPONSABLES_Y_ALERTAS_IMPLEMENTACION.md)
 - [Reglas de Negocio](./REGLAS_NEGOCIO_RESPONSABLES_ALERTAS.md)
 

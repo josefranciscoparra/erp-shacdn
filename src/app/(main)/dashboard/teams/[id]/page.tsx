@@ -16,6 +16,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getTeamById } from "@/server/actions/teams";
 
+import { TeamEmployeesTab } from "../_components/team-employees-tab";
+
 interface PageProps {
   params: Promise<{ id: string }>;
 }
@@ -149,6 +151,10 @@ async function TeamContent({ teamId }: { teamId: string }) {
             <Building2 className="mr-2 h-4 w-4" />
             Información
           </TabsTrigger>
+          <TabsTrigger value="employees">
+            <Users className="mr-2 h-4 w-4" />
+            Empleados ({employeeCount})
+          </TabsTrigger>
           <TabsTrigger value="responsibles">
             <UserCog className="mr-2 h-4 w-4" />
             Responsables ({responsibleCount})
@@ -224,6 +230,10 @@ async function TeamContent({ teamId }: { teamId: string }) {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="employees" className="space-y-4">
+          <TeamEmployeesTab teamId={team.id} teamName={team.name} />
         </TabsContent>
 
         <TabsContent value="responsibles" className="space-y-4">

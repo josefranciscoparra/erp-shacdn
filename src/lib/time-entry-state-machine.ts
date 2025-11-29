@@ -107,7 +107,7 @@ export interface TransitionValidationResult {
  */
 export function validateTransitionDetailed(
   currentState: TimeEntryState,
-  action: TimeEntryAction
+  action: TimeEntryAction,
 ): TransitionValidationResult {
   const isValid = validateTransition(currentState, action);
 
@@ -139,9 +139,7 @@ export function getAllowedActions(currentState: TimeEntryState): TimeEntryAction
  * Mapea el status string del sistema actual al TimeEntryState
  * Compatible con getCurrentStatus() de time-tracking.ts
  */
-export function mapStatusToState(
-  status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" | string
-): TimeEntryState {
+export function mapStatusToState(status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" | string): TimeEntryState {
   switch (status) {
     case "CLOCKED_OUT":
       return "CLOCKED_OUT";
@@ -158,7 +156,7 @@ export function mapStatusToState(
  * Mapea el tipo de entrada del schema a TimeEntryAction
  */
 export function mapEntryTypeToAction(
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | string
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | string,
 ): TimeEntryAction | null {
   switch (entryType) {
     case "CLOCK_IN":

@@ -13,6 +13,7 @@ Este documento detalla la implementación de la **FASE 3** del Sistema de Respon
 **Objetivo:** Permitir a usuarios ADMIN asignar responsables a centros de coste con permisos granulares y suscripción automática a alertas.
 
 **Progreso actual:**
+
 - ✅ Server Actions genéricas implementadas (100%)
 - 🔄 UI de detalle de centro con tabs (0%)
 - ⏸️ Componentes de asignación (0%)
@@ -28,6 +29,7 @@ Este documento detalla la implementación de la **FASE 3** del Sistema de Respon
 ### Diseño: Genérico y Reutilizable
 
 **Principio clave:** Las funciones NO están hardcodeadas para centros. Funcionan con **cualquier scope**:
+
 - `ORGANIZATION` - Organización completa (RRHH global)
 - `COST_CENTER` - Centro de coste
 - `TEAM` - Equipo
@@ -42,6 +44,7 @@ Este documento detalla la implementación de la **FASE 3** del Sistema de Respon
 **Propósito:** Asignar un responsable a un ámbito (centro, equipo, organización).
 
 **Parámetros:**
+
 ```typescript
 {
   userId: string;              // Usuario a asignar
@@ -53,18 +56,21 @@ Este documento detalla la implementación de la **FASE 3** del Sistema de Respon
 ```
 
 **Validaciones:**
+
 - ✅ Solo ADMIN puede asignar (ORG_ADMIN, SUPER_ADMIN, HR_ADMIN)
 - ✅ Usuario objetivo existe y pertenece a la organización
 - ✅ Validación multi-tenant con `validateScopeOwnership()`
 - ✅ Constraint unique: No duplicar asignaciones
 
 **Funcionalidad adicional:**
+
 - Si `createSubscription: true`, crea automáticamente `AlertSubscription` con:
   - `notifyInApp: true`
   - `severityLevels: ["WARNING", "CRITICAL"]` (solo alertas importantes)
   - Mismo scope que la responsabilidad
 
 **Ejemplo de uso:**
+
 ```typescript
 // Asignar responsable de centro con suscripción automática
 const { success, responsibility } = await assignResponsibility({
@@ -72,7 +78,7 @@ const { success, responsibility } = await assignResponsibility({
   scope: "COST_CENTER",
   scopeId: "center456",
   permissions: ["VIEW_ALERTS", "RESOLVE_ALERTS", "VIEW_EMPLOYEES"],
-  createSubscription: true
+  createSubscription: true,
 });
 ```
 
@@ -81,11 +87,13 @@ const { success, responsibility } = await assignResponsibility({
 **Propósito:** Quitar una responsabilidad (soft delete).
 
 **Comportamiento:**
+
 - Marca `isActive: false` (no elimina físicamente)
 - Solo ADMIN puede eliminar
 - Valida que pertenezca a la organización
 
 **Ejemplo:**
+
 ```typescript
 await removeResponsibility("resp123");
 ```
@@ -95,6 +103,7 @@ await removeResponsibility("resp123");
 **Propósito:** Actualizar los permisos de una responsabilidad existente.
 
 **Parámetros:**
+
 ```typescript
 {
   permissions: Permission[]  // Nuevos permisos (reemplaza los existentes)
@@ -102,9 +111,10 @@ await removeResponsibility("resp123");
 ```
 
 **Ejemplo:**
+
 ```typescript
 await updateResponsibility("resp123", {
-  permissions: ["VIEW_ALERTS", "RESOLVE_ALERTS", "VIEW_SCHEDULES", "MANAGE_SCHEDULES"]
+  permissions: ["VIEW_ALERTS", "RESOLVE_ALERTS", "VIEW_SCHEDULES", "MANAGE_SCHEDULES"],
 });
 ```
 
@@ -113,16 +123,19 @@ await updateResponsibility("resp123", {
 **Propósito:** Obtener todos los responsables de un ámbito específico (GENÉRICO).
 
 **Uso en centros:**
+
 ```typescript
 const { responsibles } = await getResponsiblesForArea("COST_CENTER", "center123");
 ```
 
 **Uso en equipos (FASE 4):**
+
 ```typescript
 const { responsibles } = await getResponsiblesForArea("TEAM", "team456");
 ```
 
 **Retorna:**
+
 ```typescript
 [
   {
@@ -134,10 +147,10 @@ const { responsibles } = await getResponsiblesForArea("TEAM", "team456");
     user: { id: "user1", name: "Juan Pérez", email: "juan@acme.com" },
     costCenter: { id: "center123", name: "Madrid", code: "MAD" },
     createdAt: Date,
-    updatedAt: Date
+    updatedAt: Date,
   },
   // ...
-]
+];
 ```
 
 #### 5. `getUserResponsibilities(userId?)`
@@ -145,10 +158,12 @@ const { responsibles } = await getResponsiblesForArea("TEAM", "team456");
 **Propósito:** Obtener todas las responsabilidades de un usuario.
 
 **Casos de uso:**
+
 - Sin `userId` → Responsabilidades del usuario actual
 - Con `userId` → Responsabilidades de otro usuario (solo ADMIN)
 
 **Ejemplo:**
+
 ```typescript
 // Mis responsabilidades
 const { responsibilities } = await getUserResponsibilities();
@@ -162,12 +177,14 @@ const { responsibilities } = await getUserResponsibilities("user123");
 **Propósito:** Buscar usuarios disponibles para asignar como responsables.
 
 **Características:**
+
 - Búsqueda por nombre o email (case-insensitive)
 - Solo usuarios activos de la organización
 - Limitado a 20 resultados
 - Solo ADMIN puede buscar
 
 **Ejemplo:**
+
 ```typescript
 const { users } = await searchUsersForResponsibility("juan");
 // Retorna usuarios cuyo nombre o email contenga "juan"
@@ -177,21 +194,22 @@ const { users } = await searchUsersForResponsibility("juan");
 
 ```typescript
 type Permission =
-  | "VIEW_EMPLOYEES"       // Ver listado de empleados
-  | "MANAGE_EMPLOYEES"     // Crear/editar empleados
-  | "VIEW_TIME_ENTRIES"    // Ver fichajes
-  | "MANAGE_TIME_ENTRIES"  // Editar/validar fichajes
-  | "VIEW_ALERTS"          // Ver alertas
-  | "RESOLVE_ALERTS"       // Resolver/justificar alertas
-  | "VIEW_SCHEDULES"       // Ver horarios
-  | "MANAGE_SCHEDULES"     // Asignar/modificar horarios
-  | "VIEW_PTO_REQUESTS"    // Ver solicitudes de ausencias
-  | "APPROVE_PTO_REQUESTS" // Aprobar/rechazar ausencias
+  | "VIEW_EMPLOYEES" // Ver listado de empleados
+  | "MANAGE_EMPLOYEES" // Crear/editar empleados
+  | "VIEW_TIME_ENTRIES" // Ver fichajes
+  | "MANAGE_TIME_ENTRIES" // Editar/validar fichajes
+  | "VIEW_ALERTS" // Ver alertas
+  | "RESOLVE_ALERTS" // Resolver/justificar alertas
+  | "VIEW_SCHEDULES" // Ver horarios
+  | "MANAGE_SCHEDULES" // Asignar/modificar horarios
+  | "VIEW_PTO_REQUESTS" // Ver solicitudes de ausencias
+  | "APPROVE_PTO_REQUESTS"; // Aprobar/rechazar ausencias
 ```
 
 ### Seguridad Multi-tenant
 
 **Validación de ownership:**
+
 ```typescript
 // Antes de asignar responsabilidad, validar que el scope pertenece a la org
 const isValid = await validateScopeOwnership(orgId, "COST_CENTER", centerId);
@@ -201,6 +219,7 @@ if (!isValid) {
 ```
 
 **Previene:**
+
 - ❌ Asignar responsables de centros de otras organizaciones
 - ❌ Cross-tenant data leaks
 - ❌ Privilege escalation attacks
@@ -279,14 +298,10 @@ src/app/(main)/dashboard/cost-centers/
     <Tabs defaultValue="info">
       <TabsList>
         <TabsTrigger value="info">Información</TabsTrigger>
-        <TabsTrigger value="responsibles">
-          Responsables ({responsibleCount})
-        </TabsTrigger>
+        <TabsTrigger value="responsibles">Responsables ({responsibleCount})</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="info">
-        {/* Datos del centro (readonly) */}
-      </TabsContent>
+      <TabsContent value="info">{/* Datos del centro (readonly) */}</TabsContent>
 
       <TabsContent value="responsibles">
         <ResponsiblesTab costCenterId={center.id} />
@@ -317,6 +332,7 @@ export function ResponsiblesTab({ costCenterId }: { costCenterId: string }) {
 #### Lista de Responsables (`responsibles-list.tsx`)
 
 **Características:**
+
 - DataTable con TanStack Table
 - Columnas:
   1. **Usuario** - Nombre + email
@@ -325,6 +341,7 @@ export function ResponsiblesTab({ costCenterId }: { costCenterId: string }) {
   4. **Acciones** - Dropdown con "Editar permisos" y "Eliminar"
 
 **Estado vacío:**
+
 ```tsx
 <EmptyState
   icon={<Users />}
@@ -335,6 +352,7 @@ export function ResponsiblesTab({ costCenterId }: { costCenterId: string }) {
 ```
 
 **Columna Permisos (ejemplo):**
+
 ```tsx
 cell: ({ row }) => {
   const permissions = row.original.permissions;
@@ -357,7 +375,7 @@ cell: ({ row }) => {
       )}
     </div>
   );
-}
+};
 ```
 
 #### Dialog Añadir Responsable (`add-responsible-dialog.tsx`)
@@ -374,9 +392,7 @@ cell: ({ row }) => {
   <DialogContent className="max-w-2xl">
     <DialogHeader>
       <DialogTitle>Añadir Responsable</DialogTitle>
-      <DialogDescription>
-        Asigna un usuario como responsable de este centro
-      </DialogDescription>
+      <DialogDescription>Asigna un usuario como responsable de este centro</DialogDescription>
     </DialogHeader>
 
     <Form>
@@ -417,9 +433,7 @@ cell: ({ row }) => {
                           }}
                         />
                       </FormControl>
-                      <FormLabel className="!mt-0 font-normal">
-                        {perm.label}
-                      </FormLabel>
+                      <FormLabel className="!mt-0 font-normal">{perm.label}</FormLabel>
                     </FormItem>
                   )}
                 />
@@ -435,19 +449,13 @@ cell: ({ row }) => {
         render={({ field }) => (
           <FormItem className="flex items-center justify-between rounded-lg border p-4">
             <div className="space-y-0.5">
-              <FormLabel className="text-base">
-                Suscripción automática a alertas
-              </FormLabel>
+              <FormLabel className="text-base">Suscripción automática a alertas</FormLabel>
               <FormDescription>
-                El usuario recibirá notificaciones de alertas de este centro
-                (solo WARNING y CRITICAL)
+                El usuario recibirá notificaciones de alertas de este centro (solo WARNING y CRITICAL)
               </FormDescription>
             </div>
             <FormControl>
-              <Switch
-                checked={field.value}
-                onCheckedChange={field.onChange}
-              />
+              <Switch checked={field.value} onCheckedChange={field.onChange} />
             </FormControl>
           </FormItem>
         )}
@@ -458,15 +466,14 @@ cell: ({ row }) => {
       <Button variant="outline" onClick={handleCancel}>
         Cancelar
       </Button>
-      <Button onClick={handleSubmit}>
-        Asignar Responsable
-      </Button>
+      <Button onClick={handleSubmit}>Asignar Responsable</Button>
     </DialogFooter>
   </DialogContent>
 </Dialog>
 ```
 
 **Handler de submit:**
+
 ```typescript
 async function handleSubmit(data: FormData) {
   const result = await assignResponsibility({
@@ -474,7 +481,7 @@ async function handleSubmit(data: FormData) {
     scope: "COST_CENTER",
     scopeId: costCenterId,
     permissions: data.permissions,
-    createSubscription: data.createSubscription ?? true
+    createSubscription: data.createSubscription ?? true,
   });
 
   if (result.success) {
@@ -490,6 +497,7 @@ async function handleSubmit(data: FormData) {
 #### Dialog Editar Permisos (`edit-permissions-dialog.tsx`)
 
 Similar a `AddResponsibleDialog` pero:
+
 - Usuario readonly (ya seleccionado)
 - Permisos precargados desde `responsibility.permissions`
 - Botón "Actualizar Permisos" en lugar de "Asignar"
@@ -500,6 +508,7 @@ Similar a `AddResponsibleDialog` pero:
 **Modificar:** `/dashboard/cost-centers/page.tsx`
 
 **Añadir columna "Acciones":**
+
 ```tsx
 {
   id: "actions",
@@ -578,15 +587,15 @@ export const availablePermissions = [
 
 ### Estimación de Tiempo
 
-| Tarea | Estimado | Acumulado |
-|-------|----------|-----------|
-| Server action getCostCenterById | 15 min | 15 min |
-| Página detalle + tabs | 30 min | 45 min |
-| ResponsiblesList | 45 min | 1h 30min |
-| AddResponsibleDialog | 45 min | 2h 15min |
-| EditPermissionsDialog | 30 min | 2h 45min |
-| Actualizar listado | 15 min | 3h |
-| Testing + ajustes | 30 min | **3h 30min** |
+| Tarea                           | Estimado | Acumulado    |
+| ------------------------------- | -------- | ------------ |
+| Server action getCostCenterById | 15 min   | 15 min       |
+| Página detalle + tabs           | 30 min   | 45 min       |
+| ResponsiblesList                | 45 min   | 1h 30min     |
+| AddResponsibleDialog            | 45 min   | 2h 15min     |
+| EditPermissionsDialog           | 30 min   | 2h 45min     |
+| Actualizar listado              | 15 min   | 3h           |
+| Testing + ajustes               | 30 min   | **3h 30min** |
 
 ---
 
@@ -595,6 +604,7 @@ export const availablePermissions = [
 ### FASE 4: Responsables de Equipos
 
 **Ventaja del diseño genérico:**
+
 - ✅ Reutilizar TODAS las server actions sin cambios
 - ✅ Copiar componentes UI cambiando solo `scope` de "COST_CENTER" a "TEAM"
 - ✅ Añadir `TeamCombobox` paginado para seleccionar equipo

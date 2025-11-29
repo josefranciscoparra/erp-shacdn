@@ -16,7 +16,17 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, ArrowRight, FileText, AlertCircle, Check, Loader2, TriangleAlert, Eye } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  ArrowRight,
+  FileText,
+  AlertCircle,
+  Check,
+  Loader2,
+  TriangleAlert,
+  Eye,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -173,9 +183,9 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         cell: ({ row }) => {
           const item = row.original;
           // Gastos usan SUBMITTED, Alertas usan ACTIVE, otros PENDING
-          const isPending = 
-            item.status === "PENDING" || 
-            item.status === "SUBMITTED" || 
+          const isPending =
+            item.status === "PENDING" ||
+            item.status === "SUBMITTED" ||
             (item.type === "ALERT" && item.status === "ACTIVE");
 
           return (
