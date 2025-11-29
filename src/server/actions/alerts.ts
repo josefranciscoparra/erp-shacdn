@@ -200,13 +200,9 @@ export async function getMyAlerts(filters?: AlertFilters) {
 }
 
 /**
- * Obtiene estadísticas de alertas del usuario
- *
- * @param dateFrom Fecha inicial (opcional)
- * @param dateTo Fecha final (opcional)
- * @returns Estadísticas agregadas
+ * Obtiene estadísticas de alertas del usuario (respetando suscripciones) con filtros opcionales.
  */
-export async function getMyAlertStats(dateFrom?: Date, dateTo?: Date): Promise<AlertStats> {
+export async function getMyAlertStats(filters?: AlertFilters): Promise<AlertStats> {
   try {
     const session = await auth();
     if (!session?.user?.id || !session?.user?.orgId) {
@@ -214,7 +210,7 @@ export async function getMyAlertStats(dateFrom?: Date, dateTo?: Date): Promise<A
     }
 
     // Reutilizar lógica de getMyAlerts para obtener alertas del usuario
-    const alerts = await getMyAlerts({ dateFrom, dateTo });
+    const alerts = await getMyAlerts(filters);
 
     // Calcular estadísticas
     const total = alerts.length;

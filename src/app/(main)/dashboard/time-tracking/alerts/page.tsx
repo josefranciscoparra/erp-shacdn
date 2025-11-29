@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import {
   getCoreRowModel,
   getFacetedRowModel,
@@ -14,7 +16,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { endOfDay, format, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw, Target } from "lucide-react";
 import { toast } from "sonner";
@@ -49,7 +51,7 @@ import {
   getAlertStats,
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
-import { getMySubscriptions } from "@/server/actions/alerts";
+import { getMyAlerts, getMyAlertStats, getMySubscriptions } from "@/server/actions/alerts";
 import { getActiveContext, getAvailableScopes } from "@/server/actions/user-context";
 
 import { alertColumns, type AlertRow } from "./_components/alert-columns";
@@ -167,12 +169,17 @@ export default function AlertsPage() {
       // Construir filtros dinámicos
       const filters: any = {};
       if (selectedCenter !== "all") filters.costCenterId = selectedCenter;
+      if (selectedTeam !== "all") filters.teamId = selectedTeam;
       if (selectedSeverity !== "all") filters.severity = selectedSeverity;
       if (selectedType !== "all") filters.type = selectedType;
       if (dateRange.from) filters.dateFrom = dateRange.from;
       if (dateRange.to) filters.dateTo = dateRange.to;
 
-      const [alertsData, statsData] = await Promise.all([getActiveAlerts(filters), getAlertStats()]);
+      const [alertsData, statsData] = await Promise.all(
+        scopeMode === "mine"
+          ? [getMyAlerts(filters), getMyAlertStats(filters)]
+          : [getActiveAlerts(filters), getAlertStats(filters)],
+      );
 
       setAlerts(alertsData);
       setStats(statsData);
@@ -182,7 +189,7 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCenter, selectedSeverity, selectedType, dateRange]);
+  }, [scopeMode, selectedCenter, selectedTeam, selectedSeverity, selectedType, dateRange]);
 
   useEffect(() => {
     loadData();
@@ -314,6 +321,22 @@ export default function AlertsPage() {
     return "Todo";
   };
 
+  const handleQuickCriticalToday = () => {
+    const today = new Date();
+    setSelectedSeverity("CRITICAL");
+    setDateRange({ from: startOfDay(today), to: endOfDay(today) });
+    setActiveTab("active");
+  };
+
+  const handleResetFilters = () => {
+    setSelectedCenter("all");
+    setSelectedTeam("all");
+    setSelectedSeverity("all");
+    setSelectedType("all");
+    setDateRange({ from: undefined, to: undefined });
+    setActiveTab("active");
+  };
+
   return (
     <div className="animate-in fade-in mx-auto flex max-w-screen-2xl flex-col gap-6 p-6 duration-500 md:p-8">
       {/* Header con acciones */}
@@ -324,6 +347,9 @@ export default function AlertsPage() {
             description="Gestiona las incidencias de fichajes y control horario."
           />
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
+            </Button>
             <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Actualizar
@@ -412,6 +438,80 @@ export default function AlertsPage() {
         </div>
       )}
 
+      {stats && (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Distribución por Severidad</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {stats.bySeverity.length === 0 && (
+                <p className="text-muted-foreground text-sm">Sin datos de severidad para los filtros actuales.</p>
+              )}
+              {stats.bySeverity.length > 0 && (
+                <div className="space-y-3">
+                  {(() => {
+                    const totalSeverity = stats.bySeverity.reduce((acc, curr) => acc + curr.count, 0) || 1;
+                    return stats.bySeverity.map((item) => {
+                      const pct = Math.round((item.count / totalSeverity) * 100);
+                      const color =
+                        item.severity === "CRITICAL"
+                          ? "bg-red-500"
+                          : item.severity === "WARNING"
+                            ? "bg-amber-500"
+                            : "bg-blue-500";
+                      return (
+                        <div key={item.severity} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="flex items-center gap-2">
+                              <span className={`h-2 w-2 rounded-full ${color}`} />
+                              {item.severity}
+                            </span>
+                            <span className="text-muted-foreground text-xs">
+                              {item.count} ({pct}%)
+                            </span>
+                          </div>
+                          <div className="bg-muted h-2 rounded-full">
+                            <div className={`h-2 rounded-full ${color}`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium">Top Tipos de Incidencia</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {stats.byType.length === 0 && (
+                <p className="text-muted-foreground text-sm">Sin incidencias para los filtros actuales.</p>
+              )}
+              {stats.byType
+                .slice()
+                .sort((a, b) => b.count - a.count)
+                .slice(0, 6)
+                .map((item) => (
+                  <div key={item.type} className="rounded-md border p-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">
+                        {ALERT_TYPES.find((t) => t.value === item.type)?.label ?? item.type}
+                      </span>
+                      <Badge variant="secondary" className="text-xs">
+                        {item.count}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Filtros Globales Dinámicos */}
       <Card>
         <CardContent className="p-4">
@@ -419,6 +519,14 @@ export default function AlertsPage() {
             <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
               <Filter className="h-4 w-4" />
               Filtrar por:
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={handleQuickCriticalToday}>
+                Críticas de hoy
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                Limpiar filtros
+              </Button>
             </div>
 
             {/* Fila 1: Filtros principales */}

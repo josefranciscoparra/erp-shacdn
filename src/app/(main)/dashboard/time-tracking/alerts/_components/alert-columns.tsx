@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { AlertCircle, AlertTriangle, Info, MoreHorizontal } from "lucide-react";
 
@@ -300,6 +300,33 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     enableSorting: true,
     enableHiding: true,
     size: 100,
+  },
+  {
+    id: "timeline",
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Ciclo" />,
+    cell: ({ row }) => {
+      const createdAt = new Date(row.original.createdAt);
+      const resolvedAt = row.original.resolvedAt ? new Date(row.original.resolvedAt) : null;
+      const status = row.original.status;
+      const ageLabel = formatDistanceToNow(resolvedAt ?? createdAt, { addSuffix: true, locale: es });
+      const resolver = row.original.resolver?.name;
+      const olderThanDay = status === "ACTIVE" && Date.now() - createdAt.getTime() > 24 * 60 * 60 * 1000;
+
+      return (
+        <div className="flex flex-col text-xs">
+          <span className="font-medium">{status === "ACTIVE" ? `Abierta ${ageLabel}` : `Cerrada ${ageLabel}`}</span>
+          {resolver && status !== "ACTIVE" && <span className="text-muted-foreground">Por {resolver}</span>}
+          {olderThanDay && (
+            <Badge variant="destructive" className="mt-1 w-fit px-2 text-[10px]">
+              +24h abierta
+            </Badge>
+          )}
+        </div>
+      );
+    },
+    enableSorting: false,
+    enableHiding: true,
+    size: 140,
   },
   {
     accessorKey: "status",

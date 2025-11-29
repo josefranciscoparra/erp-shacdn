@@ -585,6 +585,7 @@ async function saveDetectedAlerts(
 export async function getActiveAlerts(filters?: {
   employeeId?: string;
   costCenterId?: string;
+  teamId?: string;
   severity?: AlertSeverity;
   type?: AlertType;
   dateFrom?: Date;
@@ -607,6 +608,7 @@ export async function getActiveAlerts(filters?: {
       orgId: session.user.orgId,
       ...(filters?.employeeId && { employeeId: filters.employeeId }),
       ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+      ...(filters?.teamId && { teamId: filters.teamId }),
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),
       ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
@@ -744,7 +746,14 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
  * Obtiene estadísticas de alertas para un período
  * APLICA FILTRADO POR SCOPE: solo cuenta alertas del ámbito del usuario
  */
-export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
+export async function getAlertStats(filters?: {
+  costCenterId?: string;
+  teamId?: string;
+  severity?: AlertSeverity;
+  type?: AlertType;
+  dateFrom?: Date;
+  dateTo?: Date;
+}) {
   "use server";
 
   try {
@@ -759,8 +768,12 @@ export async function getAlertStats(dateFrom?: Date, dateTo?: Date) {
 
     const where: any = {
       orgId: session.user.orgId,
-      ...(dateFrom && { date: { gte: dateFrom } }),
-      ...(dateTo && { date: { lte: dateTo } }),
+      ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
+      ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
+      ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+      ...(filters?.teamId && { teamId: filters.teamId }),
+      ...(filters?.severity && { severity: filters.severity }),
+      ...(filters?.type && { type: filters.type }),
     };
 
     // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
