@@ -585,6 +585,7 @@ async function saveDetectedAlerts(
 export async function getActiveAlerts(filters?: {
   employeeId?: string;
   costCenterId?: string;
+  departmentId?: string;
   teamId?: string;
   severity?: AlertSeverity;
   type?: AlertType;
@@ -608,6 +609,7 @@ export async function getActiveAlerts(filters?: {
       orgId: session.user.orgId,
       ...(filters?.employeeId && { employeeId: filters.employeeId }),
       ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+      ...(filters?.departmentId && { departmentId: filters.departmentId }),
       ...(filters?.teamId && { teamId: filters.teamId }),
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),
@@ -633,12 +635,20 @@ export async function getActiveAlerts(filters?: {
         costCenter: {
           select: {
             name: true,
+            id: true,
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
           },
         },
         team: {
           select: {
             name: true,
             code: true,
+            id: true,
           },
         },
         resolver: {
@@ -748,6 +758,7 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
  */
 export async function getAlertStats(filters?: {
   costCenterId?: string;
+  departmentId?: string;
   teamId?: string;
   severity?: AlertSeverity;
   type?: AlertType;
@@ -771,6 +782,7 @@ export async function getAlertStats(filters?: {
       ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
       ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
       ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+      ...(filters?.departmentId && { departmentId: filters.departmentId }),
       ...(filters?.teamId && { teamId: filters.teamId }),
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),

@@ -51,10 +51,16 @@ export type AlertRow = {
   };
   costCenter: {
     name: string;
+    id?: string;
   } | null;
   team: {
     name: string;
     code: string | null;
+    id?: string;
+  } | null;
+  department?: {
+    id: string;
+    name: string;
   } | null;
   resolver?: {
     name: string;

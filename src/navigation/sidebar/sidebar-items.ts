@@ -91,6 +91,17 @@ export const sidebarItems: NavGroup[] = [
         url: "/dashboard/notifications",
         icon: Bell,
       },
+      {
+        title: "Alertas",
+        url: "/dashboard/time-tracking/alerts",
+        icon: Bell,
+        subItems: [
+          { title: "Panel de Alertas", url: "/dashboard/time-tracking/alerts" },
+          { title: "Explorador", url: "/dashboard/time-tracking/alerts/explorer" },
+          { title: "Responsables", url: "/dashboard/time-tracking/alerts/responsibles" },
+          { title: "Mis Suscripciones", url: "/dashboard/me/responsibilities" },
+        ],
+      },
     ],
   },
   {
