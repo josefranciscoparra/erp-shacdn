@@ -8,8 +8,22 @@ import { SubscriptionDialog } from "@/app/(main)/dashboard/me/responsibilities/_
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { assignResponsibility, removeResponsibility } from "@/server/actions/area-responsibilities";
+import { ALLOWED_RESPONSIBLE_ROLES } from "@/lib/role-hierarchy";
+import {
+  assignResponsibility,
+  removeResponsibility,
+  searchUsersForResponsibility,
+} from "@/server/actions/area-responsibilities";
 import type { ResponsibilityWithSubscription } from "@/server/actions/responsibilities";
 
 type ScopedResponsible = ResponsibilityWithSubscription & { responsibilityId: string };
@@ -53,6 +67,13 @@ export function ResponsiblesManager({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogResponsibility, setDialogResponsibility] = useState<ResponsibilityWithSubscription | null>(null);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; name: string; email: string; role: string }>>(
+    [],
+  );
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{ id: string; name: string } | null>(null);
 
   const scopedList = useMemo(() => {
     if (selected.scope === "ORGANIZATION") return responsibles.organization;
@@ -145,8 +166,25 @@ export function ResponsiblesManager({
     setDialogOpen(true);
   };
 
-  const handleAdd = async () => {
-    if (!selected.scope) return;
+  const handleSearch = async (term: string) => {
+    setSearchTerm(term);
+    setSelectedUser(null);
+    if (term.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    const res = await searchUsersForResponsibility(term.trim());
+    setSearchLoading(false);
+    if (res.success && res.users) {
+      setSearchResults(res.users);
+    } else {
+      setSearchResults([]);
+    }
+  };
+
+  const handleAssign = async () => {
+    if (!selected.scope || !selectedUser) return;
     const scopeId =
       selected.scope === "ORGANIZATION"
         ? null
@@ -158,13 +196,9 @@ export function ResponsiblesManager({
               ? selected.id
               : null;
 
-    // Crear prompt sencillo para elegir userId (para prototipo; en producción debería ser combobox)
-    const userId = window.prompt("Introduce el ID de usuario a asignar");
-    if (!userId) return;
-
-    setBusyId(userId);
+    setBusyId(selectedUser.id);
     const res = await assignResponsibility({
-      userId,
+      userId: selectedUser.id,
       scope: selected.scope,
       scopeId,
       permissions: ["VIEW_ALERTS", "RESOLVE_ALERTS"],
@@ -247,7 +281,7 @@ export function ResponsiblesManager({
               <CardTitle>{selectedName || "Selecciona un ámbito"}</CardTitle>
               <p className="text-muted-foreground text-sm">Responsables asignados a este ámbito.</p>
             </div>
-            <Button size="sm" onClick={handleAdd} disabled={!selected.scope}>
+            <Button size="sm" onClick={() => setAddDialogOpen(true)} disabled={!selected.scope}>
               Añadir responsable
             </Button>
           </CardHeader>
@@ -314,6 +348,54 @@ export function ResponsiblesManager({
         responsibility={dialogResponsibility}
         onSuccess={() => window.location.reload()}
       />
+
+      <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Añadir responsable</DialogTitle>
+            <DialogDescription>
+              Roles permitidos: {ALLOWED_RESPONSIBLE_ROLES.join(", ")}. Escribe al menos 2 letras para buscar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Buscar por nombre o email..."
+              value={searchTerm}
+              onChange={(e) => handleSearch(e.target.value)}
+            />
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-md border p-2">
+              {searchTerm.trim().length < 2 && (
+                <p className="text-muted-foreground text-sm">Escribe 2 letras para buscar.</p>
+              )}
+              {searchLoading && <p className="text-muted-foreground text-sm">Buscando...</p>}
+              {!searchLoading && searchResults.length === 0 && searchTerm.trim().length >= 2 && (
+                <p className="text-muted-foreground text-sm">Sin resultados.</p>
+              )}
+              {searchResults.map((user) => (
+                <button
+                  key={user.id}
+                  className={`hover:border-primary w-full rounded-md border p-2 text-left transition ${selectedUser?.id === user.id ? "border-primary bg-primary/5" : "border-border"}`}
+                  onClick={() => setSelectedUser(user)}
+                >
+                  <p className="font-medium">{user.name}</p>
+                  <p className="text-muted-foreground text-xs">{user.email}</p>
+                  <Badge variant="outline" className="mt-1 text-xs">
+                    {user.role}
+                  </Badge>
+                </button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAssign} disabled={!selectedUser || busyId === selectedUser?.id}>
+              {busyId === selectedUser?.id ? "Asignando..." : "Asignar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

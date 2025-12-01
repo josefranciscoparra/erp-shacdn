@@ -330,6 +330,28 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/time-tracking/alerts",
               permission: "view_time_tracking",
               isNew: true,
+              subItems: [
+                {
+                  title: "Panel",
+                  url: "/dashboard/time-tracking/alerts",
+                  permission: "view_time_tracking",
+                },
+                {
+                  title: "Explorador",
+                  url: "/dashboard/time-tracking/alerts/explorer",
+                  permission: "view_time_tracking",
+                },
+                {
+                  title: "Responsables",
+                  url: "/dashboard/time-tracking/alerts/responsibles",
+                  permission: "manage_users",
+                },
+                {
+                  title: "Mis Suscripciones",
+                  url: "/dashboard/me/responsibilities",
+                  permission: "view_time_tracking",
+                },
+              ],
             },
             {
               title: "Bolsa de Horas",

@@ -31,7 +31,7 @@ type BaseNode<TScope extends ResponsibilityWithSubscription["scope"]> = {
 };
 
 type ExplorerProps = {
-  org: { id: string; name: string; stats: AlertStats };
+  org: { id: string; name: string; stats: AlertStats | null } | null;
   departments: Array<{ id: string; name: string; stats: AlertStats }>;
   costCenters: Array<{ id: string; name: string; code: string | null; stats: AlertStats }>;
   teams: Array<{ id: string; name: string; code: string | null; stats: AlertStats }>;
@@ -46,13 +46,35 @@ type ExplorerProps = {
     notifyByEmail: boolean;
   }>;
   latestAlerts: AlertRow[];
+  showOrg?: boolean;
+  initialSelection?: { scope: ResponsibilityWithSubscription["scope"]; id: string | null } | null;
 };
 
-export function AlertsExplorer({ org, departments, costCenters, teams, subscriptions, latestAlerts }: ExplorerProps) {
-  const [selected, setSelected] = useState<{ scope: ResponsibilityWithSubscription["scope"]; id: string }>({
-    scope: "ORGANIZATION",
-    id: org.id,
-  });
+export function AlertsExplorer({
+  org,
+  departments,
+  costCenters,
+  teams,
+  subscriptions,
+  latestAlerts,
+  showOrg = true,
+  initialSelection,
+}: ExplorerProps) {
+  const fallbackSelection =
+    initialSelection ??
+    (showOrg && org
+      ? { scope: "ORGANIZATION" as const, id: org.id }
+      : teams[0]
+        ? { scope: "TEAM" as const, id: teams[0].id }
+        : costCenters[0]
+          ? { scope: "COST_CENTER" as const, id: costCenters[0].id }
+          : departments[0]
+            ? { scope: "DEPARTMENT" as const, id: departments[0].id }
+            : { scope: "ORGANIZATION" as const, id: org?.id ?? null });
+
+  const [selected, setSelected] = useState<{ scope: ResponsibilityWithSubscription["scope"]; id: string | null }>(
+    fallbackSelection,
+  );
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogResponsibility, setDialogResponsibility] = useState<ResponsibilityWithSubscription | null>(null);
 
@@ -66,21 +88,26 @@ export function AlertsExplorer({ org, departments, costCenters, teams, subscript
   );
   const sortedTeams = useMemo(() => [...teams].sort((a, b) => b.stats.active - a.stats.active), [teams]);
 
+  const emptyStats: AlertStats = useMemo(
+    () => ({ total: 0, active: 0, resolved: 0, dismissed: 0, bySeverity: [], byType: [] }),
+    [],
+  );
+
   const selectedStats = useMemo(() => {
-    if (selected.scope === "ORGANIZATION") return org.stats;
-    if (selected.scope === "DEPARTMENT") return departments.find((d) => d.id === selected.id)?.stats ?? org.stats;
-    if (selected.scope === "COST_CENTER") return costCenters.find((c) => c.id === selected.id)?.stats ?? org.stats;
-    if (selected.scope === "TEAM") return teams.find((t) => t.id === selected.id)?.stats ?? org.stats;
-    return org.stats;
-  }, [selected, org.stats, departments, costCenters, teams]);
+    if (selected.scope === "ORGANIZATION") return org?.stats ?? emptyStats;
+    if (selected.scope === "DEPARTMENT") return departments.find((d) => d.id === selected.id)?.stats ?? emptyStats;
+    if (selected.scope === "COST_CENTER") return costCenters.find((c) => c.id === selected.id)?.stats ?? emptyStats;
+    if (selected.scope === "TEAM") return teams.find((t) => t.id === selected.id)?.stats ?? emptyStats;
+    return emptyStats;
+  }, [selected, org, departments, costCenters, teams, emptyStats]);
 
   const selectedName = useMemo(() => {
-    if (selected.scope === "ORGANIZATION") return org.name;
+    if (selected.scope === "ORGANIZATION") return org?.name ?? "";
     if (selected.scope === "DEPARTMENT") return departments.find((d) => d.id === selected.id)?.name ?? "";
     if (selected.scope === "COST_CENTER") return costCenters.find((c) => c.id === selected.id)?.name ?? "";
     if (selected.scope === "TEAM") return teams.find((t) => t.id === selected.id)?.name ?? "";
     return "";
-  }, [selected, org.name, departments, costCenters, teams]);
+  }, [selected, org, departments, costCenters, teams]);
 
   const selectedAlerts = useMemo(() => {
     return latestAlerts
@@ -107,7 +134,7 @@ export function AlertsExplorer({ org, departments, costCenters, teams, subscript
       id: `explorer-${node.scope}-${node.id}`,
       scope: node.scope,
       isActive: true,
-      organization: node.scope === "ORGANIZATION" ? { id: org.id, name: org.name } : null,
+      organization: node.scope === "ORGANIZATION" && org ? { id: org.id, name: org.name } : null,
       department: node.scope === "DEPARTMENT" ? { id: node.id, name: node.name } : null,
       costCenter: node.scope === "COST_CENTER" ? { id: node.id, name: node.name, code: node.code ?? null } : null,
       team: node.scope === "TEAM" ? { id: node.id, name: node.name, code: node.code ?? null } : null,
@@ -158,19 +185,21 @@ export function AlertsExplorer({ org, departments, costCenters, teams, subscript
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-muted-foreground text-xs uppercase">Organización</p>
-              <button
-                className={`hover:border-primary w-full rounded-md border p-3 text-left transition ${selected.scope === "ORGANIZATION" ? "border-primary bg-primary/5" : "border-border"}`}
-                onClick={() => setSelected({ scope: "ORGANIZATION", id: org.id })}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{org.name}</span>
-                  <Badge variant="outline">Total: {org.stats.active}</Badge>
-                </div>
-                <div className="mt-2">{renderStatBadge(org.stats)}</div>
-              </button>
-            </div>
+            {showOrg && org && org.stats && (
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-xs uppercase">Organización</p>
+                <button
+                  className={`hover:border-primary w-full rounded-md border p-3 text-left transition ${selected.scope === "ORGANIZATION" ? "border-primary bg-primary/5" : "border-border"}`}
+                  onClick={() => setSelected({ scope: "ORGANIZATION", id: org.id })}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{org.name}</span>
+                    <Badge variant="outline">Total: {org.stats.active}</Badge>
+                  </div>
+                  <div className="mt-2">{renderStatBadge(org.stats)}</div>
+                </button>
+              </div>
+            )}
 
             <Separator />
 

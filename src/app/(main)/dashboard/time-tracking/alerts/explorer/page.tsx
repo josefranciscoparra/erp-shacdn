@@ -48,12 +48,21 @@ export default async function AlertsExplorerPage() {
     select: { id: true, name: true },
   });
 
+  const responsibilities = await prisma.areaResponsible.findMany({
+    where: { userId: session.user.id, orgId: session.user.orgId, isActive: true },
+    select: { scope: true },
+  });
+
+  const isAdmin =
+    session.user.role === "HR_ADMIN" || session.user.role === "ORG_ADMIN" || session.user.role === "SUPER_ADMIN";
+  const hasOrgAccess = isAdmin || responsibilities.some((r) => r.scope === "ORGANIZATION");
+
   const [departments, costCenters, teams, subscriptions, orgStats, latestAlerts] = await Promise.all([
     getUserAccessibleDepartments(session.user.id, session.user.orgId),
     getUserAccessibleCostCenters(session.user.id, session.user.orgId),
     getUserAccessibleTeams(session.user.id, session.user.orgId),
     getMySubscriptions(),
-    getAlertStats(),
+    hasOrgAccess ? getAlertStats() : null,
     // Últimas alertas recientes de la organización (se filtran en el cliente por nodo)
     getActiveAlerts({ dateFrom: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }),
   ]);
@@ -98,7 +107,7 @@ export default async function AlertsExplorerPage() {
       {org ? (
         <Suspense fallback={<LoadingState />}>
           <AlertsExplorer
-            org={{ ...org, stats: orgStats }}
+            org={hasOrgAccess ? { ...org, stats: orgStats } : null}
             departments={departmentStats}
             costCenters={costCenterStats}
             teams={teamStats}
