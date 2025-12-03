@@ -173,11 +173,6 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/employees",
               permission: "view_employees",
             },
-            {
-              title: "Horarios",
-              url: "/dashboard/schedules",
-              permission: "view_contracts",
-            },
           ],
         },
         ...(documentsEnabled
@@ -361,16 +356,28 @@ export function useSidebarItems(): NavGroup[] {
             },
           ],
         },
-        ...(shiftsEnabled
-          ? [
-              {
-                title: "Gestión de Turnos",
-                url: "/dashboard/shifts",
-                icon: CalendarClock,
-                permission: "manage_organization" as Permission,
-              },
-            ]
-          : []),
+        {
+          title: "Gestión de Horarios",
+          url: "/dashboard/schedules",
+          icon: CalendarClock,
+          permission: "view_contracts",
+          subItems: [
+            {
+              title: "Plantillas de Horarios",
+              url: "/dashboard/schedules",
+              permission: "view_contracts",
+            },
+            ...(shiftsEnabled
+              ? [
+                  {
+                    title: "Cuadrante de Turnos",
+                    url: "/dashboard/shifts",
+                    permission: "manage_organization" as Permission,
+                  },
+                ]
+              : []),
+          ],
+        },
       ],
     },
     {

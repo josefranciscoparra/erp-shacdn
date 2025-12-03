@@ -251,12 +251,21 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 
 ---
 
-### 2.1 Verificar flujo actual de fichajes
-- [ ] ¿Cómo detecta fichajes el tipo de horario del empleado?
-- [ ] ¿Consulta a ambos sistemas o solo a uno?
-- [ ] ¿Las vacaciones se detectan igual en FIXED y SHIFT?
+### 2.1 Verificar flujo actual de fichajes ✅ VERIFICADO
+- [x] ¿Cómo detecta fichajes el tipo de horario del empleado?
+  - **Respuesta**: Usa `getActiveAssignment()` que lee `assignmentType` (FIXED/SHIFT/ROTATION/FLEXIBLE)
+- [x] ¿Consulta a ambos sistemas o solo a uno?
+  - **Respuesta**: Motor ÚNICO `getEffectiveSchedule()` que integra TODO:
+    1. Vacaciones (PTO) → prioridad máxima
+    2. ManualShiftAssignment → para turnos del día
+    3. ScheduleTemplate → según tipo de asignación
+    4. Fallback contrato legacy
+- [x] ¿Las vacaciones se detectan igual en FIXED y SHIFT?
+  - **Respuesta**: SÍ, ambos usan `getAbsenceForDate()` → `expectedMinutes = 0`
 
-### 2.2 Pruebas manuales (antes de tocar nada)
+**Conclusión**: El motor está BIEN integrado. Solo falta organizar UI.
+
+### 2.2 Pruebas manuales (pendiente de hacer por usuario)
 - [ ] Empleado FIXED: Fichar normal
 - [ ] Empleado FIXED con vacaciones: No puede fichar
 - [ ] Empleado SHIFT: Fichar según turno
@@ -264,18 +273,20 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 
 ---
 
-### 2.3 Organizar navegación (UI)
+### 2.3 Organizar navegación (UI) ✅ COMPLETADO
 
-#### Agrupar en el Sidebar
-- [ ] Mover "Horarios" y "Cuadrante" juntos
-- [ ] Grupo: "Gestión de Horarios"
+#### Agrupar en el Sidebar ✅
+- [x] Mover "Horarios" y "Cuadrante" juntos
+- [x] Grupo: "Gestión de Horarios" con subItems:
+  - Plantillas de Horarios (`/dashboard/schedules`)
+  - Cuadrante de Turnos (`/dashboard/shifts`)
 
-**Archivo**: `src/navigation/sidebar-nav.tsx`
+**Archivo**: `src/navigation/sidebar/sidebar-items-translated.tsx`
 
-#### Quitar badges confusos
-- [ ] SHIFT → Enlace a Cuadrante
-- [ ] ROTATION → Enlace a Plantillas de Turnos
-- [ ] FLEXIBLE → Editor simple (horas mínimas/máximas)
+#### Mejorar editores SHIFT/ROTATION ✅
+- [x] SHIFT → Enlace directo a Cuadrante con explicación
+- [x] ROTATION → Badge "En Desarrollo" + enlace a Cuadrante con mensaje de próximamente
+- [ ] FLEXIBLE → Editor simple (horas mínimas/máximas) - pendiente para futuro
 
 **Archivo**: `week-schedule-editor.tsx`
 
@@ -300,3 +311,4 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 | 2025-12-03 | Ajustes técnicos: SQL constraint, notas ciclos, Decimal type, lógica BREAK | Claude |
 | 2025-12-03 | Completados 5 items críticos de Fase 1 | Claude |
 | 2025-12-03 | Añadida Fase 2: Organización y Limpieza | Claude |
+| 2025-12-03 | Fase 2.3 completada: Sidebar reorganizado + editores mejorados | Claude |

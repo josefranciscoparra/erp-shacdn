@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import type { ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot } from "@prisma/client";
-import { Calendar, Plus, AlertTriangle, CheckCircle2, Circle, Construction } from "lucide-react";
+import { Calendar, Plus, AlertTriangle, CheckCircle2, Circle, Construction, ExternalLink } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -303,47 +305,34 @@ function ShiftScheduleEditor() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <CardTitle className="text-base">Configuración de Turnos</CardTitle>
+              <CardTitle className="text-base">Plantilla de Turnos</CardTitle>
               <p className="text-muted-foreground mt-1 text-sm">
-                Define los turnos disponibles (mañana, tarde, noche) y asígnalos por día
+                Esta plantilla define un turno que puede asignarse desde el Cuadrante
               </p>
             </div>
-            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-              <Construction className="mr-1 h-3 w-3" />
-              En Desarrollo
-            </Badge>
           </div>
-          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Turno
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/shifts">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Ir al Cuadrante
+            </Link>
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="shifts" className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="shifts">Turnos</TabsTrigger>
-            <TabsTrigger value="weekly">Asignación Semanal</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="shifts" className="space-y-3">
-            <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
-              <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
-              <p className="text-muted-foreground text-sm">
-                El editor de turnos está en desarrollo.
-                <br />
-                <span className="text-xs">Pronto podrás crear turnos personalizados (mañana, tarde, noche).</span>
-              </p>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="weekly" className="space-y-3">
-            <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
-              <Calendar className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
-              <p className="text-muted-foreground text-sm">La asignación semanal de turnos está en desarrollo.</p>
-            </div>
-          </TabsContent>
-        </Tabs>
+        <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
+          <Calendar className="text-primary mx-auto mb-3 h-10 w-10 opacity-60" />
+          <p className="text-muted-foreground text-sm">
+            Las plantillas de tipo <strong>SHIFT</strong> se gestionan desde el{" "}
+            <Link href="/dashboard/shifts" className="text-primary underline-offset-4 hover:underline">
+              Cuadrante de Turnos
+            </Link>
+            .
+          </p>
+          <p className="text-muted-foreground mt-2 text-xs">
+            Desde allí puedes crear turnos (mañana, tarde, noche) y asignarlos a empleados por día.
+          </p>
+        </div>
       </CardContent>
     </Card>
   );
@@ -360,7 +349,7 @@ function RotationScheduleEditor() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div>
-              <CardTitle className="text-base">Configuración de Rotaciones</CardTitle>
+              <CardTitle className="text-base">Patrón de Rotación</CardTitle>
               <p className="text-muted-foreground mt-1 text-sm">
                 Define el patrón de rotación (ej: 6 días trabajo, 6 días descanso)
               </p>
@@ -370,19 +359,27 @@ function RotationScheduleEditor() {
               En Desarrollo
             </Badge>
           </div>
-          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Patrón
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/dashboard/shifts">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Ir al Cuadrante
+            </Link>
           </Button>
         </div>
       </CardHeader>
       <CardContent>
         <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
           <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
-          <p className="text-muted-foreground text-sm">
-            El editor de rotaciones está en desarrollo.
-            <br />
-            <span className="text-xs">Pronto podrás crear patrones como 6x6 (policía) o 24x72 (bomberos).</span>
+          <p className="text-muted-foreground text-sm">El editor visual de rotaciones está en desarrollo.</p>
+          <p className="text-muted-foreground mt-2 text-xs">
+            Por ahora, puedes gestionar turnos rotativos desde el{" "}
+            <Link href="/dashboard/shifts" className="text-primary underline-offset-4 hover:underline">
+              Cuadrante de Turnos
+            </Link>
+            .
+          </p>
+          <p className="text-muted-foreground mt-1 text-xs">
+            Próximamente: patrones automáticos como 6x6 (policía) o 24x72 (bomberos).
           </p>
         </div>
       </CardContent>
