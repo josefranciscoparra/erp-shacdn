@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { Scope } from "@/lib/permissions/scope-helpers";
+import type { Scope } from "@/services/permissions";
 import {
   updateResponsibility,
   type AreaResponsibilityData,

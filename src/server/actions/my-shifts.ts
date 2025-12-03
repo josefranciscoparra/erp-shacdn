@@ -6,7 +6,7 @@ import type { MyShiftsMetrics } from "@/app/(main)/dashboard/me/shifts/_lib/my-s
 import type { Shift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveScheduleForRange, getWeekSchedule } from "@/lib/schedule-engine";
+import { getEffectiveScheduleForRange, getWeekSchedule } from "@/services/schedules/schedule-engine";
 
 import { getTodaySummary, getWeeklySummary } from "./time-tracking";
 

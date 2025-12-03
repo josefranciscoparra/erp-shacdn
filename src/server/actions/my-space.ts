@@ -4,7 +4,7 @@ import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule, getWeekSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule, getWeekSchedule } from "@/services/schedules/schedule-engine";
 
 import { getMyMonthEvents } from "./employee-calendars";
 import { getMyPtoBalance } from "./employee-pto";

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Scope } from "@/lib/permissions/scope-helpers";
+import type { Scope } from "@/services/permissions";
 import {
   getResponsiblesForArea,
   removeResponsibility,

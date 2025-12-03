@@ -1,6 +1,6 @@
 "use server";
 
-import { resolveAlert as resolveAlertEngine, dismissAlert as dismissAlertEngine } from "@/lib/alert-engine";
+import { resolveAlert as resolveAlertEngine, dismissAlert as dismissAlertEngine } from "@/services/alerts";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 

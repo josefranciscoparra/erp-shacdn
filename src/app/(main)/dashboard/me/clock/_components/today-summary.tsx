@@ -7,8 +7,8 @@ import { AlertTriangle, CheckCircle2, Clock, TrendingDown, TrendingUp, XCircle }
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { formatDuration } from "@/lib/schedule-helpers";
 import { getTodaySummary } from "@/server/actions/employee-schedule";
+import { formatDuration } from "@/services/schedules";
 
 interface TodaySummaryData {
   expectedMinutes: number | null;

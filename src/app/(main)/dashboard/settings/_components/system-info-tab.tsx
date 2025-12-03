@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ROLE_PERMISSIONS } from "@/lib/permissions";
+import { ROLE_PERMISSIONS } from "@/services/permissions";
 
 const roleInfo: Record<
   Role,

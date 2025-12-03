@@ -3,7 +3,7 @@
 import { ReactNode } from "react";
 
 import { usePermissions } from "@/hooks/use-permissions";
-import { type Permission } from "@/lib/permissions";
+import { type Permission } from "@/services/permissions";
 
 interface PermissionGuardProps {
   children: ReactNode;

@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
-import { generateOrganizationPrefix } from "@/lib/employee-numbering";
+import { generateOrganizationPrefix } from "@/services/employees";
 import { prisma } from "@/lib/prisma";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/validators/organization";
 

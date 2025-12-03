@@ -6,8 +6,8 @@ import { Clock, PiggyBank, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { minutesToTime, formatDuration } from "@/lib/schedule-helpers";
 import { cn } from "@/lib/utils";
+import { minutesToTime, formatDuration } from "@/services/schedules";
 import { useTimeBankStore } from "@/stores/time-bank-store";
 import { type EffectiveSchedule } from "@/types/schedule";
 

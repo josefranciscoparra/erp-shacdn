@@ -4,14 +4,14 @@ import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth,
 
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule, validateTimeEntry } from "@/lib/schedule-engine";
+import { getEffectiveSchedule, validateTimeEntry } from "@/services/schedules/schedule-engine";
 import {
   validateTransition,
   mapStatusToState,
   getTransitionError,
   type TimeEntryState,
   type TimeEntryAction,
-} from "@/lib/time-entry-state-machine";
+} from "@/services/time-tracking";
 
 import { detectAlertsForTimeEntry } from "./alert-detection";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";

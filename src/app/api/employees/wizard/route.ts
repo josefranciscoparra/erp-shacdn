@@ -4,7 +4,7 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import { generateSafeEmployeeNumber } from "@/lib/employee-numbering";
+import { generateSafeEmployeeNumber } from "@/services/employees";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 

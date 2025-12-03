@@ -1,6 +1,6 @@
 import { Role } from "@prisma/client";
 
-import { canCreateRole, canEditRole, ROLE_DISPLAY_NAMES } from "./role-hierarchy";
+import { canCreateRole, canEditRole, ROLE_DISPLAY_NAMES } from "@/services/permissions";
 
 /**
  * Resultado de una validación

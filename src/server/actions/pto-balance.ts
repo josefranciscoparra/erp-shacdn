@@ -3,7 +3,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
-import { daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
+import { daysToMinutes, getWorkdayMinutes } from "@/services/pto";
 
 /**
  * Calcula los días de vacaciones anuales según el método de cálculo proporcional

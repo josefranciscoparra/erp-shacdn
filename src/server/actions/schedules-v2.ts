@@ -23,7 +23,7 @@ import {
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { minutesToHours } from "@/lib/schedule-helpers";
+import { minutesToHours } from "@/services/schedules";
 import type {
   EffectiveSchedule,
   EffectiveTimeSlot,

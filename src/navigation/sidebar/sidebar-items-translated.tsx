@@ -25,7 +25,7 @@ import {
 
 import { features } from "@/config/features";
 import { usePermissions } from "@/hooks/use-permissions";
-import { type Permission } from "@/lib/permissions";
+import { type Permission } from "@/services/permissions";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 export interface NavSubItem {

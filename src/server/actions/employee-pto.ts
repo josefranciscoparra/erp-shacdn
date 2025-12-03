@@ -4,8 +4,8 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
-import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/lib/pto-helpers";
-import { getEffectiveScheduleForRange } from "@/lib/schedule-engine";
+import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/services/pto";
+import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
 import { createNotification } from "./notifications";
 import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";

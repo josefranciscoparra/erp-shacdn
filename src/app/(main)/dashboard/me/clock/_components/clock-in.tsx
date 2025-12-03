@@ -20,12 +20,12 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { formatDuration } from "@/lib/schedule-helpers";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
 import { getTodaySchedule, getTodaySummary } from "@/server/actions/employee-schedule";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
+import { formatDuration } from "@/services/schedules";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 

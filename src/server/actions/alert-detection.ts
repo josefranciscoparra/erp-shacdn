@@ -5,9 +5,9 @@ import {
   buildScopeFilter,
   getUserAccessibleCostCenters,
   getUserAccessibleTeams,
-} from "@/lib/permissions/scope-helpers";
+} from "@/services/permissions/scope-helpers";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 
 import { getOrganizationValidationConfig } from "./time-clock-validations";
 

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ALLOWED_RESPONSIBLE_ROLES } from "@/lib/role-hierarchy";
+import { ALLOWED_RESPONSIBLE_ROLES } from "@/services/permissions";
 import {
   assignResponsibility,
   removeResponsibility,

@@ -7,7 +7,7 @@ import { CalendarDays, Calendar, FileCheck } from "lucide-react";
 import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatMinutes } from "@/lib/pto-helpers-client";
+import { formatMinutes } from "@/services/pto/pto-helpers-client";
 import { usePtoStore } from "@/stores/pto-store";
 
 interface PtoBalanceCardsProps {

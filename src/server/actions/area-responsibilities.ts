@@ -1,9 +1,9 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { validateScopeOwnership, type Permission, type Scope } from "@/lib/permissions/scope-helpers";
+import { validateScopeOwnership } from "@/services/permissions/scope-helpers";
+import { type Permission, type Scope, ALLOWED_RESPONSIBLE_ROLES, type AllowedResponsibleRole } from "@/services/permissions";
 import { prisma } from "@/lib/prisma";
-import { ALLOWED_RESPONSIBLE_ROLES, type AllowedResponsibleRole } from "@/lib/role-hierarchy";
 
 /**
  * Server Actions para gestión de responsabilidades de áreas
@@ -606,7 +606,7 @@ export async function searchUsersForResponsibility(searchTerm: string): Promise<
     }
 
     // 🎯 FILTRO DE ROLES: Solo MANAGER y superiores pueden ser responsables
-    // Usa la constante centralizada ALLOWED_RESPONSIBLE_ROLES de @/lib/role-hierarchy
+    // Usa la constante centralizada ALLOWED_RESPONSIBLE_ROLES de @/services/permissions
     // Para añadir nuevos roles en el futuro (ej: "TEAM_LEAD"), modifica esa constante
 
     const users = await prisma.user.findMany({

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageUsers } from "@/lib/role-hierarchy";
+import { canManageUsers } from "@/services/permissions";
 import { validateUserDeactivation } from "@/lib/user-validation";
 
 export const runtime = "nodejs";

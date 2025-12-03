@@ -22,7 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { features } from "@/config/features";
-import { generateOrganizationPrefix } from "@/lib/employee-numbering";
+import { generateOrganizationPrefix } from "@/services/employees";
 import { createOrganizationSchema, type CreateOrganizationInput } from "@/validators/organization";
 
 export type OrganizationFormValues = CreateOrganizationInput;

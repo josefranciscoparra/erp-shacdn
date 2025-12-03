@@ -12,7 +12,7 @@ import {
   getUserAccessibleCostCenters,
   getUserAccessibleDepartments,
   getUserAccessibleTeams,
-} from "@/lib/permissions/scope-helpers";
+} from "@/services/permissions/scope-helpers";
 import { prisma } from "@/lib/prisma";
 import { getResponsiblesForArea } from "@/server/actions/area-responsibilities";
 

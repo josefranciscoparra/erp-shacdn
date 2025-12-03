@@ -1,6 +1,6 @@
 import { TimeBankApprovalFlow } from "@prisma/client";
 
-import { Permission } from "@/lib/permissions/scope-helpers";
+import { Permission } from "@/services/permissions";
 import { prisma } from "@/lib/prisma";
 
 /**

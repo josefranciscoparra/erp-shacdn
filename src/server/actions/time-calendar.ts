@@ -3,7 +3,7 @@
 import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/lib/schedule-engine";
+import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 

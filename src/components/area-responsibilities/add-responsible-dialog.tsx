@@ -23,7 +23,7 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { Scope } from "@/lib/permissions/scope-helpers";
+import type { Scope } from "@/services/permissions";
 import { cn } from "@/lib/utils";
 import {
   assignResponsibility,

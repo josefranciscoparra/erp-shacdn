@@ -7,7 +7,7 @@
 
 "use client";
 
-import { minutesToTime, timeToMinutes } from "@/lib/schedule-helpers";
+import { minutesToTime, timeToMinutes } from "@/services/schedules";
 import {
   createManualShiftAssignment,
   deleteManualShiftAssignmentById,
