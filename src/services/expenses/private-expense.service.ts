@@ -4,6 +4,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/server/actions/notifications";
 
+import { buildApprovalChain } from "./approval-chain";
 import { IExpenseService, CreateExpenseDTO, UpdateExpenseDTO, PrivateExpenseSchema } from "./expense.interface";
 
 export class PrivateExpenseService implements IExpenseService {
@@ -233,7 +234,10 @@ export class PrivateExpenseService implements IExpenseService {
   }
 
   async submit(id: string, userId: string) {
-    const expense = await prisma.expense.findUnique({ where: { id } });
+    const expense = await prisma.expense.findUnique({
+      where: { id },
+      include: { approvals: true },
+    });
     if (!expense) return { success: false, error: "Gasto no encontrado" };
     if (expense.status !== "DRAFT") return { success: false, error: "El gasto no está en borrador" };
 
@@ -241,29 +245,45 @@ export class PrivateExpenseService implements IExpenseService {
     const validation = await this.validateForSubmission(expense);
     if (!validation.valid) return { success: false, error: validation.error };
 
-    // 2. Buscar aprobador (Manager)
-    const employee = await prisma.employee.findUnique({
-      where: { id: expense.employeeId },
-      include: {
-        managedContracts: {
-          where: { active: true },
-          include: { manager: { include: { user: true } } },
-        },
+    // 2. Definir cadena de aprobación
+    const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
+    const approvalLevels = policy?.approvalLevels ?? 1;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const approvalFlow = (policy?.categoryRequirements as any)?.approvalFlowConfig ?? "DEFAULT";
+    const approverChain = await buildApprovalChain(
+      {
+        id: expense.id,
+        orgId: expense.orgId,
+        employeeId: expense.employeeId,
+        costCenterId: expense.costCenterId,
+        createdBy: expense.createdBy,
       },
-    });
+      approvalLevels,
+      approvalFlow,
+    );
 
-    // Obtener ID del manager (fallback a RRHH o Admin si no tiene)
-    // Para simplificar, asumimos que el sistema asigna uno. En producción usaría `getDefaultApprover`.
+    const updatedExpense = await prisma.$transaction(async (tx) => {
+      if (expense.approvals.length === 0) {
+        await tx.expenseApproval.createMany({
+          data: approverChain.map((approverId, index) => ({
+            expenseId: expense.id,
+            approverId,
+            level: index + 1,
+            decision: "PENDING",
+          })),
+        });
+      }
 
-    await prisma.expense.update({
-      where: { id },
-      data: { status: "SUBMITTED" },
+      return tx.expense.update({
+        where: { id },
+        data: { status: "SUBMITTED" },
+      });
     });
 
     // TODO: Notificar al manager
     // await createNotification(...)
 
-    return { success: true, expense };
+    return { success: true, expense: updatedExpense };
   }
 
   async delete(id: string, userId: string) {

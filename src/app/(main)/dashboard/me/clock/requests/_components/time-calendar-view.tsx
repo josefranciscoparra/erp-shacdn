@@ -112,8 +112,19 @@ export function TimeCalendarView() {
     (props: React.ComponentProps<typeof DayButton>) => {
       const dayData = getDayData(props.day.date);
 
-      // Si no es día laboral, renderizar botón normal sin tooltip
-      if (!dayData || !dayData.isWorkday) {
+      if (!dayData) {
+        return <CalendarDayButton {...props} />;
+      }
+
+      const timeEntries = dayData.workdaySummary?.timeEntries ?? dayData.timeEntries ?? [];
+      const hasAnyEntries =
+        timeEntries.length > 0 ||
+        dayData.workedHours > 0 ||
+        Boolean(dayData.workdaySummary?.clockIn) ||
+        Boolean(dayData.workdaySummary?.clockOut);
+      const showTooltip = dayData.isWorkday || hasAnyEntries;
+
+      if (!showTooltip) {
         return <CalendarDayButton {...props} />;
       }
 
@@ -124,7 +135,6 @@ export function TimeCalendarView() {
       const missingPercentage = 100 - workedPercentage;
 
       // Obtener fichajes del día para la línea de tiempo
-      const timeEntries = dayData.workdaySummary?.timeEntries ?? dayData.timeEntries ?? [];
       const workdaySummary = dayData.workdaySummary;
       const sortedTimeEntries = [...timeEntries].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
@@ -658,7 +668,23 @@ export function TimeCalendarView() {
     })
     .map((d) => new Date(d.date));
 
+  const nonWorkdaysWithEntries = monthlyData.days
+    .filter((d) => {
+      if (d.isWorkday) return false;
+      const timeEntries = d.workdaySummary?.timeEntries ?? d.timeEntries ?? [];
+      return (
+        timeEntries.length > 0 ||
+        d.workedHours > 0 ||
+        Boolean(d.workdaySummary?.clockIn) ||
+        Boolean(d.workdaySummary?.clockOut)
+      );
+    })
+    .map((d) => new Date(d.date));
+
   const nonWorkdays = monthlyData.days.filter((d) => !d.isWorkday).map((d) => new Date(d.date));
+  const nonWorkdaysWithoutEntries = nonWorkdays.filter(
+    (date) => !nonWorkdaysWithEntries.some((withEntries) => withEntries.getTime() === date.getTime()),
+  );
 
   const clickableDays = monthlyData.days
     .filter((d) => {
@@ -691,7 +717,7 @@ export function TimeCalendarView() {
             dayClassName="flex flex-1 items-center justify-center p-0 text-base"
             dayButtonClassName="rounded-xl text-base font-medium"
             onDayClick={handleDayClick}
-            disabled={[...nonWorkdays, ...futureDays, ...pendingDays]}
+            disabled={[...nonWorkdaysWithoutEntries, ...futureDays, ...pendingDays]}
             components={{
               DayButton: CustomDayButton,
             }}

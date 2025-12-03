@@ -241,6 +241,7 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
         if (firstEntryToday) {
           // Calcular minutos desde medianoche (00:00) hasta el primer evento de hoy
           // Solo si el primer evento es CLOCK_OUT, BREAK_START, o BREAK_END
+          // eslint-disable-next-line max-depth
           if (
             firstEntryToday.entryType === "CLOCK_OUT" ||
             firstEntryToday.entryType === "BREAK_START" ||
@@ -274,10 +275,12 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let expectedMinutes: number | null = null;
   let deviationMinutes: number | null = null;
   let scheduleSource: string | null = null;
+  let scheduleIsWorkday: boolean | null = null;
 
   try {
     const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
     scheduleSource = effectiveSchedule.source ?? null;
+    scheduleIsWorkday = effectiveSchedule.isWorkingDay;
     expectedMinutes = effectiveSchedule.expectedMinutes;
 
     // Calcular desviación: (trabajado - esperado)
@@ -289,7 +292,7 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
     // Continuar sin expectedMinutes si falla (datos opcionales)
   }
 
-  if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0) {
+  if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0 && scheduleIsWorkday !== false) {
     const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
     if (fallbackMinutes) {
       expectedMinutes = fallbackMinutes;
@@ -1659,10 +1662,12 @@ export async function recalculateWorkdaySummary(date: Date) {
     let expectedMinutes: number | null = null;
     let deviationMinutes: number | null = null;
     let scheduleSource: string | null = null;
+    let scheduleIsWorkday: boolean | null = null;
 
     try {
       const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
       scheduleSource = effectiveSchedule.source ?? null;
+      scheduleIsWorkday = effectiveSchedule.isWorkingDay;
       expectedMinutes = effectiveSchedule.expectedMinutes;
       deviationMinutes = worked - expectedMinutes;
 
@@ -1674,7 +1679,7 @@ export async function recalculateWorkdaySummary(date: Date) {
       console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
     }
 
-    if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0) {
+    if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0 && scheduleIsWorkday !== false) {
       const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
       if (fallbackMinutes) {
         expectedMinutes = fallbackMinutes;

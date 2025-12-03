@@ -155,13 +155,6 @@ export default function NewExpenseClient({ activeProcedures, policy }: NewExpens
 
   // ...
 
-  // 4. Redirigir al listado
-  if (procedureIdParam) {
-    router.push(`/dashboard/my-procedures/${procedureIdParam}`);
-  } else {
-    router.push("/dashboard/me/expenses");
-  }
-
   // Calcular initial data del formulario basado en OCR y params
   const getInitialFormData = () => {
     // Si hay OCR data, usarla

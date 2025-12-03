@@ -4,6 +4,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 import { createNotification } from "@/server/actions/notifications";
 
+import { buildApprovalChain } from "./approval-chain";
 import { IExpenseService, CreateExpenseDTO, UpdateExpenseDTO, PublicExpenseSchema } from "./expense.interface";
 
 export class PublicExpenseService implements IExpenseService {
@@ -173,7 +174,10 @@ export class PublicExpenseService implements IExpenseService {
   async submit(id: string, userId: string) {
     try {
       console.log("🚀 Submit gasto público:", id);
-      const expense = await prisma.expense.findUnique({ where: { id } });
+      const expense = await prisma.expense.findUnique({
+        where: { id },
+        include: { approvals: true },
+      });
       if (!expense) return { success: false, error: "Gasto no encontrado" };
 
       // Validar antes de enviar
@@ -183,9 +187,38 @@ export class PublicExpenseService implements IExpenseService {
         return { success: false, error: validation.error };
       }
 
-      const updated = await prisma.expense.update({
-        where: { id },
-        data: { status: "SUBMITTED" },
+      const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
+      const approvalLevels = policy?.approvalLevels ?? 1;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const approvalFlow = (policy?.categoryRequirements as any)?.approvalFlowConfig ?? "DEFAULT";
+      const approverChain = await buildApprovalChain(
+        {
+          id: expense.id,
+          orgId: expense.orgId,
+          employeeId: expense.employeeId,
+          costCenterId: expense.costCenterId,
+          createdBy: expense.createdBy,
+        },
+        approvalLevels,
+        approvalFlow,
+      );
+
+      const updated = await prisma.$transaction(async (tx) => {
+        if (expense.approvals.length === 0) {
+          await tx.expenseApproval.createMany({
+            data: approverChain.map((approverId, index) => ({
+              expenseId: expense.id,
+              approverId,
+              level: index + 1,
+              decision: "PENDING",
+            })),
+          });
+        }
+
+        return tx.expense.update({
+          where: { id },
+          data: { status: "SUBMITTED" },
+        });
       });
       console.log("✅ Gasto enviado a aprobación:", id);
 

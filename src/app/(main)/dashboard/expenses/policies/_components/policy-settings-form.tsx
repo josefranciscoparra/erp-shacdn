@@ -22,6 +22,7 @@ const policyFormSchema = z.object({
   lodgingDailyLimit: z.coerce.number().min(0),
   attachmentRequired: z.boolean(),
   approvalLevels: z.coerce.number().min(1).max(3),
+  approvalFlow: z.enum(["DEFAULT", "HR_ONLY"]),
 });
 
 type PolicyFormValues = z.infer<typeof policyFormSchema>;
@@ -32,6 +33,7 @@ interface ExpensePolicy {
   lodgingDailyLimit: string | number | null;
   attachmentRequired: boolean;
   approvalLevels: number;
+  approvalFlow?: "DEFAULT" | "HR_ONLY";
   expenseMode?: string; // Se recibe para contexto, pero no se edita
 }
 
@@ -51,8 +53,12 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
       lodgingDailyLimit: initialData.lodgingDailyLimit ? Number(initialData.lodgingDailyLimit) : 100,
       attachmentRequired: initialData.attachmentRequired,
       approvalLevels: initialData.approvalLevels || 1,
+      approvalFlow: initialData.approvalFlow ?? "DEFAULT",
     },
   });
+
+  const selectedFlow = form.watch("approvalFlow");
+  const isHrOnly = selectedFlow === "HR_ONLY";
 
   async function onSubmit(data: PolicyFormValues) {
     setIsSaving(true);
@@ -171,6 +177,31 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
             <CardContent className="space-y-4">
               <FormField
                 control={form.control}
+                name="approvalFlow"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Flujo de aprobación</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona flujo" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="DEFAULT">Responsable/Manager y después RRHH/Admin</SelectItem>
+                        <SelectItem value="HR_ONLY">Solo RRHH/Admin (salta manager)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      Define quién inicia la cadena: responsable/manager del empleado o directamente RRHH/Admin.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
                 name="approvalLevels"
                 render={({ field }) => (
                   <FormItem>
@@ -182,14 +213,19 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="1">1 Nivel (Manager directo)</SelectItem>
-                        <SelectItem value="2">2 Niveles (Manager + Finanzas)</SelectItem>
-                        <SelectItem value="3">3 Niveles (Manager + Director + Finanzas)</SelectItem>
+                        <SelectItem value="1">1 Nivel ({isHrOnly ? "RRHH/Admin" : "Responsable/Manager"})</SelectItem>
+                        <SelectItem value="2">
+                          2 Niveles ({isHrOnly ? "RRHH + Finanzas/Admin" : "Responsable/Manager + RRHH"})
+                        </SelectItem>
+                        <SelectItem value="3">
+                          3 Niveles ({isHrOnly ? "RRHH + Finanzas + Dirección" : "Responsable + Dirección + RRHH"})
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      {field.value === 1 && "Solo el manager directo aprueba el gasto."}
-                      {field.value > 1 && "Se requerirán aprobaciones secuenciales."}
+                      {isHrOnly
+                        ? "Los niveles se asignan dentro de RRHH/Admin según el orden configurado en aprobadores organizacionales."
+                        : "El primer nivel es el responsable/manager; los siguientes niveles usan los aprobadores organizacionales (RRHH/Finanzas)."}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

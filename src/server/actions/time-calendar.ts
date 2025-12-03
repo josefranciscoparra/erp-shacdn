@@ -213,9 +213,14 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
         summary?.expectedMinutes !== null && summary?.expectedMinutes !== undefined
           ? Number(summary.expectedMinutes)
           : null;
-      let expectedMinutes = summaryExpectedMinutes ?? scheduleInfo.expectedMinutes ?? 0;
-      let expectedHours = expectedMinutes / 60;
-      let isWorkday = scheduleInfo.isWorkday || Boolean(summaryExpectedMinutes);
+      const scheduleExpectedMinutes = scheduleInfo.expectedMinutes ?? 0;
+
+      const isWorkday = scheduleInfo.isWorkday;
+      // En días de descanso mantenemos 0h esperadas aunque exista un resumen previo con fallback
+      let expectedMinutes = isWorkday ? scheduleExpectedMinutes : 0;
+      if (summaryExpectedMinutes !== null && isWorkday) {
+        expectedMinutes = summaryExpectedMinutes;
+      }
 
       const fallbackEntries = timeEntriesByDay.get(dateKey)?.map((entry) => ({ ...entry })) ?? [];
       const workedHours = summary ? Number(summary.totalWorkedMinutes) / 60 : 0;
@@ -232,11 +237,10 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
       }));
       const mergedTimeEntries = summaryEntries.length > 0 ? summaryEntries : fallbackEntries;
 
-      if ((!isWorkday || expectedMinutes === 0) && mergedTimeEntries.length > 0 && fallbackMinutes) {
+      if (isWorkday && expectedMinutes === 0 && mergedTimeEntries.length > 0 && fallbackMinutes) {
         expectedMinutes = fallbackMinutes;
-        expectedHours = expectedMinutes / 60;
-        isWorkday = true;
       }
+      const expectedHours = expectedMinutes / 60;
 
       // Determinar estado del día
       let status: DayCalendarData["status"];

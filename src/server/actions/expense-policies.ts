@@ -17,6 +17,7 @@ const UpdatePolicySchema = z.object({
   costCenterRequired: z.boolean().optional(),
   vatAllowed: z.boolean().optional(),
   approvalLevels: z.number().min(1).max(5).optional(),
+  approvalFlow: z.enum(["DEFAULT", "HR_ONLY"]).optional(),
 });
 
 /**
@@ -43,6 +44,7 @@ export async function getOrganizationPolicy() {
       mealDailyLimit: new Decimal(30.0),
       lodgingDailyLimit: new Decimal(100.0),
       categoryRequirements: {
+        __approvalFlow: "DEFAULT",
         FUEL: {
           requiresReceipt: true,
           vatAllowed: true,
@@ -90,7 +92,12 @@ export async function getOrganizationPolicy() {
 
   return {
     success: true,
-    policy,
+    policy: {
+      ...policy,
+      categoryRequirements: policy.categoryRequirements,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      approvalFlow: (policy.categoryRequirements as any)?.approvalFlowConfig ?? "DEFAULT",
+    } as any,
     expenseMode: organization?.expenseMode ?? "PRIVATE",
   };
 }
@@ -121,6 +128,13 @@ export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
     return { success: false, error: "No se encontró la política de gastos" };
   }
 
+  const currentCategoryReqs = (existingPolicy.categoryRequirements ?? {}) as Record<string, any>;
+  const baseCategoryReqs = validatedData.categoryRequirements ?? currentCategoryReqs;
+  const nextCategoryReqs =
+    validatedData.approvalFlow !== undefined
+      ? { ...baseCategoryReqs, approvalFlowConfig: validatedData.approvalFlow }
+      : baseCategoryReqs;
+
   // Actualizar la política
   const policy = await prisma.expensePolicy.update({
     where: { orgId },
@@ -134,9 +148,11 @@ export async function updatePolicy(data: z.infer<typeof UpdatePolicySchema>) {
       ...(validatedData.lodgingDailyLimit !== undefined && {
         lodgingDailyLimit: new Decimal(validatedData.lodgingDailyLimit),
       }),
-      ...(validatedData.categoryRequirements !== undefined && {
-        categoryRequirements: validatedData.categoryRequirements,
-      }),
+      ...(validatedData.categoryRequirements !== undefined || validatedData.approvalFlow !== undefined
+        ? {
+            categoryRequirements: nextCategoryReqs,
+          }
+        : {}),
       ...(validatedData.attachmentRequired !== undefined && {
         attachmentRequired: validatedData.attachmentRequired,
       }),

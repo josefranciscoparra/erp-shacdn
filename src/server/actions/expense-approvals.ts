@@ -81,9 +81,6 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
         },
       },
       approvals: {
-        where: {
-          approverId: user.id,
-        },
         include: {
           approver: {
             select: {
@@ -93,6 +90,7 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
             },
           },
         },
+        orderBy: { level: "asc" },
       },
       costCenter: {
         select: {
@@ -107,14 +105,30 @@ export async function getPendingApprovals(filters?: z.infer<typeof ApprovalFilte
     },
   });
 
-  // Convertir Decimals a números para el cliente
-  const serializedExpenses = expenses.map((expense) => ({
+  // Filtrar para mostrar solo el nivel actual (aprobaciones previas deben estar aprobadas)
+  const filteredExpenses = expenses.filter((expense) => {
+    const myApproval = expense.approvals.find(
+      (approval) => approval.approverId === user.id && approval.decision === "PENDING",
+    );
+    if (!myApproval) return false;
+
+    const hasBlockingLevel = expense.approvals.some(
+      (approval) => approval.level < myApproval.level && approval.decision !== "APPROVED",
+    );
+    return !hasBlockingLevel;
+  });
+
+  // Convertir Decimals a números para el cliente y devolver solo la aprobación del usuario para la UI
+  const serializedExpenses = filteredExpenses.map((expense) => ({
     ...expense,
     amount: Number(expense.amount),
     vatPercent: expense.vatPercent ? Number(expense.vatPercent) : null,
     totalAmount: Number(expense.totalAmount),
     mileageKm: expense.mileageKm ? Number(expense.mileageKm) : null,
     mileageRate: expense.mileageRate ? Number(expense.mileageRate) : null,
+    approvals: expense.approvals
+      .filter((approval) => approval.approverId === user.id)
+      .map((approval) => ({ ...approval })),
   }));
 
   return {
@@ -134,9 +148,15 @@ export async function approveExpense(id: string, comment?: string) {
     where: { id },
     include: {
       approvals: {
-        where: {
-          approverId: user.id,
-          decision: "PENDING",
+        orderBy: { level: "asc" },
+        include: {
+          approver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       },
       employee: {
@@ -161,10 +181,17 @@ export async function approveExpense(id: string, comment?: string) {
   }
 
   // Verificar que el usuario tiene una aprobación pendiente para este gasto
-  const approval = expense.approvals[0];
+  const approval = expense.approvals.find((a) => a.approverId === user.id && a.decision === "PENDING");
   if (!approval) {
     return { success: false, error: "No tienes permisos para aprobar este gasto" };
   }
+
+  const hasBlockingLevel = expense.approvals.some((a) => a.level < approval.level && a.decision !== "APPROVED");
+  if (hasBlockingLevel) {
+    return { success: false, error: "Hay aprobaciones previas pendientes" };
+  }
+
+  const hasNextLevelPending = expense.approvals.some((a) => a.level > approval.level && a.decision === "PENDING");
 
   // Actualizar la aprobación y el gasto en una transacción
   await prisma.$transaction(async (tx) => {
@@ -182,7 +209,7 @@ export async function approveExpense(id: string, comment?: string) {
     await tx.expense.update({
       where: { id },
       data: {
-        status: "APPROVED",
+        status: hasNextLevelPending ? "SUBMITTED" : "APPROVED",
       },
     });
 
@@ -221,9 +248,15 @@ export async function rejectExpense(id: string, reason: string) {
     where: { id },
     include: {
       approvals: {
-        where: {
-          approverId: user.id,
-          decision: "PENDING",
+        orderBy: { level: "asc" },
+        include: {
+          approver: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
         },
       },
       employee: {
@@ -248,9 +281,14 @@ export async function rejectExpense(id: string, reason: string) {
   }
 
   // Verificar que el usuario tiene una aprobación pendiente para este gasto
-  const approval = expense.approvals[0];
+  const approval = expense.approvals.find((a) => a.approverId === user.id && a.decision === "PENDING");
   if (!approval) {
     return { success: false, error: "No tienes permisos para rechazar este gasto" };
+  }
+
+  const hasBlockingLevel = expense.approvals.some((a) => a.level < approval.level && a.decision !== "APPROVED");
+  if (hasBlockingLevel) {
+    return { success: false, error: "Hay aprobaciones previas pendientes" };
   }
 
   // Actualizar la aprobación y el gasto en una transacción

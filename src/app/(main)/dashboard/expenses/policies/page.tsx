@@ -13,7 +13,11 @@ export default async function PoliciesPage() {
         mileageRateEurPerKm: Number(policy.mileageRateEurPerKm),
         mealDailyLimit: policy.mealDailyLimit ? Number(policy.mealDailyLimit) : null,
         lodgingDailyLimit: policy.lodgingDailyLimit ? Number(policy.lodgingDailyLimit) : null,
-        expenseMode: expenseMode || "PRIVATE", // Añadir modo
+        expenseMode: expenseMode ?? "PRIVATE", // Añadir modo
+        approvalFlow:
+          ((policy as Record<string, unknown>).approvalFlow as string) ??
+          ((policy.categoryRequirements as Record<string, unknown>)?.approvalFlowConfig as string) ??
+          "DEFAULT",
       }
     : null;
 
