@@ -107,6 +107,12 @@ export interface EffectiveTimeSlot {
 
   /** Descripción opcional */
   description?: string;
+
+  /** Si este slot cuenta como trabajo esperado (configurable para ON_CALL) */
+  countsAsWork?: boolean;
+
+  /** Factor de compensación (1.00 = normal, 1.50 = nocturno, 1.75 = festivo) */
+  compensationFactor?: number;
 }
 
 /**

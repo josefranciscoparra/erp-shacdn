@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import type { ScheduleTemplate, SchedulePeriod, WorkDayPattern, TimeSlot } from "@prisma/client";
-import { Calendar, Plus, AlertTriangle, CheckCircle2, Circle } from "lucide-react";
+import { Calendar, Plus, AlertTriangle, CheckCircle2, Circle, Construction } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,9 +115,9 @@ export function WeekScheduleEditor({ template, periods }: WeekScheduleEditorProp
       {activePeriod && (
         <>
           {template.templateType === "FIXED" && <FixedScheduleEditor period={activePeriod} />}
-          {template.templateType === "SHIFT" && <ShiftScheduleEditor period={activePeriod} />}
-          {template.templateType === "ROTATION" && <RotationScheduleEditor period={activePeriod} />}
-          {template.templateType === "FLEXIBLE" && <FlexibleScheduleEditor period={activePeriod} />}
+          {template.templateType === "SHIFT" && <ShiftScheduleEditor />}
+          {template.templateType === "ROTATION" && <RotationScheduleEditor />}
+          {template.templateType === "FLEXIBLE" && <FlexibleScheduleEditor />}
         </>
       )}
     </div>
@@ -296,18 +296,24 @@ function DayScheduleRow({
 // SHIFT SCHEDULE EDITOR
 // ============================================================================
 
-function ShiftScheduleEditor({ period }: { period: SchedulePeriod }) {
+function ShiftScheduleEditor() {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Configuración de Turnos</CardTitle>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Define los turnos disponibles (mañana, tarde, noche) y asígnalos por día
-            </p>
+          <div className="flex items-center gap-3">
+            <div>
+              <CardTitle className="text-base">Configuración de Turnos</CardTitle>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Define los turnos disponibles (mañana, tarde, noche) y asígnalos por día
+              </p>
+            </div>
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              <Construction className="mr-1 h-3 w-3" />
+              En Desarrollo
+            </Badge>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Turno
           </Button>
@@ -321,72 +327,21 @@ function ShiftScheduleEditor({ period }: { period: SchedulePeriod }) {
           </TabsList>
 
           <TabsContent value="shifts" className="space-y-3">
-            <div className="rounded-lg border p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Turno Mañana</h4>
-                  <p className="text-muted-foreground text-sm">06:00 - 14:00</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Editar
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Badge>8h totales</Badge>
-                <Badge variant="secondary">1h descanso</Badge>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Turno Tarde</h4>
-                  <p className="text-muted-foreground text-sm">14:00 - 22:00</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Editar
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Badge>8h totales</Badge>
-                <Badge variant="secondary">1h descanso</Badge>
-              </div>
-            </div>
-
-            <div className="rounded-lg border p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <h4 className="font-medium">Turno Noche</h4>
-                  <p className="text-muted-foreground text-sm">22:00 - 06:00</p>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
-                    Editar
-                  </Button>
-                  <Button variant="ghost" size="sm">
-                    Eliminar
-                  </Button>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Badge>8h totales</Badge>
-                <Badge variant="secondary">1h descanso</Badge>
-              </div>
+            <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
+              <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
+              <p className="text-muted-foreground text-sm">
+                El editor de turnos está en desarrollo.
+                <br />
+                <span className="text-xs">Pronto podrás crear turnos personalizados (mañana, tarde, noche).</span>
+              </p>
             </div>
           </TabsContent>
 
           <TabsContent value="weekly" className="space-y-3">
-            <p className="text-muted-foreground text-sm">Asignación de turnos por día de la semana (próximamente)</p>
+            <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
+              <Calendar className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
+              <p className="text-muted-foreground text-sm">La asignación semanal de turnos está en desarrollo.</p>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>
@@ -398,85 +353,37 @@ function ShiftScheduleEditor({ period }: { period: SchedulePeriod }) {
 // ROTATION SCHEDULE EDITOR
 // ============================================================================
 
-function RotationScheduleEditor({ period }: { period: SchedulePeriod }) {
+function RotationScheduleEditor() {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Configuración de Rotaciones</CardTitle>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Define el patrón de rotación (ej: 6 días trabajo, 6 días descanso)
-            </p>
+          <div className="flex items-center gap-3">
+            <div>
+              <CardTitle className="text-base">Configuración de Rotaciones</CardTitle>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Define el patrón de rotación (ej: 6 días trabajo, 6 días descanso)
+              </p>
+            </div>
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              <Construction className="mr-1 h-3 w-3" />
+              En Desarrollo
+            </Badge>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
             <Plus className="mr-2 h-4 w-4" />
             Nuevo Patrón
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
-          <div className="rounded-lg border p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Rotación Policía (6x6)</h4>
-                <p className="text-muted-foreground text-sm">6 días de trabajo, 6 días de descanso</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  Editar
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Eliminar
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge>Paso 1:</Badge>
-                <span className="text-sm">6 días - 08:00 a 16:00 (8h)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">Paso 2:</Badge>
-                <span className="text-sm">6 días - Descanso</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="rounded-lg border p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h4 className="font-medium">Rotación Bomberos (24x72)</h4>
-                <p className="text-muted-foreground text-sm">24 horas de trabajo, 72 horas de descanso</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  Editar
-                </Button>
-                <Button variant="ghost" size="sm">
-                  Eliminar
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Badge>Paso 1:</Badge>
-                <span className="text-sm">1 día - 00:00 a 24:00 (24h)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline">Paso 2:</Badge>
-                <span className="text-sm">3 días - Descanso</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
-            <Calendar className="mx-auto mb-2 h-8 w-8 opacity-50" />
-            <p>Haz clic en &quot;Nuevo Patrón&quot; para crear una rotación</p>
-          </div>
+        <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
+          <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
+          <p className="text-muted-foreground text-sm">
+            El editor de rotaciones está en desarrollo.
+            <br />
+            <span className="text-xs">Pronto podrás crear patrones como 6x6 (policía) o 24x72 (bomberos).</span>
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -487,60 +394,38 @@ function RotationScheduleEditor({ period }: { period: SchedulePeriod }) {
 // FLEXIBLE SCHEDULE EDITOR
 // ============================================================================
 
-function FlexibleScheduleEditor({ period }: { period: SchedulePeriod }) {
+function FlexibleScheduleEditor() {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-base">Horario Flexible</CardTitle>
-            <p className="text-muted-foreground mt-1 text-sm">
-              Define franjas obligatorias y franjas flexibles para cada día
-            </p>
+          <div className="flex items-center gap-3">
+            <div>
+              <CardTitle className="text-base">Horario Flexible</CardTitle>
+              <p className="text-muted-foreground mt-1 text-sm">
+                Define franjas obligatorias y franjas flexibles para cada día
+              </p>
+            </div>
+            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+              <Construction className="mr-1 h-3 w-3" />
+              En Desarrollo
+            </Badge>
           </div>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
             <Plus className="mr-2 h-4 w-4" />
-            Copiar Horario
+            Configurar
           </Button>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3">
-          {weekDays.slice(0, 5).map((day) => (
-            <div key={day.value} className="flex items-center gap-3 rounded-lg border p-3">
-              <div className="w-24">
-                <span className="font-medium">{day.label}</span>
-              </div>
-
-              <div className="flex-1">
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="default" className="text-xs">
-                      Obligatorio
-                    </Badge>
-                    <span className="text-sm">09:00 - 15:00 (6h)</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary" className="text-xs">
-                      Flexible
-                    </Badge>
-                    <span className="text-muted-foreground text-sm">07:00 - 09:00 y 15:00 - 19:00</span>
-                  </div>
-                </div>
-              </div>
-
-              <Button variant="outline" size="sm">
-                Editar
-              </Button>
-            </div>
-          ))}
-        </div>
-
-        <div className="bg-muted/50 mt-4 rounded-lg p-4">
+        <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
+          <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
           <p className="text-muted-foreground text-sm">
-            <strong>Ejemplo:</strong> Franja obligatoria de 09:00 a 15:00 (núcleo fijo). Franjas flexibles de 07:00 a
-            09:00 (entrada) y de 15:00 a 19:00 (salida). El empleado puede entrar entre 07:00 y 09:00, y salir entre
-            15:00 y 19:00, completando las horas totales.
+            El editor de horarios flexibles está en desarrollo.
+            <br />
+            <span className="text-xs">
+              Pronto podrás definir franjas obligatorias (núcleo fijo) y franjas flexibles de entrada/salida.
+            </span>
           </p>
         </div>
       </CardContent>

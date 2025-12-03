@@ -437,12 +437,17 @@ export async function getEffectiveScheduleForRange(
             presenceType: slot.presenceType,
             isMandatory: slot.presenceType === "MANDATORY",
             description: slot.description ?? undefined,
+            countsAsWork: slot.countsAsWork ?? true,
+            compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
           }));
 
           let expectedMinutes = 0;
           for (const slot of effectiveSlots) {
-            if (String(slot.slotType).trim().toUpperCase() !== "BREAK") {
-              expectedMinutes += slot.endMinutes - slot.startMinutes;
+            // BREAK nunca cuenta, incluso si countsAsWork está mal configurado
+            // countsAsWork permite configurar ON_CALL para que no cuente si corresponde
+            if (String(slot.slotType).trim().toUpperCase() !== "BREAK" && slot.countsAsWork !== false) {
+              const duration = slot.endMinutes - slot.startMinutes;
+              expectedMinutes += duration * (slot.compensationFactor ?? 1.0);
             }
           }
 
@@ -667,22 +672,25 @@ export async function getEffectiveSchedule(
     presenceType: slot.presenceType,
     isMandatory: slot.presenceType === "MANDATORY",
     description: slot.description ?? undefined,
+    countsAsWork: slot.countsAsWork ?? true,
+    compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
   }));
 
-  // Calcular minutos esperados (suma de slots que NO sean descanso)
-  // ⚠️ NOTA IMPORTANTE: En HORARIOS NORMALES usamos !== "BREAK" intencionalmente
-  // para INCLUIR slots ON_CALL como tiempo computado (guardias cuentan).
-  // Esto es diferente a excepciones donde usamos === "WORK" para excluir ON_CALL.
-  // NO CAMBIAR esta lógica - afectaría cálculos históricos de vacaciones y banco de horas.
+  // Calcular minutos esperados usando configuración de cada slot
+  // ⚠️ NOTA: La lógica ahora es configurable por slot:
+  // - BREAK nunca cuenta (doble-check de seguridad)
+  // - countsAsWork=false permite excluir ON_CALL si corresponde al sector
+  // - compensationFactor aplica multiplicador (1.5 nocturno, 1.75 festivo, etc.)
   let expectedMinutes = 0;
   for (const slot of effectiveSlots) {
     // Normalización defensiva para asegurar comparación correcta
     const typeStr = String(slot.slotType).trim().toUpperCase();
 
-    if (typeStr !== "BREAK") {
+    // BREAK nunca cuenta, incluso si countsAsWork está mal configurado
+    if (typeStr !== "BREAK" && slot.countsAsWork !== false) {
       const duration = slot.endMinutes - slot.startMinutes;
       if (duration > 0) {
-        expectedMinutes += duration;
+        expectedMinutes += duration * (slot.compensationFactor ?? 1.0);
       }
     }
   }
@@ -1555,13 +1563,15 @@ async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: 
     presenceType: slot.presenceType,
     isMandatory: slot.presenceType === "MANDATORY",
     description: slot.description ?? undefined,
+    countsAsWork: slot.countsAsWork ?? true,
+    compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
   }));
 
   // Calcular minutos esperados
   let expectedMinutes = 0;
   for (const slot of effectiveSlots) {
-    if (String(slot.slotType) !== "BREAK") {
-      expectedMinutes += slot.endMinutes - slot.startMinutes;
+    if (String(slot.slotType) !== "BREAK" && slot.countsAsWork !== false) {
+      expectedMinutes += (slot.endMinutes - slot.startMinutes) * (slot.compensationFactor ?? 1.0);
     }
   }
 

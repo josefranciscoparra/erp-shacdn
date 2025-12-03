@@ -2237,8 +2237,12 @@ model TimeSlot {
   startTimeMinutes Int // 0-1440 (minutos desde medianoche)
   endTimeMinutes   Int // 0-1440
 
-  slotType     TimeSlotType
-  presenceType PresenceType // MANDATORY (presencia obligatoria) o FLEXIBLE
+  slotType     TimeSlotType @default(WORK)
+  presenceType PresenceType @default(MANDATORY) // MANDATORY (presencia obligatoria) o FLEXIBLE
+
+  // Configuración ON_CALL - permite determinar si este slot cuenta como trabajo esperado
+  countsAsWork       Boolean @default(true) // TRUE para WORK normal, configurable para ON_CALL
+  compensationFactor Decimal @db.Decimal(4, 2) @default(1.00) // 1.00 = normal, 1.50 = nocturno, 1.75 = festivo
 
   description String? // "Pausa comida", "Guardia localizada"
 

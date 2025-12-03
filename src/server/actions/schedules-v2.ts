@@ -783,8 +783,8 @@ export async function updateSchedulePeriod(
     // FASE 2.3: Verificar solapamiento con períodos existentes del mismo tipo
     // Usar los valores nuevos o los actuales si no se proporcionan
     const periodType = data.periodType ?? currentPeriod.periodType;
-    const validFrom = data.validFrom !== undefined ? data.validFrom : currentPeriod.validFrom;
-    const validTo = data.validTo !== undefined ? data.validTo : currentPeriod.validTo;
+    const validFrom = data.validFrom ?? currentPeriod.validFrom;
+    const validTo = data.validTo ?? currentPeriod.validTo;
 
     const overlappingPeriod = await checkPeriodOverlap(
       currentPeriod.scheduleTemplateId,
@@ -2181,6 +2181,25 @@ export async function createShiftRotationPattern(
   try {
     const { orgId } = await requireOrg();
 
+    // Validar que los templates de los steps no sean de tipo ROTATION (evita ciclos)
+    if (input.steps && input.steps.length > 0) {
+      const templateIds = input.steps.map((s) => s.scheduleTemplateId).filter(Boolean);
+      if (templateIds.length > 0) {
+        const templates = await prisma.scheduleTemplate.findMany({
+          where: { id: { in: templateIds }, orgId },
+          select: { id: true, name: true, templateType: true },
+        });
+
+        const rotationTemplates = templates.filter((t) => t.templateType === "ROTATION");
+        if (rotationTemplates.length > 0) {
+          return {
+            success: false,
+            error: `No se pueden usar plantillas de tipo ROTATION en los pasos de una rotación (evita ciclos infinitos). Plantillas inválidas: ${rotationTemplates.map((t) => t.name).join(", ")}`,
+          };
+        }
+      }
+    }
+
     const pattern = await prisma.shiftRotationPattern.create({
       data: {
         orgId,
@@ -2227,6 +2246,23 @@ export async function updateShiftRotationPattern(
 
     // If steps provided, replace them (complex update)
     if (input.steps) {
+      // Validar que los templates de los steps no sean de tipo ROTATION (evita ciclos)
+      const templateIds = input.steps.map((s) => s.scheduleTemplateId).filter(Boolean);
+      if (templateIds.length > 0) {
+        const templates = await prisma.scheduleTemplate.findMany({
+          where: { id: { in: templateIds }, orgId },
+          select: { id: true, name: true, templateType: true },
+        });
+
+        const rotationTemplates = templates.filter((t) => t.templateType === "ROTATION");
+        if (rotationTemplates.length > 0) {
+          return {
+            success: false,
+            error: `No se pueden usar plantillas de tipo ROTATION en los pasos de una rotación (evita ciclos infinitos). Plantillas inválidas: ${rotationTemplates.map((t) => t.name).join(", ")}`,
+          };
+        }
+      }
+
       // Transaction to replace steps safely
       await prisma.$transaction(async (tx) => {
         await tx.shiftRotationStep.deleteMany({ where: { rotationPatternId: id } });
