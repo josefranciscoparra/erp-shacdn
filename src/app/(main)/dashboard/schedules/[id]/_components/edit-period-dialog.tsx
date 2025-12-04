@@ -26,17 +26,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateSchedulePeriod } from "@/server/actions/schedules-v2";
 
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(3, "El nombre debe tener al menos 3 caracteres")
-    .max(100, "El nombre no puede exceder 100 caracteres"),
-  periodType: z.enum(["REGULAR", "INTENSIVE", "SPECIAL"], {
-    required_error: "Debes seleccionar un tipo de período",
-  }),
-  validFrom: z.string().optional(),
-  validTo: z.string().optional(),
-});
+const formSchema = z
+  .object({
+    name: z
+      .string()
+      .min(3, "El nombre debe tener al menos 3 caracteres")
+      .max(100, "El nombre no puede exceder 100 caracteres"),
+    periodType: z.enum(["REGULAR", "INTENSIVE", "SPECIAL"], {
+      required_error: "Debes seleccionar un tipo de período",
+    }),
+    validFrom: z.string().optional(),
+    validTo: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Si ambas fechas están definidas, validTo debe ser >= validFrom
+      if (data.validFrom && data.validTo) {
+        return new Date(data.validTo) >= new Date(data.validFrom);
+      }
+      return true;
+    },
+    {
+      message: "La fecha de fin debe ser igual o posterior a la fecha de inicio",
+      path: ["validTo"],
+    },
+  );
 
 type FormValues = z.infer<typeof formSchema>;
 

@@ -713,6 +713,11 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
       return { success: false, error: "Plantilla no encontrada" };
     }
 
+    // Validar que validTo >= validFrom si ambas están definidas
+    if (data.validFrom && data.validTo && data.validTo < data.validFrom) {
+      return { success: false, error: "La fecha de fin debe ser igual o posterior a la fecha de inicio" };
+    }
+
     // FASE 2.3: Verificar solapamiento con períodos existentes del mismo tipo
     const overlappingPeriod = await checkPeriodOverlap(data.scheduleTemplateId, {
       validFrom: data.validFrom,
@@ -785,6 +790,11 @@ export async function updateSchedulePeriod(
     const periodType = data.periodType ?? currentPeriod.periodType;
     const validFrom = data.validFrom ?? currentPeriod.validFrom;
     const validTo = data.validTo ?? currentPeriod.validTo;
+
+    // Validar que validTo >= validFrom si ambas están definidas
+    if (validFrom && validTo && validTo < validFrom) {
+      return { success: false, error: "La fecha de fin debe ser igual o posterior a la fecha de inicio" };
+    }
 
     const overlappingPeriod = await checkPeriodOverlap(
       currentPeriod.scheduleTemplateId,
