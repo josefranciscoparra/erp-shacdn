@@ -1,9 +1,14 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { validateScopeOwnership } from "@/services/permissions/scope-helpers";
-import { type Permission, type Scope, ALLOWED_RESPONSIBLE_ROLES, type AllowedResponsibleRole } from "@/services/permissions";
 import { prisma } from "@/lib/prisma";
+import {
+  type Permission,
+  type Scope,
+  ALLOWED_RESPONSIBLE_ROLES,
+  type AllowedResponsibleRole,
+} from "@/services/permissions";
+import { validateScopeOwnership } from "@/services/permissions/scope-helpers";
 
 /**
  * Server Actions para gestión de responsabilidades de áreas

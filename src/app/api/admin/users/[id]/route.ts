@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canManageUsers } from "@/services/permissions";
 import { validateUserDeactivation } from "@/lib/user-validation";
+import { canManageUsers } from "@/services/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

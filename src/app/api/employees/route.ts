@@ -4,11 +4,11 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
-import { generateSafeEmployeeNumber } from "@/services/employees";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
+import { generateSafeEmployeeNumber } from "@/services/employees";
 
 export const runtime = "nodejs";
 

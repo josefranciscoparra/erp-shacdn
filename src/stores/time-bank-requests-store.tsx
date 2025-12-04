@@ -1,5 +1,6 @@
 "use client";
 
+import type { TimeBankRequest, TimeBankRequestStatus, TimeBankRequestType } from "@prisma/client";
 import { create } from "zustand";
 
 import {
@@ -8,8 +9,6 @@ import {
   cancelTimeBankRequest as cancelTimeBankRequestAction,
   type TimeBankRequestListResult,
 } from "@/server/actions/time-bank";
-
-import type { TimeBankRequest, TimeBankRequestStatus, TimeBankRequestType } from "@prisma/client";
 
 interface TimeBankRequestState {
   requests: TimeBankRequest[];

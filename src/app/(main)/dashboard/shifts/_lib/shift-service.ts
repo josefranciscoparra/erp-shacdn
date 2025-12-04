@@ -7,7 +7,6 @@
 
 "use client";
 
-import { minutesToTime, timeToMinutes } from "@/services/schedules";
 import {
   createManualShiftAssignment,
   deleteManualShiftAssignmentById,
@@ -32,6 +31,7 @@ import {
   restoreManualShiftAssignments,
   getAbsencesForRange,
 } from "@/server/actions/schedules-v2.ts";
+import { minutesToTime, timeToMinutes } from "@/services/schedules";
 
 import { formatDateISO } from "./shift-utils";
 import type {

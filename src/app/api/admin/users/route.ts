@@ -4,10 +4,8 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
-import { formatEmployeeNumber } from "@/services/employees";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
-import { canManageUsers } from "@/services/permissions";
 import {
   validateUserCreation,
   validateRoleChange,
@@ -16,6 +14,8 @@ import {
   validateName,
 } from "@/lib/user-validation";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
+import { formatEmployeeNumber } from "@/services/employees";
+import { canManageUsers } from "@/services/permissions";
 import { createUserSchema, createUserAdminSchema } from "@/validators/user";
 
 export const runtime = "nodejs";

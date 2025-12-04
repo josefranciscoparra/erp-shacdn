@@ -129,6 +129,9 @@ model Organization {
   userActiveContexts  UserActiveContext[]
   ManualShiftTemplate ManualShiftTemplate[]
 
+  // Audit logs
+  auditLogs AuditLog[]
+
   @@map("organizations")
 }
 
@@ -2841,6 +2844,46 @@ model UserActiveContext {
   @@index([orgId])
   @@index([activeScope])
   @@map("user_active_contexts")
+}
+
+// ==================== AUDIT LOG ====================
+// Registro de acciones administrativas críticas
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Acción realizada
+  action    String // DELETE_EMPLOYEE, DEACTIVATE_USER, etc.
+  category  String // EMPLOYEE, USER, ORGANIZATION, etc.
+
+  // Datos de la entidad afectada (guardados como snapshot)
+  entityId   String // ID de la entidad afectada
+  entityType String // Tipo de entidad (Employee, User, etc.)
+  entityData Json? // Snapshot de los datos antes de la acción
+
+  // Descripción legible
+  description String
+
+  // Usuario que realizó la acción
+  performedById    String
+  performedByEmail String
+  performedByName  String
+  performedByRole  String
+
+  // Organización (para filtrar por tenant)
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Metadatos adicionales
+  ipAddress String?
+  userAgent String?
+
+  @@index([orgId])
+  @@index([createdAt])
+  @@index([action])
+  @@index([performedById])
+  @@map("audit_logs")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

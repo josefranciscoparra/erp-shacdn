@@ -4,9 +4,9 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
-import { generateSafeEmployeeNumber } from "@/services/employees";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { generateSafeEmployeeNumber } from "@/services/employees";
 
 // Schema de validación para el wizard completo
 // NOTA: Los horarios se gestionan en Sistema de Horarios V2.0

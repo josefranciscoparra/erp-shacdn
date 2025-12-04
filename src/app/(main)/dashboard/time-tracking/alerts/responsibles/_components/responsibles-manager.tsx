@@ -18,13 +18,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { ALLOWED_RESPONSIBLE_ROLES } from "@/services/permissions";
 import {
   assignResponsibility,
   removeResponsibility,
   searchUsersForResponsibility,
 } from "@/server/actions/area-responsibilities";
 import type { ResponsibilityWithSubscription } from "@/server/actions/responsibilities";
+import { ALLOWED_RESPONSIBLE_ROLES } from "@/services/permissions";
 
 type ScopedResponsible = ResponsibilityWithSubscription & { responsibilityId: string };
 

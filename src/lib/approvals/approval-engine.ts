@@ -1,7 +1,7 @@
 import { TimeBankApprovalFlow } from "@prisma/client";
 
-import { Permission } from "@/services/permissions";
 import { prisma } from "@/lib/prisma";
+import { Permission } from "@/services/permissions";
 
 /**
  * Tipos de solicitud que requieren aprobación

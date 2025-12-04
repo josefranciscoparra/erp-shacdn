@@ -9,14 +9,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getAlertStats, getActiveAlerts } from "@/server/actions/alert-detection";
+import { getMySubscriptions } from "@/server/actions/alerts";
 import {
   getUserAccessibleCostCenters,
   getUserAccessibleDepartments,
   getUserAccessibleTeams,
 } from "@/services/permissions/scope-helpers";
-import { prisma } from "@/lib/prisma";
-import { getAlertStats, getActiveAlerts } from "@/server/actions/alert-detection";
-import { getMySubscriptions } from "@/server/actions/alerts";
 
 import { AlertsExplorer } from "./_components/alerts-explorer";
 

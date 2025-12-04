@@ -5,8 +5,8 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
-import { generateOrganizationPrefix } from "@/services/employees";
 import { prisma } from "@/lib/prisma";
+import { generateOrganizationPrefix } from "@/services/employees";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/validators/organization";
 
 export const runtime = "nodejs";

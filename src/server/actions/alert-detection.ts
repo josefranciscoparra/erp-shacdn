@@ -1,12 +1,12 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import {
   buildScopeFilter,
   getUserAccessibleCostCenters,
   getUserAccessibleTeams,
 } from "@/services/permissions/scope-helpers";
-import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 
 import { getOrganizationValidationConfig } from "./time-clock-validations";

@@ -76,6 +76,8 @@ export async function getAuthenticatedUser() {
     userId: user.id,
     orgId: user.orgId,
     role: user.role,
+    email: user.email,
+    name: user.name,
     employee: user.employee ?? null, // Puede ser null para admins sin empleado
   };
 }

@@ -8,13 +8,13 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+import { getResponsiblesForArea } from "@/server/actions/area-responsibilities";
 import {
   getUserAccessibleCostCenters,
   getUserAccessibleDepartments,
   getUserAccessibleTeams,
 } from "@/services/permissions/scope-helpers";
-import { prisma } from "@/lib/prisma";
-import { getResponsiblesForArea } from "@/server/actions/area-responsibilities";
 
 import { ResponsiblesManager } from "./_components/responsibles-manager";
 

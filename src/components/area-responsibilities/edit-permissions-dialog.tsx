@@ -18,12 +18,12 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import type { Scope } from "@/services/permissions";
 import {
   updateResponsibility,
   type AreaResponsibilityData,
   type Permission,
 } from "@/server/actions/area-responsibilities";
+import type { Scope } from "@/services/permissions";
 
 interface EditPermissionsDialogProps {
   responsibility: AreaResponsibilityData;

@@ -24,8 +24,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getExceptionDaysForTemplate, deleteExceptionDay } from "@/server/actions/schedules-v2";
 
-import { CreateExceptionDialog } from "./create-exception-dialog";
 import { ExceptionsCalendar, type ExceptionForCalendar } from "../../_components/exceptions-calendar";
+
+import { CreateExceptionDialog } from "./create-exception-dialog";
 
 interface ExceptionsTabProps {
   templateId: string;

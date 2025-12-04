@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -11,8 +11,10 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 
 import { AbsenceTypesTab } from "./_components/absence-types-tab";
+import { AdminTab } from "./_components/admin-tab";
 import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
@@ -24,6 +26,13 @@ import { TimeClockValidationsTab } from "./_components/time-clock-validations-ta
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  useEffect(() => {
+    getCurrentUserRole().then((role) => {
+      setIsSuperAdmin(role === "SUPER_ADMIN");
+    });
+  }, []);
 
   const tabs = useMemo(
     () => [
@@ -35,8 +44,9 @@ export default function SettingsPage() {
       { value: "validations", label: "Fichajes" },
       { value: "expenses", label: "Gastos" },
       { value: "system", label: "Sistema" },
+      ...(isSuperAdmin ? [{ value: "admin", label: "Admin" }] : []),
     ],
-    [],
+    [isSuperAdmin],
   );
 
   const initialTab = useMemo(() => {
@@ -76,7 +86,7 @@ export default function SettingsPage() {
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <div className="flex items-center justify-between gap-4">
             {/* Select para móvil */}
-            <Select value={activeTab} onValueChange={setActiveTab}>
+            <Select value={activeTab} onValueChange={handleTabChange}>
               <SelectTrigger className="w-full @4xl/main:hidden">
                 <SelectValue />
               </SelectTrigger>
@@ -130,6 +140,12 @@ export default function SettingsPage() {
           <TabsContent value="system" className="mt-4 md:mt-6">
             <SystemInfoTab />
           </TabsContent>
+
+          {isSuperAdmin && (
+            <TabsContent value="admin" className="mt-4 md:mt-6">
+              <AdminTab />
+            </TabsContent>
+          )}
         </Tabs>
       </div>
     </PermissionGuard>

@@ -23,13 +23,13 @@ import {
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
-import type { Scope } from "@/services/permissions";
 import { cn } from "@/lib/utils";
 import {
   assignResponsibility,
   searchUsersForResponsibility,
   type Permission,
 } from "@/server/actions/area-responsibilities";
+import type { Scope } from "@/services/permissions";
 
 interface AddResponsibleDialogProps {
   scope: Scope;

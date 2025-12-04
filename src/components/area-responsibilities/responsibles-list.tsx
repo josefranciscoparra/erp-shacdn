@@ -18,12 +18,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { Scope } from "@/services/permissions";
 import {
   getResponsiblesForArea,
   removeResponsibility,
   type AreaResponsibilityData,
 } from "@/server/actions/area-responsibilities";
+import type { Scope } from "@/services/permissions";
 
 import { AddResponsibleDialog } from "./add-responsible-dialog";
 import { EditPermissionsDialog } from "./edit-permissions-dialog";

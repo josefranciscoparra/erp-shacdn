@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
-import { hasPermission } from "@/services/permissions";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/services/permissions";
 
 export const runtime = "nodejs";
 

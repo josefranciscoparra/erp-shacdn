@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 import { Calendar, Plus } from "lucide-react";
 
 import { EmptyState } from "@/components/hr/empty-state";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getScheduleTemplates } from "@/server/actions/schedules-v2";
 
 import { CreateTemplateDialog } from "./create-template-dialog";
