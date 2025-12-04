@@ -69,8 +69,8 @@ export function QuickClockWidget() {
         try {
           const config = await getOrganizationGeolocationConfig();
           setGeolocationEnabled(config.geolocationEnabled);
-        } catch (error) {
-          console.error("Error al cargar config de geolocalización:", error);
+        } catch {
+          // Error al cargar config de geolocalización
         }
 
         // Detectar fichajes incompletos y verificar si ya fueron descartados
@@ -93,11 +93,11 @@ export function QuickClockWidget() {
               });
             }
           }
-        } catch (error) {
-          console.error("Error al detectar fichajes incompletos:", error);
+        } catch {
+          // Error al detectar fichajes incompletos
         }
-      } catch (error) {
-        console.error("Error al cargar datos iniciales:", error);
+      } catch {
+        // Error al cargar datos iniciales
       } finally {
         // Siempre marcar como montado, incluso si hay errores
         setIsInitialMount(false);
@@ -166,8 +166,6 @@ export function QuickClockWidget() {
 
       if (!locationData) {
         // Error al capturar GPS, pero permitir fichar sin ubicación
-        console.warn("Ubicación no disponible:", geolocation.error);
-
         // Mostrar mensaje específico para Safari en localhost
         if (geolocation.error?.includes("denegado") || geolocation.error?.includes("PERMISSION_DENIED")) {
           toast.warning("GPS no disponible", {
@@ -188,7 +186,6 @@ export function QuickClockWidget() {
 
       // Verificar precisión GPS
       if (locationData.accuracy > 100) {
-        console.warn(`Precisión GPS baja: ${Math.round(locationData.accuracy)}m`);
         toast.info("Precisión GPS baja", {
           description: `La precisión es de ${Math.round(locationData.accuracy)}m. Se recomienda estar al aire libre.`,
           duration: 4000,
@@ -197,8 +194,7 @@ export function QuickClockWidget() {
 
       // Fichar con geolocalización - pasar parámetros individuales
       await action(locationData.latitude, locationData.longitude, locationData.accuracy);
-    } catch (error) {
-      console.error("Error en proceso de geolocalización:", error);
+    } catch {
       toast.error("Error al capturar GPS", {
         description: "Fichaje registrado sin geolocalización.",
         duration: 4000,
@@ -240,9 +236,6 @@ export function QuickClockWidget() {
   const handleConsentDenied = () => {
     setShowConsentDialog(false);
     setPendingAction(null);
-
-    console.warn("Consentimiento de geolocalización denegado");
-    // TODO: Mostrar mensaje al usuario cuando se implemente el sistema de toast
   };
 
   // Handler para descartar notificación de fichaje incompleto
@@ -253,8 +246,8 @@ export function QuickClockWidget() {
       await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
       setHasIncompleteEntry(false);
       setIncompleteEntryInfo(null);
-    } catch (error) {
-      console.error("Error al descartar notificación:", error);
+    } catch {
+      // Error al descartar notificación
     }
   };
 

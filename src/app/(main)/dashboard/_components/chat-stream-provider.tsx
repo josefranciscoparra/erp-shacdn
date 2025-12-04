@@ -37,18 +37,14 @@ export function ChatStreamProvider({ enabled }: ChatStreamProviderProps) {
 
     const initializeUnreadCount = async () => {
       try {
-        console.log("[ChatStreamProvider] Inicializando contador global...");
-
         const res = await fetch("/api/chat/unread-count", { cache: "no-store" });
         const data = await res.json();
 
         if (data.totalUnread !== undefined) {
-          console.log("[ChatStreamProvider] Contador inicial:", data.totalUnread);
           setInitialUnreadCount(data.totalUnread);
           initializedRef.current = true;
         }
-      } catch (error) {
-        console.error("[ChatStreamProvider] Error al inicializar contador:", error);
+      } catch {
         // Fallback: inicializar en 0
         setInitialUnreadCount(0);
         initializedRef.current = true;
@@ -65,32 +61,17 @@ export function ChatStreamProvider({ enabled }: ChatStreamProviderProps) {
       const currentUserId = session?.user?.id;
       const isMyMessage = message.senderId === currentUserId;
 
-      console.log("[ChatStreamProvider] Mensaje SSE:", {
-        messageId: message.id,
-        senderId: message.senderId,
-        currentUserId,
-        isMyMessage,
-      });
-
       // SIEMPRE notificar al chat-container (para actualizar la lista)
       notifyNewMessage(message);
 
       // Solo incrementar contador si NO es mi mensaje
       if (!isMyMessage) {
-        console.log("[ChatStreamProvider] Incrementando contador (mensaje de otro usuario)");
         incrementUnreadCount(1);
-      } else {
-        console.log("[ChatStreamProvider] NO incrementando contador (es mi mensaje)");
       }
     },
     onConversationRead: ({ conversationId }) => {
-      console.log("[ChatStreamProvider] Conversación marcada como leída:", conversationId);
-
       // Notificar a otros componentes para que actualicen
       notifyConversationRead(conversationId);
-    },
-    onError: (error) => {
-      console.error("[ChatStreamProvider] Error en SSE:", error);
     },
   });
 

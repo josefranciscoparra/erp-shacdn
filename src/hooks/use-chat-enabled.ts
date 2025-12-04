@@ -17,8 +17,7 @@ export function useChatEnabled() {
         } else {
           setChatEnabled(false);
         }
-      } catch (error) {
-        console.error("Error fetching chat config:", error);
+      } catch {
         setChatEnabled(false);
       } finally {
         setIsLoading(false);

@@ -49,8 +49,6 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
   const connectSSE = () => {
     cleanup();
 
-    console.log("[SSE] Conectando al stream...");
-
     try {
       const eventSource = new EventSource("/api/chat/stream", {
         withCredentials: true,
@@ -59,7 +57,6 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
       eventSourceRef.current = eventSource;
 
       eventSource.onopen = () => {
-        console.log("[SSE] Conectado");
         setIsConnected(true);
         setReconnectAttempts(0);
         setTransport("sse");
@@ -86,18 +83,16 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
               onConversationRead?.(data.data as { conversationId: string });
               break;
             case "system":
-              console.log("[SSE] Sistema:", data.data);
               break;
             default:
-              console.log("[SSE] Evento desconocido:", data.type);
+              break;
           }
-        } catch (error) {
-          console.error("[SSE] Error procesando mensaje:", error);
+        } catch {
+          // Error procesando mensaje
         }
       });
 
-      eventSource.onerror = (error) => {
-        console.error("[SSE] Error:", error);
+      eventSource.onerror = () => {
         setIsConnected(false);
 
         eventSource.close();
@@ -107,21 +102,18 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
         setReconnectAttempts(attempts);
 
         if (attempts >= maxReconnectAttempts) {
-          console.log("[SSE] Máximo de intentos alcanzado, cambiando a polling");
           setTransport("polling");
           startPolling();
           return;
         }
 
         const delay = Math.min(1000 * Math.pow(2, attempts), 30000); // Max 30s
-        console.log(`[SSE] Reintentando en ${delay}ms (intento ${attempts}/${maxReconnectAttempts})`);
 
         reconnectTimeoutRef.current = setTimeout(() => {
           connectSSE();
         }, delay);
       };
     } catch (error) {
-      console.error("[SSE] Error al crear EventSource:", error);
       onError?.(error as Error);
 
       // Fallback a polling
@@ -134,7 +126,6 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
   const startPolling = () => {
     cleanup();
 
-    console.log("[POLLING] Iniciando polling cada 10s");
     setTransport("polling");
     setIsConnected(true);
 
@@ -144,7 +135,6 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
       try {
         // Aquí podrías hacer una petición GET para obtener mensajes nuevos desde lastCheck
         // Por simplicidad, este es un placeholder
-        console.log("[POLLING] Verificando mensajes...");
 
         // TODO: Implementar endpoint de polling si es necesario
         // const response = await fetch(`/api/chat/messages/since?timestamp=${lastCheck}`);
@@ -152,8 +142,8 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
         // messages.forEach(onMessage);
 
         lastCheck = new Date().toISOString();
-      } catch (error) {
-        console.error("[POLLING] Error:", error);
+      } catch {
+        // Error en polling
       }
     };
 

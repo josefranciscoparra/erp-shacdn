@@ -66,10 +66,8 @@ export function MyProfile({ initialData }: MyProfileProps) {
   const weeklyHours = initialData.activeContract ? `${initialData.activeContract.weeklyHours}h/semana` : "No definido";
 
   const handleAvatarUpload = async (file: File) => {
-    console.log("🔵 handleAvatarUpload - INICIO", file.name, file.size, file.type);
     try {
       // Convertir archivo a base64
-      console.log("⏳ Convirtiendo a base64...");
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onloadend = () => resolve(reader.result as string);
@@ -78,24 +76,18 @@ export function MyProfile({ initialData }: MyProfileProps) {
       });
 
       const base64Image = await base64Promise;
-      console.log("✅ Base64 generado, tamaño:", base64Image.length);
 
       // Subir usando server action
-      console.log("⏳ Llamando a updateProfilePhoto...");
       const result = await updateProfilePhoto(base64Image);
-      console.log("✅ Respuesta recibida:", result);
 
       if (result.success && result.photoUrl) {
         setCurrentPhotoUrl(result.photoUrl);
         toast.success("Foto de perfil actualizada correctamente");
-        console.log("🎉 Upload exitoso!");
         router.refresh();
       } else {
         toast.error(result.error ?? "Error al actualizar la foto");
-        console.error("❌ Upload falló:", result.error);
       }
-    } catch (error) {
-      console.error("❌ Error en upload:", error);
+    } catch {
       toast.error("Error al procesar la imagen");
     }
   };

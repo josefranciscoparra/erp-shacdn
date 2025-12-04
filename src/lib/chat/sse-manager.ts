@@ -68,10 +68,6 @@ class SSEManager {
     const userConnections = this.connections.get(userKey)!;
     userConnections.set(connectionId, connection);
 
-    console.log(
-      `[SSE] Nueva conexión: ${userKey}#${connectionId} (usuario: ${userConnections.size}, total: ${this.getTotalConnections()})`,
-    );
-
     return connectionId;
   }
 
@@ -83,7 +79,6 @@ class SSEManager {
     const userConnections = this.connections.get(userKey);
 
     if (!userConnections) {
-      console.log(`[SSE] Conexión no encontrada para cerrar: ${userKey}#${connectionId}`);
       return;
     }
 
@@ -92,10 +87,6 @@ class SSEManager {
     if (userConnections.size === 0) {
       this.connections.delete(userKey);
     }
-
-    console.log(
-      `[SSE] Conexión cerrada: ${userKey}#${connectionId} (usuario: ${userConnections.size}, total: ${this.getTotalConnections()})`,
-    );
   }
 
   /**
@@ -105,7 +96,6 @@ class SSEManager {
     const connections = this.getUserConnections(userId, orgId);
 
     if (!connections?.size) {
-      console.log(`[SSE] Usuario no conectado: ${orgId}:${userId}`);
       return;
     }
 
@@ -169,7 +159,6 @@ class SSEManager {
     const connections = this.getUserConnections(userId, orgId);
 
     if (!connections?.size) {
-      console.log(`[SSE] Usuario no conectado para broadcast: ${orgId}:${userId}`);
       return;
     }
 
@@ -204,8 +193,7 @@ class SSEManager {
       payload += `data: ${JSON.stringify(event)}\n\n`;
 
       connection.controller.enqueue(encoder.encode(payload));
-    } catch (error) {
-      console.error("[SSE] Error enviando evento:", error);
+    } catch {
       this.removeConnection(connection.userId, connection.orgId, connection.id);
     }
   }
@@ -223,8 +211,7 @@ class SSEManager {
         for (const connection of userConnections.values()) {
           try {
             connection.controller.enqueue(encoder.encode(heartbeat));
-          } catch (error) {
-            console.error(`[SSE] Error en heartbeat para ${userKey}#${connection.id}:`, error);
+          } catch {
             this.removeConnection(connection.userId, connection.orgId, connection.id);
           }
         }

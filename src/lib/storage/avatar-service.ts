@@ -9,16 +9,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 // Importar sharp dinámicamente para evitar crashes en el import
 let sharpInstance: typeof import("sharp") | null = null;
 async function getSharp() {
-  if (!sharpInstance) {
-    console.log("🔧 avatar-service: Cargando sharp dinámicamente...");
-    try {
-      sharpInstance = (await import("sharp")).default;
-      console.log("✅ avatar-service: Sharp cargado correctamente");
-    } catch (err) {
-      console.error("❌ avatar-service: Error cargando sharp:", err);
-      throw err;
-    }
-  }
+  sharpInstance ??= (await import("sharp")).default;
   return sharpInstance;
 }
 
@@ -33,12 +24,10 @@ export class AvatarUploadService {
    * Sube un avatar de usuario, redimensionándolo y optimizándolo
    */
   async uploadAvatar(orgId: string, userId: string, file: File | Buffer, mimeType?: string): Promise<string> {
-    console.log("🔵 uploadAvatar: INICIO - orgId:", orgId, "userId:", userId);
     let buffer: Buffer;
 
     // Convertir File a Buffer si es necesario
     if (file instanceof File) {
-      console.log("📁 uploadAvatar: File recibido, tipo:", file.type, "tamaño:", file.size);
       if (!ALLOWED_MIME_TYPES.includes(file.type)) {
         throw new Error(`Tipo de archivo no permitido. Solo se permiten: ${ALLOWED_MIME_TYPES.join(", ")}`);
       }
@@ -47,7 +36,6 @@ export class AvatarUploadService {
       }
       buffer = Buffer.from(await file.arrayBuffer());
     } else {
-      console.log("📁 uploadAvatar: Buffer recibido, tamaño:", file.length, "mimeType:", mimeType);
       buffer = file;
       if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType)) {
         throw new Error(`Tipo de archivo no permitido. Solo se permiten: ${ALLOWED_MIME_TYPES.join(", ")}`);
@@ -55,33 +43,23 @@ export class AvatarUploadService {
     }
 
     // Optimizar y redimensionar imagen
-    console.log("⏳ uploadAvatar: Optimizando imagen...");
     const optimizedBuffer = await this.optimizeAvatar(buffer);
-    console.log("✅ uploadAvatar: Imagen optimizada, tamaño:", optimizedBuffer.length);
 
     // Generar path para el avatar (siempre webp para consistencia)
     const extension = "webp";
     const path = `org-${orgId}/avatars/${userId}.${extension}`;
-    console.log("📁 uploadAvatar: Path generado:", path);
 
     // Subir usando el storage provider configurado (R2/Azure/Local)
-    console.log("⏳ uploadAvatar: Subiendo a storage provider...");
-    try {
-      const result = await this.storageProvider.upload(optimizedBuffer, path, {
-        mimeType: "image/webp",
-        overwrite: true,
-        metadata: {
-          orgId,
-          userId,
-          type: "avatar",
-        },
-      });
-      console.log("✅ uploadAvatar: Subida exitosa, URL:", result.url);
-      return result.url;
-    } catch (err) {
-      console.error("❌ uploadAvatar: Error en storage provider:", err);
-      throw err;
-    }
+    const result = await this.storageProvider.upload(optimizedBuffer, path, {
+      mimeType: "image/webp",
+      overwrite: true,
+      metadata: {
+        orgId,
+        userId,
+        type: "avatar",
+      },
+    });
+    return result.url;
   }
 
   /**
@@ -117,23 +95,14 @@ export class AvatarUploadService {
    * Optimiza y redimensiona una imagen para usar como avatar
    */
   private async optimizeAvatar(buffer: Buffer): Promise<Buffer> {
-    console.log("🔧 optimizeAvatar: Iniciando optimización...");
-    try {
-      const sharp = await getSharp();
-      console.log("🔧 optimizeAvatar: Sharp obtenido, procesando imagen...");
-      const result = await sharp(buffer)
-        .resize(AVATAR_SIZE, AVATAR_SIZE, {
-          fit: "cover",
-          position: "center",
-        })
-        .webp({ quality: 85 })
-        .toBuffer();
-      console.log("✅ optimizeAvatar: Imagen optimizada, tamaño:", result.length);
-      return result;
-    } catch (err) {
-      console.error("❌ optimizeAvatar: Error procesando imagen:", err);
-      throw err;
-    }
+    const sharp = await getSharp();
+    return await sharp(buffer)
+      .resize(AVATAR_SIZE, AVATAR_SIZE, {
+        fit: "cover",
+        position: "center",
+      })
+      .webp({ quality: 85 })
+      .toBuffer();
   }
 
   /**

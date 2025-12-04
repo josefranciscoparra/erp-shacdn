@@ -165,8 +165,6 @@ export function useReceiptOcr() {
 
       return parsedData;
     } catch (error) {
-      console.error("Error en OCR:", error);
-
       // Limpiar worker si quedó abierto
       if (worker) {
         try {

@@ -128,11 +128,9 @@ export const {
       },
       async authorize(credentials) {
         try {
-          console.log("🔍 Intento de login:", credentials?.email);
           // Validar entrada
           const validated = loginSchema.safeParse(credentials);
           if (!validated.success) {
-            console.error("❌ Validation failed:", validated.error);
             return null;
           }
 
@@ -152,22 +150,12 @@ export const {
             },
           });
 
-          console.log("🔎 Usuario encontrado:", user ? "SI" : "NO");
-          if (user) {
-            console.log("🔎 Organización incluida:", user.organization ? "SI" : "NO");
-            if (user.organization) {
-              console.log("🔎 Org activa:", user.organization.active);
-            }
-          }
-
           if (!user) {
-            console.error("User not found:", validated.data.email);
             return null;
           }
 
           // Verificar que la organización esté activa
           if (!user.organization || !user.organization.active) {
-            console.error("Organization inactive or missing for user:", user.email);
             return null;
           }
 
@@ -175,12 +163,10 @@ export const {
           const passwordValid = await bcrypt.compare(validated.data.password, user.password);
 
           if (!passwordValid) {
-            console.error("Invalid password for user:", user.email);
             return null;
           }
 
           // Retornar datos del usuario para el token
-          console.log("✅ Login exitoso para:", user.email, "Rol:", user.role);
           return {
             id: user.id,
             email: user.email,
@@ -191,8 +177,7 @@ export const {
             mustChangePassword: user.mustChangePassword,
             employeeId: user.employee?.id ?? null,
           };
-        } catch (error) {
-          console.error("Auth error:", error);
+        } catch {
           return null;
         }
       },
