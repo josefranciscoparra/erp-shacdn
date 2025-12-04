@@ -729,15 +729,28 @@ export async function getEffectiveSchedule(
 /**
  * Busca una ausencia (vacación, permiso, baja) para una fecha específica.
  * Ahora soporta ausencias parciales (con startTime/endTime).
+ *
+ * IMPORTANTE: Normaliza las fechas para comparación consistente.
+ * Usa el mismo patrón que getEffectiveScheduleForRange() para evitar
+ * problemas con horas (ej: endDate 00:00 vs date 12:00).
  */
 async function getAbsenceForDate(employeeId: string, date: Date) {
+  // Normalizar fecha a inicio y fin del día para comparación inclusiva
+  // Esto evita el bug donde endDate=00:00:00 no matchea con date=12:00:00
+  const dateStart = new Date(date);
+  dateStart.setHours(0, 0, 0, 0);
+
+  const dateEnd = new Date(date);
+  dateEnd.setHours(23, 59, 59, 999);
+
   return await prisma.ptoRequest
     .findFirst({
       where: {
         employeeId,
         status: "APPROVED",
-        startDate: { lte: date },
-        endDate: { gte: date },
+        // Si la ausencia empieza antes del fin de hoy Y termina después del inicio de hoy
+        startDate: { lte: dateEnd },
+        endDate: { gte: dateStart },
       },
       select: {
         id: true,
