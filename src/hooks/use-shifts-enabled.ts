@@ -13,7 +13,8 @@ export function useShiftsEnabled() {
         const response = await fetch("/api/shifts/config");
         const data = (await response.json()) as { shiftsEnabled: boolean };
         setShiftsEnabled(data.shiftsEnabled);
-      } catch {
+      } catch (error) {
+        console.error("Error al obtener configuración de turnos:", error);
         setShiftsEnabled(false);
       } finally {
         setLoading(false);

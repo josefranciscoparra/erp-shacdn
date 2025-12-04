@@ -87,7 +87,8 @@ export function MyProfile({ initialData }: MyProfileProps) {
       } else {
         toast.error(result.error ?? "Error al actualizar la foto");
       }
-    } catch {
+    } catch (error) {
+      console.error("Error al procesar imagen de perfil:", error);
       toast.error("Error al procesar la imagen");
     }
   };

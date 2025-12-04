@@ -177,7 +177,8 @@ export const {
             mustChangePassword: user.mustChangePassword,
             employeeId: user.employee?.id ?? null,
           };
-        } catch {
+        } catch (error) {
+          console.error("Auth error:", error);
           return null;
         }
       },

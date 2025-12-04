@@ -87,8 +87,8 @@ export function useChatStream(options: UseChatStreamOptions = {}) {
             default:
               break;
           }
-        } catch {
-          // Error procesando mensaje
+        } catch (error) {
+          console.error("[SSE] Error procesando mensaje:", error);
         }
       });
 

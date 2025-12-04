@@ -44,7 +44,8 @@ export function ChatStreamProvider({ enabled }: ChatStreamProviderProps) {
           setInitialUnreadCount(data.totalUnread);
           initializedRef.current = true;
         }
-      } catch {
+      } catch (error) {
+        console.error("Error al inicializar contador de mensajes no leídos:", error);
         // Fallback: inicializar en 0
         setInitialUnreadCount(0);
         initializedRef.current = true;

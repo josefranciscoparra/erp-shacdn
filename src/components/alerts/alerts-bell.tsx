@@ -52,8 +52,8 @@ export function AlertsBell() {
 
         setAlertsCount(count);
         setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
-      } catch {
-        // Error al cargar alertas
+      } catch (error) {
+        console.error("Error al cargar alertas:", error);
       } finally {
         setIsLoading(false);
       }
@@ -72,8 +72,8 @@ export function AlertsBell() {
 
         setAlertsCount(count);
         setRecentAlerts(alerts.slice(0, 5) as unknown as AlertSimple[]);
-      } catch {
-        // Error al cargar alertas
+      } catch (error) {
+        console.error("Error al cargar alertas:", error);
       } finally {
         setIsLoading(false);
       }

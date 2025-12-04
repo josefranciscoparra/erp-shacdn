@@ -17,7 +17,8 @@ export function useChatEnabled() {
         } else {
           setChatEnabled(false);
         }
-      } catch {
+      } catch (error) {
+        console.error("Error al obtener configuración de chat:", error);
         setChatEnabled(false);
       } finally {
         setIsLoading(false);

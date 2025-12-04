@@ -69,8 +69,8 @@ export function QuickClockWidget() {
         try {
           const config = await getOrganizationGeolocationConfig();
           setGeolocationEnabled(config.geolocationEnabled);
-        } catch {
-          // Error al cargar config de geolocalización
+        } catch (error) {
+          console.error("Error al cargar config de geolocalización:", error);
         }
 
         // Detectar fichajes incompletos y verificar si ya fueron descartados
@@ -93,11 +93,11 @@ export function QuickClockWidget() {
               });
             }
           }
-        } catch {
-          // Error al detectar fichajes incompletos
+        } catch (error) {
+          console.error("Error al detectar fichajes incompletos:", error);
         }
-      } catch {
-        // Error al cargar datos iniciales
+      } catch (error) {
+        console.error("Error al cargar datos iniciales:", error);
       } finally {
         // Siempre marcar como montado, incluso si hay errores
         setIsInitialMount(false);
@@ -194,7 +194,8 @@ export function QuickClockWidget() {
 
       // Fichar con geolocalización - pasar parámetros individuales
       await action(locationData.latitude, locationData.longitude, locationData.accuracy);
-    } catch {
+    } catch (error) {
+      console.error("Error al capturar GPS:", error);
       toast.error("Error al capturar GPS", {
         description: "Fichaje registrado sin geolocalización.",
         duration: 4000,
@@ -246,8 +247,8 @@ export function QuickClockWidget() {
       await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
       setHasIncompleteEntry(false);
       setIncompleteEntryInfo(null);
-    } catch {
-      // Error al descartar notificación
+    } catch (error) {
+      console.error("Error al descartar notificación:", error);
     }
   };
 
