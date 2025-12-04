@@ -73,16 +73,19 @@ const severityConfig = {
     icon: Info,
     variant: "default" as const,
     color: "text-blue-600 dark:text-blue-400",
+    label: "Info",
   },
   WARNING: {
     icon: AlertTriangle,
     variant: "warning" as const,
     color: "text-yellow-600 dark:text-yellow-400",
+    label: "Aviso",
   },
   CRITICAL: {
     icon: AlertCircle,
     variant: "destructive" as const,
     color: "text-red-600 dark:text-red-400",
+    label: "Crítico",
   },
 };
 
@@ -117,7 +120,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
               </div>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p>{severity}</p>
+              <p>{config.label}</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

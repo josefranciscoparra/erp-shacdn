@@ -13,6 +13,26 @@ import type { ResponsibilityWithSubscription } from "@/server/actions/responsibi
 
 import type { AlertRow } from "../../_components/alert-columns";
 
+// Labels para tipos de alerta
+const alertTypeLabels: Record<string, string> = {
+  DAILY_SUMMARY: "Resumen del Día",
+  LATE_ARRIVAL: "Llegada Tarde",
+  CRITICAL_LATE_ARRIVAL: "Llegada Tarde Crítica",
+  EARLY_DEPARTURE: "Salida Temprana",
+  CRITICAL_EARLY_DEPARTURE: "Salida Temprana Crítica",
+  MISSING_CLOCK_IN: "Falta Fichaje Entrada",
+  MISSING_CLOCK_OUT: "Falta Fichaje Salida",
+  EXCESSIVE_HOURS: "Horas Excesivas",
+  NON_WORKDAY_CLOCK_IN: "Fichaje Día No Laboral",
+};
+
+// Labels para severidad
+const severityLabels: Record<string, string> = {
+  INFO: "Info",
+  WARNING: "Aviso",
+  CRITICAL: "Crítico",
+};
+
 type AlertStats = {
   total: number;
   active: number;
@@ -322,7 +342,7 @@ export function AlertsExplorer({
                       >
                         <div className="flex items-center gap-2">
                           <span className="bg-primary h-2 w-2 rounded-full" />
-                          {item.severity}
+                          {severityLabels[item.severity] ?? item.severity}
                         </div>
                         <span className="font-medium">{item.count}</span>
                       </div>
@@ -346,7 +366,7 @@ export function AlertsExplorer({
                           key={item.type}
                           className="flex items-center justify-between rounded-md border p-2 text-sm"
                         >
-                          <span>{item.type.replace(/_/g, " ")}</span>
+                          <span>{alertTypeLabels[item.type] ?? item.type}</span>
                           <Badge variant="secondary">{item.count}</Badge>
                         </div>
                       ))}
@@ -373,7 +393,7 @@ export function AlertsExplorer({
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs">
-                        {alert.severity}
+                        {severityLabels[alert.severity] ?? alert.severity}
                       </Badge>
                     </div>
                   ))}

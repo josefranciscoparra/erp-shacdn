@@ -77,6 +77,7 @@ type DateRange = {
 };
 
 const ALERT_TYPES = [
+  { value: "DAILY_SUMMARY", label: "Resumen del Día" },
   { value: "LATE_ARRIVAL", label: "Entrada tardía" },
   { value: "CRITICAL_LATE_ARRIVAL", label: "Entrada crítica" },
   { value: "EARLY_DEPARTURE", label: "Salida temprana" },
@@ -86,6 +87,13 @@ const ALERT_TYPES = [
   { value: "NON_WORKDAY_CLOCK_IN", label: "Fichaje día no laboral" },
   { value: "EXCESSIVE_HOURS", label: "Horas excesivas" },
 ];
+
+// Labels para severidad
+const SEVERITY_LABELS: Record<string, string> = {
+  INFO: "Info",
+  WARNING: "Aviso",
+  CRITICAL: "Crítico",
+};
 
 export default function AlertsPage() {
   // ========== SCOPE MODE: "mine" (mis suscripciones) | "all" (según contexto activo) ==========
@@ -465,7 +473,7 @@ export default function AlertsPage() {
                           <div className="flex items-center justify-between text-sm">
                             <span className="flex items-center gap-2">
                               <span className={`h-2 w-2 rounded-full ${color}`} />
-                              {item.severity}
+                              {SEVERITY_LABELS[item.severity] ?? item.severity}
                             </span>
                             <span className="text-muted-foreground text-xs">
                               {item.count} ({pct}%)
@@ -693,7 +701,9 @@ export default function AlertsPage() {
               <div className="bg-muted space-y-2 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-semibold">{selectedAlert.title}</span>
-                  <Badge variant={selectedAlert.severity as any}>{selectedAlert.severity}</Badge>
+                  <Badge variant={selectedAlert.severity as any}>
+                    {SEVERITY_LABELS[selectedAlert.severity] ?? selectedAlert.severity}
+                  </Badge>
                 </div>
                 <Separator />
                 <div className="grid grid-cols-2 gap-2 text-sm">
@@ -799,7 +809,9 @@ export default function AlertsPage() {
                 <div className="flex-1">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold">{selectedAlert.title}</h3>
-                    <Badge variant="outline">{selectedAlert.type.replace(/_/g, " ")}</Badge>
+                    <Badge variant="outline">
+                      {ALERT_TYPES.find((t) => t.value === selectedAlert.type)?.label ?? selectedAlert.type}
+                    </Badge>
                   </div>
                   <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
                 </div>
@@ -857,7 +869,7 @@ export default function AlertsPage() {
                                 variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
                                 className="h-5 px-1.5 text-[10px]"
                               >
-                                {incident.severity}
+                                {SEVERITY_LABELS[incident.severity] ?? incident.severity}
                               </Badge>
                             </div>
                             <div className="flex-1 space-y-1">
