@@ -298,14 +298,14 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 
 ---
 
-### 2.4 Mejoras menores
+### 2.4 Mejoras menores ✅
 
-#### Validación de fechas en períodos
-- [ ] No permitir `validTo < validFrom`
+#### Validación de fechas en períodos ✅
+- [x] No permitir `validTo < validFrom` - Validación en Zod (frontend) + server actions (backend)
 
-#### Turnos nocturnos (si hay bug)
-- [ ] Verificar si 22:00-06:00 calcula bien
-- [ ] Solo arreglar si hay problema real
+#### Turnos nocturnos (backlog)
+- [x] Verificar si 22:00-06:00 calcula bien - Validaciones de solapamiento funcionan ✅
+- [ ] Distribuir expectedMinutes entre días - En backlog para futuro
 
 ---
 
@@ -318,3 +318,6 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 | 2025-12-03 | Completados 5 items críticos de Fase 1 | Claude |
 | 2025-12-03 | Añadida Fase 2: Organización y Limpieza | Claude |
 | 2025-12-03 | Fase 2.3 completada: Sidebar reorganizado + editores mejorados | Claude |
+| 2025-12-04 | Fix bug vacaciones en /dashboard/me/clock (normalización fechas) | Claude |
+| 2025-12-04 | Validación fechas períodos (validTo >= validFrom) | Claude |
+| 2025-12-04 | Turnos nocturnos verificados, distribución horas en backlog | Claude |
