@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import dynamic from "next/dynamic";
+
 import { HierarchyType } from "@prisma/client";
 import { Download, Loader2, Network, Search } from "lucide-react";
 import { toast } from "sonner";
@@ -11,11 +13,50 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { OrgChartDepartmental } from "./_components/org-chart-departmental";
-import { OrgChartFlat } from "./_components/org-chart-flat";
-import { OrgChartHierarchical } from "./_components/org-chart-hierarchical";
 import type { EmployeeNodeData } from "./_components/org-chart-node";
-import { OrgChartUnified } from "./_components/org-chart-unified";
+
+// Importación dinámica para evitar SSR - react-organizational-chart usa `document`
+const OrgChartDepartmental = dynamic(
+  () => import("./_components/org-chart-departmental").then((m) => m.OrgChartDepartmental),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    ),
+  },
+);
+
+const OrgChartFlat = dynamic(() => import("./_components/org-chart-flat").then((m) => m.OrgChartFlat), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center py-8">
+      <Loader2 className="h-6 w-6 animate-spin" />
+    </div>
+  ),
+});
+
+const OrgChartHierarchical = dynamic(
+  () => import("./_components/org-chart-hierarchical").then((m) => m.OrgChartHierarchical),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin" />
+      </div>
+    ),
+  },
+);
+
+const OrgChartUnified = dynamic(() => import("./_components/org-chart-unified").then((m) => m.OrgChartUnified), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center py-8">
+      <Loader2 className="h-6 w-6 animate-spin" />
+    </div>
+  ),
+});
 
 interface DepartmentNode {
   id: string;
