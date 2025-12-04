@@ -18,7 +18,17 @@ import {
 } from "@tanstack/react-table";
 import { endOfDay, format, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, AlertTriangle, CheckCircle2, Filter, Info, RefreshCw, Target } from "lucide-react";
+import {
+  AlertCircle,
+  AlertTriangle,
+  CheckCircle2,
+  Filter,
+  Info,
+  Network,
+  RefreshCw,
+  Settings2,
+  Target,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTable } from "@/components/data-table/data-table";
@@ -44,6 +54,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   getActiveAlerts,
   resolveAlert,
@@ -96,6 +107,9 @@ const SEVERITY_LABELS: Record<string, string> = {
 };
 
 export default function AlertsPage() {
+  const { hasPermission } = usePermissions();
+  const canManageUsers = hasPermission("manage_users");
+
   // ========== SCOPE MODE: "mine" (mis suscripciones) | "all" (según contexto activo) ==========
   const [scopeMode, setScopeMode] = useState<"mine" | "all">("mine");
 
@@ -354,7 +368,21 @@ export default function AlertsPage() {
             title="Panel de Alertas"
             description="Gestiona las incidencias de fichajes y control horario."
           />
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/dashboard/time-tracking/alerts/explorer">
+                <Network className="mr-2 h-4 w-4" />
+                Explorador
+              </Link>
+            </Button>
+            {canManageUsers && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/time-tracking/alerts/responsibles">
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Responsables
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
             </Button>
