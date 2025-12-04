@@ -290,6 +290,12 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 
 **Archivo**: `week-schedule-editor.tsx`
 
+#### Limitar creación de plantillas ✅
+- [x] Solo permitir crear FIXED y FLEXIBLE desde `/schedules`
+- [x] Añadir nota informativa con enlace al Cuadrante para turnos
+
+**Archivo**: `create-template-dialog.tsx`
+
 ---
 
 ### 2.4 Mejoras menores

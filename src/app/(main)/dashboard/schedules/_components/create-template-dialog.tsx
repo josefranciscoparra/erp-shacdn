@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus } from "lucide-react";
+import { CalendarClock, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +34,8 @@ const formSchema = z.object({
     .min(3, "El nombre debe tener al menos 3 caracteres")
     .max(100, "El nombre no puede exceder 100 caracteres"),
   description: z.string().optional(),
-  templateType: z.enum(["FIXED", "SHIFT", "ROTATION", "FLEXIBLE"], {
+  // Solo FIXED y FLEXIBLE se crean desde aquí. SHIFT y ROTATION se gestionan desde el Cuadrante.
+  templateType: z.enum(["FIXED", "FLEXIBLE"], {
     required_error: "Debes seleccionar un tipo de horario",
   }),
 });
@@ -140,20 +143,6 @@ export function CreateTemplateDialog() {
                           </span>
                         </div>
                       </SelectItem>
-                      <SelectItem value="SHIFT">
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">Turnos</span>
-                          <span className="text-muted-foreground text-xs">Turnos asignados (mañana, tarde, noche)</span>
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="ROTATION">
-                        <div className="flex flex-col items-start">
-                          <span className="font-medium">Rotación</span>
-                          <span className="text-muted-foreground text-xs">
-                            Rotaciones (policía 6x6, bomberos 24x72)
-                          </span>
-                        </div>
-                      </SelectItem>
                       <SelectItem value="FLEXIBLE">
                         <div className="flex flex-col items-start">
                           <span className="font-medium">Flexible</span>
@@ -169,6 +158,16 @@ export function CreateTemplateDialog() {
                 </FormItem>
               )}
             />
+
+            <Alert className="border-muted bg-muted/30">
+              <CalendarClock className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                ¿Necesitas gestionar <strong>turnos rotativos</strong> (mañana, tarde, noche)?{" "}
+                <Link href="/dashboard/shifts" className="text-primary underline-offset-4 hover:underline">
+                  Ir al Cuadrante de Turnos
+                </Link>
+              </AlertDescription>
+            </Alert>
 
             <FormField
               control={form.control}
