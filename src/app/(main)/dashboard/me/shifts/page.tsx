@@ -28,6 +28,14 @@ import { MyShiftsMetricsCards } from "./_components/my-shifts-metrics";
 import { ShiftChangeRequestDialog } from "./_components/shift-change-request-dialog";
 import type { MyShiftsMetrics } from "./_lib/my-shifts-types";
 
+// Helper: Formatear múltiples franjas horarias para jornadas partidas
+function formatMultipleSlots(shifts: Shift[]): string {
+  return [...shifts]
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+    .map((s) => formatShiftTime(s.startTime, s.endTime))
+    .join(" / ");
+}
+
 // Helper: Determinar tipo de turno según hora de inicio
 function getShiftType(shift: Shift): "morning" | "afternoon" | "night" | "vacation" {
   // Si es vacaciones o ausencia, forzamos tipo vacation para el color
@@ -240,10 +248,6 @@ export default function MyShiftsPage() {
                   const hasAbsence = absenceShifts.length > 0;
 
                   // Si hay trabajo y ausencia, mostramos trabajo con indicador (split card).
-                  // Si solo hay ausencia, mostramos ausencia.
-                  // Si solo hay trabajo, mostramos trabajo.
-                  // Fallback a dayShifts si algo raro pasa.
-                  const visibleShifts = hasWork ? workShifts : hasAbsence ? absenceShifts : dayShifts;
                   const showAbsenceIndicator = hasWork && hasAbsence;
 
                   return (
@@ -255,21 +259,36 @@ export default function MyShiftsPage() {
                         </div>
                       )}
 
-                      {/* Turnos del día */}
+                      {/* Turnos del día - Consolidado en UNA sola tarjeta */}
                       {hasShifts ? (
-                        visibleShifts.map((shift) => {
-                          const shiftType = getShiftType(shift);
+                        (() => {
+                          // Ordenar turnos por hora de inicio para consolidar
+                          const sortedWorkShifts = [...workShifts].sort((a, b) =>
+                            a.startTime.localeCompare(b.startTime),
+                          );
+
+                          // Usar el PRIMER turno para clasificación (tipo, color, etiqueta)
+                          const primaryShift = sortedWorkShifts[0] ?? absenceShifts[0];
+                          if (!primaryShift) return null;
+
+                          const shiftType = getShiftType(primaryShift);
                           const colors = getShiftColors(shiftType);
 
                           let label = getShiftLabel(shiftType);
-                          if (shift.role?.toLowerCase().includes("ausencia")) label = "Ausencia";
+                          if (primaryShift.role?.toLowerCase().includes("ausencia")) label = "Ausencia";
 
-                          const isFullDayVacation = shiftType === "vacation" && shift.startTime === "00:00";
+                          const isFullDayVacation = shiftType === "vacation" && primaryShift.startTime === "00:00";
+
+                          // Formatear horas: si hay múltiples turnos de trabajo, mostrar todas las franjas
+                          const formattedTime =
+                            sortedWorkShifts.length > 1
+                              ? formatMultipleSlots(sortedWorkShifts)
+                              : formatShiftTime(primaryShift.startTime, primaryShift.endTime);
 
                           return (
                             <button
-                              key={shift.id}
-                              onClick={() => handleShiftClick(shift)}
+                              key={primaryShift.id}
+                              onClick={() => handleShiftClick(primaryShift)}
                               className={cn(
                                 "relative h-full w-full overflow-hidden rounded-lg border border-transparent text-left transition-all hover:scale-[1.02] hover:opacity-90",
                                 // Si hay indicador de ausencia (mixto), usamos un fondo base neutro o del trabajo,
@@ -298,9 +317,7 @@ export default function MyShiftsPage() {
                                     </div>
                                     {/* Hora solo desktop */}
                                     <div className="hidden justify-end md:flex">
-                                      <span className="text-[9px] font-medium opacity-80">
-                                        {formatShiftTime(shift.startTime, shift.endTime)}
-                                      </span>
+                                      <span className="text-[9px] font-medium opacity-80">{formattedTime}</span>
                                     </div>
                                   </div>
 
@@ -339,9 +356,7 @@ export default function MyShiftsPage() {
                                       </div>
 
                                       <div className="hidden justify-end md:flex">
-                                        <span className="text-[9px] font-medium opacity-80">
-                                          {formatShiftTime(shift.startTime, shift.endTime)}
-                                        </span>
+                                        <span className="text-[9px] font-medium opacity-80">{formattedTime}</span>
                                       </div>
                                     </div>
                                   )}
@@ -349,7 +364,7 @@ export default function MyShiftsPage() {
                               )}
                             </button>
                           );
-                        })
+                        })()
                       ) : (
                         // Días sin turnos
                         <div
