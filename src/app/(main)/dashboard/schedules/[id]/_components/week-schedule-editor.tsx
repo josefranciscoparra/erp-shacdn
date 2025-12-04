@@ -240,7 +240,11 @@ function DayScheduleRow({
 
       {isWorkingDay && pattern ? (
         <>
-          <div className="flex-1">
+          <div className="flex-1 space-y-2">
+            {/* Timeline visual */}
+            <TimelineBar timeSlots={pattern.timeSlots} />
+
+            {/* Badges con horarios */}
             <div className="flex flex-wrap items-center gap-2">
               {pattern.timeSlots.map((slot) => (
                 <Badge key={slot.id} variant="secondary" className="text-xs">
@@ -290,6 +294,83 @@ function DayScheduleRow({
           <EditDayScheduleDialog periodId={period.id} dayOfWeek={day.value} dayLabel={day.label} />
         </>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// TIMELINE BAR - Visualización de franjas horarias
+// ============================================================================
+
+interface TimelineBarProps {
+  timeSlots: Array<{
+    id: string;
+    startTimeMinutes: number;
+    endTimeMinutes: number;
+    slotType?: string;
+  }>;
+}
+
+function TimelineBar({ timeSlots }: TimelineBarProps) {
+  // Timeline de 6:00 a 22:00 (jornada laboral típica)
+  const START_HOUR = 6;
+  const END_HOUR = 22;
+  const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60; // 960 minutos
+
+  // Calcular posición y ancho de cada slot
+  const slots = timeSlots.map((slot) => {
+    const startOffset = Math.max(0, slot.startTimeMinutes - START_HOUR * 60);
+    const endOffset = Math.min(TOTAL_MINUTES, slot.endTimeMinutes - START_HOUR * 60);
+    const left = (startOffset / TOTAL_MINUTES) * 100;
+    const width = ((endOffset - startOffset) / TOTAL_MINUTES) * 100;
+
+    return {
+      id: slot.id,
+      left: `${left}%`,
+      width: `${Math.max(width, 1)}%`, // Mínimo 1% para que sea visible
+      slotType: slot.slotType ?? "WORK",
+    };
+  });
+
+  // Marcadores de hora (6, 9, 12, 15, 18, 21)
+  const hourMarkers = [6, 9, 12, 15, 18, 21];
+
+  return (
+    <div className="relative">
+      {/* Barra base (fondo gris) */}
+      <div className="bg-muted relative h-3 w-full overflow-hidden rounded-full">
+        {/* Franjas horarias coloreadas */}
+        {slots.map((slot) => (
+          <div
+            key={slot.id}
+            className={`absolute top-0 h-full rounded-full ${
+              slot.slotType === "BREAK"
+                ? "bg-amber-400 dark:bg-amber-500"
+                : slot.slotType === "ON_CALL"
+                  ? "bg-purple-400 dark:bg-purple-500"
+                  : "bg-primary"
+            }`}
+            style={{ left: slot.left, width: slot.width }}
+            title={slot.slotType}
+          />
+        ))}
+      </div>
+
+      {/* Marcadores de hora */}
+      <div className="relative mt-1 flex justify-between px-0.5">
+        {hourMarkers.map((hour) => {
+          const position = ((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100;
+          return (
+            <span
+              key={hour}
+              className="text-muted-foreground text-[10px]"
+              style={{ position: "absolute", left: `${position}%`, transform: "translateX(-50%)" }}
+            >
+              {hour}h
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

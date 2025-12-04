@@ -90,6 +90,7 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
     try {
       let successCount = 0;
       let errorCount = 0;
+      let closedAssignmentsCount = 0;
 
       // Asignar cada empleado seleccionado
       for (const employeeId of selectedEmployeeIds) {
@@ -103,14 +104,23 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
 
         if (result.success) {
           successCount++;
+          // Contar asignaciones previas cerradas
+          if (result.data?.closedPreviousAssignments) {
+            closedAssignmentsCount += result.data.closedPreviousAssignments;
+          }
         } else {
           errorCount++;
         }
       }
 
       if (successCount > 0) {
+        let description = `Se ha${successCount > 1 ? "n" : ""} asignado correctamente a "${templateName}"`;
+        // Informar si se cerraron asignaciones previas
+        if (closedAssignmentsCount > 0) {
+          description += `. ${closedAssignmentsCount} asignación${closedAssignmentsCount > 1 ? "es" : ""} anterior${closedAssignmentsCount > 1 ? "es fueron cerradas" : " fue cerrada"}.`;
+        }
         toast.success(`${successCount} empleado${successCount > 1 ? "s" : ""} asignado${successCount > 1 ? "s" : ""}`, {
-          description: `Se ha${successCount > 1 ? "n" : ""} asignado correctamente a "${templateName}"`,
+          description,
         });
         setOpen(false);
         setSelectedEmployeeIds([]);

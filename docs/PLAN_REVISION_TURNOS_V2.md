@@ -217,14 +217,14 @@ npx prisma migrate dev --name add_exception_scope_constraint
 ### UI
 - [ ] Implementar editor SHIFT completo
 - [ ] Implementar editor ROTATION completo
-- [ ] Validaciones en asignación de empleados (duplicados, fechas)
-- [ ] Validación de fechas en períodos (validTo > validFrom)
-- [ ] Timeline visual de franjas horarias
+- [x] Validaciones en asignación de empleados (duplicados, fechas) ✅ COMPLETADO
+- [x] Validación de fechas en períodos (validTo > validFrom) ✅ COMPLETADO
+- [x] Timeline visual de franjas horarias ✅ COMPLETADO
 
 ### Modelo
 - [ ] Corregir unique en ManualShiftAssignment (permitir borradores)
 - [ ] onDelete en FK de ShiftRotationStep
-- [ ] Índices de rango para reportes (`@@index([employeeId, startDate, endDate])`)
+- [x] Índices de rango para reportes ✅ COMPLETADO (WorkdaySummary, PtoRequest, ManualShiftAssignment)
 - [ ] Campos para jornada comprimida
 - [ ] Enum ExceptionType más completo
 
@@ -321,3 +321,6 @@ Hay **DOS sistemas** que funcionan para lo mismo (fichajes, vacaciones):
 | 2025-12-04 | Fix bug vacaciones en /dashboard/me/clock (normalización fechas) | Claude |
 | 2025-12-04 | Validación fechas períodos (validTo >= validFrom) | Claude |
 | 2025-12-04 | Turnos nocturnos verificados, distribución horas en backlog | Claude |
+| 2025-12-04 | Timeline visual de franjas horarias (6h-22h) | Claude |
+| 2025-12-04 | Validaciones en asignación de empleados + info asignaciones cerradas | Claude |
+| 2025-12-04 | Índices BD para reportes (WorkdaySummary, PtoRequest, ManualShiftAssignment) | Claude |

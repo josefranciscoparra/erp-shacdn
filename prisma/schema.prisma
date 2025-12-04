@@ -809,6 +809,10 @@ model WorkdaySummary {
   @@index([employeeId])
   @@index([date])
   @@index([status])
+  // Índices compuestos para reportes (FASE 3 - Organización)
+  @@index([employeeId, date]) // Reportes mensuales/semanales por empleado
+  @@index([orgId, date]) // Reportes globales de un día
+  @@index([orgId, employeeId, status]) // Reportes de incidencias por empleado
   @@map("workday_summaries")
 }
 
@@ -1198,6 +1202,10 @@ model PtoRequest {
   @@index([status])
   @@index([startDate])
   @@index([submittedAt])
+  // Índices compuestos para reportes (FASE 3 - Organización)
+  @@index([employeeId, startDate, endDate]) // Vacaciones por empleado y rango
+  @@index([orgId, status, startDate]) // Reportes de solicitudes pendientes
+  @@index([employeeId, status]) // Estado de vacaciones por empleado
   @@map("pto_requests")
 }
 
@@ -2298,6 +2306,10 @@ model ManualShiftAssignment {
   @@index([workZoneId])
   @@index([status])
   @@index([date])
+  // Índices compuestos para reportes (FASE 3 - Organización)
+  @@index([orgId, date]) // Cuadrante diario (todos los turnos de un día)
+  @@index([orgId, date, status]) // Cuadrante publicado de un día
+  @@index([costCenterId, date]) // Turnos por centro y día
   @@map("manual_shift_assignments")
 }
 

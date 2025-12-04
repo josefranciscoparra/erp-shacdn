@@ -983,9 +983,17 @@ export async function copyWorkDayPattern(
  */
 export async function assignScheduleToEmployee(
   data: CreateEmployeeScheduleAssignmentInput,
-): Promise<ActionResponse<{ id: string }>> {
+): Promise<ActionResponse<{ id: string; closedPreviousAssignments?: number }>> {
   try {
     const { orgId } = await requireOrg();
+
+    // Validar que validTo >= validFrom si ambas están definidas
+    if (data.validFrom && data.validTo && data.validTo < data.validFrom) {
+      return {
+        success: false,
+        error: "La fecha de fin debe ser igual o posterior a la fecha de inicio",
+      };
+    }
 
     // Verificar que el empleado existe y pertenece a la org
     const employee = await prisma.employee.findUnique({
@@ -1076,7 +1084,7 @@ export async function assignScheduleToEmployee(
 
     // FASE 3.1: Usar transacción atómica para cierre + creación
     // Esto garantiza que no quedan múltiples asignaciones activas para el mismo rango
-    const assignment = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // Cerrar fecha de asignaciones anteriores que se solapen
       // En lugar de desactivarlas (isActive: false), ajustamos su validTo
       // al día anterior del nuevo horario para mantener el historial correcto
@@ -1084,6 +1092,25 @@ export async function assignScheduleToEmployee(
       dayBeforeNew.setDate(dayBeforeNew.getDate() - 1);
       dayBeforeNew.setHours(23, 59, 59, 999);
 
+      // Primero contamos cuántas asignaciones se van a cerrar (para informar al usuario)
+      const overlappingAssignments = await tx.employeeScheduleAssignment.count({
+        where: {
+          employeeId: data.employeeId,
+          isActive: true,
+          OR: [
+            {
+              validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
+              validTo: { gte: data.validFrom },
+            },
+            {
+              validFrom: { lte: data.validTo ?? new Date("2100-12-31") },
+              validTo: null,
+            },
+          ],
+        },
+      });
+
+      // Cerrar las asignaciones solapadas
       await tx.employeeScheduleAssignment.updateMany({
         where: {
           employeeId: data.employeeId,
@@ -1106,7 +1133,7 @@ export async function assignScheduleToEmployee(
       });
 
       // Crear nueva asignación dentro de la misma transacción
-      return tx.employeeScheduleAssignment.create({
+      const assignment = await tx.employeeScheduleAssignment.create({
         data: {
           employeeId: data.employeeId,
           assignmentType: assignmentType,
@@ -1118,9 +1145,17 @@ export async function assignScheduleToEmployee(
           isActive: true,
         },
       });
+
+      return { assignment, closedCount: overlappingAssignments };
     });
 
-    return { success: true, data: { id: assignment.id } };
+    return {
+      success: true,
+      data: {
+        id: result.assignment.id,
+        closedPreviousAssignments: result.closedCount,
+      },
+    };
   } catch (error) {
     console.error("Error assigning schedule to employee:", error);
     return { success: false, error: "Error al asignar horario" };
