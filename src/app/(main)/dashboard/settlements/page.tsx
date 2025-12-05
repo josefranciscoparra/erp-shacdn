@@ -89,12 +89,12 @@ export default function SettlementsPage() {
 
         {hasSettlements ? (
           <Tabs defaultValue="pending" className="w-full">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <TabsList>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <TabsList className="w-full justify-start overflow-x-auto sm:w-auto">
                 <TabsTrigger value="pending" className="gap-2">
                   Pendientes
                   {pendingSettlements.length > 0 && (
-                    <Badge variant="secondary" className="ml-1">
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                       {pendingSettlements.length}
                     </Badge>
                   )}
@@ -102,7 +102,7 @@ export default function SettlementsPage() {
                 <TabsTrigger value="paid" className="gap-2">
                   Pagadas
                   {paidSettlements.length > 0 && (
-                    <Badge variant="secondary" className="ml-1">
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                       {paidSettlements.length}
                     </Badge>
                   )}
@@ -110,7 +110,7 @@ export default function SettlementsPage() {
                 <TabsTrigger value="compensated" className="gap-2">
                   Compensadas
                   {compensatedSettlements.length > 0 && (
-                    <Badge variant="secondary" className="ml-1">
+                    <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px]">
                       {compensatedSettlements.length}
                     </Badge>
                   )}
@@ -118,7 +118,7 @@ export default function SettlementsPage() {
                 <TabsTrigger value="all">Todas</TabsTrigger>
               </TabsList>
 
-              <Button onClick={() => setDialogOpen(true)}>
+              <Button onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Nueva liquidación
               </Button>

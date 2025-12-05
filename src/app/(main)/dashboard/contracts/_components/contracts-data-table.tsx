@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
+
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -14,13 +16,35 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { Search, X } from "lucide-react";
+import {
+  Search,
+  X,
+  Calendar,
+  User,
+  Briefcase,
+  Building2,
+  MoreHorizontal,
+  FileText,
+  Edit,
+  Trash2,
+  Eye,
+  UserRound,
+} from "lucide-react";
 
 import { DataTableFacetedFilter } from "@/components/data-table/data-table-faceted-filter";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Contract } from "@/stores/contracts-store";
@@ -45,6 +69,16 @@ const statusOptions = [
   { label: "Activo", value: "active" },
   { label: "Finalizado", value: "inactive" },
 ];
+
+const CONTRACT_TYPES_LABELS: Record<string, string> = {
+  INDEFINIDO: "Indefinido",
+  TEMPORAL: "Temporal",
+  PRACTICAS: "Prácticas",
+  FORMACION: "Formación",
+  OBRA_SERVICIO: "Obra o Servicio",
+  EVENTUAL: "Eventual",
+  INTERINIDAD: "Interinidad",
+};
 
 export function ContractsDataTable<TData, TValue>({
   columns,
@@ -174,8 +208,126 @@ export function ContractsDataTable<TData, TValue>({
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-hidden rounded-lg border">
+      {/* Mobile Cards */}
+      <div className="grid grid-cols-1 gap-4 md:hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="border-primary h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"></div>
+          </div>
+        ) : table.getRowModel().rows?.length ? (
+          table.getRowModel().rows.map((row) => {
+            const contract = row.original as Contract;
+            const employee = contract.employee;
+            const fullName = employee ? `${employee.firstName} ${employee.lastName}` : "Sin empleado";
+
+            return (
+              <Card key={row.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-base">{fullName}</CardTitle>
+                      <CardDescription className="mt-1 flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        {employee?.employeeNumber ?? "N/A"}
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      variant={contract.active ? "default" : "secondary"}
+                      className={
+                        contract.active
+                          ? "bg-green-500/10 text-green-700 hover:bg-green-500/20 dark:text-green-400"
+                          : ""
+                      }
+                    >
+                      {contract.active ? "Activo" : "Finalizado"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 pb-2 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Briefcase className="text-muted-foreground h-4 w-4" />
+                    <span className="font-medium">{contract.position?.title ?? "Sin puesto"}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="text-muted-foreground h-4 w-4" />
+                    <span>{contract.department?.name ?? "Sin departamento"}</span>
+                  </div>
+                  <div className="text-muted-foreground flex items-center gap-2 text-xs">
+                    <Calendar className="h-3 w-3" />
+                    <span>
+                      {new Date(contract.startDate).toLocaleDateString("es-ES")} -{" "}
+                      {contract.endDate ? new Date(contract.endDate).toLocaleDateString("es-ES") : "Indefinido"}
+                    </span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Badge variant="outline">
+                      {CONTRACT_TYPES_LABELS[contract.contractType] ?? contract.contractType}
+                    </Badge>
+                    <Badge variant="secondary" className="font-mono">
+                      {contract.weeklyHours}h/sem
+                    </Badge>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/20 flex justify-end border-t p-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="ml-2">Acciones</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                      {employee && (
+                        <>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/${employee.id}`}>
+                              <UserRound className="mr-2 h-4 w-4" />
+                              Ver empleado
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/dashboard/employees/${employee.id}/contracts`}>
+                              <FileText className="mr-2 h-4 w-4" />
+                              Ver contratos
+                            </Link>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      <DropdownMenuItem onClick={() => navigator.clipboard.writeText(contract.id)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Copiar ID
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Ver detalles
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Editar contrato
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Finalizar contrato
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardFooter>
+              </Card>
+            );
+          })
+        ) : (
+          <div className="text-muted-foreground bg-muted/10 rounded-lg border border-dashed py-8 text-center">
+            {isFiltered ? "No se encontraron contratos con los filtros aplicados." : "No hay contratos registrados."}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop Table */}
+      <div className="hidden overflow-hidden rounded-lg border md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

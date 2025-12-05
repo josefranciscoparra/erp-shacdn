@@ -2,11 +2,13 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle, Clock, RefreshCw, User, Calendar, FileText } from "lucide-react";
+import { CheckCircle, Clock, RefreshCw, User, Calendar, FileText, Download, Calculator } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { generateSettlementPdf } from "@/lib/pdf/generate-settlement-pdf";
 import { cn } from "@/lib/utils";
 import { type SettlementListItem } from "@/server/actions/vacation-settlement";
 
@@ -21,19 +23,19 @@ const statusConfig = {
     label: "Pendiente",
     variant: "outline" as const,
     icon: Clock,
-    color: "text-yellow-600 dark:text-yellow-400",
+    className: "text-yellow-600 border-yellow-600/20 bg-yellow-50 dark:bg-yellow-900/20 dark:text-yellow-400",
   },
   PAID: {
     label: "Pagada",
     variant: "default" as const,
     icon: CheckCircle,
-    color: "text-green-600 dark:text-green-400",
+    className: "bg-green-600 hover:bg-green-700",
   },
   COMPENSATED: {
     label: "Compensada",
     variant: "secondary" as const,
     icon: RefreshCw,
-    color: "text-blue-600 dark:text-blue-400",
+    className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
   },
 };
 
@@ -44,79 +46,86 @@ export function SettlementDetailDialog({ settlement, open, onOpenChange }: Settl
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Detalle de liquidación</DialogTitle>
-          <DialogDescription>Información completa de la liquidación de vacaciones</DialogDescription>
+          <DialogTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Detalle de Liquidación
+          </DialogTitle>
+          <DialogDescription>Referencia: {settlement.id.slice(0, 8).toUpperCase()}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Información del empleado */}
-          <div className="flex items-start gap-4">
-            <div className="bg-primary/10 rounded-full p-3">
-              <User className="text-primary h-6 w-6" />
+        <div className="grid gap-6">
+          {/* Header Card */}
+          <div className="flex items-start justify-between rounded-lg border p-4 shadow-sm">
+            <div className="flex items-center gap-4">
+              <div className="bg-primary/10 text-primary flex h-12 w-12 items-center justify-center rounded-full">
+                <User className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">{settlement.employeeName}</h3>
+                <p className="text-muted-foreground flex items-center gap-1 text-sm">
+                  ID: {settlement.employeeNumber ?? "N/A"}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold">{settlement.employeeName}</h3>
-              {settlement.employeeNumber && (
-                <p className="text-muted-foreground text-sm">{settlement.employeeNumber}</p>
-              )}
-            </div>
-            <Badge variant={statusInfo.variant} className="gap-1">
-              <StatusIcon className="h-3 w-3" />
+            <Badge variant={statusInfo.variant} className={cn("px-3 py-1 text-sm", statusInfo.className)}>
+              <StatusIcon className="mr-1.5 h-4 w-4" />
               {statusInfo.label}
             </Badge>
           </div>
 
-          <Separator />
-
-          {/* Fecha y tipo */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2">
-              <Calendar className="text-muted-foreground h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">Fecha de liquidación</p>
-                <p className="font-medium">{format(new Date(settlement.settlementDate), "PPP", { locale: es })}</p>
+          {/* Info Grid */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-xs tracking-wider uppercase">Fecha Liquidación</span>
+              <div className="flex items-center gap-2 font-medium">
+                <Calendar className="text-muted-foreground h-4 w-4" />
+                {format(new Date(settlement.settlementDate), "PPP", { locale: es })}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <FileText className="text-muted-foreground h-4 w-4" />
-              <div>
-                <p className="text-muted-foreground text-sm">Tipo</p>
-                <p className="font-medium">{settlement.isAutoGenerated ? "Automática" : "Manual"}</p>
+            <div className="space-y-1">
+              <span className="text-muted-foreground text-xs tracking-wider uppercase">Tipo Generación</span>
+              <div className="flex items-center gap-2 font-medium">
+                <Calculator className="text-muted-foreground h-4 w-4" />
+                {settlement.isAutoGenerated ? "Automática (Fin Contrato)" : "Manual"}
               </div>
             </div>
           </div>
 
-          <Separator />
-
-          {/* Desglose del cálculo */}
-          <div className="space-y-3">
-            <h4 className="font-medium">Desglose del cálculo</h4>
-
-            <div className="bg-muted/30 space-y-2 rounded-lg border p-4">
+          {/* Calculation Breakdown */}
+          <div className="bg-card text-card-foreground overflow-hidden rounded-lg border shadow-sm">
+            <div className="bg-muted/50 border-b px-4 py-3">
+              <h4 className="flex items-center gap-2 text-sm font-medium">
+                <Calculator className="h-4 w-4" />
+                Desglose del Cálculo
+              </h4>
+            </div>
+            <div className="space-y-3 p-4 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Días devengados</span>
-                <span className="font-mono">{settlement.accruedDays.toFixed(2)} días</span>
+                <span className="font-mono">{settlement.accruedDays.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Días disfrutados</span>
-                <span className="font-mono text-red-600 dark:text-red-400">-{settlement.usedDays.toFixed(2)} días</span>
+                <span className="font-mono text-red-600 dark:text-red-400">-{settlement.usedDays.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Días pendientes de aprobación</span>
-                <span className="font-mono text-yellow-600 dark:text-yellow-400">
-                  -{settlement.pendingDays.toFixed(2)} días
-                </span>
-              </div>
+              {settlement.pendingDays > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Días pendientes aprobación</span>
+                  <span className="font-mono text-yellow-600 dark:text-yellow-400">
+                    -{settlement.pendingDays.toFixed(2)}
+                  </span>
+                </div>
+              )}
 
-              <Separator className="my-2" />
+              <Separator />
 
-              <div className="flex items-center justify-between">
-                <span className="font-medium">Saldo final</span>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-base font-semibold">Saldo Final</span>
                 <span
                   className={cn(
-                    "font-mono text-lg font-bold",
+                    "font-mono text-xl font-bold",
                     settlement.balanceDays >= 0
                       ? "text-green-600 dark:text-green-400"
                       : "text-red-600 dark:text-red-400",
@@ -126,44 +135,39 @@ export function SettlementDetailDialog({ settlement, open, onOpenChange }: Settl
                   {settlement.balanceDays.toFixed(2)} días
                 </span>
               </div>
+              <p className="text-muted-foreground mt-2 text-xs">
+                {settlement.balanceDays > 0
+                  ? "Saldo a favor del empleado (a pagar)."
+                  : settlement.balanceDays < 0
+                    ? "Saldo a favor de la empresa (a descontar)."
+                    : "Sin saldo pendiente."}
+              </p>
             </div>
-
-            {settlement.balanceDays > 0 && (
-              <p className="text-muted-foreground text-sm">
-                El empleado tiene <strong>{settlement.balanceDays.toFixed(2)} días</strong> a su favor que deben ser
-                liquidados o compensados.
-              </p>
-            )}
-            {settlement.balanceDays < 0 && (
-              <p className="text-muted-foreground text-sm">
-                El empleado ha disfrutado <strong>{Math.abs(settlement.balanceDays).toFixed(2)} días</strong> más de los
-                devengados. Este importe puede ser descontado.
-              </p>
-            )}
-            {settlement.balanceDays === 0 && (
-              <p className="text-muted-foreground text-sm">
-                El empleado ha disfrutado exactamente los días devengados. No hay saldo pendiente.
-              </p>
-            )}
           </div>
 
-          {/* Notas */}
+          {/* Notes */}
           {settlement.notes && (
-            <>
-              <Separator />
-              <div>
-                <h4 className="mb-2 font-medium">Notas</h4>
-                <p className="text-muted-foreground text-sm whitespace-pre-wrap">{settlement.notes}</p>
+            <div className="space-y-2">
+              <span className="text-muted-foreground text-xs tracking-wider uppercase">Notas / Observaciones</span>
+              <div className="bg-muted/30 text-muted-foreground rounded-md p-3 text-sm italic">
+                &quot;{settlement.notes}&quot;
               </div>
-            </>
+            </div>
           )}
 
-          {/* Metadatos */}
-          <Separator />
-          <div className="text-muted-foreground space-y-1 text-xs">
-            <p>Creada por: {settlement.createdByName}</p>
-            <p>Fecha de creación: {format(new Date(settlement.createdAt), "PPP 'a las' HH:mm", { locale: es })}</p>
+          {/* Metadata Footer */}
+          <div className="text-muted-foreground flex items-center justify-between border-t pt-4 text-xs">
+            <span>Creado por: {settlement.createdByName}</span>
+            <span>{format(new Date(settlement.createdAt), "dd/MM/yyyy HH:mm")}</span>
           </div>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" className="gap-2" onClick={() => generateSettlementPdf(settlement)}>
+            <Download className="h-4 w-4" />
+            Descargar PDF
+          </Button>
+          <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
         </div>
       </DialogContent>
     </Dialog>
