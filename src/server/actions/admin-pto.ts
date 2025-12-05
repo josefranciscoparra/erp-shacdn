@@ -6,6 +6,7 @@ import { addWeeks, startOfDay } from "date-fns";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
 
 import { calculateWorkingDays } from "./employee-pto";
 import { createNotification } from "./notifications";
@@ -389,6 +390,61 @@ export async function getEmployeePtoBalance(employeeId: string) {
     orgId: balance.orgId,
     employeeId: balance.employeeId,
   };
+}
+
+/**
+ * Obtiene el balance de vacaciones calculado en TIEMPO REAL
+ *
+ * IMPORTANTE: Esta función usa el patrón Strategy para diferenciar:
+ * - Contratos normales: Prorrateo al dar de alta (días asignados)
+ * - Fijos discontinuos: Devengo día a día solo en ACTIVE (días devengados)
+ *
+ * @param employeeId - ID del empleado
+ * @returns Balance calculado en tiempo real con información de display
+ */
+export async function getEmployeeVacationBalanceRealtime(employeeId: string) {
+  const user = await getCurrentUser();
+
+  // Verificar que el empleado pertenece a la misma organización
+  const employee = await prisma.employee.findFirst({
+    where: {
+      id: employeeId,
+      orgId: user.orgId,
+    },
+  });
+
+  if (!employee) {
+    throw new Error("Empleado no encontrado");
+  }
+
+  try {
+    // Calcular balance en tiempo real usando VacationService
+    const balance = await calculateVacationBalance(employeeId);
+    const displayInfo = await getVacationDisplayInfo(employeeId);
+
+    return {
+      // Datos principales
+      year: new Date().getFullYear(),
+      annualAllowance: balance.annualAllowanceDays,
+      daysAccrued: balance.accruedDays, // Días devengados hasta hoy
+      daysUsed: balance.usedDays,
+      daysPending: balance.pendingDays,
+      daysAvailable: balance.availableDays,
+      // Información de display
+      displayLabel: displayInfo.label, // "Vacaciones asignadas" o "Vacaciones devengadas"
+      sublabel: displayInfo.sublabel,
+      showFrozenIndicator: displayInfo.showFrozenIndicator,
+      frozenSince: displayInfo.frozenSince?.toISOString() ?? null,
+      // Metadatos
+      contractType: balance.contractType,
+      discontinuousStatus: balance.discontinuousStatus,
+      workdayMinutes: balance.workdayMinutes,
+      calculatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Error calculating vacation balance:", error);
+    throw new Error(error instanceof Error ? error.message : "Error al calcular el balance de vacaciones");
+  }
 }
 
 /**

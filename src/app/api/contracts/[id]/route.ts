@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { autoCreateSettlement } from "@/server/actions/vacation-settlement";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,16 @@ const isValidDayForMonth = (mmdd: string): boolean => {
 const updateContractSchema = z
   .object({
     contractType: z
-      .enum(["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"])
+      .enum([
+        "INDEFINIDO",
+        "TEMPORAL",
+        "PRACTICAS",
+        "FORMACION",
+        "OBRA_SERVICIO",
+        "EVENTUAL",
+        "INTERINIDAD",
+        "FIJO_DISCONTINUO",
+      ])
       .optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional().nullable(),
@@ -187,6 +197,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
 
+    // Detectar si se está finalizando el contrato
+    const isFinalizingContract = updateData.active === false && updateData.endDate && existingContract.active === true;
+
+    // IMPORTANTE: Crear liquidación ANTES de desactivar el contrato
+    // porque el cálculo de vacaciones necesita un contrato activo
+    let settlementCreated = false;
+    let settlementId: string | null = null;
+
+    if (isFinalizingContract && updateData.endDate) {
+      try {
+        const settlementResult = await autoCreateSettlement(
+          contractId,
+          updateData.endDate, // Fecha de finalización del contrato
+          session.user.id, // Usuario que ejecuta la acción
+        );
+        if (settlementResult.success && settlementResult.settlement) {
+          console.log(`Liquidación automática creada para contrato ${contractId}`);
+          settlementCreated = true;
+          settlementId = settlementResult.settlement.id;
+        } else {
+          console.warn(`No se pudo crear liquidación automática: ${settlementResult.error}`);
+        }
+      } catch (settlementError) {
+        // No fallar la actualización del contrato si la liquidación falla
+        console.error("Error al crear liquidación automática:", settlementError);
+      }
+    }
+
     // Actualizar contrato (sin campos basura)
     const updatedContract = await prisma.employmentContract.update({
       where: { id: contractId },
@@ -215,7 +253,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       },
     });
 
-    return NextResponse.json(updatedContract);
+    // Incluir info de liquidación en la respuesta si se creó
+    const response: Record<string, unknown> = { ...updatedContract };
+    if (settlementCreated) {
+      response.settlementCreated = true;
+      response.settlementId = settlementId;
+    }
+
+    return NextResponse.json(response);
   } catch (error) {
     console.error("Error al actualizar contrato:", error);
     return NextResponse.json(

@@ -30,6 +30,7 @@ const contractSchema = z
       "OBRA_SERVICIO",
       "EVENTUAL",
       "INTERINIDAD",
+      "FIJO_DISCONTINUO",
     ]),
     startDate: z.string(),
     endDate: z.string().optional().nullable(),
@@ -248,6 +249,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         costCenterId,
         managerId,
         active: true,
+
+        // Fijos discontinuos: inicializar estado como ACTIVE
+        ...(data.contractType === "FIJO_DISCONTINUO" && {
+          discontinuousStatus: "ACTIVE",
+        }),
 
         // NOTA: Los campos de horario V1 (hasIntensiveSchedule, mondayHours, etc.)
         // SE HAN ELIMINADO AQUÍ para evitar error de Prisma.

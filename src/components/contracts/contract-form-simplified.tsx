@@ -18,7 +18,16 @@ import { type CreateContractData, type Contract } from "@/stores/contracts-store
 
 const contractSchema = z.object({
   contractType: z.enum(
-    ["INDEFINIDO", "TEMPORAL", "PRACTICAS", "FORMACION", "OBRA_SERVICIO", "EVENTUAL", "INTERINIDAD"],
+    [
+      "INDEFINIDO",
+      "TEMPORAL",
+      "PRACTICAS",
+      "FORMACION",
+      "OBRA_SERVICIO",
+      "EVENTUAL",
+      "INTERINIDAD",
+      "FIJO_DISCONTINUO",
+    ],
     {
       required_error: "Selecciona un tipo de contrato",
     },
@@ -74,6 +83,7 @@ const CONTRACT_TYPES = {
   OBRA_SERVICIO: "Obra o Servicio",
   EVENTUAL: "Eventual",
   INTERINIDAD: "Interinidad",
+  FIJO_DISCONTINUO: "Fijo Discontinuo",
 } as const;
 
 interface ContractFormSimplifiedProps {

@@ -55,14 +55,24 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
     }
 
     try {
-      await updateContract(contract.id, {
+      const result = await updateContract(contract.id, {
         endDate,
         active: false,
       });
 
-      toast.success("Contrato finalizado", {
-        description: `El contrato se marcó como finalizado con fecha ${selectedEnd.toLocaleDateString("es-ES")}`,
-      });
+      // Verificar si se creó una liquidación automática
+      const settlementCreated = (result as any)?.settlementCreated;
+
+      if (settlementCreated) {
+        toast.success("Contrato finalizado con liquidación", {
+          description: `Se ha creado automáticamente una liquidación de vacaciones. Puedes verla en el perfil del empleado o en Liquidaciones.`,
+          duration: 6000,
+        });
+      } else {
+        toast.success("Contrato finalizado", {
+          description: `El contrato se marcó como finalizado con fecha ${selectedEnd.toLocaleDateString("es-ES")}`,
+        });
+      }
 
       onOpenChange(false);
       onSuccess?.();
@@ -115,6 +125,14 @@ export function FinalizeContractDialog({ open, onOpenChange, contract, onSuccess
               />
             </div>
             {error && <p className="text-destructive text-sm">{error}</p>}
+          </div>
+
+          <div className="border-primary/40 bg-primary/10 text-primary flex items-start gap-3 rounded-md border p-3 text-sm">
+            <CheckCircle className="mt-0.5 h-4 w-4" />
+            <p>
+              Se creará automáticamente una <strong>liquidación de vacaciones</strong> con el saldo devengado hasta la
+              fecha de fin.
+            </p>
           </div>
 
           <div className="border-destructive/40 bg-destructive/10 text-destructive flex items-start gap-3 rounded-md border p-3 text-sm">

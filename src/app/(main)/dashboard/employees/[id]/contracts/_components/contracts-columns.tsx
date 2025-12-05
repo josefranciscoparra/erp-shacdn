@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Edit, Trash2, Eye, FileText } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, FileText, Pause, Play } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,15 @@ const CONTRACT_TYPES = {
   OBRA_SERVICIO: "Obra o Servicio",
   EVENTUAL: "Eventual",
   INTERINIDAD: "Interinidad",
+  FIJO_DISCONTINUO: "Fijo Discontinuo",
 } as const;
 
 interface ContractsColumnActions {
   onView?: (contract: Contract) => void;
   onEdit?: (contract: Contract) => void;
   onFinalize?: (contract: Contract) => void;
+  onPause?: (contract: Contract) => void;
+  onResume?: (contract: Contract) => void;
 }
 
 export const getContractsColumns = (actions: ContractsColumnActions = {}): ColumnDef<Contract>[] => [
@@ -38,7 +41,8 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Contrato" />,
     cell: ({ row }) => {
       const type = row.getValue("contractType");
-      const typeLabel = CONTRACT_TYPES[type] ?? type;
+      const typeLabel = CONTRACT_TYPES[type as keyof typeof CONTRACT_TYPES] ?? type;
+      const discontinuousStatus = row.original.discontinuousStatus;
 
       const variant = (() => {
         switch (type) {
@@ -48,15 +52,31 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
             return "secondary" as const;
           case "PRACTICAS":
             return "outline" as const;
+          case "FIJO_DISCONTINUO":
+            return "outline" as const;
           default:
             return "secondary" as const;
         }
       })();
 
       return (
-        <Badge variant={variant} className="font-medium">
-          {typeLabel}
-        </Badge>
+        <div className="flex flex-col gap-1">
+          <Badge variant={variant} className="w-fit font-medium">
+            {typeLabel}
+          </Badge>
+          {type === "FIJO_DISCONTINUO" && discontinuousStatus && (
+            <Badge
+              variant={discontinuousStatus === "ACTIVE" ? "default" : "secondary"}
+              className={`w-fit text-xs ${
+                discontinuousStatus === "ACTIVE"
+                  ? "bg-green-500/10 text-green-700 dark:text-green-400"
+                  : "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400"
+              }`}
+            >
+              {discontinuousStatus === "ACTIVE" ? "Activo" : "Pausado"}
+            </Badge>
+          )}
+        </div>
       );
     },
     filterFn: (row, id, value) => value.includes(row.getValue(id)),
@@ -222,6 +242,23 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
               <Edit className="mr-2 h-4 w-4" />
               Editar contrato
             </DropdownMenuItem>
+            {/* Opciones para Fijo Discontinuo */}
+            {contract.contractType === "FIJO_DISCONTINUO" && contract.active && (
+              <>
+                <DropdownMenuSeparator />
+                {contract.discontinuousStatus === "PAUSED" ? (
+                  <DropdownMenuItem className="text-green-600" onClick={handle(actions.onResume)}>
+                    <Play className="mr-2 h-4 w-4" />
+                    Reanudar contrato
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem className="text-yellow-600" onClick={handle(actions.onPause)}>
+                    <Pause className="mr-2 h-4 w-4" />
+                    Pausar contrato
+                  </DropdownMenuItem>
+                )}
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"

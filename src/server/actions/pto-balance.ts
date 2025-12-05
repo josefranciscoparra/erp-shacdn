@@ -3,19 +3,63 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
+import { calculateActiveDays } from "@/lib/vacation-calculator";
 import { daysToMinutes, getWorkdayMinutes } from "@/services/pto";
+
+// =====================================================
+// TIPOS INTERNOS
+// =====================================================
+
+interface ContractWithPauseHistory {
+  contractType: string;
+  startDate: Date;
+  endDate: Date | null;
+  discontinuousStatus: string | null;
+  pauseHistory?: Array<{
+    action: string;
+    startDate: Date;
+    endDate: Date | null;
+  }>;
+}
 
 /**
  * Calcula los días de vacaciones anuales según el método de cálculo proporcional
  * Basado en la fecha de inicio del contrato y los días anuales de la organización
+ *
+ * IMPORTANTE - Diferencia entre tipos de contrato:
+ * - CONTRATO NORMAL: Se asignan días al inicio del año/contrato
+ * - FIJO DISCONTINUO: Se devengan SOLO durante períodos ACTIVE (usa calculateActiveDays)
+ *
+ * @param contract - Contrato con historial de pausas (para fijos discontinuos)
+ * @param year - Año para el cálculo
+ * @param annualPtoDays - Días de vacaciones anuales de la organización
+ * @returns Días de vacaciones asignados/devengados
  */
 export async function calculateAnnualAllowance(
   contractStartDate: Date,
   year: number,
   annualPtoDays: number,
+  contract?: ContractWithPauseHistory,
 ): Promise<number> {
+  const daysInYear = isLeapYear(year) ? 366 : 365;
   const contractYear = contractStartDate.getFullYear();
 
+  // Si es fijo discontinuo y tenemos el contrato completo, calcular con días activos
+  if (contract?.contractType === "FIJO_DISCONTINUO") {
+    const yearEnd = new Date(year, 11, 31);
+    yearEnd.setHours(23, 59, 59, 999);
+
+    // Calcular días activos (restando períodos pausados)
+    const activeDays = calculateActiveDays(contract, yearEnd);
+
+    // Devengo proporcional a días activos
+    const proportionalDays = (annualPtoDays / daysInYear) * activeDays;
+
+    // Redondear a 2 decimales
+    return Math.round(proportionalDays * 100) / 100;
+  }
+
+  // CONTRATO NORMAL: Lógica original
   // Si el contrato empezó antes del año actual, recibe días completos
   if (contractYear < year) {
     return annualPtoDays;
@@ -25,9 +69,6 @@ export async function calculateAnnualAllowance(
   if (contractYear === year) {
     const yearStart = new Date(year, 0, 1);
     const yearEnd = new Date(year, 11, 31);
-
-    // Días totales en el año (ajustado para años bisiestos)
-    const daysInYear = isLeapYear(year) ? 366 : 365;
 
     // Fecha de inicio efectiva (la más tardía entre inicio de contrato y año)
     const startOfWork = contractStartDate > yearStart ? contractStartDate : yearStart;
@@ -77,7 +118,7 @@ export async function calculateOrUpdatePtoBalance(
     throw new Error("Organización no encontrada");
   }
 
-  // Obtener el contrato activo del empleado
+  // Obtener el contrato activo del empleado con historial de pausas (para fijos discontinuos)
   const activeContract = await prisma.employmentContract.findFirst({
     where: {
       employeeId,
@@ -85,6 +126,11 @@ export async function calculateOrUpdatePtoBalance(
       active: true,
       weeklyHours: {
         gt: new Decimal(0),
+      },
+    },
+    include: {
+      pauseHistory: {
+        orderBy: { startDate: "asc" },
       },
     },
     orderBy: {
@@ -96,8 +142,30 @@ export async function calculateOrUpdatePtoBalance(
     throw new Error("No se encontró un contrato activo para el empleado");
   }
 
+  // Preparar datos del contrato para cálculo de fijos discontinuos
+  const contractForCalculation =
+    activeContract.contractType === "FIJO_DISCONTINUO"
+      ? {
+          contractType: activeContract.contractType,
+          startDate: activeContract.startDate,
+          endDate: activeContract.endDate,
+          discontinuousStatus: activeContract.discontinuousStatus,
+          pauseHistory: activeContract.pauseHistory.map((p) => ({
+            action: p.action,
+            startDate: p.startDate,
+            endDate: p.endDate,
+          })),
+        }
+      : undefined;
+
   // Calcular días permitidos según fecha de inicio de contrato
-  let allowance = await calculateAnnualAllowance(activeContract.startDate, year, org.annualPtoDays);
+  // Para fijos discontinuos, se calculan los días activos restando períodos pausados
+  let allowance = await calculateAnnualAllowance(
+    activeContract.startDate,
+    year,
+    org.annualPtoDays,
+    contractForCalculation,
+  );
 
   // Sumar ajustes recurrentes activos
   const recurringAdjustments = await prisma.recurringPtoAdjustment.findMany({

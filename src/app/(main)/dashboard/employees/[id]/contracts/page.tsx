@@ -14,11 +14,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { pauseContract, resumeContract } from "@/server/actions/contract-discontinuous";
 import { type Contract, useContractsStore } from "@/stores/contracts-store";
 
 import { getContractsColumns } from "./_components/contracts-columns";
 import { ContractsDataTable } from "./_components/contracts-data-table";
 import { FinalizeContractDialog } from "./_components/finalize-contract-dialog";
+import { PauseContractDialog } from "./_components/pause-contract-dialog";
 
 interface Employee {
   id: string;
@@ -38,6 +40,8 @@ export default function EmployeeContractsPage() {
   const [currentTab, setCurrentTab] = useState("active");
   const [contractToFinalize, setContractToFinalize] = useState<Contract | null>(null);
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
+  const [contractToPause, setContractToPause] = useState<Contract | null>(null);
+  const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
 
   const {
     contracts,
@@ -121,13 +125,37 @@ export default function EmployeeContractsPage() {
     setFinalizeDialogOpen(true);
   }, []);
 
+  const handlePauseContract = useCallback((contract: Contract) => {
+    setContractToPause(contract);
+    setPauseDialogOpen(true);
+  }, []);
+
+  const handleResumeContract = useCallback(
+    async (contract: Contract) => {
+      try {
+        const result = await resumeContract(contract.id);
+        if (result.success) {
+          toast.success("Contrato reanudado correctamente");
+          handleContractsRefresh();
+        } else {
+          toast.error(result.error ?? "Error al reanudar contrato");
+        }
+      } catch {
+        toast.error("Error al reanudar contrato");
+      }
+    },
+    [handleContractsRefresh],
+  );
+
   const columns = useMemo(
     () =>
       getContractsColumns({
         onEdit: handleEditContract,
         onFinalize: handleFinalizeContract,
+        onPause: handlePauseContract,
+        onResume: handleResumeContract,
       }),
-    [handleEditContract, handleFinalizeContract],
+    [handleEditContract, handleFinalizeContract, handlePauseContract, handleResumeContract],
   );
 
   const getFilteredContracts = () => {
@@ -308,6 +336,22 @@ export default function EmployeeContractsPage() {
         onSuccess={() => {
           handleContractsRefresh();
           setContractToFinalize(null);
+        }}
+      />
+
+      {/* Pause Contract Dialog */}
+      <PauseContractDialog
+        open={pauseDialogOpen && Boolean(contractToPause)}
+        onOpenChange={(open) => {
+          setPauseDialogOpen(open);
+          if (!open) {
+            setContractToPause(null);
+          }
+        }}
+        contract={contractToPause}
+        onSuccess={() => {
+          handleContractsRefresh();
+          setContractToPause(null);
         }}
       />
     </div>

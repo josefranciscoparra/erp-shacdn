@@ -5,6 +5,9 @@ import { create } from "zustand";
 // Tipo de horario (escalable a 3 modos)
 export type ScheduleType = "FLEXIBLE" | "FIXED" | "SHIFT";
 
+// Estado de contrato fijo discontinuo
+export type DiscontinuousStatus = "ACTIVE" | "PAUSED";
+
 export interface Position {
   id: string;
   title: string;
@@ -143,6 +146,8 @@ export interface Contract {
   costCenter: CostCenter | null;
   manager: Manager | null;
   employee?: Employee;
+  // Fijo discontinuo
+  discontinuousStatus?: DiscontinuousStatus | null;
 }
 
 export interface ContractsResponse {

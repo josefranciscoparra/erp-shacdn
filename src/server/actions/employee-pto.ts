@@ -4,11 +4,12 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
+import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/services/pto";
 import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
 import { createNotification } from "./notifications";
-import { calculateOrUpdatePtoBalance, recalculatePtoBalance } from "./pto-balance";
+import { recalculatePtoBalance } from "./pto-balance";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
 /**
@@ -131,11 +132,14 @@ export async function calculateWorkingDays(
 
 /**
  * Obtiene el balance de PTO del empleado autenticado
+ *
+ * REFACTORIZADO: Usa calculateVacationBalance() para cálculo en tiempo real
+ * - Contratos normales: prorrateo desde fecha de alta
+ * - Fijos discontinuos: devengo día a día solo durante períodos ACTIVE
  */
 export async function getMyPtoBalance() {
   try {
-    const { employeeId, orgId, hasActiveContract, hasProvisionalContract, activeContract } =
-      await getAuthenticatedEmployee();
+    const { employeeId, hasActiveContract, hasProvisionalContract, activeContract } = await getAuthenticatedEmployee();
     const currentYear = new Date().getFullYear();
 
     if (!hasActiveContract || !activeContract) {
@@ -158,13 +162,34 @@ export async function getMyPtoBalance() {
       };
     }
 
-    // Calcular o actualizar el balance
-    const balance = await calculateOrUpdatePtoBalance(employeeId, orgId, currentYear);
+    // 🆕 CÁLCULO EN TIEMPO REAL usando VacationService
+    // Diferencia automáticamente entre contratos normales y fijos discontinuos
+    const balance = await calculateVacationBalance(employeeId, { year: currentYear });
+    const displayInfo = await getVacationDisplayInfo(employeeId);
 
     return {
-      ...balance,
+      id: `REALTIME_${employeeId}_${currentYear}`,
+      year: currentYear,
+      // Campos legacy en días (para compatibilidad)
+      annualAllowance: balance.annualAllowanceDays,
+      daysUsed: balance.usedDays,
+      daysPending: balance.pendingDays,
+      daysAvailable: balance.availableDays,
+      // Campos nuevos en minutos
+      annualAllowanceMinutes: balance.accruedMinutes, // Minutos devengados (no anuales teóricos)
+      minutesUsed: balance.usedMinutes,
+      minutesPending: balance.pendingMinutes,
+      minutesAvailable: balance.availableMinutes,
+      workdayMinutesSnapshot: balance.workdayMinutes,
+      // Metadatos del contrato
       hasActiveContract: true,
       hasProvisionalContract,
+      // 🆕 Información adicional para UI
+      displayLabel: displayInfo.label,
+      contractType: balance.contractType,
+      discontinuousStatus: balance.discontinuousStatus,
+      showFrozenIndicator: displayInfo.showFrozenIndicator,
+      frozenSince: displayInfo.frozenSince,
     };
   } catch (error) {
     console.error("Error al obtener balance de PTO:", error);
@@ -450,15 +475,13 @@ export async function createPtoRequest(data: {
     }
 
     // Si afecta al balance, validar días disponibles
-
-    // Si afecta al balance, validar días disponibles
+    // 🆕 Usa cálculo en tiempo real (VacationService)
     if (absenceType.affectsBalance) {
-      const currentYear = new Date().getFullYear();
-      const balance = await calculateOrUpdatePtoBalance(employeeId, orgId, currentYear);
+      const balance = await calculateVacationBalance(employeeId);
 
-      if (balance.daysAvailable < workingDays) {
+      if (balance.availableDays < workingDays) {
         throw new Error(
-          `No tienes suficientes días disponibles (te faltan ${workingDays - balance.daysAvailable} días)`,
+          `No tienes suficientes días disponibles (te faltan ${workingDays - balance.availableDays} días)`,
         );
       }
     }
@@ -491,7 +514,7 @@ export async function createPtoRequest(data: {
         scheduledMinutesInRange > 0 ? scheduledMinutesInRange : daysToMinutes(workingDays, workdayMinutes);
     }
 
-    const effectiveMinutes = applyCompensationFactor(minutesToDiscount, absenceType.compensationFactor);
+    const effectiveMinutes = applyCompensationFactor(minutesToDiscount, Number(absenceType.compensationFactor));
 
     // Determinar estado final
     // Si forceManualReview es true -> PENDING

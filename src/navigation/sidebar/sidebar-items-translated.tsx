@@ -20,6 +20,7 @@ import {
   Banknote,
   ClipboardList,
   History,
+  Calculator,
   type LucideIcon,
 } from "lucide-react";
 
@@ -338,6 +339,13 @@ export function useSidebarItems(): NavGroup[] {
               isNew: true,
             },
           ],
+        },
+        {
+          title: "Liquidaciones",
+          url: "/dashboard/settlements",
+          icon: Calculator,
+          permission: "manage_organization",
+          isNew: true,
         },
         {
           title: "Gestión de Horarios",

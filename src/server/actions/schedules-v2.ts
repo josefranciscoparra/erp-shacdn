@@ -1163,10 +1163,21 @@ export async function assignScheduleToEmployee(
 }
 
 /**
+ * Serializa un TimeSlot para evitar errores de Decimal en Next.js 15
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function serializeTimeSlot(slot: any) {
+  return {
+    ...slot,
+    compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1,
+  };
+}
+
+/**
  * Obtiene el horario asignado actualmente a un empleado
  */
 export async function getEmployeeCurrentAssignment(employeeId: string) {
-  const { orgId } = await requireOrg();
+  await requireOrg();
 
   const assignment = await prisma.employeeScheduleAssignment.findFirst({
     where: {
@@ -1202,6 +1213,23 @@ export async function getEmployeeCurrentAssignment(employeeId: string) {
       },
     },
   });
+
+  // Serializar Decimals para evitar error en Next.js 15
+  if (assignment?.scheduleTemplate?.periods) {
+    return {
+      ...assignment,
+      scheduleTemplate: {
+        ...assignment.scheduleTemplate,
+        periods: assignment.scheduleTemplate.periods.map((period) => ({
+          ...period,
+          workDayPatterns: period.workDayPatterns.map((pattern) => ({
+            ...pattern,
+            timeSlots: pattern.timeSlots.map(serializeTimeSlot),
+          })),
+        })),
+      },
+    };
+  }
 
   return assignment;
 }
