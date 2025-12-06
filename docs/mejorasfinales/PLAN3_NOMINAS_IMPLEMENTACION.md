@@ -268,13 +268,13 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [ ] Tests unitarios de extracción (omitido - se probará en integración)
 - [ ] **COMMIT**: `feat(payslips): add ZIP and PDF processing utilities`
 
-### Checkpoint 3: OCR y Matching
-- [ ] Instalar dependencia: `tesseract.js`
-- [ ] Crear `src/lib/payslip/ocr-engine.ts` (interfaz desacoplada)
-- [ ] Implementar detección DNI español (regex)
-- [ ] Crear `src/lib/payslip/employee-matcher.ts`
-- [ ] Implementar fuzzy matching para nombres
-- [ ] Tests de detección
+### Checkpoint 3: OCR y Matching ✅
+- [x] Instalar dependencia: `tesseract.js`
+- [x] Crear `src/lib/payslip/ocr-engine.ts` (interfaz desacoplada)
+- [x] Implementar detección DNI español (regex)
+- [x] Crear `src/lib/payslip/employee-matcher.ts`
+- [x] Implementar fuzzy matching para nombres
+- [ ] Tests de detección (omitido - se probará en integración)
 - [ ] **COMMIT**: `feat(payslips): add OCR engine and employee matching`
 
 ### Checkpoint 4: Server Actions y APIs
