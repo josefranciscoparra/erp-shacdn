@@ -135,6 +135,10 @@ model Organization {
   // NUEVO: Liquidaciones de vacaciones (Mejora 1)
   vacationSettlements VacationSettlement[]
 
+  // NUEVO: Sistema de nóminas masivas (Mejora 3)
+  payslipBatches     PayslipBatch[]
+  payslipUploadItems PayslipUploadItem[]
+
   @@map("organizations")
 }
 
@@ -190,6 +194,9 @@ model User {
   timeBankSettingsCreated   TimeBankSettings[]       @relation("TimeBankSettingsCreatedBy")
   timeBankSettingsUpdated   TimeBankSettings[]       @relation("TimeBankSettingsUpdatedBy")
   uploadedPtoDocuments      PtoRequestDocument[] // 🆕 Justificantes de ausencia que ha subido
+
+  // NUEVO: Sistema de nóminas masivas (Mejora 3)
+  uploadedPayslipBatches PayslipBatch[] // Lotes de nóminas que ha subido
 
   // Sistema de permisos y alertas
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
@@ -464,6 +471,9 @@ model Employee {
   // NUEVO: Liquidaciones de vacaciones (Mejora 1)
   vacationSettlements VacationSettlement[]
 
+  // NUEVO: Nóminas asignadas (Mejora 3)
+  payslipUploadItems PayslipUploadItem[] // Items de nóminas asignados a este empleado
+
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie]) // NIF único por organización
   @@index([orgId])
@@ -632,6 +642,17 @@ model EmployeeDocument {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  // Campos específicos para nóminas (kind = PAYSLIP) - Mejora 3
+  payslipMonth Int? // Mes de la nómina (1-12)
+  payslipYear  Int? // Año de la nómina
+
+  // Trazabilidad con lote de subida masiva - Mejora 3
+  payslipBatchId String?
+  payslipBatch   PayslipBatch? @relation("PayslipBatchDocuments", fields: [payslipBatchId], references: [id])
+
+  // Relación inversa con item de nómina - Mejora 3
+  payslipUploadItem PayslipUploadItem?
+
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -646,7 +667,105 @@ model EmployeeDocument {
 
   @@index([orgId])
   @@index([employeeId])
+  @@index([kind, payslipYear, payslipMonth])
   @@map("employee_documents")
+}
+
+// =============================================
+// SISTEMA DE NÓMINAS MASIVAS (Mejora 3)
+// =============================================
+
+// Lote de subida de nóminas
+model PayslipBatch {
+  id String @id @default(cuid())
+
+  // Periodo de las nóminas
+  month       Int? // 1-12 (opcional si se usa periodo)
+  year        Int? // 2024, 2025...
+  periodStart DateTime? // Opcional para periodos no mensuales
+  periodEnd   DateTime? // Opcional para periodos no mensuales
+
+  // Archivos originales
+  originalFileName String // nombre.zip o nominas.pdf
+  originalFileType String // "ZIP" | "PDF_MULTIPAGE"
+
+  // Estadísticas del procesamiento
+  totalFiles    Int @default(0)
+  assignedCount Int @default(0)
+  pendingCount  Int @default(0)
+  errorCount    Int @default(0)
+
+  // Estado del lote
+  status PayslipBatchStatus @default(PROCESSING)
+
+  // Auditoría
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Usuario que subió
+  uploadedById String
+  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+
+  // Items del lote
+  items PayslipUploadItem[]
+
+  // Documentos generados
+  documents EmployeeDocument[] @relation("PayslipBatchDocuments")
+
+  @@index([orgId])
+  @@index([year, month])
+  @@index([status])
+  @@map("payslip_batches")
+}
+
+// Item individual de nómina (cada PDF extraído)
+model PayslipUploadItem {
+  id String @id @default(cuid())
+
+  // Referencia al lote
+  batchId String
+  batch   PayslipBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  // Archivo temporal
+  tempFilePath   String // Ruta temporal del PDF individual
+  originalFileName String? // Nombre original del archivo (para extraer DNI)
+  pageNumber     Int? // Si viene de PDF multipágina
+
+  // Detección automática (OCR o regex en nombre de archivo)
+  detectedDni     String?
+  detectedName    String?
+  detectedCode    String?
+  confidenceScore Float   @default(0) // 0-1
+
+  // Estado y errores
+  status       PayslipItemStatus @default(PENDING)
+  errorMessage String? // Para registrar fallos de OCR o matching
+
+  // Empleado asignado
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  // Documento final creado
+  documentId String?           @unique
+  document   EmployeeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  // Auditoría
+  createdAt    DateTime  @default(now())
+  assignedAt   DateTime?
+  assignedById String? // Usuario que asignó (null si automático)
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([orgId])
+  @@index([status])
+  @@map("payslip_upload_items")
 }
 
 // Tipos de documentos
@@ -658,6 +777,23 @@ enum DocumentKind {
   CERTIFICATE // Certificados (idiomas, formación, etc.)
   MEDICAL // Documentos médicos
   OTHER // Otros documentos
+}
+
+// Estados del lote de nóminas (Mejora 3)
+enum PayslipBatchStatus {
+  PROCESSING // En proceso de extracción/OCR
+  REVIEW // Pendiente de revisión manual
+  COMPLETED // Todas las nóminas asignadas
+  PARTIAL // Parcialmente completado
+  ERROR // Error en procesamiento
+}
+
+// Estados del item individual de nómina (Mejora 3)
+enum PayslipItemStatus {
+  PENDING // Pendiente de asignación
+  ASSIGNED // Asignado a un empleado
+  ERROR // Error en procesamiento
+  SKIPPED // Saltado/descartado manualmente
 }
 
 // Estados laborales del empleado
