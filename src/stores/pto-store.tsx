@@ -55,6 +55,10 @@ export interface PtoRequest {
   startTime?: number | null;
   endTime?: number | null;
   durationMinutes?: number | null;
+  // 🆕 Campos para justificantes (Mejora 2)
+  _count?: {
+    documents: number;
+  };
 }
 
 interface PtoState {
@@ -90,7 +94,12 @@ interface PtoState {
     startTime?: number;
     endTime?: number;
     durationMinutes?: number;
-  }) => Promise<{ success: boolean; workingDays?: number; holidays?: Array<{ date: Date; name: string }> }>;
+  }) => Promise<{
+    success: boolean;
+    id?: string;
+    workingDays?: number;
+    holidays?: Array<{ date: Date; name: string }>;
+  }>;
   cancelRequest: (requestId: string, reason?: string) => Promise<void>;
   calculateWorkingDays: (
     startDate: Date,
@@ -181,7 +190,12 @@ export const usePtoStore = create<PtoState>((set, get) => ({
 
       set({ isSubmitting: false });
 
-      return { success: true, workingDays: result.request.workingDays, holidays: result.request.holidays };
+      return {
+        success: true,
+        id: result.request.id,
+        workingDays: result.request.workingDays,
+        holidays: result.request.holidays,
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al crear solicitud";
       set({

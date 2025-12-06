@@ -13,11 +13,12 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, Clock, Loader2, X } from "lucide-react";
+import { AlertTriangle, Check, Clock, Loader2, Paperclip, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { SectionHeader } from "@/components/hr/section-header";
+import { DocumentViewer, type PtoDocument } from "@/components/pto";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -61,6 +62,11 @@ interface ApproverPtoRequest {
     id: string;
     name: string;
     color: string;
+    requiresDocument?: boolean;
+  };
+  // 🆕 Info de justificantes
+  _count?: {
+    documents: number;
   };
 }
 
@@ -96,6 +102,25 @@ export default function PtoApprovalsPage() {
   const [comments, setComments] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [totals, setTotals] = useState<ApproverPtoTotals>({ pending: 0, approved: 0, rejected: 0 });
+  const [documents, setDocuments] = useState<PtoDocument[]>([]);
+  const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
+
+  // Cargar documentos cuando se selecciona una solicitud
+  const loadDocuments = useCallback(async (requestId: string) => {
+    setIsLoadingDocuments(true);
+    try {
+      const response = await fetch(`/api/pto-requests/${requestId}/documents`);
+      if (!response.ok) throw new Error("Error al cargar documentos");
+      const data = await response.json();
+      setDocuments(data.documents ?? []);
+    } catch (error) {
+      console.error("Error loading documents:", error);
+      setDocuments([]);
+    } finally {
+      setIsLoadingDocuments(false);
+    }
+  }, []);
+
   const loadRequests = useCallback(async (tab: TabKey) => {
     let status: RequestStatus = "PENDING";
     let errorMessage = "Error al cargar solicitudes pendientes";
@@ -165,12 +190,20 @@ export default function PtoApprovalsPage() {
     }
   };
 
-  const handleAction = useCallback((request: ApproverPtoRequest, action: "approve" | "reject") => {
-    setSelectedRequest(request);
-    setActionType(action);
-    setComments("");
-    setActionDialogOpen(true);
-  }, []);
+  const handleAction = useCallback(
+    (request: ApproverPtoRequest, action: "approve" | "reject") => {
+      setSelectedRequest(request);
+      setActionType(action);
+      setComments("");
+      setDocuments([]);
+      setActionDialogOpen(true);
+      // Cargar documentos si hay alguno
+      if ((request._count?.documents ?? 0) > 0) {
+        void loadDocuments(request.id);
+      }
+    },
+    [loadDocuments],
+  );
 
   const handleSubmitAction = async () => {
     if (!selectedRequest) return;
@@ -267,6 +300,37 @@ export default function PtoApprovalsPage() {
         accessorKey: "submittedAt",
         header: "Solicitado",
         cell: ({ row }) => format(new Date(row.original.submittedAt), "PP", { locale: es }),
+      },
+      {
+        id: "documents",
+        header: "Docs",
+        cell: ({ row }) => {
+          const request = row.original;
+          const docsCount = request._count?.documents ?? 0;
+          const requiresDoc = request.absenceType.requiresDocument;
+
+          // Si requiere documento y no tiene ninguno → Alerta
+          if (requiresDoc && docsCount === 0) {
+            return (
+              <Badge variant="outline" className="gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" />
+                Falta
+              </Badge>
+            );
+          }
+
+          // Si tiene documentos → Badge con conteo
+          if (docsCount > 0) {
+            return (
+              <Badge variant="outline" className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400">
+                <Paperclip className="h-3 w-3" />
+                {docsCount}
+              </Badge>
+            );
+          }
+
+          return null;
+        },
       },
       {
         id: "actions",
@@ -721,6 +785,34 @@ export default function PtoApprovalsPage() {
                   </div>
                 )}
               </div>
+
+              {/* Sección de justificantes */}
+              {((selectedRequest._count?.documents ?? 0) > 0 || selectedRequest.absenceType.requiresDocument) && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4" />
+                    <span className="text-sm font-medium">Justificantes</span>
+                    {selectedRequest.absenceType.requiresDocument && (selectedRequest._count?.documents ?? 0) === 0 && (
+                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                        <AlertTriangle className="mr-1 h-3 w-3" />
+                        Obligatorio
+                      </Badge>
+                    )}
+                  </div>
+
+                  {isLoadingDocuments ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+                    </div>
+                  ) : documents.length > 0 ? (
+                    <DocumentViewer documents={documents} />
+                  ) : (
+                    <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+                      No hay justificantes adjuntos
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="comments">

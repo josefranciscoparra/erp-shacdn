@@ -239,8 +239,8 @@ export async function getApproverPtoRequests(status: "PENDING" | "APPROVED" | "R
 
     // Importamos dinámicamente para evitar ciclos
     // eslint-disable-next-line import/no-cycle
-    const { getPendingApprovals } = await import("./approvals");
-    const pendingUnified = await getPendingApprovals();
+    const { getMyPendingApprovals } = await import("./approvals");
+    const pendingUnified = await getMyPendingApprovals();
 
     // Mapear items unificados al formato legacy
     const requests = pendingUnified.items // Accedemos a .items
@@ -264,6 +264,11 @@ export async function getApproverPtoRequests(status: "PENDING" | "APPROVED" | "R
           id: "unknown", // No crítico para la vista
           name: req.details["absenceType"] ?? "Vacaciones",
           color: req.details["color"] ?? "#3b82f6",
+          requiresDocument: req.details["requiresDocument"] ?? false,
+        },
+        // 🆕 Info de justificantes
+        _count: {
+          documents: req.details["documentsCount"] ?? 0,
         },
       }));
 

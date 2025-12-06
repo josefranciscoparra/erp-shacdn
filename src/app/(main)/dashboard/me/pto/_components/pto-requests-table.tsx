@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 
 import {
   flexRender,
@@ -15,7 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal } from "lucide-react";
+import { CheckCircle2, Clock, XCircle, Ban, MoreHorizontal, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 
 import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
@@ -41,6 +41,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
+
+import { PtoRequestDetailDialog } from "./pto-request-detail-dialog";
 
 const statusConfig = {
   PENDING: {
@@ -76,11 +78,18 @@ interface PtoRequestsTableProps {
 }
 
 export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequestsTableProps) {
-  const { requests, cancelRequest } = usePtoStore();
+  const { requests, cancelRequest, loadRequests } = usePtoStore();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [requestToCancel, setRequestToCancel] = useState<string | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedRequest, setSelectedRequest] = useState<PtoRequest | null>(null);
+
+  // Callback cuando cambian los documentos
+  const handleDocumentsChange = useCallback(() => {
+    loadRequests();
+  }, [loadRequests]);
 
   const handleCancelRequest = async () => {
     if (!requestToCancel) return;
@@ -171,6 +180,21 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
         },
       },
       {
+        id: "documents",
+        header: "Docs",
+        cell: ({ row }) => {
+          const docsCount = row.original._count?.documents ?? 0;
+          if (docsCount === 0) return null;
+
+          return (
+            <Badge variant="outline" className="gap-1 bg-blue-500/10 text-blue-700 dark:text-blue-400">
+              <Paperclip className="h-3 w-3" />
+              {docsCount}
+            </Badge>
+          );
+        },
+      },
+      {
         accessorKey: "submittedAt",
         header: "Solicitado",
         cell: ({ row }) => format(new Date(row.original.submittedAt), "PP", { locale: es }),
@@ -186,13 +210,14 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setRequestToCancel(request.id);
                     setCancelDialogOpen(true);
                   }}
@@ -312,7 +337,14 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           <TableBody>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} className="hover:bg-muted/40">
+                <TableRow
+                  key={row.id}
+                  className="hover:bg-muted/40 cursor-pointer"
+                  onClick={() => {
+                    setSelectedRequest(row.original);
+                    setDetailDialogOpen(true);
+                  }}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -348,6 +380,14 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dialog de detalle de solicitud */}
+      <PtoRequestDetailDialog
+        request={selectedRequest}
+        open={detailDialogOpen}
+        onOpenChange={setDetailDialogOpen}
+        onDocumentsChange={handleDocumentsChange}
+      />
     </>
   );
 }

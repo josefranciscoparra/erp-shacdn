@@ -69,6 +69,18 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
         },
         absenceType: true,
         approver: { select: { name: true, image: true } },
+        documents: {
+          select: {
+            id: true,
+            fileName: true,
+            fileSize: true,
+            mimeType: true,
+            uploadedAt: true,
+          },
+        },
+        _count: {
+          select: { documents: true },
+        },
       },
       orderBy: isHistory ? { approvedAt: "desc" } : { submittedAt: "desc" },
       take: isHistory ? 50 : undefined,
@@ -199,6 +211,15 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
             department: activeContract?.department?.name,
             approverComments: req.approverComments,
             rejectionReason: req.rejectionReason,
+            documentsCount: req._count?.documents ?? 0,
+            documents: req.documents.map((doc) => ({
+              id: doc.id,
+              fileName: doc.fileName,
+              fileSize: doc.fileSize,
+              mimeType: doc.mimeType,
+              uploadedAt: doc.uploadedAt.toISOString(),
+            })),
+            requiresDocument: req.absenceType.requiresDocument,
             audit: {
               approvedAt: req.approvedAt?.toISOString(),
               rejectedAt: req.rejectedAt?.toISOString(),

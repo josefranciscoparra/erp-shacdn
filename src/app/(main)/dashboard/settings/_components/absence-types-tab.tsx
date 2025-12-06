@@ -47,6 +47,7 @@ export interface AbsenceTypeRow {
   color: string;
   isPaid: boolean;
   requiresApproval: boolean;
+  requiresDocument: boolean;
   minDaysAdvance: number;
   affectsBalance: boolean;
   active: boolean;

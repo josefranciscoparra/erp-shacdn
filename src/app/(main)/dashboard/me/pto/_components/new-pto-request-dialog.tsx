@@ -3,10 +3,11 @@
 import { useState, useEffect, useMemo, memo } from "react";
 
 import type { AbsenceType } from "@prisma/client";
-import { Loader2, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle, Paperclip } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
+import { DocumentUploadZone, type PendingFile } from "@/components/pto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
@@ -205,6 +206,10 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   const [startTime, setStartTime] = useState<string>("09:00"); // Formato HH:mm
   const [endTime, setEndTime] = useState<string>("17:00"); // Formato HH:mm
 
+  // 🆕 Estados para justificantes (Mejora 2)
+  const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+
   // Calcular días hábiles cuando cambien las fechas
   const hasActiveContract = balance?.hasActiveContract !== false;
   const hasProvisionalContract = balance?.hasProvisionalContract === true;
@@ -234,8 +239,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setHolidays([]);
       setStartTime("09:00");
       setEndTime("17:00");
+      // 🆕 Limpiar archivos pendientes y revocar URLs de preview
+      pendingFiles.forEach((f) => {
+        if (f.preview) URL.revokeObjectURL(f.preview);
+      });
+      setPendingFiles([]);
     }
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!hasActiveContract) {
@@ -269,9 +279,51 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     }
   }, [hasActiveContract, dateRange, selectedTypeId, calculateWorkingDays]);
 
+  // 🆕 Función para subir archivos a una solicitud creada
+  const uploadFilesToRequest = async (ptoRequestId: string): Promise<boolean> => {
+    if (pendingFiles.length === 0) return true;
+
+    setIsUploadingFiles(true);
+    let allSuccess = true;
+
+    for (const pendingFile of pendingFiles) {
+      try {
+        const formData = new FormData();
+        formData.append("file", pendingFile.file);
+
+        const response = await fetch(`/api/pto-requests/${ptoRequestId}/documents`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          try {
+            const errorData = await response.json();
+            console.error(`Error subiendo ${pendingFile.file.name}:`, errorData);
+          } catch {
+            console.error(`Error subiendo ${pendingFile.file.name}: Status ${response.status}`);
+          }
+          allSuccess = false;
+        }
+      } catch (error) {
+        console.error(`Error subiendo ${pendingFile.file.name}:`, error);
+        allSuccess = false;
+      }
+    }
+
+    setIsUploadingFiles(false);
+    return allSuccess;
+  };
+
   const handleSubmit = async () => {
     if (!selectedTypeId || !dateRange?.from || !dateRange?.to) {
       toast.error("Por favor completa todos los campos obligatorios");
+      return;
+    }
+
+    // 🆕 Validar justificante obligatorio
+    if (selectedType?.requiresDocument && pendingFiles.length === 0) {
+      toast.error("Este tipo de ausencia requiere adjuntar un justificante");
       return;
     }
 
@@ -290,7 +342,15 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
         requestData.durationMinutes = calculateDuration(startTime, endTime);
       }
 
-      await createRequest(requestData);
+      const createdRequest = await createRequest(requestData);
+
+      // 🆕 Subir archivos adjuntos si los hay
+      if (pendingFiles.length > 0 && createdRequest?.id) {
+        const uploadSuccess = await uploadFilesToRequest(createdRequest.id);
+        if (!uploadSuccess) {
+          toast.warning("Solicitud creada, pero algunos archivos no se pudieron subir. Puedes añadirlos después.");
+        }
+      }
 
       toast.success("Solicitud enviada correctamente");
 
@@ -451,6 +511,34 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             />
           </div>
 
+          {/* 🆕 Sección 5: Justificante de ausencia (Mejora 2) */}
+          {selectedType && (
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Paperclip className="text-muted-foreground h-4 w-4" />
+                <Label className="text-muted-foreground text-sm font-medium">
+                  Justificante
+                  {selectedType.requiresDocument ? (
+                    <span className="text-destructive ml-1">*</span>
+                  ) : (
+                    <span className="text-muted-foreground ml-1">(opcional)</span>
+                  )}
+                </Label>
+              </div>
+              {selectedType.requiresDocument && (
+                <p className="text-muted-foreground text-xs">
+                  Este tipo de ausencia requiere adjuntar un documento justificativo.
+                </p>
+              )}
+              <DocumentUploadZone
+                pendingFiles={pendingFiles}
+                onPendingFilesChange={setPendingFiles}
+                required={selectedType.requiresDocument}
+                disabled={!hasActiveContract || isSubmitting || isUploadingFiles}
+              />
+            </div>
+          )}
+
           {/* Botones */}
           <div className="flex justify-end gap-3 pt-2">
             <Button
@@ -470,15 +558,17 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 !dateRange?.to ||
                 !hasEnoughDays ||
                 isSubmitting ||
+                isUploadingFiles ||
                 isCalculating ||
-                !hasActiveContract
+                !hasActiveContract ||
+                (selectedType?.requiresDocument && pendingFiles.length === 0)
               }
               className="rounded-[14px]"
             >
-              {isSubmitting ? (
+              {isSubmitting || isUploadingFiles ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Enviando...
+                  {isUploadingFiles ? "Subiendo archivos..." : "Enviando..."}
                 </>
               ) : (
                 "Enviar solicitud"

@@ -189,6 +189,7 @@ model User {
   overworkRequestsApproved  OverworkAuthorization[]  @relation("OverworkAuthorizationApprover")
   timeBankSettingsCreated   TimeBankSettings[]       @relation("TimeBankSettingsCreatedBy")
   timeBankSettingsUpdated   TimeBankSettings[]       @relation("TimeBankSettingsUpdatedBy")
+  uploadedPtoDocuments      PtoRequestDocument[] // 🆕 Justificantes de ausencia que ha subido
 
   // Sistema de permisos y alertas
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
@@ -1177,6 +1178,9 @@ model AbsenceType {
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - ¿A qué contador de balance afecta?
   balanceType String @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
 
+  // 🆕 MEJORA 2: Justificantes de ausencias
+  requiresDocument Boolean @default(false) // ¿Requiere justificante obligatorio para enviar la solicitud?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1300,6 +1304,7 @@ model PtoRequest {
 
   // Relaciones
   notifications PtoNotification[]
+  documents     PtoRequestDocument[] // 🆕 Justificantes adjuntos
 
   @@index([orgId])
   @@index([employeeId])
@@ -1312,6 +1317,33 @@ model PtoRequest {
   @@index([orgId, status, startDate]) // Reportes de solicitudes pendientes
   @@index([employeeId, status]) // Estado de vacaciones por empleado
   @@map("pto_requests")
+}
+
+// 🆕 MEJORA 2: Justificantes de ausencias - Documentos adjuntos a solicitudes PTO
+model PtoRequestDocument {
+  id String @id @default(cuid())
+
+  // Relación con la solicitud
+  ptoRequestId String
+  ptoRequest   PtoRequest @relation(fields: [ptoRequestId], references: [id], onDelete: Cascade)
+
+  // Archivo
+  fileName String // Nombre original del archivo
+  filePath String // Ruta en storage (org-X/pto-requests/Y/archivo.pdf)
+  fileSize Int // Tamaño en bytes
+  mimeType String // "application/pdf", "image/jpeg", "image/png"
+
+  // Auditoría
+  uploadedById String // Usuario que subió el archivo
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
+  // Metadata opcional
+  description String? // Descripción del documento
+
+  @@index([ptoRequestId])
+  @@index([uploadedById])
+  @@map("pto_request_documents")
 }
 
 // Estados de solicitud de PTO

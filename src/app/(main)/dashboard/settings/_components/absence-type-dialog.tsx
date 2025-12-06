@@ -40,6 +40,7 @@ const absenceTypeSchema = z
     color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color hexadecimal inválido"),
     isPaid: z.boolean(),
     requiresApproval: z.boolean(),
+    requiresDocument: z.boolean(),
     minDaysAdvance: z.number().min(0, "No puede ser negativo").max(365, "Máximo 365 días"),
     affectsBalance: z.boolean(),
     allowPartialDays: z.boolean(),
@@ -78,6 +79,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
       color: "#3b82f6",
       isPaid: true,
       requiresApproval: true,
+      requiresDocument: false,
       minDaysAdvance: 0,
       affectsBalance: true,
       allowPartialDays: false,
@@ -98,6 +100,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         color: editingType.color,
         isPaid: editingType.isPaid,
         requiresApproval: editingType.requiresApproval,
+        requiresDocument: editingType.requiresDocument,
         minDaysAdvance: editingType.minDaysAdvance,
         affectsBalance: editingType.affectsBalance,
         allowPartialDays: editingType.allowPartialDays,
@@ -114,6 +117,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         color: "#3b82f6",
         isPaid: true,
         requiresApproval: true,
+        requiresDocument: false,
         minDaysAdvance: 0,
         affectsBalance: true,
         allowPartialDays: false,
@@ -136,6 +140,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         color: data.color,
         isPaid: data.isPaid,
         requiresApproval: data.requiresApproval,
+        requiresDocument: data.requiresDocument,
         minDaysAdvance: data.minDaysAdvance,
         affectsBalance: data.affectsBalance,
         allowPartialDays: data.allowPartialDays,
@@ -276,6 +281,22 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
                     <div className="space-y-1 leading-none">
                       <FormLabel>Requiere aprobación</FormLabel>
                       <FormDescription>Las solicitudes deben ser aprobadas</FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="requiresDocument"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-y-0 space-x-3">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Requiere justificante</FormLabel>
+                      <FormDescription>El empleado debe adjuntar documentación</FormDescription>
                     </div>
                   </FormItem>
                 )}

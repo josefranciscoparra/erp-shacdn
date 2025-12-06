@@ -246,6 +246,12 @@ export async function getMyPtoRequests() {
             email: true,
           },
         },
+        // 🆕 Contar documentos adjuntos (Mejora 2)
+        _count: {
+          select: {
+            documents: true,
+          },
+        },
       },
       orderBy: {
         submittedAt: "desc",
@@ -277,6 +283,8 @@ export async function getMyPtoRequests() {
       startTime: r.startTime,
       endTime: r.endTime,
       durationMinutes: r.durationMinutes,
+      // 🆕 Conteo de documentos (Mejora 2)
+      _count: r._count,
     }));
   } catch (error) {
     console.error("Error al obtener solicitudes de PTO:", error);

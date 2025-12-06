@@ -14,6 +14,7 @@ export interface CreateAbsenceTypeInput {
   color: string;
   isPaid: boolean;
   requiresApproval: boolean;
+  requiresDocument: boolean;
   minDaysAdvance: number;
   affectsBalance: boolean;
   // Granularidad
@@ -56,6 +57,7 @@ export async function getAllAbsenceTypes() {
     color: type.color,
     isPaid: type.isPaid,
     requiresApproval: type.requiresApproval,
+    requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
     affectsBalance: type.affectsBalance,
     active: type.active,
@@ -92,6 +94,7 @@ export async function getActiveAbsenceTypes() {
     color: type.color,
     isPaid: type.isPaid,
     requiresApproval: type.requiresApproval,
+    requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
     affectsBalance: type.affectsBalance,
     allowPartialDays: type.allowPartialDays,
@@ -134,6 +137,7 @@ export async function getAbsenceTypeById(id: string) {
     color: absenceType.color,
     isPaid: absenceType.isPaid,
     requiresApproval: absenceType.requiresApproval,
+    requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
     active: absenceType.active,
@@ -191,6 +195,7 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
       color: input.color,
       isPaid: input.isPaid,
       requiresApproval: input.requiresApproval,
+      requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
       affectsBalance: input.affectsBalance,
       active: true,
@@ -211,6 +216,7 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
     color: absenceType.color,
     isPaid: absenceType.isPaid,
     requiresApproval: absenceType.requiresApproval,
+    requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
     active: absenceType.active,
@@ -282,6 +288,7 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
       color: input.color,
       isPaid: input.isPaid,
       requiresApproval: input.requiresApproval,
+      requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
       affectsBalance: input.affectsBalance,
       allowPartialDays: input.allowPartialDays,
@@ -300,6 +307,7 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
     color: absenceType.color,
     isPaid: absenceType.isPaid,
     requiresApproval: absenceType.requiresApproval,
+    requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
     active: absenceType.active,
