@@ -68,23 +68,42 @@ const formSchema = z
     (data) => {
       if (!data.isWorkingDay || data.timeSlots.length <= 1) return true;
 
-      // Validar que no haya solapamientos
-      const slots = data.timeSlots
+      // Validar que no haya solapamientos entre tramos del MISMO TIPO
+      // Las pausas SÍ pueden estar dentro de tramos de trabajo
+      const workSlots = data.timeSlots
+        .filter((slot) => slot.slotType === "WORK")
         .map((slot) => ({
           start: timeStringToMinutes(slot.startTime),
           end: timeStringToMinutes(slot.endTime),
         }))
         .sort((a, b) => a.start - b.start);
 
-      for (let i = 0; i < slots.length - 1; i++) {
-        if (slots[i].end > slots[i + 1].start) {
+      const breakSlots = data.timeSlots
+        .filter((slot) => slot.slotType === "BREAK")
+        .map((slot) => ({
+          start: timeStringToMinutes(slot.startTime),
+          end: timeStringToMinutes(slot.endTime),
+        }))
+        .sort((a, b) => a.start - b.start);
+
+      // Verificar solapamiento entre tramos de trabajo
+      for (let i = 0; i < workSlots.length - 1; i++) {
+        if (workSlots[i].end > workSlots[i + 1].start) {
           return false;
         }
       }
+
+      // Verificar solapamiento entre pausas
+      for (let i = 0; i < breakSlots.length - 1; i++) {
+        if (breakSlots[i].end > breakSlots[i + 1].start) {
+          return false;
+        }
+      }
+
       return true;
     },
     {
-      message: "Los tramos horarios no pueden solaparse",
+      message: "Los tramos del mismo tipo no pueden solaparse",
       path: ["timeSlots"],
     },
   );
@@ -171,7 +190,7 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
             endTimeMinutes: timeStringToMinutes(slot.endTime),
             // Pausas Automáticas (Mejora 6)
             slotType: slot.slotType,
-            presenceType: slot.slotType === "BREAK" ? ("OPTIONAL" as const) : ("MANDATORY" as const),
+            presenceType: slot.slotType === "BREAK" ? ("FLEXIBLE" as const) : ("MANDATORY" as const),
             isAutomatic: slot.slotType === "BREAK" ? slot.isAutomatic : false,
           }))
         : [];
