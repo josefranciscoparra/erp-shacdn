@@ -146,7 +146,7 @@ class PayslipService implements IPayslipService {
       let result: ProcessingResult;
 
       if (batch.originalFileType === "ZIP") {
-        result = await this.processZipFile(fileBuffer, batchId, batch.orgId, matcher);
+        result = await this.processZipFile(fileBuffer, batch, matcher);
       } else {
         // TODO: Implement multipage PDF processing if needed here or reuse existing
         result = await this.processMultipagePdf(fileBuffer, batch.originalFileName, batchId, batch.orgId);
@@ -166,8 +166,7 @@ class PayslipService implements IPayslipService {
 
   private async processZipFile(
     fileBuffer: Buffer,
-    batchId: string,
-    orgId: string,
+    batch: { id: string; orgId: string; month: number | null; year: number | null; uploadedById: string },
     matcher: ReturnType<typeof createEmployeeMatcher>
   ): Promise<ProcessingResult> {
     // TODO: Refactor to use Streams for lower memory usage if possible, 
@@ -182,7 +181,7 @@ class PayslipService implements IPayslipService {
 
     for (const extractedFile of zipResult.files) {
       try {
-        const result = await this.processExtractedPdf(extractedFile, batchId, orgId, matcher);
+        const result = await this.processExtractedPdf(extractedFile, batch, matcher);
         if (result === "assigned") assignedCount++;
         else if (result === "pending") pendingCount++;
         else errorCount++;
@@ -205,14 +204,13 @@ class PayslipService implements IPayslipService {
 
   private async processExtractedPdf(
     extractedFile: ExtractedFile,
-    batchId: string,
-    orgId: string,
+    batch: { id: string; orgId: string; month: number | null; year: number | null; uploadedById: string },
     matcher: ReturnType<typeof createEmployeeMatcher>
   ): Promise<"assigned" | "pending" | "error"> {
     // Subir a R2
     const uploadResult = await documentStorageService.uploadPayslipTempFile(
-      orgId,
-      batchId,
+      batch.orgId,
+      batch.id,
       extractedFile.fileName,
       extractedFile.content,
     );
@@ -221,20 +219,51 @@ class PayslipService implements IPayslipService {
     const matchResult = matcher.findMatch(extractedFile.fileName);
     const isAutoAssigned = matchResult.canAutoAssign && matchResult.employee;
 
-    // Crear Item
-    await this.createItem({
-      batchId,
-      orgId,
-      tempFilePath: uploadResult.path,
-      originalFileName: extractedFile.fileName,
-      detectedDni: matchResult.detectedDni,
-      detectedName: matchResult.detectedName,
-      detectedCode: matchResult.detectedCode,
-      confidenceScore: matchResult.confidenceScore,
-      status: isAutoAssigned ? "ASSIGNED" : "PENDING",
-      employeeId: isAutoAssigned ? matchResult.employee?.id : null,
-      assignedAt: isAutoAssigned ? new Date() : null,
+    // Transacción para crear Item y Documento si aplica
+    await prisma.$transaction(async (tx) => {
+      await tx.payslipUploadItem.create({
+        data: {
+          batchId: batch.id,
+          orgId: batch.orgId,
+          tempFilePath: uploadResult.path,
+          originalFileName: extractedFile.fileName,
+          detectedDni: matchResult.detectedDni,
+          detectedName: matchResult.detectedName,
+          detectedCode: matchResult.detectedCode,
+          confidenceScore: matchResult.confidenceScore,
+          status: isAutoAssigned ? "ASSIGNED" : "PENDING",
+          employeeId: isAutoAssigned ? matchResult.employee?.id : null,
+          assignedAt: isAutoAssigned ? new Date() : null,
+          assignedById: isAutoAssigned ? batch.uploadedById : null, // Asignado por quien subió el lote
+        },
+      });
+
+      if (isAutoAssigned && matchResult.employee) {
+        await tx.employeeDocument.create({
+          data: {
+            orgId: batch.orgId,
+            employeeId: matchResult.employee.id,
+            fileName: extractedFile.fileName,
+            fileUrl: uploadResult.path,
+            mimeType: "application/pdf",
+            size: extractedFile.size,
+            kind: "PAYSLIP",
+            payslipMonth: batch.month,
+            payslipYear: batch.year,
+            uploadedById: batch.uploadedById,
+          },
+        });
+      }
     });
+
+    // Enviar notificación si se asignó automáticamente
+    if (isAutoAssigned && matchResult.employee) {
+       // Recuperar userId del empleado si es necesario para notificación
+       // Esto requeriría una consulta extra o haber traído el userId en el matcher
+       // Por eficiencia, podemos omitir la notificación individual en la carga masiva 
+       // para no saturar, o implementarla después.
+       // Dejaremos esto pendiente para no complicar la transacción.
+    }
 
     return isAutoAssigned ? "assigned" : "pending";
   }
