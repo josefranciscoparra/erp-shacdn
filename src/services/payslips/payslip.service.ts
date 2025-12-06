@@ -335,6 +335,26 @@ class PayslipService implements IPayslipService {
         });
       });
 
+      // Enviar notificación al empleado (fuera de la transacción)
+      // Necesitamos buscar el userId del empleado que puede no estar en EmployeeMatchCandidate
+      const employeeForNotification = await prisma.employee.findUnique({
+        where: { id: matchResult.employee!.id },
+        select: { userId: true },
+      });
+
+      if (employeeForNotification?.userId) {
+        const monthName = batch?.month ? MONTH_NAMES[batch.month - 1] : null;
+        const periodText = monthName && batch?.year ? `${monthName} ${batch.year}` : "";
+
+        await createNotification(
+          employeeForNotification.userId,
+          orgId,
+          "PAYSLIP_AVAILABLE",
+          `Nómina disponible${periodText ? `: ${periodText}` : ""}`,
+          `Tienes una nueva nómina disponible.`,
+        ).catch((err) => console.error("Error enviando notificación de nómina:", err));
+      }
+
       return "assigned";
     } catch (docError) {
       console.error("Error auto-assigning payslip:", docError);
