@@ -259,13 +259,13 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] Añadir relaciones en `Organization`, `User`, `Employee`
 - [x] Ejecutar `npx prisma db push`
 - [x] Crear archivo `src/lib/payslip/config.ts`
-- [ ] **COMMIT**: `feat(payslips): add data model for bulk payslip upload`
+- [x] **COMMIT**: `feat(payslips): add data model for bulk payslip upload`
 
-### Checkpoint 2: Procesamiento de Archivos
-- [ ] Instalar dependencias: `jszip`, `pdf-lib`
-- [ ] Crear `src/lib/payslip/zip-processor.ts`
-- [ ] Crear `src/lib/payslip/pdf-splitter.ts`
-- [ ] Tests unitarios de extracción
+### Checkpoint 2: Procesamiento de Archivos ✅
+- [x] Instalar dependencias: `jszip`, `pdf-lib`
+- [x] Crear `src/lib/payslip/zip-processor.ts`
+- [x] Crear `src/lib/payslip/pdf-splitter.ts`
+- [ ] Tests unitarios de extracción (omitido - se probará en integración)
 - [ ] **COMMIT**: `feat(payslips): add ZIP and PDF processing utilities`
 
 ### Checkpoint 3: OCR y Matching
