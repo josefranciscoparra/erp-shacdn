@@ -26,6 +26,7 @@ export interface PayslipUploadItemCreateInput {
   status?: ItemStatus;
   employeeId?: string | null;
   assignedAt?: Date | null;
+  errorMessage?: string | null;
 }
 
 export interface ProcessingResult {
@@ -48,10 +49,10 @@ export interface IPayslipService {
   updateItem(itemId: string, data: Partial<PayslipUploadItemCreateInput>): Promise<any>;
   assignItem(itemId: string, employeeId: string, userId: string): Promise<any>;
   skipItem(itemId: string): Promise<any>;
-  
+
   // Procesamiento
   processBatchAsync(batchId: string, fileBuffer: Buffer, employees: EmployeeMatchCandidate[]): Promise<void>;
-  
+
   // Utilidades
   cleanupTempFiles(batchId: string): Promise<void>;
 }

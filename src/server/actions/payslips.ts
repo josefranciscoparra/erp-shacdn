@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
+import { documentStorageService } from "@/lib/storage";
 import { createNotification } from "@/server/actions/notifications";
 
 // Nombres de meses para notificaciones
@@ -307,6 +308,8 @@ export async function assignPayslipItem(
       return { success: false, error: "Este item ya está asignado" };
     }
 
+    const previousStatus = item.status;
+
     // Verificar que el empleado existe y pertenece a la organización
     const employee = await prisma.employee.findFirst({
       where: { id: employeeId, orgId },
@@ -316,24 +319,69 @@ export async function assignPayslipItem(
       return { success: false, error: "Empleado no encontrado" };
     }
 
-    // Actualizar item
-    await prisma.payslipUploadItem.update({
-      where: { id: itemId },
-      data: {
-        employeeId,
-        status: "ASSIGNED",
-        assignedAt: new Date(),
-        assignedById: userId,
-      },
-    });
+    // Mover archivo a ruta final del empleado (si sigue en temp)
+    const finalFileName =
+      item.originalFileName ?? `nomina_${item.batch.month ?? "sin_mes"}_${item.batch.year ?? "sin_anio"}.pdf`;
 
-    // Actualizar contadores del batch
-    await prisma.payslipBatch.update({
-      where: { id: item.batchId },
-      data: {
-        assignedCount: { increment: 1 },
-        pendingCount: { decrement: 1 },
-      },
+    let finalPath = item.tempFilePath;
+    let finalSize: number | null = null;
+
+    try {
+      if (item.tempFilePath.includes("/payslips/temp/")) {
+        const moved = await documentStorageService.movePayslipToEmployee(
+          item.tempFilePath,
+          orgId,
+          employeeId,
+          finalFileName,
+        );
+        finalPath = moved.path;
+        finalSize = moved.size ?? null;
+      }
+    } catch (moveError) {
+      console.error("Error moving payslip to employee storage (keeping temp path):", moveError);
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Crear documento final
+      const document = await tx.employeeDocument.create({
+        data: {
+          orgId,
+          employeeId,
+          fileName: finalFileName,
+          storageUrl: finalPath,
+          fileSize: finalSize ?? 0,
+          mimeType: "application/pdf",
+          kind: "PAYSLIP",
+          payslipMonth: item.batch.month,
+          payslipYear: item.batch.year,
+          payslipBatchId: item.batchId,
+          uploadedById: userId,
+        },
+      });
+
+      // Actualizar item con enlace al documento y estado
+      await tx.payslipUploadItem.update({
+        where: { id: itemId },
+        data: {
+          employeeId,
+          status: "ASSIGNED",
+          assignedAt: new Date(),
+          assignedById: userId,
+          tempFilePath: finalPath,
+          documentId: document.id,
+          errorMessage: null,
+        },
+      });
+
+      // Actualizar contadores del batch
+      await tx.payslipBatch.update({
+        where: { id: item.batchId },
+        data: {
+          assignedCount: { increment: 1 },
+          pendingCount: previousStatus === "PENDING" ? { decrement: 1 } : undefined,
+          errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,
+        },
+      });
     });
 
     // Actualizar estado del batch si es necesario

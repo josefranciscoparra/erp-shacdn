@@ -66,7 +66,7 @@ export function PayslipList({ payslips, total, page, onPageChange, isLoading }: 
     setIsLoadingPreview(true);
 
     try {
-      const response = await fetch(`/api/employees/documents/${payslip.id}/download`);
+      const response = await fetch(`/api/me/documents/${payslip.id}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);
@@ -81,7 +81,7 @@ export function PayslipList({ payslips, total, page, onPageChange, isLoading }: 
 
   const handleDownload = async (payslip: Payslip) => {
     try {
-      const response = await fetch(`/api/employees/documents/${payslip.id}/download`);
+      const response = await fetch(`/api/me/documents/${payslip.id}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = URL.createObjectURL(blob);

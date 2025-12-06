@@ -74,21 +74,21 @@ export async function POST(request: NextRequest) {
     // En un entorno VPS/Node funciona bien.
     // Recomendación: Mover a una Cola (Bull/Inngest) si se escala.
     const processingPromise = payslipService.processBatchAsync(batch.id, fileBuffer, employees);
-    
-    // Si estamos en un entorno que soporta waitUntil (Cloudflare/Vercel Edge), usarlo.
-    // Si no, simplemente no hacemos await.
-    // (request as any).waitUntil?.(processingPromise);
 
-    return NextResponse.json({
-      success: true,
-      batchId: batch.id,
-      message: "Archivo subido correctamente. El procesamiento continuará en segundo plano.",
-      status: "PROCESSING",
-    }, { status: 202 });
+    // Si estamos en un entorno que soporta waitUntil (Cloudflare/Vercel Edge), usarlo para mayor robustez
+    (request as any).waitUntil?.(processingPromise);
 
+    return NextResponse.json(
+      {
+        success: true,
+        batchId: batch.id,
+        message: "Archivo subido correctamente. El procesamiento continuará en segundo plano.",
+        status: "PROCESSING",
+      },
+      { status: 202 },
+    );
   } catch (error) {
     console.error("Error en upload de nóminas:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
 }
-
