@@ -999,6 +999,11 @@ model TimeEntry {
   // Sistema de permisos y alertas
   alerts Alert[] @relation("TimeEntryAlerts") // Alertas generadas por este fichaje
 
+  // Pausas Automáticas (Mejora 6) - Campos para tracking de pausas automáticas
+  isAutomatic          Boolean @default(false) // Si este fichaje fue generado automáticamente
+  automaticBreakSlotId String? // ID del TimeSlot BREAK que originó esta pausa (idempotencia)
+  automaticBreakNotes  String? // Descripción de la regla aplicada: "Pausa automática 13:00-13:30 (Oficina Central)"
+
   @@index([orgId])
   @@index([employeeId])
   @@index([timestamp])
@@ -2527,6 +2532,9 @@ model TimeSlot {
   compensationFactor Decimal @db.Decimal(4, 2) @default(1.00) // 1.00 = normal, 1.50 = nocturno, 1.75 = festivo
 
   description String? // "Pausa comida", "Guardia localizada"
+
+  // Pausas Automáticas (Mejora 6) - Solo aplica cuando slotType=BREAK
+  isAutomatic Boolean @default(false) // Si esta pausa se registra automáticamente al clockOut
 
   @@index([workDayPatternId])
   @@map("time_slots")
