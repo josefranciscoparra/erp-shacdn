@@ -628,7 +628,25 @@ export async function getScheduleTemplates(filters?: ScheduleTemplateFilters) {
     orderBy: { name: "asc" },
   });
 
-  return templates;
+  // Serializar Decimals a números para Next.js (igual que getScheduleTemplateById)
+  return templates.map((template) => ({
+    ...template,
+    periods: template.periods.map((period) => ({
+      ...period,
+      workDayPatterns: period.workDayPatterns.map((pattern) => ({
+        ...pattern,
+        timeSlots: pattern.timeSlots.map((slot) => {
+          const { compensationFactor: _cf, ...restSlot } = slot;
+          return {
+            ...restSlot,
+            startTimeMinutes: Number(slot.startTimeMinutes),
+            endTimeMinutes: Number(slot.endTimeMinutes),
+            compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1,
+          };
+        }),
+      })),
+    })),
+  }));
 }
 
 /**
@@ -684,11 +702,17 @@ export async function getScheduleTemplateById(id: string) {
       ...period,
       workDayPatterns: period.workDayPatterns.map((pattern) => ({
         ...pattern,
-        timeSlots: pattern.timeSlots.map((slot) => ({
-          ...slot,
-          startTimeMinutes: Number(slot.startTimeMinutes),
-          endTimeMinutes: Number(slot.endTimeMinutes),
-        })),
+        timeSlots: pattern.timeSlots.map((slot) => {
+          // Desestructurar para excluir el Decimal original y evitar error de serialización
+          const { compensationFactor: _cf, ...restSlot } = slot;
+          return {
+            ...restSlot,
+            startTimeMinutes: Number(slot.startTimeMinutes),
+            endTimeMinutes: Number(slot.endTimeMinutes),
+            // Mejora 6: Serializar compensationFactor (Decimal → number)
+            compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1,
+          };
+        }),
       })),
     })),
   };
