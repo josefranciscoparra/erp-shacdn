@@ -30,28 +30,31 @@ export default function PayslipBatchDetailPage({ params }: Props) {
   const [total, setTotal] = useState(0);
   const [pollCount, setPollCount] = useState(0);
 
-  const loadData = useCallback(async (silent = false) => {
-    if (!silent) setIsLoading(true);
-    setError(null);
-    try {
-      const result = await getBatchWithItems(batchId, {
-        status: statusFilter,
-        page,
-        pageSize: 50,
-      });
-      if (result.success && result.batch && result.items) {
-        setBatch(result.batch);
-        setItems(result.items);
-        setTotal(result.total ?? 0);
-      } else {
-        setError(result.error ?? "Error desconocido");
+  const loadData = useCallback(
+    async (silent = false) => {
+      if (!silent) setIsLoading(true);
+      setError(null);
+      try {
+        const result = await getBatchWithItems(batchId, {
+          status: statusFilter,
+          page,
+          pageSize: 50,
+        });
+        if (result.success && result.batch && result.items) {
+          setBatch(result.batch);
+          setItems(result.items);
+          setTotal(result.total ?? 0);
+        } else {
+          setError(result.error ?? "Error desconocido");
+        }
+      } catch {
+        setError("Error al cargar el lote");
+      } finally {
+        if (!silent) setIsLoading(false);
       }
-    } catch {
-      setError("Error al cargar el lote");
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  }, [batchId, statusFilter, page]);
+    },
+    [batchId, statusFilter, page],
+  );
 
   // Carga inicial
   useEffect(() => {

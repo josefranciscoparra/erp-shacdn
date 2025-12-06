@@ -124,9 +124,7 @@ export function ReviewTable({
       setSelectedIds(new Set());
     } else {
       // Solo seleccionar los que se pueden saltar (PENDING o ERROR)
-      const selectableIds = items
-        .filter((i) => i.status === "PENDING" || i.status === "ERROR")
-        .map((i) => i.id);
+      const selectableIds = items.filter((i) => i.status === "PENDING" || i.status === "ERROR").map((i) => i.id);
       setSelectedIds(new Set(selectableIds));
     }
   };
@@ -188,7 +186,7 @@ export function ReviewTable({
       // Ejecutar en paralelo (idealmente debería haber un endpoint bulk en el backend)
       const promises = Array.from(selectedIds).map((id) => skipPayslipItem(id));
       await Promise.all(promises);
-      
+
       toast.success(`${selectedIds.size} items saltados correctamente`);
       setSelectedIds(new Set());
       onRefresh();
@@ -264,8 +262,11 @@ export function ReviewTable({
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[40px]">
-                    <Checkbox 
-                      checked={items.length > 0 && selectedIds.size === items.filter(i => i.status === 'PENDING' || i.status === 'ERROR').length}
+                    <Checkbox
+                      checked={
+                        items.length > 0 &&
+                        selectedIds.size === items.filter((i) => i.status === "PENDING" || i.status === "ERROR").length
+                      }
                       onCheckedChange={toggleSelectAll}
                       disabled={items.length === 0}
                     />
@@ -290,18 +291,20 @@ export function ReviewTable({
                   </TableRow>
                 ) : (
                   items.map((item) => {
-                    const canSelect = item.status === 'PENDING' || item.status === 'ERROR';
+                    const canSelect = item.status === "PENDING" || item.status === "ERROR";
                     return (
                       <TableRow key={item.id} data-state={selectedIds.has(item.id) && "selected"}>
                         <TableCell>
-                          <Checkbox 
+                          <Checkbox
                             checked={selectedIds.has(item.id)}
                             onCheckedChange={() => toggleSelectRow(item.id)}
                             disabled={!canSelect}
                           />
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">{item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}</div>
+                          <div className="font-medium">
+                            {item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <code className="bg-muted rounded px-1 py-0.5 text-sm">{item.detectedDni ?? "-"}</code>
@@ -325,7 +328,12 @@ export function ReviewTable({
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => setPreviewItem(item)} title="Ver preview">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setPreviewItem(item)}
+                              title="Ver preview"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
 
@@ -392,15 +400,15 @@ export function ReviewTable({
 
       {/* Barra de acción flotante */}
       {selectedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground/95 text-background backdrop-blur supports-[backdrop-filter]:bg-foreground/80 flex items-center gap-4 rounded-full px-6 py-3 shadow-lg animate-in slide-in-from-bottom-4 z-50">
+        <div className="bg-foreground/95 text-background supports-[backdrop-filter]:bg-foreground/80 animate-in slide-in-from-bottom-4 fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full px-6 py-3 shadow-lg backdrop-blur">
           <div className="flex items-center gap-2 border-r pr-4">
             <CheckSquare className="h-4 w-4" />
             <span className="text-sm font-medium">{selectedIds.size} seleccionados</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="secondary" 
-              size="sm" 
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={handleBulkSkip}
               disabled={isBulkSkipping}
               className="hover:bg-destructive hover:text-destructive-foreground transition-colors"
@@ -412,9 +420,9 @@ export function ReviewTable({
               )}
               Saltar selección
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setSelectedIds(new Set())}
               className="text-muted-foreground hover:text-foreground"
             >
@@ -443,4 +451,3 @@ export function ReviewTable({
     </>
   );
 }
-

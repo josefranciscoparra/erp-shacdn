@@ -99,6 +99,7 @@ const notificationIcons = {
   PTO_CANCELLED: Ban,
   PTO_REMINDER: Calendar,
   DOCUMENT_UPLOADED: FileText,
+  PAYSLIP_AVAILABLE: FileText,
   SYSTEM_ANNOUNCEMENT: Calendar,
   SIGNATURE_PENDING: FileSignature,
   SIGNATURE_COMPLETED: FileCheck,
@@ -123,6 +124,7 @@ const notificationTypeLabels = {
   PTO_CANCELLED: "Solicitud cancelada",
   PTO_REMINDER: "Recordatorio",
   DOCUMENT_UPLOADED: "Documento subido",
+  PAYSLIP_AVAILABLE: "Nómina disponible",
   SYSTEM_ANNOUNCEMENT: "Anuncio del sistema",
   SIGNATURE_PENDING: "Firma pendiente",
   SIGNATURE_COMPLETED: "Firma completada",
@@ -376,6 +378,13 @@ export default function NotificationsPage() {
         return;
       }
 
+      // Manejar notificaciones de nóminas disponibles
+      if (notification.type === "PAYSLIP_AVAILABLE") {
+        router.push(`/dashboard/me/payslips`);
+        setIsDetailOpen(false);
+        return;
+      }
+
       // Manejar notificaciones de gastos
       if (notification.expenseId ?? notification.type.startsWith("EXPENSE_")) {
         if (notification.type === "EXPENSE_SUBMITTED") {
@@ -512,6 +521,8 @@ export default function NotificationsPage() {
                     "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400",
                   type === "DOCUMENT_UPLOADED" &&
                     "bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400",
+                  type === "PAYSLIP_AVAILABLE" &&
+                    "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400",
                   type === "TIME_BANK_REQUEST_SUBMITTED" &&
                     "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400",
                   type === "TIME_BANK_REQUEST_APPROVED" &&
@@ -780,6 +791,7 @@ export default function NotificationsPage() {
                 selectedNotification.type.startsWith("EXPENSE_") ||
                 selectedNotification.type.startsWith("TIME_BANK_REQUEST_") ||
                 selectedNotification.type === "DOCUMENT_UPLOADED" ||
+                selectedNotification.type === "PAYSLIP_AVAILABLE" ||
                 selectedNotification.type === "SIGNATURE_PENDING" ||
                 selectedNotification.type === "SIGNATURE_COMPLETED" ||
                 selectedNotification.type === "SIGNATURE_REJECTED" ||
@@ -796,18 +808,20 @@ export default function NotificationsPage() {
                         ? "Ir a Bolsa de Horas"
                         : selectedNotification.type === "DOCUMENT_UPLOADED"
                           ? "Ir a Mis Documentos"
-                          : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                            ? "Ir a revisar solicitud"
-                            : selectedNotification.type === "SIGNATURE_PENDING"
-                              ? "Ir a firmar"
-                              : selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                                  selectedNotification.type === "SIGNATURE_REJECTED" ||
-                                  selectedNotification.type === "SIGNATURE_EXPIRED"
-                                ? selectedNotification.title === "Documento completamente firmado" ||
-                                  selectedNotification.title === "Documento rechazado por firmante"
-                                  ? "Ver gestión de firmas"
-                                  : "Ver mis firmas"
-                                : "Ir a la solicitud"}
+                          : selectedNotification.type === "PAYSLIP_AVAILABLE"
+                            ? "Ir a Mis Nóminas"
+                            : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
+                              ? "Ir a revisar solicitud"
+                              : selectedNotification.type === "SIGNATURE_PENDING"
+                                ? "Ir a firmar"
+                                : selectedNotification.type === "SIGNATURE_COMPLETED" ||
+                                    selectedNotification.type === "SIGNATURE_REJECTED" ||
+                                    selectedNotification.type === "SIGNATURE_EXPIRED"
+                                  ? selectedNotification.title === "Documento completamente firmado" ||
+                                    selectedNotification.title === "Documento rechazado por firmante"
+                                    ? "Ver gestión de firmas"
+                                    : "Ver mis firmas"
+                                  : "Ir a la solicitud"}
                 </Button>
               )}
           </DialogFooter>
