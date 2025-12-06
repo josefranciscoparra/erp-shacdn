@@ -377,6 +377,71 @@ PayslipUploadItem:
 
 ---
 
+## Bug Fixes & Mejoras (Post-Implementación)
+
+### 1. Auto-asignación Completa ✅
+
+**Problema:** Al auto-asignar nóminas, el PDF permanecía en `/temp` y no se creaba el `EmployeeDocument`.
+
+**Solución implementada en `payslip.service.ts`:**
+- Mover PDF de `temp/` a path final (`org-X/employees/Y/payslips/`)
+- Crear `EmployeeDocument` con `storageUrl`, `fileSize`, `mimeType`
+- Enlazar `documentId` en el `PayslipUploadItem`
+- Registrar estado `ERROR` si falla el movimiento/creación
+
+### 2. Asignación Manual Mejorada ✅
+
+**Problema:** La asignación manual no gestionaba correctamente el storage.
+
+**Solución implementada en `payslips.ts` (server actions):**
+- Si archivo está en `temp/`, moverlo al path final del empleado
+- Crear `EmployeeDocument` con todos los campos requeridos
+- Enlazar `documentId` en el item
+- Limpiar `errorMessage` al asignar exitosamente
+- Actualizar contadores del batch (`assignedCount`, `pendingCount`)
+
+### 3. Vista Empleado Corregida ✅
+
+**Problema:** Las descargas y previews fallaban.
+
+**Solución:**
+- Descargas usan `/api/me/documents/[id]/download`
+- El endpoint lee `storageUrl` del `EmployeeDocument`
+- Validación de permisos: solo el empleado dueño puede descargar
+
+### 4. API Upload con waitUntil ✅
+
+**Problema:** En Vercel, el procesamiento background podía interrumpirse.
+
+**Solución en `/api/payslips/upload/route.ts`:**
+```typescript
+const processingPromise = payslipService.processBatchAsync(...);
+(request as any).waitUntil?.(processingPromise);
+```
+
+### 5. Tipado de PayslipUploadItem ✅
+
+**Mejora:** El tipo `item` ahora incluye `errorMessage?: string` para mostrar errores en la UI de revisión.
+
+### 6. Notificaciones PAYSLIP_AVAILABLE ✅
+
+**Implementación completa:**
+- Icono verde (FileText) en página de notificaciones
+- Label "Nómina disponible"
+- Botón "Ir a Mis Nóminas" navegando a `/dashboard/me/payslips`
+- Mensaje: "Ya tienes disponible tu nómina de {mes}/{año}"
+
+### 7. Rediseño "Mis Nóminas" ✅
+
+**Cambio:** Página `/dashboard/me/payslips` rediseñada para coincidir con `/dashboard/me/pto`:
+- TanStack Table con paginación
+- `SectionHeader` consistente
+- `EmptyState` cuando no hay nóminas
+- Filtro por año con Select
+- Diseño responsive con `@container/main`
+
+---
+
 ## Referencias
 
 - Requisitos originales: `docs/mejorasfinales/PLAN3_NOMINAS.md`
