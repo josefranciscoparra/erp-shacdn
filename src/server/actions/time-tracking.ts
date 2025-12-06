@@ -313,14 +313,40 @@ async function processAutomaticBreaks(
     entries: [],
   };
 
-  const dayStart = startOfDay(clockOutTime);
-  const dayEnd = endOfDay(clockOutTime);
+  // Ventana amplia para capturar turnos que cruzan medianoche (día anterior + día actual)
+  const todayStart = startOfDay(clockOutTime);
+  const windowStart = subDays(todayStart, 1);
+  const windowEnd = endOfDay(clockOutTime);
 
   console.log("🔄 [AUTOMATIC_BREAKS] Procesando pausas automáticas para", employeeId);
 
   try {
-    // 1. Obtener horario efectivo del día
-    const schedule = await getEffectiveSchedule(employeeId, clockOutTime);
+    // 1. Obtener fichajes del rango (ayer + hoy) para detectar sesiones cruzando medianoche
+    const windowEntries = await prisma.timeEntry.findMany({
+      where: {
+        employeeId,
+        orgId,
+        isCancelled: false,
+        timestamp: { gte: windowStart, lte: windowEnd },
+      },
+      orderBy: { timestamp: "asc" },
+    });
+
+    // Determinar el último CLOCK_IN relevante (puede ser del día anterior)
+    const lastClockIn = [...windowEntries].reverse().find((e) => e.entryType === "CLOCK_IN");
+    if (!lastClockIn) {
+      console.log("⏭️ [AUTOMATIC_BREAKS] Sin fichaje de entrada en la ventana (ayer+hoy)");
+      result.reasons.push("Sin fichaje de entrada");
+      return result;
+    }
+
+    // Usar el día lógico de la sesión (día del CLOCK_IN) para el horario y cálculo de minutos
+    const scheduleBaseDate = startOfDay(lastClockIn.timestamp);
+    const scheduleDate = new Date(scheduleBaseDate);
+    scheduleDate.setHours(12, 0, 0, 0); // mediodía para evitar problemas de TZ
+
+    // 1b. Obtener horario efectivo del día lógico
+    const schedule = await getEffectiveSchedule(employeeId, scheduleDate);
 
     // Verificar precondiciones
     if (!schedule.isWorkingDay) {
@@ -348,39 +374,22 @@ async function processAutomaticBreaks(
 
     console.log(`📋 [AUTOMATIC_BREAKS] Encontradas ${automaticBreakSlots.length} pausas automáticas`);
 
-    // 3. Obtener fichajes del día para verificar pausas manuales e idempotencia
-    const todayEntries = await prisma.timeEntry.findMany({
-      where: {
-        employeeId,
-        orgId,
-        isCancelled: false,
-        timestamp: { gte: dayStart, lte: dayEnd },
-      },
-      orderBy: { timestamp: "asc" },
-    });
+    const relevantEntries = windowEntries.filter((e) => e.timestamp >= scheduleBaseDate);
 
-    // Verificar que existe al menos un CLOCK_IN
-    const hasClockIn = todayEntries.some((e) => e.entryType === "CLOCK_IN");
-    if (!hasClockIn) {
-      console.log("⏭️ [AUTOMATIC_BREAKS] No hay CLOCK_IN en el día");
-      result.reasons.push("Sin fichaje de entrada");
-      return result;
-    }
-
-    // Extraer pausas manuales existentes
+    // 3. Extraer pausas manuales existentes (ayer + hoy) tomando como base el día lógico del turno
     const manualBreaks = extractManualBreaks(
-      todayEntries.map((e) => ({
+      relevantEntries.map((e) => ({
         entryType: e.entryType,
         timestamp: e.timestamp,
         isAutomatic: e.isAutomatic,
       })),
-      dayStart,
+      scheduleBaseDate,
     );
 
     console.log(`📊 [AUTOMATIC_BREAKS] Pausas manuales encontradas: ${manualBreaks.length}`);
 
-    // Calcular hora de salida en minutos
-    const clockOutMinutes = dateToMinutes(dayStart, clockOutTime);
+    // Calcular hora de salida en minutos respecto al día lógico (puede ser >1440 si cruza medianoche)
+    const clockOutMinutes = dateToMinutes(scheduleBaseDate, clockOutTime);
 
     // 4. Procesar cada pausa automática
     for (const slot of automaticBreakSlots) {
@@ -393,7 +402,7 @@ async function processAutomaticBreaks(
       );
 
       // 4a. Verificar idempotencia: ¿ya existe pausa automática para este slot?
-      const existingAutoBreak = todayEntries.find(
+      const existingAutoBreak = relevantEntries.find(
         (e) => e.automaticBreakSlotId === slotId && e.entryType === "BREAK_START",
       );
 
@@ -423,8 +432,8 @@ async function processAutomaticBreaks(
       }
 
       // 4d. Crear BREAK_START + BREAK_END
-      const breakStartTime = minutesToDate(dayStart, effectiveInterval.start);
-      const breakEndTime = minutesToDate(dayStart, effectiveInterval.end);
+      const breakStartTime = minutesToDate(scheduleBaseDate, effectiveInterval.start);
+      const breakEndTime = minutesToDate(scheduleBaseDate, effectiveInterval.end);
       const breakDuration = effectiveInterval.end - effectiveInterval.start;
 
       // Preparar nota descriptiva
@@ -432,35 +441,63 @@ async function processAutomaticBreaks(
 
       console.log(`  ✅ Creando pausa automática: ${breakNote}`);
 
-      // Crear BREAK_START
-      const breakStartEntry = await prisma.timeEntry.create({
-        data: {
-          orgId,
-          employeeId,
-          entryType: "BREAK_START",
-          timestamp: breakStartTime,
-          isAutomatic: true,
-          automaticBreakSlotId: slotId,
-          automaticBreakNotes: breakNote,
-        },
-      });
+      // Crear BREAK_START + BREAK_END de forma atómica para evitar parciales
+      const transactionResult = await prisma.$transaction(
+        async (tx) => {
+          // Revalidar idempotencia dentro de la transacción para evitar condiciones de carrera
+          const alreadyExists = await tx.timeEntry.findFirst({
+            where: {
+              employeeId,
+              orgId,
+              automaticBreakSlotId: slotId,
+              entryType: "BREAK_START",
+              timestamp: { gte: scheduleBaseDate, lte: windowEnd },
+            },
+          });
 
-      // Crear BREAK_END
-      const breakEndEntry = await prisma.timeEntry.create({
-        data: {
-          orgId,
-          employeeId,
-          entryType: "BREAK_END",
-          timestamp: breakEndTime,
-          isAutomatic: true,
-          automaticBreakSlotId: slotId,
-          automaticBreakNotes: breakNote,
+          if (alreadyExists) {
+            return null;
+          }
+
+          const breakStartEntry = await tx.timeEntry.create({
+            data: {
+              orgId,
+              employeeId,
+              entryType: "BREAK_START",
+              timestamp: breakStartTime,
+              isAutomatic: true,
+              automaticBreakSlotId: slotId,
+              automaticBreakNotes: breakNote,
+            },
+          });
+
+          const breakEndEntry = await tx.timeEntry.create({
+            data: {
+              orgId,
+              employeeId,
+              entryType: "BREAK_END",
+              timestamp: breakEndTime,
+              isAutomatic: true,
+              automaticBreakSlotId: slotId,
+              automaticBreakNotes: breakNote,
+            },
+          });
+
+          return { breakStartEntry, breakEndEntry };
         },
-      });
+        { isolationLevel: "Serializable" },
+      );
+
+      if (!transactionResult) {
+        console.log(`  ⏭️ Pausa automática ya creada durante la transacción para slot ${slotId}`);
+        result.skipped++;
+        result.reasons.push(`Slot ${slotId}: ya existe (revalidado)`);
+        continue;
+      }
 
       result.created++;
       result.totalMinutes += breakDuration;
-      result.entries.push({ breakStart: breakStartEntry, breakEnd: breakEndEntry });
+      result.entries.push({ breakStart: transactionResult.breakStartEntry, breakEnd: transactionResult.breakEndEntry });
     }
 
     console.log(

@@ -898,14 +898,8 @@ export async function updateWorkDayPattern(
   dayOfWeek: number,
   data: UpdateWorkDayPatternInput,
 ): Promise<ActionResponse> {
-  console.log("[updateWorkDayPattern] === INICIO ===");
-  console.log("[updateWorkDayPattern] periodId:", periodId);
-  console.log("[updateWorkDayPattern] dayOfWeek:", dayOfWeek);
-  console.log("[updateWorkDayPattern] data:", JSON.stringify(data, null, 2));
-
   try {
-    const { orgId } = await requireOrg();
-    console.log("[updateWorkDayPattern] orgId:", orgId);
+    await requireOrg();
 
     // Buscar o crear el patrón del día
     let pattern = await prisma.workDayPattern.findFirst({
