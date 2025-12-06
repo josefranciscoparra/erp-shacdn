@@ -277,21 +277,20 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [ ] Tests de detección (omitido - se probará en integración)
 - [ ] **COMMIT**: `feat(payslips): add OCR engine and employee matching`
 
-### Checkpoint 4: Server Actions y APIs
-- [ ] Crear `src/server/actions/payslips.ts`:
-  - `createPayslipBatch()`
+### Checkpoint 4: Server Actions y APIs ✅
+- [x] Crear `src/server/actions/payslips.ts`:
   - `getPayslipBatches()`
   - `getBatchWithItems()`
   - `assignPayslipItem()`
   - `skipPayslipItem()`
   - `retryOcrItem()`
   - `getMyPayslips()`
-- [ ] Crear API routes:
+  - `getMyPayslipYears()`
+  - `searchEmployeesForPayslip()`
+- [x] Crear API routes:
   - `/api/payslips/upload`
-  - `/api/payslips/process`
   - `/api/payslips/items/[id]/preview`
-  - `/api/payslips/items/[id]/download`
-- [ ] Validación de permisos en todas las rutas
+- [x] Validación de permisos en todas las rutas
 - [ ] **COMMIT**: `feat(payslips): add server actions and API routes`
 
 ### Checkpoint 5: UI Subida Masiva

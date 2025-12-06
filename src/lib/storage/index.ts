@@ -3,6 +3,9 @@ import { LocalStorageProvider } from "./providers/local";
 import { R2StorageProvider } from "./providers/r2";
 import type { StorageConfig, StorageProvider, StorageProviderType } from "./types";
 
+// Re-exportar tipos para uso externo
+export type { StorageProvider, StorageConfig, StorageProviderType };
+
 // Configuración por defecto
 const defaultConfig: StorageConfig = {
   provider: (process.env.STORAGE_PROVIDER as StorageProviderType) || "local",
