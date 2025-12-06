@@ -184,11 +184,18 @@ export class EmployeeMatcher {
   }
 
   /**
-   * Busca empleados por DNI/NIE exacto
+   * Normaliza un DNI/NIE eliminando guiones, espacios y caracteres no alfanuméricos
+   */
+  private normalizeDni(dni: string): string {
+    return dni.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  }
+
+  /**
+   * Busca empleados por DNI/NIE exacto (normalizado)
    */
   private findByDni(dni: string): EmployeeMatchCandidate[] {
-    const normalizedDni = dni.toUpperCase().trim();
-    return this.employees.filter((e) => e.nifNie?.toUpperCase().trim() === normalizedDni);
+    const normalizedInput = this.normalizeDni(dni);
+    return this.employees.filter((e) => e.nifNie && this.normalizeDni(e.nifNie) === normalizedInput);
   }
 
   /**

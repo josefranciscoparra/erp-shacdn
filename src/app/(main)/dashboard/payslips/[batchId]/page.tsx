@@ -28,9 +28,10 @@ export default function PayslipBatchDetailPage({ params }: Props) {
   const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [pollCount, setPollCount] = useState(0);
 
-  const loadData = useCallback(async () => {
-    setIsLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
     setError(null);
     try {
       const result = await getBatchWithItems(batchId, {
@@ -48,13 +49,28 @@ export default function PayslipBatchDetailPage({ params }: Props) {
     } catch {
       setError("Error al cargar el lote");
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [batchId, statusFilter, page]);
 
+  // Carga inicial
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Auto-refresco (Polling) si está procesando
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+
+    if (batch?.status === "PROCESSING" && pollCount < 60) {
+      interval = setInterval(() => {
+        loadData(true); // Carga silenciosa
+        setPollCount((prev) => prev + 1);
+      }, 5000); // Cada 5 segundos
+    }
+
+    return () => clearInterval(interval);
+  }, [batch?.status, pollCount, loadData]);
 
   if (isLoading && !batch) {
     return (
@@ -134,7 +150,10 @@ export default function PayslipBatchDetailPage({ params }: Props) {
             setPage(1);
           }}
           onPageChange={setPage}
-          onRefresh={loadData}
+          onRefresh={() => {
+            setPollCount(0); // Reset polling on manual refresh
+            loadData();
+          }}
           isLoading={isLoading}
         />
       </div>

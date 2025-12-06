@@ -13,12 +13,15 @@ import {
   SkipForward,
   UserPlus,
   X,
+  Loader2,
+  CheckSquare,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -109,9 +112,34 @@ export function ReviewTable({
   const [previewItem, setPreviewItem] = useState<PayslipUploadItemDetail | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSkipping, setIsSkipping] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkSkipping, setIsBulkSkipping] = useState(false);
 
   const pageSize = 50;
   const totalPages = Math.ceil(total / pageSize);
+
+  // Manejo de selección
+  const toggleSelectAll = () => {
+    if (selectedIds.size === items.length) {
+      setSelectedIds(new Set());
+    } else {
+      // Solo seleccionar los que se pueden saltar (PENDING o ERROR)
+      const selectableIds = items
+        .filter((i) => i.status === "PENDING" || i.status === "ERROR")
+        .map((i) => i.id);
+      setSelectedIds(new Set(selectableIds));
+    }
+  };
+
+  const toggleSelectRow = (id: string) => {
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
 
   const handleAssign = async (employeeId: string) => {
     if (!selectedItem) return;
@@ -150,6 +178,27 @@ export function ReviewTable({
     }
   };
 
+  const handleBulkSkip = async () => {
+    if (selectedIds.size === 0) return;
+
+    if (!confirm(`¿Estás seguro de saltar ${selectedIds.size} items seleccionados?`)) return;
+
+    setIsBulkSkipping(true);
+    try {
+      // Ejecutar en paralelo (idealmente debería haber un endpoint bulk en el backend)
+      const promises = Array.from(selectedIds).map((id) => skipPayslipItem(id));
+      await Promise.all(promises);
+      
+      toast.success(`${selectedIds.size} items saltados correctamente`);
+      setSelectedIds(new Set());
+      onRefresh();
+    } catch {
+      toast.error("Error al procesar saltos masivos");
+    } finally {
+      setIsBulkSkipping(false);
+    }
+  };
+
   return (
     <>
       <Card>
@@ -173,7 +222,10 @@ export function ReviewTable({
             {/* Tabs para desktop */}
             <Tabs
               value={statusFilter ?? "all"}
-              onValueChange={(v) => onStatusFilterChange(v === "all" ? undefined : v)}
+              onValueChange={(v) => {
+                onStatusFilterChange(v === "all" ? undefined : v);
+                setSelectedIds(new Set()); // Limpiar selección al cambiar filtro
+              }}
               className="hidden @3xl/main:block"
             >
               <TabsList>
@@ -188,7 +240,10 @@ export function ReviewTable({
             {/* Select para móvil */}
             <Select
               value={statusFilter ?? "all"}
-              onValueChange={(v) => onStatusFilterChange(v === "all" ? undefined : v)}
+              onValueChange={(v) => {
+                onStatusFilterChange(v === "all" ? undefined : v);
+                setSelectedIds(new Set());
+              }}
             >
               <SelectTrigger className="w-[180px] @3xl/main:hidden">
                 <SelectValue placeholder="Filtrar por estado" />
@@ -208,6 +263,13 @@ export function ReviewTable({
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[40px]">
+                    <Checkbox 
+                      checked={items.length > 0 && selectedIds.size === items.filter(i => i.status === 'PENDING' || i.status === 'ERROR').length}
+                      onCheckedChange={toggleSelectAll}
+                      disabled={items.length === 0}
+                    />
+                  </TableHead>
                   <TableHead>Archivo / Página</TableHead>
                   <TableHead>DNI Detectado</TableHead>
                   <TableHead>Nombre Detectado</TableHead>
@@ -220,73 +282,83 @@ export function ReviewTable({
               <TableBody>
                 {items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-8 text-center">
+                    <TableCell colSpan={8} className="py-8 text-center">
                       <div className="text-muted-foreground">
                         No hay items {statusFilter ? `con estado "${statusFilter}"` : ""}
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        <div className="font-medium">{item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}</div>
-                      </TableCell>
-                      <TableCell>
-                        <code className="bg-muted rounded px-1 py-0.5 text-sm">{item.detectedDni ?? "-"}</code>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground">{item.detectedName ?? "-"}</span>
-                      </TableCell>
-                      <TableCell>{getConfidenceBadge(item.confidenceScore)}</TableCell>
-                      <TableCell>
-                        {item.employee ? (
-                          <div className="flex items-center gap-1">
-                            <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            <span>
-                              {item.employee.firstName} {item.employee.lastName}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">Sin asignar</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{getStatusBadge(item.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => setPreviewItem(item)} title="Ver preview">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-
-                          {item.status === "PENDING" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => setSelectedItem(item)}
-                                title="Asignar a empleado"
-                              >
-                                <UserPlus className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleSkip(item.id)}
-                                disabled={isSkipping === item.id}
-                                title="Saltar"
-                              >
-                                {isSkipping === item.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <X className="h-4 w-4" />
-                                )}
-                              </Button>
-                            </>
+                  items.map((item) => {
+                    const canSelect = item.status === 'PENDING' || item.status === 'ERROR';
+                    return (
+                      <TableRow key={item.id} data-state={selectedIds.has(item.id) && "selected"}>
+                        <TableCell>
+                          <Checkbox 
+                            checked={selectedIds.has(item.id)}
+                            onCheckedChange={() => toggleSelectRow(item.id)}
+                            disabled={!canSelect}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}</div>
+                        </TableCell>
+                        <TableCell>
+                          <code className="bg-muted rounded px-1 py-0.5 text-sm">{item.detectedDni ?? "-"}</code>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-muted-foreground">{item.detectedName ?? "-"}</span>
+                        </TableCell>
+                        <TableCell>{getConfidenceBadge(item.confidenceScore)}</TableCell>
+                        <TableCell>
+                          {item.employee ? (
+                            <div className="flex items-center gap-1">
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                              <span>
+                                {item.employee.firstName} {item.employee.lastName}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">Sin asignar</span>
                           )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>{getStatusBadge(item.status)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => setPreviewItem(item)} title="Ver preview">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+
+                            {item.status === "PENDING" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setSelectedItem(item)}
+                                  title="Asignar a empleado"
+                                >
+                                  <UserPlus className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleSkip(item.id)}
+                                  disabled={isSkipping === item.id}
+                                  title="Saltar"
+                                >
+                                  {isSkipping === item.id ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <X className="h-4 w-4" />
+                                  )}
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
@@ -318,6 +390,40 @@ export function ReviewTable({
         </CardContent>
       </Card>
 
+      {/* Barra de acción flotante */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-foreground/95 text-background backdrop-blur supports-[backdrop-filter]:bg-foreground/80 flex items-center gap-4 rounded-full px-6 py-3 shadow-lg animate-in slide-in-from-bottom-4 z-50">
+          <div className="flex items-center gap-2 border-r pr-4">
+            <CheckSquare className="h-4 w-4" />
+            <span className="text-sm font-medium">{selectedIds.size} seleccionados</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={handleBulkSkip}
+              disabled={isBulkSkipping}
+              className="hover:bg-destructive hover:text-destructive-foreground transition-colors"
+            >
+              {isBulkSkipping ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <SkipForward className="mr-2 h-4 w-4" />
+              )}
+              Saltar selección
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSelectedIds(new Set())}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Dialog para seleccionar empleado */}
       <EmployeeSelectorDialog
         open={!!selectedItem}
@@ -337,3 +443,4 @@ export function ReviewTable({
     </>
   );
 }
+
