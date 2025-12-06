@@ -313,13 +313,13 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] Filtros por estado (PENDING, ASSIGNED, ERROR, SKIPPED)
 - [x] **COMMIT**: `feat(payslips): add review and assignment UI`
 
-### Checkpoint 7: Vista "Mis Nóminas"
-- [ ] Crear página `/dashboard/me/payslips/page.tsx`
-- [ ] Crear componente `payslip-list.tsx`
-- [ ] Crear componente `payslip-viewer.tsx` (preview inline)
-- [ ] Filtro por año
-- [ ] Descarga de nóminas
-- [ ] **COMMIT**: `feat(payslips): add employee payslips view`
+### Checkpoint 7: Vista "Mis Nóminas" ✅
+- [x] Crear página `/dashboard/me/payslips/page.tsx`
+- [x] Crear componente `payslip-list.tsx` (incluye preview inline)
+- [x] Filtro por año
+- [x] Descarga de nóminas
+- [x] Añadir entrada "Mis Nóminas" en navegación lateral
+- [x] **COMMIT**: `feat(payslips): add employee payslips view`
 
 ### Checkpoint 8: Notificaciones y Finalización
 - [ ] Crear notificación in-app al asignar nómina

@@ -140,6 +140,12 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
+        {
+          title: "Mis Nóminas",
+          url: "/dashboard/me/payslips",
+          icon: FileArchive,
+          isNew: true,
+        },
         ...(documentsEnabled
           ? [
               {
