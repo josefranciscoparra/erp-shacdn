@@ -62,7 +62,7 @@ export type PayslipUploadItemDetail = {
     id: string;
     firstName: string;
     lastName: string;
-    dni: string | null;
+    nifNie: string | null;
     employeeNumber: string | null;
   } | null;
   documentId: string | null;
@@ -214,7 +214,7 @@ export async function getBatchWithItems(
               id: true,
               firstName: true,
               lastName: true,
-              dni: true,
+              nifNie: true,
               employeeNumber: true,
             },
           },
@@ -645,7 +645,13 @@ async function updateBatchStatus(batchId: string): Promise<void> {
  */
 export async function searchEmployeesForPayslip(query: string): Promise<{
   success: boolean;
-  employees?: { id: string; firstName: string; lastName: string; dni: string | null; employeeNumber: string | null }[];
+  employees?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    nifNie: string | null;
+    employeeNumber: string | null;
+  }[];
   error?: string;
 }> {
   try {
@@ -667,7 +673,7 @@ export async function searchEmployeesForPayslip(query: string): Promise<{
         OR: [
           { firstName: { contains: query, mode: "insensitive" } },
           { lastName: { contains: query, mode: "insensitive" } },
-          { dni: { contains: query, mode: "insensitive" } },
+          { nifNie: { contains: query, mode: "insensitive" } },
           { employeeNumber: { contains: query, mode: "insensitive" } },
         ],
       },
@@ -675,7 +681,7 @@ export async function searchEmployeesForPayslip(query: string): Promise<{
         id: true,
         firstName: true,
         lastName: true,
-        dni: true,
+        nifNie: true,
         employeeNumber: true,
       },
       take: 10,

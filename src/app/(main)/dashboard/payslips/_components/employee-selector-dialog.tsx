@@ -14,7 +14,7 @@ interface Employee {
   id: string;
   firstName: string;
   lastName: string;
-  dni: string | null;
+  nifNie: string | null;
   employeeNumber: string | null;
   email: string | null;
 }
@@ -147,7 +147,7 @@ export function EmployeeSelectorDialog({
                         {emp.firstName} {emp.lastName}
                       </div>
                       <div className="text-muted-foreground flex items-center gap-2 text-sm">
-                        {emp.dni && <Badge variant="outline">{emp.dni}</Badge>}
+                        {emp.nifNie && <Badge variant="outline">{emp.nifNie}</Badge>}
                         {emp.employeeNumber && <Badge variant="secondary">{emp.employeeNumber}</Badge>}
                         {emp.email && <span className="truncate">{emp.email}</span>}
                       </div>

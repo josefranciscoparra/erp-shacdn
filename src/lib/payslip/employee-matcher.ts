@@ -27,7 +27,7 @@ export interface EmployeeMatchCandidate {
   id: string;
   firstName: string;
   lastName: string;
-  dni: string | null;
+  nifNie: string | null;
   employeeNumber: string | null;
 }
 
@@ -184,11 +184,11 @@ export class EmployeeMatcher {
   }
 
   /**
-   * Busca empleados por DNI exacto
+   * Busca empleados por DNI/NIE exacto
    */
   private findByDni(dni: string): EmployeeMatchCandidate[] {
     const normalizedDni = dni.toUpperCase().trim();
-    return this.employees.filter((e) => e.dni?.toUpperCase().trim() === normalizedDni);
+    return this.employees.filter((e) => e.nifNie?.toUpperCase().trim() === normalizedDni);
   }
 
   /**

@@ -82,7 +82,7 @@ export function ItemPreviewDialog({ open, onOpenChange, item }: ItemPreviewDialo
             <FileText className="h-5 w-5" />
             {item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription asChild>
             <div className="flex flex-wrap items-center gap-2">
               {item.detectedDni && <Badge variant="outline">DNI: {item.detectedDni}</Badge>}
               {item.detectedName && <Badge variant="secondary">Nombre: {item.detectedName}</Badge>}

@@ -132,7 +132,71 @@ export class DocumentStorageService {
     return await this.storageProvider.list(prefix);
   }
 
-  // Generar path para documento
+  // ========================================
+  // PAYSLIPS - Archivos temporales de nóminas
+  // ========================================
+
+  /**
+   * Sube un archivo temporal de nómina (PDF extraído de ZIP o página de PDF multipágina)
+   * @param orgId ID de la organización
+   * @param batchId ID del lote de subida
+   * @param fileName Nombre del archivo
+   * @param content Contenido del archivo (Buffer o Uint8Array)
+   */
+  async uploadPayslipTempFile(orgId: string, batchId: string, fileName: string, content: Buffer | Uint8Array) {
+    const path = this.generatePayslipTempPath(orgId, batchId, fileName);
+    const buffer = content instanceof Buffer ? content : Buffer.from(content);
+
+    return await this.storageProvider.upload(buffer, path, {
+      mimeType: "application/pdf",
+    });
+  }
+
+  /**
+   * Mueve un archivo temporal de nómina a su ubicación final (empleado)
+   * @param tempPath Path temporal actual
+   * @param orgId ID de la organización
+   * @param employeeId ID del empleado
+   * @param fileName Nombre final del archivo
+   */
+  async movePayslipToEmployee(tempPath: string, orgId: string, employeeId: string, fileName: string) {
+    // Descargar el archivo temporal
+    const blob = await this.storageProvider.download(tempPath);
+    const buffer = Buffer.from(await blob.arrayBuffer());
+
+    // Subir a la ubicación final del empleado
+    const finalPath = this.generateDocumentPath(orgId, employeeId, fileName, "payslips");
+    const result = await this.storageProvider.upload(buffer, finalPath, {
+      mimeType: "application/pdf",
+    });
+
+    // Eliminar el archivo temporal
+    await this.storageProvider.delete(tempPath);
+
+    return result;
+  }
+
+  /**
+   * Elimina todos los archivos temporales de un lote
+   * @param orgId ID de la organización
+   * @param batchId ID del lote
+   */
+  async deletePayslipBatchTempFiles(orgId: string, batchId: string) {
+    const prefix = `org-${orgId}/payslips/temp/${batchId}`;
+    const files = await this.storageProvider.list(prefix);
+
+    for (const file of files) {
+      await this.storageProvider.delete(file.path);
+    }
+
+    return files.length;
+  }
+
+  // ========================================
+  // HELPERS PRIVADOS
+  // ========================================
+
+  // Generar path para documento de empleado
   private generateDocumentPath(orgId: string, employeeId: string, fileName: string, documentKind: string): string {
     const timestamp = Date.now();
     const extension = fileName.split(".").pop();
@@ -144,6 +208,13 @@ export class DocumentStorageService {
     const finalFileName = `${timestamp}-${sanitizedName}.${extension}`;
 
     return `org-${orgId}/employees/${employeeId}/${documentKind}/${finalFileName}`;
+  }
+
+  // Generar path para archivo temporal de nómina
+  private generatePayslipTempPath(orgId: string, batchId: string, fileName: string): string {
+    const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+
+    return `org-${orgId}/payslips/temp/${batchId}/${sanitizedName}`;
   }
 }
 

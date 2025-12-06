@@ -29,21 +29,21 @@ export const OCR_TIMEOUT_MS = 30000;
 /**
  * Regex para detectar DNI español en nombre de archivo o contenido
  * Formato: 8 dígitos + 1 letra (mayúscula o minúscula)
- * Ejemplos: 12345678A, 87654321z
+ * Ejemplos: 12345678A, 87654321z, 45811993H_nomina.pdf
  */
-export const DNI_REGEX = /\b(\d{8}[A-Za-z])\b/;
+export const DNI_REGEX = /(\d{8}[A-Za-z])/;
 
 /**
  * Regex alternativo para NIE español
  * Formato: X/Y/Z + 7 dígitos + 1 letra
  * Ejemplos: X1234567A, Y7654321Z
  */
-export const NIE_REGEX = /\b([XYZ]\d{7}[A-Za-z])\b/i;
+export const NIE_REGEX = /([XYZ]\d{7}[A-Za-z])/i;
 
 /**
  * Regex combinado para DNI o NIE
  */
-export const DNI_NIE_REGEX = /\b(\d{8}[A-Za-z]|[XYZ]\d{7}[A-Za-z])\b/i;
+export const DNI_NIE_REGEX = /(\d{8}[A-Za-z]|[XYZ]\d{7}[A-Za-z])/i;
 
 // ============================================
 // CÓDIGOS DE EMPLEADO
@@ -87,39 +87,6 @@ export const ALLOWED_EXTENSIONS = [".zip", ".pdf"] as const;
 
 /** Tipo de archivo original */
 export type OriginalFileType = "ZIP" | "PDF_MULTIPAGE";
-
-// ============================================
-// RUTAS DE STORAGE
-// ============================================
-
-/**
- * Genera la ruta de storage para archivos temporales de nóminas
- * @param orgId ID de la organización
- * @param batchId ID del lote
- * @param fileName Nombre del archivo
- */
-export function getPayslipTempPath(orgId: string, batchId: string, fileName: string): string {
-  return `org-${orgId}/payslips/temp/${batchId}/${fileName}`;
-}
-
-/**
- * Genera la ruta de storage para nóminas finales asignadas
- * @param orgId ID de la organización
- * @param employeeId ID del empleado
- * @param year Año de la nómina
- * @param month Mes de la nómina
- * @param fileName Nombre del archivo
- */
-export function getPayslipFinalPath(
-  orgId: string,
-  employeeId: string,
-  year: number,
-  month: number,
-  fileName: string,
-): string {
-  const monthStr = month.toString().padStart(2, "0");
-  return `org-${orgId}/employees/${employeeId}/payslips/${year}/${monthStr}/${fileName}`;
-}
 
 // ============================================
 // NOMBRES DE MESES (para notificaciones)

@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
-import {
-  ALLOWED_MIME_TYPES,
-  MAX_DOCUMENTS_PER_BATCH,
-  MAX_FILE_SIZE,
-  PAYSLIP_ADMIN_ROLES,
-  getPayslipTempPath,
-} from "@/lib/payslip/config";
-import { createEmployeeMatcher, EmployeeMatchCandidate, EmployeeMatcher } from "@/lib/payslip/employee-matcher";
+import { ALLOWED_MIME_TYPES, MAX_DOCUMENTS_PER_BATCH, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
+import { createEmployeeMatcher, EmployeeMatcher } from "@/lib/payslip/employee-matcher";
 import { splitPdfIntoPages, getPdfInfo, generatePageFileName } from "@/lib/payslip/pdf-splitter";
 import { extractPdfsFromZip, ExtractedFile } from "@/lib/payslip/zip-processor";
 import { prisma } from "@/lib/prisma";
-import { getStorageProvider, StorageProvider } from "@/lib/storage";
+import { documentStorageService } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const maxDuration = 300; // 5 minutos para procesamiento largo
@@ -31,7 +25,6 @@ async function processZipFile(
   batchId: string,
   orgId: string,
   matcher: EmployeeMatcher,
-  storage: StorageProvider,
 ): Promise<ProcessingResult> {
   const zipResult = await extractPdfsFromZip(fileBuffer);
 
@@ -44,7 +37,7 @@ async function processZipFile(
   let errorCount = 0;
 
   for (const extractedFile of zipResult.files) {
-    const result = await processExtractedPdf(extractedFile, batchId, orgId, matcher, storage);
+    const result = await processExtractedPdf(extractedFile, batchId, orgId, matcher);
     if (result === "assigned") assignedCount++;
     else if (result === "pending") pendingCount++;
     else errorCount++;
@@ -64,11 +57,15 @@ async function processExtractedPdf(
   batchId: string,
   orgId: string,
   matcher: EmployeeMatcher,
-  storage: StorageProvider,
 ): Promise<"assigned" | "pending" | "error"> {
   try {
-    const tempPath = getPayslipTempPath(orgId, batchId, extractedFile.fileName);
-    await storage.upload(tempPath, extractedFile.content, { contentType: "application/pdf" });
+    // Usar el servicio centralizado para subir el archivo temporal
+    const uploadResult = await documentStorageService.uploadPayslipTempFile(
+      orgId,
+      batchId,
+      extractedFile.fileName,
+      extractedFile.content,
+    );
 
     const matchResult = matcher.findMatch(extractedFile.fileName);
     const isAutoAssigned = matchResult.canAutoAssign && matchResult.employee;
@@ -77,7 +74,7 @@ async function processExtractedPdf(
       data: {
         batchId,
         orgId,
-        tempFilePath: tempPath,
+        tempFilePath: uploadResult.path,
         originalFileName: extractedFile.fileName,
         detectedDni: matchResult.detectedDni,
         detectedName: matchResult.detectedName,
@@ -90,7 +87,8 @@ async function processExtractedPdf(
     });
 
     return isAutoAssigned ? "assigned" : "pending";
-  } catch {
+  } catch (error) {
+    console.error("[Payslip Upload] Error processing PDF:", extractedFile.fileName, error);
     return "error";
   }
 }
@@ -101,7 +99,6 @@ async function processMultipagePdf(
   fileName: string,
   batchId: string,
   orgId: string,
-  storage: StorageProvider,
 ): Promise<ProcessingResult | { error: string }> {
   const pdfInfo = await getPdfInfo(fileBuffer);
 
@@ -118,7 +115,7 @@ async function processMultipagePdf(
   let errorCount = 0;
 
   for (const page of splitResult.pages) {
-    const result = await processPdfPage(page, fileName, batchId, orgId, storage);
+    const result = await processPdfPage(page, fileName, batchId, orgId);
     if (result === "pending") pendingCount++;
     else errorCount++;
   }
@@ -137,19 +134,18 @@ async function processPdfPage(
   originalFileName: string,
   batchId: string,
   orgId: string,
-  storage: StorageProvider,
 ): Promise<"pending" | "error"> {
   try {
     const pageFileName = generatePageFileName(originalFileName, page.pageNumber);
-    const tempPath = getPayslipTempPath(orgId, batchId, pageFileName);
 
-    await storage.upload(tempPath, Buffer.from(page.content), { contentType: "application/pdf" });
+    // Usar el servicio centralizado para subir el archivo temporal
+    const uploadResult = await documentStorageService.uploadPayslipTempFile(orgId, batchId, pageFileName, page.content);
 
     await prisma.payslipUploadItem.create({
       data: {
         batchId,
         orgId,
-        tempFilePath: tempPath,
+        tempFilePath: uploadResult.path,
         originalFileName: pageFileName,
         pageNumber: page.pageNumber,
         confidenceScore: 0,
@@ -232,16 +228,15 @@ export async function POST(request: NextRequest) {
 
     const employees = await prisma.employee.findMany({
       where: { orgId },
-      select: { id: true, firstName: true, lastName: true, dni: true, employeeNumber: true },
+      select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true },
     });
 
-    const matcher = createEmployeeMatcher(employees as EmployeeMatchCandidate[]);
-    const storage = getStorageProvider();
+    const matcher = createEmployeeMatcher(employees);
 
-    // Procesar según tipo de archivo
+    // Procesar según tipo de archivo (usa documentStorageService internamente)
     const result = isZip
-      ? await processZipFile(fileBuffer, batch.id, orgId, matcher, storage)
-      : await processMultipagePdf(fileBuffer, file.name, batch.id, orgId, storage);
+      ? await processZipFile(fileBuffer, batch.id, orgId, matcher)
+      : await processMultipagePdf(fileBuffer, file.name, batch.id, orgId);
 
     // Si hubo error en validación de PDF
     if ("error" in result) {
