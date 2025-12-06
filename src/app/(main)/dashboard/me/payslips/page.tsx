@@ -24,6 +24,7 @@ export default function MyPayslipsPage() {
   const [years, setYears] = useState<number[]>([]);
   const [selectedYear, setSelectedYear] = useState<number | undefined>(undefined);
   const [isLoading, setIsLoading] = useState(true);
+  const [yearsLoaded, setYearsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -38,6 +39,7 @@ export default function MyPayslipsPage() {
           setSelectedYear(result.years[0]);
         }
       }
+      setYearsLoaded(true);
     }
     loadYears();
   }, []);
@@ -62,10 +64,11 @@ export default function MyPayslipsPage() {
   }, [selectedYear, page]);
 
   useEffect(() => {
-    if (selectedYear !== undefined) {
+    // Cargar nóminas cuando se selecciona un año O cuando ya cargamos años y no hay ninguno
+    if (selectedYear !== undefined || (yearsLoaded && years.length === 0)) {
       loadPayslips();
     }
-  }, [loadPayslips, selectedYear]);
+  }, [loadPayslips, selectedYear, yearsLoaded, years.length]);
 
   if (isLoading && payslips.length === 0) {
     return (
