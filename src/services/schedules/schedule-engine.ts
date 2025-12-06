@@ -439,6 +439,9 @@ export async function getEffectiveScheduleForRange(
             description: slot.description ?? undefined,
             countsAsWork: slot.countsAsWork ?? true,
             compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
+            // Pausas Automáticas (Mejora 6)
+            isAutomatic: slot.isAutomatic ?? false,
+            timeSlotId: slot.id,
           }));
 
           let expectedMinutes = 0;
@@ -674,6 +677,9 @@ export async function getEffectiveSchedule(
     description: slot.description ?? undefined,
     countsAsWork: slot.countsAsWork ?? true,
     compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
+    // Pausas Automáticas (Mejora 6)
+    isAutomatic: slot.isAutomatic ?? false,
+    timeSlotId: slot.id,
   }));
 
   // Calcular minutos esperados usando configuración de cada slot
@@ -946,6 +952,9 @@ function buildScheduleFromException(exception: any, date: Date): EffectiveSchedu
       presenceType: slot.presenceType,
       isMandatory: slot.presenceType === "MANDATORY",
       description: slot.description ?? undefined,
+      // Pausas Automáticas (Mejora 6)
+      isAutomatic: slot.isAutomatic ?? false,
+      timeSlotId: slot.id,
     }));
 
     // Calcular minutos esperados (suma de slots tipo WORK)
@@ -1578,6 +1587,9 @@ async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: 
     description: slot.description ?? undefined,
     countsAsWork: slot.countsAsWork ?? true,
     compensationFactor: slot.compensationFactor ? Number(slot.compensationFactor) : 1.0,
+    // Pausas Automáticas (Mejora 6)
+    isAutomatic: slot.isAutomatic ?? false,
+    timeSlotId: slot.id,
   }));
 
   // Calcular minutos esperados

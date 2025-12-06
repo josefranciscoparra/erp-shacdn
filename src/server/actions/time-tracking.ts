@@ -161,6 +161,320 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
   };
 }
 
+// ============================================================================
+// PAUSAS AUTOMÁTICAS (Mejora 6)
+// ============================================================================
+
+/**
+ * Convierte minutos desde medianoche a un objeto Date en el día dado.
+ * Maneja correctamente el cruce de medianoche para turnos nocturnos.
+ */
+function minutesToDate(dayStart: Date, minutes: number): Date {
+  const date = new Date(dayStart);
+  // Si los minutos son >= 1440, el slot cruza la medianoche
+  if (minutes >= 1440) {
+    date.setDate(date.getDate() + 1);
+    minutes -= 1440;
+  }
+  date.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return date;
+}
+
+/**
+ * Convierte un Date a minutos desde la medianoche del día dado.
+ */
+function dateToMinutes(dayStart: Date, date: Date): number {
+  const midnight = new Date(dayStart);
+  midnight.setHours(0, 0, 0, 0);
+  const diffMs = date.getTime() - midnight.getTime();
+  return Math.floor(diffMs / (1000 * 60));
+}
+
+/**
+ * Calcula el intervalo efectivo de una pausa automática según la hora de salida.
+ *
+ * Casos:
+ * - CLOCK_OUT < breakStart → null (no crear pausa)
+ * - CLOCK_OUT entre breakStart y breakEnd → [breakStart, CLOCK_OUT]
+ * - CLOCK_OUT > breakEnd → [breakStart, breakEnd] (pausa completa)
+ */
+function calculateEffectiveBreakInterval(
+  breakStartMinutes: number,
+  breakEndMinutes: number,
+  clockOutMinutes: number,
+): { start: number; end: number } | null {
+  // Caso 1: Salida antes del inicio de la pausa → NO crear
+  if (clockOutMinutes < breakStartMinutes) {
+    return null;
+  }
+
+  // Caso 2: Salida durante la pausa → pausa limitada
+  if (clockOutMinutes >= breakStartMinutes && clockOutMinutes < breakEndMinutes) {
+    return { start: breakStartMinutes, end: clockOutMinutes };
+  }
+
+  // Caso 3: Salida después del fin de pausa → pausa completa
+  return { start: breakStartMinutes, end: breakEndMinutes };
+}
+
+/**
+ * Verifica si hay solapamiento entre pausas manuales y una pausa automática programada.
+ *
+ * REGLA: Cualquier intersección temporal con [breakStart, breakEnd] = solapamiento.
+ * La pausa manual SIEMPRE tiene prioridad sobre la automática.
+ *
+ * @returns true si hay solapamiento (NO crear automática)
+ */
+function checkBreakOverlap(
+  manualBreaks: Array<{ startMinutes: number; endMinutes: number }>,
+  breakStartMinutes: number,
+  breakEndMinutes: number,
+): boolean {
+  for (const manual of manualBreaks) {
+    // Intersección: si el inicio de uno es menor que el fin del otro y viceversa
+    const hasOverlap = manual.startMinutes < breakEndMinutes && manual.endMinutes > breakStartMinutes;
+    if (hasOverlap) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Extrae los intervalos de pausas manuales de los fichajes del día.
+ * Una pausa manual es un par BREAK_START → BREAK_END que NO es automática.
+ */
+function extractManualBreaks(
+  entries: Array<{
+    entryType: string;
+    timestamp: Date;
+    isAutomatic?: boolean | null;
+  }>,
+  dayStart: Date,
+): Array<{ startMinutes: number; endMinutes: number }> {
+  const breaks: Array<{ startMinutes: number; endMinutes: number }> = [];
+  const sorted = [...entries].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+  let currentBreakStart: number | null = null;
+
+  for (const entry of sorted) {
+    // Solo procesar pausas NO automáticas
+    if (entry.isAutomatic) continue;
+
+    if (entry.entryType === "BREAK_START") {
+      currentBreakStart = dateToMinutes(dayStart, entry.timestamp);
+    } else if (entry.entryType === "BREAK_END" && currentBreakStart !== null) {
+      breaks.push({
+        startMinutes: currentBreakStart,
+        endMinutes: dateToMinutes(dayStart, entry.timestamp),
+      });
+      currentBreakStart = null;
+    }
+  }
+
+  return breaks;
+}
+
+interface AutomaticBreakResult {
+  created: number;
+  skipped: number;
+  totalMinutes: number;
+  reasons: string[];
+  entries: Array<{ breakStart: any; breakEnd: any }>;
+}
+
+/**
+ * Procesa y crea pausas automáticas al fichar salida.
+ *
+ * PRECONDICIONES:
+ * - Debe existir al menos un CLOCK_IN en el día
+ * - El CLOCK_OUT debe ser válido
+ * - El día NO debe ser ausencia completa
+ *
+ * LÓGICA:
+ * 1. Obtener horario efectivo del día con getEffectiveSchedule()
+ * 2. Filtrar TimeSlots de tipo BREAK con isAutomatic=true
+ * 3. Para cada pausa automática:
+ *    a. Verificar idempotencia (no existe ya para ese slotId)
+ *    b. Verificar solapamiento con pausas manuales
+ *    c. Calcular intervalo real según hora de salida
+ *    d. Crear BREAK_START + BREAK_END con campos de auditoría
+ */
+async function processAutomaticBreaks(
+  employeeId: string,
+  orgId: string,
+  clockOutTime: Date,
+): Promise<AutomaticBreakResult> {
+  const result: AutomaticBreakResult = {
+    created: 0,
+    skipped: 0,
+    totalMinutes: 0,
+    reasons: [],
+    entries: [],
+  };
+
+  const dayStart = startOfDay(clockOutTime);
+  const dayEnd = endOfDay(clockOutTime);
+
+  console.log("🔄 [AUTOMATIC_BREAKS] Procesando pausas automáticas para", employeeId);
+
+  try {
+    // 1. Obtener horario efectivo del día
+    const schedule = await getEffectiveSchedule(employeeId, clockOutTime);
+
+    // Verificar precondiciones
+    if (!schedule.isWorkingDay) {
+      console.log("⏭️ [AUTOMATIC_BREAKS] Día no laborable, saltando");
+      result.reasons.push("Día no laborable");
+      return result;
+    }
+
+    if (schedule.source === "ABSENCE") {
+      console.log("⏭️ [AUTOMATIC_BREAKS] Día con ausencia, saltando");
+      result.reasons.push("Día con ausencia registrada");
+      return result;
+    }
+
+    // 2. Filtrar slots BREAK con isAutomatic=true
+    const automaticBreakSlots = schedule.timeSlots.filter(
+      (slot) => slot.slotType === "BREAK" && slot.isAutomatic === true && slot.timeSlotId,
+    );
+
+    if (automaticBreakSlots.length === 0) {
+      console.log("⏭️ [AUTOMATIC_BREAKS] No hay pausas automáticas configuradas");
+      result.reasons.push("Sin pausas automáticas configuradas");
+      return result;
+    }
+
+    console.log(`📋 [AUTOMATIC_BREAKS] Encontradas ${automaticBreakSlots.length} pausas automáticas`);
+
+    // 3. Obtener fichajes del día para verificar pausas manuales e idempotencia
+    const todayEntries = await prisma.timeEntry.findMany({
+      where: {
+        employeeId,
+        orgId,
+        isCancelled: false,
+        timestamp: { gte: dayStart, lte: dayEnd },
+      },
+      orderBy: { timestamp: "asc" },
+    });
+
+    // Verificar que existe al menos un CLOCK_IN
+    const hasClockIn = todayEntries.some((e) => e.entryType === "CLOCK_IN");
+    if (!hasClockIn) {
+      console.log("⏭️ [AUTOMATIC_BREAKS] No hay CLOCK_IN en el día");
+      result.reasons.push("Sin fichaje de entrada");
+      return result;
+    }
+
+    // Extraer pausas manuales existentes
+    const manualBreaks = extractManualBreaks(
+      todayEntries.map((e) => ({
+        entryType: e.entryType,
+        timestamp: e.timestamp,
+        isAutomatic: e.isAutomatic,
+      })),
+      dayStart,
+    );
+
+    console.log(`📊 [AUTOMATIC_BREAKS] Pausas manuales encontradas: ${manualBreaks.length}`);
+
+    // Calcular hora de salida en minutos
+    const clockOutMinutes = dateToMinutes(dayStart, clockOutTime);
+
+    // 4. Procesar cada pausa automática
+    for (const slot of automaticBreakSlots) {
+      const slotId = slot.timeSlotId!;
+      const breakStartMinutes = slot.startMinutes;
+      const breakEndMinutes = slot.endMinutes;
+
+      console.log(
+        `  🔍 Procesando slot ${slotId}: ${Math.floor(breakStartMinutes / 60)}:${String(breakStartMinutes % 60).padStart(2, "0")} - ${Math.floor(breakEndMinutes / 60)}:${String(breakEndMinutes % 60).padStart(2, "0")}`,
+      );
+
+      // 4a. Verificar idempotencia: ¿ya existe pausa automática para este slot?
+      const existingAutoBreak = todayEntries.find(
+        (e) => e.automaticBreakSlotId === slotId && e.entryType === "BREAK_START",
+      );
+
+      if (existingAutoBreak) {
+        console.log(`  ⏭️ Ya existe pausa automática para slot ${slotId}`);
+        result.skipped++;
+        result.reasons.push(`Slot ${slotId}: ya existe`);
+        continue;
+      }
+
+      // 4b. Verificar solapamiento con pausas manuales
+      if (checkBreakOverlap(manualBreaks, breakStartMinutes, breakEndMinutes)) {
+        console.log(`  ⏭️ Solapamiento con pausa manual para slot ${slotId}`);
+        result.skipped++;
+        result.reasons.push(`Slot ${slotId}: solapamiento con pausa manual`);
+        continue;
+      }
+
+      // 4c. Calcular intervalo efectivo según hora de salida
+      const effectiveInterval = calculateEffectiveBreakInterval(breakStartMinutes, breakEndMinutes, clockOutMinutes);
+
+      if (!effectiveInterval) {
+        console.log(`  ⏭️ Salida antes del inicio de pausa para slot ${slotId}`);
+        result.skipped++;
+        result.reasons.push(`Slot ${slotId}: salida antes del inicio de pausa`);
+        continue;
+      }
+
+      // 4d. Crear BREAK_START + BREAK_END
+      const breakStartTime = minutesToDate(dayStart, effectiveInterval.start);
+      const breakEndTime = minutesToDate(dayStart, effectiveInterval.end);
+      const breakDuration = effectiveInterval.end - effectiveInterval.start;
+
+      // Preparar nota descriptiva
+      const breakNote = `Pausa automática ${Math.floor(effectiveInterval.start / 60)}:${String(effectiveInterval.start % 60).padStart(2, "0")} - ${Math.floor(effectiveInterval.end / 60)}:${String(effectiveInterval.end % 60).padStart(2, "0")} (${breakDuration} min)`;
+
+      console.log(`  ✅ Creando pausa automática: ${breakNote}`);
+
+      // Crear BREAK_START
+      const breakStartEntry = await prisma.timeEntry.create({
+        data: {
+          orgId,
+          employeeId,
+          entryType: "BREAK_START",
+          timestamp: breakStartTime,
+          isAutomatic: true,
+          automaticBreakSlotId: slotId,
+          automaticBreakNotes: breakNote,
+        },
+      });
+
+      // Crear BREAK_END
+      const breakEndEntry = await prisma.timeEntry.create({
+        data: {
+          orgId,
+          employeeId,
+          entryType: "BREAK_END",
+          timestamp: breakEndTime,
+          isAutomatic: true,
+          automaticBreakSlotId: slotId,
+          automaticBreakNotes: breakNote,
+        },
+      });
+
+      result.created++;
+      result.totalMinutes += breakDuration;
+      result.entries.push({ breakStart: breakStartEntry, breakEnd: breakEndEntry });
+    }
+
+    console.log(
+      `✅ [AUTOMATIC_BREAKS] Completado: ${result.created} creadas, ${result.skipped} omitidas, ${result.totalMinutes} min total`,
+    );
+
+    return result;
+  } catch (error) {
+    console.error("❌ [AUTOMATIC_BREAKS] Error procesando pausas automáticas:", error);
+    result.reasons.push(`Error: ${error instanceof Error ? error.message : "desconocido"}`);
+    return result;
+  }
+}
+
 // Helper para actualizar el resumen del día
 // MEJORADO: Maneja fichajes que cruzan medianoche (turnos de noche)
 async function updateWorkdaySummary(employeeId: string, orgId: string, date: Date) {
@@ -644,7 +958,21 @@ export async function clockOut(
       },
     );
 
+    // =========================================================================
+    // PAUSAS AUTOMÁTICAS (Mejora 6)
+    // Procesar DESPUÉS de crear CLOCK_OUT pero ANTES de updateWorkdaySummary
+    // =========================================================================
+    let automaticBreaksResult: AutomaticBreakResult | null = null;
+    if (!result.cancelled) {
+      try {
+        automaticBreaksResult = await processAutomaticBreaks(employeeId, orgId, now);
+      } catch (autoBreakError) {
+        console.error("❌ Error procesando pausas automáticas (no crítico):", autoBreakError);
+      }
+    }
+
     // Actualizar el resumen del día (FUERA de la transacción)
+    // IMPORTANTE: Debe ejecutarse DESPUÉS de processAutomaticBreaks para incluir las pausas automáticas
     await updateWorkdaySummary(employeeId, orgId, now);
 
     // Detectar alertas en tiempo real (FUERA de la transacción)
@@ -660,6 +988,17 @@ export async function clockOut(
       entry: serializeTimeEntry(result.entry),
       cancelled: result.cancelled,
       alerts,
+      // Información de pausas automáticas para feedback UX
+      automaticBreaks: automaticBreaksResult
+        ? {
+            created: automaticBreaksResult.created,
+            totalMinutes: automaticBreaksResult.totalMinutes,
+            message:
+              automaticBreaksResult.created > 0
+                ? `Se ha añadido ${automaticBreaksResult.created === 1 ? "una pausa automática" : `${automaticBreaksResult.created} pausas automáticas`} de ${automaticBreaksResult.totalMinutes} min.`
+                : undefined,
+          }
+        : undefined,
     };
   } catch (error) {
     console.error("Error al fichar salida:", error);

@@ -573,6 +573,8 @@ export async function duplicateScheduleTemplate(id: string, newName: string): Pr
                     slotType: slot.slotType,
                     presenceType: slot.presenceType,
                     description: slot.description,
+                    // Pausas Automáticas (Mejora 6)
+                    isAutomatic: slot.isAutomatic ?? false,
                   })),
                 },
               })),
@@ -914,6 +916,8 @@ export async function updateWorkDayPattern(
           slotType: slot.slotType,
           presenceType: slot.presenceType,
           description: slot.description,
+          // Pausas Automáticas (Mejora 6)
+          isAutomatic: slot.isAutomatic ?? false,
         })),
       });
     }
@@ -961,6 +965,8 @@ export async function copyWorkDayPattern(
           slotType: slot.slotType,
           presenceType: slot.presenceType,
           description: slot.description ?? undefined,
+          // Pausas Automáticas (Mejora 6)
+          isAutomatic: slot.isAutomatic ?? false,
         })),
       });
     }
@@ -1918,6 +1924,8 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
                 endTimeMinutes: slot.endTimeMinutes,
                 slotType: slot.slotType,
                 presenceType: slot.presenceType,
+                // Pausas Automáticas (Mejora 6)
+                isAutomatic: slot.isAutomatic ?? false,
               })),
             }
           : undefined,
@@ -1994,6 +2002,8 @@ export async function updateExceptionDay(
             endTimeMinutes: slot.endTimeMinutes,
             slotType: slot.slotType,
             presenceType: slot.presenceType,
+            // Pausas Automáticas (Mejora 6)
+            isAutomatic: slot.isAutomatic ?? false,
           })),
         },
       },

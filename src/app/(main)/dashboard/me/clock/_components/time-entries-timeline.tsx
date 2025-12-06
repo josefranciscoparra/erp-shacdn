@@ -15,6 +15,9 @@ interface TimeEntry {
   isWithinAllowedArea: boolean | null;
   requiresReview: boolean;
   distanceFromCenter: number | null;
+  // Pausas Automáticas (Mejora 6)
+  isAutomatic?: boolean;
+  automaticBreakNotes?: string | null;
 }
 
 interface TimeEntriesTimelineProps {
@@ -42,7 +45,8 @@ export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
   );
 
   // Configuración de estilos por tipo de entrada
-  const getEntryConfig = (entryType: TimeEntry["entryType"]) => {
+  // Pausas Automáticas (Mejora 6): Las pausas automáticas tienen color diferente (azul)
+  const getEntryConfig = (entryType: TimeEntry["entryType"], isAutomatic?: boolean) => {
     switch (entryType) {
       case "CLOCK_IN":
         return {
@@ -60,16 +64,16 @@ export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
         };
       case "BREAK_START":
         return {
-          label: "Inicio de pausa",
+          label: isAutomatic ? "Pausa automática (inicio)" : "Inicio de pausa",
           icon: Coffee,
-          bgColor: "bg-yellow-500",
+          bgColor: isAutomatic ? "bg-blue-500" : "bg-yellow-500",
           iconColor: "text-white",
         };
       case "BREAK_END":
         return {
-          label: "Fin de pausa",
+          label: isAutomatic ? "Pausa automática (fin)" : "Fin de pausa",
           icon: Coffee,
-          bgColor: "bg-emerald-500",
+          bgColor: isAutomatic ? "bg-blue-500" : "bg-emerald-500",
           iconColor: "text-white",
         };
     }
@@ -96,7 +100,8 @@ export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
               .slice()
               .reverse()
               .map((entry, index) => {
-                const config = getEntryConfig(entry.entryType);
+                // Pausas Automáticas (Mejora 6): Pasar isAutomatic para diferente color
+                const config = getEntryConfig(entry.entryType, entry.isAutomatic);
                 const Icon = config.icon;
                 const isLast = index === dayEntries.length - 1;
 

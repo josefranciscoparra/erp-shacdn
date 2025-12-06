@@ -207,6 +207,15 @@ function TodayScheduleComponent() {
                       Obligatorio
                     </Badge>
                   )}
+                  {/* Pausas Automáticas (Mejora 6) */}
+                  {slot.slotType === "BREAK" && slot.isAutomatic && (
+                    <Badge
+                      variant="outline"
+                      className="border-blue-200 bg-blue-50/50 text-xs text-blue-700 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-400"
+                    >
+                      Auto
+                    </Badge>
+                  )}
                 </div>
               </div>
             ))}

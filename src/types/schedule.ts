@@ -113,6 +113,13 @@ export interface EffectiveTimeSlot {
 
   /** Factor de compensación (1.00 = normal, 1.50 = nocturno, 1.75 = festivo) */
   compensationFactor?: number;
+
+  // Pausas Automáticas (Mejora 6)
+  /** Si esta pausa se registra automáticamente al fichar salida (solo slotType=BREAK) */
+  isAutomatic?: boolean;
+
+  /** ID del TimeSlot original en BD (para trazabilidad e idempotencia) */
+  timeSlotId?: string;
 }
 
 /**
@@ -229,6 +236,8 @@ export interface CreateTimeSlotInput {
   slotType: TimeSlotType;
   presenceType: PresenceType;
   description?: string;
+  // Pausas Automáticas (Mejora 6)
+  isAutomatic?: boolean;
 }
 
 /**

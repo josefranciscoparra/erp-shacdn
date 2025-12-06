@@ -1,6 +1,6 @@
 # Mejora 6: Pausas Automáticas en Fichajes
 
-## Estado: 🟡 EN DESARROLLO
+## Estado: ✅ COMPLETADO
 
 ## Resumen
 
@@ -200,12 +200,12 @@ Si hay varios intervalos de trabajo en un día (ej: mañana 9-14 + tarde 16-20):
 
 | Paso | Descripción | Estado |
 |------|-------------|--------|
-| 1 | Schema + Migración | ⏳ Pendiente |
-| 2 | Tipos TypeScript | ⏳ Pendiente |
-| 3 | Schedule Engine | ⏳ Pendiente |
-| 4 | Lógica clockOut | ⏳ Pendiente |
-| 5 | Server actions horarios | ⏳ Pendiente |
-| 6 | UI Configuración | ⏳ Pendiente |
-| 7 | UI Visualización fichajes | ⏳ Pendiente |
-| 8 | UI Horario esperado | ⏳ Pendiente |
-| 9 | Pruebas manuales | ⏳ Pendiente |
+| 1 | Schema + Migración | ✅ Completado |
+| 2 | Tipos TypeScript | ✅ Completado |
+| 3 | Schedule Engine | ✅ Completado |
+| 4 | Lógica clockOut | ✅ Completado |
+| 5 | Server actions horarios | ✅ Completado |
+| 6 | UI Configuración | ✅ Completado |
+| 7 | UI Visualización fichajes | ✅ Completado |
+| 8 | UI Horario esperado | ✅ Completado |
+| 9 | Pruebas manuales | ⏳ Pendiente (verificar manualmente) |
