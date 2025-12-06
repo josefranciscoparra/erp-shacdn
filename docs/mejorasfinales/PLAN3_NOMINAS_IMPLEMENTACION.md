@@ -291,17 +291,17 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
   - `/api/payslips/upload`
   - `/api/payslips/items/[id]/preview`
 - [x] Validación de permisos en todas las rutas
-- [ ] **COMMIT**: `feat(payslips): add server actions and API routes`
+- [x] **COMMIT**: `feat(payslips): add server actions and API routes`
 
-### Checkpoint 5: UI Subida Masiva
-- [ ] Crear página `/dashboard/payslips/page.tsx` (listado)
-- [ ] Crear página `/dashboard/payslips/upload/page.tsx`
-- [ ] Crear componente `upload-zone.tsx` (drag & drop)
-- [ ] Crear componente `batch-list.tsx`
-- [ ] Selector de periodo (mes/año)
-- [ ] Indicador de progreso de procesamiento
-- [ ] Añadir entrada en navegación lateral
-- [ ] **COMMIT**: `feat(payslips): add bulk upload UI`
+### Checkpoint 5: UI Subida Masiva ✅
+- [x] Crear página `/dashboard/payslips/page.tsx` (listado)
+- [x] Crear página `/dashboard/payslips/upload/page.tsx`
+- [x] Crear componente `upload-zone.tsx` (drag & drop) - integrado en upload/page.tsx
+- [x] Crear componente `batch-list.tsx`
+- [x] Selector de periodo (mes/año)
+- [x] Indicador de progreso de procesamiento
+- [x] Añadir entrada en navegación lateral
+- [x] **COMMIT**: `feat(payslips): add bulk upload UI`
 
 ### Checkpoint 6: UI Revisión y Asignación
 - [ ] Crear página `/dashboard/payslips/[batchId]/page.tsx`

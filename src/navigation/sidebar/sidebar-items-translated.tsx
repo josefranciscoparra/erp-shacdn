@@ -21,6 +21,7 @@ import {
   ClipboardList,
   History,
   Calculator,
+  FileArchive,
   type LucideIcon,
 } from "lucide-react";
 
@@ -186,6 +187,13 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
+        {
+          title: "Nóminas",
+          url: "/dashboard/payslips",
+          icon: FileArchive,
+          permission: "manage_organization" as Permission,
+          isNew: true,
+        },
         {
           title: "Aprobaciones",
           url: "/dashboard/approvals",
