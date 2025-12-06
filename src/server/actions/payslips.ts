@@ -5,6 +5,23 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
+import { createNotification } from "@/server/actions/notifications";
+
+// Nombres de meses para notificaciones
+const MONTH_NAMES = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
 
 // ============================================
 // TIPOS
@@ -322,7 +339,35 @@ export async function assignPayslipItem(
     // Actualizar estado del batch si es necesario
     await updateBatchStatus(item.batchId);
 
+    // Notificar al empleado si tiene usuario asociado
+    if (employee.userId) {
+      try {
+        // Construir mensaje del periodo
+        const monthName = item.batch.month ? MONTH_NAMES[item.batch.month - 1] : null;
+        const periodText =
+          monthName && item.batch.year
+            ? `${monthName} ${item.batch.year}`
+            : item.batch.year
+              ? `${item.batch.year}`
+              : "";
+
+        await createNotification(
+          employee.userId,
+          orgId,
+          "PAYSLIP_AVAILABLE",
+          `Nómina disponible${periodText ? `: ${periodText}` : ""}`,
+          periodText
+            ? `Ya tienes disponible tu nómina de ${periodText}. Puedes consultarla en "Mis Nóminas".`
+            : `Ya tienes disponible una nueva nómina. Puedes consultarla en "Mis Nóminas".`,
+        );
+      } catch (notificationError) {
+        // No fallar la asignación si falla la notificación
+        console.error("⚠️ Error al enviar notificación de nómina:", notificationError);
+      }
+    }
+
     revalidatePath(`/dashboard/payslips/${item.batchId}`);
+    revalidatePath("/dashboard/me/payslips");
 
     return { success: true };
   } catch (error) {

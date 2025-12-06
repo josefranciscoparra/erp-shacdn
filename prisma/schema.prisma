@@ -1555,6 +1555,7 @@ enum PtoNotificationType {
   TIME_BANK_REQUEST_SUBMITTED // Nueva solicitud de bolsa enviada
   TIME_BANK_REQUEST_APPROVED // Solicitud de bolsa aprobada
   TIME_BANK_REQUEST_REJECTED // Solicitud de bolsa rechazada
+  PAYSLIP_AVAILABLE // Nómina disponible para el empleado
 }
 
 // Ajustes manuales de balance de PTO (auditoría)

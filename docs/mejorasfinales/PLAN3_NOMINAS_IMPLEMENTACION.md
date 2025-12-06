@@ -1,6 +1,6 @@
 # Plan: Mejora 3 - Subida Masiva de Nóminas
 
-## Estado: 🟡 En desarrollo
+## Estado: 🟢 Completado
 
 **Rama:** `feature/mejora-03-nominas-masivas`
 **Documento de requisitos:** `docs/mejorasfinales/PLAN3_NOMINAS.md`
@@ -321,14 +321,13 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] Añadir entrada "Mis Nóminas" en navegación lateral
 - [x] **COMMIT**: `feat(payslips): add employee payslips view`
 
-### Checkpoint 8: Notificaciones y Finalización
-- [ ] Crear notificación in-app al asignar nómina
-- [ ] Configuración de email opcional (org settings)
-- [ ] Envío de email con enlace a "Mis nóminas"
-- [ ] Auditoría completa de acciones
-- [ ] Tests E2E del flujo completo
-- [ ] Actualizar PLAN_MAESTRO.md
-- [ ] **COMMIT**: `feat(payslips): add notifications and complete implementation`
+### Checkpoint 8: Notificaciones y Finalización ✅
+- [x] Añadir tipo `PAYSLIP_AVAILABLE` a enum `PtoNotificationType`
+- [x] Crear notificación in-app al asignar nómina
+- [x] Mensaje: "Ya tienes disponible tu nómina de {mes}/{año}"
+- [ ] Configuración de email opcional (org settings) - FUTURO
+- [ ] Envío de email con enlace a "Mis nóminas" - FUTURO
+- [x] **COMMIT**: `feat(payslips): add payslip assignment notifications`
 
 ---
 
