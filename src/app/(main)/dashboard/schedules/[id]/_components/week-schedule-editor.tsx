@@ -240,9 +240,11 @@ function DayScheduleRow({
 
       {isWorkingDay && pattern ? (
         <>
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-4">
             {/* Timeline visual */}
-            <TimelineBar timeSlots={pattern.timeSlots} />
+            <div className="pt-2 pb-1">
+              <TimelineBar timeSlots={pattern.timeSlots} />
+            </div>
 
             {/* Badges con horarios */}
             <div className="flex flex-wrap items-center gap-2">
@@ -336,7 +338,7 @@ function TimelineBar({ timeSlots }: TimelineBarProps) {
   const hourMarkers = [6, 9, 12, 15, 18, 21];
 
   return (
-    <div className="relative">
+    <div className="relative mb-5">
       {/* Barra base (fondo gris) */}
       <div className="bg-muted relative h-3 w-full overflow-hidden rounded-full">
         {/* Franjas horarias coloreadas */}
@@ -357,14 +359,14 @@ function TimelineBar({ timeSlots }: TimelineBarProps) {
       </div>
 
       {/* Marcadores de hora */}
-      <div className="relative mt-1 flex justify-between px-0.5">
+      <div className="relative mt-1 h-4 w-full px-0.5">
         {hourMarkers.map((hour) => {
           const position = ((hour - START_HOUR) / (END_HOUR - START_HOUR)) * 100;
           return (
             <span
               key={hour}
-              className="text-muted-foreground text-[10px]"
-              style={{ position: "absolute", left: `${position}%`, transform: "translateX(-50%)" }}
+              className="text-muted-foreground absolute text-[10px]"
+              style={{ left: `${position}%`, transform: "translateX(-50%)" }}
             >
               {hour}h
             </span>
