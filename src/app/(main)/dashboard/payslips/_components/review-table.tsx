@@ -1,0 +1,339 @@
+"use client";
+
+import { useState } from "react";
+
+import {
+  AlertCircle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Eye,
+  RefreshCw,
+  SkipForward,
+  UserPlus,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { assignPayslipItem, skipPayslipItem, type PayslipUploadItemDetail } from "@/server/actions/payslips";
+
+import { EmployeeSelectorDialog } from "./employee-selector-dialog";
+import { ItemPreviewDialog } from "./item-preview-dialog";
+
+interface ReviewTableProps {
+  items: PayslipUploadItemDetail[];
+  total: number;
+  page: number;
+  statusFilter?: string;
+  onStatusFilterChange: (status: string | undefined) => void;
+  onPageChange: (page: number) => void;
+  onRefresh: () => void;
+  isLoading: boolean;
+}
+
+function getStatusBadge(status: string) {
+  switch (status) {
+    case "PENDING":
+      return (
+        <Badge variant="outline" className="gap-1">
+          <Clock className="h-3 w-3" />
+          Pendiente
+        </Badge>
+      );
+    case "ASSIGNED":
+      return (
+        <Badge variant="default" className="gap-1 bg-green-600">
+          <CheckCircle2 className="h-3 w-3" />
+          Asignado
+        </Badge>
+      );
+    case "SKIPPED":
+      return (
+        <Badge variant="secondary" className="gap-1">
+          <SkipForward className="h-3 w-3" />
+          Saltado
+        </Badge>
+      );
+    case "ERROR":
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <AlertCircle className="h-3 w-3" />
+          Error
+        </Badge>
+      );
+    default:
+      return <Badge variant="outline">{status}</Badge>;
+  }
+}
+
+function getConfidenceBadge(score: number) {
+  if (score >= 0.8) {
+    return (
+      <Badge variant="outline" className="border-green-500 text-green-600">
+        {Math.round(score * 100)}%
+      </Badge>
+    );
+  }
+  if (score >= 0.5) {
+    return (
+      <Badge variant="outline" className="border-amber-500 text-amber-600">
+        {Math.round(score * 100)}%
+      </Badge>
+    );
+  }
+  return (
+    <Badge variant="outline" className="border-red-500 text-red-600">
+      {Math.round(score * 100)}%
+    </Badge>
+  );
+}
+
+export function ReviewTable({
+  items,
+  total,
+  page,
+  statusFilter,
+  onStatusFilterChange,
+  onPageChange,
+  onRefresh,
+  isLoading,
+}: ReviewTableProps) {
+  const [selectedItem, setSelectedItem] = useState<PayslipUploadItemDetail | null>(null);
+  const [previewItem, setPreviewItem] = useState<PayslipUploadItemDetail | null>(null);
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [isSkipping, setIsSkipping] = useState<string | null>(null);
+
+  const pageSize = 50;
+  const totalPages = Math.ceil(total / pageSize);
+
+  const handleAssign = async (employeeId: string) => {
+    if (!selectedItem) return;
+
+    setIsAssigning(true);
+    try {
+      const result = await assignPayslipItem(selectedItem.id, employeeId);
+      if (result.success) {
+        toast.success("Nómina asignada correctamente");
+        setSelectedItem(null);
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Error al asignar");
+      }
+    } catch {
+      toast.error("Error al asignar la nómina");
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleSkip = async (itemId: string) => {
+    setIsSkipping(itemId);
+    try {
+      const result = await skipPayslipItem(itemId);
+      if (result.success) {
+        toast.success("Item saltado");
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Error al saltar");
+      }
+    } catch {
+      toast.error("Error al saltar el item");
+    } finally {
+      setIsSkipping(null);
+    }
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Items del Lote</CardTitle>
+            <CardDescription>
+              {total} items en total • Página {page} de {totalPages || 1}
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Filtros por estado */}
+          <div className="flex items-center gap-4">
+            {/* Tabs para desktop */}
+            <Tabs
+              value={statusFilter ?? "all"}
+              onValueChange={(v) => onStatusFilterChange(v === "all" ? undefined : v)}
+              className="hidden @3xl/main:block"
+            >
+              <TabsList>
+                <TabsTrigger value="all">Todos</TabsTrigger>
+                <TabsTrigger value="PENDING">Pendientes</TabsTrigger>
+                <TabsTrigger value="ASSIGNED">Asignados</TabsTrigger>
+                <TabsTrigger value="ERROR">Errores</TabsTrigger>
+                <TabsTrigger value="SKIPPED">Saltados</TabsTrigger>
+              </TabsList>
+            </Tabs>
+
+            {/* Select para móvil */}
+            <Select
+              value={statusFilter ?? "all"}
+              onValueChange={(v) => onStatusFilterChange(v === "all" ? undefined : v)}
+            >
+              <SelectTrigger className="w-[180px] @3xl/main:hidden">
+                <SelectValue placeholder="Filtrar por estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="PENDING">Pendientes</SelectItem>
+                <SelectItem value="ASSIGNED">Asignados</SelectItem>
+                <SelectItem value="ERROR">Errores</SelectItem>
+                <SelectItem value="SKIPPED">Saltados</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Tabla */}
+          <div className="overflow-hidden rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Archivo / Página</TableHead>
+                  <TableHead>DNI Detectado</TableHead>
+                  <TableHead>Nombre Detectado</TableHead>
+                  <TableHead>Confianza</TableHead>
+                  <TableHead>Empleado</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center">
+                      <div className="text-muted-foreground">
+                        No hay items {statusFilter ? `con estado "${statusFilter}"` : ""}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        <div className="font-medium">{item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}</div>
+                      </TableCell>
+                      <TableCell>
+                        <code className="bg-muted rounded px-1 py-0.5 text-sm">{item.detectedDni ?? "-"}</code>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-muted-foreground">{item.detectedName ?? "-"}</span>
+                      </TableCell>
+                      <TableCell>{getConfidenceBadge(item.confidenceScore)}</TableCell>
+                      <TableCell>
+                        {item.employee ? (
+                          <div className="flex items-center gap-1">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span>
+                              {item.employee.firstName} {item.employee.lastName}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">Sin asignar</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(item.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => setPreviewItem(item)} title="Ver preview">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+
+                          {item.status === "PENDING" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setSelectedItem(item)}
+                                title="Asignar a empleado"
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleSkip(item.id)}
+                                disabled={isSkipping === item.id}
+                                title="Saltar"
+                              >
+                                {isSkipping === item.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <div className="text-muted-foreground text-sm">
+                Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} de {total}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page === 1}>
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onPageChange(page + 1)}
+                  disabled={page >= totalPages}
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dialog para seleccionar empleado */}
+      <EmployeeSelectorDialog
+        open={!!selectedItem}
+        onOpenChange={(open) => !open && setSelectedItem(null)}
+        onSelect={handleAssign}
+        isLoading={isAssigning}
+        detectedDni={selectedItem?.detectedDni ?? undefined}
+        detectedName={selectedItem?.detectedName ?? undefined}
+      />
+
+      {/* Dialog para preview */}
+      <ItemPreviewDialog
+        open={!!previewItem}
+        onOpenChange={(open) => !open && setPreviewItem(null)}
+        item={previewItem}
+      />
+    </>
+  );
+}

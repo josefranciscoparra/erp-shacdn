@@ -303,14 +303,15 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] Añadir entrada en navegación lateral
 - [x] **COMMIT**: `feat(payslips): add bulk upload UI`
 
-### Checkpoint 6: UI Revisión y Asignación
-- [ ] Crear página `/dashboard/payslips/[batchId]/page.tsx`
-- [ ] Crear componente `review-table.tsx`
-- [ ] Crear componente `item-preview.tsx` (modal preview PDF)
-- [ ] Crear componente `employee-selector.tsx` (búsqueda)
-- [ ] Acciones: Asignar, Saltar, Reprocesar
-- [ ] Filtros por estado (PENDING, ASSIGNED, ERROR)
-- [ ] **COMMIT**: `feat(payslips): add review and assignment UI`
+### Checkpoint 6: UI Revisión y Asignación ✅
+- [x] Crear página `/dashboard/payslips/[batchId]/page.tsx`
+- [x] Crear componente `review-table.tsx`
+- [x] Crear componente `item-preview-dialog.tsx` (modal preview PDF)
+- [x] Crear componente `employee-selector-dialog.tsx` (búsqueda)
+- [x] Crear componente `batch-summary.tsx`
+- [x] Acciones: Asignar, Saltar
+- [x] Filtros por estado (PENDING, ASSIGNED, ERROR, SKIPPED)
+- [x] **COMMIT**: `feat(payslips): add review and assignment UI`
 
 ### Checkpoint 7: Vista "Mis Nóminas"
 - [ ] Crear página `/dashboard/me/payslips/page.tsx`
