@@ -208,4 +208,4 @@ Si hay varios intervalos de trabajo en un día (ej: mañana 9-14 + tarde 16-20):
 | 6 | UI Configuración | ✅ Completado |
 | 7 | UI Visualización fichajes | ✅ Completado |
 | 8 | UI Horario esperado | ✅ Completado |
-| 9 | Pruebas manuales | ⏳ Pendiente (verificar manualmente) |
+| 9 | Pruebas manuales | ✅ Completado |
