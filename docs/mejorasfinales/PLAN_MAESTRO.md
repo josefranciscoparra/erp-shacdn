@@ -7,7 +7,7 @@ El objetivo es profesionalizar el producto, ampliar cobertura legal/laboral y me
 ## 🧩 Áreas de Mejora (Resumen)
 1. ✅ ~~Liquidación de vacaciones + gestión de fijos discontinuos.~~ **COMPLETADA**
 2. ✅ ~~Justificantes de ausencias (aportación documental).~~ **COMPLETADA**
-3. ⏳ Subida masiva de nóminas (ZIP y PDF multipágina con OCR).
+3. ✅ ~~Subida masiva de nóminas (ZIP y PDF multipágina con OCR).~~ **COMPLETADA**
 4. ⏳ Proyectos vinculados al fichaje, abiertos o asignados a personas concretas.
 5. ⏳ Bolsa de horas (cómputo, saldo y decisiones de RRHH).
 6. ⏳ Pausas automáticas en fichajes (reglas configurables).
