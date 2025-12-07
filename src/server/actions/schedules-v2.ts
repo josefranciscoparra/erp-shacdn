@@ -45,6 +45,50 @@ import type {
 // Helpers Internos
 // ============================================================================
 
+function minutesToTimeString(minutes: number): string {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `${String(hrs).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
+}
+
+/**
+ * Valida que los tramos de un día no se solapen entre sí por tipo.
+ * - WORK/ON_CALL: no pueden solaparse con otro WORK/ON_CALL.
+ * - BREAK: no puede solaparse con otro BREAK (pero sí puede estar dentro de un WORK).
+ */
+function validateWorkDayTimeSlots(timeSlots: UpdateWorkDayPatternInput["timeSlots"]): string | null {
+  // Validación básica start < end
+  for (const slot of timeSlots) {
+    if (slot.startTimeMinutes >= slot.endTimeMinutes) {
+      return "La hora de inicio debe ser anterior a la hora de fin en todos los tramos.";
+    }
+  }
+
+  const grouped = new Map<string, Array<{ start: number; end: number }>>();
+
+  for (const slot of timeSlots) {
+    const type = slot.slotType ?? "WORK";
+    if (!grouped.has(type)) {
+      grouped.set(type, []);
+    }
+    grouped.get(type)?.push({
+      start: slot.startTimeMinutes,
+      end: slot.endTimeMinutes,
+    });
+  }
+
+  for (const [type, slots] of grouped.entries()) {
+    const sorted = slots.sort((a, b) => a.start - b.start);
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      if (sorted[i].end > sorted[i + 1].start) {
+        return `Los tramos de tipo ${type} se solapan (${minutesToTimeString(sorted[i].start)}-${minutesToTimeString(sorted[i].end)} con ${minutesToTimeString(sorted[i + 1].start)}-${minutesToTimeString(sorted[i + 1].end)}).`;
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Obtiene la sesión actual o lanza error
  */
@@ -900,6 +944,11 @@ export async function updateWorkDayPattern(
 ): Promise<ActionResponse> {
   try {
     await requireOrg();
+
+    const validationError = validateWorkDayTimeSlots(data.timeSlots ?? []);
+    if (validationError) {
+      return { success: false, error: validationError };
+    }
 
     // Buscar o crear el patrón del día
     let pattern = await prisma.workDayPattern.findFirst({

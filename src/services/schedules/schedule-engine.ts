@@ -44,6 +44,65 @@ const DEBUG_SCHEDULE = process.env.NODE_ENV === "development" && process.env.DEB
 // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars
 const scheduleLog = DEBUG_SCHEDULE ? console.log.bind(console) : (..._args: any[]) => {};
 
+/**
+ * Calcula minutos esperados sin doble contaje cuando hay solapes de slots de trabajo.
+ * Usa el factor máximo activo en cada tramo para ponderar nocturnidad/festivos.
+ */
+function computeExpectedMinutesForSlots(slots: EffectiveTimeSlot[]): number {
+  type Event = { time: number; factor: number; type: "start" | "end" };
+  const events: Event[] = [];
+
+  for (const slot of slots) {
+    const typeStr = String(slot.slotType).trim().toUpperCase();
+    if (typeStr === "BREAK") continue;
+    if (slot.countsAsWork === false) continue;
+
+    const factor = slot.compensationFactor ?? 1.0;
+    events.push({ time: slot.startMinutes, factor, type: "start" });
+    events.push({ time: slot.endMinutes, factor, type: "end" });
+  }
+
+  if (events.length === 0) {
+    return 0;
+  }
+
+  events.sort((a, b) => {
+    if (a.time === b.time) {
+      // Procesar los inicios antes que los finales en el mismo minuto
+      if (a.type === b.type) return 0;
+      return a.type === "start" ? -1 : 1;
+    }
+    return a.time - b.time;
+  });
+
+  const activeFactors: number[] = [];
+  let lastTime: number | null = null;
+  let totalMinutes = 0;
+
+  for (const event of events) {
+    if (lastTime !== null && activeFactors.length > 0 && event.time > lastTime) {
+      const duration = event.time - lastTime;
+      const maxFactor = Math.max(...activeFactors);
+      totalMinutes += duration * maxFactor;
+    }
+
+    if (event.type === "start") {
+      activeFactors.push(event.factor);
+    } else {
+      const idx = activeFactors.indexOf(event.factor);
+      if (idx !== -1) {
+        activeFactors.splice(idx, 1);
+      } else {
+        activeFactors.shift(); // fallback defensivo
+      }
+    }
+
+    lastTime = event.time;
+  }
+
+  return totalMinutes;
+}
+
 // ============================================================================
 // FASE 2.4: Helpers de Normalización UTC
 // ============================================================================
@@ -444,15 +503,7 @@ export async function getEffectiveScheduleForRange(
             timeSlotId: slot.id,
           }));
 
-          let expectedMinutes = 0;
-          for (const slot of effectiveSlots) {
-            // BREAK nunca cuenta, incluso si countsAsWork está mal configurado
-            // countsAsWork permite configurar ON_CALL para que no cuente si corresponde
-            if (String(slot.slotType).trim().toUpperCase() !== "BREAK" && slot.countsAsWork !== false) {
-              const duration = slot.endMinutes - slot.startMinutes;
-              expectedMinutes += duration * (slot.compensationFactor ?? 1.0);
-            }
-          }
+          let expectedMinutes = computeExpectedMinutesForSlots(effectiveSlots);
 
           if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
             expectedMinutes = Math.max(0, expectedMinutes - absenceData.durationMinutes);
@@ -687,19 +738,7 @@ export async function getEffectiveSchedule(
   // - BREAK nunca cuenta (doble-check de seguridad)
   // - countsAsWork=false permite excluir ON_CALL si corresponde al sector
   // - compensationFactor aplica multiplicador (1.5 nocturno, 1.75 festivo, etc.)
-  let expectedMinutes = 0;
-  for (const slot of effectiveSlots) {
-    // Normalización defensiva para asegurar comparación correcta
-    const typeStr = String(slot.slotType).trim().toUpperCase();
-
-    // BREAK nunca cuenta, incluso si countsAsWork está mal configurado
-    if (typeStr !== "BREAK" && slot.countsAsWork !== false) {
-      const duration = slot.endMinutes - slot.startMinutes;
-      if (duration > 0) {
-        expectedMinutes += duration * (slot.compensationFactor ?? 1.0);
-      }
-    }
-  }
+  let expectedMinutes = computeExpectedMinutesForSlots(effectiveSlots);
   // 🆕 Si hay ausencia PARCIAL, reducir los minutos esperados
   if (absence && absence.isPartial && absence.durationMinutes) {
     expectedMinutes = Math.max(0, expectedMinutes - absence.durationMinutes);
@@ -1593,12 +1632,7 @@ async function buildScheduleFromManual(assignment: ManualShiftAssignment, date: 
   }));
 
   // Calcular minutos esperados
-  let expectedMinutes = 0;
-  for (const slot of effectiveSlots) {
-    if (String(slot.slotType) !== "BREAK" && slot.countsAsWork !== false) {
-      expectedMinutes += (slot.endMinutes - slot.startMinutes) * (slot.compensationFactor ?? 1.0);
-    }
-  }
+  const expectedMinutes = computeExpectedMinutesForSlots(effectiveSlots);
 
   return {
     date,

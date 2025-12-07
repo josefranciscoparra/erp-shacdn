@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Clock, Coffee, Plus, Trash2 } from "lucide-react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, type FieldErrors } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -37,6 +37,30 @@ function minutesToTimeString(minutes: number): string {
 function timeStringToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);
   return hours * 60 + minutes;
+}
+
+function validateOverlapsClient(timeSlots: { startTimeMinutes: number; endTimeMinutes: number; slotType?: string }[]) {
+  const grouped = new Map<string, Array<{ start: number; end: number }>>();
+
+  for (const slot of timeSlots) {
+    if (slot.startTimeMinutes >= slot.endTimeMinutes) {
+      return "La hora de inicio debe ser anterior a la hora de fin en todos los tramos.";
+    }
+    const type = slot.slotType ?? "WORK";
+    if (!grouped.has(type)) grouped.set(type, []);
+    grouped.get(type)?.push({ start: slot.startTimeMinutes, end: slot.endTimeMinutes });
+  }
+
+  for (const [type, slots] of grouped.entries()) {
+    const sorted = slots.sort((a, b) => a.start - b.start);
+    for (let i = 0; i < sorted.length - 1; i += 1) {
+      if (sorted[i].end > sorted[i + 1].start) {
+        return `Los tramos de tipo ${type} se solapan (${minutesToTimeString(sorted[i].start)}-${minutesToTimeString(sorted[i].end)} con ${minutesToTimeString(sorted[i + 1].start)}-${minutesToTimeString(sorted[i + 1].end)}).`;
+      }
+    }
+  }
+
+  return null;
 }
 
 const timeSlotSchema = z
@@ -195,6 +219,13 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
           }))
         : [];
 
+      const overlapError = validateOverlapsClient(timeSlots);
+      if (overlapError) {
+        toast.error("Horario no válido", { description: overlapError });
+        setIsLoading(false);
+        return;
+      }
+
       const result = await updateWorkDayPattern(periodId, dayOfWeek, {
         isWorkingDay: data.isWorkingDay,
         timeSlots,
@@ -221,6 +252,18 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
     }
   }
 
+  function onInvalid(errors: FieldErrors<FormValues>) {
+    if (errors.timeSlots && "message" in errors.timeSlots && typeof errors.timeSlots.message === "string") {
+      toast.error("Error de validación", {
+        description: errors.timeSlots.message,
+      });
+    } else {
+      toast.error("Formulario inválido", {
+        description: "Por favor revisa que los horarios sean correctos y no se solapen.",
+      });
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -235,7 +278,7 @@ export function EditDayScheduleDialog({ periodId, dayOfWeek, dayLabel, existingP
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
             <FormField
               control={form.control}
               name="isWorkingDay"

@@ -44,13 +44,11 @@ export function ClockIn() {
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
     breakMinutes: number;
-    expectedDailyHours: number;
     updatedAt: Date;
   } | null>(null);
   const latestChartValuesRef = useRef({
     workedMinutes: 0,
     breakMinutes: 0,
-    expectedDailyHours: 0,
   });
 
   // Estados de geolocalización
@@ -78,7 +76,6 @@ export function ClockIn() {
   const {
     currentStatus,
     todaySummary,
-    expectedDailyHours,
     hasActiveContract,
     isWorkingDay,
     liveWorkedMinutes,
@@ -205,16 +202,14 @@ export function ClockIn() {
     latestChartValuesRef.current = {
       workedMinutes: liveWorkedMinutes,
       breakMinutes: todaySummary?.totalBreakMinutes ?? 0,
-      expectedDailyHours,
     };
-  }, [liveWorkedMinutes, todaySummary?.totalBreakMinutes, expectedDailyHours]);
+  }, [liveWorkedMinutes, todaySummary?.totalBreakMinutes]);
 
   const updateChartSnapshot = useCallback(() => {
     const latestValues = latestChartValuesRef.current;
     setChartSnapshot({
       workedMinutes: latestValues.workedMinutes,
       breakMinutes: latestValues.breakMinutes,
-      expectedDailyHours: latestValues.expectedDailyHours,
       updatedAt: new Date(),
     });
     restartChartAnimation();
@@ -445,15 +440,9 @@ export function ClockIn() {
     };
   };
 
-  // Calcular tiempo restante usando Schedule V2.0 de forma robusta
-  let effectiveExpectedMinutes = expectedDailyHours * 60; // Default fallback
-
-  if (todaySchedule?.source === "NO_ASSIGNMENT") {
-    effectiveExpectedMinutes = expectedDailyHours * 60;
-  } else if (scheduleExpectedMinutes !== null) {
-    // Si el motor devuelve un valor (incluso 0), lo respetamos (ej: vacaciones)
-    effectiveExpectedMinutes = scheduleExpectedMinutes;
-  }
+  // Calcular tiempo restante usando Schedule V2.0
+  // Si no hay horario cargado aún, usar 0 (se actualizará cuando cargue)
+  const effectiveExpectedMinutes = scheduleExpectedMinutes ?? 0;
 
   const remainingMinutes = Math.max(0, effectiveExpectedMinutes - liveWorkedMinutes);
 
@@ -472,8 +461,8 @@ export function ClockIn() {
   // Configuración del gráfico de progreso - usar snapshot estático para evitar parpadeos
   const chartWorkedMinutes = chartSnapshot?.workedMinutes ?? liveWorkedMinutes;
   const chartBreakMinutes = chartSnapshot?.breakMinutes ?? todaySummary?.totalBreakMinutes ?? 0;
-  const chartExpectedDailyHours = chartSnapshot?.expectedDailyHours ?? expectedDailyHours;
-  const chartTotalMinutes = chartExpectedDailyHours * 60;
+  // Usar effectiveExpectedMinutes que ya considera Schedule V2.0
+  const chartTotalMinutes = effectiveExpectedMinutes;
   const chartRemainingMinutes = Math.max(0, chartTotalMinutes - chartWorkedMinutes);
   // Permitir porcentajes > 100% cuando trabajas más horas de las esperadas
   const chartProgressPercentage =
@@ -654,9 +643,10 @@ export function ClockIn() {
             <div className="flex-1 space-y-1">
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Sin contrato activo</p>
               <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                Usando valores por defecto:{" "}
+                Usando horario asignado:{" "}
                 <span className="font-semibold">
-                  {expectedDailyHours}h diarias ({expectedDailyHours * 5}h semanales)
+                  {(effectiveExpectedMinutes / 60).toFixed(1)}h diarias (
+                  {((effectiveExpectedMinutes / 60) * 5).toFixed(1)}h semanales)
                 </span>
                 . Contacta con RRHH para configurar tu contrato laboral.
               </p>
