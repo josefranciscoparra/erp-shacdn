@@ -176,13 +176,9 @@ export function NavMain({ items }: NavMainProps) {
       return subItems.some((sub) => path.startsWith(sub.url));
     }
 
-    // Caso especial para "Fichar": activo en /dashboard/me/clock y /dashboard/me/clock/requests
-    // if (url === "/dashboard/me/clock") {
-    //  return path === "/dashboard/me/clock" || path.startsWith("/dashboard/me/clock/");
-    // }
-
-    // Para el resto: solo match exacto
-    return path === url;
+    // Usar startsWith para incluir rutas hijas (ej: /dashboard/projects/[id])
+    // Añadir "/" al final para evitar falsos positivos (ej: /dashboard/pro no matchea /dashboard/projects)
+    return path === url || path.startsWith(url + "/");
   };
 
   const isSubmenuOpen = (subItems?: NavMainItem["subItems"]) => {

@@ -12,6 +12,8 @@ export type Permission =
   | "manage_cost_centers" // Gestionar centros de coste
   | "view_teams" // Ver equipos
   | "manage_teams" // Gestionar equipos
+  | "view_projects" // Ver proyectos
+  | "manage_projects" // Gestionar proyectos
   | "view_positions" // Ver puestos de trabajo
   | "manage_positions" // Gestionar puestos de trabajo
   | "view_contracts" // Ver contratos
@@ -47,6 +49,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_cost_centers",
     "view_teams",
     "manage_teams",
+    "view_projects",
+    "manage_projects",
     "view_positions",
     "manage_positions",
     "view_contracts",
@@ -78,6 +82,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_cost_centers",
     "view_teams",
     "manage_teams",
+    "view_projects",
+    "manage_projects",
     "view_positions",
     "manage_positions",
     "view_contracts",
@@ -109,6 +115,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "manage_cost_centers",
     "view_teams",
     "manage_teams",
+    "view_projects",
+    "manage_projects",
     "view_positions",
     "manage_positions",
     "view_contracts",
