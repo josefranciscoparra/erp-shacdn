@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 interface TimeEntry {
   id: string;
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
   timestamp: Date;
   location?: string | null;
   notes?: string | null;
@@ -155,13 +155,14 @@ export function DayCard({ day }: DayCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const statusInfo = statusConfig[day.status];
   const StatusIcon = statusInfo.icon;
+  const visibleEntries = day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
 
   // Calcular duración de cada pausa
   const breakDurations: { startIndex: number; duration: number }[] = [];
-  for (let i = 0; i < day.timeEntries.length; i++) {
-    const entry = day.timeEntries[i];
+  for (let i = 0; i < visibleEntries.length; i++) {
+    const entry = visibleEntries[i];
     if (entry.entryType === "BREAK_START") {
-      const nextEntry = day.timeEntries[i + 1];
+      const nextEntry = visibleEntries[i + 1];
       if (nextEntry && nextEntry.entryType === "BREAK_END") {
         const duration = differenceInMinutes(new Date(nextEntry.timestamp), new Date(entry.timestamp));
         breakDurations.push({ startIndex: i, duration });
@@ -297,11 +298,11 @@ export function DayCard({ day }: DayCardProps) {
           )}
 
           {/* Timeline de fichajes */}
-          {day.timeEntries.length > 0 && (
+          {visibleEntries.length > 0 && (
             <div className="space-y-4 border-t pt-3">
               {/* Fichajes activos */}
               <div className="relative space-y-0">
-                {day.timeEntries
+                {visibleEntries
                   .filter((entry) => !entry.isCancelled)
                   .map((entry, index, filteredArray) => {
                     const config = entryTypeConfig[entry.entryType];
@@ -409,7 +410,7 @@ export function DayCard({ day }: DayCardProps) {
               </div>
 
               {/* Separador y fichajes cancelados */}
-              {day.timeEntries.some((e) => e.isCancelled) && (
+              {visibleEntries.some((e) => e.isCancelled) && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-2">
                     <div className="bg-muted h-px flex-1" />
@@ -417,7 +418,7 @@ export function DayCard({ day }: DayCardProps) {
                     <div className="bg-muted h-px flex-1" />
                   </div>
                   <div className="relative space-y-0 opacity-60">
-                    {day.timeEntries
+                    {visibleEntries
                       .filter((entry) => entry.isCancelled)
                       .map((entry, index, filteredArray) => {
                         const config = entryTypeConfig[entry.entryType];

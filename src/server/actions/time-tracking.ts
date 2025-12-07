@@ -41,6 +41,10 @@ function serializeTimeEntry(entry: any) {
   };
 }
 
+function isActiveWorkEntryType(entryType?: string | null) {
+  return entryType === "CLOCK_IN" || entryType === "BREAK_END" || entryType === "PROJECT_SWITCH";
+}
+
 // Helper para procesar datos de geolocalización
 // IMPORTANTE: Recibe parámetros individuales en lugar de objeto para evitar problema de Next.js 15
 async function processGeolocationData(orgId: string, latitude?: number, longitude?: number, accuracy?: number) {
@@ -112,6 +116,17 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
       case "CLOCK_IN":
         lastClockIn = entry.timestamp;
         console.log("    ⏰ Inicio de sesión registrado");
+        break;
+
+      case "PROJECT_SWITCH":
+        if (lastClockIn) {
+          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          totalWorked += minutes;
+          console.log(`    🔁 Cambio de proyecto: +${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
+        } else {
+          console.log("    ⚠️ Cambio de proyecto sin sesión activa previa");
+        }
+        lastClockIn = entry.timestamp;
         break;
 
       case "BREAK_START":
@@ -574,8 +589,7 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   // y el primer fichaje del día actual es CLOCK_OUT o no existe,
   // entonces hay un cruce de medianoche
   if (lastEntryYesterday) {
-    const wasWorkingAtMidnight =
-      lastEntryYesterday.entryType === "CLOCK_IN" || lastEntryYesterday.entryType === "BREAK_END";
+    const wasWorkingAtMidnight = isActiveWorkEntryType(lastEntryYesterday.entryType);
 
     if (wasWorkingAtMidnight) {
       // Verificar si hay CLOCK_OUT del día anterior después del CLOCK_IN
@@ -759,6 +773,7 @@ export async function getCurrentStatus() {
     switch (lastEntry.entryType) {
       case "CLOCK_IN":
       case "BREAK_END":
+      case "PROJECT_SWITCH":
         return { status: "CLOCKED_IN" as const };
 
       case "BREAK_START":
@@ -828,13 +843,12 @@ export async function clockIn(
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -936,13 +950,12 @@ export async function clockOut(
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar que pueda fichar salida
@@ -1106,13 +1119,12 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -1160,7 +1172,7 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
     const now = new Date();
 
     // TRANSACCIÓN ATÓMICA: Previene race conditions
-    const entry = await prisma.$transaction(
+    const { entry, breakStartEntry } = await prisma.$transaction(
       async (tx) => {
         // 1. Obtener último fichaje del día DENTRO de la transacción
         const dayStart = startOfDay(now);
@@ -1184,13 +1196,12 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -1200,7 +1211,7 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
         }
 
         // 4. Crear el fichaje (dentro de la transacción)
-        return tx.timeEntry.create({
+        const createdEntry = await tx.timeEntry.create({
           data: {
             orgId,
             employeeId,
@@ -1209,6 +1220,11 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
             ...geoData,
           },
         });
+
+        return {
+          entry: createdEntry,
+          breakStartEntry: lastEntry,
+        };
       },
       {
         isolationLevel: "Serializable",
@@ -1218,6 +1234,10 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
 
     // Actualizar el resumen del día (FUERA de la transacción)
     await updateWorkdaySummary(employeeId, orgId, now);
+
+    if (breakStartEntry) {
+      await resumeProjectAfterBreak(employeeId, orgId, breakStartEntry.timestamp, now);
+    }
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -2281,6 +2301,53 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
 // CAMBIO DE PROYECTO DURANTE LA JORNADA (Mejora 4)
 // ============================================================================
 
+async function resumeProjectAfterBreak(
+  employeeId: string,
+  orgId: string,
+  breakStartTimestamp: Date,
+  resumeTimestamp: Date,
+) {
+  const lastProjectEntry = await prisma.timeEntry.findFirst({
+    where: {
+      employeeId,
+      orgId,
+      isCancelled: false,
+      timestamp: {
+        lt: breakStartTimestamp,
+      },
+      entryType: {
+        in: ["CLOCK_IN", "PROJECT_SWITCH"],
+      },
+      projectId: {
+        not: null,
+      },
+    },
+    select: {
+      projectId: true,
+      task: true,
+    },
+    orderBy: {
+      timestamp: "desc",
+    },
+  });
+
+  if (!lastProjectEntry?.projectId) {
+    return;
+  }
+
+  await prisma.timeEntry.create({
+    data: {
+      orgId,
+      employeeId,
+      entryType: "PROJECT_SWITCH",
+      timestamp: resumeTimestamp,
+      projectId: lastProjectEntry.projectId,
+      task: lastProjectEntry.task,
+      notes: "Reanudación automática tras pausa",
+    },
+  });
+}
+
 /**
  * Cambia el proyecto asignado durante la jornada laboral.
  *
@@ -2305,7 +2372,7 @@ export async function changeProject(
   latitude?: number,
   longitude?: number,
   accuracy?: number,
-): Promise<{ success: boolean; error?: string; entry?: any; isOnBreak?: boolean }> {
+): Promise<{ success: boolean; error?: string; entry?: any }> {
   try {
     const { employeeId, orgId } = await getAuthenticatedEmployee();
 
@@ -2335,12 +2402,11 @@ export async function changeProject(
     }
 
     // Determinar estado actual
-    const currentState =
-      lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-        ? "CLOCKED_IN"
-        : lastEntry.entryType === "BREAK_START"
-          ? "ON_BREAK"
-          : "CLOCKED_OUT";
+    const currentState = isActiveWorkEntryType(lastEntry.entryType)
+      ? "CLOCKED_IN"
+      : lastEntry.entryType === "BREAK_START"
+        ? "ON_BREAK"
+        : "CLOCKED_OUT";
 
     if (currentState === "CLOCKED_OUT") {
       return { success: false, error: "Debes fichar entrada antes de cambiar de proyecto" };
@@ -2355,29 +2421,24 @@ export async function changeProject(
       }
     }
 
-    // 4. Si está en pausa, no crear entrada inmediatamente
-    // Solo retornar que el cambio se aplicará cuando reanude
+    // 4. Si está en pausa, bloquear la acción para mantener consistencia
     if (currentState === "ON_BREAK") {
-      // Guardamos el proyecto pendiente en una cookie o similar?
-      // Por ahora, simplemente informamos al usuario
-      // La implementación completa podría usar un campo temporal o hacer el cambio cuando termine la pausa
       return {
-        success: true,
-        isOnBreak: true,
-        error: undefined,
+        success: false,
+        error: "No puedes cambiar de proyecto mientras estás en pausa. Finaliza la pausa e inténtalo de nuevo.",
       };
     }
 
     // 5. Procesar datos de geolocalización
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
-    // 6. Crear nuevo TimeEntry tipo CLOCK_IN para marcar el cambio de proyecto
-    // IMPORTANTE: Este NO es un fichaje de entrada real, es un marcador de cambio de proyecto
+    // 6. Crear nuevo TimeEntry tipo PROJECT_SWITCH para marcar el cambio de proyecto
+    // IMPORTANTE: No altera el estado general (sigue trabajando)
     const entry = await prisma.timeEntry.create({
       data: {
         orgId,
         employeeId,
-        entryType: "CLOCK_IN", // Usar CLOCK_IN para marcar nuevo tramo de proyecto
+        entryType: "PROJECT_SWITCH",
         timestamp: now,
         projectId: newProjectId,
         task: task?.substring(0, 255) ?? null,
@@ -2423,7 +2484,9 @@ export async function getCurrentProject(): Promise<{
       where: {
         employeeId,
         orgId,
-        entryType: "CLOCK_IN",
+        entryType: {
+          in: ["CLOCK_IN", "PROJECT_SWITCH"],
+        },
         isCancelled: false,
         timestamp: {
           gte: dayStart,

@@ -107,11 +107,7 @@ export function ChangeProjectDialog({
       const result = await changeProjectAction(selectedProjectId, task || undefined);
 
       if (result.success) {
-        if (result.isOnBreak) {
-          toast.info("El cambio de proyecto se aplicará cuando reanudes el trabajo");
-        } else {
-          toast.success("Proyecto actualizado correctamente");
-        }
+        toast.success("Proyecto actualizado correctamente");
         setOpen(false);
         onProjectChanged?.();
       } else {
@@ -150,9 +146,7 @@ export function ChangeProjectDialog({
         {isOnBreak && (
           <Alert>
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Estás en pausa. El cambio de proyecto se aplicará cuando reanudes el trabajo.
-            </AlertDescription>
+            <AlertDescription>Estás en pausa. Finaliza la pausa antes de cambiar de proyecto.</AlertDescription>
           </Alert>
         )}
 
@@ -323,7 +317,7 @@ export function ChangeProjectDialog({
           <Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit} disabled={isLoading || isSubmitting}>
+          <Button onClick={handleSubmit} disabled={isLoading || isSubmitting || isOnBreak}>
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Cambiar proyecto
           </Button>

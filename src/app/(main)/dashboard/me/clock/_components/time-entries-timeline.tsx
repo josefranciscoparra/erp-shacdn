@@ -14,7 +14,7 @@ interface ProjectInfo {
 
 interface TimeEntry {
   id: string;
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
   timestamp: Date;
   latitude: number | null;
   longitude: number | null;
@@ -35,8 +35,10 @@ interface TimeEntriesTimelineProps {
 }
 
 export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
+  const visibleEntries = entries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
+
   // Agrupar entradas por día
-  const groupedByDay = entries.reduce(
+  const groupedByDay = visibleEntries.reduce(
     (acc, entry) => {
       const dateKey = new Date(entry.timestamp).toLocaleDateString("es-ES", {
         year: "numeric",

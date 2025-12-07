@@ -1080,6 +1080,7 @@ enum TimeEntryType {
   CLOCK_OUT // Salida
   BREAK_START // Inicio de pausa
   BREAK_END // Fin de pausa
+  PROJECT_SWITCH // Cambio de proyecto durante la jornada (no altera estado)
 }
 
 // Estados del día laboral

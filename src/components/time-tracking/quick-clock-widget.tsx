@@ -120,7 +120,7 @@ export function QuickClockWidget() {
         const entries = todaySummary.timeEntries;
         const lastWorkStart = [...entries]
           .reverse()
-          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
+          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END" || e.entryType === "PROJECT_SWITCH");
 
         if (lastWorkStart) {
           const startTime = new Date(lastWorkStart.timestamp);

@@ -1,9 +1,11 @@
 "use server";
 
-import { ProjectAccessType } from "@prisma/client";
+import { ProjectAccessType, Role } from "@prisma/client";
+import { endOfDay } from "date-fns";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { hasPermission, type Permission } from "@/services/permissions";
 
 /**
  * Server Actions para gestión de proyectos (Mejora 4)
@@ -70,6 +72,49 @@ export type UpdateProjectInput = {
   accessType?: ProjectAccessType;
 };
 
+type AuthorizedProjectContext = {
+  session: NonNullable<Awaited<ReturnType<typeof auth>>>;
+  orgId: string;
+};
+
+async function requireProjectPermission(
+  permission: Permission,
+): Promise<{ ok: true; context: AuthorizedProjectContext } | { ok: false; error: string }> {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return { ok: false, error: "No autenticado" };
+  }
+
+  const role = session.user.role as Role;
+  if (!hasPermission(role, permission)) {
+    const actionLabel = permission === "view_projects" ? "ver" : "gestionar";
+    return { ok: false, error: `No tienes permisos para ${actionLabel} proyectos` };
+  }
+
+  return {
+    ok: true,
+    context: {
+      session,
+      orgId: session.user.orgId,
+    },
+  };
+}
+
+async function ensureProjectInOrg(projectId: string, orgId: string) {
+  const project = await prisma.project.findFirst({
+    where: {
+      id: projectId,
+      orgId,
+    },
+  });
+
+  if (!project) {
+    return { ok: false as const, error: "Proyecto no encontrado" };
+  }
+
+  return { ok: true as const, project };
+}
+
 // ============================================
 // CRUD DE PROYECTOS
 // ============================================
@@ -83,14 +128,18 @@ export async function getProjects(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("view_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
+
+    const {
+      context: { orgId },
+    } = permission;
 
     const projects = await prisma.project.findMany({
       where: {
-        orgId: session.user.orgId,
+        orgId,
       },
       select: {
         id: true,
@@ -128,15 +177,15 @@ export async function getProjectById(id: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("view_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
     const project = await prisma.project.findFirst({
       where: {
         id,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
       select: {
         id: true,
@@ -180,10 +229,14 @@ export async function createProject(data: CreateProjectInput): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
+
+    const {
+      context: { orgId },
+    } = permission;
 
     // Validar nombre
     if (!data.name?.trim()) {
@@ -193,7 +246,7 @@ export async function createProject(data: CreateProjectInput): Promise<{
     // Verificar nombre único en la organización
     const existingByName = await prisma.project.findFirst({
       where: {
-        orgId: session.user.orgId,
+        orgId,
         name: data.name.trim(),
       },
     });
@@ -206,7 +259,7 @@ export async function createProject(data: CreateProjectInput): Promise<{
     if (data.code?.trim()) {
       const existingByCode = await prisma.project.findFirst({
         where: {
-          orgId: session.user.orgId,
+          orgId,
           code: data.code.trim(),
         },
       });
@@ -223,7 +276,7 @@ export async function createProject(data: CreateProjectInput): Promise<{
         description: data.description?.trim() ?? null,
         color: data.color ?? null,
         accessType: data.accessType ?? "OPEN",
-        orgId: session.user.orgId,
+        orgId,
       },
       select: {
         id: true,
@@ -266,28 +319,27 @@ export async function updateProject(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
-    const existing = await prisma.project.findFirst({
-      where: {
-        id,
-        orgId: session.user.orgId,
-      },
-    });
+    const {
+      context: { orgId },
+    } = permission;
 
-    if (!existing) {
-      return { success: false, error: "Proyecto no encontrado" };
+    const existingResult = await ensureProjectInOrg(id, orgId);
+    if (!existingResult.ok) {
+      return { success: false, error: existingResult.error };
     }
+
+    const existing = existingResult.project;
 
     // Validar nombre único si se está actualizando
     if (data.name?.trim() && data.name.trim() !== existing.name) {
       const existingByName = await prisma.project.findFirst({
         where: {
-          orgId: session.user.orgId,
+          orgId,
           name: data.name.trim(),
           id: { not: id },
         },
@@ -304,7 +356,7 @@ export async function updateProject(
       if (codeValue && codeValue !== existing.code) {
         const existingByCode = await prisma.project.findFirst({
           where: {
-            orgId: session.user.orgId,
+            orgId,
             code: codeValue,
             id: { not: id },
           },
@@ -366,21 +418,16 @@ export async function toggleProjectStatus(id: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    const existing = await prisma.project.findFirst({
-      where: {
-        id,
-        orgId: session.user.orgId,
-      },
-    });
-
-    if (!existing) {
-      return { success: false, error: "Proyecto no encontrado" };
+    const existingResult = await ensureProjectInOrg(id, permission.context.orgId);
+    if (!existingResult.ok) {
+      return { success: false, error: existingResult.error };
     }
+    const existing = existingResult.project;
 
     const project = await prisma.project.update({
       where: { id },
@@ -422,15 +469,15 @@ export async function deleteProject(id: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
     const existing = await prisma.project.findFirst({
       where: {
         id,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
       include: {
         _count: {
@@ -477,16 +524,15 @@ export async function getProjectAssignments(projectId: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
     });
 
@@ -535,16 +581,15 @@ export async function assignEmployeesToProject(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
     });
 
@@ -556,7 +601,7 @@ export async function assignEmployeesToProject(
     const employees = await prisma.employee.findMany({
       where: {
         id: { in: employeeIds },
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
     });
 
@@ -595,16 +640,15 @@ export async function removeEmployeeFromProject(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
     });
 
@@ -785,16 +829,15 @@ export async function getAvailableEmployeesForProject(projectId: string): Promis
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("manage_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
     const project = await prisma.project.findFirst({
       where: {
         id: projectId,
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
       },
     });
 
@@ -813,7 +856,7 @@ export async function getAvailableEmployeesForProject(projectId: string): Promis
     // Obtener empleados NO asignados
     const employees = await prisma.employee.findMany({
       where: {
-        orgId: session.user.orgId,
+        orgId: permission.context.orgId,
         active: true,
         id: { notIn: excludeIds },
       },
@@ -839,6 +882,198 @@ export async function getAvailableEmployeesForProject(projectId: string): Promis
 // ============================================
 // INFORMES DE PROYECTO (Mejora 4 - Paso 11)
 // ============================================
+
+type EmployeeInfo = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber: string | null;
+};
+
+type ProjectWorkStats = {
+  totalMinutes: number;
+  entriesCount: number;
+  uniqueEmployeeIds: string[];
+  employeeMinutes: Map<string, number>;
+  employeeEntryCounts: Map<string, number>;
+  employeeInfo: Map<string, EmployeeInfo>;
+  dailyMinutes: Map<string, number>;
+  dailyEntryCounts: Map<string, number>;
+};
+
+async function computeProjectWorkStats(
+  projectId: string,
+  orgId: string,
+  startDate: Date,
+  endDate: Date,
+): Promise<ProjectWorkStats> {
+  const rangeStart = new Date(startDate);
+  const rangeEnd = new Date(endDate);
+
+  const projectEntries = await prisma.timeEntry.findMany({
+    where: {
+      orgId,
+      projectId,
+      isCancelled: false,
+      entryType: {
+        in: ["CLOCK_IN", "PROJECT_SWITCH"],
+      },
+      timestamp: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          employeeNumber: true,
+        },
+      },
+    },
+    orderBy: { timestamp: "asc" },
+  });
+
+  const employeeInfo = new Map<string, EmployeeInfo>();
+  const employeeEntryCounts = new Map<string, number>();
+  const dailyEntryCounts = new Map<string, number>();
+  const employeeIds = new Set<string>();
+
+  for (const entry of projectEntries) {
+    employeeIds.add(entry.employeeId);
+    employeeInfo.set(entry.employeeId, entry.employee);
+    employeeEntryCounts.set(entry.employeeId, (employeeEntryCounts.get(entry.employeeId) ?? 0) + 1);
+    const dayKey = entry.timestamp.toISOString().split("T")[0];
+    dailyEntryCounts.set(dayKey, (dailyEntryCounts.get(dayKey) ?? 0) + 1);
+  }
+
+  if (employeeIds.size === 0) {
+    return {
+      totalMinutes: 0,
+      entriesCount: 0,
+      uniqueEmployeeIds: [],
+      employeeMinutes: new Map(),
+      employeeEntryCounts,
+      employeeInfo,
+      dailyMinutes: new Map(),
+      dailyEntryCounts,
+    };
+  }
+
+  const employeeEntries = await prisma.timeEntry.findMany({
+    where: {
+      orgId,
+      employeeId: { in: Array.from(employeeIds) },
+      isCancelled: false,
+      timestamp: {
+        gte: rangeStart,
+        lte: rangeEnd,
+      },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      entryType: true,
+      timestamp: true,
+      projectId: true,
+    },
+    orderBy: [{ employeeId: "asc" }, { timestamp: "asc" }],
+  });
+
+  const entriesByEmployee = new Map<string, typeof employeeEntries>();
+  for (const entry of employeeEntries) {
+    if (!entriesByEmployee.has(entry.employeeId)) {
+      entriesByEmployee.set(entry.employeeId, []);
+    }
+    entriesByEmployee.get(entry.employeeId)!.push(entry);
+  }
+
+  const dailyMinutes = new Map<string, number>();
+  const employeeMinutes = new Map<string, number>();
+  let totalMinutes = 0;
+
+  for (const [employeeId, entries] of entriesByEmployee.entries()) {
+    let lastWorkStart: Date | null = null;
+    let activeProjectId: string | null = null;
+
+    const registerSegment = (endTime: Date) => {
+      if (!lastWorkStart || activeProjectId !== projectId) {
+        return;
+      }
+
+      const startMs = Math.max(rangeStart.getTime(), lastWorkStart.getTime());
+      const endMs = Math.min(rangeEnd.getTime(), endTime.getTime());
+
+      if (endMs <= startMs) {
+        return;
+      }
+
+      const minutes = (endMs - startMs) / 60000;
+      if (minutes <= 0) {
+        return;
+      }
+
+      totalMinutes += minutes;
+      employeeMinutes.set(employeeId, (employeeMinutes.get(employeeId) ?? 0) + minutes);
+
+      let cursorMs = startMs;
+      while (cursorMs < endMs) {
+        const cursorDate = new Date(cursorMs);
+        const cursorDayEnd = endOfDay(cursorDate).getTime();
+        const nextBoundary = Math.min(endMs, cursorDayEnd);
+        const minutesInDay = (nextBoundary - cursorMs) / 60000;
+        const dayKey = cursorDate.toISOString().split("T")[0];
+        dailyMinutes.set(dayKey, (dailyMinutes.get(dayKey) ?? 0) + minutesInDay);
+        cursorMs = nextBoundary;
+      }
+    };
+
+    for (const entry of entries) {
+      switch (entry.entryType) {
+        case "CLOCK_IN":
+          lastWorkStart = entry.timestamp;
+          activeProjectId = entry.projectId;
+          break;
+        case "PROJECT_SWITCH":
+          registerSegment(entry.timestamp);
+          lastWorkStart = entry.timestamp;
+          activeProjectId = entry.projectId;
+          break;
+        case "BREAK_START":
+          registerSegment(entry.timestamp);
+          lastWorkStart = null;
+          break;
+        case "BREAK_END":
+          lastWorkStart = entry.timestamp;
+          break;
+        case "CLOCK_OUT":
+          registerSegment(entry.timestamp);
+          lastWorkStart = null;
+          activeProjectId = null;
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (lastWorkStart) {
+      registerSegment(rangeEnd);
+    }
+  }
+
+  return {
+    totalMinutes,
+    entriesCount: projectEntries.length,
+    uniqueEmployeeIds: Array.from(employeeIds),
+    employeeMinutes,
+    employeeEntryCounts,
+    employeeInfo,
+    dailyMinutes,
+    dailyEntryCounts,
+  };
+}
 
 export type ProjectTimeReport = {
   projectId: string;
@@ -884,117 +1119,32 @@ export async function getProjectTimeReport(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("view_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        orgId: session.user.orgId,
-      },
-    });
+    const {
+      context: { orgId },
+    } = permission;
 
-    if (!project) {
-      return { success: false, error: "Proyecto no encontrado" };
+    const projectResult = await ensureProjectInOrg(projectId, orgId);
+    if (!projectResult.ok) {
+      return { success: false, error: projectResult.error };
     }
 
-    // Obtener todos los TimeEntry CLOCK_IN de este proyecto en el rango
-    const timeEntries = await prisma.timeEntry.findMany({
-      where: {
-        projectId,
-        entryType: "CLOCK_IN",
-        timestamp: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-          },
-        },
-      },
-      orderBy: { timestamp: "asc" },
-    });
-
-    // Calcular minutos trabajados por proyecto
-    // La lógica es: cada CLOCK_IN con projectId marca el inicio de un tramo
-    // El tramo termina con el siguiente CLOCK_IN (cambio de proyecto), CLOCK_OUT, o BREAK_START
-    let totalMinutes = 0;
-    const uniqueEmployees = new Set<string>();
-
-    // Agrupar por empleado y día para calcular correctamente
-    const entriesByEmployeeDay = new Map<string, typeof timeEntries>();
-
-    for (const entry of timeEntries) {
-      const dayKey = `${entry.employeeId}-${new Date(entry.timestamp).toISOString().split("T")[0]}`;
-      if (!entriesByEmployeeDay.has(dayKey)) {
-        entriesByEmployeeDay.set(dayKey, []);
-      }
-      entriesByEmployeeDay.get(dayKey)!.push(entry);
-      uniqueEmployees.add(entry.employeeId);
-    }
-
-    // Para cada empleado-día, obtener todas las entradas y calcular el tiempo
-    for (const [dayKey, projectEntries] of entriesByEmployeeDay) {
-      const [employeeId, dateStr] = dayKey.split("-", 2);
-      const dayStart = new Date(dateStr + "T00:00:00");
-      const dayEnd = new Date(dateStr + "T23:59:59.999");
-
-      // Obtener TODAS las entradas del empleado ese día
-      const allDayEntries = await prisma.timeEntry.findMany({
-        where: {
-          employeeId,
-          timestamp: {
-            gte: dayStart,
-            lte: dayEnd,
-          },
-        },
-        orderBy: { timestamp: "asc" },
-      });
-
-      // Para cada entrada del proyecto, calcular cuánto tiempo duró hasta la siguiente entrada
-      for (const projectEntry of projectEntries) {
-        const entryIndex = allDayEntries.findIndex((e) => e.id === projectEntry.id);
-        if (entryIndex === -1) continue;
-
-        // Buscar cuándo termina este tramo
-        let endTime: Date | null = null;
-        for (let i = entryIndex + 1; i < allDayEntries.length; i++) {
-          const nextEntry = allDayEntries[i];
-          // El tramo termina con cualquier entrada posterior
-          if (
-            nextEntry.entryType === "CLOCK_OUT" ||
-            nextEntry.entryType === "CLOCK_IN" ||
-            nextEntry.entryType === "BREAK_START"
-          ) {
-            endTime = nextEntry.timestamp;
-            break;
-          }
-        }
-
-        if (endTime) {
-          const minutes = Math.floor(
-            (endTime.getTime() - projectEntry.timestamp.getTime()) / (1000 * 60),
-          );
-          totalMinutes += Math.max(0, minutes);
-        }
-      }
-    }
+    const stats = await computeProjectWorkStats(projectId, orgId, startDate, endDate);
+    const totalMinutes = Math.round(stats.totalMinutes);
 
     const report: ProjectTimeReport = {
-      projectId: project.id,
-      projectName: project.name,
-      projectCode: project.code,
-      projectColor: project.color,
+      projectId: projectResult.project.id,
+      projectName: projectResult.project.name,
+      projectCode: projectResult.project.code,
+      projectColor: projectResult.project.color,
       totalMinutes,
       totalHours: Math.round((totalMinutes / 60) * 100) / 100,
-      entriesCount: timeEntries.length,
-      employeesCount: uniqueEmployees.size,
+      entriesCount: stats.entriesCount,
+      employeesCount: stats.uniqueEmployeeIds.length,
       period: {
         startDate: startDate.toISOString().split("T")[0],
         endDate: endDate.toISOString().split("T")[0],
@@ -1024,134 +1174,39 @@ export async function getProjectEmployeeHours(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("view_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        orgId: session.user.orgId,
-      },
-    });
+    const {
+      context: { orgId },
+    } = permission;
 
-    if (!project) {
-      return { success: false, error: "Proyecto no encontrado" };
+    const projectResult = await ensureProjectInOrg(projectId, orgId);
+    if (!projectResult.ok) {
+      return { success: false, error: projectResult.error };
     }
 
-    // Obtener entradas agrupadas por empleado
-    const timeEntries = await prisma.timeEntry.findMany({
-      where: {
-        projectId,
-        entryType: "CLOCK_IN",
-        timestamp: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            employeeNumber: true,
-          },
-        },
-      },
-      orderBy: { timestamp: "asc" },
-    });
+    const stats = await computeProjectWorkStats(projectId, orgId, startDate, endDate);
 
-    // Agrupar por empleado
-    const employeeMap = new Map<
-      string,
-      {
-        employee: (typeof timeEntries)[0]["employee"];
-        entries: typeof timeEntries;
-      }
-    >();
+    const employees: EmployeeProjectHours[] = stats.uniqueEmployeeIds.map((employeeId) => {
+      const minutes = Math.round(stats.employeeMinutes.get(employeeId) ?? 0);
+      const info = stats.employeeInfo.get(employeeId);
+      const displayName = info
+        ? [info.firstName, info.lastName].filter(Boolean).join(" ") || info.firstName || info.lastName || "Empleado"
+        : "Empleado";
 
-    for (const entry of timeEntries) {
-      if (!employeeMap.has(entry.employeeId)) {
-        employeeMap.set(entry.employeeId, {
-          employee: entry.employee,
-          entries: [],
-        });
-      }
-      employeeMap.get(entry.employeeId)!.entries.push(entry);
-    }
-
-    // Calcular horas por empleado
-    const employees: EmployeeProjectHours[] = [];
-
-    for (const [employeeId, data] of employeeMap) {
-      let totalMinutes = 0;
-
-      // Agrupar por día
-      const entriesByDay = new Map<string, typeof timeEntries>();
-      for (const entry of data.entries) {
-        const dayKey = new Date(entry.timestamp).toISOString().split("T")[0];
-        if (!entriesByDay.has(dayKey)) {
-          entriesByDay.set(dayKey, []);
-        }
-        entriesByDay.get(dayKey)!.push(entry);
-      }
-
-      // Para cada día, calcular tiempo
-      for (const [dateStr, projectEntries] of entriesByDay) {
-        const dayStart = new Date(dateStr + "T00:00:00");
-        const dayEnd = new Date(dateStr + "T23:59:59.999");
-
-        const allDayEntries = await prisma.timeEntry.findMany({
-          where: {
-            employeeId,
-            timestamp: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
-          },
-          orderBy: { timestamp: "asc" },
-        });
-
-        for (const projectEntry of projectEntries) {
-          const entryIndex = allDayEntries.findIndex((e) => e.id === projectEntry.id);
-          if (entryIndex === -1) continue;
-
-          let endTime: Date | null = null;
-          for (let i = entryIndex + 1; i < allDayEntries.length; i++) {
-            const nextEntry = allDayEntries[i];
-            if (
-              nextEntry.entryType === "CLOCK_OUT" ||
-              nextEntry.entryType === "CLOCK_IN" ||
-              nextEntry.entryType === "BREAK_START"
-            ) {
-              endTime = nextEntry.timestamp;
-              break;
-            }
-          }
-
-          if (endTime) {
-            const minutes = Math.floor(
-              (endTime.getTime() - projectEntry.timestamp.getTime()) / (1000 * 60),
-            );
-            totalMinutes += Math.max(0, minutes);
-          }
-        }
-      }
-
-      employees.push({
+      return {
         employeeId,
-        employeeName: `${data.employee.firstName} ${data.employee.lastName}`,
-        employeeNumber: data.employee.employeeNumber,
-        totalMinutes,
-        totalHours: Math.round((totalMinutes / 60) * 100) / 100,
-        entriesCount: data.entries.length,
-      });
-    }
+        employeeName: displayName,
+        employeeNumber: info?.employeeNumber ?? null,
+        totalMinutes: minutes,
+        totalHours: Math.round((minutes / 60) * 100) / 100,
+        entriesCount: stats.employeeEntryCounts.get(employeeId) ?? 0,
+      };
+    });
 
-    // Ordenar por horas descendente
     employees.sort((a, b) => b.totalMinutes - a.totalMinutes);
 
     return { success: true, employees };
@@ -1177,108 +1232,34 @@ export async function getProjectDailyHours(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    const permission = await requireProjectPermission("view_projects");
+    if (!permission.ok) {
+      return { success: false, error: permission.error };
     }
 
-    // Verificar que el proyecto existe y pertenece a la org
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        orgId: session.user.orgId,
-      },
-    });
+    const {
+      context: { orgId },
+    } = permission;
 
-    if (!project) {
-      return { success: false, error: "Proyecto no encontrado" };
+    const projectResult = await ensureProjectInOrg(projectId, orgId);
+    if (!projectResult.ok) {
+      return { success: false, error: projectResult.error };
     }
 
-    // Obtener entradas del proyecto
-    const timeEntries = await prisma.timeEntry.findMany({
-      where: {
-        projectId,
-        entryType: "CLOCK_IN",
-        timestamp: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
-      orderBy: { timestamp: "asc" },
-    });
+    const stats = await computeProjectWorkStats(projectId, orgId, startDate, endDate);
+    const dayKeys = new Set<string>([...stats.dailyMinutes.keys(), ...stats.dailyEntryCounts.keys()]);
 
-    // Agrupar por día
-    const dayMap = new Map<string, typeof timeEntries>();
-    for (const entry of timeEntries) {
-      const dayKey = new Date(entry.timestamp).toISOString().split("T")[0];
-      if (!dayMap.has(dayKey)) {
-        dayMap.set(dayKey, []);
-      }
-      dayMap.get(dayKey)!.push(entry);
-    }
-
-    // Calcular horas por día
-    const days: DailyProjectHours[] = [];
-
-    for (const [dateStr, projectEntries] of dayMap) {
-      let totalMinutes = 0;
-
-      const dayStart = new Date(dateStr + "T00:00:00");
-      const dayEnd = new Date(dateStr + "T23:59:59.999");
-
-      // Obtener empleados únicos del día
-      const employeeIds = [...new Set(projectEntries.map((e) => e.employeeId))];
-
-      for (const employeeId of employeeIds) {
-        const employeeProjectEntries = projectEntries.filter((e) => e.employeeId === employeeId);
-
-        const allDayEntries = await prisma.timeEntry.findMany({
-          where: {
-            employeeId,
-            timestamp: {
-              gte: dayStart,
-              lte: dayEnd,
-            },
-          },
-          orderBy: { timestamp: "asc" },
-        });
-
-        for (const projectEntry of employeeProjectEntries) {
-          const entryIndex = allDayEntries.findIndex((e) => e.id === projectEntry.id);
-          if (entryIndex === -1) continue;
-
-          let endTime: Date | null = null;
-          for (let i = entryIndex + 1; i < allDayEntries.length; i++) {
-            const nextEntry = allDayEntries[i];
-            if (
-              nextEntry.entryType === "CLOCK_OUT" ||
-              nextEntry.entryType === "CLOCK_IN" ||
-              nextEntry.entryType === "BREAK_START"
-            ) {
-              endTime = nextEntry.timestamp;
-              break;
-            }
-          }
-
-          if (endTime) {
-            const minutes = Math.floor(
-              (endTime.getTime() - projectEntry.timestamp.getTime()) / (1000 * 60),
-            );
-            totalMinutes += Math.max(0, minutes);
-          }
-        }
-      }
-
-      days.push({
-        date: dateStr,
-        totalMinutes,
-        totalHours: Math.round((totalMinutes / 60) * 100) / 100,
-        entriesCount: projectEntries.length,
+    const days: DailyProjectHours[] = Array.from(dayKeys)
+      .sort((a, b) => a.localeCompare(b))
+      .map((date) => {
+        const minutes = Math.round(stats.dailyMinutes.get(date) ?? 0);
+        return {
+          date,
+          totalMinutes: minutes,
+          totalHours: Math.round((minutes / 60) * 100) / 100,
+          entriesCount: stats.dailyEntryCounts.get(date) ?? 0,
+        };
       });
-    }
-
-    // Ordenar por fecha ascendente
-    days.sort((a, b) => a.date.localeCompare(b.date));
 
     return { success: true, days };
   } catch (error) {

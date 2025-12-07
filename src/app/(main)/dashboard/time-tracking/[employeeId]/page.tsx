@@ -59,7 +59,7 @@ interface DayDetailData {
   holidayName?: string;
   timeEntries: {
     id: string;
-    entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+    entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
     timestamp: Date;
     location?: string | null;
     notes?: string | null;
@@ -240,8 +240,9 @@ export default function EmployeeTimeTrackingPage() {
           };
 
           // Separar fichajes activos y cancelados
-          const activeEntries = day.timeEntries.filter((e) => !e.isCancelled);
-          const cancelledEntries = day.timeEntries.filter((e) => e.isCancelled);
+          const normalizedEntries = day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
+          const activeEntries = normalizedEntries.filter((e) => !e.isCancelled);
+          const cancelledEntries = normalizedEntries.filter((e) => e.isCancelled);
 
           // Fichajes activos
           activeEntries.forEach((entry) => {
@@ -347,7 +348,10 @@ export default function EmployeeTimeTrackingPage() {
   };
 
   // Calcular fichajes con GPS (solo para tab de detalle)
-  const allTimeEntries = activeTab === "detail" ? dailyDetailRecords.flatMap((day) => day.timeEntries) : [];
+  const allTimeEntries =
+    activeTab === "detail"
+      ? dailyDetailRecords.flatMap((day) => day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH"))
+      : [];
   const entriesWithGPS = allTimeEntries.filter((e) => e.latitude && e.longitude).length;
 
   // Cambiar automáticamente a vista lista si no hay GPS entries y estamos en vista mapa

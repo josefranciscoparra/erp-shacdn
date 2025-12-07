@@ -25,7 +25,7 @@ export interface GeolocationData {
 
 export interface TimeEntry {
   id: string;
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
   timestamp: Date;
   location?: string;
   notes?: string;

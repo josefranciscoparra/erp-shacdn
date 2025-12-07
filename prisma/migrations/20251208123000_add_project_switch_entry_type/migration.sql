@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "TimeEntryType" ADD VALUE 'PROJECT_SWITCH';
