@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Users, Search, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -44,6 +45,7 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
   const [availableEmployees, setAvailableEmployees] = useState<AvailableEmployee[]>([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [rotationBlockedCount, setRotationBlockedCount] = useState(0);
   const router = useRouter();
 
   // Cargar empleados disponibles cuando se abre el diálogo
@@ -55,8 +57,9 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
 
   async function loadAvailableEmployees() {
     try {
-      const employees = await getAvailableEmployeesForTemplate(templateId);
+      const { employees, rotationBlockedCount } = await getAvailableEmployeesForTemplate(templateId);
       setAvailableEmployees(employees);
+      setRotationBlockedCount(rotationBlockedCount);
     } catch (error) {
       console.error("Error loading available employees:", error);
       toast.error("Error al cargar empleados", {
@@ -124,6 +127,9 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
         toast.success(`${successCount} empleado${successCount > 1 ? "s" : ""} asignado${successCount > 1 ? "s" : ""}`, {
           description,
         });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("schedule-template:assignments-updated", { detail: { templateId } }));
+        }
         setOpen(false);
         setSelectedEmployeeIds([]);
         router.refresh();
@@ -190,6 +196,16 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
               </Button>
             )}
           </div>
+
+          {rotationBlockedCount > 0 && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <AlertDescription className="text-sm">
+                {rotationBlockedCount === 1
+                  ? "Hay 1 empleado con una rotación activa. Las rotaciones se gestionan desde la sección de turnos y no aparecen en esta lista."
+                  : `Hay ${rotationBlockedCount} empleados con una rotación activa. Las rotaciones se gestionan desde la sección de turnos y no aparecen en esta lista.`}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Selección rápida */}
           {filteredEmployees.length > 0 && (

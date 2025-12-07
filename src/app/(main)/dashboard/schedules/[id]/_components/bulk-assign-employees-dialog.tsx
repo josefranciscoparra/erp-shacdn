@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Users, Search, X, Filter, Calendar } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +46,8 @@ type AvailableEmployee = {
   department: string;
   departmentId: string | null;
   contractType: string | null;
+  currentSchedule: string | null;
+  hasOtherSchedule: boolean;
 };
 
 type Department = {
@@ -77,6 +80,7 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
   const [selectedContractType, setSelectedContractType] = useState<string>("");
   const [validFrom, setValidFrom] = useState(new Date().toISOString().split("T")[0]);
   const [validTo, setValidTo] = useState("");
+  const [rotationBlockedCount, setRotationBlockedCount] = useState(0);
 
   // Cargar departamentos, centros de coste y empleados disponibles cuando se abre el diálogo
   useEffect(() => {
@@ -120,8 +124,9 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
         ...(selectedContractType && { contractType: selectedContractType }),
       };
 
-      const employees = await getEmployeesForBulkAssignment(templateId, filters);
+      const { employees, rotationBlockedCount } = await getEmployeesForBulkAssignment(templateId, filters);
       setAvailableEmployees(employees);
+      setRotationBlockedCount(rotationBlockedCount);
     } catch (error) {
       console.error("Error loading available employees:", error);
       toast.error("Error al cargar empleados", {
@@ -172,6 +177,9 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
               description: `Se ha${successCount > 1 ? "n" : ""} asignado correctamente a "${templateName}"`,
             },
           );
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("schedule-template:assignments-updated", { detail: { templateId } }));
+          }
           setOpen(false);
           setSelectedEmployeeIds([]);
           router.refresh();
@@ -256,6 +264,16 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
               Filtros
             </Button>
           </div>
+
+          {rotationBlockedCount > 0 && (
+            <Alert className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+              <AlertDescription className="text-sm">
+                {rotationBlockedCount === 1
+                  ? "Hay 1 empleado con una rotación activa. Las rotaciones se gestionan desde la sección de turnos y no aparecen en esta lista."
+                  : `Hay ${rotationBlockedCount} empleados con una rotación activa. Las rotaciones se gestionan desde la sección de turnos y no aparecen en esta lista.`}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Panel de filtros */}
           {showFilters && (
@@ -394,7 +412,7 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
                     <div className="flex-1 space-y-1">
                       <label
                         htmlFor={`employee-${employee.id}`}
-                        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                        className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-medium"
                       >
                         {employee.fullName}
                         <Badge variant="outline" className="text-xs">
@@ -403,6 +421,14 @@ export function BulkAssignEmployeesDialog({ templateId, templateName }: BulkAssi
                         {employee.contractType && (
                           <Badge variant="secondary" className="text-xs">
                             {employee.contractType}
+                          </Badge>
+                        )}
+                        {employee.hasOtherSchedule && (
+                          <Badge
+                            variant="secondary"
+                            className="border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                          >
+                            Actual: {employee.currentSchedule}
                           </Badge>
                         )}
                       </label>

@@ -409,11 +409,30 @@ console.log(current.scheduleTemplate.name); // "Horario Oficina 40h"
 **Firma:**
 
 ```typescript
-export async function getAvailableEmployeesForTemplate(templateId: string): Promise<Employee[]>;
+export type AvailableEmployeeForTemplate = {
+  id: string;
+  employeeNumber: string;
+  fullName: string;
+  email: string;
+  department: string;
+  currentSchedule: string | null;
+  hasOtherSchedule: boolean;
+};
+
+export type AvailableEmployeesForTemplateResult = {
+  employees: AvailableEmployeeForTemplate[];
+  rotationBlockedCount: number;
+};
+
+export async function getAvailableEmployeesForTemplate(
+  templateId: string,
+): Promise<AvailableEmployeesForTemplateResult>;
 ```
 
 **Descripción:**
-Obtiene empleados que NO están asignados a una plantilla específica (para dialog de asignación).
+Obtiene empleados que NO están asignados a una plantilla específica (para el diálogo de asignación individual).
+Además excluye automáticamente a los empleados con una rotación activa y devuelve en `rotationBlockedCount`
+cuántos fueron ocultados para poder mostrar un aviso en la UI.
 
 ---
 

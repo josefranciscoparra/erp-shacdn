@@ -50,6 +50,19 @@ export function AssignedEmployeesList({ templateId }: AssignedEmployeesListProps
     loadAssignedEmployees();
   }, [templateId]);
 
+  useEffect(() => {
+    function handleAssignmentsUpdated(event: Event) {
+      const detail = (event as CustomEvent<{ templateId: string }>).detail;
+      if (!detail || detail.templateId !== templateId) return;
+      loadAssignedEmployees();
+    }
+
+    window.addEventListener("schedule-template:assignments-updated", handleAssignmentsUpdated);
+    return () => {
+      window.removeEventListener("schedule-template:assignments-updated", handleAssignmentsUpdated);
+    };
+  }, [templateId]);
+
   async function loadAssignedEmployees() {
     try {
       const employees = await getTemplateAssignedEmployees(templateId);

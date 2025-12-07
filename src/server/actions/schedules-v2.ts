@@ -643,6 +643,7 @@ export async function duplicateScheduleTemplate(id: string, newName: string): Pr
  */
 export async function getScheduleTemplates(filters?: ScheduleTemplateFilters) {
   const { orgId } = await requireOrg();
+  const now = new Date();
 
   const templates = await prisma.scheduleTemplate.findMany({
     where: {
@@ -664,7 +665,11 @@ export async function getScheduleTemplates(filters?: ScheduleTemplateFilters) {
       _count: {
         select: {
           employeeAssignments: {
-            where: { isActive: true },
+            where: {
+              isActive: true,
+              validFrom: { lte: now },
+              OR: [{ validTo: null }, { validTo: { gte: now } }],
+            },
           },
         },
       },
@@ -698,6 +703,7 @@ export async function getScheduleTemplates(filters?: ScheduleTemplateFilters) {
  */
 export async function getScheduleTemplateById(id: string) {
   const { orgId } = await requireOrg();
+  const now = new Date();
 
   const template = await prisma.scheduleTemplate.findUnique({
     where: { id, orgId },
@@ -714,7 +720,11 @@ export async function getScheduleTemplateById(id: string) {
         orderBy: { periodType: "asc" },
       },
       employeeAssignments: {
-        where: { isActive: true },
+        where: {
+          isActive: true,
+          validFrom: { lte: now },
+          OR: [{ validTo: null }, { validTo: { gte: now } }],
+        },
         include: {
           employee: {
             select: {
@@ -729,7 +739,11 @@ export async function getScheduleTemplateById(id: string) {
       _count: {
         select: {
           employeeAssignments: {
-            where: { isActive: true },
+            where: {
+              isActive: true,
+              validFrom: { lte: now },
+              OR: [{ validTo: null }, { validTo: { gte: now } }],
+            },
           },
           periods: true,
         },
@@ -1359,11 +1373,14 @@ export async function endEmployeeAssignment(assignmentId: string, endDate: Date)
 export async function getTemplateAssignedEmployees(templateId: string) {
   try {
     const { orgId } = await requireOrg();
+    const now = new Date();
 
     const assignments = await prisma.employeeScheduleAssignment.findMany({
       where: {
         scheduleTemplateId: templateId,
         isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
       include: {
         employee: {
@@ -1405,11 +1422,29 @@ export async function getTemplateAssignedEmployees(templateId: string) {
   }
 }
 
+export type AvailableEmployeeForTemplate = {
+  id: string;
+  employeeNumber: string;
+  fullName: string;
+  email: string;
+  department: string;
+  currentSchedule: string | null;
+  hasOtherSchedule: boolean;
+};
+
+export type AvailableEmployeesForTemplateResult = {
+  employees: AvailableEmployeeForTemplate[];
+  rotationBlockedCount: number;
+};
+
 /**
  * Obtiene los empleados disponibles para asignar a una plantilla
- * (empleados que no tienen asignación activa a esta plantilla)
+ * (empleados que no tienen asignación activa a esta plantilla).
+ * Excluye automáticamente a los empleados con una rotación activa.
  */
-export async function getAvailableEmployeesForTemplate(templateId: string) {
+export async function getAvailableEmployeesForTemplate(
+  templateId: string,
+): Promise<AvailableEmployeesForTemplateResult> {
   try {
     const { orgId } = await requireOrg();
     const now = new Date();
@@ -1459,8 +1494,12 @@ export async function getAvailableEmployeesForTemplate(templateId: string) {
             validFrom: { lte: now },
             OR: [{ validTo: null }, { validTo: { gte: now } }],
           },
-          include: {
+          select: {
+            assignmentType: true,
             scheduleTemplate: {
+              select: { id: true, name: true },
+            },
+            rotationPattern: {
               select: { id: true, name: true },
             },
           },
@@ -1473,25 +1512,40 @@ export async function getAvailableEmployeesForTemplate(templateId: string) {
       },
     });
 
-    return employees.map((employee) => {
+    let rotationBlockedCount = 0;
+    const filteredEmployees = employees.filter((employee) => {
       const currentAssignment = employee.scheduleAssignments[0];
-      const currentScheduleId = currentAssignment?.scheduleTemplate?.id ?? null;
-      const currentScheduleName = currentAssignment?.scheduleTemplate?.name ?? null;
-
-      return {
-        id: employee.id,
-        employeeNumber: employee.employeeNumber ?? "Sin número",
-        fullName: `${employee.firstName} ${employee.lastName}`,
-        email: employee.email ?? "",
-        department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
-        // Nuevos campos para mostrar horario actual
-        currentSchedule: currentScheduleName,
-        hasOtherSchedule: currentScheduleId !== null && currentScheduleId !== templateId,
-      };
+      if (currentAssignment?.assignmentType === "ROTATION") {
+        rotationBlockedCount += 1;
+        return false;
+      }
+      return true;
     });
+
+    return {
+      employees: filteredEmployees.map((employee) => {
+        const currentAssignment = employee.scheduleAssignments[0];
+        const currentScheduleId = currentAssignment?.scheduleTemplate?.id ?? null;
+        const currentScheduleName = currentAssignment?.scheduleTemplate?.name ?? null;
+
+        return {
+          id: employee.id,
+          employeeNumber: employee.employeeNumber ?? "Sin número",
+          fullName: `${employee.firstName} ${employee.lastName}`,
+          email: employee.email ?? "",
+          department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
+          currentSchedule: currentScheduleName,
+          hasOtherSchedule: Boolean(currentAssignment) && currentScheduleId !== templateId,
+        };
+      }),
+      rotationBlockedCount,
+    };
   } catch (error) {
     console.error("❌ Error getting available employees:", error);
-    return [];
+    return {
+      employees: [],
+      rotationBlockedCount: 0,
+    };
   }
 }
 
@@ -1509,18 +1563,41 @@ export interface BulkAssignmentFilters {
   hasActiveContract?: boolean;
 }
 
+export type BulkAvailableEmployee = {
+  id: string;
+  employeeNumber: string;
+  fullName: string;
+  email: string;
+  department: string;
+  departmentId: string | null;
+  contractType: string | null;
+  currentSchedule: string | null;
+  hasOtherSchedule: boolean;
+};
+
+export type EmployeesForBulkAssignmentResult = {
+  employees: BulkAvailableEmployee[];
+  rotationBlockedCount: number;
+};
+
 /**
  * Obtiene empleados disponibles para asignación masiva según filtros
  */
-export async function getEmployeesForBulkAssignment(templateId: string, filters?: BulkAssignmentFilters) {
+export async function getEmployeesForBulkAssignment(
+  templateId: string,
+  filters?: BulkAssignmentFilters,
+): Promise<EmployeesForBulkAssignmentResult> {
   try {
     const { orgId } = await requireOrg();
+    const now = new Date();
 
     // Obtener IDs de empleados ya asignados a esta plantilla
     const assignedEmployeeIds = await prisma.employeeScheduleAssignment.findMany({
       where: {
         scheduleTemplateId: templateId,
         isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
       select: {
         employeeId: true,
@@ -1588,25 +1665,64 @@ export async function getEmployeesForBulkAssignment(templateId: string, filters?
           },
           orderBy: { startDate: "desc" },
         },
+        scheduleAssignments: {
+          where: {
+            isActive: true,
+            validFrom: { lte: now },
+            OR: [{ validTo: null }, { validTo: { gte: now } }],
+          },
+          select: {
+            assignmentType: true,
+            scheduleTemplate: {
+              select: { id: true, name: true },
+            },
+          },
+          take: 1,
+          orderBy: { validFrom: "desc" },
+        },
       },
       orderBy: {
         employeeNumber: "asc",
       },
     });
 
-    return employees.map((employee) => ({
-      id: employee.id,
-      employeeNumber: employee.employeeNumber ?? "Sin número",
-      fullName: `${employee.firstName} ${employee.lastName}`,
-      email: employee.email ?? "",
-      department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
-      departmentId: employee.employmentContracts[0]?.department?.id ?? null,
-      contractType: employee.employmentContracts[0]?.contractType ?? null,
-    }));
+    let rotationBlockedCount = 0;
+    const filteredEmployees = employees.filter((employee) => {
+      const currentAssignment = employee.scheduleAssignments[0];
+      if (currentAssignment?.assignmentType === "ROTATION") {
+        rotationBlockedCount += 1;
+        return false;
+      }
+      return true;
+    });
+
+    return {
+      employees: filteredEmployees.map((employee) => {
+        const currentAssignment = employee.scheduleAssignments[0];
+        const currentScheduleId = currentAssignment?.scheduleTemplate?.id ?? null;
+        const currentScheduleName = currentAssignment?.scheduleTemplate?.name ?? null;
+
+        return {
+          id: employee.id,
+          employeeNumber: employee.employeeNumber ?? "Sin número",
+          fullName: `${employee.firstName} ${employee.lastName}`,
+          email: employee.email ?? "",
+          department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
+          departmentId: employee.employmentContracts[0]?.department?.id ?? null,
+          contractType: employee.employmentContracts[0]?.contractType ?? null,
+          currentSchedule: currentScheduleName,
+          hasOtherSchedule: Boolean(currentAssignment) && currentScheduleId !== templateId,
+        };
+      }),
+      rotationBlockedCount,
+    };
   } catch (error) {
     console.error("❌ Error getting employees for bulk assignment:");
     console.error(error);
-    return [];
+    return {
+      employees: [],
+      rotationBlockedCount: 0,
+    };
   }
 }
 
@@ -2471,6 +2587,7 @@ export async function deleteShiftRotationPattern(id: string): Promise<ActionResp
 export async function getShiftRotationPatterns() {
   try {
     const { orgId } = await requireOrg();
+    const now = new Date();
     return await prisma.shiftRotationPattern.findMany({
       where: { orgId },
       include: {
@@ -2478,7 +2595,17 @@ export async function getShiftRotationPatterns() {
           include: { scheduleTemplate: { select: { id: true, name: true } } },
           orderBy: { stepOrder: "asc" },
         },
-        _count: { select: { employeeAssignments: { where: { isActive: true } } } },
+        _count: {
+          select: {
+            employeeAssignments: {
+              where: {
+                isActive: true,
+                validFrom: { lte: now },
+                OR: [{ validTo: null }, { validTo: { gte: now } }],
+              },
+            },
+          },
+        },
       },
       orderBy: { name: "asc" },
     });
