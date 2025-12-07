@@ -34,6 +34,8 @@ type AvailableEmployee = {
   fullName: string;
   email: string;
   department: string;
+  currentSchedule: string | null;
+  hasOtherSchedule: boolean;
 };
 
 export function AssignEmployeesDialog({ templateId, templateName }: AssignEmployeesDialogProps) {
@@ -228,12 +230,20 @@ export function AssignEmployeesDialog({ templateId, templateName }: AssignEmploy
                     <div className="flex-1 space-y-1">
                       <label
                         htmlFor={`employee-${employee.id}`}
-                        className="flex cursor-pointer items-center gap-2 text-sm font-medium"
+                        className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-medium"
                       >
                         {employee.fullName}
                         <Badge variant="outline" className="text-xs">
                           {employee.employeeNumber}
                         </Badge>
+                        {employee.hasOtherSchedule && (
+                          <Badge
+                            variant="secondary"
+                            className="border-amber-200 bg-amber-50 text-xs text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                          >
+                            Actual: {employee.currentSchedule}
+                          </Badge>
+                        )}
                       </label>
                       <p className="text-muted-foreground text-xs">{employee.email}</p>
                       <p className="text-muted-foreground text-xs">{employee.department}</p>

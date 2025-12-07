@@ -1412,15 +1412,15 @@ export async function getTemplateAssignedEmployees(templateId: string) {
 export async function getAvailableEmployeesForTemplate(templateId: string) {
   try {
     const { orgId } = await requireOrg();
+    const now = new Date();
 
-    console.log("🔍 [getAvailableEmployeesForTemplate] orgId:", orgId);
-    console.log("🔍 [getAvailableEmployeesForTemplate] templateId:", templateId);
-
-    // Obtener IDs de empleados ya asignados
+    // Obtener IDs de empleados ya asignados A ESTA PLANTILLA
     const assignedEmployeeIds = await prisma.employeeScheduleAssignment.findMany({
       where: {
         scheduleTemplateId: templateId,
         isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
       select: {
         employeeId: true,
@@ -1428,18 +1428,9 @@ export async function getAvailableEmployeesForTemplate(templateId: string) {
     });
 
     const assignedIds = assignedEmployeeIds.map((a) => a.employeeId);
-    console.log("🔍 [getAvailableEmployeesForTemplate] assignedIds:", assignedIds);
 
-    // Primero verificar cuántos empleados activos hay en total
-    const totalActive = await prisma.employee.count({
-      where: {
-        orgId,
-        active: true,
-      },
-    });
-    console.log("🔍 [getAvailableEmployeesForTemplate] Total empleados activos:", totalActive);
-
-    // Obtener empleados NO asignados
+    // Obtener TODOS los empleados activos (no solo los no asignados)
+    // Excluir solo los que YA tienen ESTA plantilla
     const employees = await prisma.employee.findMany({
       where: {
         orgId,
@@ -1461,29 +1452,45 @@ export async function getAvailableEmployeesForTemplate(templateId: string) {
           },
           orderBy: { startDate: "desc" },
         },
+        // Incluir asignación actual para mostrar en UI
+        scheduleAssignments: {
+          where: {
+            isActive: true,
+            validFrom: { lte: now },
+            OR: [{ validTo: null }, { validTo: { gte: now } }],
+          },
+          include: {
+            scheduleTemplate: {
+              select: { id: true, name: true },
+            },
+          },
+          take: 1,
+          orderBy: { validFrom: "desc" },
+        },
       },
       orderBy: {
         employeeNumber: "asc",
       },
     });
 
-    console.log("🔍 [getAvailableEmployeesForTemplate] Empleados encontrados:", employees.length);
-    console.log("🔍 [getAvailableEmployeesForTemplate] Primer empleado:", employees[0]);
+    return employees.map((employee) => {
+      const currentAssignment = employee.scheduleAssignments[0];
+      const currentScheduleId = currentAssignment?.scheduleTemplate?.id ?? null;
+      const currentScheduleName = currentAssignment?.scheduleTemplate?.name ?? null;
 
-    return employees.map((employee) => ({
-      id: employee.id,
-      employeeNumber: employee.employeeNumber ?? "Sin número",
-      fullName: `${employee.firstName} ${employee.lastName}`,
-      email: employee.email ?? "",
-      department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
-    }));
+      return {
+        id: employee.id,
+        employeeNumber: employee.employeeNumber ?? "Sin número",
+        fullName: `${employee.firstName} ${employee.lastName}`,
+        email: employee.email ?? "",
+        department: employee.employmentContracts[0]?.department?.name ?? "Sin departamento",
+        // Nuevos campos para mostrar horario actual
+        currentSchedule: currentScheduleName,
+        hasOtherSchedule: currentScheduleId !== null && currentScheduleId !== templateId,
+      };
+    });
   } catch (error) {
-    console.error("❌ Error getting available employees:");
-    console.error(error);
-    if (error instanceof Error) {
-      console.error("Error message:", error.message);
-      console.error("Error stack:", error.stack);
-    }
+    console.error("❌ Error getting available employees:", error);
     return [];
   }
 }
