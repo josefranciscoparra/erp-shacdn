@@ -62,14 +62,14 @@ export async function getTimeBankApprovalSettings(): Promise<{ approvalFlow: Tim
  * Devuelve valores por defecto si no existe configuración.
  */
 export async function getTimeBankFullSettings(): Promise<TimeBankFullSettings> {
-  const session = await auth();
+  const user = await getAuthenticatedUser();
 
-  if (!session?.user?.orgId) {
-    throw new Error("Usuario no autenticado o sin organización");
+  if (!hasPermission(user.role, "manage_organization")) {
+    throw new Error("No tienes permisos para ver la configuración de bolsa de horas");
   }
 
   const settings = await prisma.timeBankSettings.findUnique({
-    where: { orgId: session.user.orgId },
+    where: { orgId: user.orgId },
     select: {
       excessGraceMinutes: true,
       deficitGraceMinutes: true,

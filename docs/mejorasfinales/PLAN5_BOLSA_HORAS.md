@@ -77,13 +77,12 @@ Con `roundingIncrementMinutes=5`, `excessGraceMinutes=15`, `deficitGraceMinutes=
 
 | Desviación Raw | Paso 1: Redondeo | Paso 2: Margen | Resultado Final |
 |----------------|------------------|----------------|-----------------|
-| +7 min | +5 min | < 15 (exceso) | **0 min** |
-| +14 min | +15 min | >= 15 (exceso) | **+15 min** |
-| +16 min | +15 min | >= 15 (exceso) | **+15 min** |
-| +23 min | +25 min | >= 15 (exceso) | **+25 min** |
-| -7 min | -5 min | < 10 (déficit) | **0 min** |
-| -12 min | -10 min | >= 10 (déficit) | **-10 min** |
-| -45 min | -45 min | >= 10 (déficit) | **-45 min** |
+| +7 min | +5 min | ≤ 15 (exceso) | **0 min** |
+| +16 min | +15 min | ≤ 15 (exceso) | **0 min** |
+| +23 min | +25 min | > 15 (exceso) | **+25 min** |
+| -7 min | -5 min | ≤ 10 (déficit) | **0 min** |
+| -12 min | -10 min | ≤ 10 (déficit) | **0 min** |
+| -45 min | -45 min | > 10 (déficit) | **-45 min** |
 
 ---
 

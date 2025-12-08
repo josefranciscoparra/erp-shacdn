@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Clock, Info } from "lucide-react";
 import { toast } from "sonner";
@@ -24,6 +24,8 @@ interface TimeBankConfig {
 export function TimeBankTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [config, setConfig] = useState<TimeBankConfig>({
     excessGraceMinutes: 15,
     deficitGraceMinutes: 10,
@@ -32,31 +34,40 @@ export function TimeBankTab() {
     maxNegativeHours: 8,
   });
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        setIsLoading(true);
-        const settings = await getTimeBankFullSettings();
-        setConfig({
-          excessGraceMinutes: settings.excessGraceMinutes,
-          deficitGraceMinutes: settings.deficitGraceMinutes,
-          roundingIncrementMinutes: settings.roundingIncrementMinutes,
-          // Convertir minutos a horas para la UI
-          maxPositiveHours: Math.round(settings.maxPositiveMinutes / 60),
-          maxNegativeHours: Math.round(settings.maxNegativeMinutes / 60),
-        });
-      } catch (error) {
-        console.error("Error loading time bank settings:", error);
-        toast.error("Error al cargar la configuración de bolsa de horas");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void loadSettings();
+  const loadSettings = useCallback(async () => {
+    try {
+      setLoadError(null);
+      setIsLoading(true);
+      const settings = await getTimeBankFullSettings();
+      setConfig({
+        excessGraceMinutes: settings.excessGraceMinutes,
+        deficitGraceMinutes: settings.deficitGraceMinutes,
+        roundingIncrementMinutes: settings.roundingIncrementMinutes,
+        // Convertir minutos a horas para la UI
+        maxPositiveHours: Math.round(settings.maxPositiveMinutes / 60),
+        maxNegativeHours: Math.round(settings.maxNegativeMinutes / 60),
+      });
+      setHasLoaded(true);
+    } catch (error) {
+      console.error("Error loading time bank settings:", error);
+      toast.error("Error al cargar la configuración de bolsa de horas");
+      setLoadError(error instanceof Error ? error.message : "Error desconocido");
+      setHasLoaded(false);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void loadSettings();
+  }, [loadSettings]);
+
   const handleSave = async () => {
+    if (!hasLoaded) {
+      toast.error("La configuración aún no se ha cargado");
+      return;
+    }
+
     try {
       setIsSaving(true);
       // Convertir horas a minutos para guardar
@@ -81,6 +92,26 @@ export function TimeBankTab() {
       <div className="space-y-4">
         <Card className="rounded-lg border p-6">
           <Skeleton className="h-32 w-full" />
+        </Card>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="space-y-4">
+        <Card className="rounded-lg border p-6">
+          <div className="flex flex-col gap-4">
+            <div>
+              <h3 className="font-semibold">No se pudo cargar la configuración</h3>
+              <p className="text-muted-foreground text-sm">{loadError}</p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => void loadSettings()} disabled={isLoading}>
+                Reintentar
+              </Button>
+            </div>
+          </div>
         </Card>
       </div>
     );
@@ -236,7 +267,7 @@ export function TimeBankTab() {
 
           {/* Botón guardar */}
           <div className="flex justify-end border-t pt-4">
-            <Button onClick={handleSave} disabled={isSaving}>
+            <Button onClick={handleSave} disabled={isSaving || !hasLoaded}>
               {isSaving ? "Guardando..." : "Guardar Configuración"}
             </Button>
           </div>
@@ -261,13 +292,16 @@ export function TimeBankTab() {
                   +7 min trabajados → redondea a +5 min → menor que 15 min de exceso → <strong>0 min</strong>
                 </li>
                 <li>
-                  +16 min trabajados → redondea a +15 min → igual o mayor que 15 min → <strong>+15 min</strong>
+                  +16 min trabajados → redondea a +15 min → menor o igual que 15 min → <strong>0 min</strong>
                 </li>
                 <li>
-                  -7 min trabajados → redondea a -5 min → menor que 10 min de déficit → <strong>0 min</strong>
+                  +23 min trabajados → redondea a +25 min → mayor que 15 min → <strong>+25 min</strong>
                 </li>
                 <li>
-                  -12 min trabajados → redondea a -10 min → igual o mayor que 10 min → <strong>-10 min</strong>
+                  -7 min trabajados → redondea a -5 min → menor o igual que 10 min de déficit → <strong>0 min</strong>
+                </li>
+                <li>
+                  -18 min trabajados → redondea a -20 min → mayor que 10 min → <strong>-20 min</strong>
                 </li>
               </ul>
               <p className="mt-2">

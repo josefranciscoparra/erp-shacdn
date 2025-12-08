@@ -117,11 +117,11 @@ function normalizeDeviationValue(value: number, settings: NormalizedTimeBankSett
   const rounded = Math.round(value / increment) * increment;
 
   // PASO 2: Aplicar márgenes según el signo
-  if (rounded > 0 && rounded < settings.excessGraceMinutes) {
+  if (rounded > 0 && rounded <= settings.excessGraceMinutes) {
     // Exceso pequeño: no acumula en bolsa de horas
     return 0;
   }
-  if (rounded < 0 && Math.abs(rounded) < settings.deficitGraceMinutes) {
+  if (rounded < 0 && Math.abs(rounded) <= settings.deficitGraceMinutes) {
     // Déficit pequeño: no penaliza
     return 0;
   }
