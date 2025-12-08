@@ -399,16 +399,35 @@ async function calculateProjectHours(
 |------|-------------|----------|--------|
 | 1 | Schema + Migración | `prisma/schema.prisma` | ✅ Completado |
 | 2 | Server Actions proyectos | `src/server/actions/projects.ts` | ✅ Completado |
-| 3 | UI Gestión proyectos | `/dashboard/projects/**` | ⏳ Pendiente |
-| 4 | Navegación | `sidebar-nav.tsx` | ⏳ Pendiente |
-| 5 | Validación centralizada | `time-tracking.ts` | ⏳ Pendiente |
-| 6 | Modificar clockIn con project | `time-tracking.ts` | ⏳ Pendiente |
-| 7 | UI Selector proyecto | `clock-in.tsx`, `project-selector.tsx` | ⏳ Pendiente |
-| 8 | Función changeProject | `time-tracking.ts` | ⏳ Pendiente |
-| 9 | UI Cambiar proyecto | `change-project-dialog.tsx` | ⏳ Pendiente |
-| 10 | UI Timeline con proyecto | `time-entries-timeline.tsx` | ⏳ Pendiente |
-| 11 | Informes básicos | `/dashboard/projects/[id]/reports/` | ⏳ Pendiente |
-| 12 | Pruebas manuales | - | ⏳ Pendiente |
+| 3 | UI Gestión proyectos | `/dashboard/projects/**` | ✅ Completado |
+| 4 | Navegación | `sidebar-nav.tsx` | ✅ Completado |
+| 5 | Validación centralizada | `time-tracking.ts` | ✅ Completado |
+| 6 | Modificar clockIn con project | `time-tracking.ts` | ✅ Completado |
+| 7 | UI Selector proyecto | `clock-in.tsx`, `project-selector.tsx` | ✅ Completado |
+| 8 | Función changeProject | `time-tracking.ts` | ✅ Completado |
+| 9 | UI Cambiar proyecto | `change-project-dialog.tsx` | ✅ Completado |
+| 10 | UI Timeline con proyecto | `time-entries-timeline.tsx` | ✅ Completado |
+| 11 | Informes básicos | `/dashboard/projects/[id]/reports/` | ✅ Completado |
+| 12 | Pruebas manuales | - | ✅ Completado |
+
+---
+
+## Mejoras Adicionales Implementadas
+
+| Mejora | Descripción |
+|--------|-------------|
+| PROJECT_SWITCH | Nuevo tipo de entrada para cambios de proyecto durante jornada |
+| Permisos API | Protección de endpoints con validación de permisos |
+| Filtro automático | Marcadores automáticos filtrados de timeline/mapa |
+| Informes con fechas | Selector de rango de fechas con presets (7 días default) |
+| Enlaces empleados | Click en nombre de empleado en informes lleva a su perfil |
+| Hardening | Validaciones robustas en capa de server actions |
+
+---
+
+## Estado Final: ✅ COMPLETADO
+
+Mergeado a `main` el 2024-12-08. Commit: `ae9ad5a`
 
 ---
 
