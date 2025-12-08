@@ -1648,6 +1648,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
     const allTimeEntries = await prisma.timeEntry.findMany({
       where: timeEntriesWhere,
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            color: true,
+          },
+        },
+      },
       orderBy: {
         timestamp: "asc",
       },
@@ -1721,6 +1731,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
                 isCancelled: entry.isCancelled,
                 cancellationReason: entry.cancellationReason,
                 cancellationNotes: entry.cancellationNotes,
+                projectId: entry.projectId,
+                project: entry.project
+                  ? {
+                      id: entry.project.id,
+                      name: entry.project.name,
+                      code: entry.project.code,
+                      color: entry.project.color,
+                    }
+                  : null,
+                task: entry.task ?? null,
                 // Campos GPS - Serializar Decimals a numbers para Next.js 15
                 latitude: entry.latitude ? Number(entry.latitude) : null,
                 longitude: entry.longitude ? Number(entry.longitude) : null,
@@ -1763,6 +1783,16 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               location: entry.location,
               notes: entry.notes,
               isManual: entry.isManual,
+              projectId: entry.projectId,
+              project: entry.project
+                ? {
+                    id: entry.project.id,
+                    name: entry.project.name,
+                    code: entry.project.code,
+                    color: entry.project.color,
+                  }
+                : null,
+              task: entry.task ?? null,
               // Campos GPS - Serializar Decimals a numbers para Next.js 15
               latitude: entry.latitude ? Number(entry.latitude) : null,
               longitude: entry.longitude ? Number(entry.longitude) : null,

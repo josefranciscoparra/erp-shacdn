@@ -64,6 +64,14 @@ interface DayDetailData {
     location?: string | null;
     notes?: string | null;
     isManual: boolean;
+    projectId?: string | null;
+    project?: {
+      id: string;
+      name: string;
+      code: string | null;
+      color: string | null;
+    } | null;
+    task?: string | null;
     // Campos de cancelación
     isCancelled?: boolean;
     cancellationReason?: string | null;

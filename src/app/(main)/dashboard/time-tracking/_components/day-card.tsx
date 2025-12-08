@@ -20,6 +20,7 @@ import {
   TrendingUp,
   CalendarX,
   PartyPopper,
+  FolderKanban,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,14 @@ interface TimeEntry {
   location?: string | null;
   notes?: string | null;
   isManual: boolean;
+  projectId?: string | null;
+  project?: {
+    id: string;
+    name: string;
+    code: string | null;
+    color: string | null;
+  } | null;
+  task?: string | null;
   // Campos de cancelación
   isCancelled?: boolean;
   cancellationReason?: string | null;
@@ -365,6 +374,36 @@ export function DayCard({ day }: DayCardProps) {
                             </span>
                           </div>
 
+                          {/* Proyecto y tarea */}
+                          {entry.project && (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge
+                                variant="outline"
+                                className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]"
+                                style={{
+                                  borderColor: entry.project.color ?? undefined,
+                                  backgroundColor: entry.project.color ? `${entry.project.color}15` : undefined,
+                                }}
+                              >
+                                {entry.project.color ? (
+                                  <div
+                                    className="h-2 w-2 shrink-0 rounded-full"
+                                    style={{ backgroundColor: entry.project.color }}
+                                  />
+                                ) : (
+                                  <FolderKanban className="h-3 w-3 shrink-0" />
+                                )}
+                                <span className="font-medium">{entry.project.name}</span>
+                                {entry.project.code && (
+                                  <span className="text-muted-foreground font-mono">({entry.project.code})</span>
+                                )}
+                              </Badge>
+                              {entry.task && (
+                                <span className="text-muted-foreground text-[11px] italic">{entry.task}</span>
+                              )}
+                            </div>
+                          )}
+
                           {/* Notas */}
                           {entry.notes && <p className="text-muted-foreground text-xs">{entry.notes}</p>}
 
@@ -489,6 +528,36 @@ export function DayCard({ day }: DayCardProps) {
                                   {format(new Date(entry.timestamp), "HH:mm:ss", { locale: es })}
                                 </span>
                               </div>
+
+                              {/* Proyecto y tarea */}
+                              {entry.project && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]"
+                                    style={{
+                                      borderColor: entry.project.color ?? undefined,
+                                      backgroundColor: entry.project.color ? `${entry.project.color}15` : undefined,
+                                    }}
+                                  >
+                                    {entry.project.color ? (
+                                      <div
+                                        className="h-2 w-2 shrink-0 rounded-full"
+                                        style={{ backgroundColor: entry.project.color }}
+                                      />
+                                    ) : (
+                                      <FolderKanban className="h-3 w-3 shrink-0" />
+                                    )}
+                                    <span className="font-medium">{entry.project.name}</span>
+                                    {entry.project.code && (
+                                      <span className="text-muted-foreground font-mono">({entry.project.code})</span>
+                                    )}
+                                  </Badge>
+                                  {entry.task && (
+                                    <span className="text-muted-foreground text-[11px] italic">{entry.task}</span>
+                                  )}
+                                </div>
+                              )}
 
                               {/* Notas */}
                               {entry.notes && <p className="text-muted-foreground text-xs">{entry.notes}</p>}
