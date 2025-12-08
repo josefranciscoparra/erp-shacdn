@@ -1110,7 +1110,8 @@ model TimeBankSettings {
   dailyExcessLimitMinutes      Int      @default(120) // Exceso máximo diario sin revisión
   dailyDeficitLimitMinutes     Int      @default(60) // Déficit máximo diario sin alerta
   roundingIncrementMinutes     Int      @default(5) // Redondeo automático
-  deficitGraceMinutes          Int      @default(10) // Diferencias que no computan
+  deficitGraceMinutes          Int      @default(10) // Margen de déficit: diferencias negativas que no penalizan
+  excessGraceMinutes           Int      @default(15) // Margen de exceso: diferencias positivas que no acumulan
   holidayCompensationFactor    Decimal  @default(1.50) @db.Decimal(4, 2)
   allowFlexibleWindows         Boolean  @default(true)
   requireOvertimeAuthorization Boolean  @default(true)

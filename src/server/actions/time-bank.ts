@@ -21,13 +21,19 @@ import { prisma } from "@/lib/prisma";
 import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
+/**
+ * Valores por defecto para la configuración de bolsa de horas.
+ * Estos valores están pensados para un uso "razonable generalista",
+ * pero pueden adaptarse por organización desde Settings > Bolsa de Horas.
+ */
 const DEFAULT_TIME_BANK_SETTINGS = {
-  maxPositiveMinutes: 4800, // 80h
-  maxNegativeMinutes: 480, // 8h
-  dailyExcessLimitMinutes: 120,
-  dailyDeficitLimitMinutes: 60,
-  roundingIncrementMinutes: 5,
-  deficitGraceMinutes: 10,
+  maxPositiveMinutes: 4800, // 80h - Límite máximo de horas acumuladas
+  maxNegativeMinutes: 480, // 8h - Límite máximo de déficit
+  dailyExcessLimitMinutes: 120, // 2h - Alerta si exceso diario > este valor
+  dailyDeficitLimitMinutes: 60, // 1h - Alerta si déficit diario > este valor
+  roundingIncrementMinutes: 5, // Redondea diferencias a múltiplos de 5 min
+  deficitGraceMinutes: 10, // Margen de déficit: si trabajo ≤10 min menos, no penaliza
+  excessGraceMinutes: 15, // Margen de exceso: si trabajo ≤15 min más, no acumula
   holidayCompensationFactor: 1.5,
   allowFlexibleWindows: true,
   requireOvertimeAuthorization: true,
@@ -44,6 +50,7 @@ type NormalizedTimeBankSettings = {
   dailyDeficitLimitMinutes: number;
   roundingIncrementMinutes: number;
   deficitGraceMinutes: number;
+  excessGraceMinutes: number;
   holidayCompensationFactor: number;
   allowFlexibleWindows: boolean;
   requireOvertimeAuthorization: boolean;
@@ -73,6 +80,7 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     dailyDeficitLimitMinutes: settings?.dailyDeficitLimitMinutes ?? DEFAULT_TIME_BANK_SETTINGS.dailyDeficitLimitMinutes,
     roundingIncrementMinutes: settings?.roundingIncrementMinutes ?? DEFAULT_TIME_BANK_SETTINGS.roundingIncrementMinutes,
     deficitGraceMinutes: settings?.deficitGraceMinutes ?? DEFAULT_TIME_BANK_SETTINGS.deficitGraceMinutes,
+    excessGraceMinutes: settings?.excessGraceMinutes ?? DEFAULT_TIME_BANK_SETTINGS.excessGraceMinutes,
     holidayCompensationFactor:
       settings?.holidayCompensationFactor !== undefined
         ? Number(settings.holidayCompensationFactor)
@@ -94,17 +102,27 @@ export async function getTimeBankSettingsForOrg(orgId: string): Promise<Normaliz
   return normalizeSettings(orgId, settings);
 }
 
+/**
+ * Normaliza el valor de desviación aplicando:
+ * 1. Redondeo al incremento configurado
+ * 2. Márgenes de gracia según el signo (exceso vs déficit)
+ */
 function normalizeDeviationValue(value: number, settings: NormalizedTimeBankSettings): number {
   if (!Number.isFinite(value)) {
     return 0;
   }
 
-  const rounded = (() => {
-    const increment = Math.max(1, settings.roundingIncrementMinutes);
-    return Math.round(value / increment) * increment;
-  })();
+  // PASO 1: Redondear al incremento configurado
+  const increment = Math.max(1, settings.roundingIncrementMinutes);
+  const rounded = Math.round(value / increment) * increment;
 
-  if (Math.abs(rounded) < settings.deficitGraceMinutes) {
+  // PASO 2: Aplicar márgenes según el signo
+  if (rounded > 0 && rounded < settings.excessGraceMinutes) {
+    // Exceso pequeño: no acumula en bolsa de horas
+    return 0;
+  }
+  if (rounded < 0 && Math.abs(rounded) < settings.deficitGraceMinutes) {
+    // Déficit pequeño: no penaliza
     return 0;
   }
 
