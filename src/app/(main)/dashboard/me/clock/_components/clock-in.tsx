@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,7 +29,6 @@ import { formatDuration } from "@/services/schedules";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 
-import { ChangeProjectDialog } from "./change-project-dialog";
 import { MinifiedDailyInfo } from "./minified-daily-info";
 import { ProjectSelector } from "./project-selector";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
@@ -62,8 +61,6 @@ export function ClockIn() {
   // Estados para proyecto
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectTask, setProjectTask] = useState("");
-  const [hasManualProjectSelection, setHasManualProjectSelection] = useState(false);
-  const lastRestoredProjectEntryIdRef = useRef<string | null>(null);
 
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
@@ -97,42 +94,6 @@ export function ClockIn() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
-
-  const projectRestoreContext = useMemo(() => {
-    const entries = todaySummary?.timeEntries;
-
-    if (!entries || entries.length === 0) {
-      return {
-        shouldRestore: false,
-        entryId: null as string | null,
-        projectId: null as string | null,
-      };
-    }
-
-    let hasClockInWithProject = false;
-    let lastProjectEntry: (typeof entries)[number] | null = null;
-
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const entry = entries[i];
-
-      if (entry.entryType === "CLOCK_IN" && entry.projectId) {
-        hasClockInWithProject = true;
-      }
-
-      const isProjectEntry =
-        (entry.entryType === "CLOCK_IN" || entry.entryType === "PROJECT_SWITCH") && Boolean(entry.projectId);
-
-      if (!lastProjectEntry && isProjectEntry) {
-        lastProjectEntry = entry;
-      }
-    }
-
-    return {
-      shouldRestore: hasClockInWithProject && Boolean(lastProjectEntry?.projectId),
-      entryId: lastProjectEntry?.id ?? null,
-      projectId: lastProjectEntry?.projectId ?? null,
-    };
-  }, [todaySummary]);
 
   // Actualizar hora y contador en vivo cada segundo
   useEffect(() => {
@@ -233,56 +194,6 @@ export function ClockIn() {
     loadScheduleAndSummary();
   }, []);
 
-  useEffect(() => {
-    const entryId = projectRestoreContext.entryId;
-
-    if (!entryId) {
-      if (lastRestoredProjectEntryIdRef.current !== null) {
-        lastRestoredProjectEntryIdRef.current = null;
-        setHasManualProjectSelection((prev) => (prev ? false : prev));
-      }
-      return;
-    }
-
-    if (lastRestoredProjectEntryIdRef.current !== entryId) {
-      lastRestoredProjectEntryIdRef.current = entryId;
-      setHasManualProjectSelection((prev) => (prev ? false : prev));
-    }
-  }, [projectRestoreContext.entryId]);
-
-  useEffect(() => {
-    if (!projectRestoreContext.shouldRestore || !projectRestoreContext.projectId) {
-      return;
-    }
-    if (hasManualProjectSelection) {
-      return;
-    }
-    if (selectedProjectId === projectRestoreContext.projectId) {
-      return;
-    }
-
-    setSelectedProjectId(projectRestoreContext.projectId);
-  }, [projectRestoreContext, hasManualProjectSelection, selectedProjectId]);
-
-  useEffect(() => {
-    if (projectRestoreContext.shouldRestore) {
-      return;
-    }
-    if (hasManualProjectSelection) {
-      return;
-    }
-    if (selectedProjectId === null && projectTask === "") {
-      return;
-    }
-
-    if (selectedProjectId !== null) {
-      setSelectedProjectId(null);
-    }
-    if (projectTask !== "") {
-      setProjectTask("");
-    }
-  }, [projectRestoreContext.shouldRestore, hasManualProjectSelection, selectedProjectId, projectTask]);
-
   const restartChartAnimation = useCallback(() => {
     setShouldAnimateChart(false);
     if (typeof window !== "undefined") {
@@ -336,7 +247,6 @@ export function ClockIn() {
 
   // Helper para ejecutar fichaje con geolocalización y proyecto
   const handleManualProjectSelection = useCallback((projectId: string | null) => {
-    setHasManualProjectSelection(true);
     setSelectedProjectId(projectId);
 
     if (!projectId) {
@@ -564,6 +474,9 @@ export function ClockIn() {
   // Estado completado:
   // - Si se esperaban horas (>0) y se cumplieron -> Completado
   // - Si NO se esperaban horas (0) y se trabajó -> "Trabajando en ausencia" (no es completado estándar)
+  const scheduleIsWorkingDay = todaySchedule?.isWorkingDay;
+  const uiIsWorkingDay = scheduleIsWorkingDay ?? isWorkingDay;
+
   const isCompleted = effectiveExpectedMinutes > 0 && liveWorkedMinutes >= effectiveExpectedMinutes;
   const isWorkingOnAbsence = effectiveExpectedMinutes === 0 && liveWorkedMinutes > 0;
 
@@ -831,7 +744,7 @@ export function ClockIn() {
                     Estás fichando en un día marcado como ausencia.
                   </AlertDescription>
                 </Alert>
-              ) : !isWorkingDay ? (
+              ) : !uiIsWorkingDay ? (
                 <Alert className="border-muted-foreground/20 bg-muted/40 w-full">
                   <Info className="text-muted-foreground h-4 w-4" />
                   <AlertTitle className="font-semibold">Día no laborable según tu contrato.</AlertTitle>
@@ -907,7 +820,7 @@ export function ClockIn() {
                           Fichar Entrada
                         </Button>
                       </TooltipTrigger>
-                      {!isWorkingDay && (
+                      {!uiIsWorkingDay && (
                         <TooltipContent className="max-w-xs">
                           <p className="text-sm">
                             Día no laborable.
@@ -960,11 +873,6 @@ export function ClockIn() {
                       )}
                       {currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
                     </Button>
-                    <ChangeProjectDialog
-                      isOnBreak={currentStatus === "ON_BREAK"}
-                      disabled={isLoading || isClocking || isScheduleLoading}
-                      onProjectChanged={loadInitialData}
-                    />
                   </div>
                 </motion.div>
               )}

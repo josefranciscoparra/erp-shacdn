@@ -60,9 +60,22 @@ export function MinifiedDailyInfo({ schedule }: MinifiedDailyInfoProps) {
     }
 
     // Working Day
+    const workSlots = schedule.timeSlots.filter((slot) => slot.slotType === "WORK" && slot.countsAsWork !== false);
+    const slotsForRange = workSlots.length > 0 ? workSlots : schedule.timeSlots;
+
     const timeRange =
-      schedule.timeSlots.length > 0
-        ? `${minutesToTime(schedule.timeSlots[0].startMinutes)} - ${minutesToTime(schedule.timeSlots[schedule.timeSlots.length - 1].endMinutes)}`
+      slotsForRange.length > 0
+        ? (() => {
+            const firstStart = slotsForRange.reduce(
+              (min, slot) => Math.min(min, slot.startMinutes),
+              slotsForRange[0].startMinutes,
+            );
+            const lastEnd = slotsForRange.reduce(
+              (max, slot) => Math.max(max, slot.endMinutes),
+              slotsForRange[0].endMinutes,
+            );
+            return `${minutesToTime(firstStart)} - ${minutesToTime(lastEnd)}`;
+          })()
         : "Sin franjas";
 
     return (
