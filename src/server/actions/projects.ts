@@ -1059,7 +1059,8 @@ async function computeProjectWorkStats(
     }
 
     if (lastWorkStart) {
-      registerSegment(rangeEnd);
+      const fallbackEndTime = rangeEnd.getTime() > Date.now() ? new Date() : rangeEnd;
+      registerSegment(fallbackEndTime);
     }
   }
 
