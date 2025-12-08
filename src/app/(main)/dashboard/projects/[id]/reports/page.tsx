@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { ArrowLeft, Calendar, Clock, FileBarChart, Loader2, TrendingUp, Users } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+
+import { startOfDay, subDays } from "date-fns";
+import { ArrowLeft, Clock, ExternalLink, FileBarChart, Loader2, TrendingUp, Users } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -23,32 +25,7 @@ import {
   type ProjectTimeReport,
 } from "@/server/actions/projects";
 
-type PeriodOption = "week" | "month" | "quarter" | "year";
-
-function getDateRange(period: PeriodOption): { startDate: Date; endDate: Date } {
-  const endDate = new Date();
-  endDate.setHours(23, 59, 59, 999);
-
-  const startDate = new Date();
-  startDate.setHours(0, 0, 0, 0);
-
-  switch (period) {
-    case "week":
-      startDate.setDate(startDate.getDate() - 7);
-      break;
-    case "month":
-      startDate.setMonth(startDate.getMonth() - 1);
-      break;
-    case "quarter":
-      startDate.setMonth(startDate.getMonth() - 3);
-      break;
-    case "year":
-      startDate.setFullYear(startDate.getFullYear() - 1);
-      break;
-  }
-
-  return { startDate, endDate };
-}
+import { CalendarDateRangePicker } from "../../../time-tracking/_components/calendar-date-range-picker";
 
 function formatHours(hours: number): string {
   const h = Math.floor(hours);
@@ -64,11 +41,21 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Inicializar con últimos 7 días por defecto
+function getInitialDateRange(): DateRange {
+  const today = new Date();
+  return {
+    from: startOfDay(subDays(today, 6)),
+    to: startOfDay(today),
+  };
+}
+
 export default function ProjectReportsPage() {
   const params = useParams();
   const projectId = params.id as string;
 
-  const [period, setPeriod] = useState<PeriodOption>("month");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(getInitialDateRange);
+  const [selectedPeriod, setSelectedPeriod] = useState("last7Days");
   const [isLoading, setIsLoading] = useState(true);
   const [projectName, setProjectName] = useState<string>("");
   const [projectColor, setProjectColor] = useState<string | null>(null);
@@ -77,9 +64,13 @@ export default function ProjectReportsPage() {
   const [dailyHours, setDailyHours] = useState<DailyProjectHours[]>([]);
 
   const loadData = useCallback(async () => {
+    if (!dateRange?.from || !dateRange?.to) return;
+
     setIsLoading(true);
     try {
-      const { startDate, endDate } = getDateRange(period);
+      const startDate = dateRange.from;
+      const endDate = new Date(dateRange.to);
+      endDate.setHours(23, 59, 59, 999);
 
       const [projectResult, reportResult, employeesResult, dailyResult] = await Promise.all([
         getProjectById(projectId),
@@ -95,21 +86,27 @@ export default function ProjectReportsPage() {
 
       if (reportResult.success && reportResult.report) {
         setReport(reportResult.report);
+      } else {
+        setReport(null);
       }
 
       if (employeesResult.success && employeesResult.employees) {
         setEmployees(employeesResult.employees);
+      } else {
+        setEmployees([]);
       }
 
       if (dailyResult.success && dailyResult.days) {
         setDailyHours(dailyResult.days);
+      } else {
+        setDailyHours([]);
       }
     } catch (error) {
       console.error("Error al cargar datos:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [projectId, period]);
+  }, [projectId, dateRange]);
 
   useEffect(() => {
     loadData();
@@ -169,18 +166,12 @@ export default function ProjectReportsPage() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Select value={period} onValueChange={(v) => setPeriod(v as PeriodOption)}>
-            <SelectTrigger className="w-[160px]">
-              <Calendar className="text-muted-foreground mr-2 h-4 w-4" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">Última semana</SelectItem>
-              <SelectItem value="month">Último mes</SelectItem>
-              <SelectItem value="quarter">Último trimestre</SelectItem>
-              <SelectItem value="year">Último año</SelectItem>
-            </SelectContent>
-          </Select>
+          <CalendarDateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            selectedPeriod={selectedPeriod}
+            onPeriodChange={setSelectedPeriod}
+          />
           <Button variant="outline" size="icon" onClick={loadData} disabled={isLoading}>
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <TrendingUp className="h-4 w-4" />}
           </Button>
@@ -259,7 +250,9 @@ export default function ProjectReportsPage() {
           </CardHeader>
           <CardContent>
             {employees.length === 0 ? (
-              <div className="text-muted-foreground py-8 text-center text-sm">No hay datos para el período seleccionado</div>
+              <div className="text-muted-foreground py-8 text-center text-sm">
+                No hay datos para el período seleccionado
+              </div>
             ) : (
               <div className="space-y-4">
                 {employees.slice(0, 10).map((emp, index) => (
@@ -269,14 +262,23 @@ export default function ProjectReportsPage() {
                         <Badge variant="outline" className="h-5 w-5 justify-center p-0 text-xs">
                           {index + 1}
                         </Badge>
-                        <span className="font-medium">{emp.employeeName}</span>
+                        <Link
+                          href={`/dashboard/employees/${emp.employeeId}`}
+                          className="hover:text-primary flex items-center gap-1 font-medium transition-colors hover:underline"
+                        >
+                          {emp.employeeName}
+                          <ExternalLink className="h-3 w-3 opacity-50" />
+                        </Link>
                         {emp.employeeNumber && (
                           <span className="text-muted-foreground text-xs">({emp.employeeNumber})</span>
                         )}
                       </div>
                       <span className="text-muted-foreground">{formatHours(emp.totalHours)}</span>
                     </div>
-                    <Progress value={maxEmployeeHours > 0 ? (emp.totalHours / maxEmployeeHours) * 100 : 0} className="h-2" />
+                    <Progress
+                      value={maxEmployeeHours > 0 ? (emp.totalHours / maxEmployeeHours) * 100 : 0}
+                      className="h-2"
+                    />
                   </div>
                 ))}
               </div>
@@ -288,14 +290,16 @@ export default function ProjectReportsPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
-              <Calendar className="h-4 w-4" />
+              <Clock className="h-4 w-4" />
               Actividad Diaria
             </CardTitle>
             <CardDescription>Horas trabajadas por día</CardDescription>
           </CardHeader>
           <CardContent>
             {dailyHours.length === 0 ? (
-              <div className="text-muted-foreground py-8 text-center text-sm">No hay datos para el período seleccionado</div>
+              <div className="text-muted-foreground py-8 text-center text-sm">
+                No hay datos para el período seleccionado
+              </div>
             ) : (
               <div className="max-h-80 overflow-auto">
                 <Table>
