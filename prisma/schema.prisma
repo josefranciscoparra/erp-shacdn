@@ -94,6 +94,7 @@ model Organization {
   expenses                Expense[]
   expenseProcedures       ExpenseProcedure[]
   expenseReports          ExpenseReport[]
+  projects                Project[] // Sistema de proyectos (Mejora 4)
   expensePolicy           ExpensePolicy?
   expenseApprovers        ExpenseApprover[] // Aprobadores de gastos organizacionales (multi-nivel)
   timeBankSettings        TimeBankSettings?
@@ -467,6 +468,9 @@ model Employee {
   // NUEVO: Equipo al que pertenece (opcional)
   teamId String?
   team   Team?   @relation("EmployeeTeam", fields: [teamId], references: [id])
+
+  // Sistema de proyectos (Mejora 4)
+  projectAssignments ProjectAssignment[]
 
   // NUEVO: Liquidaciones de vacaciones (Mejora 1)
   vacationSettlements VacationSettlement[]
@@ -1004,7 +1008,14 @@ model TimeEntry {
   automaticBreakSlotId String? // ID del TimeSlot BREAK que originó esta pausa (idempotencia)
   automaticBreakNotes  String? // Descripción de la regla aplicada: "Pausa automática 13:00-13:30 (Oficina Central)"
 
+  // Proyectos (Mejora 4) - Imputación a proyectos
+  // REGLA: Solo en entradas de trabajo (CLOCK_IN), NO en BREAK
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+  task      String?  @db.VarChar(255) // Tarea/descripción corta
+
   @@index([orgId])
+  @@index([projectId])
   @@index([employeeId])
   @@index([timestamp])
   @@index([entryType])
@@ -1069,6 +1080,7 @@ enum TimeEntryType {
   CLOCK_OUT // Salida
   BREAK_START // Inicio de pausa
   BREAK_END // Fin de pausa
+  PROJECT_SWITCH // Cambio de proyecto durante la jornada (no altera estado)
 }
 
 // Estados del día laboral
@@ -2888,6 +2900,64 @@ enum ExceptionType {
   TRAINING // Formación/Evento
   EARLY_CLOSURE // Cierre anticipado
   CUSTOM // Personalizado
+}
+
+// ==================== SISTEMA DE PROYECTOS (Mejora 4) ====================
+
+enum ProjectAccessType {
+  OPEN // Todos los empleados pueden fichar en este proyecto
+  ASSIGNED // Solo empleados asignados pueden fichar
+}
+
+model Project {
+  id          String @id @default(cuid())
+  name        String
+  code        String? // Código corto (ej: "PROJ-001")
+  description String?
+  color       String? // Color para UI (hex)
+
+  // Tipo de acceso
+  accessType ProjectAccessType @default(OPEN)
+
+  // Estado
+  isActive Boolean @default(true) // false = no permite nuevos fichajes pero aparece en históricos
+
+  // Multi-tenant
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  assignments ProjectAssignment[]
+  timeEntries TimeEntry[]
+
+  // Auditoría
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([orgId, name]) // Nombre único por organización
+  @@unique([orgId, code]) // Código único por organización (si se usa)
+  @@index([orgId])
+  @@index([isActive])
+  @@map("projects")
+}
+
+model ProjectAssignment {
+  id String @id @default(cuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  // Metadatos
+  role       String? // Rol en el proyecto (opcional)
+  assignedAt DateTime @default(now())
+
+  @@unique([projectId, employeeId])
+  @@index([projectId])
+  @@index([employeeId])
+  @@map("project_assignments")
 }
 
 // ==================== SISTEMA DE PERMISOS POR ÁMBITO Y ALERTAS ====================

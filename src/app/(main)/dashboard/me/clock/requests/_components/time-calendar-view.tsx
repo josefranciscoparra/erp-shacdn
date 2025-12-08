@@ -136,7 +136,8 @@ export function TimeCalendarView() {
 
       // Obtener fichajes del día para la línea de tiempo
       const workdaySummary = dayData.workdaySummary;
-      const sortedTimeEntries = [...timeEntries].sort(
+      const filteredTimeEntries = timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
+      const sortedTimeEntries = [...filteredTimeEntries].sort(
         (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       );
       const deduplicatedEntries: typeof sortedTimeEntries = [];

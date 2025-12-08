@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,6 +30,7 @@ import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
 
 import { MinifiedDailyInfo } from "./minified-daily-info";
+import { ProjectSelector } from "./project-selector";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
 
@@ -56,6 +57,10 @@ export function ClockIn() {
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const geolocation = useGeolocation();
+
+  // Estados para proyecto
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectTask, setProjectTask] = useState("");
 
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
@@ -103,7 +108,7 @@ export function ClockIn() {
         const entries = todaySummary.timeEntries;
         const lastWorkStart = [...entries]
           .reverse()
-          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
+          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END" || e.entryType === "PROJECT_SWITCH");
 
         if (lastWorkStart) {
           const startTime = new Date(lastWorkStart.timestamp);
@@ -240,13 +245,23 @@ export function ClockIn() {
     };
   }, [isLoading, isScheduleLoading, updateChartSnapshot]);
 
-  // Helper para ejecutar fichaje con geolocalización
+  // Helper para ejecutar fichaje con geolocalización y proyecto
+  const handleManualProjectSelection = useCallback((projectId: string | null) => {
+    setSelectedProjectId(projectId);
+
+    if (!projectId) {
+      setProjectTask("");
+    }
+  }, []);
+
   const executeWithGeolocation = async <T,>(
-    action: (latitude?: number, longitude?: number, accuracy?: number) => Promise<T>,
+    action: (latitude?: number, longitude?: number, accuracy?: number, projectId?: string, task?: string) => Promise<T>,
+    projectId?: string | null,
+    task?: string,
   ): Promise<T | undefined> => {
-    // Si la org no tiene geolocalización habilitada, fichar sin GPS
+    // Si la org no tiene geolocalización habilitada, fichar sin GPS pero con proyecto
     if (!geolocationEnabled) {
-      return await action();
+      return await action(undefined, undefined, undefined, projectId ?? undefined, task);
     }
 
     // Verificar consentimiento
@@ -255,7 +270,7 @@ export function ClockIn() {
 
       if (!hasConsent) {
         // Guardar la acción pendiente y mostrar dialog de consentimiento
-        setPendingAction(() => async () => await action());
+        setPendingAction(() => async () => await action(undefined, undefined, undefined, projectId ?? undefined, task));
         setShowConsentDialog(true);
         return;
       }
@@ -281,7 +296,7 @@ export function ClockIn() {
           });
         }
 
-        return await action();
+        return await action(undefined, undefined, undefined, projectId ?? undefined, task);
       }
 
       // Verificar precisión GPS
@@ -293,23 +308,33 @@ export function ClockIn() {
         });
       }
 
-      // Fichar con geolocalización - pasar parámetros individuales
-      return await action(locationData.latitude, locationData.longitude, locationData.accuracy);
+      // Fichar con geolocalización - pasar parámetros individuales + proyecto
+      return await action(
+        locationData.latitude,
+        locationData.longitude,
+        locationData.accuracy,
+        projectId ?? undefined,
+        task,
+      );
     } catch (error) {
       console.error("Error en proceso de geolocalización:", error);
       toast.error("Error al capturar GPS", {
         description: "Se guardará el fichaje sin ubicación GPS.",
         duration: 5000,
       });
-      return await action();
+      return await action(undefined, undefined, undefined, projectId ?? undefined, task);
     }
   };
 
   const handleClockIn = async () => {
     try {
-      const result = await executeWithGeolocation(clockInAction);
+      const result = await executeWithGeolocation(clockInAction, selectedProjectId, projectTask || undefined);
 
       console.log("📊 [FRONTEND] Resultado de clockIn:", result);
+
+      // Limpiar selección de proyecto después de fichar
+      setSelectedProjectId(null);
+      setProjectTask("");
 
       // Si hay alertas, mostrarlas al usuario
       if (result?.alerts && result.alerts.length > 0) {
@@ -449,6 +474,9 @@ export function ClockIn() {
   // Estado completado:
   // - Si se esperaban horas (>0) y se cumplieron -> Completado
   // - Si NO se esperaban horas (0) y se trabajó -> "Trabajando en ausencia" (no es completado estándar)
+  const scheduleIsWorkingDay = todaySchedule?.isWorkingDay;
+  const uiIsWorkingDay = scheduleIsWorkingDay ?? isWorkingDay;
+
   const isCompleted = effectiveExpectedMinutes > 0 && liveWorkedMinutes >= effectiveExpectedMinutes;
   const isWorkingOnAbsence = effectiveExpectedMinutes === 0 && liveWorkedMinutes > 0;
 
@@ -716,7 +744,7 @@ export function ClockIn() {
                     Estás fichando en un día marcado como ausencia.
                   </AlertDescription>
                 </Alert>
-              ) : !isWorkingDay ? (
+              ) : !uiIsWorkingDay ? (
                 <Alert className="border-muted-foreground/20 bg-muted/40 w-full">
                   <Info className="text-muted-foreground h-4 w-4" />
                   <AlertTitle className="font-semibold">Día no laborable según tu contrato.</AlertTitle>
@@ -764,7 +792,17 @@ export function ClockIn() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className="flex w-full flex-col gap-4"
                 >
+                  {/* Selector de proyecto */}
+                  <ProjectSelector
+                    selectedProjectId={selectedProjectId}
+                    onSelectProject={handleManualProjectSelection}
+                    task={projectTask}
+                    onTaskChange={setProjectTask}
+                    disabled={isLoading || isClocking || isScheduleLoading}
+                  />
+
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -782,7 +820,7 @@ export function ClockIn() {
                           Fichar Entrada
                         </Button>
                       </TooltipTrigger>
-                      {!isWorkingDay && (
+                      {!uiIsWorkingDay && (
                         <TooltipContent className="max-w-xs">
                           <p className="text-sm">
                             Día no laborable.
@@ -820,20 +858,22 @@ export function ClockIn() {
                     )}
                     Fichar Salida
                   </Button>
-                  <Button
-                    size="lg"
-                    onClick={handleBreak}
-                    variant="outline"
-                    className="w-full disabled:opacity-70"
-                    disabled={isLoading || isClocking || isScheduleLoading}
-                  >
-                    {isLoading || isClocking || isScheduleLoading ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    ) : (
-                      <Coffee className="mr-2 h-5 w-5" />
-                    )}
-                    {currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
-                  </Button>
+                  <div className="flex w-full gap-2">
+                    <Button
+                      size="lg"
+                      onClick={handleBreak}
+                      variant="outline"
+                      className="flex-1 disabled:opacity-70"
+                      disabled={isLoading || isClocking || isScheduleLoading}
+                    >
+                      {isLoading || isClocking || isScheduleLoading ? (
+                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      ) : (
+                        <Coffee className="mr-2 h-5 w-5" />
+                      )}
+                      {currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
+                    </Button>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

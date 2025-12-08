@@ -28,7 +28,21 @@ function serializeTimeEntry(entry: any) {
     longitude: entry.longitude ? Number(entry.longitude) : null,
     accuracy: entry.accuracy ? Number(entry.accuracy) : null,
     distanceFromCenter: entry.distanceFromCenter ? Number(entry.distanceFromCenter) : null,
+    // Proyecto asociado (Mejora 4)
+    project: entry.project
+      ? {
+          id: entry.project.id,
+          name: entry.project.name,
+          code: entry.project.code,
+          color: entry.project.color,
+        }
+      : null,
+    task: entry.task ?? null,
   };
+}
+
+function isActiveWorkEntryType(entryType?: string | null) {
+  return entryType === "CLOCK_IN" || entryType === "BREAK_END" || entryType === "PROJECT_SWITCH";
 }
 
 // Helper para procesar datos de geolocalización
@@ -102,6 +116,17 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
       case "CLOCK_IN":
         lastClockIn = entry.timestamp;
         console.log("    ⏰ Inicio de sesión registrado");
+        break;
+
+      case "PROJECT_SWITCH":
+        if (lastClockIn) {
+          const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
+          totalWorked += minutes;
+          console.log(`    🔁 Cambio de proyecto: +${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
+        } else {
+          console.log("    ⚠️ Cambio de proyecto sin sesión activa previa");
+        }
+        lastClockIn = entry.timestamp;
         break;
 
       case "BREAK_START":
@@ -564,8 +589,7 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   // y el primer fichaje del día actual es CLOCK_OUT o no existe,
   // entonces hay un cruce de medianoche
   if (lastEntryYesterday) {
-    const wasWorkingAtMidnight =
-      lastEntryYesterday.entryType === "CLOCK_IN" || lastEntryYesterday.entryType === "BREAK_END";
+    const wasWorkingAtMidnight = isActiveWorkEntryType(lastEntryYesterday.entryType);
 
     if (wasWorkingAtMidnight) {
       // Verificar si hay CLOCK_OUT del día anterior después del CLOCK_IN
@@ -749,6 +773,7 @@ export async function getCurrentStatus() {
     switch (lastEntry.entryType) {
       case "CLOCK_IN":
       case "BREAK_END":
+      case "PROJECT_SWITCH":
         return { status: "CLOCKED_IN" as const };
 
       case "BREAK_START":
@@ -766,9 +791,24 @@ export async function getCurrentStatus() {
 
 // Fichar entrada
 // REFACTORIZADO: Usa transacción Serializable + máquina de estados para prevenir race conditions
-export async function clockIn(latitude?: number, longitude?: number, accuracy?: number) {
+export async function clockIn(
+  latitude?: number,
+  longitude?: number,
+  accuracy?: number,
+  projectId?: string,
+  task?: string,
+) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
+
+    // Validar proyecto si se proporciona
+    if (projectId) {
+      const { validateProjectForEmployee } = await import("./projects");
+      const validation = await validateProjectForEmployee(projectId, employeeId, orgId);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+    }
 
     // Procesar datos de geolocalización ANTES de la transacción (operación de lectura)
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
@@ -803,13 +843,12 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -828,6 +867,8 @@ export async function clockIn(latitude?: number, longitude?: number, accuracy?: 
             validationWarnings: validation.warnings ?? [],
             validationErrors: validation.errors ?? [],
             deviationMinutes: validation.deviationMinutes ?? null,
+            projectId: projectId ?? null,
+            task: task?.substring(0, 255) ?? null, // Máximo 255 caracteres
             ...geoData,
           },
         });
@@ -909,13 +950,12 @@ export async function clockOut(
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar que pueda fichar salida
@@ -1079,13 +1119,12 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -1133,7 +1172,7 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
     const now = new Date();
 
     // TRANSACCIÓN ATÓMICA: Previene race conditions
-    const entry = await prisma.$transaction(
+    const { entry, breakStartEntry } = await prisma.$transaction(
       async (tx) => {
         // 1. Obtener último fichaje del día DENTRO de la transacción
         const dayStart = startOfDay(now);
@@ -1157,13 +1196,12 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
         // 2. Derivar estado actual usando máquina de estados
         let currentState: TimeEntryState = "CLOCKED_OUT";
         if (lastEntry) {
-          currentState = mapStatusToState(
-            lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END"
-              ? "CLOCKED_IN"
-              : lastEntry.entryType === "BREAK_START"
-                ? "ON_BREAK"
-                : "CLOCKED_OUT",
-          );
+          const derivedStatus = isActiveWorkEntryType(lastEntry.entryType)
+            ? "CLOCKED_IN"
+            : lastEntry.entryType === "BREAK_START"
+              ? "ON_BREAK"
+              : "CLOCKED_OUT";
+          currentState = mapStatusToState(derivedStatus);
         }
 
         // 3. Validar transición con máquina de estados
@@ -1173,7 +1211,7 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
         }
 
         // 4. Crear el fichaje (dentro de la transacción)
-        return tx.timeEntry.create({
+        const createdEntry = await tx.timeEntry.create({
           data: {
             orgId,
             employeeId,
@@ -1182,6 +1220,11 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
             ...geoData,
           },
         });
+
+        return {
+          entry: createdEntry,
+          breakStartEntry: lastEntry,
+        };
       },
       {
         isolationLevel: "Serializable",
@@ -1191,6 +1234,10 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
 
     // Actualizar el resumen del día (FUERA de la transacción)
     await updateWorkdaySummary(employeeId, orgId, now);
+
+    if (breakStartEntry) {
+      await resumeProjectAfterBreak(employeeId, orgId, breakStartEntry.timestamp, now);
+    }
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
@@ -1621,6 +1668,7 @@ export async function getTodaySummary() {
     });
 
     // Obtener los fichajes del día (independientemente de si hay resumen o no)
+    // Incluir proyecto para mostrar en la timeline (Mejora 4)
     const timeEntries = await prisma.timeEntry.findMany({
       where: {
         employeeId,
@@ -1628,6 +1676,16 @@ export async function getTodaySummary() {
         timestamp: {
           gte: dayStart,
           lte: dayEnd,
+        },
+      },
+      include: {
+        project: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            color: true,
+          },
         },
       },
       orderBy: {
@@ -2237,4 +2295,224 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
 
   console.log(`   📊 Total días recalculados: ${recalculatedDays}`);
   return { success: true, recalculatedDays };
+}
+
+// ============================================================================
+// CAMBIO DE PROYECTO DURANTE LA JORNADA (Mejora 4)
+// ============================================================================
+
+async function resumeProjectAfterBreak(
+  employeeId: string,
+  orgId: string,
+  breakStartTimestamp: Date,
+  resumeTimestamp: Date,
+) {
+  const lastProjectEntry = await prisma.timeEntry.findFirst({
+    where: {
+      employeeId,
+      orgId,
+      isCancelled: false,
+      timestamp: {
+        lt: breakStartTimestamp,
+      },
+      entryType: {
+        in: ["CLOCK_IN", "PROJECT_SWITCH"],
+      },
+      projectId: {
+        not: null,
+      },
+    },
+    select: {
+      projectId: true,
+      task: true,
+    },
+    orderBy: {
+      timestamp: "desc",
+    },
+  });
+
+  if (!lastProjectEntry?.projectId) {
+    return;
+  }
+
+  await prisma.timeEntry.create({
+    data: {
+      orgId,
+      employeeId,
+      entryType: "PROJECT_SWITCH",
+      timestamp: resumeTimestamp,
+      projectId: lastProjectEntry.projectId,
+      task: lastProjectEntry.task,
+      notes: "Reanudación automática tras pausa",
+    },
+  });
+}
+
+/**
+ * Cambia el proyecto asignado durante la jornada laboral.
+ *
+ * REGLA IMPORTANTE: El tiempo anterior queda imputado al proyecto anterior
+ * y el tiempo posterior al nuevo proyecto.
+ *
+ * LÓGICA:
+ * 1. Verificar que el empleado está fichado (CLOCKED_IN o ON_BREAK)
+ * 2. Si está ON_BREAK, el cambio aplica al siguiente tramo de trabajo
+ * 3. Validar el nuevo proyecto (si se proporciona)
+ * 4. Crear nuevo TimeEntry tipo CLOCK_IN con nuevo projectId
+ *    - Este marca el inicio del nuevo tramo
+ *    - El tramo anterior termina aquí
+ * 5. NO sobrescribir projectId de entradas anteriores
+ *
+ * Para informes: calcular tiempo por proyecto =
+ *   tiempo entre CLOCK_IN con projectId X hasta siguiente cambio o CLOCK_OUT
+ */
+export async function changeProject(
+  newProjectId: string | null,
+  task?: string,
+  latitude?: number,
+  longitude?: number,
+  accuracy?: number,
+): Promise<{ success: boolean; error?: string; entry?: any }> {
+  try {
+    const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+    const now = new Date();
+    const dayStart = startOfDay(now);
+    const dayEnd = endOfDay(now);
+
+    // 1. Obtener el último fichaje del día
+    const lastEntry = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId,
+        orgId,
+        isCancelled: false,
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    // 2. Verificar que está fichado
+    if (!lastEntry) {
+      return { success: false, error: "Debes fichar entrada antes de cambiar de proyecto" };
+    }
+
+    // Determinar estado actual
+    const currentState = isActiveWorkEntryType(lastEntry.entryType)
+      ? "CLOCKED_IN"
+      : lastEntry.entryType === "BREAK_START"
+        ? "ON_BREAK"
+        : "CLOCKED_OUT";
+
+    if (currentState === "CLOCKED_OUT") {
+      return { success: false, error: "Debes fichar entrada antes de cambiar de proyecto" };
+    }
+
+    // 3. Validar el nuevo proyecto si se proporciona
+    if (newProjectId) {
+      const { validateProjectForEmployee } = await import("./projects");
+      const validation = await validateProjectForEmployee(newProjectId, employeeId, orgId);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+    }
+
+    // 4. Si está en pausa, bloquear la acción para mantener consistencia
+    if (currentState === "ON_BREAK") {
+      return {
+        success: false,
+        error: "No puedes cambiar de proyecto mientras estás en pausa. Finaliza la pausa e inténtalo de nuevo.",
+      };
+    }
+
+    // 5. Procesar datos de geolocalización
+    const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
+
+    // 6. Crear nuevo TimeEntry tipo PROJECT_SWITCH para marcar el cambio de proyecto
+    // IMPORTANTE: No altera el estado general (sigue trabajando)
+    const entry = await prisma.timeEntry.create({
+      data: {
+        orgId,
+        employeeId,
+        entryType: "PROJECT_SWITCH",
+        timestamp: now,
+        projectId: newProjectId,
+        task: task?.substring(0, 255) ?? null,
+        notes: "Cambio de proyecto durante jornada",
+        ...geoData,
+      },
+    });
+
+    // 7. Actualizar resumen del día
+    await updateWorkdaySummary(employeeId, orgId, now);
+
+    return {
+      success: true,
+      entry: serializeTimeEntry(entry),
+    };
+  } catch (error) {
+    console.error("Error al cambiar proyecto:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al cambiar de proyecto",
+    };
+  }
+}
+
+/**
+ * Obtiene el proyecto actual del empleado (el del último CLOCK_IN del día)
+ */
+export async function getCurrentProject(): Promise<{
+  projectId: string | null;
+  projectName: string | null;
+  projectColor: string | null;
+  task: string | null;
+} | null> {
+  try {
+    const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+    const now = new Date();
+    const dayStart = startOfDay(now);
+    const dayEnd = endOfDay(now);
+
+    // Buscar el último CLOCK_IN del día (que tiene projectId)
+    const lastClockIn = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId,
+        orgId,
+        entryType: {
+          in: ["CLOCK_IN", "PROJECT_SWITCH"],
+        },
+        isCancelled: false,
+        timestamp: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+      },
+      include: {
+        project: true,
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    if (!lastClockIn) {
+      return null;
+    }
+
+    return {
+      projectId: lastClockIn.projectId,
+      projectName: lastClockIn.project?.name ?? null,
+      projectColor: lastClockIn.project?.color ?? null,
+      task: lastClockIn.task,
+    };
+  } catch (error) {
+    console.error("Error al obtener proyecto actual:", error);
+    return null;
+  }
 }

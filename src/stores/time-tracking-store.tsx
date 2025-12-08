@@ -25,7 +25,7 @@ export interface GeolocationData {
 
 export interface TimeEntry {
   id: string;
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
   timestamp: Date;
   location?: string;
   notes?: string;
@@ -36,6 +36,15 @@ export interface TimeEntry {
   isWithinAllowedArea?: boolean;
   distanceFromCenter?: number;
   requiresReview?: boolean;
+  // Proyecto asociado (Mejora 4)
+  projectId?: string | null;
+  project?: {
+    id: string;
+    name: string;
+    code: string | null;
+    color: string | null;
+  } | null;
+  task?: string | null;
 }
 
 export interface WorkdaySummary {
@@ -90,7 +99,13 @@ interface TimeTrackingState {
   setLiveWorkedMinutes: (minutes: number) => void;
 
   // Acciones de fichaje (se conectarán a server actions)
-  clockIn: (latitude?: number, longitude?: number, accuracy?: number) => Promise<any>;
+  clockIn: (
+    latitude?: number,
+    longitude?: number,
+    accuracy?: number,
+    projectId?: string,
+    task?: string,
+  ) => Promise<any>;
   clockOut: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
   startBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
   endBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
@@ -136,10 +151,10 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   setLiveWorkedMinutes: (minutes) => set({ liveWorkedMinutes: minutes }),
 
   // Acciones de fichaje
-  clockIn: async (latitude?, longitude?, accuracy?) => {
+  clockIn: async (latitude?, longitude?, accuracy?, projectId?, task?) => {
     set({ isClocking: true, error: null });
     try {
-      const result = await clockInAction(latitude, longitude, accuracy);
+      const result = await clockInAction(latitude, longitude, accuracy, projectId, task);
 
       set({
         currentStatus: "CLOCKED_IN",

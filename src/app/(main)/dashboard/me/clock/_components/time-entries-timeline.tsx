@@ -1,13 +1,20 @@
 "use client";
 
-import { LogIn, LogOut, Coffee, MapPin, CheckCircle2, AlertTriangle } from "lucide-react";
+import { LogIn, LogOut, Coffee, MapPin, CheckCircle2, AlertTriangle, FolderKanban } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+interface ProjectInfo {
+  id: string;
+  name: string;
+  code: string | null;
+  color: string | null;
+}
+
 interface TimeEntry {
   id: string;
-  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END";
+  entryType: "CLOCK_IN" | "CLOCK_OUT" | "BREAK_START" | "BREAK_END" | "PROJECT_SWITCH";
   timestamp: Date;
   latitude: number | null;
   longitude: number | null;
@@ -18,6 +25,9 @@ interface TimeEntry {
   // Pausas Automáticas (Mejora 6)
   isAutomatic?: boolean;
   automaticBreakNotes?: string | null;
+  // Proyecto asociado (Mejora 4)
+  project?: ProjectInfo | null;
+  task?: string | null;
 }
 
 interface TimeEntriesTimelineProps {
@@ -25,8 +35,10 @@ interface TimeEntriesTimelineProps {
 }
 
 export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
+  const visibleEntries = entries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
+
   // Agrupar entradas por día
-  const groupedByDay = entries.reduce(
+  const groupedByDay = visibleEntries.reduce(
     (acc, entry) => {
       const dateKey = new Date(entry.timestamp).toLocaleDateString("es-ES", {
         year: "numeric",
@@ -149,6 +161,34 @@ export function TimeEntriesTimeline({ entries }: TimeEntriesTimelineProps) {
                           })}
                         </span>
                       </div>
+
+                      {/* Proyecto asociado (solo en CLOCK_IN) */}
+                      {entry.entryType === "CLOCK_IN" && entry.project && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge
+                            variant="outline"
+                            className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px]"
+                            style={{
+                              borderColor: entry.project.color ?? undefined,
+                              backgroundColor: entry.project.color ? `${entry.project.color}15` : undefined,
+                            }}
+                          >
+                            {entry.project.color ? (
+                              <div
+                                className="h-2 w-2 shrink-0 rounded-full"
+                                style={{ backgroundColor: entry.project.color }}
+                              />
+                            ) : (
+                              <FolderKanban className="h-3 w-3 shrink-0" />
+                            )}
+                            {entry.project.name}
+                            {entry.project.code && (
+                              <span className="text-muted-foreground font-mono">({entry.project.code})</span>
+                            )}
+                          </Badge>
+                          {entry.task && <span className="text-muted-foreground text-[11px] italic">{entry.task}</span>}
+                        </div>
+                      )}
 
                       {/* Información de geolocalización */}
                       {entry.latitude && entry.longitude ? (

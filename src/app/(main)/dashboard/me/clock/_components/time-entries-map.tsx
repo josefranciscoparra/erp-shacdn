@@ -25,6 +25,8 @@ const entryTypeLabels: Record<string, string> = {
 };
 
 function TimeEntriesMap({ entries }: TimeEntriesMapProps) {
+  const allowedTypes = new Set(["CLOCK_IN", "CLOCK_OUT", "BREAK_START", "BREAK_END"]);
+  const visibleEntries = entries.filter((entry) => allowedTypes.has(entry.entryType));
   const [isClient, setIsClient] = useState(false);
   const [mapComponents, setMapComponents] = useState<any>(null);
   const [leaflet, setLeaflet] = useState<any>(null);
@@ -43,7 +45,7 @@ function TimeEntriesMap({ entries }: TimeEntriesMapProps) {
   }, []);
 
   // Filtrar solo entries con GPS
-  const entriesWithGPS = entries.filter((e) => e.latitude && e.longitude);
+  const entriesWithGPS = visibleEntries.filter((e) => e.latitude && e.longitude);
 
   if (!isClient || !mapComponents || !leaflet) {
     return (
