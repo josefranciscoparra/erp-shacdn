@@ -62,6 +62,8 @@ export function ClockIn() {
   // Estados para proyecto
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectTask, setProjectTask] = useState("");
+  const [hasManualProjectSelection, setHasManualProjectSelection] = useState(false);
+  const lastRestoredProjectEntryIdRef = useRef<string | null>(null);
 
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
@@ -95,6 +97,42 @@ export function ClockIn() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
+
+  const projectRestoreContext = useMemo(() => {
+    const entries = todaySummary?.timeEntries;
+
+    if (!entries || entries.length === 0) {
+      return {
+        shouldRestore: false,
+        entryId: null as string | null,
+        projectId: null as string | null,
+      };
+    }
+
+    let hasClockInWithProject = false;
+    let lastProjectEntry: (typeof entries)[number] | null = null;
+
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const entry = entries[i];
+
+      if (entry.entryType === "CLOCK_IN" && entry.projectId) {
+        hasClockInWithProject = true;
+      }
+
+      const isProjectEntry =
+        (entry.entryType === "CLOCK_IN" || entry.entryType === "PROJECT_SWITCH") && Boolean(entry.projectId);
+
+      if (!lastProjectEntry && isProjectEntry) {
+        lastProjectEntry = entry;
+      }
+    }
+
+    return {
+      shouldRestore: hasClockInWithProject && Boolean(lastProjectEntry?.projectId),
+      entryId: lastProjectEntry?.id ?? null,
+      projectId: lastProjectEntry?.projectId ?? null,
+    };
+  }, [todaySummary]);
 
   // Actualizar hora y contador en vivo cada segundo
   useEffect(() => {
@@ -195,6 +233,56 @@ export function ClockIn() {
     loadScheduleAndSummary();
   }, []);
 
+  useEffect(() => {
+    const entryId = projectRestoreContext.entryId;
+
+    if (!entryId) {
+      if (lastRestoredProjectEntryIdRef.current !== null) {
+        lastRestoredProjectEntryIdRef.current = null;
+        setHasManualProjectSelection((prev) => (prev ? false : prev));
+      }
+      return;
+    }
+
+    if (lastRestoredProjectEntryIdRef.current !== entryId) {
+      lastRestoredProjectEntryIdRef.current = entryId;
+      setHasManualProjectSelection((prev) => (prev ? false : prev));
+    }
+  }, [projectRestoreContext.entryId]);
+
+  useEffect(() => {
+    if (!projectRestoreContext.shouldRestore || !projectRestoreContext.projectId) {
+      return;
+    }
+    if (hasManualProjectSelection) {
+      return;
+    }
+    if (selectedProjectId === projectRestoreContext.projectId) {
+      return;
+    }
+
+    setSelectedProjectId(projectRestoreContext.projectId);
+  }, [projectRestoreContext, hasManualProjectSelection, selectedProjectId]);
+
+  useEffect(() => {
+    if (projectRestoreContext.shouldRestore) {
+      return;
+    }
+    if (hasManualProjectSelection) {
+      return;
+    }
+    if (selectedProjectId === null && projectTask === "") {
+      return;
+    }
+
+    if (selectedProjectId !== null) {
+      setSelectedProjectId(null);
+    }
+    if (projectTask !== "") {
+      setProjectTask("");
+    }
+  }, [projectRestoreContext.shouldRestore, hasManualProjectSelection, selectedProjectId, projectTask]);
+
   const restartChartAnimation = useCallback(() => {
     setShouldAnimateChart(false);
     if (typeof window !== "undefined") {
@@ -247,6 +335,15 @@ export function ClockIn() {
   }, [isLoading, isScheduleLoading, updateChartSnapshot]);
 
   // Helper para ejecutar fichaje con geolocalización y proyecto
+  const handleManualProjectSelection = useCallback((projectId: string | null) => {
+    setHasManualProjectSelection(true);
+    setSelectedProjectId(projectId);
+
+    if (!projectId) {
+      setProjectTask("");
+    }
+  }, []);
+
   const executeWithGeolocation = async <T,>(
     action: (latitude?: number, longitude?: number, accuracy?: number, projectId?: string, task?: string) => Promise<T>,
     projectId?: string | null,
@@ -787,7 +884,7 @@ export function ClockIn() {
                   {/* Selector de proyecto */}
                   <ProjectSelector
                     selectedProjectId={selectedProjectId}
-                    onSelectProject={setSelectedProjectId}
+                    onSelectProject={handleManualProjectSelection}
                     task={projectTask}
                     onTaskChange={setProjectTask}
                     disabled={isLoading || isClocking || isScheduleLoading}

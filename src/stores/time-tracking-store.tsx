@@ -36,6 +36,15 @@ export interface TimeEntry {
   isWithinAllowedArea?: boolean;
   distanceFromCenter?: number;
   requiresReview?: boolean;
+  // Proyecto asociado (Mejora 4)
+  projectId?: string | null;
+  project?: {
+    id: string;
+    name: string;
+    code: string | null;
+    color: string | null;
+  } | null;
+  task?: string | null;
 }
 
 export interface WorkdaySummary {

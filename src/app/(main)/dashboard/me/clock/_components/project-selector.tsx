@@ -45,18 +45,13 @@ export function ProjectSelector({
       const result = await getAvailableProjects();
       if (result.success && result.projects) {
         setProjects(result.projects);
-
-        // Si solo hay un proyecto, preseleccionarlo automáticamente
-        if (result.projects.length === 1 && !selectedProjectId) {
-          onSelectProject(result.projects[0].id);
-        }
       }
     } catch (error) {
       console.error("Error al cargar proyectos:", error);
     } finally {
       setIsLoading(false);
     }
-  }, [selectedProjectId, onSelectProject]);
+  }, []);
 
   useEffect(() => {
     loadProjects();
@@ -186,7 +181,9 @@ export function ProjectSelector({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onSelectProject(null)}
+                onClick={() => {
+                  onSelectProject(null);
+                }}
                 disabled={disabled}
                 className="shrink-0"
               >

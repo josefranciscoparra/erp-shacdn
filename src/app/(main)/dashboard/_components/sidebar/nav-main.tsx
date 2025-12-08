@@ -1,5 +1,7 @@
 "use client";
 
+import { useMemo } from "react";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -171,14 +173,40 @@ export function NavMain({ items }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
 
+  // 1. Obtener todas las URLs registradas en el menú (items y subItems)
+  const allUrls = useMemo(() => {
+    const urls: string[] = [];
+    items.forEach((group) => {
+      group.items.forEach((item) => {
+        urls.push(item.url);
+        item.subItems?.forEach((sub) => urls.push(sub.url));
+      });
+    });
+    return urls;
+  }, [items]);
+
+  // 2. Encontrar la "mejor coincidencia" (la URL más larga que sea prefijo del path actual)
+  const bestMatchUrl = useMemo(() => {
+    // Filtrar URLs que coinciden con el inicio del path
+    // Se usa startsWith con '/' para asegurar coincidencia de segmento completo, o coincidencia exacta
+    const matches = allUrls.filter((url) => path === url || path.startsWith(url + "/"));
+
+    // Ordenar por longitud descendente para obtener la más específica
+    return matches.sort((a, b) => b.length - a.length)[0];
+  }, [allUrls, path]);
+
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
-    if (subItems?.length) {
-      return subItems.some((sub) => path.startsWith(sub.url));
+    if (!bestMatchUrl) {
+      return false;
     }
 
-    // Usar startsWith para incluir rutas hijas (ej: /dashboard/projects/[id])
-    // Añadir "/" al final para evitar falsos positivos (ej: /dashboard/pro no matchea /dashboard/projects)
-    return path === url || path.startsWith(url + "/");
+    if (subItems?.length) {
+      // Activo si la coincidencia es la URL del propio item o una de sus rutas hijas
+      return bestMatchUrl === url || subItems.some((sub) => sub.url === bestMatchUrl);
+    }
+
+    // Items sin submenú: coincidencia exacta
+    return url === bestMatchUrl;
   };
 
   const isSubmenuOpen = (subItems?: NavMainItem["subItems"]) => {
