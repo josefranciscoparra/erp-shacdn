@@ -10,11 +10,16 @@ import {
   createTimelineEvent,
 } from "@/lib/signatures/evidence-builder";
 import { calculateHash } from "@/lib/signatures/hash";
-import { createSignatureCompletedNotification, notifyDocumentCompleted } from "@/lib/signatures/notifications";
+import {
+  createSignatureCompletedNotification,
+  createSignaturePendingNotification,
+  notifyDocumentCompleted,
+} from "@/lib/signatures/notifications";
 import { generateSignatureMetadata, signPdfDocument } from "@/lib/signatures/pdf-signer";
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
 import { confirmSignatureSchema } from "@/lib/validations/signature";
+import { updateBatchStats } from "@/server/actions/signature-batch";
 
 export const runtime = "nodejs";
 
@@ -66,6 +71,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                     id: true,
                     firstName: true,
                     lastName: true,
+                    user: {
+                      select: {
+                        id: true,
+                      },
+                    },
                   },
                 },
               },
@@ -97,6 +107,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Verificar que se haya dado consentimiento
     if (!signer.consentGivenAt) {
       return NextResponse.json({ error: "Debe dar consentimiento antes de firmar" }, { status: 400 });
+    }
+
+    const previousPending = signer.request.signers
+      .filter((s) => s.order < signer.order)
+      .some((s) => s.status !== "SIGNED");
+
+    if (previousPending) {
+      return NextResponse.json({ error: "Aún no es tu turno para firmar este documento" }, { status: 409 });
     }
 
     // PROCESO DE FIRMA
@@ -244,6 +262,25 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           status: "IN_PROGRESS",
         },
       });
+
+      const sortedSigners = [...signer.request.signers].sort((a, b) => a.order - b.order);
+      const nextSigner = sortedSigners.find(
+        (candidate) => candidate.order > signer.order && candidate.status === "PENDING",
+      );
+
+      if (nextSigner?.employee?.user?.id) {
+        await createSignaturePendingNotification({
+          orgId: session.user.orgId,
+          userId: nextSigner.employee.user.id,
+          documentTitle: signer.request.document.title,
+          requestId: signer.requestId,
+          expiresAt: signer.request.expiresAt,
+        });
+      }
+    }
+
+    if (signer.request.batchId) {
+      await updateBatchStats(signer.request.batchId);
     }
 
     // 13. Notificar al creador del documento que alguien firmó (solo si no es él mismo)

@@ -1,20 +1,19 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePathname, useSearchParams } from "next/navigation";
 
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSignaturesStore } from "@/stores/signatures-store";
 
-import { MySignaturesTable } from "./_components/my-signatures-table";
+import { MySignaturesDataTable } from "./_components/my-signatures-data-table";
+import { SignatureStatsCards } from "./_components/signature-stats-cards";
 
 export default function MySignaturesPage() {
   const {
@@ -30,6 +29,7 @@ export default function MySignaturesPage() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const hasInitializedRef = useRef(false);
+  const [activeTab, setActiveTab] = useState("pending");
 
   // Detectar navegación a la página o query param "refresh=true"
   useEffect(() => {
@@ -60,23 +60,14 @@ export default function MySignaturesPage() {
         description="Gestiona los documentos que requieren tu firma de forma digital."
       />
 
-      {/* Banner de urgencia */}
-      {urgentCount > 0 && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Firmas urgentes pendientes</AlertTitle>
-          <AlertDescription>
-            Tienes {urgentCount} documento{urgentCount !== 1 ? "s" : ""} que vence{urgentCount !== 1 ? "n" : ""} en los
-            próximos 3 días.
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Cards de estadísticas */}
+      <SignatureStatsCards />
 
       {/* Tabs */}
-      <Tabs defaultValue="pending" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="flex items-center justify-between">
           {/* Select para móvil */}
-          <Select defaultValue="pending">
+          <Select value={activeTab} onValueChange={setActiveTab}>
             <SelectTrigger className="w-[200px] @4xl/main:hidden">
               <SelectValue />
             </SelectTrigger>
@@ -127,22 +118,38 @@ export default function MySignaturesPage() {
 
         {/* Pendientes */}
         <TabsContent value="pending" className="space-y-4">
-          <MySignaturesTable signatures={myPendingSignatures} emptyMessage="No tienes documentos pendientes de firma" />
+          <MySignaturesDataTable
+            signatures={myPendingSignatures}
+            status="pending"
+            emptyMessage="No tienes documentos pendientes de firma"
+          />
         </TabsContent>
 
         {/* Firmadas */}
         <TabsContent value="signed" className="space-y-4">
-          <MySignaturesTable signatures={mySignedSignatures} emptyMessage="No has firmado ningún documento aún" />
+          <MySignaturesDataTable
+            signatures={mySignedSignatures}
+            status="signed"
+            emptyMessage="No has firmado ningún documento aún"
+          />
         </TabsContent>
 
         {/* Rechazadas */}
         <TabsContent value="rejected" className="space-y-4">
-          <MySignaturesTable signatures={myRejectedSignatures} emptyMessage="No has rechazado ningún documento" />
+          <MySignaturesDataTable
+            signatures={myRejectedSignatures}
+            status="rejected"
+            emptyMessage="No has rechazado ningún documento"
+          />
         </TabsContent>
 
         {/* Expiradas */}
         <TabsContent value="expired" className="space-y-4">
-          <MySignaturesTable signatures={myExpiredSignatures} emptyMessage="No tienes documentos expirados" />
+          <MySignaturesDataTable
+            signatures={myExpiredSignatures}
+            status="expired"
+            emptyMessage="No tienes documentos expirados"
+          />
         </TabsContent>
       </Tabs>
     </div>

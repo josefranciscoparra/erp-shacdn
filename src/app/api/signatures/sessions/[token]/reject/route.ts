@@ -7,6 +7,7 @@ import { addRejectionEvent, buildSignatureEvidence, createInitialTimeline } from
 import { createSignatureRejectedNotification, notifyDocumentRejected } from "@/lib/signatures/notifications";
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { rejectSignatureSchema } from "@/lib/validations/signature";
+import { updateBatchStats } from "@/server/actions/signature-batch";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: "Esta firma ya fue procesada" }, { status: 400 });
     }
 
+    const previousPending = signer.request.signers
+      .filter((s) => s.order < signer.order)
+      .some((s) => s.status !== "SIGNED");
+
+    if (previousPending) {
+      return NextResponse.json({ error: "Aún no es tu turno para gestionar esta firma" }, { status: 409 });
+    }
+
     // Crear línea de tiempo para evidencias
     const timeline = createInitialTimeline({
       documentTitle: signer.request.document.title,
@@ -156,6 +165,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         status: "REJECTED",
       },
     });
+
+    if (signer.request.batchId) {
+      await updateBatchStats(signer.request.batchId);
+    }
 
     // Notificar a HR/Admins del rechazo
     const admins = await prisma.user.findMany({

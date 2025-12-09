@@ -160,6 +160,7 @@ export default function SignPage() {
 
   const signedCount = allSigners.filter((s) => s.status === "SIGNED").length;
   const totalCount = allSigners.length;
+  const signerStatusLabel = status === "SIGNED" ? "Firmado" : status === "REJECTED" ? "Rechazado" : "Pendiente";
 
   // Estado: Ya firmado
   if (isSigned) {
@@ -362,17 +363,14 @@ export default function SignPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  {allSigners.map((signer) => (
-                    <div key={signer.id} className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {signer.employee.firstName} {signer.employee.lastName}
-                      </span>
-                      {signer.status === "SIGNED" && <CheckCircle2 className="text-success h-4 w-4" />}
-                      {signer.status === "PENDING" && <div className="bg-muted-foreground h-2 w-2 rounded-full" />}
-                      {signer.status === "REJECTED" && <XCircle className="text-destructive h-4 w-4" />}
-                    </div>
-                  ))}
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Tu firma</span>
+                    <span className="font-medium">{signerStatusLabel}</span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    El resto de validaciones se gestiona internamente por el equipo responsable.
+                  </p>
                 </div>
               </CardContent>
             </Card>
