@@ -4,3 +4,4 @@ export * from "./pdf-signer";
 export * from "./evidence-builder";
 export * from "./storage";
 export * from "./notifications";
+export * from "./double-signature";

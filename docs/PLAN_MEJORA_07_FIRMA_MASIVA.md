@@ -125,50 +125,49 @@ model SignatureRequest {
 - [x] Crear documento del plan `/docs/PLAN_MEJORA_07_FIRMA_MASIVA.md`
 
 ### Fase 1: Base de Datos
-- [ ] Crear enum `SignatureBatchStatus`
-- [ ] Crear enum `SecondSignerRole`
-- [ ] Crear modelo `SignatureBatch`
-- [ ] Agregar `batchId` a `SignatureRequest`
-- [ ] Agregar `secondSignerMissing` a `SignatureRequest`
-- [ ] Agregar `SIGNATURE_REMINDER` al enum de notificaciones
-- [ ] Ejecutar migración `add_signature_batch_system`
+- [x] Crear enum `SignatureBatchStatus`
+- [x] Crear enum `SecondSignerRole`
+- [x] Crear modelo `SignatureBatch`
+- [x] Agregar `batchId` a `SignatureRequest`
+- [x] Agregar `secondSignerMissing` a `SignatureRequest`
+- [x] Agregar `SIGNATURE_REMINDER` al enum de notificaciones
+- [x] Sincronizar DB con `prisma db push`
 
 ### Fase 2: Server Actions
-- [ ] Crear `/src/server/actions/signature-batch.ts`
-- [ ] Crear `/src/lib/validations/signature-batch.ts`
-- [ ] Crear `/src/lib/signatures/double-signature.ts`
-- [ ] Implementar `createSignatureBatch()`
-- [ ] Implementar `activateBatch()`
-- [ ] Implementar `getBatchStats()`
-- [ ] Implementar `listBatches()`
-- [ ] Implementar `cancelBatch()`
-- [ ] Implementar `resendBatchReminders()`
-- [ ] Implementar `resolveSecondSigner()`
+- [x] Crear `/src/server/actions/signature-batch.ts`
+- [x] Crear `/src/lib/validations/signature-batch.ts`
+- [x] Crear `/src/lib/signatures/double-signature.ts`
+- [x] Implementar `createSignatureBatch()`
+- [x] Implementar `activateBatch()`
+- [x] Implementar `getBatchStats()`
+- [x] Implementar `listBatches()`
+- [x] Implementar `cancelBatch()`
+- [x] Implementar `resendBatchReminders()`
+- [x] Implementar `resolveSecondSigner()`
 
 ### Fase 3: UI Creación de Lote
-- [ ] Crear `/src/app/(main)/dashboard/signatures/_components/create-batch-dialog.tsx`
-- [ ] Crear `/src/app/(main)/dashboard/signatures/_components/recipient-selector.tsx`
-- [ ] Paso 1: Selección de documento
-- [ ] Paso 2: Selección de destinatarios (Todos | Por Dpto | Por Rol | Manual)
-- [ ] Paso 3: Configuración de doble firma
-- [ ] Paso 4: Fecha expiración y recordatorios
-- [ ] Paso 5: Resumen y confirmación
-- [ ] Contador "Se crearán X solicitudes"
+- [x] Crear `/src/app/(main)/dashboard/signatures/_components/create-batch-dialog.tsx`
+- [x] Paso 1: Selección de documento
+- [x] Paso 2: Selección de destinatarios (Todos | Por Dpto | Manual)
+- [x] Paso 3: Configuración de doble firma
+- [x] Paso 4: Fecha expiración y recordatorios
+- [x] Paso 5: Resumen y confirmación
+- [x] Contador "Se crearán X solicitudes"
 
 ### Fase 4: Dashboard de Lotes
-- [ ] Crear `/src/app/(main)/dashboard/signatures/batches/page.tsx`
-- [ ] Crear `/src/app/(main)/dashboard/signatures/batches/[id]/page.tsx`
-- [ ] Crear `_components/batch-stats-cards.tsx`
-- [ ] Crear `_components/batch-recipients-table.tsx`
-- [ ] Crear `_components/batch-status-badge.tsx`
-- [ ] DataTable con progreso, badge estado, acciones
-- [ ] Filtros por estado
-- [ ] Detalle con cards de estadísticas
-- [ ] Tabla de destinatarios con estado individual
-- [ ] Flag visual para `secondSignerMissing`
-- [ ] Botones: Cancelar, Reenviar recordatorios, Exportar
+- [x] Crear `/src/app/(main)/dashboard/signatures/batches/page.tsx`
+- [x] Crear `/src/app/(main)/dashboard/signatures/batches/[id]/page.tsx`
+- [x] Crear `_components/batch-stats-cards.tsx`
+- [x] Crear `_components/batch-recipients-table.tsx`
+- [x] Crear `_components/batch-status-badge.tsx`
+- [x] DataTable con progreso, badge estado, acciones
+- [x] Filtros por estado
+- [x] Detalle con cards de estadísticas
+- [x] Tabla de destinatarios con estado individual
+- [x] Flag visual para `secondSignerMissing`
+- [x] Botones: Cancelar, Reenviar recordatorios, Exportar
 
-### Fase 5: Sistema de Recordatorios
+### Fase 5: Sistema de Recordatorios (TODO - Pospuesto)
 - [ ] Crear `/src/server/actions/signature-reminders.ts`
 - [ ] Crear `/src/app/api/cron/signature-reminders/route.ts`
 - [ ] Lógica de cron (solo lotes ACTIVE)
@@ -176,29 +175,30 @@ model SignatureRequest {
 - [ ] Control de duplicados (lastReminderAt)
 - [ ] Crear notificación SIGNATURE_REMINDER
 - [ ] Proteger endpoint con secret header
+> **Nota**: Esta fase se implementará en una iteración futura.
 
 ### Fase 6: Vista de Auditoría
-- [ ] Crear `/src/app/(main)/dashboard/signatures/[id]/audit/page.tsx`
-- [ ] Crear `_components/audit-timeline.tsx`
-- [ ] Timeline: creación, envíos, consentimientos, firmas, rechazos, recordatorios
-- [ ] Detalles técnicos (hashes, IP, User Agent)
-- [ ] Exportación JSON de evidencia
-- [ ] Enlace a PDF firmado
+- [x] Crear `/src/app/(main)/dashboard/signatures/[id]/audit/page.tsx`
+- [x] Crear `_components/audit-timeline.tsx`
+- [x] Timeline: creación, envíos, consentimientos, firmas, rechazos, recordatorios
+- [x] Detalles técnicos (hashes, IP, User Agent)
+- [x] Exportación JSON de evidencia
+- [x] Enlace a PDF firmado
 
 ### Fase 7: Documentos en Expediente
-- [ ] Crear `/src/server/actions/employee-signatures.ts`
-- [ ] Implementar `getEmployeeSignedDocuments()`
-- [ ] Modificar `documents-tab.tsx`
-- [ ] Nueva sección "Documentos Firmados"
-- [ ] Enlace a detalle de solicitud
-- [ ] Descarga directa sin duplicar archivo
+- [x] Crear `/src/server/actions/employee-signatures.ts`
+- [x] Implementar `getEmployeeSignedDocuments()`
+- [x] Crear componente `employee-signed-documents.tsx`
+- [x] Nueva sección "Documentos Firmados" en expediente empleado
+- [x] Enlace a detalle de solicitud
+- [x] Descarga directa sin duplicar archivo
 
 ### Fase 8: Permisos y Visibilidad
-- [ ] Validar permisos HR/Admin en creación de lotes
-- [ ] Validar permisos HR/Admin en vista de lotes
-- [ ] Empleados solo ven sus SignatureRequest
-- [ ] Empleados no ven vista de lotes
-- [ ] Documentos firmados visibles en expediente propio
+- [x] Validar permisos HR/Admin en creación de lotes
+- [x] Validar permisos HR/Admin en vista de lotes
+- [x] Empleados solo ven sus SignatureRequest
+- [x] Empleados no ven vista de lotes
+- [x] Documentos firmados visibles en expediente propio
 
 ---
 
@@ -233,3 +233,10 @@ model SignatureRequest {
 | Fecha | Cambio |
 |-------|--------|
 | 2024-12-08 | Creación del plan |
+| 2024-12-08 | Fase 1 completada: Schema de Prisma actualizado con SignatureBatch |
+| 2024-12-08 | Fase 2 completada: Server actions, validaciones y lógica de doble firma |
+| 2024-12-08 | Fase 3 completada: UI wizard de creación de lote (5 pasos) |
+| 2024-12-08 | Fase 4 completada: Dashboard de lotes (página lista, detalle, componentes) |
+| 2024-12-09 | Fase 6 completada: Vista de auditoría con timeline, evidencia y exportación JSON |
+| 2024-12-09 | Fase 7 completada: Documentos firmados en expediente del empleado |
+| 2024-12-09 | Fase 8 completada: Permisos y visibilidad (roles correctos HR_ADMIN, ORG_ADMIN, SUPER_ADMIN) |

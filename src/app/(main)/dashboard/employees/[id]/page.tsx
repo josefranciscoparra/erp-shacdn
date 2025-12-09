@@ -52,6 +52,7 @@ import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/store
 import { EmployeeExpenseApprover } from "./_components/employee-expense-approver";
 import { EmployeePtoRequestsTable } from "./_components/employee-pto-requests-table";
 import { EmployeePtoSummary } from "./_components/employee-pto-summary";
+import { EmployeeSignedDocuments } from "./_components/employee-signed-documents";
 
 // Tipos de documentos para tabs
 const documentTabs: { key: DocumentKind | "all"; label: string }[] = [
@@ -976,6 +977,11 @@ export default function EmployeeProfilePage() {
                 </TabsContent>
               ))}
             </Tabs>
+
+            {/* Sección de documentos firmados */}
+            <div className="mt-6">
+              <EmployeeSignedDocuments employeeId={employee.id} />
+            </div>
 
             {/* Dialog de subida */}
             <DocumentUploadDialog

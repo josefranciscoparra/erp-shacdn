@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
-import { ArrowLeft, Download, FileText } from "lucide-react";
+import { ArrowLeft, FileText, History } from "lucide-react";
 
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
 import { Badge } from "@/components/ui/badge";
@@ -59,12 +59,21 @@ export default async function SignatureRequestDetailPage({ params }: { params: P
     notFound();
   }
 
+  // Verificar permisos: HR/Admin pueden ver todas, empleados solo las suyas
+  const allowedRoles = ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
+  const isHrOrAdmin = allowedRoles.includes(session.user.role);
+  const isSignerOnRequest = request.signers.some((s) => s.employee.id === session.user.employeeId);
+
+  if (!isHrOrAdmin && !isSignerOnRequest) {
+    notFound();
+  }
+
   const signedCount = request.signers.filter((s) => s.status === "SIGNED").length;
   const totalCount = request.signers.length;
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-2">
             <Button variant="ghost" size="sm" asChild>
@@ -79,6 +88,12 @@ export default async function SignatureRequestDetailPage({ params }: { params: P
             ID: <code className="bg-muted rounded px-1 py-0.5 text-xs">{request.id}</code>
           </p>
         </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/dashboard/signatures/${id}/audit`}>
+            <History className="mr-2 h-4 w-4" />
+            Ver Auditoría
+          </Link>
+        </Button>
       </div>
 
       {/* Card de información del documento */}

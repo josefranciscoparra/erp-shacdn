@@ -129,9 +129,7 @@ export function ProjectEmployeesTab({ projectId, projectName, accessType }: Proj
                       {assignment.employee.firstName} {assignment.employee.lastName}
                     </p>
                     {assignment.employee.employeeNumber && (
-                      <p className="text-muted-foreground font-mono text-sm">
-                        {assignment.employee.employeeNumber}
-                      </p>
+                      <p className="text-muted-foreground font-mono text-sm">{assignment.employee.employeeNumber}</p>
                     )}
                   </div>
                 </div>

@@ -140,6 +140,9 @@ model Organization {
   payslipBatches     PayslipBatch[]
   payslipUploadItems PayslipUploadItem[]
 
+  // NUEVO: Sistema de firma masiva (Mejora 7)
+  signatureBatches SignatureBatch[]
+
   @@map("organizations")
 }
 
@@ -205,6 +208,10 @@ model User {
   resolvedAlerts       Alert[]                   @relation("AlertResolver") // Alertas que ha resuelto
   activeContext        UserActiveContext? // Contexto activo seleccionado por el usuario
   procedureHistory     ExpenseProcedureHistory[] // Historial de expedientes donde ha actuado
+
+  // NUEVO: Sistema de firma masiva (Mejora 7)
+  createdSignatureBatches  SignatureBatch[] @relation("CreatedBatches") // Lotes de firma que ha creado
+  secondSignerBatches      SignatureBatch[] @relation("SecondSignerBatches") // Lotes donde es segundo firmante específico
 
   @@index([email])
   @@index([orgId])
@@ -1574,6 +1581,23 @@ enum PtoNotificationType {
   TIME_BANK_REQUEST_APPROVED // Solicitud de bolsa aprobada
   TIME_BANK_REQUEST_REJECTED // Solicitud de bolsa rechazada
   PAYSLIP_AVAILABLE // Nómina disponible para el empleado
+  SIGNATURE_REMINDER // Recordatorio de firma pendiente (antes de expirar)
+}
+
+// Estado del lote de firmas masivas
+enum SignatureBatchStatus {
+  DRAFT // Configurando, sin SignatureRequest creadas
+  ACTIVE // SignatureRequest creadas y en curso
+  COMPLETED // Todos firmaron o cerrado manualmente
+  CANCELLED // Cancelado por HR/Admin
+  EXPIRED // expiresAt alcanzado
+}
+
+// Rol del segundo firmante en doble firma
+enum SecondSignerRole {
+  MANAGER // Manager directo del empleado
+  HR // Cualquier usuario con rol HR
+  SPECIFIC_USER // Usuario específico (secondSignerUserId)
 }
 
 // Ajustes manuales de balance de PTO (auditoría)
@@ -1719,11 +1743,62 @@ model SignableDocument {
 
   // Relaciones
   signatureRequests SignatureRequest[]
+  signatureBatches  SignatureBatch[]
 
   @@index([orgId])
   @@index([createdById])
   @@index([category])
   @@map("signable_documents")
+}
+
+// Lote de firmas masivas - Agrupa múltiples SignatureRequest
+model SignatureBatch {
+  id          String  @id @default(cuid())
+  name        String // Nombre del lote (ej: "Política de privacidad 2024")
+  description String? // Descripción opcional
+
+  // Estado del lote
+  status SignatureBatchStatus @default(DRAFT)
+
+  // Documento base a firmar
+  documentId String
+  document   SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  // Configuración de doble firma
+  requireDoubleSignature Boolean          @default(false)
+  secondSignerRole       SecondSignerRole? // MANAGER, HR o SPECIFIC_USER
+  secondSignerUserId     String? // ID del usuario específico (si role = SPECIFIC_USER)
+  secondSignerUser       User?             @relation("SecondSignerBatches", fields: [secondSignerUserId], references: [id])
+
+  // Expiración y recordatorios
+  expiresAt      DateTime
+  reminderDays   Int[]     @default([7, 3, 1]) // Días antes de expirar para enviar recordatorio
+  lastReminderAt DateTime? // Última vez que se enviaron recordatorios
+
+  // Estadísticas desnormalizadas (se actualizan al cambiar estado de SignatureRequest)
+  totalRecipients Int @default(0)
+  signedCount     Int @default(0)
+  pendingCount    Int @default(0)
+  rejectedCount   Int @default(0)
+
+  // Auditoría
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdById String
+  createdBy   User     @relation("CreatedBatches", fields: [createdById], references: [id])
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Relaciones
+  requests SignatureRequest[]
+
+  @@index([orgId, status])
+  @@index([documentId])
+  @@index([createdById])
+  @@index([expiresAt])
+  @@map("signature_batches")
 }
 
 // Solicitud de firma - Workflow de firma con múltiples firmantes
@@ -1751,6 +1826,13 @@ model SignatureRequest {
   documentId String
   document   SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
+  // Lote de firmas (opcional - puede ser solicitud individual)
+  batchId String?
+  batch   SignatureBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  // Flag para doble firma cuando no hay segundo firmante asignado
+  secondSignerMissing Boolean @default(false) // true si MANAGER y no tiene manager
+
   // Relaciones
   signers   Signer[]
   evidences SignatureEvidence[]
@@ -1759,6 +1841,7 @@ model SignatureRequest {
   @@index([documentId])
   @@index([status])
   @@index([expiresAt])
+  @@index([batchId])
   @@map("signature_requests")
 }
 
