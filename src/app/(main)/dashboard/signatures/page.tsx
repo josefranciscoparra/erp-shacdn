@@ -17,7 +17,6 @@ import { signatureRequestStatusLabels, signableDocumentCategoryLabels } from "@/
 import { useSignaturesStore } from "@/stores/signatures-store";
 
 import { ActiveFilters } from "./_components/active-filters";
-import { CreateBatchDialog } from "./_components/create-batch-dialog";
 import { CreateSignatureDialog } from "./_components/create-signature-dialog";
 import { SignaturesDataTable } from "./_components/signatures-data-table";
 import { SimplePagination } from "./_components/simple-pagination";
@@ -148,12 +147,7 @@ export default function SignaturesPage() {
       <SectionHeader
         title="Gestión de Firmas"
         description="Gestiona y realiza el seguimiento de solicitudes de firma electrónica de documentos"
-        action={
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <CreateSignatureDialog onSuccess={handleRefresh} />
-            <CreateBatchDialog onSuccess={handleRefresh} />
-          </div>
-        }
+        action={<CreateSignatureDialog onSuccess={handleRefresh} />}
       />
 
       {/* Summary cards premium */}

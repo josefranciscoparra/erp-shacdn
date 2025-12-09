@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get("q") ?? "";
     const limit = Math.min(parseInt(searchParams.get("limit") ?? "50", 10), 100);
+    const requireUser = searchParams.get("requireUser") === "true";
 
     // Normalizar el query para búsquedas con/sin acentos
     const normalizedQuery = query.trim();
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
         orgId,
         active: true,
         ...searchFilter,
+        ...(requireUser ? { user: { isNot: null } } : {}),
       },
       select: {
         id: true,
@@ -108,6 +110,7 @@ export async function GET(request: NextRequest) {
         secondLastName: true,
         employeeNumber: true,
         email: true,
+        userId: true,
         employmentContracts: {
           where: {
             active: true,
@@ -121,6 +124,7 @@ export async function GET(request: NextRequest) {
             department: {
               select: {
                 name: true,
+                id: true,
               },
             },
           },
@@ -144,8 +148,10 @@ export async function GET(request: NextRequest) {
         fullName,
         employeeNumber: employee.employeeNumber,
         email: employee.email,
+        userId: employee.userId,
         position: currentContract?.position?.title ?? null,
         department: currentContract?.department?.name ?? null,
+        departmentId: currentContract?.department?.id ?? null,
       };
     });
 

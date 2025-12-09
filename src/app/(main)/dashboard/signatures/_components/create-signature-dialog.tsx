@@ -43,7 +43,6 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
-import { getAvailableEmployeesForBatch } from "@/server/actions/signature-batch";
 
 const STEPS = [
   { title: "Documento", icon: FileText, description: "Sube el PDF" },
@@ -292,20 +291,11 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
 
   const loadAllEmployees = async () => {
     try {
-      const result = await getAvailableEmployeesForBatch();
-      if (result.success && result.data) {
-        const withUser = result.data.filter((emp) => emp.hasUser && Boolean(emp.userId));
-        const adapted = withUser.map((e) => ({
-          id: e.id,
-          fullName: `${e.firstName} ${e.lastName}`,
-          employeeNumber: null,
-          email: e.email,
-          position: null,
-          department: e.departmentName,
-          departmentId: e.departmentId, // Asegurar que esto venga del server action
-          userId: e.userId,
-        }));
-        setAllEmployees(adapted);
+      // requireUser=true para mostrar solo empleados que pueden firmar (tienen usuario activo)
+      const response = await fetch("/api/employees/search?limit=100&requireUser=true");
+      if (response.ok) {
+        const data = await response.json();
+        setAllEmployees(data ?? []);
       }
     } catch (error) {
       console.error("Error loading all employees:", error);
@@ -321,7 +311,9 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       }
       setIsSearching(true);
       try {
-        const response = await fetch(`/api/employees/search?q=${encodeURIComponent(employeeSearch)}&limit=10`);
+        const response = await fetch(
+          `/api/employees/search?q=${encodeURIComponent(employeeSearch)}&limit=10&requireUser=true`,
+        );
         const data = await response.json();
         setSearchResults(data ?? []);
       } catch (error) {
@@ -342,19 +334,12 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
         return;
       }
       try {
-        const result = await getAvailableEmployeesForBatch({ search: userSearch });
-        if (result.success && result.data) {
-          const withUser = result.data.filter((emp) => emp.hasUser && Boolean(emp.userId));
-          const adapted = withUser.map((e) => ({
-            id: e.id,
-            fullName: `${e.firstName} ${e.lastName}`,
-            employeeNumber: null,
-            email: e.email,
-            position: null,
-            department: e.departmentName,
-            userId: e.userId,
-          }));
-          setUserSearchResults(adapted);
+        const response = await fetch(
+          `/api/employees/search?q=${encodeURIComponent(userSearch)}&limit=20&requireUser=true`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setUserSearchResults(data ?? []);
         }
       } catch (error) {
         console.error("Error searching users:", error);
@@ -374,26 +359,15 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
 
       setIsSearchingAdditional(true);
       try {
-        const result = await getAvailableEmployeesForBatch({ search: additionalSearch });
-        if (result.success && result.data) {
-          const adapted = result.data
-            .filter(
-              (emp) =>
-                emp.hasUser &&
-                Boolean(emp.userId) &&
-                !selectedAdditionalSigners.some((selected) => selected.id === emp.id),
-            )
-            .map((emp) => ({
-              id: emp.id,
-              fullName: `${emp.firstName} ${emp.lastName}`,
-              employeeNumber: null,
-              email: emp.email,
-              position: null,
-              department: emp.departmentName,
-              departmentId: emp.departmentId,
-              userId: emp.userId ?? undefined,
-            }));
-          setAdditionalSearchResults(adapted);
+        const response = await fetch(
+          `/api/employees/search?q=${encodeURIComponent(additionalSearch)}&limit=20&requireUser=true`,
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const filtered = (data ?? []).filter(
+            (emp: Employee) => !selectedAdditionalSigners.some((selected) => selected.id === emp.id),
+          );
+          setAdditionalSearchResults(filtered);
         }
       } catch (error) {
         console.error("Error searching additional signers:", error);
