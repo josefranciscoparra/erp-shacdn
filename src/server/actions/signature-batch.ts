@@ -354,6 +354,7 @@ export async function activateBatchWithRecipients(
             batch.secondSignerRole,
             batch.secondSignerUserId ?? undefined,
             user.orgId,
+            { fallbackUserId: user.id },
           );
 
           if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {

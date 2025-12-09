@@ -187,6 +187,33 @@ export async function POST(request: NextRequest) {
 
     const recipientUserMap = new Map(recipients.map((recipient) => [recipient.id, recipient.user!.id]));
 
+    const shouldCreateBatch = recipientEmployeeIds.length > 1 || recipientType !== "SPECIFIC";
+    let batchId: string | null = null;
+
+    if (shouldCreateBatch) {
+      const reminderDays = [7, 3, 1];
+      const batch = await prisma.signatureBatch.create({
+        data: {
+          name: document.title,
+          description: document.description,
+          status: "ACTIVE",
+          documentId,
+          requireDoubleSignature,
+          secondSignerRole: requireDoubleSignature ? (secondSignerRole ?? null) : null,
+          secondSignerUserId: requireDoubleSignature ? (secondSignerUserId ?? null) : null,
+          expiresAt,
+          reminderDays,
+          totalRecipients: recipientEmployeeIds.length,
+          pendingCount: recipientEmployeeIds.length,
+          signedCount: 0,
+          rejectedCount: 0,
+          createdById: session.user.id,
+          orgId: session.user.orgId,
+        },
+      });
+      batchId = batch.id;
+    }
+
     const uniqueAdditionalSignerIds = uniqueValues(additionalSignerEmployeeIds);
     const additionalSigners = uniqueAdditionalSignerIds.length
       ? await prisma.employee.findMany({
@@ -239,6 +266,9 @@ export async function POST(request: NextRequest) {
           secondSignerRole,
           secondSignerUserId ?? undefined,
           session.user.orgId,
+          {
+            fallbackUserId: session.user.id,
+          },
         );
 
         if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {
@@ -263,6 +293,7 @@ export async function POST(request: NextRequest) {
           expiresAt,
           status: "PENDING",
           secondSignerMissing,
+          batchId: batchId ?? undefined,
           signers: {
             create: signersData.map((signer) => ({
               order: signer.order,
@@ -297,6 +328,7 @@ export async function POST(request: NextRequest) {
           signerCount: createdRequests.length, // Total de solicitudes creadas
           expiresAt: createdRequests[0]?.expiresAt.toISOString(),
         },
+        batchId,
       },
       { status: 201 },
     );

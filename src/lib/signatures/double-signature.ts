@@ -30,13 +30,17 @@ export async function resolveSecondSigner(
   role: SecondSignerRole,
   specificUserId: string | undefined,
   orgId: string,
+  options?: {
+    /** Usuario que está creando la solicitud y puede servir como fallback */
+    fallbackUserId?: string;
+  },
 ): Promise<SecondSignerResolution> {
   switch (role) {
     case "MANAGER":
       return resolveManagerSigner(employeeId, orgId);
 
     case "HR":
-      return resolveHRSigner(orgId);
+      return resolveHRSigner(orgId, options?.fallbackUserId);
 
     case "SPECIFIC_USER":
       return resolveSpecificUserSigner(specificUserId, orgId);
@@ -123,13 +127,14 @@ async function resolveManagerSigner(employeeId: string, orgId: string): Promise<
  * Resuelve un usuario con rol HR de la organización como segundo firmante.
  * Selecciona el primer usuario HR activo que encuentre.
  */
-async function resolveHRSigner(orgId: string): Promise<SecondSignerResolution> {
+async function resolveHRSigner(orgId: string, fallbackUserId?: string): Promise<SecondSignerResolution> {
   // Buscar usuarios con rol HR en la organización
   const hrUser = await prisma.user.findFirst({
     where: {
       orgId,
-      role: { in: ["HR_ADMIN", "ORG_ADMIN"] },
+      role: { in: ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"] },
       active: true,
+      employee: { isNot: null },
     },
     include: {
       employee: true,
@@ -139,28 +144,40 @@ async function resolveHRSigner(orgId: string): Promise<SecondSignerResolution> {
     },
   });
 
-  if (!hrUser) {
+  if (hrUser?.employee) {
     return {
-      userId: null,
-      employeeId: null,
-      missing: true,
-      missingReason: "No hay usuarios con rol HR activos en la organización",
+      userId: hrUser.id,
+      employeeId: hrUser.employee.id,
+      missing: false,
     };
   }
 
-  if (!hrUser.employee) {
-    return {
-      userId: null,
-      employeeId: null,
-      missing: true,
-      missingReason: "El usuario HR no tiene un empleado asociado",
-    };
+  if (fallbackUserId) {
+    const fallbackUser = await prisma.user.findFirst({
+      where: {
+        id: fallbackUserId,
+        orgId,
+        active: true,
+      },
+      include: {
+        employee: true,
+      },
+    });
+
+    if (fallbackUser?.employee) {
+      return {
+        userId: fallbackUser.id,
+        employeeId: fallbackUser.employee.id,
+        missing: false,
+      };
+    }
   }
 
   return {
-    userId: hrUser.id,
-    employeeId: hrUser.employee.id,
-    missing: false,
+    userId: null,
+    employeeId: null,
+    missing: true,
+    missingReason: "No hay usuarios con rol HR activos en la organización",
   };
 }
 

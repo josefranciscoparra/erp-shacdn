@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { useRouter } from "next/navigation";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Building2,
@@ -39,7 +41,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
@@ -47,7 +48,7 @@ import { signableDocumentCategoryLabels } from "@/lib/validations/signature";
 const STEPS = [
   { title: "Documento", icon: FileText, description: "Sube el PDF" },
   { title: "Destinatarios", icon: Users, description: "Quién firma" },
-  { title: "Configuración", icon: UserPlus, description: "Doble firma y fechas" },
+  { title: "Configuración", icon: CalendarIcon, description: "Fecha límite" },
   { title: "Resumen", icon: Check, description: "Confirma y crea" },
 ];
 
@@ -66,10 +67,7 @@ const createSignatureSchema = z
     employeeIds: z.array(z.string()).optional(),
     additionalSignerEmployeeIds: z.array(z.string()).default([]),
 
-    // Paso 3: Configuración (Doble firma + Expiración)
-    requireDoubleSignature: z.boolean().default(false),
-    secondSignerRole: z.enum(["MANAGER", "HR", "SPECIFIC_USER"]).optional(),
-    secondSignerUserId: z.string().optional(),
+    // Paso 3: Configuración (Solo expiración)
     expiresAt: z.date().min(new Date(), "Debe ser fecha futura"),
   })
   .refine(
@@ -85,30 +83,6 @@ const createSignatureSchema = z
     {
       message: "Debes seleccionar al menos un destinatario",
       path: ["employeeIds"],
-    },
-  )
-  .refine(
-    (data) => {
-      if (data.requireDoubleSignature) {
-        return !!data.secondSignerRole;
-      }
-      return true;
-    },
-    {
-      message: "Debes seleccionar quién será el segundo firmante",
-      path: ["secondSignerRole"],
-    },
-  )
-  .refine(
-    (data) => {
-      if (data.requireDoubleSignature && data.secondSignerRole === "SPECIFIC_USER") {
-        return !!data.secondSignerUserId;
-      }
-      return true;
-    },
-    {
-      message: "Debes seleccionar un usuario específico",
-      path: ["secondSignerUserId"],
     },
   );
 
@@ -135,6 +109,7 @@ interface Employee {
 }
 
 export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -147,12 +122,8 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [searchResults, setSearchResults] = useState<Employee[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [openCombobox, setOpenCombobox] = useState(false);
   const [openComboboxAdvanced, setOpenComboboxAdvanced] = useState(false);
 
-  const [userSearch, setUserSearch] = useState("");
-  const [userSearchResults, setUserSearchResults] = useState<Employee[]>([]);
-  const [openUserCombobox, setOpenUserCombobox] = useState(false);
   const [selectedAdditionalSigners, setSelectedAdditionalSigners] = useState<Employee[]>([]);
   const [additionalSearch, setAdditionalSearch] = useState("");
   const [additionalSearchResults, setAdditionalSearchResults] = useState<Employee[]>([]);
@@ -162,7 +133,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
   // Estados de selección local (para UI)
   const [selectedEmployees, setSelectedEmployees] = useState<Employee[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
-  const [selectedSecondSigner, setSelectedSecondSigner] = useState<Employee | null>(null);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
 
   const form = useForm<CreateSignatureFormValues>({
@@ -176,14 +146,10 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       employeeIds: [],
       additionalSignerEmployeeIds: [],
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // +7 días
-      requireDoubleSignature: false,
-      secondSignerUserId: "",
     },
   });
 
   const recipientType = form.watch("recipientType");
-  const requireDoubleSignature = form.watch("requireDoubleSignature");
-  const secondSignerRole = form.watch("secondSignerRole");
   const recipientSummaryLabel = useMemo(() => {
     switch (recipientType) {
       case "ALL":
@@ -210,20 +176,25 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
     }
   }, [recipientType, selectedDepartments, departments, selectedEmployees]);
 
-  const recipientCount = getRecipientCount();
-
-  const secondSignerDisplay = useMemo(() => {
-    switch (secondSignerRole) {
-      case "MANAGER":
-        return "Manager directo";
-      case "HR":
-        return "Equipo HR";
-      case "SPECIFIC_USER":
-        return selectedSecondSigner ? selectedSecondSigner.fullName : "Usuario específico";
+  const recipientCount = useMemo(() => {
+    switch (recipientType) {
+      case "ALL":
+        return allEmployees.length;
+      case "DEPARTMENTS":
+        return allEmployees.filter(
+          (employee) => employee.departmentId && selectedDepartments.includes(employee.departmentId),
+        ).length;
+      case "SPECIFIC":
+        return selectedEmployees.length;
       default:
-        return "Segundo firmante";
+        return 0;
     }
-  }, [secondSignerRole, selectedSecondSigner]);
+  }, [recipientType, allEmployees, selectedDepartments, selectedEmployees]);
+
+  const willCreateBatch = useMemo(
+    () => recipientType !== "SPECIFIC" || recipientCount > 1,
+    [recipientType, recipientCount],
+  );
 
   const flowSteps = useMemo(() => {
     const steps: FlowStep[] = [
@@ -232,13 +203,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
         description: recipientCount === 1 ? "1 destinatario" : `${recipientCount} destinatarios`,
       },
     ];
-
-    if (requireDoubleSignature && secondSignerRole) {
-      steps.push({
-        label: secondSignerDisplay,
-        description: "Validador automático",
-      });
-    }
 
     if (selectedAdditionalSigners.length > 0) {
       selectedAdditionalSigners.forEach((signer, index) => {
@@ -250,14 +214,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
     }
 
     return steps;
-  }, [
-    recipientSummaryLabel,
-    recipientCount,
-    requireDoubleSignature,
-    secondSignerRole,
-    secondSignerDisplay,
-    selectedAdditionalSigners,
-  ]);
+  }, [recipientSummaryLabel, recipientCount, selectedAdditionalSigners]);
 
   // Resetear estados al abrir/cerrar
   useEffect(() => {
@@ -267,7 +224,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       setSelectedFile(null);
       setSelectedEmployees([]);
       setSelectedDepartments([]);
-      setSelectedSecondSigner(null);
       setAllEmployees([]);
       setSelectedAdditionalSigners([]);
       setAdditionalSearch("");
@@ -326,29 +282,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
     return () => clearTimeout(debounceTimer);
   }, [employeeSearch]);
 
-  // Buscar usuarios (segundo firmante)
-  useEffect(() => {
-    const searchUsers = async () => {
-      if (userSearch.length < 2) {
-        setUserSearchResults([]);
-        return;
-      }
-      try {
-        const response = await fetch(
-          `/api/employees/search?q=${encodeURIComponent(userSearch)}&limit=20&requireUser=true`,
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setUserSearchResults(data ?? []);
-        }
-      } catch (error) {
-        console.error("Error searching users:", error);
-      }
-    };
-    const debounceTimer = setTimeout(searchUsers, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [userSearch]);
-
   // Buscar firmantes adicionales
   useEffect(() => {
     const searchAdditionalSigners = async () => {
@@ -405,7 +338,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
         newEmployees.map((e) => e.id),
       );
       setEmployeeSearch("");
-      setOpenCombobox(false);
       setOpenComboboxAdvanced(false);
     }
   };
@@ -451,32 +383,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
     form.setValue("departmentIds", newDepartments);
   };
 
-  const handleSelectSecondSigner = (employee: Employee) => {
-    if (!employee.userId) {
-      toast.error("El empleado seleccionado no tiene usuario activo");
-      return;
-    }
-    setSelectedSecondSigner(employee);
-    form.setValue("secondSignerUserId", employee.userId);
-    setUserSearch("");
-    setOpenUserCombobox(false);
-  };
-
-  function getRecipientCount(): number {
-    switch (recipientType) {
-      case "ALL":
-        return allEmployees.length;
-      case "DEPARTMENTS":
-        return allEmployees.filter(
-          (employee) => employee.departmentId && selectedDepartments.includes(employee.departmentId),
-        ).length;
-      case "SPECIFIC":
-        return selectedEmployees.length;
-      default:
-        return 0;
-    }
-  }
-
   const canProceed = async (): Promise<boolean> => {
     let isValid = false;
     switch (currentStep) {
@@ -487,7 +393,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
         isValid = await form.trigger(["recipientType", "departmentIds", "employeeIds"]);
         return isValid;
       case 2: // Configuración
-        isValid = await form.trigger(["requireDoubleSignature", "secondSignerRole", "secondSignerUserId", "expiresAt"]);
+        isValid = await form.trigger(["expiresAt"]);
         return isValid;
       case 3: // Resumen
         return true;
@@ -541,15 +447,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       requestData.append("expiresAt", values.expiresAt.toISOString());
       requestData.append("recipientType", values.recipientType);
 
-      // Doble firma
-      requestData.append("requireDoubleSignature", values.requireDoubleSignature.toString());
-      if (values.secondSignerRole) {
-        requestData.append("secondSignerRole", values.secondSignerRole);
-      }
-      if (values.secondSignerUserId) {
-        requestData.append("secondSignerUserId", values.secondSignerUserId);
-      }
-
       if (values.recipientType === "DEPARTMENTS" && values.departmentIds) {
         requestData.append("departmentIds", JSON.stringify(values.departmentIds));
       } else if (values.recipientType === "SPECIFIC" && values.employeeIds) {
@@ -570,9 +467,20 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
         throw new Error(error.error ?? "Error al crear solicitud");
       }
 
-      const { request } = await createResponse.json();
+      const { request, batchId } = await createResponse.json();
       const totalRequests = request?.count ?? request?.signerCount ?? 1;
-      toast.success(`Solicitud creada: ${totalRequests} destinatario(s) notificado(s)`);
+
+      if (batchId) {
+        toast.success(`Lote creado para ${totalRequests} destinatario(s)`, {
+          description: "Puedes gestionar los firmantes individuales desde la vista de lotes.",
+          action: {
+            label: "Ver lote",
+            onClick: () => router.push(`/dashboard/signatures/batches/${batchId}`),
+          },
+        });
+      } else {
+        toast.success(`Solicitud creada: ${totalRequests} destinatario(s) notificado(s)`);
+      }
 
       setOpen(false);
       if (onSuccess) onSuccess();
@@ -732,7 +640,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                             field.onChange(val);
                             // Limpiar búsquedas al cambiar
                             setEmployeeSearch("");
-                            setOpenCombobox(false);
                             setOpenComboboxAdvanced(false);
                           }}
                           defaultValue={field.value}
@@ -1007,135 +914,6 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                     </FormItem>
                   )}
                 />
-
-                <Separator />
-
-                {/* Doble Firma */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Doble firma</FormLabel>
-                      <FormDescription>Requerir una segunda firma de validación</FormDescription>
-                    </div>
-                    <FormField
-                      control={form.control}
-                      name="requireDoubleSignature"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {requireDoubleSignature && (
-                    <div className="space-y-4 rounded-lg border p-4">
-                      <FormField
-                        control={form.control}
-                        name="secondSignerRole"
-                        render={({ field }) => (
-                          <FormItem className="space-y-3">
-                            <FormLabel>Segundo firmante *</FormLabel>
-                            <FormControl>
-                              <RadioGroup
-                                onValueChange={field.onChange}
-                                defaultValue={field.value}
-                                className="flex flex-col space-y-2"
-                              >
-                                <div className="flex items-center space-y-0 space-x-3">
-                                  <RadioGroupItem value="MANAGER" id="manager" />
-                                  <Label htmlFor="manager" className="cursor-pointer font-normal">
-                                    Manager directo
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-y-0 space-x-3">
-                                  <RadioGroupItem value="HR" id="hr" />
-                                  <Label htmlFor="hr" className="cursor-pointer font-normal">
-                                    Equipo de Recursos Humanos
-                                  </Label>
-                                </div>
-                                <div className="flex items-center space-y-0 space-x-3">
-                                  <RadioGroupItem value="SPECIFIC_USER" id="specific_user" />
-                                  <Label htmlFor="specific_user" className="cursor-pointer font-normal">
-                                    Usuario específico
-                                  </Label>
-                                </div>
-                              </RadioGroup>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      {secondSignerRole === "SPECIFIC_USER" && (
-                        <div className="pl-6">
-                          <FormLabel className="mb-2 block text-sm">Buscar usuario</FormLabel>
-                          {selectedSecondSigner ? (
-                            <div className="flex items-center justify-between rounded-md border p-3">
-                              <div>
-                                <span className="font-medium">{selectedSecondSigner.fullName}</span>
-                                <span className="text-muted-foreground ml-2 text-sm">{selectedSecondSigner.email}</span>
-                              </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedSecondSigner(null);
-                                  form.setValue("secondSignerUserId", "");
-                                }}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <Popover open={openUserCombobox} onOpenChange={setOpenUserCombobox}>
-                              <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full justify-between">
-                                  <span className="text-muted-foreground">Buscar usuario...</span>
-                                  <Users className="ml-2 h-4 w-4" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[400px] p-0" align="start">
-                                <Command shouldFilter={false}>
-                                  <CommandInput
-                                    placeholder="Buscar..."
-                                    value={userSearch}
-                                    onValueChange={setUserSearch}
-                                  />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      {userSearch.length < 2 ? "Escribe al menos 2 caracteres" : "No se encontró"}
-                                    </CommandEmpty>
-                                    {userSearchResults.length > 0 && (
-                                      <CommandGroup>
-                                        {userSearchResults.map((user) => (
-                                          <CommandItem
-                                            key={user.id}
-                                            value={user.id}
-                                            onSelect={() => handleSelectSecondSigner(user)}
-                                            className="cursor-pointer"
-                                          >
-                                            <div className="flex flex-col gap-0.5">
-                                              <span className="font-medium">{user.fullName}</span>
-                                              <span className="text-muted-foreground text-xs">{user.email}</span>
-                                            </div>
-                                          </CommandItem>
-                                        ))}
-                                      </CommandGroup>
-                                    )}
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
@@ -1187,18 +965,32 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                   </div>
                   <Separator />
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Doble firma:</span>
-                    <span className="font-medium">{requireDoubleSignature ? secondSignerDisplay : "No"}</span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-muted-foreground">Vence:</span>
                     <span className="font-medium">{form.getValues("expiresAt")?.toLocaleDateString()}</span>
                   </div>
                 </div>
 
+                <div className="rounded-lg border border-dashed p-4 text-sm">
+                  {willCreateBatch ? (
+                    <div className="space-y-2">
+                      <Badge variant="outline" className="bg-muted/30">
+                        Lote automático
+                      </Badge>
+                      <p className="text-muted-foreground">
+                        Se crearán {recipientCount || 1} solicitudes individuales y podrás gestionarlas en
+                        <span className="text-foreground font-medium"> Ver lotes</span> al finalizar.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">
+                      Se generará una única solicitud para el empleado seleccionado.
+                    </p>
+                  )}
+                </div>
+
                 <div className="bg-primary/10 rounded-lg p-4">
                   <p className="text-primary text-sm">
-                    Al confirmar, se subir el documento y se notificar a los firmantes.
+                    Al confirmar, se subirá el documento y se notificará a los firmantes.
                   </p>
                 </div>
 
