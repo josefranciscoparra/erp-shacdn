@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -23,7 +23,6 @@ import { z } from "zod";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Dialog,
@@ -64,7 +63,8 @@ const createBatchSchema = z
     departmentId: z.string().optional(),
     employeeIds: z.array(z.string()),
 
-    // Paso 3: Doble firma
+    // Paso 3: Firmantes adicionales
+    additionalSignerEmployeeIds: z.array(z.string()).default([]),
     requireDoubleSignature: z.boolean(),
     secondSignerRole: z.enum(["MANAGER", "HR", "SPECIFIC_USER"]).optional(),
     secondSignerUserId: z.string().optional(),
@@ -136,6 +136,7 @@ interface Employee {
   lastName: string;
   email: string;
   departmentName: string | null;
+  departmentId: string | null;
   hasUser: boolean;
   userId: string | null;
 }
@@ -171,6 +172,11 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
   const [userSearchResults, setUserSearchResults] = useState<Employee[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [selectedSecondSigner, setSelectedSecondSigner] = useState<Employee | null>(null);
+  const [selectedAdditionalSigners, setSelectedAdditionalSigners] = useState<Employee[]>([]);
+  const [additionalSearch, setAdditionalSearch] = useState("");
+  const [additionalSearchResults, setAdditionalSearchResults] = useState<Employee[]>([]);
+  const [isSearchingAdditional, setIsSearchingAdditional] = useState(false);
+  const [openAdditionalCombobox, setOpenAdditionalCombobox] = useState(false);
 
   const form = useForm<CreateBatchFormValues>({
     resolver: zodResolver(createBatchSchema),
@@ -181,6 +187,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
       recipientType: "MANUAL",
       departmentId: "",
       employeeIds: [],
+      additionalSignerEmployeeIds: [],
       requireDoubleSignature: false,
       secondSignerRole: undefined,
       secondSignerUserId: "",
@@ -194,6 +201,80 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
   const secondSignerRole = form.watch("secondSignerRole");
   const selectedDocumentId = form.watch("documentId");
   const selectedDepartmentId = form.watch("departmentId");
+  const selectedDepartment = useMemo(
+    () => departments.find((dept) => dept.id === selectedDepartmentId) ?? null,
+    [departments, selectedDepartmentId],
+  );
+
+  const primarySignerLabel = useMemo(() => {
+    switch (recipientType) {
+      case "ALL":
+        return "Toda la organización";
+      case "DEPARTMENT":
+        return selectedDepartment ? `Departamento: ${selectedDepartment.name}` : "Selecciona un departamento";
+      case "MANUAL":
+        if (selectedEmployees.length === 0) {
+          return "Selecciona empleados";
+        }
+        if (selectedEmployees.length <= 3) {
+          return selectedEmployees.map((emp) => `${emp.firstName} ${emp.lastName}`).join(", ");
+        }
+        return `Empleados seleccionados (${selectedEmployees.length})`;
+      default:
+        return "Sin destinatarios";
+    }
+  }, [recipientType, selectedDepartment, selectedEmployees]);
+
+  const secondarySignerLabel = useMemo(() => {
+    switch (secondSignerRole) {
+      case "MANAGER":
+        return "Manager directo de cada empleado";
+      case "HR":
+        return "Equipo de Recursos Humanos";
+      case "SPECIFIC_USER":
+        return selectedSecondSigner
+          ? `${selectedSecondSigner.firstName} ${selectedSecondSigner.lastName}`
+          : "Selecciona un usuario específico";
+      default:
+        return "Selecciona el segundo firmante";
+    }
+  }, [secondSignerRole, selectedSecondSigner]);
+
+  const recipientCount = getRecipientCount();
+
+  const flowSteps = useMemo(() => {
+    const steps: FlowStep[] = [
+      {
+        label: primarySignerLabel,
+        description: recipientCount === 1 ? "1 destinatario" : `${recipientCount} destinatarios`,
+      },
+    ];
+
+    if (requireDoubleSignature && secondSignerRole) {
+      steps.push({
+        label: secondarySignerLabel,
+        description: "Validador automático",
+      });
+    }
+
+    if (selectedAdditionalSigners.length > 0) {
+      selectedAdditionalSigners.forEach((signer, index) => {
+        steps.push({
+          label: `${signer.firstName} ${signer.lastName}`,
+          description: `Firmante adicional #${index + 1}`,
+        });
+      });
+    }
+
+    return steps;
+  }, [
+    primarySignerLabel,
+    recipientCount,
+    requireDoubleSignature,
+    secondSignerRole,
+    secondarySignerLabel,
+    selectedAdditionalSigners,
+  ]);
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -201,8 +282,17 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
       loadDocuments();
       loadDepartments();
       loadAllEmployees();
+    } else {
+      setCurrentStep(0);
+      form.reset();
+      setSelectedEmployees([]);
+      setSelectedAdditionalSigners([]);
+      setSelectedSecondSigner(null);
+      setEmployeeSearch("");
+      setUserSearch("");
+      setAdditionalSearch("");
     }
-  }, [open]);
+  }, [open, form]);
 
   // Buscar empleados para selección manual
   useEffect(() => {
@@ -255,6 +345,34 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
     const debounceTimer = setTimeout(searchUsers, 300);
     return () => clearTimeout(debounceTimer);
   }, [userSearch]);
+
+  // Buscar empleados para firmantes adicionales
+  useEffect(() => {
+    const searchAdditionalSigners = async () => {
+      if (additionalSearch.length < 2) {
+        setAdditionalSearchResults([]);
+        return;
+      }
+
+      setIsSearchingAdditional(true);
+      try {
+        const result = await getAvailableEmployeesForBatch({ search: additionalSearch });
+        if (result.success && result.data) {
+          const filtered = result.data.filter(
+            (emp) => emp.hasUser && Boolean(emp.userId) && !selectedAdditionalSigners.some((s) => s.id === emp.id),
+          );
+          setAdditionalSearchResults(filtered);
+        }
+      } catch (error) {
+        console.error("Error searching additional signers:", error);
+      } finally {
+        setIsSearchingAdditional(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchAdditionalSigners, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [additionalSearch, selectedAdditionalSigners]);
 
   const loadDocuments = async () => {
     try {
@@ -310,6 +428,30 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
     );
   };
 
+  const handleAddAdditionalSigner = (employee: Employee) => {
+    if (selectedAdditionalSigners.find((s) => s.id === employee.id)) {
+      return;
+    }
+
+    const newSigners = [...selectedAdditionalSigners, employee];
+    setSelectedAdditionalSigners(newSigners);
+    form.setValue(
+      "additionalSignerEmployeeIds",
+      newSigners.map((signer) => signer.id),
+    );
+    setAdditionalSearch("");
+    setOpenAdditionalCombobox(false);
+  };
+
+  const handleRemoveAdditionalSigner = (employeeId: string) => {
+    const newSigners = selectedAdditionalSigners.filter((signer) => signer.id !== employeeId);
+    setSelectedAdditionalSigners(newSigners);
+    form.setValue(
+      "additionalSignerEmployeeIds",
+      newSigners.map((signer) => signer.id),
+    );
+  };
+
   const handleSelectSecondSigner = (employee: Employee) => {
     if (!employee.userId) {
       toast.error("El empleado seleccionado no tiene usuario activo");
@@ -322,29 +464,27 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
     setOpenUserCombobox(false);
   };
 
-  const getRecipientCount = (): number => {
+  function getRecipientCount(): number {
     switch (recipientType) {
       case "ALL":
         return allEmployeesCount;
       case "DEPARTMENT":
-        return employees.filter((emp) => {
-          const dept = departments.find((d) => d.id === selectedDepartmentId);
-          return dept && emp.departmentName === dept.name;
-        }).length;
+        if (!selectedDepartmentId) return 0;
+        return employees.filter((emp) => emp.departmentId === selectedDepartmentId).length;
       case "MANUAL":
         return selectedEmployees.length;
       default:
         return 0;
     }
-  };
+  }
 
   const getRecipientEmployeeIds = (): string[] => {
     switch (recipientType) {
       case "ALL":
         return employees.map((emp) => emp.id);
       case "DEPARTMENT": {
-        const dept = departments.find((d) => d.id === selectedDepartmentId);
-        return employees.filter((emp) => dept && emp.departmentName === dept.name).map((emp) => emp.id);
+        if (!selectedDepartmentId) return [];
+        return employees.filter((emp) => emp.departmentId === selectedDepartmentId).map((emp) => emp.id);
       }
       case "MANUAL":
         return selectedEmployees.map((emp) => emp.id);
@@ -391,6 +531,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
     try {
       const values = form.getValues();
       const recipientIds = getRecipientEmployeeIds();
+      const additionalSignerIds = selectedAdditionalSigners.map((signer) => signer.id);
 
       // 1. Crear el lote en estado DRAFT
       const createResult = await createSignatureBatch({
@@ -398,6 +539,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
         description: values.description,
         documentId: values.documentId,
         recipientEmployeeIds: recipientIds,
+        additionalSignerEmployeeIds: additionalSignerIds,
         requireDoubleSignature: values.requireDoubleSignature,
         secondSignerRole: values.secondSignerRole,
         secondSignerUserId: values.secondSignerUserId,
@@ -410,7 +552,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
       }
 
       // 2. Activar el lote (crear SignatureRequests)
-      const activateResult = await activateBatchWithRecipients(createResult.data.id, recipientIds);
+      const activateResult = await activateBatchWithRecipients(createResult.data.id, recipientIds, additionalSignerIds);
 
       if (!activateResult.success) {
         throw new Error(activateResult.error ?? "Error al activar el lote");
@@ -424,6 +566,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
       form.reset();
       setSelectedEmployees([]);
       setSelectedSecondSigner(null);
+      setSelectedAdditionalSigners([]);
 
       if (onSuccess) {
         onSuccess();
@@ -452,7 +595,7 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
           Nuevo Lote de Firmas
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Crear Lote de Firmas Masivas</DialogTitle>
           <DialogDescription>
@@ -725,146 +868,248 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
                 <div className="bg-primary/10 rounded-lg p-4">
                   <div className="flex items-center gap-2">
                     <Users className="text-primary h-5 w-5" />
-                    <span className="font-medium">Se crearán {getRecipientCount()} solicitudes de firma</span>
+                    <span className="font-medium">Se crearán {recipientCount} solicitudes de firma</span>
                   </div>
                 </div>
+
+                <SigningFlowPreview steps={flowSteps} />
               </div>
             )}
 
-            {/* Paso 3: Doble firma */}
+            {/* Paso 3: Firmantes adicionales */}
             {currentStep === 2 && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="double-sig">Requerir doble firma</Label>
-                    <p className="text-muted-foreground text-sm">
-                      Cada documento necesitará una segunda firma de validación
-                    </p>
+                <div className="space-y-4 rounded-lg border p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <FormLabel>Firmantes adicionales</FormLabel>
+                      <FormDescription>Se añadirán después de cada destinatario seleccionado.</FormDescription>
+                    </div>
+                    <Popover open={openAdditionalCombobox} onOpenChange={setOpenAdditionalCombobox}>
+                      <PopoverTrigger asChild>
+                        <Button type="button" variant="outline" className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          Añadir firmante
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput
+                            placeholder="Buscar por nombre o email..."
+                            value={additionalSearch}
+                            onValueChange={setAdditionalSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {isSearchingAdditional
+                                ? "Buscando..."
+                                : additionalSearch.length < 2
+                                  ? "Escribe al menos 2 caracteres"
+                                  : "No se encontró ningún empleado"}
+                            </CommandEmpty>
+                            {additionalSearchResults.length > 0 && (
+                              <CommandGroup>
+                                {additionalSearchResults.map((employee) => (
+                                  <CommandItem
+                                    key={employee.id}
+                                    value={employee.id}
+                                    onSelect={() => handleAddAdditionalSigner(employee)}
+                                  >
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className="font-medium">
+                                        {employee.firstName} {employee.lastName}
+                                      </span>
+                                      <span className="text-muted-foreground text-xs">
+                                        {employee.email}
+                                        {employee.departmentName && ` · ${employee.departmentName}`}
+                                      </span>
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
-                  <Switch
-                    id="double-sig"
-                    checked={requireDoubleSignature}
-                    onCheckedChange={(checked) => form.setValue("requireDoubleSignature", checked)}
-                  />
+
+                  {selectedAdditionalSigners.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No has añadido firmantes adicionales. Solo firmará cada destinatario seleccionado.
+                    </p>
+                  ) : (
+                    <div className="max-h-[240px] space-y-2 overflow-y-auto rounded-md border p-2">
+                      {selectedAdditionalSigners.map((signer, index) => (
+                        <div
+                          key={signer.id}
+                          className="bg-muted/50 flex items-center justify-between rounded-md p-2 text-sm"
+                        >
+                          <div>
+                            <span className="font-medium">
+                              {index + 1}. {signer.firstName} {signer.lastName}
+                            </span>
+                            {signer.departmentName && (
+                              <span className="text-muted-foreground ml-2 text-xs">({signer.departmentName})</span>
+                            )}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveAdditionalSigner(signer.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
-                {requireDoubleSignature && (
-                  <div className="space-y-4 rounded-lg border p-4">
-                    <FormField
-                      control={form.control}
-                      name="secondSignerRole"
-                      render={({ field }) => (
-                        <FormItem className="space-y-3">
-                          <FormLabel>Segundo firmante *</FormLabel>
-                          <FormControl>
-                            <RadioGroup
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                              className="flex flex-col space-y-2"
-                            >
-                              <div className="flex items-center space-y-0 space-x-3">
-                                <RadioGroupItem value="MANAGER" id="manager" />
-                                <Label htmlFor="manager" className="cursor-pointer font-normal">
-                                  Manager directo de cada empleado
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-y-0 space-x-3">
-                                <RadioGroupItem value="HR" id="hr" />
-                                <Label htmlFor="hr" className="cursor-pointer font-normal">
-                                  Equipo de Recursos Humanos
-                                </Label>
-                              </div>
-                              <div className="flex items-center space-y-0 space-x-3">
-                                <RadioGroupItem value="SPECIFIC_USER" id="specific" />
-                                <Label htmlFor="specific" className="cursor-pointer font-normal">
-                                  Usuario específico
-                                </Label>
-                              </div>
-                            </RadioGroup>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                <div className="space-y-4 rounded-lg border p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <Label htmlFor="double-sig">Validador automático</Label>
+                      <p className="text-muted-foreground text-sm">
+                        Opcionalmente, añade un firmante automático (manager, HR o usuario específico) después del
+                        empleado.
+                      </p>
+                    </div>
+                    <Switch
+                      id="double-sig"
+                      checked={requireDoubleSignature}
+                      onCheckedChange={(checked) => {
+                        form.setValue("requireDoubleSignature", checked);
+                        if (!checked) {
+                          form.setValue("secondSignerRole", undefined);
+                          form.setValue("secondSignerUserId", "");
+                          setSelectedSecondSigner(null);
+                        }
+                      }}
                     />
-
-                    {secondSignerRole === "SPECIFIC_USER" && (
-                      <div className="space-y-2 pl-6">
-                        <FormLabel>Seleccionar usuario *</FormLabel>
-                        {selectedSecondSigner ? (
-                          <div className="flex items-center justify-between rounded-md border p-3">
-                            <div>
-                              <span className="font-medium">
-                                {selectedSecondSigner.firstName} {selectedSecondSigner.lastName}
-                              </span>
-                              <span className="text-muted-foreground ml-2 text-sm">{selectedSecondSigner.email}</span>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedSecondSigner(null);
-                                form.setValue("secondSignerUserId", "");
-                              }}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <Popover open={openUserCombobox} onOpenChange={setOpenUserCombobox}>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-between">
-                                <span className="text-muted-foreground">Buscar usuario...</span>
-                                <Users className="ml-2 h-4 w-4" />
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[400px] p-0" align="start">
-                              <Command shouldFilter={false}>
-                                <CommandInput
-                                  placeholder="Buscar por nombre o email..."
-                                  value={userSearch}
-                                  onValueChange={setUserSearch}
-                                />
-                                <CommandList>
-                                  <CommandEmpty>
-                                    {userSearch.length < 2 ? "Escribe al menos 2 caracteres" : "No se encontró"}
-                                  </CommandEmpty>
-                                  {userSearchResults.length > 0 && (
-                                    <CommandGroup>
-                                      {userSearchResults.map((user) => (
-                                        <CommandItem
-                                          key={user.id}
-                                          value={user.id}
-                                          onSelect={() => handleSelectSecondSigner(user)}
-                                          className="cursor-pointer"
-                                        >
-                                          <div className="flex flex-col gap-0.5">
-                                            <span className="font-medium">
-                                              {user.firstName} {user.lastName}
-                                            </span>
-                                            <span className="text-muted-foreground text-xs">{user.email}</span>
-                                          </div>
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  )}
-                                </CommandList>
-                              </Command>
-                            </PopoverContent>
-                          </Popover>
-                        )}
-                      </div>
-                    )}
-
-                    {secondSignerRole === "MANAGER" && (
-                      <div className="bg-muted/50 rounded-md p-3 text-sm">
-                        <p className="text-muted-foreground">
-                          Si un empleado no tiene manager asignado, se marcará para corrección manual.
-                        </p>
-                      </div>
-                    )}
                   </div>
-                )}
+
+                  {requireDoubleSignature && (
+                    <div className="space-y-4 rounded-md border p-4">
+                      <FormField
+                        control={form.control}
+                        name="secondSignerRole"
+                        render={({ field }) => (
+                          <FormItem className="space-y-3">
+                            <FormLabel>Tipo de validador</FormLabel>
+                            <FormControl>
+                              <RadioGroup
+                                onValueChange={field.onChange}
+                                defaultValue={field.value}
+                                className="flex flex-col space-y-2"
+                              >
+                                <div className="flex items-center space-x-3">
+                                  <RadioGroupItem value="MANAGER" id="manager" />
+                                  <Label htmlFor="manager" className="cursor-pointer font-normal">
+                                    Manager directo de cada empleado
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  <RadioGroupItem value="HR" id="hr" />
+                                  <Label htmlFor="hr" className="cursor-pointer font-normal">
+                                    Cualquier usuario con rol HR
+                                  </Label>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  <RadioGroupItem value="SPECIFIC_USER" id="specific" />
+                                  <Label htmlFor="specific" className="cursor-pointer font-normal">
+                                    Usuario específico
+                                  </Label>
+                                </div>
+                              </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {secondSignerRole === "SPECIFIC_USER" && (
+                        <div className="space-y-2 pl-6">
+                          <FormLabel>Seleccionar usuario *</FormLabel>
+                          {selectedSecondSigner ? (
+                            <div className="flex items-center justify-between rounded-md border p-3">
+                              <div>
+                                <span className="font-medium">
+                                  {selectedSecondSigner.firstName} {selectedSecondSigner.lastName}
+                                </span>
+                                <span className="text-muted-foreground ml-2 text-sm">{selectedSecondSigner.email}</span>
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedSecondSigner(null);
+                                  form.setValue("secondSignerUserId", "");
+                                }}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Popover open={openUserCombobox} onOpenChange={setOpenUserCombobox}>
+                              <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between">
+                                  <span className="text-muted-foreground">Buscar usuario...</span>
+                                  <Users className="ml-2 h-4 w-4" />
+                                </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[400px] p-0" align="start">
+                                <Command shouldFilter={false}>
+                                  <CommandInput
+                                    placeholder="Buscar por nombre o email..."
+                                    value={userSearch}
+                                    onValueChange={setUserSearch}
+                                  />
+                                  <CommandList>
+                                    <CommandEmpty>
+                                      {userSearch.length < 2 ? "Escribe al menos 2 caracteres" : "No se encontró"}
+                                    </CommandEmpty>
+                                    {userSearchResults.length > 0 && (
+                                      <CommandGroup>
+                                        {userSearchResults.map((user) => (
+                                          <CommandItem
+                                            key={user.id}
+                                            value={user.id}
+                                            onSelect={() => handleSelectSecondSigner(user)}
+                                            className="cursor-pointer"
+                                          >
+                                            <div className="flex flex-col gap-0.5">
+                                              <span className="font-medium">
+                                                {user.firstName} {user.lastName}
+                                              </span>
+                                              <span className="text-muted-foreground text-xs">{user.email}</span>
+                                            </div>
+                                          </CommandItem>
+                                        ))}
+                                      </CommandGroup>
+                                    )}
+                                  </CommandList>
+                                </Command>
+                              </PopoverContent>
+                            </Popover>
+                          )}
+                        </div>
+                      )}
+
+                      {secondSignerRole === "MANAGER" && (
+                        <div className="bg-muted/50 rounded-md p-3 text-sm">
+                          <p className="text-muted-foreground">
+                            Si un empleado no tiene manager asignado, se marcará como pendiente para revisión manual.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <SigningFlowPreview steps={flowSteps} />
               </div>
             )}
 
@@ -959,7 +1204,22 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
                   <Separator />
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Destinatarios:</span>
-                    <Badge>{getRecipientCount()} empleados</Badge>
+                    <Badge>{recipientCount} empleados</Badge>
+                  </div>
+                  <Separator />
+                  <div className="space-y-2 text-sm">
+                    <span className="text-muted-foreground">Firmantes adicionales:</span>
+                    {selectedAdditionalSigners.length === 0 ? (
+                      <p className="font-medium">Ninguno</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {selectedAdditionalSigners.map((signer) => (
+                          <Badge key={signer.id} variant="secondary">
+                            {signer.firstName} {signer.lastName}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <Separator />
                   <div className="flex justify-between text-sm">
@@ -994,10 +1254,12 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
 
                 <div className="bg-primary/10 rounded-lg p-4">
                   <p className="text-sm">
-                    Al confirmar, se crearán <strong>{getRecipientCount()} solicitudes de firma</strong> y se notificará
-                    a cada empleado.
+                    Al confirmar, se crearán <strong>{recipientCount} solicitudes de firma</strong> y se notificará a
+                    cada empleado.
                   </p>
                 </div>
+
+                <SigningFlowPreview steps={flowSteps} />
               </div>
             )}
           </form>
@@ -1022,5 +1284,37 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface FlowStep {
+  label: string;
+  description?: string;
+}
+
+interface SigningFlowPreviewProps {
+  steps: FlowStep[];
+}
+
+function SigningFlowPreview({ steps }: SigningFlowPreviewProps) {
+  if (steps.length === 0) return null;
+
+  return (
+    <div className="bg-muted/30 rounded-lg border p-4">
+      <p className="text-muted-foreground mb-3 text-sm font-medium">Orden de firma</p>
+      <div className="space-y-3">
+        {steps.map((step, index) => (
+          <div key={`${step.label}-${index}`} className="flex items-start gap-3">
+            <div className="text-foreground flex h-8 w-8 items-center justify-center rounded-full border text-sm font-semibold">
+              {index + 1}
+            </div>
+            <div>
+              <p className="font-semibold">{step.label}</p>
+              {step.description && <p className="text-muted-foreground text-sm">{step.description}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -120,6 +120,7 @@ export async function createSignatureBatch(input: CreateSignatureBatchInput): Pr
     }
 
     const data = validation.data;
+    const additionalSignerIds = Array.from(new Set(data.additionalSignerEmployeeIds ?? []));
 
     // 3. Validar configuración de doble firma
     const doubleSignatureValidation = validateDoubleSignature(
@@ -156,6 +157,14 @@ export async function createSignatureBatch(input: CreateSignatureBatchInput): Pr
       console.warn(
         `Se solicitaron ${data.recipientEmployeeIds.length} destinatarios pero solo ${recipients.length} son válidos`,
       );
+    }
+
+    if (additionalSignerIds.length > 0) {
+      const additionalSigners = await getRecipientEmployees(user.orgId, additionalSignerIds);
+
+      if (additionalSigners.length !== additionalSignerIds.length) {
+        return { success: false, error: "Uno o más firmantes adicionales no son válidos" };
+      }
     }
 
     // 6. Crear el lote en estado DRAFT
@@ -253,6 +262,7 @@ export async function activateBatch(batchId: string): Promise<BatchResult> {
 export async function activateBatchWithRecipients(
   batchId: string,
   recipientEmployeeIds: string[],
+  additionalSignerEmployeeIds: string[] = [],
 ): Promise<BatchResult> {
   try {
     // 1. Obtener usuario actual y validar permisos
@@ -297,6 +307,17 @@ export async function activateBatchWithRecipients(
       return { success: false, error: "No hay empleados válidos para el lote" };
     }
 
+    const uniqueAdditionalSignerIds = Array.from(new Set(additionalSignerEmployeeIds ?? []));
+    const additionalSigners = uniqueAdditionalSignerIds.length
+      ? await getRecipientEmployees(user.orgId, uniqueAdditionalSignerIds)
+      : [];
+
+    if (additionalSigners.length < uniqueAdditionalSignerIds.length) {
+      return { success: false, error: "Uno o más firmantes adicionales no son válidos" };
+    }
+
+    const additionalSignerMap = new Map(additionalSigners.map((signer) => [signer.id, signer]));
+
     // 5. Crear SignatureRequests para cada empleado (en una transacción)
     const updatedBatch = await prisma.$transaction(async (tx) => {
       let pendingCount = 0;
@@ -305,12 +326,21 @@ export async function activateBatchWithRecipients(
         const signersData: Array<{
           employeeId: string;
           order: number;
-        }> = [
-          {
-            employeeId: recipient.id,
-            order: 1,
-          },
-        ];
+        }> = [];
+        const addedSignerIds = new Set<string>();
+
+        const pushSigner = (employeeId: string) => {
+          if (addedSignerIds.has(employeeId)) {
+            return;
+          }
+          addedSignerIds.add(employeeId);
+          signersData.push({
+            employeeId,
+            order: signersData.length + 1,
+          });
+        };
+
+        pushSigner(recipient.id);
 
         let secondSignerMissing = false;
 
@@ -325,11 +355,16 @@ export async function activateBatchWithRecipients(
           if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {
             secondSignerMissing = true;
           } else {
-            signersData.push({
-              employeeId: secondSigner.employeeId,
-              order: 2,
-            });
+            pushSigner(secondSigner.employeeId);
           }
+        }
+
+        for (const signerId of uniqueAdditionalSignerIds) {
+          const signer = additionalSignerMap.get(signerId);
+          if (!signer) {
+            continue;
+          }
+          pushSigner(signer.id);
         }
 
         const request = await tx.signatureRequest.create({
@@ -862,6 +897,7 @@ export async function getAvailableEmployeesForBatch(filters?: { departmentId?: s
       lastName: string;
       email: string;
       departmentName: string | null;
+      departmentId: string | null;
       hasUser: boolean;
       userId: string | null;
     }>
@@ -905,7 +941,7 @@ export async function getAvailableEmployeesForBatch(filters?: { departmentId?: s
         lastName: true,
         email: true,
         department: {
-          select: { name: true },
+          select: { id: true, name: true },
         },
         user: {
           select: { id: true },
@@ -922,6 +958,7 @@ export async function getAvailableEmployeesForBatch(filters?: { departmentId?: s
         lastName: emp.lastName,
         email: emp.email,
         departmentName: emp.department?.name ?? null,
+        departmentId: emp.department?.id ?? null,
         hasUser: emp.user !== null,
         userId: emp.user?.id ?? null,
       })),

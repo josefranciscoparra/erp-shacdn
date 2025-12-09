@@ -17,6 +17,7 @@ import { signatureRequestStatusLabels, signableDocumentCategoryLabels } from "@/
 import { useSignaturesStore } from "@/stores/signatures-store";
 
 import { ActiveFilters } from "./_components/active-filters";
+import { CreateBatchDialog } from "./_components/create-batch-dialog";
 import { CreateSignatureDialog } from "./_components/create-signature-dialog";
 import { SignaturesDataTable } from "./_components/signatures-data-table";
 import { SimplePagination } from "./_components/simple-pagination";
@@ -139,13 +140,20 @@ export default function SignaturesPage() {
     );
   }
 
+  const handleRefresh = () => fetchAllRequests({ refresh: true });
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
       <SectionHeader
         title="Gestión de Firmas"
         description="Gestiona y realiza el seguimiento de solicitudes de firma electrónica de documentos"
-        action={<CreateSignatureDialog onSuccess={() => fetchAllRequests({ refresh: true })} />}
+        action={
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <CreateSignatureDialog onSuccess={handleRefresh} />
+            <CreateBatchDialog onSuccess={handleRefresh} />
+          </div>
+        }
       />
 
       {/* Summary cards premium */}

@@ -2,12 +2,33 @@ import { randomBytes } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
+import type { SecondSignerRole } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { resolveSecondSigner } from "@/lib/signatures/double-signature";
 import { createSignaturePendingNotification } from "@/lib/signatures/notifications";
 
 export const runtime = "nodejs";
+
+const uniqueValues = (values: string[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const value of values) {
+    if (typeof value !== "string") {
+      continue;
+    }
+    if (seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    result.push(value);
+  }
+
+  return result;
+};
 
 /**
  * POST /api/signatures/requests/create
@@ -35,6 +56,24 @@ export async function POST(request: NextRequest) {
     const policy = formData.get("policy") as string;
     const expiresAtStr = formData.get("expiresAt") as string;
     const recipientType = formData.get("recipientType") as "ALL" | "DEPARTMENTS" | "SPECIFIC";
+    const additionalSignerIdsStr = formData.get("additionalSignerEmployeeIds") as string | null;
+    let additionalSignerEmployeeIds: string[] = [];
+    if (additionalSignerIdsStr) {
+      try {
+        const parsed = JSON.parse(additionalSignerIdsStr);
+        if (Array.isArray(parsed)) {
+          additionalSignerEmployeeIds = parsed.filter((value): value is string => typeof value === "string");
+        }
+      } catch (error) {
+        console.error("Error parsing additionalSignerEmployeeIds", error);
+        return NextResponse.json({ error: "Formato inválido para firmantes adicionales" }, { status: 400 });
+      }
+    }
+
+    // Campos para doble firma
+    const requireDoubleSignature = formData.get("requireDoubleSignature") === "true";
+    const secondSignerRole = formData.get("secondSignerRole") as SecondSignerRole | null;
+    const secondSignerUserId = formData.get("secondSignerUserId") as string | null;
 
     if (!documentId || !policy || !expiresAtStr || !recipientType) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
@@ -119,61 +158,141 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No se encontraron empleados para esta solicitud" }, { status: 400 });
     }
 
-    // Crear la solicitud de firma con los firmantes
-    const signatureRequest = await prisma.signatureRequest.create({
-      data: {
+    const recipientEmployeeIds = uniqueValues(employeeIds);
+
+    const recipients = await prisma.employee.findMany({
+      where: {
+        id: { in: recipientEmployeeIds },
         orgId: session.user.orgId,
-        documentId,
-        policy,
-        expiresAt,
-        status: "PENDING",
-        signers: {
-          create: employeeIds.map((empId, index) => ({
-            employeeId: empId,
-            order: index + 1,
-            status: "PENDING",
-            signToken: randomBytes(32).toString("hex"),
-          })),
+        active: true,
+        user: { isNot: null },
+      },
+      select: {
+        id: true,
+        user: {
+          select: { id: true },
         },
       },
-      include: {
-        document: true,
-        signers: {
-          include: {
-            employee: {
-              include: {
-                user: {
-                  select: { id: true },
-                },
-              },
-            },
+    });
+
+    if (recipients.length !== recipientEmployeeIds.length) {
+      return NextResponse.json(
+        { error: "Uno o más destinatarios no tienen usuario activo o no pertenecen a tu organización" },
+        { status: 400 },
+      );
+    }
+
+    const recipientUserMap = new Map(recipients.map((recipient) => [recipient.id, recipient.user!.id]));
+
+    const uniqueAdditionalSignerIds = uniqueValues(additionalSignerEmployeeIds);
+    const additionalSigners = uniqueAdditionalSignerIds.length
+      ? await prisma.employee.findMany({
+          where: {
+            id: { in: uniqueAdditionalSignerIds },
+            orgId: session.user.orgId,
+            active: true,
+            user: { isNot: null },
+          },
+          select: { id: true },
+        })
+      : [];
+
+    if (additionalSigners.length < uniqueAdditionalSignerIds.length) {
+      return NextResponse.json(
+        { error: "Uno o más firmantes adicionales no son válidos o no tienen usuario activo" },
+        { status: 400 },
+      );
+    }
+
+    const validAdditionalSignerIds = new Set(additionalSigners.map((signer) => signer.id));
+
+    const createdRequests = [];
+
+    for (const empId of recipientEmployeeIds) {
+      const signersData: Array<{
+        employeeId: string;
+        order: number;
+      }> = [];
+      const addedSignerIds = new Set<string>();
+
+      const pushSigner = (employeeId: string) => {
+        if (addedSignerIds.has(employeeId)) {
+          return;
+        }
+        addedSignerIds.add(employeeId);
+        signersData.push({
+          employeeId,
+          order: signersData.length + 1,
+        });
+      };
+
+      pushSigner(empId);
+
+      let secondSignerMissing = false;
+
+      if (requireDoubleSignature && secondSignerRole) {
+        const secondSigner = await resolveSecondSigner(
+          empId,
+          secondSignerRole,
+          secondSignerUserId ?? undefined,
+          session.user.orgId,
+        );
+
+        if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {
+          secondSignerMissing = true;
+        } else {
+          pushSigner(secondSigner.employeeId);
+        }
+      }
+
+      for (const signerId of uniqueAdditionalSignerIds) {
+        if (!validAdditionalSignerIds.has(signerId)) {
+          continue;
+        }
+        pushSigner(signerId);
+      }
+
+      const signatureRequest = await prisma.signatureRequest.create({
+        data: {
+          orgId: session.user.orgId,
+          documentId,
+          policy,
+          expiresAt,
+          status: "PENDING",
+          secondSignerMissing,
+          signers: {
+            create: signersData.map((signer) => ({
+              order: signer.order,
+              status: "PENDING",
+              employeeId: signer.employeeId,
+              signToken: randomBytes(32).toString("hex"),
+            })),
           },
         },
-      },
-    });
-
-    // Crear notificaciones para cada firmante
-    const notificationPromises = signatureRequest.signers.map((signer) => {
-      if (!signer.employee.user) return null;
-
-      return createSignaturePendingNotification({
-        orgId: session.user.orgId,
-        userId: signer.employee.user.id,
-        documentTitle: signatureRequest.document.title,
-        requestId: signatureRequest.id,
-        expiresAt: signatureRequest.expiresAt,
       });
-    });
 
-    await Promise.all(notificationPromises.filter(Boolean));
+      createdRequests.push(signatureRequest);
+
+      const recipientUserId = recipientUserMap.get(empId);
+      if (recipientUserId) {
+        await createSignaturePendingNotification({
+          orgId: session.user.orgId,
+          userId: recipientUserId,
+          documentTitle: document.title,
+          requestId: signatureRequest.id,
+          expiresAt: signatureRequest.expiresAt,
+        });
+      }
+    }
 
     return NextResponse.json(
       {
         success: true,
         request: {
-          id: signatureRequest.id,
-          signerCount: signatureRequest.signers.length,
-          expiresAt: signatureRequest.expiresAt.toISOString(),
+          id: createdRequests[0]?.id, // Devolvemos el ID del primero por compatibilidad
+          count: createdRequests.length,
+          signerCount: createdRequests.length, // Total de solicitudes creadas
+          expiresAt: createdRequests[0]?.expiresAt.toISOString(),
         },
       },
       { status: 201 },

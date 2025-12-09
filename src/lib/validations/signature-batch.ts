@@ -6,6 +6,7 @@ export const createSignatureBatchSchema = z.object({
   description: z.string().max(500, "La descripción no puede exceder 500 caracteres").optional(),
   documentId: z.string().min(1, "El documento es requerido"),
   recipientEmployeeIds: z.array(z.string()).min(1, "Debe seleccionar al menos un destinatario"),
+  additionalSignerEmployeeIds: z.array(z.string()).default([]),
   requireDoubleSignature: z.boolean().default(false),
   secondSignerRole: z.enum(["MANAGER", "HR", "SPECIFIC_USER"]).optional(),
   secondSignerUserId: z.string().optional(),
