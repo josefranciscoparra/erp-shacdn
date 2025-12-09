@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
       },
       orderBy: {
         request: {
-          expiresAt: "asc", // Más urgente primero
+          createdAt: "desc", // Más recientes primero
         },
       },
     });

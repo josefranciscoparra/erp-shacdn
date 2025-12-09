@@ -208,7 +208,7 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
       selectedAdditionalSigners.forEach((signer, index) => {
         steps.push({
           label: signer.fullName,
-          description: `Firmante adicional #${index + 1}`,
+          description: `Validador #${index + 1} (firma después de cada destinatario)`,
         });
       });
     }
@@ -779,14 +779,16 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                 <div className="space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <FormLabel>Firmantes adicionales</FormLabel>
-                      <FormDescription>Se añadirán después de cada destinatario seleccionado.</FormDescription>
+                      <FormLabel>Firmante validador (opcional)</FormLabel>
+                      <FormDescription>
+                        Persona que valida DESPUÉS de que cada destinatario firme (ej: supervisor, RRHH).
+                      </FormDescription>
                     </div>
                     <Popover open={openAdditionalCombobox} onOpenChange={setOpenAdditionalCombobox}>
                       <PopoverTrigger asChild>
                         <Button type="button" variant="outline" className="gap-2">
                           <UserPlus className="h-4 w-4" />
-                          Añadir firmante
+                          Añadir validador
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-[400px] p-0" align="start">
@@ -829,9 +831,20 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                     </Popover>
                   </div>
 
+                  {selectedAdditionalSigners.length > 2 && (
+                    <div className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                      <p className="font-medium">Muchos firmantes validadores</p>
+                      <p className="mt-1 text-xs">
+                        Si quieres que múltiples personas firmen el documento, selecciónalas como
+                        <strong> destinatarios</strong> arriba, no como validadores. Los validadores solo sirven para
+                        que una persona (ej: supervisor) apruebe DESPUÉS de cada destinatario.
+                      </p>
+                    </div>
+                  )}
+
                   {selectedAdditionalSigners.length === 0 ? (
                     <p className="text-muted-foreground text-sm">
-                      No has añadido firmantes adicionales. Solo firmará cada destinatario.
+                      No has añadido validadores. Solo firmará cada destinatario.
                     </p>
                   ) : (
                     <div className="max-h-[220px] space-y-2 overflow-y-auto rounded-md border p-2">
@@ -950,9 +963,9 @@ export function CreateSignatureDialog({ onSuccess }: CreateSignatureDialogProps)
                   </div>
                   <Separator />
                   <div className="space-y-1 text-sm">
-                    <span className="text-muted-foreground">Firmantes adicionales:</span>
+                    <span className="text-muted-foreground">Validador(es):</span>
                     {selectedAdditionalSigners.length === 0 ? (
-                      <p className="font-medium">Ninguno</p>
+                      <p className="font-medium">Ninguno (solo firma el destinatario)</p>
                     ) : (
                       <div className="flex flex-wrap gap-2">
                         {selectedAdditionalSigners.map((signer) => (
