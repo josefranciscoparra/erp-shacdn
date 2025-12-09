@@ -17,6 +17,8 @@ import {
   listBatchesSchema,
   type ListBatchesInput,
   resendRemindersSchema,
+  updateRequestSignersSchema,
+  type UpdateRequestSignersInput,
   validateDoubleSignature,
 } from "@/lib/validations/signature-batch";
 
@@ -92,6 +94,8 @@ export interface BatchDetail extends BatchStats {
       order: number;
       status: string;
       signerName: string;
+      employeeId: string;
+      employeeUserId: string | null;
       signedAt: Date | null;
     }>;
   }>;
@@ -553,7 +557,11 @@ export async function getBatchDetail(batchId: string): Promise<BatchResult<Batch
             signers: {
               orderBy: { order: "asc" },
               include: {
-                employee: true,
+                employee: {
+                  include: {
+                    user: true,
+                  },
+                },
               },
             },
           },
@@ -601,6 +609,8 @@ export async function getBatchDetail(batchId: string): Promise<BatchResult<Batch
           order: s.order,
           status: s.status,
           signerName: s.employee ? `${s.employee.firstName} ${s.employee.lastName}` : "Firmante desconocido",
+          employeeId: s.employeeId,
+          employeeUserId: s.employee?.user?.id ?? null,
           signedAt: s.signedAt,
         })),
       })),
@@ -805,6 +815,135 @@ export async function resendBatchReminders(batchId: string): Promise<BatchResult
   } catch (error) {
     console.error("Error reenviando recordatorios:", error);
     return { success: false, error: "Error interno al enviar recordatorios" };
+  }
+}
+
+/**
+ * Permite editar los firmantes adicionales de una SignatureRequest individual.
+ */
+export async function updateRequestSigners(
+  input: UpdateRequestSignersInput,
+): Promise<BatchResult<{ requestId: string }>> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    if (!BATCH_ALLOWED_ROLES.includes(user.role)) {
+      return { success: false, error: "Solo HR/Admin pueden editar firmantes" };
+    }
+
+    const validation = updateRequestSignersSchema.safeParse(input);
+    if (!validation.success) {
+      return { success: false, error: validation.error.errors[0]?.message ?? "Datos inválidos" };
+    }
+
+    const data = validation.data;
+    const request = await prisma.signatureRequest.findFirst({
+      where: {
+        id: data.requestId,
+        orgId: user.orgId,
+      },
+      include: {
+        document: {
+          select: {
+            title: true,
+          },
+        },
+        signers: {
+          orderBy: { order: "asc" },
+        },
+      },
+    });
+
+    if (!request) {
+      return { success: false, error: "Solicitud no encontrada" };
+    }
+
+    if (["COMPLETED", "REJECTED", "EXPIRED"].includes(request.status)) {
+      return { success: false, error: "No puedes modificar firmantes de una solicitud cerrada" };
+    }
+
+    const lockedSigners = request.signers.filter((signer) => signer.order > 1 && signer.status !== "PENDING");
+    if (lockedSigners.length > 0) {
+      return { success: false, error: "No puedes editar firmantes que ya han actuado" };
+    }
+
+    const primarySigner = request.signers.find((signer) => signer.order === 1);
+    const cleanedIds = Array.from(
+      new Set(data.signerEmployeeIds.filter((employeeId) => employeeId && employeeId !== primarySigner?.employeeId)),
+    );
+
+    if (cleanedIds.length > 0) {
+      const validEmployees = await getRecipientEmployees(user.orgId, cleanedIds);
+      if (validEmployees.length !== cleanedIds.length) {
+        return { success: false, error: "Algunos firmantes adicionales no son válidos" };
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      const removableSignerIds = request.signers.filter((signer) => signer.order > 1).map((signer) => signer.id);
+      if (removableSignerIds.length > 0) {
+        await tx.signer.deleteMany({ where: { id: { in: removableSignerIds } } });
+      }
+
+      let order = 2;
+      for (const employeeId of cleanedIds) {
+        await tx.signer.create({
+          data: {
+            order,
+            status: "PENDING",
+            employeeId,
+            requestId: request.id,
+            signToken: randomBytes(32).toString("hex"),
+          },
+        });
+        order++;
+      }
+
+      await tx.signatureRequest.update({
+        where: { id: request.id },
+        data: {
+          secondSignerMissing: false,
+        },
+      });
+    });
+
+    const updatedSigners = await prisma.signer.findMany({
+      where: { requestId: request.id },
+      include: {
+        employee: {
+          include: {
+            user: true,
+          },
+        },
+      },
+      orderBy: { order: "asc" },
+    });
+
+    const nextSigner = updatedSigners.find((signer, index, all) => {
+      if (signer.status !== "PENDING") {
+        return false;
+      }
+      const previousSigners = all.filter((s) => s.order < signer.order);
+      return previousSigners.every((prev) => prev.status === "SIGNED");
+    });
+
+    if (nextSigner && nextSigner.order > 1 && nextSigner.employee?.user?.id) {
+      await createSignaturePendingNotification({
+        orgId: user.orgId,
+        userId: nextSigner.employee.user.id,
+        documentTitle: request.document.title,
+        requestId: request.id,
+        expiresAt: request.expiresAt,
+      });
+    }
+
+    return { success: true, data: { requestId: request.id } };
+  } catch (error) {
+    console.error("Error actualizando firmantes:", error);
+    return { success: false, error: "Error interno al actualizar firmantes" };
   }
 }
 

@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertTriangle, CheckCircle2, Clock, ExternalLink, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, ExternalLink, Users, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ interface SignerInfo {
   status: string;
   signerName: string;
   signedAt: Date | null;
+  employeeId: string;
 }
 
 interface BatchRecipient {
@@ -41,6 +42,7 @@ interface BatchRecipient {
 interface BatchRecipientsTableProps {
   recipients: BatchRecipient[];
   requireDoubleSignature: boolean;
+  onManageSigners?: (requestId: string) => void;
 }
 
 const statusIcons: Record<string, React.ReactNode> = {
@@ -81,7 +83,11 @@ function getSignerStatusBadge(status: string) {
   );
 }
 
-export function BatchRecipientsTable({ recipients, requireDoubleSignature }: BatchRecipientsTableProps) {
+export function BatchRecipientsTable({
+  recipients,
+  requireDoubleSignature,
+  onManageSigners,
+}: BatchRecipientsTableProps) {
   const [pageSize, setPageSize] = useState(10);
 
   const columns: ColumnDef<BatchRecipient>[] = [
@@ -178,12 +184,20 @@ export function BatchRecipientsTable({ recipients, requireDoubleSignature }: Bat
       id: "actions",
       header: "",
       cell: ({ row }) => (
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/dashboard/signatures/${row.original.id}`}>
-            <ExternalLink className="mr-1 h-3.5 w-3.5" />
-            Ver
-          </Link>
-        </Button>
+        <div className="flex items-center gap-1">
+          {onManageSigners && row.original.status !== "COMPLETED" && row.original.status !== "REJECTED" && (
+            <Button variant="ghost" size="sm" onClick={() => onManageSigners(row.original.id)}>
+              <Users className="mr-1 h-3.5 w-3.5" />
+              Firmantes
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" asChild>
+            <Link href={`/dashboard/signatures/${row.original.id}`}>
+              <ExternalLink className="mr-1 h-3.5 w-3.5" />
+              Ver
+            </Link>
+          </Button>
+        </div>
       ),
     },
   ];

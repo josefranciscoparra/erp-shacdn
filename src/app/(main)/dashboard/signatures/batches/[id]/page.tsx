@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useState, useTransition } from "react";
+import { use, useCallback, useEffect, useMemo, useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 
@@ -29,6 +29,7 @@ import { cancelBatch, getBatchDetail, resendBatchReminders, type BatchDetail } f
 import { BatchRecipientsTable } from "../_components/batch-recipients-table";
 import { BatchStatsCards } from "../_components/batch-stats-cards";
 import { BatchStatusBadge } from "../_components/batch-status-badge";
+import { EditRequestSignersDialog } from "../_components/edit-request-signers-dialog";
 
 interface BatchDetailPageProps {
   params: Promise<{ id: string }>;
@@ -44,6 +45,8 @@ export default function BatchDetailPage({ params }: BatchDetailPageProps) {
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, startCancelTransition] = useTransition();
   const [isResending, startResendTransition] = useTransition();
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const loadBatch = useCallback(async () => {
     setIsLoading(true);
@@ -93,6 +96,18 @@ export default function BatchDetailPage({ params }: BatchDetailPageProps) {
       }
     });
   };
+
+  const handleManageSigners = (requestId: string) => {
+    setSelectedRequestId(requestId);
+    setIsEditDialogOpen(true);
+  };
+
+  const selectedRequest = useMemo(() => {
+    if (!batch || !selectedRequestId) {
+      return null;
+    }
+    return batch.requests.find((requestEntry) => requestEntry.id === selectedRequestId) ?? null;
+  }, [batch, selectedRequestId]);
 
   const handleExport = () => {
     if (!batch) return;
@@ -313,9 +328,25 @@ export default function BatchDetailPage({ params }: BatchDetailPageProps) {
           <CardDescription>Lista de empleados incluidos en este lote de firma</CardDescription>
         </CardHeader>
         <CardContent>
-          <BatchRecipientsTable recipients={batch.requests} requireDoubleSignature={batch.requireDoubleSignature} />
+          <BatchRecipientsTable
+            recipients={batch.requests}
+            requireDoubleSignature={batch.requireDoubleSignature}
+            onManageSigners={handleManageSigners}
+          />
         </CardContent>
       </Card>
+
+      <EditRequestSignersDialog
+        request={selectedRequest}
+        open={isEditDialogOpen}
+        onOpenChange={(openState) => {
+          setIsEditDialogOpen(openState);
+          if (!openState) {
+            setSelectedRequestId(null);
+          }
+        }}
+        onSaved={loadBatch}
+      />
     </div>
   );
 }

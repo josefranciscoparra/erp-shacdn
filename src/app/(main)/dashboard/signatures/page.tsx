@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 import { Loader2 } from "lucide-react";
@@ -147,7 +148,14 @@ export default function SignaturesPage() {
       <SectionHeader
         title="Gestión de Firmas"
         description="Gestiona y realiza el seguimiento de solicitudes de firma electrónica de documentos"
-        action={<CreateSignatureDialog onSuccess={handleRefresh} />}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <CreateSignatureDialog onSuccess={handleRefresh} />
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/signatures/batches">Ver lotes</Link>
+            </Button>
+          </div>
+        }
       />
 
       {/* Summary cards premium */}

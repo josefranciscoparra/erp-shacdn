@@ -54,6 +54,14 @@ export const getBatchDetailSchema = z.object({
 
 export type GetBatchDetailInput = z.infer<typeof getBatchDetailSchema>;
 
+// Schema para actualizar firmantes adicionales de una solicitud
+export const updateRequestSignersSchema = z.object({
+  requestId: z.string().min(1, "El ID de la solicitud es requerido"),
+  signerEmployeeIds: z.array(z.string()).default([]),
+});
+
+export type UpdateRequestSignersInput = z.infer<typeof updateRequestSignersSchema>;
+
 // Validación custom para doble firma
 export function validateDoubleSignature(
   requireDoubleSignature: boolean,
