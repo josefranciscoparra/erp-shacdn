@@ -7,7 +7,7 @@ export const signableDocumentCategorySchema = z.enum(["CONTRATO", "NOMINA", "ACU
 export const signatureRequestStatusSchema = z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "EXPIRED"]);
 
 // Estados de firmante
-export const signerStatusSchema = z.enum(["PENDING", "SIGNED", "REJECTED"]);
+export const signerStatusSchema = z.enum(["PENDING", "SIGNED", "REJECTED", "EXPIRED"]);
 
 // Políticas de firma
 export const signaturePolicySchema = z.enum(["SES", "SES_TOTP"]);
@@ -114,6 +114,7 @@ export const signerStatusLabels: Record<SignerStatus, string> = {
   PENDING: "Pendiente",
   SIGNED: "Firmado",
   REJECTED: "Rechazado",
+  EXPIRED: "Expirado",
 };
 
 // Colores para badges de estados

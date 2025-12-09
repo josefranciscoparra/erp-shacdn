@@ -156,9 +156,9 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
               Ver solicitud
             </Link>
           </Button>
-          {request.status === "COMPLETED" && request.document.signedFileUrl && (
+          {request.status === "COMPLETED" && (
             <Button variant="outline" size="sm" asChild>
-              <Link href={request.document.signedFileUrl} target="_blank" rel="noopener noreferrer">
+              <Link href={`/api/signatures/documents/${id}/download`} target="_blank" rel="noopener noreferrer">
                 <FileCheck className="mr-2 h-4 w-4" />
                 Ver PDF firmado
               </Link>

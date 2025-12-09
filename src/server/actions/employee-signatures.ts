@@ -12,7 +12,7 @@ export interface EmployeeSignedDocument {
   documentId: string;
   documentTitle: string;
   documentCategory: string;
-  documentVersion: string;
+  documentVersion: number;
   batchId: string | null;
   batchName: string | null;
   signedAt: string;
@@ -53,7 +53,7 @@ export async function getEmployeeSignedDocuments(
         status: "SIGNED",
       },
       include: {
-        signatureRequest: {
+        request: {
           include: {
             document: true,
             batch: {
@@ -72,16 +72,17 @@ export async function getEmployeeSignedDocuments(
 
     // Mapear a la estructura de salida
     const signedDocuments: EmployeeSignedDocument[] = signers.map((signer) => ({
-      signatureRequestId: signer.signatureRequest.id,
-      documentId: signer.signatureRequest.document.id,
-      documentTitle: signer.signatureRequest.document.title,
-      documentCategory: signer.signatureRequest.document.category,
-      documentVersion: signer.signatureRequest.document.version,
-      batchId: signer.signatureRequest.batch?.id ?? null,
-      batchName: signer.signatureRequest.batch?.name ?? null,
+      signatureRequestId: signer.request.id,
+      documentId: signer.request.document.id,
+      documentTitle: signer.request.document.title,
+      documentCategory: signer.request.document.category,
+      documentVersion: signer.request.document.version,
+      batchId: signer.request.batch?.id ?? null,
+      batchName: signer.request.batch?.name ?? null,
       signedAt: signer.signedAt?.toISOString() ?? new Date().toISOString(),
       signerStatus: signer.status,
-      downloadUrl: signer.signatureRequest.document.signedFileUrl,
+      downloadUrl:
+        signer.request.status === "COMPLETED" ? `/api/signatures/documents/${signer.request.id}/download` : null,
     }));
 
     return { success: true, data: signedDocuments };

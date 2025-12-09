@@ -1947,6 +1947,7 @@ enum SignerStatus {
   PENDING // Pendiente de firmar
   SIGNED // Firmado exitosamente
   REJECTED // Rechazado por el firmante
+  EXPIRED // No firmó antes del vencimiento
 }
 
 // Resultado de la evidencia

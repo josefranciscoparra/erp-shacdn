@@ -1,5 +1,7 @@
 "use server";
 
+import { randomBytes } from "crypto";
+
 import type { SignatureBatch, SignatureBatchStatus } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
@@ -298,28 +300,20 @@ export async function activateBatchWithRecipients(
     // 5. Crear SignatureRequests para cada empleado (en una transacción)
     const updatedBatch = await prisma.$transaction(async (tx) => {
       let pendingCount = 0;
-      let missingSecondSignerCount = 0;
 
       for (const recipient of recipients) {
-        // Crear los firmantes
-        const signers: Array<{
+        const signersData: Array<{
           employeeId: string;
-          userId: string;
           order: number;
-          signerName: string;
-        }> = [];
-
-        // Primer firmante: el empleado
-        signers.push({
-          employeeId: recipient.id,
-          userId: recipient.userId,
-          order: 1,
-          signerName: `${recipient.firstName} ${recipient.lastName}`,
-        });
+        }> = [
+          {
+            employeeId: recipient.id,
+            order: 1,
+          },
+        ];
 
         let secondSignerMissing = false;
 
-        // Segundo firmante (si aplica)
         if (batch.requireDoubleSignature && batch.secondSignerRole) {
           const secondSigner = await resolveSecondSigner(
             recipient.id,
@@ -328,21 +322,17 @@ export async function activateBatchWithRecipients(
             user.orgId,
           );
 
-          if (secondSigner.missing) {
+          if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {
             secondSignerMissing = true;
-            missingSecondSignerCount++;
-          } else if (secondSigner.userId && secondSigner.signerName) {
-            signers.push({
-              employeeId: secondSigner.employeeId ?? recipient.id, // fallback
-              userId: secondSigner.userId,
+          } else {
+            signersData.push({
+              employeeId: secondSigner.employeeId,
               order: 2,
-              signerName: secondSigner.signerName,
             });
           }
         }
 
-        // Crear la SignatureRequest con sus firmantes
-        await tx.signatureRequest.create({
+        const request = await tx.signatureRequest.create({
           data: {
             status: "PENDING",
             policy: "SES",
@@ -352,12 +342,11 @@ export async function activateBatchWithRecipients(
             batchId: batch.id,
             secondSignerMissing,
             signers: {
-              create: signers.map((s) => ({
-                order: s.order,
+              create: signersData.map((signer) => ({
+                order: signer.order,
                 status: "PENDING",
-                employeeId: s.employeeId,
-                userId: s.userId,
-                signerName: s.signerName,
+                employeeId: signer.employeeId,
+                signToken: randomBytes(32).toString("hex"),
               })),
             },
           },
@@ -365,17 +354,15 @@ export async function activateBatchWithRecipients(
 
         pendingCount++;
 
-        // Enviar notificación al primer firmante
         await createSignaturePendingNotification({
           orgId: user.orgId,
           userId: recipient.userId,
           documentTitle: document.title,
-          requestId: batch.id, // Usamos el batch como referencia
+          requestId: request.id,
           expiresAt: batch.expiresAt,
         });
       }
 
-      // 6. Actualizar el lote a ACTIVE
       return await tx.signatureBatch.update({
         where: { id: batch.id },
         data: {
@@ -578,7 +565,7 @@ export async function getBatchDetail(batchId: string): Promise<BatchResult<Batch
           id: s.id,
           order: s.order,
           status: s.status,
-          signerName: s.signerName,
+          signerName: s.employee ? `${s.employee.firstName} ${s.employee.lastName}` : "Firmante desconocido",
           signedAt: s.signedAt,
         })),
       })),
@@ -626,7 +613,6 @@ export async function cancelBatch(batchId: string, reason?: string): Promise<Bat
       return { success: false, error: "Solo se pueden cancelar lotes en estado DRAFT o ACTIVE" };
     }
 
-    // Cancelar en transacción
     const updatedBatch = await prisma.$transaction(async (tx) => {
       // Marcar todas las requests pendientes como EXPIRED
       await tx.signatureRequest.updateMany({
@@ -652,11 +638,36 @@ export async function cancelBatch(batchId: string, reason?: string): Promise<Bat
         },
       });
 
-      // Actualizar el lote a CANCELLED
+      const counts = await tx.signatureRequest.groupBy({
+        by: ["status"],
+        where: { batchId },
+        _count: { status: true },
+      });
+
+      let signedCount = 0;
+      let pendingCount = 0;
+      let rejectedCount = 0;
+
+      for (const count of counts) {
+        if (count.status === "COMPLETED") {
+          signedCount = count._count.status;
+        } else if (count.status === "PENDING" || count.status === "IN_PROGRESS") {
+          pendingCount += count._count.status;
+        } else if (count.status === "REJECTED" || count.status === "EXPIRED") {
+          rejectedCount += count._count.status;
+        }
+      }
+
+      const totalRecipients = signedCount + pendingCount + rejectedCount;
+
       return await tx.signatureBatch.update({
         where: { id: batchId },
         data: {
           status: "CANCELLED",
+          signedCount,
+          pendingCount,
+          rejectedCount,
+          totalRecipients,
         },
       });
     });
@@ -703,6 +714,15 @@ export async function resendBatchReminders(batchId: string): Promise<BatchResult
               where: {
                 status: "PENDING",
               },
+              include: {
+                employee: {
+                  select: {
+                    user: {
+                      select: { id: true },
+                    },
+                  },
+                },
+              },
             },
           },
         },
@@ -722,9 +742,14 @@ export async function resendBatchReminders(batchId: string): Promise<BatchResult
 
     for (const request of batch.requests) {
       for (const signer of request.signers) {
+        const userId = signer.employee?.user?.id;
+        if (!userId) {
+          continue;
+        }
+
         await createSignaturePendingNotification({
           orgId: user.orgId,
-          userId: signer.userId,
+          userId,
           documentTitle: batch.document.title,
           requestId: request.id,
           expiresAt: batch.expiresAt,
@@ -768,8 +793,8 @@ export async function updateBatchStats(batchId: string): Promise<void> {
       signedCount = count._count.status;
     } else if (count.status === "PENDING" || count.status === "IN_PROGRESS") {
       pendingCount += count._count.status;
-    } else if (count.status === "REJECTED") {
-      rejectedCount = count._count.status;
+    } else if (count.status === "REJECTED" || count.status === "EXPIRED") {
+      rejectedCount += count._count.status;
     }
   }
 
@@ -838,6 +863,7 @@ export async function getAvailableEmployeesForBatch(filters?: { departmentId?: s
       email: string;
       departmentName: string | null;
       hasUser: boolean;
+      userId: string | null;
     }>
   >
 > {
@@ -897,6 +923,7 @@ export async function getAvailableEmployeesForBatch(filters?: { departmentId?: s
         email: emp.email,
         departmentName: emp.department?.name ?? null,
         hasUser: emp.user !== null,
+        userId: emp.user?.id ?? null,
       })),
     };
   } catch (error) {

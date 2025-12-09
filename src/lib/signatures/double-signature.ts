@@ -10,8 +10,6 @@ export interface SecondSignerResolution {
   userId: string | null;
   /** ID del empleado que será el segundo firmante */
   employeeId: string | null;
-  /** Nombre completo del segundo firmante */
-  signerName: string | null;
   /** true si no se pudo encontrar un segundo firmante válido */
   missing: boolean;
   /** Razón por la que falta el segundo firmante */
@@ -47,7 +45,6 @@ export async function resolveSecondSigner(
       return {
         userId: null,
         employeeId: null,
-        signerName: null,
         missing: true,
         missingReason: "Rol de segundo firmante no reconocido",
       };
@@ -87,7 +84,6 @@ async function resolveManagerSigner(employeeId: string, orgId: string): Promise<
     return {
       userId: null,
       employeeId: null,
-      signerName: null,
       missing: true,
       missingReason: "Empleado no encontrado",
     };
@@ -98,7 +94,6 @@ async function resolveManagerSigner(employeeId: string, orgId: string): Promise<
     return {
       userId: employee.manager.user.id,
       employeeId: employee.manager.id,
-      signerName: `${employee.manager.firstName} ${employee.manager.lastName}`,
       missing: false,
     };
   }
@@ -108,7 +103,6 @@ async function resolveManagerSigner(employeeId: string, orgId: string): Promise<
     return {
       userId: employee.department.manager.user.id,
       employeeId: employee.department.manager.id,
-      signerName: `${employee.department.manager.firstName} ${employee.department.manager.lastName}`,
       missing: false,
     };
   }
@@ -117,7 +111,6 @@ async function resolveManagerSigner(employeeId: string, orgId: string): Promise<
   return {
     userId: null,
     employeeId: null,
-    signerName: null,
     missing: true,
     missingReason: "El empleado no tiene manager asignado ni departamento con responsable",
   };
@@ -144,20 +137,23 @@ async function resolveHRSigner(orgId: string): Promise<SecondSignerResolution> {
     return {
       userId: null,
       employeeId: null,
-      signerName: null,
       missing: true,
       missingReason: "No hay usuarios con rol HR activos en la organización",
     };
   }
 
-  const signerName = hrUser.employee
-    ? `${hrUser.employee.firstName} ${hrUser.employee.lastName}`
-    : (hrUser.name ?? hrUser.email);
+  if (!hrUser.employee) {
+    return {
+      userId: null,
+      employeeId: null,
+      missing: true,
+      missingReason: "El usuario HR no tiene un empleado asociado",
+    };
+  }
 
   return {
     userId: hrUser.id,
-    employeeId: hrUser.employee?.id ?? null,
-    signerName,
+    employeeId: hrUser.employee.id,
     missing: false,
   };
 }
@@ -174,7 +170,6 @@ async function resolveSpecificUserSigner(
     return {
       userId: null,
       employeeId: null,
-      signerName: null,
       missing: true,
       missingReason: "No se especificó un usuario como segundo firmante",
     };
@@ -195,18 +190,23 @@ async function resolveSpecificUserSigner(
     return {
       userId: null,
       employeeId: null,
-      signerName: null,
       missing: true,
       missingReason: "El usuario especificado no existe o no pertenece a la organización",
     };
   }
 
-  const signerName = user.employee ? `${user.employee.firstName} ${user.employee.lastName}` : (user.name ?? user.email);
+  if (!user.employee) {
+    return {
+      userId: null,
+      employeeId: null,
+      missing: true,
+      missingReason: "El usuario especificado no tiene empleado asociado",
+    };
+  }
 
   return {
     userId: user.id,
-    employeeId: user.employee?.id ?? null,
-    signerName,
+    employeeId: user.employee.id,
     missing: false,
   };
 }

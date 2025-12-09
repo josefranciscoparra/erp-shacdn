@@ -137,6 +137,7 @@ interface Employee {
   email: string;
   departmentName: string | null;
   hasUser: boolean;
+  userId: string | null;
 }
 
 const STEPS = [
@@ -216,7 +217,9 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
         const result = await getAvailableEmployeesForBatch({ search: employeeSearch });
         if (result.success && result.data) {
           // Filtrar empleados ya seleccionados
-          const filtered = result.data.filter((emp) => !selectedEmployees.find((s) => s.id === emp.id) && emp.hasUser);
+          const filtered = result.data.filter(
+            (emp) => !selectedEmployees.find((s) => s.id === emp.id) && emp.hasUser && Boolean(emp.userId),
+          );
           setSearchResults(filtered);
         }
       } catch (error) {
@@ -241,7 +244,8 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
       try {
         const result = await getAvailableEmployeesForBatch({ search: userSearch });
         if (result.success && result.data) {
-          setUserSearchResults(result.data.filter((emp) => emp.hasUser));
+          const withUser = result.data.filter((emp) => emp.hasUser && Boolean(emp.userId));
+          setUserSearchResults(withUser);
         }
       } catch (error) {
         console.error("Error searching users:", error);
@@ -277,8 +281,9 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
     try {
       const result = await getAvailableEmployeesForBatch();
       if (result.success && result.data) {
-        setEmployees(result.data.filter((emp) => emp.hasUser));
-        setAllEmployeesCount(result.data.filter((emp) => emp.hasUser).length);
+        const withUser = result.data.filter((emp) => emp.hasUser && Boolean(emp.userId));
+        setEmployees(withUser);
+        setAllEmployeesCount(withUser.length);
       }
     } catch (error) {
       console.error("Error loading employees:", error);
@@ -306,8 +311,13 @@ export function CreateBatchDialog({ onSuccess }: CreateBatchDialogProps) {
   };
 
   const handleSelectSecondSigner = (employee: Employee) => {
+    if (!employee.userId) {
+      toast.error("El empleado seleccionado no tiene usuario activo");
+      return;
+    }
+
     setSelectedSecondSigner(employee);
-    form.setValue("secondSignerUserId", employee.id);
+    form.setValue("secondSignerUserId", employee.userId);
     setUserSearch("");
     setOpenUserCombobox(false);
   };

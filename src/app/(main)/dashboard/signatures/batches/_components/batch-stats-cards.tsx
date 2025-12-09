@@ -48,8 +48,8 @@ export function BatchStatsCards({
     },
     {
       key: "rejected",
-      title: "Rechazados",
-      description: "solicitudes rechazadas",
+      title: "Rechazados / Expirados",
+      description: "rechazados o vencidos",
       count: rejectedCount,
       icon: XCircle,
       countClassName: "text-red-600 dark:text-red-400",
