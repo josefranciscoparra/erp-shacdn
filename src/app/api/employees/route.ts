@@ -115,16 +115,21 @@ export async function POST(request: NextRequest) {
     const data: CreateEmployeeInput = validation.data;
     const orgId = session.user.orgId;
 
-    // Verificar NIF/NIE único en la organización
+    // Verificar si existe empleado con este NIF/NIE en la organización
     const existingEmployee = await prisma.employee.findFirst({
       where: {
         orgId,
         nifNie: data.nifNie,
       },
+      select: {
+        id: true,
+        active: true,
+        userId: true,
+      },
     });
 
-    if (existingEmployee) {
-      return NextResponse.json({ error: "Ya existe un empleado con este NIF/NIE" }, { status: 409 });
+    if (existingEmployee?.active) {
+      return NextResponse.json({ error: "Ya existe un empleado activo con este NIF/NIE" }, { status: 409 });
     }
 
     // Obtener organización para validar email y generar número de empleado
@@ -158,6 +163,59 @@ export async function POST(request: NextRequest) {
 
     if (!data.email) {
       throw Object.assign(new Error("EMAIL_REQUIRED"), { code: "EMAIL_REQUIRED" });
+    }
+
+    // Si existe un empleado inactivo con el mismo NIF, lo reactivamos
+    if (existingEmployee && !existingEmployee.active) {
+      // Validar que el email no esté siendo usado por otro usuario distinto
+      const conflictingUser = await prisma.user.findFirst({
+        where: existingEmployee.userId
+          ? {
+              email: data.email,
+              id: { not: existingEmployee.userId },
+            }
+          : {
+              email: data.email,
+            },
+      });
+
+      if (conflictingUser) {
+        return NextResponse.json({ error: "El email ya está en uso" }, { status: 409 });
+      }
+
+      const reactivatedEmployee = await prisma.employee.update({
+        where: { id: existingEmployee.id },
+        data: {
+          active: true,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          secondLastName: data.secondLastName,
+          email: data.email,
+          phone: data.phone,
+          mobilePhone: data.mobilePhone,
+          address: data.address,
+          city: data.city,
+          postalCode: data.postalCode,
+          province: data.province,
+          birthDate,
+          nationality: data.nationality,
+          iban: encryptedIban,
+          emergencyContactName: data.emergencyContactName,
+          emergencyContactPhone: data.emergencyContactPhone,
+          emergencyRelationship: data.emergencyRelationship,
+          notes: data.notes,
+          teamId: data.teamId,
+        },
+        include: {
+          employmentContracts: true,
+        },
+      });
+
+      return NextResponse.json({
+        message: "Empleado reactivado correctamente",
+        employee: reactivatedEmployee,
+        reactivated: true,
+      });
     }
 
     // Crear empleado en transacción
@@ -210,7 +268,10 @@ export async function POST(request: NextRequest) {
       // Validar que no exista ya un usuario con ese email
       const existingUser = await tx.user.findUnique({ where: { email: data.email } });
       if (existingUser) {
-        throw Object.assign(new Error("EMAIL_EXISTS"), { code: "EMAIL_EXISTS" });
+        throw Object.assign(new Error("EMAIL_EXISTS"), {
+          code: "EMAIL_EXISTS",
+          message: "Ya existe un usuario con este email en TimeNow",
+        });
       }
 
       const temporaryPassword = generateTemporaryPassword();
@@ -276,7 +337,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     // Errores de negocio conocidos
     if (error?.code === "EMAIL_EXISTS") {
-      return NextResponse.json({ error: "El email ya está en uso" }, { status: 409 });
+      return NextResponse.json(
+        { error: error.message ?? "Ya existe un usuario con este email en TimeNow" },
+        { status: 409 },
+      );
     }
     if (error?.message === "EMAIL_REQUIRED" || error?.code === "EMAIL_REQUIRED") {
       return NextResponse.json({ error: "El email es obligatorio" }, { status: 400 });

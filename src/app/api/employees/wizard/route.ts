@@ -272,7 +272,10 @@ export async function POST(request: Request) {
 
       // Email duplicado
       if (fieldsArray.includes("email")) {
-        return NextResponse.json({ error: `Ya existe un usuario con este email en tu organización` }, { status: 409 });
+        return NextResponse.json(
+          { error: `Ya existe un usuario con este email en TimeNow. Usa otro correo o recupera la cuenta existente.` },
+          { status: 409 },
+        );
       }
 
       // Fallback con información del campo
