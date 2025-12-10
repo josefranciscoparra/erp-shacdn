@@ -180,40 +180,90 @@ export async function POST(request: NextRequest) {
       });
 
       if (conflictingUser) {
-        return NextResponse.json({ error: "El email ya está en uso" }, { status: 409 });
+        return NextResponse.json({ error: "Ya existe un usuario con este email en TimeNow" }, { status: 409 });
       }
 
-      const reactivatedEmployee = await prisma.employee.update({
-        where: { id: existingEmployee.id },
-        data: {
-          active: true,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          secondLastName: data.secondLastName,
-          email: data.email,
-          phone: data.phone,
-          mobilePhone: data.mobilePhone,
-          address: data.address,
-          city: data.city,
-          postalCode: data.postalCode,
-          province: data.province,
-          birthDate,
-          nationality: data.nationality,
-          iban: encryptedIban,
-          emergencyContactName: data.emergencyContactName,
-          emergencyContactPhone: data.emergencyContactPhone,
-          emergencyRelationship: data.emergencyRelationship,
-          notes: data.notes,
-          teamId: data.teamId,
-        },
-        include: {
-          employmentContracts: true,
-        },
+      const reactivatedEmployee = await prisma.$transaction(async (tx) => {
+        const updatedEmployee = await tx.employee.update({
+          where: { id: existingEmployee.id },
+          data: {
+            active: true,
+            firstName: data.firstName,
+            lastName: data.lastName,
+            secondLastName: data.secondLastName,
+            email: data.email,
+            phone: data.phone,
+            mobilePhone: data.mobilePhone,
+            address: data.address,
+            city: data.city,
+            postalCode: data.postalCode,
+            province: data.province,
+            birthDate,
+            nationality: data.nationality,
+            iban: encryptedIban,
+            emergencyContactName: data.emergencyContactName,
+            emergencyContactPhone: data.emergencyContactPhone,
+            emergencyRelationship: data.emergencyRelationship,
+            notes: data.notes,
+            teamId: data.teamId,
+          },
+          include: {
+            employmentContracts: true,
+          },
+        });
+
+        let temporaryPassword: string | null = null;
+
+        if (existingEmployee.userId) {
+          await tx.user.update({
+            where: { id: existingEmployee.userId },
+            data: {
+              active: true,
+              email: data.email,
+              name: `${data.firstName} ${data.lastName}`,
+            },
+          });
+        } else {
+          temporaryPassword = generateTemporaryPassword();
+          const hashedPassword = await bcrypt.hash(temporaryPassword, 10);
+
+          const user = await tx.user.create({
+            data: {
+              orgId,
+              email: data.email,
+              password: hashedPassword,
+              name: `${data.firstName} ${data.lastName}`,
+              role: "EMPLOYEE",
+              active: true,
+              mustChangePassword: true,
+            },
+          });
+
+          await tx.temporaryPassword.create({
+            data: {
+              orgId,
+              userId: user.id,
+              password: temporaryPassword,
+              expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              reason: "Reactivación de empleado",
+              notes: `Contraseña generada automáticamente para reactivación de ${data.firstName} ${data.lastName}`,
+              createdById: session.user.id,
+            },
+          });
+
+          await tx.employee.update({
+            where: { id: updatedEmployee.id },
+            data: { userId: user.id },
+          });
+        }
+
+        return { employee: updatedEmployee, temporaryPassword };
       });
 
       return NextResponse.json({
         message: "Empleado reactivado correctamente",
-        employee: reactivatedEmployee,
+        employee: reactivatedEmployee.employee,
+        temporaryPassword: reactivatedEmployee.temporaryPassword,
         reactivated: true,
       });
     }

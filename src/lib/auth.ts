@@ -130,6 +130,12 @@ export const {
         token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
         // Avatar sin timestamp - se cachea por 24h
         token.image = user.image ? `/api/users/${user.id}/avatar` : null;
+        const typedUser = user as typeof user & {
+          employeeId?: string | null;
+          employeeOrgId?: string | null;
+        };
+        token.employeeId = typedUser.employeeId ?? null;
+        token.employeeOrgId = typedUser.employeeOrgId ?? null;
         const orgScope = await getUserOrgScope(user.id, user.orgId, user.role);
         token.activeOrgId = orgScope.activeOrgId ?? user.orgId;
         token.accessibleOrgIds = orgScope.accessibleOrgIds;
@@ -155,6 +161,7 @@ export const {
           employee: {
             select: {
               id: true,
+              orgId: true,
               firstName: true,
               lastName: true,
               secondLastName: true,
@@ -183,6 +190,7 @@ export const {
         token.orgId = dbUser.orgId;
         token.mustChangePassword = dbUser.mustChangePassword;
         token.employeeId = dbUser.employee?.id ?? null;
+        token.employeeOrgId = dbUser.employee?.orgId ?? null;
         const orgScope = await getUserOrgScope(token.id, dbUser.orgId, dbUser.role);
         token.activeOrgId = orgScope.activeOrgId ?? dbUser.orgId;
         token.accessibleOrgIds = orgScope.accessibleOrgIds;
@@ -203,6 +211,7 @@ export const {
         session.user.email = token.email as string;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.employeeId = token.employeeId ?? null;
+        session.user.employeeOrgId = token.employeeOrgId ?? null;
         session.user.image = token.image ?? null;
         session.user.activeOrgId = session.user.orgId;
         session.user.accessibleOrgIds =
@@ -242,6 +251,7 @@ export const {
               employee: {
                 select: {
                   id: true,
+                  orgId: true,
                 },
               },
             },
@@ -273,6 +283,7 @@ export const {
             image: user.image,
             mustChangePassword: user.mustChangePassword,
             employeeId: user.employee?.id ?? null,
+            employeeOrgId: user.employee?.orgId ?? null,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -290,6 +301,7 @@ declare module "next-auth" {
     orgId: string;
     mustChangePassword: boolean;
     employeeId: string | null;
+    employeeOrgId?: string | null;
   }
   interface Session {
     user: {
@@ -303,6 +315,7 @@ declare module "next-auth" {
       orgMemberships?: OrgMembershipPayload[];
       mustChangePassword: boolean;
       employeeId: string | null;
+      employeeOrgId?: string | null;
       image?: string | null;
     };
   }
@@ -320,6 +333,7 @@ declare module "next-auth/jwt" {
     email?: string | null;
     mustChangePassword?: boolean;
     employeeId?: string | null;
+    employeeOrgId?: string | null;
     image?: string | null;
   }
 }

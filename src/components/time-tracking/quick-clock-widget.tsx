@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { LogIn, LogOut, Coffee, Loader2, Building2 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
@@ -23,6 +24,13 @@ import { detectIncompleteEntries } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function QuickClockWidget() {
+  const { data: session, status } = useSession();
+  const { hasEmployeeProfile } = usePermissions();
+
+  const employeeOrgId = session?.user?.employeeOrgId ?? null;
+  const activeOrgId = session?.user?.orgId ?? null;
+  const canClock = hasEmployeeProfile() && Boolean(employeeOrgId && activeOrgId && employeeOrgId === activeOrgId);
+
   const {
     currentStatus,
     todaySummary,
@@ -36,21 +44,20 @@ export function QuickClockWidget() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
-  const { hasEmployeeProfile } = usePermissions();
-  const canClock = hasEmployeeProfile();
   const [isInitialMount, setIsInitialMount] = useState(true);
   const [shouldRenderSkeleton, setShouldRenderSkeleton] = useState(
     () => isLoading || isInitialMount || (todaySummary === null && canClock),
   );
 
+  // Contexto multiempresa
+  const [isInOwnOrg, setIsInOwnOrg] = useState(true);
+  const [contextMessage, setContextMessage] = useState<string | null>(null);
+  const [contextLoading, setContextLoading] = useState(true);
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const geolocation = useGeolocation();
-
-  // Estado para contexto de organización (multi-empresa)
-  const [isInOwnOrg, setIsInOwnOrg] = useState(true);
 
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
@@ -68,11 +75,17 @@ export function QuickClockWidget() {
     const load = async () => {
       try {
         // Verificar contexto de organización (multi-empresa)
+        setContextLoading(true);
         try {
           const orgContext = await checkEmployeeOrgContext();
           setIsInOwnOrg(orgContext.canClock);
+          setContextMessage(orgContext.message ?? null);
         } catch (error) {
           console.error("Error al verificar contexto de organización:", error);
+          setIsInOwnOrg(false);
+          setContextMessage("No se pudo verificar tu organización. Intenta recargar.");
+        } finally {
+          setContextLoading(false);
         }
 
         await loadInitialData();
@@ -273,6 +286,10 @@ export function QuickClockWidget() {
 
   const tooltipMessage = "Solo los empleados pueden fichar";
 
+  if (status === "loading") {
+    return null;
+  }
+
   // Mostrar skeleton mientras se cargan los datos iniciales o si es el primer montaje
   // Para usuarios sin empleado (super admins), no mostrar skeleton aunque todaySummary sea null
   if (shouldRenderSkeleton && (isLoading || isInitialMount || (todaySummary === null && canClock))) {
@@ -284,13 +301,12 @@ export function QuickClockWidget() {
     );
   }
 
-  // Si está gestionando otra empresa, mostrar mensaje informativo
-  if (!isInOwnOrg) {
+  if (!isInOwnOrg || contextLoading || !canClock) {
     return (
       <div className="hidden items-center gap-2 md:flex">
         <Badge variant="outline" className="text-muted-foreground">
           <Building2 className="mr-1.5 h-3 w-3" />
-          Para fichar, cambia a tu empresa
+          {contextMessage ?? "Debes estar en tu empresa para fichar"}
         </Badge>
       </div>
     );

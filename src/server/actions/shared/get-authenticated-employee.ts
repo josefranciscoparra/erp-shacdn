@@ -93,6 +93,7 @@ export interface EmployeeOrgContextResult {
   reason: "OK" | "WRONG_ORG" | "NO_EMPLOYEE" | null;
   employeeOrgId: string | null;
   activeOrgId: string | null;
+  message?: string | null;
 }
 
 /**
@@ -113,14 +114,25 @@ export async function checkEmployeeOrgContext(): Promise<EmployeeOrgContextResul
       reason: isInOwnOrg ? "OK" : "WRONG_ORG",
       employeeOrgId: employee.orgId,
       activeOrgId: orgId,
+      message: isInOwnOrg ? null : "Cambia a tu organización de empleado para fichar.",
     };
-  } catch {
-    // Si falla getAuthenticatedEmployee (no tiene empleado, no autenticado, etc.)
+  } catch (error) {
+    if ((error as Error & { code?: string }).code === "WRONG_ORG") {
+      return {
+        canClock: false,
+        reason: "WRONG_ORG",
+        employeeOrgId: null,
+        activeOrgId: null,
+        message: "Cambia a tu organización de empleado para fichar.",
+      };
+    }
+    // Si falla por no tener empleado, o cualquier otro motivo
     return {
       canClock: false,
       reason: "NO_EMPLOYEE",
       employeeOrgId: null,
       activeOrgId: null,
+      message: "Este usuario no tiene una ficha de empleado.",
     };
   }
 }
@@ -135,6 +147,14 @@ export async function getAuthenticatedEmployee(
   }
 
   const activeOrgId = await getCurrentOrgId(session);
+
+  // Si el usuario tiene sesión con employeeOrgId, usarlo como atajo
+  const employeeOrgFromSession = session.user.employeeOrgId ?? null;
+  if (employeeOrgFromSession && employeeOrgFromSession !== activeOrgId) {
+    const error = new Error("Empleado no pertenece a la organización activa");
+    (error as Error & { code?: string }).code = "WRONG_ORG";
+    throw error;
+  }
 
   const { employeeInclude, contractInclude, requireActiveContract = false, defaultWeeklyHours = 40 } = options;
 
@@ -163,6 +183,11 @@ export async function getAuthenticatedEmployee(
 
   if (!user?.employee) {
     throw new Error("Usuario no tiene un empleado asociado");
+  }
+  if (user.employee.orgId !== activeOrgId) {
+    const error = new Error("Empleado no pertenece a la organización activa");
+    (error as Error & { code?: string }).code = "WRONG_ORG";
+    throw error;
   }
 
   const foundContract = user.employee.employmentContracts[0] ?? null;
