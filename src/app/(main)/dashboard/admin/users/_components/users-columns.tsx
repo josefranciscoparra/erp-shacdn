@@ -2,7 +2,7 @@
 
 import { type Role } from "@prisma/client";
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, CheckCircle2, XCircle, KeyRound, Shield } from "lucide-react";
+import { MoreHorizontal, CheckCircle2, XCircle, KeyRound, Shield, Building2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ export interface UserRow {
   createdAt: Date;
   _count?: {
     temporaryPasswords: number;
+    userOrganizations: number;
   };
   temporaryPasswords?: Array<{
     id: string;
@@ -60,6 +61,8 @@ interface UsersColumnsProps {
   onChangeRole: (user: UserRow) => void;
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
+  onManageOrganizations?: (user: UserRow) => void;
+  isSuperAdmin?: boolean;
 }
 
 export const createUsersColumns = ({
@@ -67,6 +70,8 @@ export const createUsersColumns = ({
   onChangeRole,
   onResetPassword,
   onToggleActive,
+  onManageOrganizations,
+  isSuperAdmin = false,
 }: UsersColumnsProps): ColumnDef<UserRow>[] => [
   {
     accessorKey: "name",
@@ -77,7 +82,9 @@ export const createUsersColumns = ({
       return (
         <div className="flex items-center gap-2">
           <span className="font-medium">{name}</span>
-          {mustChangePassword && <KeyRound className="h-3.5 w-3.5 text-orange-500" title="Debe cambiar contraseña" />}
+          {mustChangePassword && (
+            <KeyRound className="h-3.5 w-3.5 text-orange-500" aria-label="Debe cambiar contraseña" />
+          )}
         </div>
       );
     },
@@ -124,6 +131,19 @@ export const createUsersColumns = ({
     },
   },
   {
+    id: "organizations",
+    header: "Orgs",
+    cell: ({ row }) => {
+      const count = row.original._count?.userOrganizations ?? 1;
+      return (
+        <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300">
+          <Building2 className="mr-1 h-3 w-3" />
+          {count}
+        </Badge>
+      );
+    },
+  },
+  {
     id: "actions",
     cell: ({ row }) => {
       const user = row.original;
@@ -142,6 +162,12 @@ export const createUsersColumns = ({
             <DropdownMenuItem onClick={() => onViewDetails(user)}>Ver detalles</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
+            {isSuperAdmin && onManageOrganizations && (
+              <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
+                <Building2 className="mr-2 h-4 w-4" />
+                Gestionar organizaciones
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             {user.active ? (
               <DropdownMenuItem className="text-destructive" onClick={() => onToggleActive(user)}>

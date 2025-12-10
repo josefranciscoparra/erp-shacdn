@@ -176,6 +176,7 @@ export default function UsersManagementPage() {
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
             canCreateUsers={canCreateUsers}
+            isSuperAdmin={userRole === "SUPER_ADMIN"}
           />
         ) : (
           <EmptyState

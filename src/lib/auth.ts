@@ -5,11 +5,88 @@ import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
 
+type OrgMembershipPayload = {
+  orgId: string;
+  orgName: string | null;
+  isDefault: boolean;
+};
+
 // Schema de validación para login
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
+
+async function getUserOrgScope(userId: string, fallbackOrgId?: string, userRole?: string) {
+  // Si es SUPER_ADMIN, obtener TODAS las organizaciones activas
+  if (userRole === "SUPER_ADMIN") {
+    const allOrganizations = await prisma.organization.findMany({
+      where: { active: true },
+      select: {
+        id: true,
+        name: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    const accessibleOrgIds = allOrganizations.map((org) => org.id);
+    const activeOrgId = fallbackOrgId ?? accessibleOrgIds[0] ?? null;
+
+    const orgMemberships: OrgMembershipPayload[] = allOrganizations.map((org) => ({
+      orgId: org.id,
+      orgName: org.name,
+      isDefault: org.id === activeOrgId,
+    }));
+
+    return {
+      activeOrgId,
+      accessibleOrgIds,
+      orgMemberships,
+    };
+  }
+
+  // Para otros roles, usar membresías de UserOrganization
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      userId,
+      isActive: true,
+      organization: {
+        active: true,
+      },
+    },
+    select: {
+      orgId: true,
+      isDefault: true,
+      organization: {
+        select: {
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  });
+
+  const accessibleOrgIds = memberships.map((membership) => membership.orgId);
+  const fallbackList = fallbackOrgId ? [fallbackOrgId] : [];
+  const finalAccessible = accessibleOrgIds.length > 0 ? accessibleOrgIds : fallbackList;
+
+  const activeOrgId =
+    memberships.find((membership) => membership.isDefault)?.orgId ?? finalAccessible[0] ?? fallbackOrgId ?? null;
+
+  const orgMemberships: OrgMembershipPayload[] = memberships.map((membership) => ({
+    orgId: membership.orgId,
+    orgName: membership.organization?.name ?? null,
+    isDefault: membership.isDefault,
+  }));
+
+  return {
+    activeOrgId,
+    accessibleOrgIds: finalAccessible,
+    orgMemberships,
+  };
+}
 
 export const {
   handlers,
@@ -53,6 +130,11 @@ export const {
         token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
         // Avatar sin timestamp - se cachea por 24h
         token.image = user.image ? `/api/users/${user.id}/avatar` : null;
+        const orgScope = await getUserOrgScope(user.id, user.orgId, user.role);
+        token.activeOrgId = orgScope.activeOrgId ?? user.orgId;
+        token.accessibleOrgIds = orgScope.accessibleOrgIds;
+        token.orgMemberships = orgScope.orgMemberships;
+        token.orgId = token.activeOrgId;
         return token;
       }
 
@@ -101,6 +183,13 @@ export const {
         token.orgId = dbUser.orgId;
         token.mustChangePassword = dbUser.mustChangePassword;
         token.employeeId = dbUser.employee?.id ?? null;
+        const orgScope = await getUserOrgScope(token.id, dbUser.orgId, dbUser.role);
+        token.activeOrgId = orgScope.activeOrgId ?? dbUser.orgId;
+        token.accessibleOrgIds = orgScope.accessibleOrgIds;
+        token.orgMemberships = orgScope.orgMemberships;
+        if (token.activeOrgId) {
+          token.orgId = token.activeOrgId;
+        }
       }
 
       return token;
@@ -109,12 +198,20 @@ export const {
       if (token && session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
-        session.user.orgId = token.orgId;
+        session.user.orgId = (token.activeOrgId as string | undefined) ?? token.orgId;
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.mustChangePassword = token.mustChangePassword as boolean;
         session.user.employeeId = token.employeeId ?? null;
         session.user.image = token.image ?? null;
+        session.user.activeOrgId = session.user.orgId;
+        session.user.accessibleOrgIds =
+          (Array.isArray(token.accessibleOrgIds) && token.accessibleOrgIds.length > 0
+            ? token.accessibleOrgIds
+            : session.user.orgId
+              ? [session.user.orgId]
+              : []) ?? [];
+        session.user.orgMemberships = token.orgMemberships ?? [];
       }
       return session;
     },
@@ -201,6 +298,9 @@ declare module "next-auth" {
       name: string;
       role: string;
       orgId: string;
+      activeOrgId?: string;
+      accessibleOrgIds?: string[];
+      orgMemberships?: OrgMembershipPayload[];
       mustChangePassword: boolean;
       employeeId: string | null;
       image?: string | null;
@@ -213,6 +313,9 @@ declare module "next-auth/jwt" {
     id: string;
     role: string;
     orgId: string;
+    activeOrgId?: string | null;
+    accessibleOrgIds?: string[];
+    orgMemberships?: OrgMembershipPayload[];
     name?: string | null;
     email?: string | null;
     mustChangePassword?: boolean;

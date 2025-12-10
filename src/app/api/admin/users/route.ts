@@ -112,6 +112,12 @@ export async function GET(request: NextRequest) {
               expires: true,
             },
           },
+          _count: {
+            select: {
+              userOrganizations: true,
+              temporaryPasswords: true,
+            },
+          },
         },
         orderBy: [{ createdAt: "desc" }],
         skip,

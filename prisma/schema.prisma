@@ -18,6 +18,7 @@ model Organization {
   name      String
   vat       String?  @unique // NIF de empresa
   active    Boolean  @default(true)
+  groupId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -69,6 +70,7 @@ model Organization {
 
   // Relaciones
   users                   User[]
+  userOrganizations       UserOrganization[]
   employees               Employee[]
   costCenters             CostCenter[]
   departments             Department[]
@@ -143,7 +145,22 @@ model Organization {
   // NUEVO: Sistema de firma masiva (Mejora 7)
   signatureBatches SignatureBatch[]
 
+  // Nuevas relaciones multiempresa
+  group OrganizationGroup? @relation(fields: [groupId], references: [id])
+
   @@map("organizations")
+}
+
+model OrganizationGroup {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organizations Organization[]
+
+  @@map("organization_groups")
 }
 
 model User {
@@ -160,8 +177,9 @@ model User {
   updatedAt          DateTime  @updatedAt
 
   // Multi-tenancy
-  orgId        String
-  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  orgId             String
+  organization      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userOrganizations UserOrganization[]
 
   // Relaciones
   sessions                  Session[]
@@ -210,12 +228,33 @@ model User {
   procedureHistory     ExpenseProcedureHistory[] // Historial de expedientes donde ha actuado
 
   // NUEVO: Sistema de firma masiva (Mejora 7)
-  createdSignatureBatches  SignatureBatch[] @relation("CreatedBatches") // Lotes de firma que ha creado
-  secondSignerBatches      SignatureBatch[] @relation("SecondSignerBatches") // Lotes donde es segundo firmante específico
+  createdSignatureBatches SignatureBatch[] @relation("CreatedBatches") // Lotes de firma que ha creado
+  secondSignerBatches     SignatureBatch[] @relation("SecondSignerBatches") // Lotes donde es segundo firmante específico
 
   @@index([email])
   @@index([orgId])
   @@map("users")
+}
+
+model UserOrganization {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId String
+  orgId  String
+
+  role      Role    @default(EMPLOYEE)
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, orgId])
+  @@index([userId])
+  @@index([orgId])
+  @@map("user_organizations")
 }
 
 // Sesiones para NextAuth
@@ -518,8 +557,8 @@ enum SettlementStatus {
 
 // Contrato laboral - Datos contractuales del empleado
 model EmploymentContract {
-  id           String @id @default(cuid())
-  contractType String // INDEFINIDO, TEMPORAL, PRACTICAS, FORMACION, OBRA_SERVICIO, EVENTUAL, INTERINIDAD, FIJO_DISCONTINUO
+  id                 String    @id @default(cuid())
+  contractType       String // INDEFINIDO, TEMPORAL, PRACTICAS, FORMACION, OBRA_SERVICIO, EVENTUAL, INTERINIDAD, FIJO_DISCONTINUO
   startDate          DateTime
   endDate            DateTime? // null para indefinidos
   weeklyHours        Decimal   @db.Decimal(5, 2) // Horas semanales pactadas
@@ -582,13 +621,13 @@ model ContractPauseHistory {
   contractId String
   contract   EmploymentContract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
-  action    String    // "PAUSE" | "RESUME"
-  startDate DateTime  // Fecha inicio del período de pausa
+  action    String // "PAUSE" | "RESUME"
+  startDate DateTime // Fecha inicio del período de pausa
   endDate   DateTime? // Fecha fin (null si aún pausado)
-  reason    String?   // Motivo de la pausa
+  reason    String? // Motivo de la pausa
 
   // Auditoría
-  performedBy String   // userId que realizó la acción
+  performedBy String // userId que realizó la acción
   performedAt DateTime @default(now())
 
   @@index([contractId])
@@ -599,12 +638,12 @@ model ContractPauseHistory {
 // LIQUIDACIÓN DE VACACIONES (Mejora 1)
 // =====================================================
 model VacationSettlement {
-  id             String       @id @default(cuid())
-  orgId          String
-  organization   Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  employeeId     String
-  employee       Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  contractId     String?      // Puede ser null si contrato ya eliminado
+  id           String       @id @default(cuid())
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  employeeId   String
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  contractId   String? // Puede ser null si contrato ya eliminado
 
   settlementDate DateTime // Fecha de corte/liquidación
 
@@ -615,10 +654,10 @@ model VacationSettlement {
   balanceDays Decimal @db.Decimal(5, 2) // Saldo final = accrued - used - pending
 
   // Cálculos en MINUTOS (coherencia con sistema PTO)
-  accruedMinutes  Int @default(0)
-  usedMinutes     Int @default(0)
-  pendingMinutes  Int @default(0)
-  balanceMinutes  Int @default(0)
+  accruedMinutes Int @default(0)
+  usedMinutes    Int @default(0)
+  pendingMinutes Int @default(0)
+  balanceMinutes Int @default(0)
 
   // Jornada usada para conversión días <-> minutos
   workdayMinutes Int @default(480)
@@ -742,9 +781,9 @@ model PayslipUploadItem {
   batch   PayslipBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   // Archivo temporal
-  tempFilePath   String // Ruta temporal del PDF individual
+  tempFilePath     String // Ruta temporal del PDF individual
   originalFileName String? // Nombre original del archivo (para extraer DNI)
-  pageNumber     Int? // Si viene de PDF multipágina
+  pageNumber       Int? // Si viene de PDF multipágina
 
   // Detección automática (OCR o regex en nombre de archivo)
   detectedDni     String?
@@ -1110,24 +1149,24 @@ enum CancellationReason {
 // ==================== SISTEMA DE BOLSA DE HORAS ====================
 
 model TimeBankSettings {
-  id                           String   @id @default(cuid())
-  orgId                        String   @unique
-  maxPositiveMinutes           Int      @default(4800) // Límite recomendado 80h
-  maxNegativeMinutes           Int      @default(480) // Límite de déficit (minutos absolutos)
-  dailyExcessLimitMinutes      Int      @default(120) // Exceso máximo diario sin revisión
-  dailyDeficitLimitMinutes     Int      @default(60) // Déficit máximo diario sin alerta
-  roundingIncrementMinutes     Int      @default(5) // Redondeo automático
-  deficitGraceMinutes          Int      @default(10) // Margen de déficit: diferencias negativas que no penalizan
-  excessGraceMinutes           Int      @default(15) // Margen de exceso: diferencias positivas que no acumulan
-  holidayCompensationFactor    Decimal  @default(1.50) @db.Decimal(4, 2)
-  allowFlexibleWindows         Boolean  @default(true)
-  requireOvertimeAuthorization Boolean  @default(true)
-  autoCloseMissingClockOut     Boolean  @default(true)
-  allowCashConversion          Boolean  @default(false)
+  id                           String               @id @default(cuid())
+  orgId                        String               @unique
+  maxPositiveMinutes           Int                  @default(4800) // Límite recomendado 80h
+  maxNegativeMinutes           Int                  @default(480) // Límite de déficit (minutos absolutos)
+  dailyExcessLimitMinutes      Int                  @default(120) // Exceso máximo diario sin revisión
+  dailyDeficitLimitMinutes     Int                  @default(60) // Déficit máximo diario sin alerta
+  roundingIncrementMinutes     Int                  @default(5) // Redondeo automático
+  deficitGraceMinutes          Int                  @default(10) // Margen de déficit: diferencias negativas que no penalizan
+  excessGraceMinutes           Int                  @default(15) // Margen de exceso: diferencias positivas que no acumulan
+  holidayCompensationFactor    Decimal              @default(1.50) @db.Decimal(4, 2)
+  allowFlexibleWindows         Boolean              @default(true)
+  requireOvertimeAuthorization Boolean              @default(true)
+  autoCloseMissingClockOut     Boolean              @default(true)
+  allowCashConversion          Boolean              @default(false)
   approvalFlow                 TimeBankApprovalFlow @default(MIRROR_PTO)
   metadata                     Json?
-  createdAt                    DateTime @default(now())
-  updatedAt                    DateTime @updatedAt
+  createdAt                    DateTime             @default(now())
+  updatedAt                    DateTime             @updatedAt
 
   createdById String?
   createdBy   User?   @relation("TimeBankSettingsCreatedBy", fields: [createdById], references: [id])
@@ -1765,7 +1804,7 @@ model SignatureBatch {
   document   SignableDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   // Configuración de doble firma
-  requireDoubleSignature Boolean          @default(false)
+  requireDoubleSignature Boolean           @default(false)
   secondSignerRole       SecondSignerRole? // MANAGER, HR o SPECIFIC_USER
   secondSignerUserId     String? // ID del usuario específico (si role = SPECIFIC_USER)
   secondSignerUser       User?             @relation("SecondSignerBatches", fields: [secondSignerUserId], references: [id])
@@ -2626,7 +2665,7 @@ model TimeSlot {
 
   // Configuración ON_CALL - permite determinar si este slot cuenta como trabajo esperado
   countsAsWork       Boolean @default(true) // TRUE para WORK normal, configurable para ON_CALL
-  compensationFactor Decimal @db.Decimal(4, 2) @default(1.00) // 1.00 = normal, 1.50 = nocturno, 1.75 = festivo
+  compensationFactor Decimal @default(1.00) @db.Decimal(4, 2) // 1.00 = normal, 1.50 = nocturno, 1.75 = festivo
 
   description String? // "Pausa comida", "Guardia localizada"
 
@@ -2995,7 +3034,7 @@ enum ProjectAccessType {
 }
 
 model Project {
-  id          String @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   code        String? // Código corto (ej: "PROJ-001")
   description String?
@@ -3288,8 +3327,8 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   // Acción realizada
-  action    String // DELETE_EMPLOYEE, DEACTIVATE_USER, etc.
-  category  String // EMPLOYEE, USER, ORGANIZATION, etc.
+  action   String // DELETE_EMPLOYEE, DEACTIVATE_USER, etc.
+  category String // EMPLOYEE, USER, ORGANIZATION, etc.
 
   // Datos de la entidad afectada (guardados como snapshot)
   entityId   String // ID de la entidad afectada

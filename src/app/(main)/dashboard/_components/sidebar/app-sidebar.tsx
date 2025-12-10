@@ -22,12 +22,20 @@ import { NavMain } from "./nav-main";
 import { NavUser } from "./nav-user";
 import { SidebarOrganizationSwitcher } from "./organization-switcher";
 
+type SidebarOrgMembership = {
+  readonly orgId: string;
+  readonly orgName: string | null;
+  readonly isDefault: boolean;
+};
+
 type AppSidebarUser = {
   readonly name: string;
   readonly email: string;
   readonly avatar: string;
   readonly role?: string;
   readonly orgId?: string;
+  readonly activeOrgId?: string;
+  readonly orgMemberships?: SidebarOrgMembership[];
 };
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
@@ -37,6 +45,9 @@ type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   const sidebarItems = useSidebarItems();
   const { isMobile, setOpenMobile } = useSidebar();
+  const memberships = user?.orgMemberships ?? [];
+  const activeOrgId = user?.activeOrgId ?? user?.orgId;
+  const canShowOrgSwitcher = Boolean(activeOrgId && memberships.length > 1);
 
   const handleLogoClick = () => {
     if (isMobile) {
@@ -84,10 +95,14 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         </ScrollArea>
       </SidebarContent>
       <SidebarFooter>
-        {user?.role === "SUPER_ADMIN" && user.orgId && (
+        {canShowOrgSwitcher && activeOrgId && (
           <>
             <div className="px-2 py-1.5">
-              <SidebarOrganizationSwitcher currentOrgId={user.orgId} />
+              <SidebarOrganizationSwitcher
+                currentOrgId={activeOrgId}
+                memberships={memberships}
+                showManageLink={user?.role === "SUPER_ADMIN"}
+              />
             </div>
             <Separator className="mx-2" />
           </>

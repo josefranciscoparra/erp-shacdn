@@ -3,6 +3,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
+import { getCurrentOrgId } from "@/lib/context/org";
 import { prisma } from "@/lib/prisma";
 
 export interface GetAuthenticatedEmployeeOptions {
@@ -49,6 +50,8 @@ export async function getAuthenticatedUser() {
     throw new Error("Usuario no autenticado");
   }
 
+  const activeOrgId = await getCurrentOrgId(session);
+
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     include: {
@@ -74,7 +77,7 @@ export async function getAuthenticatedUser() {
 
   return {
     userId: user.id,
-    orgId: user.orgId,
+    orgId: activeOrgId,
     role: user.role,
     email: user.email,
     name: user.name,
@@ -90,6 +93,8 @@ export async function getAuthenticatedEmployee(
   if (!session?.user?.id) {
     throw new Error("Usuario no autenticado");
   }
+
+  const activeOrgId = await getCurrentOrgId(session);
 
   const { employeeInclude, contractInclude, requireActiveContract = false, defaultWeeklyHours = 40 } = options;
 
@@ -127,7 +132,7 @@ export async function getAuthenticatedEmployee(
   activeContract ??= await prisma.employmentContract.findFirst({
     where: {
       employeeId: user.employee.id,
-      orgId: user.orgId,
+      orgId: activeOrgId,
       active: true,
       weeklyHours: {
         gt: 0,
@@ -151,7 +156,7 @@ export async function getAuthenticatedEmployee(
   return {
     userId: user.id,
     employeeId: user.employee.id,
-    orgId: user.orgId,
+    orgId: activeOrgId,
     employee: user.employee,
     activeContract,
     hasActiveContract: Boolean(activeContract),

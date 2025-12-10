@@ -27,6 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+import { UserOrganizationsDialog } from "./user-organizations-dialog";
 import { createUsersColumns, type UserRow } from "./users-columns";
 
 const ROLE_DISPLAY_NAMES: Record<Role, string> = {
@@ -45,6 +46,7 @@ interface UsersDataTableProps {
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
   canCreateUsers: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export function UsersDataTable({
@@ -55,6 +57,7 @@ export function UsersDataTable({
   onResetPassword,
   onToggleActive,
   canCreateUsers,
+  isSuperAdmin = false,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -62,6 +65,11 @@ export function UsersDataTable({
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
+  const [orgsDialogUser, setOrgsDialogUser] = React.useState<UserRow | null>(null);
+
+  const handleManageOrganizations = React.useCallback((user: UserRow) => {
+    setOrgsDialogUser(user);
+  }, []);
 
   // Crear columnas con callbacks
   const columns = React.useMemo(
@@ -71,8 +79,10 @@ export function UsersDataTable({
         onChangeRole,
         onResetPassword,
         onToggleActive,
+        onManageOrganizations: isSuperAdmin ? handleManageOrganizations : undefined,
+        isSuperAdmin,
       }),
-    [onViewDetails, onChangeRole, onResetPassword, onToggleActive],
+    [onViewDetails, onChangeRole, onResetPassword, onToggleActive, handleManageOrganizations, isSuperAdmin],
   );
 
   // Filtrar datos según la pestaña activa
@@ -286,6 +296,15 @@ export function UsersDataTable({
           )}
         </TabsContent>
       ))}
+
+      {/* Dialog para gestionar organizaciones */}
+      <UserOrganizationsDialog
+        open={orgsDialogUser !== null}
+        onOpenChange={(open) => {
+          if (!open) setOrgsDialogUser(null);
+        }}
+        user={orgsDialogUser}
+      />
     </Tabs>
   );
 }

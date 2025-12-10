@@ -60,6 +60,8 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     avatar: session.user.image ?? "",
     role: session.user.role,
     orgId: session.user.orgId,
+    activeOrgId: session.user.activeOrgId ?? session.user.orgId,
+    orgMemberships: session.user.orgMemberships ?? [],
   };
 
   return (
