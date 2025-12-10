@@ -85,6 +85,46 @@ export async function getAuthenticatedUser() {
   };
 }
 
+/**
+ * Resultado de la verificación del contexto de organización para fichajes.
+ */
+export interface EmployeeOrgContextResult {
+  canClock: boolean;
+  reason: "OK" | "WRONG_ORG" | "NO_EMPLOYEE" | null;
+  employeeOrgId: string | null;
+  activeOrgId: string | null;
+}
+
+/**
+ * Verifica si el usuario puede fichar (está viendo su propia organización).
+ * Útil para el widget de fichaje rápido y otros componentes que requieren
+ * que el usuario esté en su propia organización.
+ */
+export async function checkEmployeeOrgContext(): Promise<EmployeeOrgContextResult> {
+  try {
+    const { employee, orgId } = await getAuthenticatedEmployee();
+
+    // orgId viene de activeOrgId ?? session.user.orgId
+    // employee.orgId es la org real del empleado
+    const isInOwnOrg = employee.orgId === orgId;
+
+    return {
+      canClock: isInOwnOrg,
+      reason: isInOwnOrg ? "OK" : "WRONG_ORG",
+      employeeOrgId: employee.orgId,
+      activeOrgId: orgId,
+    };
+  } catch {
+    // Si falla getAuthenticatedEmployee (no tiene empleado, no autenticado, etc.)
+    return {
+      canClock: false,
+      reason: "NO_EMPLOYEE",
+      employeeOrgId: null,
+      activeOrgId: null,
+    };
+  }
+}
+
 export async function getAuthenticatedEmployee(
   options: GetAuthenticatedEmployeeOptions = {},
 ): Promise<AuthenticatedEmployeeResult> {

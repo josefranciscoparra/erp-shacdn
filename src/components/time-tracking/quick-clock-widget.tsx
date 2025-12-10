@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, MapPin, Loader2, AlertTriangle } from "lucide-react";
+import { LogIn, LogOut, Coffee, Loader2, Building2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
@@ -18,6 +18,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
+import { checkEmployeeOrgContext } from "@/server/actions/shared/get-authenticated-employee";
 import { detectIncompleteEntries } from "@/server/actions/time-tracking";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
@@ -48,6 +49,9 @@ export function QuickClockWidget() {
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
   const geolocation = useGeolocation();
 
+  // Estado para contexto de organización (multi-empresa)
+  const [isInOwnOrg, setIsInOwnOrg] = useState(true);
+
   // Estado para fichajes incompletos
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
   const [isExcessive, setIsExcessive] = useState(false);
@@ -63,6 +67,14 @@ export function QuickClockWidget() {
   useEffect(() => {
     const load = async () => {
       try {
+        // Verificar contexto de organización (multi-empresa)
+        try {
+          const orgContext = await checkEmployeeOrgContext();
+          setIsInOwnOrg(orgContext.canClock);
+        } catch (error) {
+          console.error("Error al verificar contexto de organización:", error);
+        }
+
         await loadInitialData();
 
         // Verificar si la organización tiene geolocalización habilitada
@@ -268,6 +280,18 @@ export function QuickClockWidget() {
       <div className="hidden items-center gap-2 md:flex">
         <Skeleton className="h-4 w-20" />
         <Skeleton className="h-8 w-20 rounded-full" />
+      </div>
+    );
+  }
+
+  // Si está gestionando otra empresa, mostrar mensaje informativo
+  if (!isInOwnOrg) {
+    return (
+      <div className="hidden items-center gap-2 md:flex">
+        <Badge variant="outline" className="text-muted-foreground">
+          <Building2 className="mr-1.5 h-3 w-3" />
+          Para fichar, cambia a tu empresa
+        </Badge>
       </div>
     );
   }
