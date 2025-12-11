@@ -8,11 +8,8 @@ import { DateRange, DayPicker, DayButton as DayButtonOriginal } from "react-day-
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { useCalendarClassNames } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface DateRangePickerProps {
   dateRange: DateRange | undefined;
@@ -48,6 +45,7 @@ function CustomDayButton(props: React.ComponentProps<typeof DayButtonOriginal>) 
   const isRangeMiddle = modifiers.range_middle;
   const isRangeStart = modifiers.range_start;
   const isRangeEnd = modifiers.range_end;
+  const isToday = modifiers.today;
   const isInRange = isSelected || isRangeMiddle || isRangeStart || isRangeEnd;
 
   return (
@@ -57,12 +55,15 @@ function CustomDayButton(props: React.ComponentProps<typeof DayButtonOriginal>) 
         buttonVariants({ variant: "ghost" }),
         "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100 relative overflow-hidden",
         // Estilos de selección estándar del calendar
-        isRangeStart && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-s-md",
-        isRangeEnd && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-e-md",
+        isRangeStart &&
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-s-md",
+        isRangeEnd &&
+          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground rounded-e-md",
         isRangeMiddle && "bg-accent text-foreground",
-        modifiers.today && !isInRange && "bg-accent text-accent-foreground ring-1 ring-primary",
+        isToday && !isInRange && "bg-accent text-accent-foreground",
+        isToday && "ring-2 ring-primary ring-offset-1 ring-offset-background",
         modifiers.outside && "text-muted-foreground opacity-50",
-        modifiers.disabled && "text-muted-foreground opacity-50"
+        modifiers.disabled && "text-muted-foreground opacity-50",
       )}
       style={
         firstMarker && !isInRange
@@ -98,6 +99,15 @@ export function DateRangePicker({
   markers = [],
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  const calendarClassNames = React.useMemo(
+    () =>
+      useCalendarClassNames({
+        months:
+          "border-l-0 pl-0 flex flex-col gap-4 divide-y divide-border/60 sm:flex-row sm:gap-10 sm:divide-y-0 sm:divide-x sm:divide-border/60 [&>*]:pt-4 sm:[&>*]:pt-0 [&>*]:px-0 sm:[&>*]:px-6",
+        month: "flex-1",
+      }),
+    [],
+  );
 
   // Crear el mapa de markers por día
   const markersByDay = React.useMemo(() => {
@@ -124,11 +134,11 @@ export function DateRangePicker({
           variant="outline"
           size="sm"
           disabled={disabled}
-          className={cn(
-            "justify-start text-left font-normal w-full",
-            !dateRange && "text-muted-foreground",
-            className
-          )}
+            className={cn(
+              "justify-start text-left font-normal w-full",
+              !dateRange && "text-muted-foreground",
+              className,
+            )}
         >
           <CalendarIcon className="size-4" />
           {dateRange?.from ? (
@@ -157,64 +167,23 @@ export function DateRangePicker({
             mode="range"
             selected={dateRange}
             onSelect={onDateRangeChange}
-            numberOfMonths={1}
+            numberOfMonths={2}
             defaultMonth={dateRange?.from ?? new Date()}
             locale={es}
             disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
             showOutsideDays
             className="p-3"
-            classNames={{
-              months: "relative flex",
-              month_caption: "relative mx-10 flex h-7 items-center justify-center",
-              weekdays: "flex flex-row",
-              weekday: "w-8 text-sm font-normal text-muted-foreground",
-              month: "w-full",
-              caption: "relative flex items-center justify-center pt-1",
-              caption_label: "truncate text-sm font-medium",
-              button_next: cn(
-                buttonVariants({ variant: "outline" }),
-                "absolute right-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-              ),
-              button_previous: cn(
-                buttonVariants({ variant: "outline" }),
-                "absolute left-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-              ),
-              nav: "flex items-start",
-              month_grid: "mx-auto mt-4",
-              week: "mt-2 flex w-max items-start",
-              day: "flex size-8 flex-1 items-center justify-center p-0 text-sm",
-              day_button: cn(
-                buttonVariants({ variant: "ghost" }),
-                "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100"
-              ),
-              range_start: "bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground day-range-start rounded-s-md",
-              range_middle: "bg-accent !text-foreground [&>button]:bg-transparent [&>button]:!text-foreground [&>button]:hover:bg-transparent [&>button]:hover:!text-foreground",
-              range_end: "bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground day-range-end rounded-e-md",
-              selected: "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground",
-              today: "[&>button]:bg-accent [&>button]:text-accent-foreground",
-              outside: "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-              disabled: "text-muted-foreground opacity-50",
-              hidden: "invisible flex-1",
-            }}
+            classNames={calendarClassNames}
             components={{
               DayButton: CustomDayButton,
             }}
           />
         </MarkerContext.Provider>
         <div className="flex items-center justify-between border-t p-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleClear}
-            disabled={!dateRange}
-          >
+          <Button variant="ghost" size="sm" onClick={handleClear} disabled={!dateRange}>
             Limpiar
           </Button>
-          <Button
-            size="sm"
-            onClick={() => setOpen(false)}
-            disabled={!dateRange?.from}
-          >
+          <Button size="sm" onClick={() => setOpen(false)} disabled={!dateRange?.from}>
             Aplicar
           </Button>
         </div>

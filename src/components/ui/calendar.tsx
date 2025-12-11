@@ -68,6 +68,60 @@ type NavView = "days" | "years";
  * @default yearRange 12
  * @returns
  */
+export function useCalendarClassNames(overrides?: Partial<Record<keyof DayPickerProps["classNames"], string>>) {
+  return {
+    months: cn("relative flex gap-6 border-l border-dashed border-border/40 pl-3", overrides?.months),
+    month_caption: cn("relative mx-10 flex h-7 items-center justify-center", overrides?.month_caption),
+    weekdays: cn("flex flex-row", overrides?.weekdays),
+    weekday: cn("w-8 text-sm font-normal text-muted-foreground", overrides?.weekday),
+    month: cn("w-full", overrides?.month),
+    caption: cn("relative flex items-center justify-center pt-1", overrides?.caption),
+    caption_label: cn("truncate text-sm font-medium", overrides?.caption_label),
+    button_next: cn(
+      buttonVariants({ variant: "outline" }),
+      "absolute right-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+      overrides?.button_next
+    ),
+    button_previous: cn(
+      buttonVariants({ variant: "outline" }),
+      "absolute left-0 h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+      overrides?.button_previous
+    ),
+    nav: cn("flex items-start", overrides?.nav),
+    month_grid: cn("mx-auto mt-4", overrides?.month_grid),
+    week: cn("mt-2 flex w-max items-start", overrides?.week),
+    day: cn("flex size-8 flex-1 items-center justify-center p-0 text-sm", overrides?.day),
+    day_button: cn(
+      buttonVariants({ variant: "ghost" }),
+      "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100 relative overflow-hidden",
+      overrides?.day_button
+    ),
+    range_start: cn(
+      "bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground day-range-start rounded-s-md",
+      overrides?.range_start
+    ),
+    range_middle: cn(
+      "bg-accent !text-foreground [&>button]:bg-transparent [&>button]:!text-foreground [&>button]:hover:bg-transparent [&>button]:hover:!text-foreground",
+      overrides?.range_middle
+    ),
+    range_end: cn(
+      "bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground day-range-end rounded-e-md",
+      overrides?.range_end
+    ),
+    selected: cn(
+      "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground",
+      overrides?.selected
+    ),
+    today: cn("[&>button]:bg-accent [&>button]:text-accent-foreground", overrides?.today),
+    outside: cn(
+      "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
+      overrides?.outside
+    ),
+    disabled: cn("text-muted-foreground opacity-50", overrides?.disabled),
+    hidden: cn("invisible flex-1", overrides?.hidden)
+  };
+}
+
 function Calendar({
   className,
   style,
@@ -94,7 +148,35 @@ function Calendar({
     }, [yearRange])
   );
 
-  const { onNextClick, onPrevClick, startMonth, endMonth } = props;
+  const {
+    onNextClick,
+    onPrevClick,
+    startMonth,
+    endMonth,
+    monthsClassName,
+    monthCaptionClassName,
+    weekdaysClassName,
+    weekdayClassName,
+    monthClassName,
+    captionClassName,
+    captionLabelClassName,
+    buttonNextClassName,
+    buttonPreviousClassName,
+    navClassName,
+    monthGridClassName,
+    weekClassName,
+    dayClassName,
+    dayButtonClassName,
+    rangeStartClassName,
+    rangeEndClassName,
+    selectedClassName,
+    todayClassName,
+    outsideClassName,
+    disabledClassName,
+    rangeMiddleClassName,
+    hiddenClassName,
+    ...dayPickerProps
+  } = props;
 
   const columnsDisplayed = navView === "years" ? 1 : numberOfMonths;
   const calendarStyle: React.CSSProperties = {
@@ -106,70 +188,30 @@ function Calendar({
     calendarStyle.width = "100%";
   }
 
-  const _monthsClassName = cn("relative flex", props.monthsClassName);
-  const _monthCaptionClassName = cn(
-    "relative mx-10 flex h-7 items-center justify-center",
-    props.monthCaptionClassName
-  );
-  const _weekdaysClassName = cn("flex flex-row", props.weekdaysClassName);
-  const _weekdayClassName = cn(
-    "w-8 text-sm font-normal text-muted-foreground",
-    props.weekdayClassName
-  );
-  const _monthClassName = cn("w-full", props.monthClassName);
-  const _captionClassName = cn(
-    "relative flex items-center justify-center pt-1",
-    props.captionClassName
-  );
-  const _captionLabelClassName = cn("truncate text-sm font-medium", props.captionLabelClassName);
-  const buttonNavClassName = buttonVariants({
-    variant: "outline",
-    className: "absolute h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
+  const calendarClassNames = useCalendarClassNames({
+    months: monthsClassName,
+    month_caption: monthCaptionClassName,
+    weekdays: weekdaysClassName,
+    weekday: weekdayClassName,
+    month: monthClassName,
+    caption: captionClassName,
+    caption_label: captionLabelClassName,
+    button_next: buttonNextClassName,
+    button_previous: buttonPreviousClassName,
+    nav: navClassName,
+    month_grid: monthGridClassName,
+    week: weekClassName,
+    day: dayClassName,
+    day_button: dayButtonClassName,
+    range_start: rangeStartClassName,
+    range_end: rangeEndClassName,
+    range_middle: rangeMiddleClassName,
+    selected: selectedClassName,
+    today: todayClassName,
+    outside: outsideClassName,
+    disabled: disabledClassName,
+    hidden: hiddenClassName
   });
-  const _buttonNextClassName = cn(buttonNavClassName, "right-0", props.buttonNextClassName);
-  const _buttonPreviousClassName = cn(buttonNavClassName, "left-0", props.buttonPreviousClassName);
-  const _navClassName = cn("flex items-start", props.navClassName);
-  const _monthGridClassName = cn("mx-auto mt-4", props.monthGridClassName);
-  const _weekClassName = cn("mt-2 flex w-max items-start", props.weekClassName);
-  const _dayClassName = cn(
-    "flex size-8 flex-1 items-center justify-center p-0 text-sm",
-    props.dayClassName
-  );
-  const _dayButtonClassName = cn(
-    buttonVariants({ variant: "ghost" }),
-    "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100 relative overflow-hidden",
-    props.dayButtonClassName
-  );
-  const buttonRangeClassName =
-    "bg-accent [&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground";
-  const _rangeStartClassName = cn(
-    buttonRangeClassName,
-    "day-range-start rounded-s-md",
-    props.rangeStartClassName
-  );
-  const _rangeEndClassName = cn(
-    buttonRangeClassName,
-    "day-range-end rounded-e-md",
-    props.rangeEndClassName
-  );
-  const _rangeMiddleClassName = cn(
-    "bg-accent !text-foreground [&>button]:bg-transparent [&>button]:!text-foreground [&>button]:hover:bg-transparent [&>button]:hover:!text-foreground",
-    props.rangeMiddleClassName
-  );
-  const _selectedClassName = cn(
-    "[&>button]:bg-primary [&>button]:text-primary-foreground [&>button]:hover:bg-primary [&>button]:hover:text-primary-foreground",
-    props.selectedClassName
-  );
-  const _todayClassName = cn(
-    "[&>button]:bg-accent [&>button]:text-accent-foreground",
-    props.todayClassName
-  );
-  const _outsideClassName = cn(
-    "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground aria-selected:opacity-30",
-    props.outsideClassName
-  );
-  const _disabledClassName = cn("text-muted-foreground opacity-50", props.disabledClassName);
-  const _hiddenClassName = cn("invisible flex-1", props.hiddenClassName);
 
   const defaultComponents = {
     Chevron: ({ orientation }: { orientation: "left" | "right" }) => {
@@ -236,33 +278,10 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       style={calendarStyle}
-      classNames={{
-        months: _monthsClassName,
-        month_caption: _monthCaptionClassName,
-        weekdays: _weekdaysClassName,
-        weekday: _weekdayClassName,
-        month: _monthClassName,
-        caption: _captionClassName,
-        caption_label: _captionLabelClassName,
-        button_next: _buttonNextClassName,
-        button_previous: _buttonPreviousClassName,
-        nav: _navClassName,
-        month_grid: _monthGridClassName,
-        week: _weekClassName,
-        day: _dayClassName,
-        day_button: _dayButtonClassName,
-        range_start: _rangeStartClassName,
-        range_middle: _rangeMiddleClassName,
-        range_end: _rangeEndClassName,
-        selected: _selectedClassName,
-        today: _todayClassName,
-        outside: _outsideClassName,
-        disabled: _disabledClassName,
-        hidden: _hiddenClassName
-      }}
+      classNames={calendarClassNames}
       components={mergedComponents}
       numberOfMonths={columnsDisplayed}
-      {...props}
+      {...dayPickerProps}
     />
   );
 }
