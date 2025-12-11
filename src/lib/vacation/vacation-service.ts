@@ -23,7 +23,7 @@ import type {
   VacationBalance,
   VacationDisplayInfo,
 } from "./types";
-import { calculateWorkdayMinutes, minutesToDays, roundDays } from "./utils/conversion-utils";
+import { calculateWorkdayMinutes, daysToMinutes, minutesToDays, roundDays } from "./utils/conversion-utils";
 
 // Instancias singleton de las estrategias
 const standardStrategy = new StandardVacationStrategy();
@@ -135,6 +135,49 @@ async function calculateUsage(
   };
 }
 
+async function getVacationAdjustments(
+  employeeId: string,
+  orgId: string,
+  year: number,
+  workdayMinutes: number,
+): Promise<{ days: number; minutes: number }> {
+  const manualAdjustments = await prisma.ptoBalanceAdjustment.findMany({
+    where: {
+      orgId,
+      ptoBalance: {
+        employeeId,
+        year,
+      },
+    },
+    select: {
+      daysAdjusted: true,
+    },
+  });
+
+  const recurringAdjustments = await prisma.recurringPtoAdjustment.findMany({
+    where: {
+      employeeId,
+      orgId,
+      active: true,
+      startYear: {
+        lte: year,
+      },
+    },
+    select: {
+      extraDays: true,
+    },
+  });
+
+  const manualDays = manualAdjustments.reduce((total, adj) => total + Number(adj.daysAdjusted), 0);
+  const recurringDays = recurringAdjustments.reduce((total, adj) => total + Number(adj.extraDays), 0);
+  const totalDays = manualDays + recurringDays;
+
+  return {
+    days: totalDays,
+    minutes: daysToMinutes(totalDays, workdayMinutes),
+  };
+}
+
 /**
  * Calcula el balance de vacaciones de un empleado
  *
@@ -202,6 +245,9 @@ export async function calculateVacationBalance(
 
   // Calcular devengado
   const accrued = strategy.calculateAccrued(contractInfo, cutoffDate, annualDays, workdayMinutes);
+  const adjustments = await getVacationAdjustments(employeeId, employee.orgId, year, workdayMinutes);
+  const accruedMinutesWithAdjustments = accrued.minutes + adjustments.minutes;
+  const accruedDaysWithAdjustments = accrued.days + adjustments.days;
 
   // Calcular usado y pendiente
   const usage = await calculateUsage(employeeId, workdayMinutes, {
@@ -211,15 +257,15 @@ export async function calculateVacationBalance(
   });
 
   // Calcular disponible
-  const availableMinutes = accrued.minutes - usage.usedMinutes - usage.pendingMinutes;
+  const availableMinutes = accruedMinutesWithAdjustments - usage.usedMinutes - usage.pendingMinutes;
 
   return {
-    annualAllowanceDays: annualDays,
-    accruedDays: roundDays(accrued.days),
+    annualAllowanceDays: roundDays(annualDays + adjustments.days),
+    accruedDays: roundDays(accruedDaysWithAdjustments),
     usedDays: usage.usedDays,
     pendingDays: usage.pendingDays,
     availableDays: roundDays(minutesToDays(availableMinutes, workdayMinutes)),
-    accruedMinutes: accrued.minutes,
+    accruedMinutes: accruedMinutesWithAdjustments,
     usedMinutes: usage.usedMinutes,
     pendingMinutes: usage.pendingMinutes,
     availableMinutes: Math.max(0, availableMinutes),
