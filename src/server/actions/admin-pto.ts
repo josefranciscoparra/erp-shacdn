@@ -495,7 +495,10 @@ export async function getEmployeePtoRequests(employeeId: string) {
     orgId: request.orgId,
     employeeId: request.employeeId,
     absenceTypeId: request.absenceTypeId,
-    absenceType: request.absenceType,
+    absenceType: {
+      ...request.absenceType,
+      compensationFactor: Number(request.absenceType.compensationFactor),
+    },
     approver: request.approver,
   }));
 }
