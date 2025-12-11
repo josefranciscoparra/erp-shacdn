@@ -25,6 +25,7 @@ export async function GET() {
       select: {
         chatEnabled: true,
         shiftsEnabled: true,
+        whistleblowingEnabled: true,
         // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
       },
     });
@@ -36,6 +37,7 @@ export async function GET() {
     return NextResponse.json({
       chatEnabled: org.chatEnabled,
       shiftsEnabled: org.shiftsEnabled,
+      whistleblowingEnabled: org.whistleblowingEnabled,
       // Futuros módulos aquí
     });
   } catch (error) {

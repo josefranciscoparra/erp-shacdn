@@ -145,6 +145,15 @@ model Organization {
   // NUEVO: Sistema de firma masiva (Mejora 7)
   signatureBatches SignatureBatch[]
 
+  // NUEVO: Canal de Denuncias (Ley 2/2023)
+  whistleblowingEnabled    Boolean  @default(false) // Activar/desactivar canal de denuncias
+  whistleblowingPublicSlug String?  @unique // Slug para URL pública: /whistleblowing/[slug]
+  whistleblowingManagerIds String[] @default([]) // IDs de usuarios gestores
+
+  // Relaciones de Canal de Denuncias
+  whistleblowingCategories WhistleblowingCategory[]
+  whistleblowingReports    WhistleblowingReport[]
+
   // Nuevas relaciones multiempresa
   group OrganizationGroup? @relation(fields: [groupId], references: [id])
 
@@ -230,6 +239,13 @@ model User {
   // NUEVO: Sistema de firma masiva (Mejora 7)
   createdSignatureBatches SignatureBatch[] @relation("CreatedBatches") // Lotes de firma que ha creado
   secondSignerBatches     SignatureBatch[] @relation("SecondSignerBatches") // Lotes donde es segundo firmante específico
+
+  // NUEVO: Canal de Denuncias (Ley 2/2023)
+  assignedWhistleblowingReports  WhistleblowingReport[]   @relation("WhistleblowingAssignee") // Denuncias asignadas
+  resolvedWhistleblowingReports  WhistleblowingReport[]   @relation("WhistleblowingResolver") // Denuncias resueltas
+  closedWhistleblowingReports    WhistleblowingReport[]   @relation("WhistleblowingCloser") // Denuncias cerradas
+  uploadedWhistleblowingDocs     WhistleblowingDocument[] // Documentos de denuncias que ha subido
+  whistleblowingActivities       WhistleblowingActivity[] // Actividades de denuncias que ha realizado
 
   @@index([email])
   @@index([orgId])
@@ -523,6 +539,9 @@ model Employee {
 
   // NUEVO: Nóminas asignadas (Mejora 3)
   payslipUploadItems PayslipUploadItem[] // Items de nóminas asignados a este empleado
+
+  // NUEVO: Canal de Denuncias (Ley 2/2023)
+  whistleblowingReports WhistleblowingReport[] // Denuncias presentadas como empleado autenticado
 
   @@unique([orgId, employeeNumber]) // Número único por organización
   @@unique([orgId, nifNie]) // NIF único por organización
@@ -3357,6 +3376,177 @@ model AuditLog {
   @@index([action])
   @@index([performedById])
   @@map("audit_logs")
+}
+
+// ==================== CANAL DE DENUNCIAS (Ley 2/2023) ====================
+
+// Tipo de informante
+enum ReporterType {
+  EMPLOYEE // Empleado autenticado
+  EXTERNAL // Proveedor/cliente sin cuenta
+  ANONYMOUS // Sin identificación
+}
+
+// Estado de la denuncia (MVP: solo 4 estados)
+enum WhistleblowingStatus {
+  SUBMITTED // Enviada (estado inicial)
+  IN_REVIEW // En investigación
+  RESOLVED // Resuelta
+  CLOSED // Cerrada
+}
+
+// Prioridad de la denuncia
+enum WhistleblowingPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// Tipo de resolución
+enum ResolutionType {
+  SUBSTANTIATED // Fundada
+  UNSUBSTANTIATED // No fundada
+  PARTIALLY_SUBSTANTIATED // Parcialmente fundada
+  NO_ACTION // Sin acción requerida
+}
+
+// Tipos de actividad en denuncias (incluye notas internas)
+enum WhistleblowingActivityType {
+  CREATED
+  SUBMITTED
+  ASSIGNED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  DOCUMENT_ADDED
+  INTERNAL_NOTE // Reemplaza a Comment en MVP
+  RESOLVED
+  CLOSED
+}
+
+// Categorías de denuncias
+model WhistleblowingCategory {
+  id               String  @id @default(cuid())
+  name             String
+  description      String?
+  requiresEvidence Boolean @default(false)
+  active           Boolean @default(true)
+  order            Int     @default(0)
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  reports      WhistleblowingReport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orgId])
+  @@map("whistleblowing_categories")
+}
+
+// Denuncias
+model WhistleblowingReport {
+  id String @id @default(cuid())
+
+  // Tracking y acceso anónimo
+  trackingCode   String  @unique // WB-YYYYMMDD-XXXXX (visible al usuario)
+  accessCodeHash String? // SOLO hash bcrypt, nunca el código en claro
+
+  // Informante (simplificado)
+  reporterType         ReporterType
+  reporterDisplayLabel String?      @db.Text // "Empleado interno", "Proveedor", "Anónimo"
+  reporterMetadata     String?      @db.Text // JSON cifrado (email, teléfono, etc.)
+
+  // Contenido de la denuncia
+  title            String
+  description      String    @db.Text
+  involvedParties  String?   @db.Text // JSON cifrado
+  incidentDate     DateTime?
+  incidentLocation String?
+
+  // Estado y prioridad
+  status   WhistleblowingStatus   @default(SUBMITTED)
+  priority WhistleblowingPriority @default(MEDIUM)
+
+  // Asignación (campo, no estado separado)
+  assignedToId String?
+  assignedTo   User?     @relation("WhistleblowingAssignee", fields: [assignedToId], references: [id])
+  assignedAt   DateTime?
+
+  // Resolución
+  resolution     String?         @db.Text
+  resolutionType ResolutionType?
+  resolvedAt     DateTime?
+  resolvedById   String?
+  resolvedBy     User?           @relation("WhistleblowingResolver", fields: [resolvedById], references: [id])
+
+  // Cierre
+  closedAt   DateTime?
+  closedById String?
+  closedBy   User?     @relation("WhistleblowingCloser", fields: [closedById], references: [id])
+
+  // Timestamps
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  categoryId String
+  category   WhistleblowingCategory @relation(fields: [categoryId], references: [id])
+  employeeId String? // Solo si reporterType = EMPLOYEE
+  employee   Employee?              @relation(fields: [employeeId], references: [id])
+  orgId      String
+  organization Organization         @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  documents  WhistleblowingDocument[]
+  activities WhistleblowingActivity[]
+
+  @@index([orgId, status])
+  @@index([trackingCode])
+  @@index([assignedToId])
+  @@map("whistleblowing_reports")
+}
+
+// Documentos adjuntos a denuncias
+model WhistleblowingDocument {
+  id String @id @default(cuid())
+
+  reportId String
+  report   WhistleblowingReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  fileName    String
+  filePath    String // Ruta cifrada en storage
+  fileSize    Int
+  mimeType    String
+  description String?
+
+  uploadedById String? // null si anónimo
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
+  uploadedAt   DateTime @default(now())
+
+  @@index([reportId])
+  @@map("whistleblowing_documents")
+}
+
+// Actividades y notas internas de denuncias
+model WhistleblowingActivity {
+  id String @id @default(cuid())
+
+  reportId String
+  report   WhistleblowingReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  type        WhistleblowingActivityType
+  description String                     @db.Text // Para INTERNAL_NOTE, el contenido de la nota
+  oldValue    String? // Para cambios de estado/prioridad
+  newValue    String?
+
+  performedById String? // null si acción anónima
+  performedBy   User?   @relation(fields: [performedById], references: [id])
+  performedAt   DateTime @default(now())
+  ipAddress     String? // Para auditoría de anónimos
+
+  @@index([reportId])
+  @@map("whistleblowing_activities")
 }
 
 // ==================== PRÓXIMOS SPRINTS ====================

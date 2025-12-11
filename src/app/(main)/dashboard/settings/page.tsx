@@ -23,6 +23,7 @@ import { ShiftsTab } from "./_components/shifts-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 import { TimeBankTab } from "./_components/time-bank-tab";
 import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
+import { WhistleblowingTab } from "./_components/whistleblowing-tab";
 
 export default function SettingsPage() {
   const searchParams = useSearchParams();
@@ -41,6 +42,7 @@ export default function SettingsPage() {
       { value: "absence-types", label: "Tipos de Ausencia" },
       { value: "chat", label: "Chat" },
       { value: "shifts", label: "Turnos" },
+      { value: "whistleblowing", label: "Denuncias" },
       { value: "geolocation", label: "Geolocalización" },
       { value: "validations", label: "Fichajes" },
       { value: "time-bank", label: "Bolsa Horas" },
@@ -125,6 +127,10 @@ export default function SettingsPage() {
 
           <TabsContent value="shifts" className="mt-4 md:mt-6">
             <ShiftsTab />
+          </TabsContent>
+
+          <TabsContent value="whistleblowing" className="mt-4 md:mt-6">
+            <WhistleblowingTab />
           </TabsContent>
 
           <TabsContent value="geolocation" className="mt-4 md:mt-6">

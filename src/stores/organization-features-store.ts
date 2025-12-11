@@ -13,6 +13,7 @@ export interface OrganizationFeatures {
   chatEnabled: boolean;
   shiftsEnabled: boolean;
   expenseMode: "PRIVATE" | "PUBLIC" | "MIXED";
+  whistleblowingEnabled: boolean;
   // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
 }
 
@@ -35,6 +36,7 @@ const initialFeatures: OrganizationFeatures = {
   chatEnabled: false,
   shiftsEnabled: false,
   expenseMode: "PRIVATE",
+  whistleblowingEnabled: false,
 };
 
 export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()((set, get) => ({
@@ -72,7 +74,7 @@ export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()(
           chatEnabled: data.chatEnabled ?? false,
           shiftsEnabled: data.shiftsEnabled ?? false,
           expenseMode: data.expenseMode ?? "PRIVATE",
-          // Futuros módulos aquí
+          whistleblowingEnabled: data.whistleblowingEnabled ?? false,
         },
         isLoaded: true,
         isLoading: false,

@@ -34,7 +34,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
       chatEnabled: true,
       shiftsEnabled: true,
       expenseMode: true,
-      // Futuros módulos aquí
+      whistleblowingEnabled: true,
     },
   });
 
@@ -42,7 +42,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     chatEnabled: org?.chatEnabled ?? false,
     shiftsEnabled: org?.shiftsEnabled ?? false,
     expenseMode: org?.expenseMode ?? "PRIVATE",
-    // Futuros módulos aquí
+    whistleblowingEnabled: org?.whistleblowingEnabled ?? false,
   };
 
   const cookieStore = await cookies();

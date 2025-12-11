@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 import Link from "next/link";
 
-import { Bell, EllipsisVertical, LogOut, User } from "lucide-react";
+import { Bell, EllipsisVertical, LogOut, Shield, User } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 
@@ -21,6 +21,7 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { getInitials } from "@/lib/utils";
 import { useNotificationsStore } from "@/stores/notifications-store";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 export function NavUser({
@@ -36,6 +37,7 @@ export function NavUser({
   const t = useTranslations("user");
   const { unreadCount, loadUnreadCount } = useNotificationsStore();
   const { resetStore } = useTimeTrackingStore();
+  const whistleblowingEnabled = useOrganizationFeaturesStore((state) => state.features.whistleblowingEnabled);
 
   // Cargar contador de notificaciones al montar
   useEffect(() => {
@@ -106,6 +108,14 @@ export function NavUser({
                   )}
                 </Link>
               </DropdownMenuItem>
+              {whistleblowingEnabled && (
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/me/whistleblowing">
+                    <Shield />
+                    Canal de Denuncias
+                  </Link>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>

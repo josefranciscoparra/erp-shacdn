@@ -15,12 +15,14 @@ import {
   Loader2,
   ChevronRight,
   Calendar,
+  Shield,
 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 import { MySpaceMetrics } from "./_components/my-space-metrics";
 import { RecentNotifications } from "./_components/recent-notifications";
@@ -30,6 +32,7 @@ export default function MySpacePage() {
   const [data, setData] = useState<MySpaceDashboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const whistleblowingEnabled = useOrganizationFeaturesStore((state) => state.features.whistleblowingEnabled);
 
   useEffect(() => {
     loadDashboard();
@@ -264,6 +267,24 @@ export default function MySpacePage() {
           </div>
         )}
       </div>
+
+      {/* Footer discreto - Canal de Denuncias */}
+      {whistleblowingEnabled && (
+        <div className="mt-8 pt-6 transition-all delay-500 duration-500">
+          <Link
+            href="/dashboard/me/whistleblowing"
+            className="group bg-muted/30 hover:bg-primary/5 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-center transition-all duration-300"
+          >
+            <Shield className="text-muted-foreground group-hover:text-primary size-4 transition-colors" />
+            <span className="text-muted-foreground group-hover:text-foreground text-sm transition-colors">
+              ¿Necesitas comunicar algo de forma confidencial?{" "}
+              <span className="text-primary/80 group-hover:text-primary font-medium">
+                Acceder al Canal de Denuncias
+              </span>
+            </span>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

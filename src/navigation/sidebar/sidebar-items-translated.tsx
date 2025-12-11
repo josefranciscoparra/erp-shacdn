@@ -23,6 +23,7 @@ import {
   History,
   Calculator,
   FileArchive,
+  Shield,
   type LucideIcon,
 } from "lucide-react";
 
@@ -365,6 +366,13 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/settlements",
           icon: Calculator,
           permission: "manage_organization",
+          isNew: true,
+        },
+        {
+          title: "Canal de Denuncias",
+          url: "/dashboard/whistleblowing",
+          icon: Shield,
+          permission: "manage_organization" as Permission,
           isNew: true,
         },
         {
