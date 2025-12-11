@@ -82,3 +82,22 @@ export function minutesToDays(minutes: number, workdayMinutes: number = 480): nu
 export function applyCompensationFactor(minutes: number, compensationFactor: number): number {
   return Math.round(minutes * compensationFactor);
 }
+
+export function formatVacationBalance(
+  minutes: number,
+  workdayMinutes: number = 480,
+  options: { fractionStep?: number } = {},
+): { primaryLabel: string; detailLabel: string } {
+  const fractionStep = options.fractionStep ?? 0.25;
+  const days = minutesToDays(minutes, workdayMinutes);
+  const roundedDays = Math.round(days / fractionStep) * fractionStep;
+
+  const primaryLabel = `${roundedDays.toLocaleString("es-ES")} día${roundedDays === 1 ? "" : "s"}`;
+  const detailRaw = minutes === 0 ? "0 días" : formatMinutes(minutes, workdayMinutes);
+  const detailLabel = detailRaw === primaryLabel ? detailRaw : `≈ ${detailRaw}`;
+
+  return {
+    primaryLabel,
+    detailLabel,
+  };
+}

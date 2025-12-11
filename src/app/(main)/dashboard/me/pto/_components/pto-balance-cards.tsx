@@ -7,7 +7,7 @@ import { CalendarDays, Calendar, FileCheck } from "lucide-react";
 import { minutesToTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardAction } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatMinutes } from "@/services/pto/pto-helpers-client";
+import { formatVacationBalance } from "@/services/pto/pto-helpers-client";
 import { usePtoStore } from "@/stores/pto-store";
 
 interface PtoBalanceCardsProps {
@@ -61,14 +61,9 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   // ✅ SISTEMA DE BALANCE EN MINUTOS - Usar campos en minutos y formatear
   const workdayMinutes = balance.workdayMinutesSnapshot ?? 480;
-  const availableFormatted = formatMinutes(balance.minutesAvailable ?? 0, workdayMinutes);
-  const usedFormatted = formatMinutes(balance.minutesUsed ?? 0, workdayMinutes);
-  const totalFormatted = formatMinutes(balance.annualAllowanceMinutes ?? 0, workdayMinutes);
-
-  // Fallback a días legacy (solo mientras migramos datos)
-  const daysAvailable = balance.minutesAvailable
-    ? Math.floor((balance.minutesAvailable ?? 0) / workdayMinutes)
-    : Math.floor(balance.daysAvailable);
+  const availableDisplay = formatVacationBalance(balance.minutesAvailable ?? 0, workdayMinutes);
+  const usedDisplay = formatVacationBalance(balance.minutesUsed ?? 0, workdayMinutes);
+  const totalDisplay = formatVacationBalance(balance.annualAllowanceMinutes ?? 0, workdayMinutes);
 
   // Filtrar próximas vacaciones aprobadas (futuras)
   const today = new Date();
@@ -190,10 +185,19 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         <CardHeader>
           <CardDescription>Vacaciones</CardDescription>
           <div className="flex flex-col gap-2">
-            <h4 className="font-display text-2xl lg:text-3xl">{availableFormatted}</h4>
-            <div className="text-muted-foreground text-sm">
-              Disponibles de {totalFormatted} anuales (usados: {usedFormatted})
-            </div>
+            <h4
+              className="font-display text-2xl lg:text-3xl"
+              title={availableDisplay.detailLabel}
+              aria-label={availableDisplay.detailLabel}
+            >
+              {availableDisplay.primaryLabel}
+            </h4>
+            <p
+              className="text-muted-foreground text-sm"
+              title={`Totales exactos: ${totalDisplay.detailLabel} · usados ${usedDisplay.detailLabel}`}
+            >
+              Disponibles de {totalDisplay.primaryLabel} anuales (usados: {usedDisplay.primaryLabel})
+            </p>
           </div>
           <CardAction>
             <div className="flex gap-4">
