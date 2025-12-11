@@ -11,7 +11,8 @@ import {
   labelNext,
   labelPrevious,
   useDayPicker,
-  type DayPickerProps
+  type DayPickerProps,
+  type DayContentProps
 } from "react-day-picker";
 
 export type CalendarProps = DayPickerProps & {
@@ -53,6 +54,10 @@ export type CalendarProps = DayPickerProps & {
    * Expands the calendar to use the full width of its container.
    */
   fullWidth?: boolean;
+  /**
+   * Custom renderer to augment the day content.
+   */
+  dayContent?: (props: DayContentProps) => React.ReactNode;
 };
 
 type NavView = "days" | "years";
@@ -71,6 +76,8 @@ function Calendar({
   yearRange = 12,
   numberOfMonths,
   fullWidth = false,
+  components: externalComponents,
+  dayContent,
   ...props
 }: CalendarProps) {
   const [navView, setNavView] = React.useState<NavView>("days");
@@ -130,7 +137,7 @@ function Calendar({
   );
   const _dayButtonClassName = cn(
     buttonVariants({ variant: "ghost" }),
-    "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100",
+    "size-8 rounded-md p-0 font-normal transition-none aria-selected:opacity-100 relative overflow-hidden",
     props.dayButtonClassName
   );
   const buttonRangeClassName =
@@ -164,6 +171,66 @@ function Calendar({
   const _disabledClassName = cn("text-muted-foreground opacity-50", props.disabledClassName);
   const _hiddenClassName = cn("invisible flex-1", props.hiddenClassName);
 
+  const defaultComponents = {
+    Chevron: ({ orientation }: { orientation: "left" | "right" }) => {
+      const Icon = orientation === "left" ? ChevronLeft : ChevronRight;
+      return <Icon className="h-4 w-4" />;
+    },
+    Nav: ({ className }: { className?: string }) => (
+      <Nav
+        className={className}
+        displayYears={displayYears}
+        navView={navView}
+        setDisplayYears={setDisplayYears}
+        startMonth={startMonth}
+        endMonth={endMonth}
+        onPrevClick={onPrevClick}
+        onNextClick={onNextClick}
+      />
+    ),
+    CaptionLabel: (captionProps: React.ComponentProps<typeof CaptionLabel>) => (
+      <CaptionLabel
+        showYearSwitcher={showYearSwitcher}
+        navView={navView}
+        setNavView={setNavView}
+        displayYears={displayYears}
+        {...captionProps}
+      />
+    ),
+    MonthGrid: ({
+      className,
+      children,
+      ...monthGridProps
+    }: React.ComponentProps<typeof MonthGrid>) => (
+      <MonthGrid
+        children={children}
+        className={className}
+        displayYears={displayYears}
+        startMonth={startMonth}
+        endMonth={endMonth}
+        navView={navView}
+        setNavView={setNavView}
+        {...monthGridProps}
+      />
+    )
+  };
+
+  const mergedComponents = {
+    ...defaultComponents,
+    ...externalComponents
+  };
+
+  mergedComponents.DayContent = (dayProps: DayContentProps) => {
+    if (dayContent) {
+      return <>{dayContent(dayProps)}</>;
+    }
+    if (externalComponents?.DayContent) {
+      const CustomDayContent = externalComponents.DayContent;
+      return <CustomDayContent {...dayProps} />;
+    }
+    return <>{dayProps.children}</>;
+  };
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -193,44 +260,7 @@ function Calendar({
         disabled: _disabledClassName,
         hidden: _hiddenClassName
       }}
-      components={{
-        Chevron: ({ orientation }) => {
-          const Icon = orientation === "left" ? ChevronLeft : ChevronRight;
-          return <Icon className="h-4 w-4" />;
-        },
-        Nav: ({ className }) => (
-          <Nav
-            className={className}
-            displayYears={displayYears}
-            navView={navView}
-            setDisplayYears={setDisplayYears}
-            startMonth={startMonth}
-            endMonth={endMonth}
-            onPrevClick={onPrevClick}
-          />
-        ),
-        CaptionLabel: (props) => (
-          <CaptionLabel
-            showYearSwitcher={showYearSwitcher}
-            navView={navView}
-            setNavView={setNavView}
-            displayYears={displayYears}
-            {...props}
-          />
-        ),
-        MonthGrid: ({ className, children, ...props }) => (
-          <MonthGrid
-            children={children}
-            className={className}
-            displayYears={displayYears}
-            startMonth={startMonth}
-            endMonth={endMonth}
-            navView={navView}
-            setNavView={setNavView}
-            {...props}
-          />
-        )
-      }}
+      components={mergedComponents}
       numberOfMonths={columnsDisplayed}
       {...props}
     />

@@ -201,7 +201,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 });
 
 export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogProps) {
-  const { absenceTypes, balance, createRequest, isSubmitting, calculateWorkingDays } = usePtoStore();
+  const { absenceTypes, balance, createRequest, isSubmitting, calculateWorkingDays, requests } = usePtoStore();
 
   const [selectedTypeId, setSelectedTypeId] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -237,6 +237,64 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     const [hour, min] = time.split(":").map(Number);
     return hour * 60 + min;
   };
+
+  const normalizeToLocalDate = (value: Date) => new Date(value.getFullYear(), value.getMonth(), value.getDate());
+
+  const dayMarkers = useMemo(() => {
+    if (!requests.length) return [];
+
+    const markers: Array<{ date: Date; color: string; label: string; status: string }> = [];
+
+    requests.forEach((request) => {
+      if (request.status !== "APPROVED" && request.status !== "PENDING") {
+        return;
+      }
+
+      const color = request.absenceType.color ?? "#6366f1";
+      const statusLabel = request.status === "PENDING" ? "Pendiente" : "Aprobada";
+      const label = `${request.absenceType.name} (${statusLabel})`;
+      const rawStart = new Date(request.startDate);
+      const rawEnd = new Date(request.endDate);
+      const start = normalizeToLocalDate(rawStart);
+      const end = normalizeToLocalDate(rawEnd);
+
+      for (let cursor = new Date(start); cursor.getTime() <= end.getTime(); cursor.setDate(cursor.getDate() + 1)) {
+        markers.push({
+          date: new Date(cursor),
+          color,
+          label,
+          status: request.status,
+        });
+      }
+    });
+
+    return markers;
+  }, [requests]);
+
+  // Leyenda de colores: tipos únicos que aparecen en los markers
+  const calendarLegend = useMemo(() => {
+    if (!requests.length) return [];
+
+    const legendMap = new Map<string, { name: string; color: string; count: number }>();
+
+    requests.forEach((request) => {
+      if (request.status !== "APPROVED" && request.status !== "PENDING") return;
+
+      const key = request.absenceType.id;
+      const existing = legendMap.get(key);
+      if (existing) {
+        existing.count++;
+      } else {
+        legendMap.set(key, {
+          name: request.absenceType.name,
+          color: request.absenceType.color ?? "#6366f1",
+          count: 1,
+        });
+      }
+    });
+
+    return Array.from(legendMap.values());
+  }, [requests]);
 
   // Determinar si es un único día seleccionado
   const isSingleDay = useMemo(() => {
@@ -496,7 +554,24 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               onDateRangeChange={setDateRange}
               placeholder="Selecciona el rango de fechas"
               disabled={!hasActiveContract || !selectedType}
+              markers={dayMarkers}
             />
+            {/* Leyenda de colores */}
+            {calendarLegend.length > 0 && (
+              <div className="mt-2 rounded-lg border bg-white p-3 dark:bg-gray-800">
+                <p className="text-muted-foreground mb-2 text-xs font-medium">Días ya solicitados:</p>
+                <div className="flex flex-wrap gap-3">
+                  {calendarLegend.map((item, index) => (
+                    <div key={index} className="flex items-center gap-1.5">
+                      <div className="h-3 w-3 rounded-sm" style={{ backgroundColor: item.color }} />
+                      <span className="text-xs">
+                        {item.name} ({item.count})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Sección 3.5: Horarios parciales (solo si allowPartialDays) */}
