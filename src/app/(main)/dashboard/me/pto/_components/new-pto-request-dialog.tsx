@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { DocumentUploadZone, type PendingFile } from "@/components/pto";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -205,6 +206,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   // 🆕 Estados para ausencias parciales (horas)
   const [startTime, setStartTime] = useState<string>("09:00"); // Formato HH:mm
   const [endTime, setEndTime] = useState<string>("17:00"); // Formato HH:mm
+  const [isPartialDay, setIsPartialDay] = useState<boolean>(false); // Checkbox: ¿pedir solo unas horas?
 
   // 🆕 Estados para justificantes (Mejora 2)
   const [pendingFiles, setPendingFiles] = useState<PendingFile[]>([]);
@@ -229,6 +231,32 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     return hour * 60 + min;
   };
 
+  // Determinar si es un único día seleccionado
+  const isSingleDay = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+    return dateRange.from.toDateString() === dateRange.to.toDateString();
+  }, [dateRange]);
+
+  // Validación básica de horas (solo que la hora fin sea mayor que inicio)
+  // La validación contra el horario del empleado la hace el servidor
+  const validateTimeRange = useMemo(() => {
+    if (!isPartialDay) {
+      return { valid: true, error: null };
+    }
+
+    const requestedStart = timeToMinutes(startTime);
+    const requestedEnd = timeToMinutes(endTime);
+
+    if (requestedEnd <= requestedStart) {
+      return {
+        valid: false,
+        error: "La hora de fin debe ser posterior a la hora de inicio",
+      };
+    }
+
+    return { valid: true, error: null };
+  }, [isPartialDay, startTime, endTime]);
+
   // Limpiar formulario cuando se cierre la modal
   useEffect(() => {
     if (!open) {
@@ -239,6 +267,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setHolidays([]);
       setStartTime("09:00");
       setEndTime("17:00");
+      setIsPartialDay(false);
       // 🆕 Limpiar archivos pendientes y revocar URLs de preview
       pendingFiles.forEach((f) => {
         if (f.preview) URL.revokeObjectURL(f.preview);
@@ -246,6 +275,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setPendingFiles([]);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Limpiar isPartialDay cuando se cambia el rango de fechas y ya no es único día
+  useEffect(() => {
+    if (!isSingleDay) {
+      setIsPartialDay(false);
+    }
+  }, [isSingleDay]);
 
   useEffect(() => {
     if (!hasActiveContract) {
@@ -327,6 +363,12 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       return;
     }
 
+    // 🆕 Validar horas si es día parcial
+    if (selectedType?.allowPartialDays && isPartialDay && !validateTimeRange.valid) {
+      toast.error(validateTimeRange.error ?? "Error en las horas seleccionadas");
+      return;
+    }
+
     try {
       const requestData: any = {
         absenceTypeId: selectedTypeId,
@@ -335,12 +377,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
         reason: reason.trim() || undefined,
       };
 
-      // 🆕 Si el tipo permite fracciones, incluir campos de hora
-      if (selectedType?.allowPartialDays) {
+      // 🆕 Solo incluir campos de hora si es día parcial (isPartialDay = true)
+      if (selectedType?.allowPartialDays && isPartialDay) {
         requestData.startTime = timeToMinutes(startTime);
         requestData.endTime = timeToMinutes(endTime);
         requestData.durationMinutes = calculateDuration(startTime, endTime);
       }
+      // Si NO es parcial, NO enviar startTime/endTime/durationMinutes (día completo)
 
       const createdRequest = await createRequest(requestData);
 
@@ -433,65 +476,87 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             />
           </div>
 
-          {/* Sección 3.5: Horarios (solo si allowPartialDays) */}
+          {/* Sección 3.5: Horarios parciales (solo si allowPartialDays) */}
           {selectedType?.allowPartialDays && (
             <div className="rounded-[14px] border bg-white p-4 shadow-sm dark:bg-gray-800">
-              <Label className="text-muted-foreground mb-3 block text-sm font-medium">Horario de la ausencia</Label>
-              <p className="text-muted-foreground mb-3 text-xs">Define el rango de horas para esta ausencia parcial</p>
-
-              <div className="grid grid-cols-2 gap-4">
-                {/* Hora de inicio */}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="start-time" className="text-xs">
-                    Hora de inicio
+              {/* Checkbox para activar día parcial */}
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="partial-day"
+                  checked={isPartialDay}
+                  onCheckedChange={(checked) => setIsPartialDay(checked === true)}
+                  disabled={!isSingleDay || !hasActiveContract}
+                  className="mt-0.5"
+                />
+                <div className="flex-1">
+                  <Label
+                    htmlFor="partial-day"
+                    className={cn(
+                      "cursor-pointer font-medium",
+                      !isSingleDay && "text-muted-foreground cursor-not-allowed",
+                    )}
+                  >
+                    Pedir solo unas horas de este día
                   </Label>
-                  <input
-                    id="start-time"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    disabled={!hasActiveContract || !selectedType}
-                    className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  />
-                </div>
-
-                {/* Hora de fin */}
-                <div className="flex flex-col gap-2">
-                  <Label htmlFor="end-time" className="text-xs">
-                    Hora de fin
-                  </Label>
-                  <input
-                    id="end-time"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    disabled={!hasActiveContract || !selectedType}
-                    className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-                  />
+                  {!isSingleDay && (
+                    <p className="text-muted-foreground mt-1 text-xs">
+                      Para solicitar horas específicas, selecciona un único día
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Información de duración y granularidad */}
-              <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-900/50">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Duración total:</span>
-                  <span className="font-semibold">
-                    {Math.floor(calculateDuration(startTime, endTime) / 60)}h{" "}
-                    {calculateDuration(startTime, endTime) % 60}min
-                  </span>
+              {/* Selector de horas (solo si isPartialDay && isSingleDay) */}
+              {isPartialDay && isSingleDay && (
+                <div className="mt-4 space-y-4">
+                  {/* Inputs de hora */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="start-time" className="text-xs">
+                        Desde
+                      </Label>
+                      <input
+                        id="start-time"
+                        type="time"
+                        value={startTime}
+                        onChange={(e) => setStartTime(e.target.value)}
+                        disabled={!hasActiveContract}
+                        className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label htmlFor="end-time" className="text-xs">
+                        Hasta
+                      </Label>
+                      <input
+                        id="end-time"
+                        type="time"
+                        value={endTime}
+                        onChange={(e) => setEndTime(e.target.value)}
+                        disabled={!hasActiveContract}
+                        className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring rounded-[14px] border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Error de validación */}
+                  {!validateTimeRange.valid && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{validateTimeRange.error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Duración */}
+                  <div className="flex justify-between rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-900/50">
+                    <span className="text-muted-foreground">Duración:</span>
+                    <span className="font-semibold">
+                      {Math.floor(calculateDuration(startTime, endTime) / 60)}h{" "}
+                      {calculateDuration(startTime, endTime) % 60}min
+                    </span>
+                  </div>
                 </div>
-                <div className="text-muted-foreground mt-1 text-xs">
-                  Granularidad: {selectedType.granularityMinutes} min (
-                  {selectedType.granularityMinutes === 480
-                    ? "día completo"
-                    : selectedType.granularityMinutes === 60
-                      ? "hora"
-                      : selectedType.granularityMinutes === 30
-                        ? "media hora"
-                        : `${selectedType.granularityMinutes} min`}
-                  )
-                </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -553,15 +618,16 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             <Button
               onClick={handleSubmit}
               disabled={
-                !selectedTypeId ||
-                !dateRange?.from ||
-                !dateRange?.to ||
-                !hasEnoughDays ||
-                isSubmitting ||
-                isUploadingFiles ||
-                isCalculating ||
-                !hasActiveContract ||
-                (selectedType?.requiresDocument && pendingFiles.length === 0)
+                (!selectedTypeId ||
+                  !dateRange?.from ||
+                  !dateRange?.to ||
+                  !hasEnoughDays ||
+                  isSubmitting ||
+                  isUploadingFiles ||
+                  isCalculating ||
+                  !hasActiveContract ||
+                  (selectedType?.requiresDocument && pendingFiles.length === 0)) ??
+                (selectedType?.allowPartialDays && isPartialDay && !validateTimeRange.valid)
               }
               className="rounded-[14px]"
             >

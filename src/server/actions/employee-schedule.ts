@@ -280,3 +280,55 @@ export async function getMyWeekSchedule(weekStart: Date): Promise<{
     };
   }
 }
+
+/**
+ * Obtiene el horario efectivo de un empleado para una fecha específica
+ * Usado en el formulario de solicitud de PTO para validar horas parciales
+ */
+export async function getScheduleForDate(date: Date): Promise<{
+  success: boolean;
+  schedule?: EffectiveSchedule;
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    // Obtener el empleado asociado al usuario
+    const employee = await prisma.employee.findFirst({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!employee) {
+      return {
+        success: false,
+        error: "No se encontró perfil de empleado",
+      };
+    }
+
+    // Normalizar la fecha a mediodía para evitar problemas de timezone
+    const normalizedDate = new Date(date);
+    normalizedDate.setHours(12, 0, 0, 0);
+
+    const schedule = await getEffectiveSchedule(employee.id, normalizedDate);
+
+    return {
+      success: true,
+      schedule,
+    };
+  } catch (error) {
+    console.error("Error al obtener horario para fecha:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
+}

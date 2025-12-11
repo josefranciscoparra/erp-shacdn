@@ -6,7 +6,7 @@ import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/services/pto";
-import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
+import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
 import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
@@ -326,13 +326,17 @@ export async function createPtoRequest(data: {
     }
 
     // 🆕 Validaciones para ausencias parciales
-    if (absenceType.allowPartialDays) {
-      // Si permite fracciones, debe especificar startTime, endTime y durationMinutes
-      if (data.startTime === undefined || data.endTime === undefined || data.durationMinutes === undefined) {
-        throw new Error("Para ausencias parciales debes especificar las horas de inicio y fin");
+    // Si el usuario envió horas (quiere día parcial), validarlas
+    const isPartialDayRequest =
+      data.startTime !== undefined && data.endTime !== undefined && data.durationMinutes !== undefined;
+
+    if (isPartialDayRequest) {
+      // Solo permitir horas si el tipo de ausencia lo permite
+      if (!absenceType.allowPartialDays) {
+        throw new Error("Este tipo de ausencia no permite especificar horas");
       }
 
-      // Validar que solo sea un mismo día
+      // Validar que solo sea un mismo día para ausencias parciales
       if (data.startDate.getTime() !== data.endDate.getTime()) {
         throw new Error("Las ausencias parciales solo pueden ser para un mismo día");
       }
@@ -364,12 +368,39 @@ export async function createPtoRequest(data: {
           `La duración máxima es de ${absenceType.maxDurationMinutes} minutos (${absenceType.maxDurationMinutes / 60}h)`,
         );
       }
-    } else {
-      // Si NO permite fracciones, no debe especificar horas
+
+      // 🆕 Validar que las horas solicitadas estén dentro del horario laboral del empleado
+      const normalizedDate = new Date(data.startDate);
+      normalizedDate.setHours(12, 0, 0, 0); // Mediodía para evitar problemas de timezone
+      const employeeSchedule = await getEffectiveSchedule(employeeId, normalizedDate);
+
+      if (employeeSchedule.timeSlots.length > 0) {
+        // Obtener los límites del horario laboral
+        const scheduleStart = Math.min(...employeeSchedule.timeSlots.map((s) => s.startMinutes));
+        const scheduleEnd = Math.max(...employeeSchedule.timeSlots.map((s) => s.endMinutes));
+
+        // Formatear minutos a HH:MM para mensaje de error
+        const formatTime = (mins: number) => {
+          const h = Math.floor(mins / 60);
+          const m = mins % 60;
+          return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+        };
+
+        if (data.startTime < scheduleStart || data.endTime > scheduleEnd) {
+          throw new Error(
+            `Las horas solicitadas (${formatTime(data.startTime)}-${formatTime(data.endTime)}) exceden tu horario laboral (${formatTime(scheduleStart)}-${formatTime(scheduleEnd)})`,
+          );
+        }
+      } else if (!employeeSchedule.isWorkingDay) {
+        throw new Error("El día seleccionado no es un día laboral según tu horario");
+      }
+    } else if (!absenceType.allowPartialDays) {
+      // Si NO permite fracciones Y se enviaron horas parciales (solo algunas), error
       if (data.startTime !== undefined || data.endTime !== undefined) {
         throw new Error("Este tipo de ausencia no permite especificar horas");
       }
     }
+    // Si allowPartialDays=true pero NO se enviaron horas → día completo, válido
 
     let forceManualReview = false;
     let systemWarningReason = "";
@@ -383,7 +414,7 @@ export async function createPtoRequest(data: {
     let holidays: Array<{ date: Date; name: string }> = [];
     let scheduledMinutesInRange = 0;
 
-    if (absenceType.allowPartialDays && data.durationMinutes) {
+    if (isPartialDayRequest && data.durationMinutes) {
       // Para ausencias parciales: convertir minutos a fracción de día
       // Asumiendo jornada laboral de 8 horas = 480 minutos
       const MINUTES_PER_WORKDAY = 480;
