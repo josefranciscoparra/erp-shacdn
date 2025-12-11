@@ -424,13 +424,15 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto bg-gray-100 dark:bg-gray-900">
-        <DialogHeader>
-          <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
-          <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden bg-gray-100 p-0 dark:bg-gray-900">
+        <div className="border-b bg-white px-6 py-4 dark:bg-gray-800">
+          <DialogHeader>
+            <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
+            <DialogDescription>Completa el formulario para solicitar días de ausencia</DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="flex flex-col gap-6">
+        <div className="custom-scrollbar flex flex-1 flex-col gap-6 overflow-y-auto p-6">
           {!hasActiveContract && (
             <Alert className="rounded-[14px] border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
               <div className="flex items-start gap-2">
@@ -617,29 +619,29 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               />
             </div>
           )}
+        </div>
 
-          {/* Botones */}
-          <div className="flex justify-end gap-3 pt-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="rounded-[14px]"
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="rounded-[14px]">
-              {isSubmitting || isUploadingFiles ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {isUploadingFiles ? "Subiendo archivos..." : "Enviando..."}
-                </>
-              ) : (
-                "Enviar solicitud"
-              )}
-            </Button>
-          </div>
+        {/* Botones */}
+        <div className="flex justify-end gap-3 border-t bg-white p-4 dark:bg-gray-800">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            className="rounded-[14px]"
+          >
+            Cancelar
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="rounded-[14px]">
+            {isSubmitting || isUploadingFiles ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isUploadingFiles ? "Subiendo archivos..." : "Enviando..."}
+              </>
+            ) : (
+              "Enviar solicitud"
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
