@@ -112,10 +112,15 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                   <div className="text-xl font-bold">
                     {formatDays(balance.daysUsed)} día{balance.daysUsed !== 1 ? "s" : ""}
                   </div>
+                  {balance.daysPending > 0 && (
+                    <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-500">
+                      (+{formatDays(balance.daysPending)} en trámite)
+                    </div>
+                  )}
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
-                    Solicitar
+                    Solicitud
                   </div>
                   <div className="text-xl font-bold text-green-600">
                     +{workingDaysCalc} día{workingDaysCalc !== 1 ? "s" : ""}
@@ -156,22 +161,24 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
           )}
 
           {/* Info adicional minimalista */}
-          <div className="text-muted-foreground mt-4 space-y-1.5 text-xs">
+          <ul className="text-muted-foreground mt-4 space-y-2 text-xs">
             {selectedType.affectsBalance && balance && (
-              <p className="flex items-center gap-1.5">
-                <span className="text-green-600">✔</span> Válido hasta el 30 de enero de {balance.year + 1}
-              </p>
+              <li className="flex items-start gap-2">
+                <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
+                <span>Válido hasta el 30 de enero de {balance.year + 1}</span>
+              </li>
             )}
-            <p className="flex items-center gap-1.5">
-              <span className="text-green-600">✔</span> Solo días laborables según contrato
-            </p>
+            <li className="flex items-start gap-2">
+              <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
+              <span>Se excluyen festivos y días no laborables</span>
+            </li>
             {holidays.length > 0 && (
-              <p className="flex items-start gap-1.5 text-blue-600 dark:text-blue-400">
-                <span>🎉</span>
+              <li className="flex items-start gap-2 text-blue-600 dark:text-blue-400">
+                <span className="flex-shrink-0">🎉</span>
                 <span>Festivos incluidos: {holidays.map((h) => h.name).join(", ")}</span>
-              </p>
+              </li>
             )}
-          </div>
+          </ul>
 
           {/* Error message */}
           {!hasEnoughDays && (
