@@ -12,6 +12,53 @@ import { createNotification } from "./notifications";
 import { recalculatePtoBalance } from "./pto-balance";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
+type SlotRange = { startMinutes: number; endMinutes: number };
+
+function formatMinutesToTime(minutes: number): string {
+  const hours = Math.floor(minutes / 60)
+    .toString()
+    .padStart(2, "0");
+  const mins = (minutes % 60).toString().padStart(2, "0");
+  return `${hours}:${mins}`;
+}
+
+function mergeSlotRanges(slots: SlotRange[]): SlotRange[] {
+  if (slots.length === 0) return [];
+
+  const sorted = [...slots]
+    .filter((slot) => slot.endMinutes > slot.startMinutes)
+    .sort((a, b) => a.startMinutes - b.startMinutes);
+
+  if (sorted.length === 0) return [];
+
+  const merged: SlotRange[] = [sorted[0]];
+
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const last = merged[merged.length - 1];
+
+    if (current.startMinutes <= last.endMinutes) {
+      last.endMinutes = Math.max(last.endMinutes, current.endMinutes);
+    } else {
+      merged.push({ ...current });
+    }
+  }
+
+  return merged;
+}
+
+function intervalCoveredBySlots(slots: SlotRange[], startMinutes: number, endMinutes: number): boolean {
+  return slots.some((slot) => startMinutes >= slot.startMinutes && endMinutes <= slot.endMinutes);
+}
+
+function describeSlots(slots: SlotRange[]): string {
+  if (slots.length === 0) return "";
+
+  return slots
+    .map((slot) => `${formatMinutesToTime(slot.startMinutes)}-${formatMinutesToTime(slot.endMinutes)}`)
+    .join(", ");
+}
+
 /**
  * Obtiene el aprobador por defecto para un empleado según el flujo configurado
  */
@@ -325,80 +372,86 @@ export async function createPtoRequest(data: {
       throw new Error("Tipo de ausencia no válido");
     }
 
-    // 🆕 Validaciones para ausencias parciales
-    // Si el usuario envió horas (quiere día parcial), validarlas
-    const isPartialDayRequest =
-      data.startTime !== undefined && data.endTime !== undefined && data.durationMinutes !== undefined;
+    const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
+    let requestedDurationMinutes: number | null = null;
 
-    if (isPartialDayRequest) {
-      // Solo permitir horas si el tipo de ausencia lo permite
+    const startTimeProvided = typeof data.startTime === "number";
+    const endTimeProvided = typeof data.endTime === "number";
+    const durationProvided = typeof data.durationMinutes === "number";
+    const hasPartialPayload = startTimeProvided || endTimeProvided || durationProvided;
+
+    if (hasPartialPayload) {
       if (!absenceType.allowPartialDays) {
         throw new Error("Este tipo de ausencia no permite especificar horas");
       }
 
-      // Validar que solo sea un mismo día para ausencias parciales
+      if (!startTimeProvided || !endTimeProvided) {
+        throw new Error("Para ausencias parciales debes indicar la hora de inicio y la de fin");
+      }
+
       if (data.startDate.getTime() !== data.endDate.getTime()) {
         throw new Error("Las ausencias parciales solo pueden ser para un mismo día");
       }
 
-      // Validar rango de horas (0-1440 minutos)
-      if (data.startTime < 0 || data.startTime > 1440 || data.endTime < 0 || data.endTime > 1440) {
+      const startTime = data.startTime as number;
+      const endTime = data.endTime as number;
+
+      if (startTime < 0 || startTime > 1440 || endTime < 0 || endTime > 1440) {
         throw new Error("Las horas deben estar entre 00:00 y 24:00");
       }
 
-      if (data.startTime >= data.endTime) {
+      if (startTime >= endTime) {
         throw new Error("La hora de inicio debe ser anterior a la hora de fin");
       }
 
-      // Validar granularidad
-      if (data.durationMinutes % absenceType.granularityMinutes !== 0) {
+      requestedDurationMinutes = endTime - startTime;
+
+      if (requestedDurationMinutes % absenceType.granularityMinutes !== 0) {
         throw new Error(`La duración debe ser múltiplo de ${absenceType.granularityMinutes} minutos`);
       }
 
-      // Validar duración mínima
-      if (data.durationMinutes < absenceType.minimumDurationMinutes) {
+      if (requestedDurationMinutes < absenceType.minimumDurationMinutes) {
         throw new Error(
           `La duración mínima es de ${absenceType.minimumDurationMinutes} minutos (${absenceType.minimumDurationMinutes / 60}h)`,
         );
       }
 
-      // Validar duración máxima (si está configurada)
-      if (absenceType.maxDurationMinutes && data.durationMinutes > absenceType.maxDurationMinutes) {
+      if (absenceType.maxDurationMinutes && requestedDurationMinutes > absenceType.maxDurationMinutes) {
         throw new Error(
           `La duración máxima es de ${absenceType.maxDurationMinutes} minutos (${absenceType.maxDurationMinutes / 60}h)`,
         );
       }
 
-      // 🆕 Validar que las horas solicitadas estén dentro del horario laboral del empleado
       const normalizedDate = new Date(data.startDate);
-      normalizedDate.setHours(12, 0, 0, 0); // Mediodía para evitar problemas de timezone
+      normalizedDate.setHours(12, 0, 0, 0);
       const employeeSchedule = await getEffectiveSchedule(employeeId, normalizedDate);
 
-      if (employeeSchedule.timeSlots.length > 0) {
-        // Obtener los límites del horario laboral
-        const scheduleStart = Math.min(...employeeSchedule.timeSlots.map((s) => s.startMinutes));
-        const scheduleEnd = Math.max(...employeeSchedule.timeSlots.map((s) => s.endMinutes));
-
-        // Formatear minutos a HH:MM para mensaje de error
-        const formatTime = (mins: number) => {
-          const h = Math.floor(mins / 60);
-          const m = mins % 60;
-          return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
-        };
-
-        if (data.startTime < scheduleStart || data.endTime > scheduleEnd) {
-          throw new Error(
-            `Las horas solicitadas (${formatTime(data.startTime)}-${formatTime(data.endTime)}) exceden tu horario laboral (${formatTime(scheduleStart)}-${formatTime(scheduleEnd)})`,
-          );
-        }
-      } else if (!employeeSchedule.isWorkingDay) {
+      if (!employeeSchedule.isWorkingDay) {
         throw new Error("El día seleccionado no es un día laboral según tu horario");
       }
-    } else if (!absenceType.allowPartialDays) {
-      // Si NO permite fracciones Y se enviaron horas parciales (solo algunas), error
-      if (data.startTime !== undefined || data.endTime !== undefined) {
-        throw new Error("Este tipo de ausencia no permite especificar horas");
+
+      const workingSlots = employeeSchedule.timeSlots.filter(
+        (slot) => slot.countsAsWork !== false && slot.slotType !== "BREAK",
+      );
+
+      if (workingSlots.length === 0) {
+        throw new Error("No tienes franjas laborales configuradas en esta fecha");
       }
+
+      const mergedSlots = mergeSlotRanges(
+        workingSlots.map((slot) => ({
+          startMinutes: slot.startMinutes,
+          endMinutes: slot.endMinutes,
+        })),
+      );
+
+      if (!intervalCoveredBySlots(mergedSlots, startTime, endTime)) {
+        throw new Error(
+          `Las horas solicitadas (${formatMinutesToTime(startTime)}-${formatMinutesToTime(endTime)}) deben estar dentro de tus franjas laborales (${describeSlots(mergedSlots)})`,
+        );
+      }
+    } else if (!absenceType.allowPartialDays && (startTimeProvided || endTimeProvided)) {
+      throw new Error("Este tipo de ausencia no permite especificar horas");
     }
     // Si allowPartialDays=true pero NO se enviaron horas → día completo, válido
 
@@ -414,12 +467,9 @@ export async function createPtoRequest(data: {
     let holidays: Array<{ date: Date; name: string }> = [];
     let scheduledMinutesInRange = 0;
 
-    if (isPartialDayRequest && data.durationMinutes) {
-      // Para ausencias parciales: convertir minutos a fracción de día
-      // Asumiendo jornada laboral de 8 horas = 480 minutos
-      const MINUTES_PER_WORKDAY = 480;
-      workingDays = data.durationMinutes / MINUTES_PER_WORKDAY;
-      scheduledMinutesInRange = data.durationMinutes;
+    if (requestedDurationMinutes !== null) {
+      workingDays = requestedDurationMinutes / workdayMinutes;
+      scheduledMinutesInRange = requestedDurationMinutes;
     } else {
       // Para días completos: calcular días hábiles excluyendo festivos (o naturales si aplica)
       const result = await calculateWorkingDays(data.startDate, data.endDate, employeeId, orgId, countsCalendarDays);
@@ -541,11 +591,10 @@ export async function createPtoRequest(data: {
     }
 
     // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular effectiveMinutes
-    const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
     let minutesToDiscount: number;
 
-    if (absenceType.allowPartialDays && data.durationMinutes) {
-      minutesToDiscount = data.durationMinutes;
+    if (requestedDurationMinutes !== null) {
+      minutesToDiscount = requestedDurationMinutes;
     } else if (countsCalendarDays) {
       minutesToDiscount = daysToMinutes(workingDays, workdayMinutes);
     } else {
@@ -579,7 +628,7 @@ export async function createPtoRequest(data: {
         // 🆕 Campos para ausencias parciales
         startTime: data.startTime,
         endTime: data.endTime,
-        durationMinutes: data.durationMinutes,
+        durationMinutes: requestedDurationMinutes ?? null,
         // 🆕 SISTEMA DE BALANCE EN MINUTOS
         effectiveMinutes,
       },
@@ -600,7 +649,8 @@ export async function createPtoRequest(data: {
     // Notificaciones a todos los destinatarios del flujo
     if (approverIds.length > 0) {
       const requesterName = [employee.firstName, employee.lastName].filter(Boolean).join(" ") || "El empleado";
-      const daysText = absenceType.allowPartialDays ? `${Math.round(minutesToDiscount / 60)}h` : `${workingDays} días`;
+      const daysText =
+        requestedDurationMinutes !== null ? `${Math.round(minutesToDiscount / 60)}h` : `${workingDays} días`;
       const title = finalStatus === "PENDING" ? "Nueva solicitud de ausencia" : "Ausencia registrada";
       const message =
         `${requesterName} ha solicitado ${daysText} de ${absenceType.name}` +

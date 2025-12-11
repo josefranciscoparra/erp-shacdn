@@ -407,6 +407,20 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   const selectedType = absenceTypes.find((t) => t.id === selectedTypeId) ?? null;
   const hasEnoughDays =
     selectedType?.affectsBalance && balance && workingDaysCalc ? balance.daysAvailable >= workingDaysCalc : true;
+  const requiresDocument = selectedType?.requiresDocument === true;
+  const allowsPartialDays = selectedType?.allowPartialDays === true;
+  const isSubmitDisabled = [
+    !selectedTypeId,
+    !dateRange?.from,
+    !dateRange?.to,
+    !hasEnoughDays,
+    isSubmitting,
+    isUploadingFiles,
+    isCalculating,
+    !hasActiveContract,
+    requiresDocument && pendingFiles.length === 0,
+    allowsPartialDays && isPartialDay && !validateTimeRange.valid,
+  ].some(Boolean);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -615,22 +629,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
             >
               Cancelar
             </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={
-                (!selectedTypeId ||
-                  !dateRange?.from ||
-                  !dateRange?.to ||
-                  !hasEnoughDays ||
-                  isSubmitting ||
-                  isUploadingFiles ||
-                  isCalculating ||
-                  !hasActiveContract ||
-                  (selectedType?.requiresDocument && pendingFiles.length === 0)) ??
-                (selectedType?.allowPartialDays && isPartialDay && !validateTimeRange.valid)
-              }
-              className="rounded-[14px]"
-            >
+            <Button onClick={handleSubmit} disabled={isSubmitDisabled} className="rounded-[14px]">
               {isSubmitting || isUploadingFiles ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
