@@ -102,9 +102,9 @@ export function DateRangePicker({
   const calendarClassNames = React.useMemo(
     () =>
       useCalendarClassNames({
-        months:
-          "border-l-0 pl-0 flex flex-col gap-4 divide-y divide-border/60 sm:flex-row sm:gap-10 sm:divide-y-0 sm:divide-x sm:divide-border/60 [&>*]:pt-4 sm:[&>*]:pt-0 [&>*]:px-0 sm:[&>*]:px-6",
-        month: "flex-1",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-0 sm:space-y-0 gap-0 sm:gap-0 border-l-0 pl-0",
+        month: "space-y-4 w-full first:border-b sm:first:border-b-0 sm:first:border-r border-border/50 pb-4 sm:pb-0 sm:pr-3 last:pt-4 sm:last:pt-0 sm:last:pl-3",
+        caption: "flex justify-center pt-1 relative items-center",
       }),
     [],
   );
@@ -171,7 +171,7 @@ export function DateRangePicker({
             defaultMonth={dateRange?.from ?? new Date()}
             locale={es}
             disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-            showOutsideDays
+            showOutsideDays={false}
             className="p-3"
             classNames={calendarClassNames}
             components={{
