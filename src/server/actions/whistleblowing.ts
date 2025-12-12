@@ -1360,6 +1360,23 @@ export type MyWhistleblowingReport = {
   submittedAt: Date;
 };
 
+export type MyWhistleblowingReportDetail = {
+  id: string;
+  trackingCode: string;
+  title: string;
+  description: string;
+  status: WhistleblowingStatus;
+  priority: WhistleblowingPriority;
+  categoryName: string;
+  incidentDate: Date | null;
+  incidentLocation: string | null;
+  submittedAt: Date;
+  resolution: string | null;
+  resolutionType: ResolutionType | null;
+  resolvedAt: Date | null;
+  closedAt: Date | null;
+};
+
 /**
  * Obtiene las denuncias enviadas por el empleado autenticado
  */
@@ -1421,5 +1438,88 @@ export async function getMyWhistleblowingReports(): Promise<{
   } catch (error) {
     console.error("Error obteniendo mis denuncias:", error);
     return { success: false, reports: [], error: "Error al obtener denuncias" };
+  }
+}
+
+/**
+ * Obtiene el detalle de una denuncia específica del empleado autenticado
+ */
+export async function getMyWhistleblowingReportDetail(reportId: string): Promise<{
+  success: boolean;
+  report?: MyWhistleblowingReportDetail;
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session?.user?.orgId) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    // Buscar el employeeId del usuario
+    const employee = await prisma.employee.findFirst({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+      },
+      select: { id: true },
+    });
+
+    if (!employee) {
+      return { success: false, error: "No tienes perfil de empleado" };
+    }
+
+    // Buscar la denuncia verificando que pertenece al empleado
+    const report = await prisma.whistleblowingReport.findFirst({
+      where: {
+        id: reportId,
+        employeeId: employee.id,
+        orgId: session.user.orgId,
+      },
+      select: {
+        id: true,
+        trackingCode: true,
+        title: true,
+        description: true,
+        status: true,
+        priority: true,
+        incidentDate: true,
+        incidentLocation: true,
+        submittedAt: true,
+        resolution: true,
+        resolutionType: true,
+        resolvedAt: true,
+        closedAt: true,
+        category: {
+          select: { name: true },
+        },
+      },
+    });
+
+    if (!report) {
+      return { success: false, error: "Denuncia no encontrada" };
+    }
+
+    return {
+      success: true,
+      report: {
+        id: report.id,
+        trackingCode: report.trackingCode,
+        title: report.title,
+        description: report.description,
+        status: report.status,
+        priority: report.priority,
+        categoryName: report.category.name,
+        incidentDate: report.incidentDate,
+        incidentLocation: report.incidentLocation,
+        submittedAt: report.submittedAt,
+        resolution: report.resolution,
+        resolutionType: report.resolutionType,
+        resolvedAt: report.resolvedAt,
+        closedAt: report.closedAt,
+      },
+    };
+  } catch (error) {
+    console.error("Error obteniendo detalle de mi denuncia:", error);
+    return { success: false, error: "Error al obtener detalle" };
   }
 }

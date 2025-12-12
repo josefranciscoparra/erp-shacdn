@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { createDefaultWhistleblowingCategories } from "@/lib/whistleblowing-defaults";
 import { generateOrganizationPrefix } from "@/services/employees";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/validators/organization";
 
@@ -113,6 +114,9 @@ export async function POST(request: NextRequest) {
             allowedEmailDomains: payload.allowedEmailDomains ?? [],
           },
         });
+
+        // Crear categorías de whistleblowing predeterminadas
+        await createDefaultWhistleblowingCategories(organization.id);
 
         await revalidatePath("/dashboard/admin/organizations");
         return NextResponse.json({ organization });

@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 
-import { AlertTriangle, Loader2, Plus, Shield } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, FileSearch, Filter, Layers3, Loader2, Plus, Search } from "lucide-react";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   getWhistleblowingReports,
   getWhistleblowingStats,
@@ -25,19 +25,18 @@ export default function WhistleblowingPage() {
   const [reports, setReports] = useState<WhistleblowingReportSummary[]>([]);
   const [stats, setStats] = useState({ total: 0, submitted: 0, inReview: 0, resolved: 0, closed: 0 });
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadData();
-  }, [statusFilter, priorityFilter]);
+  }, [priorityFilter]);
 
   async function loadData() {
     setIsLoading(true);
     try {
       const filters: Record<string, string> = {};
-      if (statusFilter !== "all") filters.status = statusFilter;
+      // Removed status filter
       if (priorityFilter !== "all") filters.priority = priorityFilter;
 
       const [reportsResult, statsResult] = await Promise.all([
@@ -56,85 +55,111 @@ export default function WhistleblowingPage() {
     }
   }
 
-  const filteredReports = searchTerm
-    ? reports.filter(
-        (r) =>
-          r.trackingCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          r.title.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
-    : reports;
+  const filteredReports = useMemo(() => {
+    if (!searchTerm) return reports;
+    const query = searchTerm.toLowerCase().trim();
+    return reports.filter(
+      (report) => report.trackingCode.toLowerCase().includes(query) || report.title.toLowerCase().includes(query),
+    );
+  }, [reports, searchTerm]);
+
+  // Estilos de tarjetas "Apple/Factorial"
+  const cardHoverEffect =
+    "group relative overflow-hidden rounded-xl border bg-card text-card-foreground p-4 transition-all duration-300 ease-out hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:-translate-y-1 hover:border-primary/20 hover:bg-accent/5";
+
+  const iconContainerStyle =
+    "flex size-12 items-center justify-center rounded-full border transition-all duration-300 group-hover:scale-110 group-hover:shadow-sm";
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
+    <div className="mx-auto max-w-7xl space-y-8 py-6">
       <SectionHeader
-        title="Canal de Denuncias"
-        description="Gestiona las denuncias recibidas conforme a la Ley 2/2023"
-        icon={<Shield className="h-5 w-5" />}
+        title="Gestión de Denuncias"
+        description="Panel de administración para el cumplimiento de la Ley 2/2023"
+        actionLabel="Registrar incidencia"
+        actionHref="/dashboard/whistleblowing/new"
+        actionIcon={<Plus className="h-4 w-4" />}
       />
 
       {/* Tarjetas de estadísticas */}
-      <div className="grid grid-cols-2 gap-4 @xl/main:grid-cols-4">
-        <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Total</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </CardContent>
-        </Card>
-        <Card className="to-card bg-gradient-to-t from-yellow-500/5 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Pendientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.submitted}</div>
-          </CardContent>
-        </Card>
-        <Card className="to-card bg-gradient-to-t from-blue-500/5 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">En investigación</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.inReview}</div>
-          </CardContent>
-        </Card>
-        <Card className="to-card bg-gradient-to-t from-green-500/5 shadow-xs">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Resueltas</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.resolved}</div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Total */}
+        <div className={cardHoverEffect}>
+          <div className="flex items-center gap-4">
+            <div
+              className={`${iconContainerStyle} border-primary/10 bg-primary/5 text-primary group-hover:bg-primary/10`}
+            >
+              <Layers3 className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Total</p>
+              <p className="text-foreground text-2xl font-bold">{stats.total}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pendientes */}
+        <div className={cardHoverEffect}>
+          <div className="flex items-center gap-4">
+            <div
+              className={`${iconContainerStyle} border-amber-200/50 bg-amber-500/10 text-amber-600 group-hover:bg-amber-500/20 dark:border-amber-500/20 dark:text-amber-400`}
+            >
+              <Clock className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Pendientes</p>
+              <p className="text-foreground text-2xl font-bold">{stats.submitted}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* En Investigación */}
+        <div className={cardHoverEffect}>
+          <div className="flex items-center gap-4">
+            <div
+              className={`${iconContainerStyle} border-blue-200/50 bg-blue-500/10 text-blue-600 group-hover:bg-blue-500/20 dark:border-blue-500/20 dark:text-blue-400`}
+            >
+              <FileSearch className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Investigación</p>
+              <p className="text-foreground text-2xl font-bold">{stats.inReview}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Resueltas */}
+        <div className={cardHoverEffect}>
+          <div className="flex items-center gap-4">
+            <div
+              className={`${iconContainerStyle} border-emerald-200/50 bg-emerald-500/10 text-emerald-600 group-hover:bg-emerald-500/20 dark:border-emerald-500/20 dark:text-emerald-400`}
+            >
+              <CheckCircle2 className="size-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Resueltas</p>
+              <p className="text-foreground text-2xl font-bold">{stats.resolved}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Filtros */}
-      <div className="flex flex-col gap-4 @lg/main:flex-row @lg/main:items-center @lg/main:justify-between">
-        <div className="flex flex-1 gap-2">
-          <Input
-            placeholder="Buscar por código o título..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="max-w-xs"
-          />
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los estados</SelectItem>
-              <SelectItem value="SUBMITTED">Enviadas</SelectItem>
-              <SelectItem value="IN_REVIEW">En investigación</SelectItem>
-              <SelectItem value="RESOLVED">Resueltas</SelectItem>
-              <SelectItem value="CLOSED">Cerradas</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className="relative flex-1">
+            <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
+            <Input
+              placeholder="Buscar por código de expediente, título o categoría..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="border-muted bg-background h-10 rounded-lg pl-9"
+            />
+          </div>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="border-muted h-10 w-full rounded-lg md:w-[220px]">
               <SelectValue placeholder="Prioridad" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todas</SelectItem>
+              <SelectItem value="all">Todas las prioridades</SelectItem>
               <SelectItem value="LOW">Baja</SelectItem>
               <SelectItem value="MEDIUM">Media</SelectItem>
               <SelectItem value="HIGH">Alta</SelectItem>
@@ -142,32 +167,30 @@ export default function WhistleblowingPage() {
             </SelectContent>
           </Select>
         </div>
-        <Link href="/dashboard/whistleblowing/new">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva denuncia
-          </Button>
-        </Link>
-      </div>
 
-      {/* Tabla */}
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+        {/* Tabla */}
+        <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
+          {isLoading ? (
+            <div className="flex h-64 items-center justify-center">
+              <Loader2 className="text-primary h-8 w-8 animate-spin" />
+            </div>
+          ) : filteredReports.length === 0 ? (
+            <div className="p-12">
+              <EmptyState
+                icon={<AlertTriangle className="text-muted-foreground/30 h-10 w-10" />}
+                title="No se encontraron resultados"
+                description={
+                  searchTerm || priorityFilter !== "all"
+                    ? "Intenta ajustar los filtros de búsqueda para encontrar lo que buscas."
+                    : "No hay denuncias registradas en el sistema."
+                }
+              />
+            </div>
+          ) : (
+            <WhistleblowingDataTable reports={filteredReports} />
+          )}
         </div>
-      ) : filteredReports.length === 0 ? (
-        <EmptyState
-          icon={<AlertTriangle className="h-12 w-12" />}
-          title="No hay denuncias"
-          description={
-            searchTerm || statusFilter !== "all" || priorityFilter !== "all"
-              ? "No se encontraron denuncias con los filtros aplicados."
-              : "Aún no se han recibido denuncias en el sistema."
-          }
-        />
-      ) : (
-        <WhistleblowingDataTable reports={filteredReports} onRefresh={loadData} />
-      )}
+      </div>
     </div>
   );
 }
