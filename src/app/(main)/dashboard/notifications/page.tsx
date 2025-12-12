@@ -35,6 +35,7 @@ import {
   ExternalLink,
   Banknote,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
   getAllMyNotifications,
@@ -147,10 +149,53 @@ const notificationTypeLabels = {
   TIME_BANK_REQUEST_REJECTED: "Bolsa: solicitud rechazada",
 };
 
+function getNotificationActionLabel(notification: Notification): string {
+  if (notification.type === "EXPENSE_SUBMITTED") {
+    return "Ir a revisar gastos";
+  }
+  if (
+    notification.type === "EXPENSE_APPROVED" ||
+    notification.type === "EXPENSE_REJECTED" ||
+    notification.type === "EXPENSE_REIMBURSED"
+  ) {
+    return "Ver mis gastos";
+  }
+  if (notification.type.startsWith("TIME_BANK_REQUEST_")) {
+    return "Ir a Bolsa de Horas";
+  }
+  if (notification.type === "DOCUMENT_UPLOADED") {
+    return "Ir a Mis Documentos";
+  }
+  if (notification.type === "PAYSLIP_AVAILABLE") {
+    return "Ir a Mis Nóminas";
+  }
+  if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
+    return "Ir a revisar solicitud";
+  }
+  if (notification.type === "SIGNATURE_PENDING") {
+    return "Ir a firmar";
+  }
+  if (
+    notification.type === "SIGNATURE_COMPLETED" ||
+    notification.type === "SIGNATURE_REJECTED" ||
+    notification.type === "SIGNATURE_EXPIRED"
+  ) {
+    if (
+      notification.title === "Documento completamente firmado" ||
+      notification.title === "Documento rechazado por firmante"
+    ) {
+      return "Ver gestión de firmas";
+    }
+    return "Ver mis firmas";
+  }
+  return "Ir a la solicitud";
+}
+
 export default function NotificationsPage() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
   const searchParamsString = searchParams.toString();
   const highlightedNotificationId = searchParams.get("notification");
   const handledHighlightRef = useRef<string | null>(null);
@@ -168,6 +213,8 @@ export default function NotificationsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
 
+  const activeOrgId = session?.user?.activeOrgId ?? session?.user?.orgId ?? null;
+
   // Store de Zustand para sincronizar la campanita
   const { loadUnreadCount } = useNotificationsStore();
   const showOrgBadges = useMemo(() => {
@@ -179,6 +226,11 @@ export default function NotificationsPage() {
     }
     return orgIds.size > 1;
   }, [notifications]);
+
+  const needsOrgSwitch = useCallback(
+    (notification: Notification) => Boolean(activeOrgId && notification.orgId && notification.orgId !== activeOrgId),
+    [activeOrgId],
+  );
 
   const loadNotifications = async (unreadOnly: boolean = false, page: number = 1, pageSize: number = 20) => {
     setIsLoading(true);
@@ -330,6 +382,13 @@ export default function NotificationsPage() {
         }
       }
 
+      if (!skipNavigation && needsOrgSwitch(notification)) {
+        toast.info(
+          `Cambia a ${notification.organization?.name ?? "esa organización"} antes de gestionar esta notificación.`,
+        );
+        return;
+      }
+
       if (!skipNavigation && notification.ptoRequestId) {
         if (notification.type === "PTO_SUBMITTED") {
           const orgQuery = notification.orgId ? `?orgId=${notification.orgId}` : "";
@@ -340,7 +399,7 @@ export default function NotificationsPage() {
         setIsDetailOpen(false);
       }
     },
-    [router, filterMode, loadUnreadCount],
+    [needsOrgSwitch, router, filterMode, loadUnreadCount],
   );
 
   useEffect(() => {
@@ -386,6 +445,13 @@ export default function NotificationsPage() {
 
   const handleNavigate = useCallback(
     (notification: Notification) => {
+      if (needsOrgSwitch(notification)) {
+        toast.info(
+          `Cambia a ${notification.organization?.name ?? "esa organización"} antes de gestionar esta notificación.`,
+        );
+        return;
+      }
+
       // Manejar notificaciones de documentos subidos
       if (notification.type === "DOCUMENT_UPLOADED") {
         router.push(`/dashboard/me/documents`);
@@ -473,7 +539,7 @@ export default function NotificationsPage() {
       }
       setIsDetailOpen(false);
     },
-    [router],
+    [needsOrgSwitch, router],
   );
 
   const columns: ColumnDef<Notification>[] = useMemo(
@@ -590,6 +656,49 @@ export default function NotificationsPage() {
     ],
     [handleToggleRead, showOrgBadges],
   );
+
+  const renderActionButton = () => {
+    const notification = selectedNotification;
+    if (
+      !notification ||
+      (!notification.ptoRequestId &&
+        !notification.manualTimeEntryRequestId &&
+        !notification.expenseId &&
+        !notification.type.startsWith("EXPENSE_") &&
+        !notification.type.startsWith("TIME_BANK_REQUEST_") &&
+        notification.type !== "DOCUMENT_UPLOADED" &&
+        notification.type !== "PAYSLIP_AVAILABLE" &&
+        notification.type !== "SIGNATURE_PENDING" &&
+        notification.type !== "SIGNATURE_COMPLETED" &&
+        notification.type !== "SIGNATURE_REJECTED" &&
+        notification.type !== "SIGNATURE_EXPIRED")
+    ) {
+      return null;
+    }
+
+    const requiresSwitch = needsOrgSwitch(notification);
+    const button = (
+      <Button onClick={() => handleNavigate(notification)}>
+        <ExternalLink className="mr-2 h-4 w-4" />
+        {getNotificationActionLabel(notification)}
+      </Button>
+    );
+
+    if (!requiresSwitch) {
+      return button;
+    }
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>{button}</TooltipTrigger>
+          <TooltipContent>
+            Cambia a {notification.organization?.name ?? "esa organización"} para continuar.
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
 
   const table = useReactTable({
     data: notifications,
@@ -815,46 +924,7 @@ export default function NotificationsPage() {
             <Button variant="outline" onClick={() => setIsDetailOpen(false)}>
               Cerrar
             </Button>
-            {selectedNotification &&
-              (!!selectedNotification.ptoRequestId ||
-                !!selectedNotification.manualTimeEntryRequestId ||
-                !!selectedNotification.expenseId ||
-                selectedNotification.type.startsWith("EXPENSE_") ||
-                selectedNotification.type.startsWith("TIME_BANK_REQUEST_") ||
-                selectedNotification.type === "DOCUMENT_UPLOADED" ||
-                selectedNotification.type === "PAYSLIP_AVAILABLE" ||
-                selectedNotification.type === "SIGNATURE_PENDING" ||
-                selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                selectedNotification.type === "SIGNATURE_REJECTED" ||
-                selectedNotification.type === "SIGNATURE_EXPIRED") && (
-                <Button onClick={() => handleNavigate(selectedNotification)}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  {selectedNotification.type === "EXPENSE_SUBMITTED"
-                    ? "Ir a revisar gastos"
-                    : selectedNotification.type === "EXPENSE_APPROVED" ||
-                        selectedNotification.type === "EXPENSE_REJECTED" ||
-                        selectedNotification.type === "EXPENSE_REIMBURSED"
-                      ? "Ver mis gastos"
-                      : selectedNotification.type.startsWith("TIME_BANK_REQUEST_")
-                        ? "Ir a Bolsa de Horas"
-                        : selectedNotification.type === "DOCUMENT_UPLOADED"
-                          ? "Ir a Mis Documentos"
-                          : selectedNotification.type === "PAYSLIP_AVAILABLE"
-                            ? "Ir a Mis Nóminas"
-                            : selectedNotification.type === "MANUAL_TIME_ENTRY_SUBMITTED"
-                              ? "Ir a revisar solicitud"
-                              : selectedNotification.type === "SIGNATURE_PENDING"
-                                ? "Ir a firmar"
-                                : selectedNotification.type === "SIGNATURE_COMPLETED" ||
-                                    selectedNotification.type === "SIGNATURE_REJECTED" ||
-                                    selectedNotification.type === "SIGNATURE_EXPIRED"
-                                  ? selectedNotification.title === "Documento completamente firmado" ||
-                                    selectedNotification.title === "Documento rechazado por firmante"
-                                    ? "Ver gestión de firmas"
-                                    : "Ver mis firmas"
-                                  : "Ir a la solicitud"}
-                </Button>
-              )}
+            {renderActionButton()}
           </DialogFooter>
         </DialogContent>
       </Dialog>
