@@ -15,6 +15,11 @@ export type PendingApprovalItem = {
   employeeName: string;
   employeeImage?: string | null;
   employeeId: string; // Necesario para algunas lógicas UI
+  orgId: string;
+  organization?: {
+    id: string;
+    name: string;
+  };
   date: string; // Fecha relevante
   summary: string;
   status: string;
@@ -26,19 +31,88 @@ export type PendingApprovalItem = {
  * Obtiene las aprobaciones (pendientes o historial) para el usuario actual.
  * OPTIMIZADO: Usa Promise.all para paralelizar consultas.
  */
-export async function getMyApprovals(filter: "pending" | "history" = "pending"): Promise<{
+type UserOrgSummary = {
+  id: string;
+  name: string;
+};
+
+async function getAccessibleOrganizations(userId: string, role: string): Promise<UserOrgSummary[]> {
+  if (role === "SUPER_ADMIN") {
+    const orgs = await prisma.organization.findMany({
+      where: { active: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    });
+    return orgs.map((org) => ({
+      id: org.id,
+      name: org.name ?? "Organización",
+    }));
+  }
+
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      userId,
+      isActive: true,
+      organization: { active: true },
+    },
+    select: {
+      orgId: true,
+      organization: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: [{ organization: { name: "asc" } }],
+  });
+
+  const orgMap = new Map<string, string>();
+  for (const membership of memberships) {
+    if (membership.organization) {
+      orgMap.set(membership.organization.id, membership.organization.name ?? "Organización");
+    }
+  }
+
+  return Array.from(orgMap.entries()).map(([id, name]) => ({ id, name }));
+}
+
+export async function getMyApprovals(
+  filter: "pending" | "history" = "pending",
+  orgId?: string,
+): Promise<{
   success: boolean;
   items: PendingApprovalItem[];
+  organizations: UserOrgSummary[];
+  activeOrgId: string | null;
   error?: string;
 }> {
   try {
     const session = await auth();
     if (!session?.user?.id) {
-      return { success: false, items: [], error: "No autenticado" };
+      return { success: false, items: [], organizations: [], activeOrgId: null, error: "No autenticado" };
+    }
+
+    if (session.user.role === "SUPER_ADMIN") {
+      return { success: true, items: [], organizations: [], activeOrgId: null };
     }
 
     const userId = session.user.id;
-    const orgId = session.user.orgId;
+    const organizations = await getAccessibleOrganizations(userId, session.user.role);
+
+    if (organizations.length === 0) {
+      return { success: true, items: [], organizations: [], activeOrgId: null };
+    }
+
+    const targetOrgId =
+      orgId && organizations.some((org) => org.id === orgId) ? orgId : organizations[0]?.id ?? null;
+
+    if (!targetOrgId) {
+      return { success: true, items: [], organizations, activeOrgId: null };
+    }
+
+    const orgFilterIds = [targetOrgId];
+
     const items: PendingApprovalItem[] = [];
     const isHistory = filter === "history";
     const statusFilter = isHistory ? { in: ["APPROVED", "REJECTED"] } : "PENDING";
@@ -53,11 +127,17 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     // 1. PTO Promise
     const ptoPromise = prisma.ptoRequest.findMany({
       where: {
-        orgId,
+        orgId: { in: orgFilterIds },
         status: statusFilter,
         ...historyWhereClause,
       },
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         employee: {
           include: {
             employmentContracts: {
@@ -89,12 +169,26 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     // 2. Manual Time Entry Promise
     const manualPromise = prisma.manualTimeEntryRequest.findMany({
       where: {
-        orgId,
+        orgId: { in: orgFilterIds },
         status: statusFilter,
         ...historyWhereClause,
       },
       include: {
-        employee: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        employee: {
+          include: {
+            employmentContracts: {
+              where: { active: true },
+              take: 1,
+              include: { position: true, department: true },
+            },
+          },
+        },
         approver: { select: { name: true, image: true } },
       },
       orderBy: isHistory ? { approvedAt: "desc" } : { submittedAt: "desc" },
@@ -108,7 +202,7 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
       : { decision: "PENDING" as const };
 
     const expensesWhere: any = {
-      orgId,
+      orgId: { in: orgFilterIds },
       status: expenseStatus,
     };
 
@@ -124,12 +218,18 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     const expensesPromise = prisma.expense.findMany({
       where: expensesWhere,
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         employee: {
           include: {
             employmentContracts: {
               where: { active: true },
               take: 1,
-              include: { position: true },
+              include: { position: true, department: true },
             },
           },
         },
@@ -151,16 +251,22 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     const alertsPromise = isGlobalAdmin
       ? prisma.alert.findMany({
           where: {
-            orgId,
+            orgId: { in: orgFilterIds },
             status: isHistory ? { in: ["RESOLVED", "DISMISSED"] } : "ACTIVE",
           },
           include: {
+            organization: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             employee: {
               include: {
                 employmentContracts: {
                   where: { active: true },
                   take: 1,
-                  include: { position: true },
+                  include: { position: true, department: true },
                 },
               },
             },
@@ -196,6 +302,13 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
           employeeId: req.employeeId,
           employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
           employeeImage: req.employee.photoUrl,
+          orgId: req.orgId,
+          organization: req.organization
+            ? {
+                id: req.organization.id,
+                name: req.organization.name,
+              }
+            : undefined,
           date: req.startDate.toISOString(),
           summary: `${req.absenceType.name} (${Number(req.workingDays)} días)`,
           status: req.status,
@@ -242,12 +355,20 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
       }
 
       if (canView) {
+        const activeContract = req.employee.employmentContracts?.[0];
         items.push({
           id: req.id,
           type: "MANUAL_TIME_ENTRY",
           employeeId: req.employeeId,
           employeeName: `${req.employee.firstName} ${req.employee.lastName}`,
           employeeImage: req.employee.photoUrl,
+          orgId: req.orgId,
+          organization: req.organization
+            ? {
+                id: req.organization.id,
+                name: req.organization.name,
+              }
+            : undefined,
           date: req.date.toISOString(),
           summary: `Corrección fichaje: ${req.reason}`,
           status: req.status,
@@ -257,6 +378,8 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
             clockIn: req.clockInTime.toISOString(),
             clockOut: req.clockOutTime.toISOString(),
             reason: req.reason,
+            position: activeContract?.position?.title,
+            department: activeContract?.department?.name,
             approverComments: req.approverComments,
             rejectionReason: req.rejectionReason,
             audit: {
@@ -273,12 +396,20 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     // --- PROCESAR EXPENSES ---
     for (const expense of expenses) {
       const myApproval = expense.approvals[0];
+      const activeContract = expense.employee.employmentContracts[0];
       items.push({
         id: expense.id,
         type: "EXPENSE",
         employeeId: expense.employeeId,
         employeeName: `${expense.employee.firstName} ${expense.employee.lastName}`,
         employeeImage: expense.employee.photoUrl,
+        orgId: expense.orgId,
+        organization: expense.organization
+          ? {
+              id: expense.organization.id,
+              name: expense.organization.name,
+            }
+          : undefined,
         date: expense.date.toISOString(),
         summary: `Gasto: ${Number(expense.totalAmount).toFixed(2)}€ (${expense.category})`,
         status: expense.status,
@@ -291,7 +422,8 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
           attachmentId: expense.attachments[0]?.id,
           approverComments: myApproval?.comment,
           rejectionReason: myApproval?.decision === "REJECTED" ? myApproval.comment : undefined,
-          position: expense.employee.employmentContracts[0]?.position?.title,
+          position: activeContract?.position?.title,
+          department: activeContract?.department?.name,
           audit: {
             decidedAt: myApproval?.decidedAt?.toISOString(),
             approverName: myApproval?.approver?.name,
@@ -305,6 +437,7 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     for (const alert of alerts) {
       const incidents = alert.incidents as any[];
       const incidentCount = Array.isArray(incidents) ? incidents.length : 0;
+      const activeContract = alert.employee.employmentContracts[0];
 
       items.push({
         id: alert.id,
@@ -312,6 +445,13 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
         employeeId: alert.employeeId,
         employeeName: `${alert.employee.firstName} ${alert.employee.lastName}`,
         employeeImage: alert.employee.photoUrl,
+        orgId: alert.orgId,
+        organization: alert.organization
+          ? {
+              id: alert.organization.id,
+              name: alert.organization.name,
+            }
+          : undefined,
         date: alert.date.toISOString(),
         summary: `Alerta: ${incidentCount} incidencia(s) detectada(s)`,
         status: alert.status,
@@ -319,7 +459,8 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
         details: {
           date: alert.date.toISOString(),
           incidents: incidents,
-          position: alert.employee.employmentContracts[0]?.position?.title,
+          position: activeContract?.position?.title,
+          department: activeContract?.department?.name,
           alertType: alert.type,
           // Audit info for alerts (resolver)
           // TODO: Fetch resolver if needed, currently assuming current user action for new ones
@@ -330,10 +471,10 @@ export async function getMyApprovals(filter: "pending" | "history" = "pending"):
     // Ordenar final
     items.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-    return { success: true, items };
+    return { success: true, items, organizations, activeOrgId: targetOrgId };
   } catch (error) {
     console.error("❌ Error CRÍTICO en getMyApprovals:", error);
-    return { success: false, items: [], error: "Error interno del servidor" };
+    return { success: false, items: [], organizations: [], activeOrgId: null, error: "Error interno del servidor" };
   }
 }
 
@@ -349,6 +490,7 @@ export async function approveRequest(id: string, type: string, comments?: string
   let result;
 
   if (type === "PTO") {
+    // eslint-disable-next-line import/no-cycle
     const { approvePtoRequest } = await import("./approver-pto");
     result = await approvePtoRequest(id, comments);
   } else if (type === "MANUAL_TIME_ENTRY") {

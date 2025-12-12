@@ -17,6 +17,11 @@ export interface Notification {
   message: string;
   isRead: boolean;
   createdAt: Date;
+  orgId: string;
+  organization?: {
+    id: string;
+    name: string;
+  };
   ptoRequestId?: string | null;
   ptoRequest?: {
     id: string;

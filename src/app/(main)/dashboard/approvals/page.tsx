@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Loader2, Filter, ExternalLink } from "lucide-react";
 
@@ -19,37 +19,141 @@ import { ApprovalDialog } from "./_components/approval-dialog";
 import { ApprovalsKpiCards } from "./_components/approvals-kpi-cards";
 import { ApprovalsTable } from "./_components/approvals-table";
 
+type GetMyApprovalsResult = Awaited<ReturnType<typeof getMyApprovals>>;
+
+function collectAdditionalOrgItems(results: PromiseSettledResult<GetMyApprovalsResult>[]): {
+  items: PendingApprovalItem[];
+  partialFailure: boolean;
+} {
+  const items: PendingApprovalItem[] = [];
+  let partialFailure = false;
+
+  for (const settled of results) {
+    const fulfilled = settled.status === "fulfilled";
+    if (!fulfilled || !settled.value.success) {
+      partialFailure = true;
+      const errorMessage = fulfilled ? settled.value.error : settled.reason;
+      console.error("Error al cargar aprobaciones de otra organización:", errorMessage);
+      continue;
+    }
+
+    items.push(...settled.value.items);
+  }
+
+  return { items, partialFailure };
+}
+
 export default function ApprovalsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawOrgIdFromQuery = searchParams.get("orgId");
+  const orgIdFromQuery = rawOrgIdFromQuery?.trim() ? rawOrgIdFromQuery : null;
+  const searchParamsString = searchParams.toString();
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState<PendingApprovalItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState<"pending" | "history">("pending");
   const [filterType, setFilterType] = useState("all");
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedOrganization, setSelectedOrganization] = useState<string>(orgIdFromQuery ?? "all");
 
   // Estado para el diálogo de aprobación
   const [selectedItem, setSelectedItem] = useState<PendingApprovalItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const loadApprovals = async () => {
-    setLoading(true);
-    try {
-      const result = await getMyApprovals(selectedTab);
-      if (result.success) {
-        setItems(result.items);
-      } else {
-        setError(result.error ?? "Error al cargar aprobaciones");
-      }
-    } catch {
-      setError("Error de conexión");
-    } finally {
-      setLoading(false);
+  const normalizedOrgId = useMemo(
+    () => (selectedOrganization === "all" ? undefined : selectedOrganization),
+    [selectedOrganization],
+  );
+
+  useEffect(() => {
+    const nextSelection = orgIdFromQuery ?? "all";
+    setSelectedOrganization((prev) => (prev === nextSelection ? prev : nextSelection));
+  }, [orgIdFromQuery]);
+
+  useEffect(() => {
+    const currentOrgId = orgIdFromQuery;
+    if (selectedOrganization === "all" && !currentOrgId) {
+      return;
     }
-  };
+    if (selectedOrganization !== "all" && currentOrgId === selectedOrganization) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParamsString);
+    if (selectedOrganization === "all") {
+      params.delete("orgId");
+    } else {
+      params.set("orgId", selectedOrganization);
+    }
+
+    const queryString = params.toString();
+    router.replace(queryString ? `/dashboard/approvals?${queryString}` : "/dashboard/approvals");
+  }, [orgIdFromQuery, router, searchParamsString, selectedOrganization]);
+
+  const loadApprovals = useCallback(
+    async (orgOverride?: string) => {
+      setLoading(true);
+      try {
+        const targetOrgId = orgOverride ?? normalizedOrgId;
+        const result = await getMyApprovals(selectedTab, targetOrgId);
+
+        if (!result.success) {
+          setItems([]);
+          setError(result.error ?? "Error al cargar aprobaciones");
+          return;
+        }
+
+        const availableOrganizations = result.organizations ?? [];
+        setOrganizations(availableOrganizations);
+
+        if (selectedOrganization !== "all" && !availableOrganizations.some((org) => org.id === selectedOrganization)) {
+          setSelectedOrganization("all");
+        }
+
+        let aggregatedItems = [...result.items];
+        let hadPartialFailures = false;
+        const resolvedBaseOrgId = result.activeOrgId ?? targetOrgId ?? availableOrganizations[0]?.id ?? null;
+        const shouldLoadAll = selectedOrganization === "all" && availableOrganizations.length > 0;
+
+        if (shouldLoadAll) {
+          const otherOrgIds = availableOrganizations
+            .map((org) => org.id)
+            .filter((orgId) => (resolvedBaseOrgId ? orgId !== resolvedBaseOrgId : true));
+
+          if (otherOrgIds.length > 0) {
+            const otherResults = await Promise.allSettled(
+              otherOrgIds.map((orgId) => getMyApprovals(selectedTab, orgId)),
+            );
+            const { items: additionalItems, partialFailure } = collectAdditionalOrgItems(otherResults);
+            if (partialFailure) {
+              hadPartialFailures = true;
+            }
+            if (additionalItems.length > 0) {
+              aggregatedItems = aggregatedItems.concat(additionalItems);
+            }
+          }
+        }
+
+        aggregatedItems.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        setItems(aggregatedItems);
+        setError(
+          hadPartialFailures ? "Algunas organizaciones no se pudieron cargar por completo. Intenta nuevamente." : null,
+        );
+      } catch (error) {
+        console.error("Error al cargar aprobaciones:", error);
+        setItems([]);
+        setError("Error de conexión");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [normalizedOrgId, selectedOrganization, selectedTab],
+  );
 
   useEffect(() => {
     loadApprovals();
-  }, [selectedTab]); // Recargar al cambiar de pestaña
+  }, [loadApprovals]);
 
   const handleReview = (item: PendingApprovalItem) => {
     setSelectedItem(item);
@@ -63,6 +167,16 @@ export default function ApprovalsPage() {
     // Y recargamos los datos locales
     loadApprovals();
   };
+
+  const organizationOptions = useMemo(() => {
+    if (organizations.length === 0) {
+      return [];
+    }
+    return organizations.map((org) => ({
+      value: org.id,
+      label: org.name,
+    }));
+  }, [organizations]);
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -114,20 +228,37 @@ export default function ApprovalsPage() {
           </div>
 
           {/* Filtro Tipo */}
-          <div className="flex items-center gap-2">
-            <Filter className="text-muted-foreground hidden h-4 w-4 sm:block" />
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filtrar por tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los tipos</SelectItem>
-                <SelectItem value="PTO">Ausencias</SelectItem>
-                <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
-                <SelectItem value="EXPENSE">Gastos</SelectItem>
-                <SelectItem value="ALERT">Alertas</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-2">
+              <Filter className="text-muted-foreground hidden h-4 w-4 sm:block" />
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Filtrar por tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los tipos</SelectItem>
+                  <SelectItem value="PTO">Ausencias</SelectItem>
+                  <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
+                  <SelectItem value="EXPENSE">Gastos</SelectItem>
+                  <SelectItem value="ALERT">Alertas</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {organizationOptions.length > 1 && (
+              <Select value={selectedOrganization} onValueChange={setSelectedOrganization}>
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue placeholder="Selecciona empresa" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las organizaciones</SelectItem>
+                  {organizationOptions.map((org) => (
+                    <SelectItem key={org.value} value={org.value}>
+                      {org.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 

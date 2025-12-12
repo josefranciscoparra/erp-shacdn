@@ -33,28 +33,43 @@ async function getOrgApprovalFlow(orgId: string): Promise<TimeBankApprovalFlow> 
 }
 
 async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
-  const hrUsers = await prisma.user.findMany({
+  const hrMemberships = await prisma.userOrganization.findMany({
     where: {
       orgId,
-      active: true,
-      role: { in: ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"] },
+      isActive: true,
+      role: { in: ["HR_ADMIN", "ORG_ADMIN"] },
+      user: { active: true },
     },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      role: true,
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
     },
   });
 
-  return hrUsers.map((user) => ({
-    userId: user.id,
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    source: user.role === "HR_ADMIN" ? "HR_ADMIN" : "ORG_ADMIN",
-    level: 5,
-  }));
+  const uniqueApprovers = new Map<string, AuthorizedApprover>();
+
+  for (const membership of hrMemberships) {
+    if (!membership.user) {
+      continue;
+    }
+
+    uniqueApprovers.set(membership.user.id, {
+      userId: membership.user.id,
+      name: membership.user.name,
+      email: membership.user.email,
+      role: membership.role,
+      source: membership.role === "HR_ADMIN" ? "HR_ADMIN" : "ORG_ADMIN",
+      level: 5,
+    });
+  }
+
+  return Array.from(uniqueApprovers.values());
 }
 
 /**
@@ -234,18 +249,7 @@ export async function getAuthorizedApprovers(
   // OJO: Normalmente solo se añaden si la lista está vacía, pero en algunos sistemas
   // siempre pueden aprobar. Aquí aplicamos: "Si lista vacía -> Fallback".
   if (approvers.length === 0) {
-    const admins = await prisma.user.findMany({
-      where: {
-        orgId,
-        active: true,
-        role: { in: ["ORG_ADMIN", "SUPER_ADMIN", "HR_ADMIN"] },
-      },
-    });
-
-    for (const admin of admins) {
-      const source = admin.role === "HR_ADMIN" ? "HR_ADMIN" : "ORG_ADMIN";
-      addApprover(admin, source, 5);
-    }
+    return getHrApprovers(orgId);
   }
 
   return approvers.sort((a, b) => a.level - b.level);

@@ -5,6 +5,27 @@ import type { PtoNotificationType } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+async function getAccessibleOrgIds(userId: string, fallbackOrgId?: string | null) {
+  const memberships = await prisma.userOrganization.findMany({
+    where: {
+      userId,
+      isActive: true,
+      organization: { active: true },
+    },
+    select: {
+      orgId: true,
+    },
+  });
+
+  const orgIds = new Set<string>(memberships.map((membership) => membership.orgId));
+
+  if (orgIds.size === 0 && fallbackOrgId) {
+    orgIds.add(fallbackOrgId);
+  }
+
+  return Array.from(orgIds);
+}
+
 /**
  * Crea una notificación en el sistema
  */
@@ -51,21 +72,28 @@ export async function getMyNotifications(limit: number = 10) {
       throw new Error("Usuario no autenticado");
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { orgId: true },
-    });
+    if (session.user.role === "SUPER_ADMIN") {
+      return [];
+    }
 
-    if (!user) {
-      throw new Error("Usuario no encontrado");
+    const orgIds = await getAccessibleOrgIds(session.user.id, session.user.orgId);
+
+    if (orgIds.length === 0) {
+      return [];
     }
 
     const notifications = await prisma.ptoNotification.findMany({
       where: {
         userId: session.user.id,
-        orgId: user.orgId,
+        orgId: { in: orgIds },
       },
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         ptoRequest: {
           include: {
             employee: {
@@ -96,6 +124,13 @@ export async function getMyNotifications(limit: number = 10) {
       message: n.message,
       isRead: n.isRead,
       createdAt: n.createdAt,
+      orgId: n.orgId,
+      organization: n.organization
+        ? {
+            id: n.organization.id,
+            name: n.organization.name,
+          }
+        : undefined,
       ptoRequestId: n.ptoRequestId,
       manualTimeEntryRequestId: n.manualTimeEntryRequestId,
       ptoRequest: n.ptoRequest
@@ -127,16 +162,43 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
       throw new Error("Usuario no autenticado");
     }
 
-    // Usar orgId directamente de la sesión
-    const orgId = session.user.orgId;
+    if (session.user.role === "SUPER_ADMIN") {
+      return {
+        notifications: [],
+        pagination: {
+          page,
+          pageSize,
+          total: 0,
+          totalPages: 0,
+        },
+        totals: {
+          all: 0,
+          unread: 0,
+        },
+      };
+    }
 
-    if (!orgId) {
-      throw new Error("Usuario sin organización asociada");
+    const orgIds = await getAccessibleOrgIds(session.user.id, session.user.orgId);
+
+    if (orgIds.length === 0) {
+      return {
+        notifications: [],
+        pagination: {
+          page,
+          pageSize,
+          total: 0,
+          totalPages: 0,
+        },
+        totals: {
+          all: 0,
+          unread: 0,
+        },
+      };
     }
 
     const baseWhere = {
       userId: session.user.id,
-      orgId,
+      orgId: { in: orgIds },
     } as const;
 
     // Calcular totales globales (todas y no leídas)
@@ -154,6 +216,12 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
     const notifications = await prisma.ptoNotification.findMany({
       where,
       include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
         ptoRequest: {
           include: {
             employee: {
@@ -186,6 +254,13 @@ export async function getAllMyNotifications(page: number = 1, pageSize: number =
         message: n.message,
         isRead: n.isRead,
         createdAt: n.createdAt,
+        orgId: n.orgId,
+        organization: n.organization
+          ? {
+              id: n.organization.id,
+              name: n.organization.name,
+            }
+          : undefined,
         ptoRequestId: n.ptoRequestId,
         manualTimeEntryRequestId: n.manualTimeEntryRequestId,
         ptoRequest: n.ptoRequest
@@ -228,19 +303,20 @@ export async function getUnreadNotificationsCount() {
       return 0;
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { orgId: true },
-    });
+    if (session.user.role === "SUPER_ADMIN") {
+      return 0;
+    }
 
-    if (!user) {
+    const orgIds = await getAccessibleOrgIds(session.user.id, session.user.orgId);
+
+    if (orgIds.length === 0) {
       return 0;
     }
 
     const count = await prisma.ptoNotification.count({
       where: {
         userId: session.user.id,
-        orgId: user.orgId,
+        orgId: { in: orgIds },
         isRead: false,
       },
     });
@@ -319,19 +395,20 @@ export async function markAllNotificationsAsRead() {
       throw new Error("Usuario no autenticado");
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { orgId: true },
-    });
+    if (session.user.role === "SUPER_ADMIN") {
+      return { success: true };
+    }
 
-    if (!user) {
-      throw new Error("Usuario no encontrado");
+    const orgIds = await getAccessibleOrgIds(session.user.id, session.user.orgId);
+
+    if (orgIds.length === 0) {
+      return { success: true };
     }
 
     await prisma.ptoNotification.updateMany({
       where: {
         userId: session.user.id,
-        orgId: user.orgId,
+        orgId: { in: orgIds },
         isRead: false,
       },
       data: {

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 
+import Link from "next/link";
+
 import {
   flexRender,
   getCoreRowModel,
@@ -32,11 +34,27 @@ import { toast } from "sonner";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { bulkApproveRequests, type PendingApprovalItem } from "@/server/actions/approvals";
+
+function getTypeLabel(type: PendingApprovalItem["type"]) {
+  switch (type) {
+    case "PTO":
+      return "Ausencia";
+    case "MANUAL_TIME_ENTRY":
+      return "Fichaje";
+    case "EXPENSE":
+      return "Gasto";
+    case "ALERT":
+      return "Alerta";
+    default:
+      return "Solicitud";
+  }
+}
 
 interface ApprovalsTableProps {
   items: PendingApprovalItem[];
@@ -51,10 +69,10 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [isBulkSubmitting, setIsBulkSubmitting] = useState(false);
 
-  // Solo permitir selección si son pendientes (asumiendo que items trae el estado,
-  // aunque items es PendingApprovalItem, así que por definición deberían serlo si estamos en esa tab.
-  // Pero si reutilizamos la tabla para historial, hay que tener cuidado).
-  const canSelect = items.some((i) => i.status === "PENDING");
+  const showOrgBadges = useMemo(() => {
+    const orgIds = new Set(items.map((item) => item.orgId));
+    return orgIds.size > 1;
+  }, [items]);
 
   const columns: ColumnDef<PendingApprovalItem>[] = useMemo(
     () => [
@@ -107,16 +125,32 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         header: "Empleado",
         cell: ({ row }) => {
           const item = row.original;
+          const position = (item.details["position"] as string | undefined) ?? "Empleado";
+          const department = item.details["department"] as string | undefined;
+
           return (
             <div className="flex items-center gap-3">
               <Avatar className="h-8 w-8">
                 <AvatarImage src={item.employeeImage ?? ""} />
                 <AvatarFallback>{item.employeeName.substring(0, 2).toUpperCase()}</AvatarFallback>
               </Avatar>
-              <div>
-                <div className="text-sm font-medium">{item.employeeName}</div>
-                <div className="text-muted-foreground text-xs capitalize">
-                  {item.details?.["position"] ?? "Empleado"}
+              <div className="space-y-1">
+                <Link href={`/dashboard/employees/${item.employeeId}`} className="text-sm font-medium hover:underline">
+                  {item.employeeName}
+                </Link>
+                <div className="text-muted-foreground flex flex-wrap items-center gap-1 text-xs">
+                  <span className="capitalize">{position}</span>
+                  {department && (
+                    <>
+                      <span className="text-border">•</span>
+                      <span className="capitalize">{department}</span>
+                    </>
+                  )}
+                  {showOrgBadges && item.organization && (
+                    <Badge variant="outline" className="text-[10px] font-medium">
+                      {item.organization.name}
+                    </Badge>
+                  )}
                 </div>
               </div>
             </div>
@@ -128,26 +162,29 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         header: "Tipo",
         cell: ({ row }) => {
           const type = row.original.type;
-          let label = "Solicitud";
+          const label = getTypeLabel(type);
           let icon = AlertCircle;
           let colorClass = "text-gray-500";
 
-          if (type === "PTO") {
-            label = "Ausencia";
-            icon = CheckCircle2;
-            colorClass = "text-blue-500";
-          } else if (type === "MANUAL_TIME_ENTRY") {
-            label = "Fichaje";
-            icon = Clock;
-            colorClass = "text-amber-500";
-          } else if (type === "EXPENSE") {
-            label = "Gasto";
-            icon = FileText;
-            colorClass = "text-green-500";
-          } else if (type === "ALERT") {
-            label = "Alerta";
-            icon = TriangleAlert;
-            colorClass = "text-destructive"; // Rojo semántico
+          switch (type) {
+            case "PTO":
+              icon = CheckCircle2;
+              colorClass = "text-blue-500";
+              break;
+            case "MANUAL_TIME_ENTRY":
+              icon = Clock;
+              colorClass = "text-amber-500";
+              break;
+            case "EXPENSE":
+              icon = FileText;
+              colorClass = "text-green-500";
+              break;
+            case "ALERT":
+              icon = TriangleAlert;
+              colorClass = "text-destructive"; // Rojo semántico
+              break;
+            default:
+              break;
           }
 
           const IconComp = icon;
@@ -182,11 +219,18 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         id: "actions",
         cell: ({ row }) => {
           const item = row.original;
-          // Gastos usan SUBMITTED, Alertas usan ACTIVE, otros PENDING
-          const isPending =
-            item.status === "PENDING" ||
-            item.status === "SUBMITTED" ||
-            (item.type === "ALERT" && item.status === "ACTIVE");
+          let isPending = false;
+          switch (item.type) {
+            case "ALERT":
+              isPending = item.status === "ACTIVE";
+              break;
+            case "EXPENSE":
+              isPending = item.status === "SUBMITTED";
+              break;
+            default:
+              isPending = item.status === "PENDING";
+              break;
+          }
 
           return (
             <Button
@@ -209,7 +253,7 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         },
       },
     ],
-    [onReview],
+    [onReview, showOrgBadges],
   );
 
   // Filtrar solicitudes
@@ -296,7 +340,7 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} className="hover:bg-muted/40" data-state={row.getIsSelected() && "selected"}>
                   {row.getVisibleCells().map((cell) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -26,6 +26,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -64,6 +65,17 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
   const router = useRouter();
   const { notifications, isLoading, markAllAsRead } = useNotificationsStore();
   const [alertsCount, setAlertsCount] = useState(0);
+  const shouldShowOrgBadges = useMemo(() => {
+    const orgIds = new Set<string>();
+
+    for (const notification of notifications) {
+      if (notification.orgId) {
+        orgIds.add(notification.orgId);
+      }
+    }
+
+    return orgIds.size > 1;
+  }, [notifications]);
 
   useEffect(() => {
     const loadAlerts = async () => {
@@ -193,9 +205,16 @@ export function NotificationList({ onClose }: NotificationListProps = {}) {
 
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={cn("text-sm font-medium", !notification.isRead && "font-semibold")}>
-                        {notification.title}
-                      </p>
+                      <div className="flex flex-1 items-center gap-2">
+                        <p className={cn("text-sm font-medium", !notification.isRead && "font-semibold")}>
+                          {notification.title}
+                        </p>
+                        {shouldShowOrgBadges && notification.organization && (
+                          <Badge variant="outline" className="text-[10px] font-medium">
+                            {notification.organization.name}
+                          </Badge>
+                        )}
+                      </div>
                       {!notification.isRead && <div className="bg-primary h-2 w-2 rounded-full" />}
                     </div>
                     <p className="text-muted-foreground line-clamp-2 text-sm">{notification.message}</p>

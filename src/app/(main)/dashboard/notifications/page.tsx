@@ -67,6 +67,11 @@ interface Notification {
   message: string;
   isRead: boolean;
   createdAt: Date;
+  orgId: string;
+  organization?: {
+    id: string;
+    name: string;
+  };
   ptoRequestId?: string | null;
   manualTimeEntryRequestId?: string | null;
   expenseId?: string | null;
@@ -165,6 +170,15 @@ export default function NotificationsPage() {
 
   // Store de Zustand para sincronizar la campanita
   const { loadUnreadCount } = useNotificationsStore();
+  const showOrgBadges = useMemo(() => {
+    const orgIds = new Set<string>();
+    for (const notification of notifications) {
+      if (notification.orgId) {
+        orgIds.add(notification.orgId);
+      }
+    }
+    return orgIds.size > 1;
+  }, [notifications]);
 
   const loadNotifications = async (unreadOnly: boolean = false, page: number = 1, pageSize: number = 20) => {
     setIsLoading(true);
@@ -318,7 +332,8 @@ export default function NotificationsPage() {
 
       if (!skipNavigation && notification.ptoRequestId) {
         if (notification.type === "PTO_SUBMITTED") {
-          router.push(`/dashboard/approvals`);
+          const orgQuery = notification.orgId ? `?orgId=${notification.orgId}` : "";
+          router.push(`/dashboard/approvals${orgQuery}`);
         } else {
           router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
         }
@@ -401,7 +416,8 @@ export default function NotificationsPage() {
       // Manejar notificaciones de fichaje manual
       if (notification.manualTimeEntryRequestId) {
         if (notification.type === "MANUAL_TIME_ENTRY_SUBMITTED") {
-          router.push(`/dashboard/approvals`);
+          const orgQuery = notification.orgId ? `?orgId=${notification.orgId}` : "";
+          router.push(`/dashboard/approvals${orgQuery}`);
         } else {
           router.push(`/dashboard/me/clock/requests`);
         }
@@ -450,7 +466,8 @@ export default function NotificationsPage() {
       }
 
       if (notification.type === "PTO_SUBMITTED") {
-        router.push(`/dashboard/approvals`);
+        const orgQuery = notification.orgId ? `?orgId=${notification.orgId}` : "";
+        router.push(`/dashboard/approvals${orgQuery}`);
       } else {
         router.push(`/dashboard/me/pto?request=${notification.ptoRequestId}`);
       }
@@ -543,7 +560,14 @@ export default function NotificationsPage() {
         accessorKey: "title",
         header: "Título",
         cell: ({ row }) => (
-          <span className={cn("font-medium", !row.original.isRead && "font-semibold")}>{row.original.title}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={cn("font-medium", !row.original.isRead && "font-semibold")}>{row.original.title}</span>
+            {showOrgBadges && row.original.organization && (
+              <Badge variant="outline" className="text-[10px] font-medium">
+                {row.original.organization.name}
+              </Badge>
+            )}
+          </div>
         ),
       },
       {
@@ -564,7 +588,7 @@ export default function NotificationsPage() {
         ),
       },
     ],
-    [handleToggleRead],
+    [handleToggleRead, showOrgBadges],
   );
 
   const table = useReactTable({
@@ -718,7 +742,14 @@ export default function NotificationsPage() {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedNotification?.title ?? "Detalle de la notificación"}</DialogTitle>
+            <div className="flex items-center gap-2">
+              <DialogTitle>{selectedNotification?.title ?? "Detalle de la notificación"}</DialogTitle>
+              {showOrgBadges && selectedNotification?.organization && (
+                <Badge variant="outline" className="text-[10px] font-medium">
+                  {selectedNotification.organization.name}
+                </Badge>
+              )}
+            </div>
             {selectedNotification && (
               <DialogDescription>
                 <span className="text-muted-foreground flex items-center gap-2 text-sm">
