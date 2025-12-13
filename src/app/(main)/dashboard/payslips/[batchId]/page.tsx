@@ -4,16 +4,19 @@ import { use, useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Send, ShieldAlert, Undo2, UserX } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { getBatchWithItems, type PayslipBatchListItem, type PayslipUploadItemDetail } from "@/server/actions/payslips";
 
 import { BatchSummary } from "../_components/batch-summary";
+import { PublishDialog } from "../_components/publish-dialog";
 import { ReviewTable } from "../_components/review-table";
+import { RevokeBatchDialog } from "../_components/revoke-dialog";
 
 interface Props {
   params: Promise<{ batchId: string }>;
@@ -29,6 +32,8 @@ export default function PayslipBatchDetailPage({ params }: Props) {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [pollCount, setPollCount] = useState(0);
+  const [showPublishDialog, setShowPublishDialog] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -132,14 +137,53 @@ export default function PayslipBatchDetailPage({ params }: Props) {
           title={batch.originalFileName}
           subtitle={`Lote de nóminas - ${batch.status}`}
           action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/payslips">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Volver a lotes
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/payslips">
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Volver
+                </Link>
+              </Button>
+              {/* Botón Publicar - solo si hay items listos y no está completado/cancelado */}
+              {batch.readyCount > 0 && batch.status !== "COMPLETED" && batch.status !== "CANCELLED" && (
+                <Button size="sm" onClick={() => setShowPublishDialog(true)}>
+                  <Send className="mr-2 h-4 w-4" />
+                  Publicar lote
+                </Button>
+              )}
+              {/* Botón Revocar - solo si hay items publicados */}
+              {batch.publishedCount > 0 && (
+                <Button variant="destructive" size="sm" onClick={() => setShowRevokeDialog(true)}>
+                  <Undo2 className="mr-2 h-4 w-4" />
+                  Revocar lote
+                </Button>
+              )}
+            </div>
           }
         />
+
+        {/* Alertas de estado */}
+        {batch.blockedInactive > 0 && (
+          <Alert variant="destructive">
+            <UserX className="h-4 w-4" />
+            <AlertTitle>Empleados inactivos detectados</AlertTitle>
+            <AlertDescription>
+              Se detectaron <strong>{batch.blockedInactive}</strong> nóminas para empleados inactivos. Estas nóminas NO
+              se publicarán automáticamente. Revisa cada caso antes de continuar.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {batch.pendingCount > 0 && batch.status !== "PROCESSING" && (
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Nóminas pendientes de revisión</AlertTitle>
+            <AlertDescription>
+              Hay <strong>{batch.pendingCount}</strong> nóminas que requieren revisión manual antes de poder publicarse.
+              Asigna o descarta estas nóminas para continuar.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <BatchSummary batch={batch} />
 
@@ -158,6 +202,27 @@ export default function PayslipBatchDetailPage({ params }: Props) {
             loadData();
           }}
           isLoading={isLoading}
+        />
+
+        {/* Diálogos */}
+        <PublishDialog
+          open={showPublishDialog}
+          onOpenChange={setShowPublishDialog}
+          batch={batch}
+          onSuccess={() => {
+            setPollCount(0);
+            loadData();
+          }}
+        />
+
+        <RevokeBatchDialog
+          open={showRevokeDialog}
+          onOpenChange={setShowRevokeDialog}
+          batch={batch}
+          onSuccess={() => {
+            setPollCount(0);
+            loadData();
+          }}
         />
       </div>
     </PermissionGuard>

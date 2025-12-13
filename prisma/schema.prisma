@@ -193,7 +193,7 @@ model User {
   // Relaciones
   sessions                  Session[]
   employee                  Employee? // Un usuario puede estar vinculado a un empleado
-  uploadedDocuments         EmployeeDocument[] // Documentos que ha subido
+  uploadedDocuments         EmployeeDocument[] @relation("DocumentUploader") // Documentos que ha subido
   temporaryPasswords        TemporaryPassword[] // Contraseñas temporales generadas para este usuario
   createdTempPasswords      TemporaryPassword[]      @relation("CreatedBy") // Contraseñas temporales que ha creado
   approvedPtoRequests       PtoRequest[]             @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
@@ -227,7 +227,14 @@ model User {
   uploadedPtoDocuments      PtoRequestDocument[] // 🆕 Justificantes de ausencia que ha subido
 
   // NUEVO: Sistema de nóminas masivas (Mejora 3)
-  uploadedPayslipBatches PayslipBatch[] // Lotes de nóminas que ha subido
+  uploadedPayslipBatches PayslipBatch[] @relation("BatchUploader") // Lotes de nóminas que ha subido
+
+  // Fortalecimiento nóminas: relaciones de publicación/revocación
+  publishedPayslipBatches  PayslipBatch[]       @relation("BatchPublisher") // Lotes que ha publicado
+  revokedPayslipBatches    PayslipBatch[]       @relation("BatchRevoker") // Lotes que ha revocado
+  publishedPayslipItems    PayslipUploadItem[]  @relation("ItemPublisher") // Items que ha publicado
+  revokedPayslipItems      PayslipUploadItem[]  @relation("ItemRevoker") // Items que ha revocado
+  revokedEmployeeDocuments EmployeeDocument[]   @relation("DocumentRevoker") // Documentos que ha revocado
 
   // Sistema de permisos y alertas
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
@@ -722,6 +729,13 @@ model EmployeeDocument {
   // Relación inversa con item de nómina - Mejora 3
   payslipUploadItem PayslipUploadItem?
 
+  // Revocación (fortalecido - para quitar acceso inmediato)
+  isRevoked    Boolean   @default(false) // Si el documento fue revocado
+  revokedAt    DateTime? // Cuándo se revocó
+  revokedById  String?   // Usuario que revocó
+  revokedBy    User?     @relation("DocumentRevoker", fields: [revokedById], references: [id])
+  revokeReason String?   // Motivo de revocación
+
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -732,11 +746,12 @@ model EmployeeDocument {
 
   // Usuario que subió el documento
   uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User   @relation("DocumentUploader", fields: [uploadedById], references: [id])
 
   @@index([orgId])
   @@index([employeeId])
   @@index([kind, payslipYear, payslipMonth])
+  @@index([isRevoked])
   @@map("employee_documents")
 }
 
@@ -748,28 +763,47 @@ model EmployeeDocument {
 model PayslipBatch {
   id String @id @default(cuid())
 
+  // Tipo de lote (masivo vs individual)
+  kind PayslipBatchKind @default(BULK_UPLOAD)
+
   // Periodo de las nóminas
   month       Int? // 1-12 (opcional si se usa periodo)
   year        Int? // 2024, 2025...
   periodStart DateTime? // Opcional para periodos no mensuales
   periodEnd   DateTime? // Opcional para periodos no mensuales
+  label       String? // Etiqueta opcional (ej: "Paga extra verano")
 
   // Archivos originales
   originalFileName String // nombre.zip o nominas.pdf
-  originalFileType String // "ZIP" | "PDF_MULTIPAGE"
+  originalFileType String // "ZIP" | "PDF_MULTIPAGE" | "SINGLE_PDF"
 
-  // Estadísticas del procesamiento
-  totalFiles    Int @default(0)
-  assignedCount Int @default(0)
-  pendingCount  Int @default(0)
-  errorCount    Int @default(0)
+  // Estadísticas del procesamiento (fortalecido)
+  totalFiles       Int @default(0)
+  assignedCount    Int @default(0)   // Items con empleado asignado (READY o PUBLISHED)
+  pendingCount     Int @default(0)   // Items pendientes de revisión
+  errorCount       Int @default(0)   // Items con error
+  readyCount       Int @default(0)   // Items listos para publicar
+  blockedInactive  Int @default(0)   // Bloqueados por empleado inactivo
+  publishedCount   Int @default(0)   // Items ya publicados
+  revokedCount     Int @default(0)   // Items revocados
 
   // Estado del lote
   status PayslipBatchStatus @default(PROCESSING)
 
-  // Auditoría
+  // Auditoría de creación
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Publicación explícita
+  publishedAt   DateTime? // Cuándo se publicó el lote
+  publishedById String?   // Usuario que publicó
+  publishedBy   User?     @relation("BatchPublisher", fields: [publishedById], references: [id])
+
+  // Revocación del lote
+  revokedAt    DateTime?  // Cuándo se revocó
+  revokedById  String?    // Usuario que revocó
+  revokedBy    User?      @relation("BatchRevoker", fields: [revokedById], references: [id])
+  revokeReason String?    // Motivo de revocación
 
   // Multi-tenancy
   orgId        String
@@ -777,7 +811,7 @@ model PayslipBatch {
 
   // Usuario que subió
   uploadedById String
-  uploadedBy   User   @relation(fields: [uploadedById], references: [id])
+  uploadedBy   User   @relation("BatchUploader", fields: [uploadedById], references: [id])
 
   // Items del lote
   items PayslipUploadItem[]
@@ -788,6 +822,7 @@ model PayslipBatch {
   @@index([orgId])
   @@index([year, month])
   @@index([status])
+  @@index([kind])
   @@map("payslip_batches")
 }
 
@@ -811,8 +846,11 @@ model PayslipUploadItem {
   confidenceScore Float   @default(0) // 0-1
 
   // Estado y errores
-  status       PayslipItemStatus @default(PENDING)
+  status       PayslipItemStatus @default(PENDING_OCR)
   errorMessage String? // Para registrar fallos de OCR o matching
+
+  // Auto-asignación (fortalecido)
+  isAutoMatched Boolean @default(false) // Si el match fue automático (confianza >= 0.9)
 
   // Empleado asignado
   employeeId String?
@@ -822,10 +860,21 @@ model PayslipUploadItem {
   documentId String?           @unique
   document   EmployeeDocument? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
-  // Auditoría
+  // Auditoría de creación/asignación
   createdAt    DateTime  @default(now())
   assignedAt   DateTime?
   assignedById String? // Usuario que asignó (null si automático)
+
+  // Publicación explícita (fortalecido)
+  publishedAt   DateTime? // Cuándo se publicó este item
+  publishedById String?   // Usuario que publicó
+  publishedBy   User?     @relation("ItemPublisher", fields: [publishedById], references: [id])
+
+  // Revocación (fortalecido)
+  revokedAt    DateTime?  // Cuándo se revocó
+  revokedById  String?    // Usuario que revocó
+  revokedBy    User?      @relation("ItemRevoker", fields: [revokedById], references: [id])
+  revokeReason String?    // Motivo de revocación
 
   // Multi-tenancy
   orgId        String
@@ -848,21 +897,33 @@ enum DocumentKind {
   OTHER // Otros documentos
 }
 
-// Estados del lote de nóminas (Mejora 3)
+// Estados del lote de nóminas (Mejora 3 - Fortalecido)
 enum PayslipBatchStatus {
-  PROCESSING // En proceso de extracción/OCR
-  REVIEW // Pendiente de revisión manual
-  COMPLETED // Todas las nóminas asignadas
-  PARTIAL // Parcialmente completado
-  ERROR // Error en procesamiento
+  PROCESSING        // En proceso de extracción/OCR
+  REVIEW            // Pendiente de revisión manual
+  READY_TO_PUBLISH  // Listo para publicar (nuevo)
+  COMPLETED         // Todas las nóminas publicadas
+  PARTIAL           // Parcialmente completado
+  ERROR             // Error en procesamiento
+  CANCELLED         // Lote cancelado/revocado (nuevo)
 }
 
-// Estados del item individual de nómina (Mejora 3)
+// Estados del item individual de nómina (Mejora 3 - Fortalecido)
 enum PayslipItemStatus {
-  PENDING // Pendiente de asignación
-  ASSIGNED // Asignado a un empleado
-  ERROR // Error en procesamiento
-  SKIPPED // Saltado/descartado manualmente
+  PENDING_OCR       // Recién importado, en cola para OCR
+  PENDING_REVIEW    // Requiere revisión humana (baja confianza o múltiples candidatos)
+  READY             // Listo para publicar (match seguro, esperando confirmación)
+  PUBLISHED         // Visible para el empleado
+  BLOCKED_INACTIVE  // Match a empleado inactivo
+  ERROR             // Error en procesamiento
+  REVOKED           // Publicado y luego revocado
+  SKIPPED           // Saltado/descartado manualmente
+}
+
+// Tipo de lote de nóminas (subida masiva vs individual)
+enum PayslipBatchKind {
+  BULK_UPLOAD       // Lote masivo (ZIP o PDF multipágina)
+  MANUAL_SINGLE     // Subida individual de nómina
 }
 
 // Estados laborales del empleado

@@ -11,7 +11,7 @@
  */
 
 import {
-  AUTO_ASSIGN_CONFIDENCE_THRESHOLD,
+  AUTO_READY_CONFIDENCE_THRESHOLD,
   DNI_FILENAME_CONFIDENCE,
   DNI_OCR_CONFIDENCE,
   EMPLOYEE_CODE_CONFIDENCE,
@@ -29,6 +29,8 @@ export interface EmployeeMatchCandidate {
   lastName: string;
   nifNie: string | null;
   employeeNumber: string | null;
+  /** Si el empleado está activo en la organización */
+  active: boolean;
 }
 
 export interface MatchResult {
@@ -44,12 +46,21 @@ export interface MatchResult {
   detectedCode: string | null;
   /** Nombre detectado (si aplica) */
   detectedName: string | null;
-  /** Si el match es suficientemente confiable para auto-asignar */
+  /**
+   * Si el match es suficientemente confiable para marcar como READY
+   * Filosofía: "Ante la mínima duda, NO se asigna"
+   * Requiere: confianza >= 0.9, empleado activo, sin múltiples candidatos
+   */
   canAutoAssign: boolean;
   /** Si hay múltiples candidatos (nunca auto-asignar) */
   multipleMatches: boolean;
   /** Candidatos alternativos si hay múltiples */
   alternativeCandidates: EmployeeMatchCandidate[];
+  /**
+   * Si el match fue con un empleado INACTIVO
+   * Usado para marcar el item como BLOCKED_INACTIVE
+   */
+  matchedInactiveEmployee: boolean;
 }
 
 // ============================================
@@ -79,6 +90,7 @@ export class EmployeeMatcher {
       canAutoAssign: false,
       multipleMatches: false,
       alternativeCandidates: [],
+      matchedInactiveEmployee: false,
     };
 
     // 1. Intentar match por DNI en nombre de archivo (PRIORIDAD MÁXIMA)
@@ -93,7 +105,10 @@ export class EmployeeMatcher {
           result.employee = matchesByDni[0];
           result.confidenceScore = DNI_FILENAME_CONFIDENCE;
           result.matchMethod = "dni_filename";
-          result.canAutoAssign = result.confidenceScore >= AUTO_ASSIGN_CONFIDENCE_THRESHOLD;
+          // Filosofía: "Ante la mínima duda, NO se asigna"
+          // Solo auto-asignar si: confianza >= 0.9 Y empleado activo
+          result.matchedInactiveEmployee = !matchesByDni[0].active;
+          result.canAutoAssign = result.confidenceScore >= AUTO_READY_CONFIDENCE_THRESHOLD && matchesByDni[0].active;
           return result;
         }
 
@@ -118,9 +133,10 @@ export class EmployeeMatcher {
 
         if (matchesByDni.length === 1) {
           result.employee = matchesByDni[0];
-          result.confidenceScore = DNI_OCR_CONFIDENCE * (ocrResult.confidence || 1);
+          result.confidenceScore = DNI_OCR_CONFIDENCE * (ocrResult.confidence ?? 1);
           result.matchMethod = "dni_ocr";
-          result.canAutoAssign = result.confidenceScore >= AUTO_ASSIGN_CONFIDENCE_THRESHOLD;
+          result.matchedInactiveEmployee = !matchesByDni[0].active;
+          result.canAutoAssign = result.confidenceScore >= AUTO_READY_CONFIDENCE_THRESHOLD && matchesByDni[0].active;
           return result;
         }
 
@@ -144,7 +160,10 @@ export class EmployeeMatcher {
         result.employee = matchesByCode[0];
         result.confidenceScore = EMPLOYEE_CODE_CONFIDENCE * (ocrResult.confidence || 1);
         result.matchMethod = "employee_code";
-        result.canAutoAssign = result.confidenceScore >= AUTO_ASSIGN_CONFIDENCE_THRESHOLD;
+        // Filosofía: "Ante la mínima duda, NO se asigna"
+        // Solo auto-asignar si: confianza >= 0.9 Y empleado activo
+        result.matchedInactiveEmployee = !matchesByCode[0].active;
+        result.canAutoAssign = result.confidenceScore >= AUTO_READY_CONFIDENCE_THRESHOLD && matchesByCode[0].active;
         return result;
       }
 
@@ -168,6 +187,8 @@ export class EmployeeMatcher {
         result.employee = bestMatch.employee;
         result.confidenceScore = NAME_FUZZY_CONFIDENCE * bestMatch.score * (ocrResult.confidence || 1);
         result.matchMethod = "name_fuzzy";
+        // Detectar si el empleado está inactivo
+        result.matchedInactiveEmployee = !bestMatch.employee.active;
 
         if (matchesByName.length > 1) {
           result.multipleMatches = true;

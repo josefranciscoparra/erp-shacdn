@@ -1,18 +1,21 @@
+import { type Prisma, PayslipItemStatus } from "@prisma/client";
+
 import { createEmployeeMatcher, type EmployeeMatchCandidate } from "@/lib/payslip/employee-matcher";
 import { splitPdfIntoPages, getPdfInfo, generatePageFileName } from "@/lib/payslip/pdf-splitter";
 import { extractPdfsFromZip, type ExtractedFile } from "@/lib/payslip/zip-processor";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
-import { createNotification } from "@/server/actions/notifications";
 
 import {
   type IPayslipService,
   type PayslipBatchCreateInput,
-  type PayslipUploadItemCreateInput,
   type ProcessingResult,
   type BatchStatus,
 } from "./payslip.interface";
 
+/**
+ * Nombres de meses para notificaciones
+ */
 const MONTH_NAMES = [
   "Enero",
   "Febrero",
@@ -35,9 +38,13 @@ class PayslipService implements IPayslipService {
         ...data,
         status: "PROCESSING",
         totalFiles: 0,
-        assignedCount: 0,
-        pendingCount: 0,
+        readyCount: 0,
+        pendingCount: 0, // Items pendientes de revisión (PENDING_REVIEW)
+        blockedInactive: 0, // Bloqueados por empleado inactivo
+        publishedCount: 0,
+        revokedCount: 0,
         errorCount: 0,
+        assignedCount: 0,
       },
     });
   }
@@ -128,13 +135,13 @@ class PayslipService implements IPayslipService {
     return { batch, items, total };
   }
 
-  async createItem(data: PayslipUploadItemCreateInput) {
+  async createItem(data: Prisma.PayslipUploadItemUncheckedCreateInput) {
     return await prisma.payslipUploadItem.create({
       data,
     });
   }
 
-  async updateItem(itemId: string, data: Partial<PayslipUploadItemCreateInput>) {
+  async updateItem(itemId: string, data: Prisma.PayslipUploadItemUncheckedUpdateInput) {
     return await prisma.payslipUploadItem.update({
       where: { id: itemId },
       data,
@@ -179,15 +186,17 @@ class PayslipService implements IPayslipService {
 
     const zipResult = await extractPdfsFromZip(fileBuffer);
 
-    let assignedCount = 0;
+    let readyCount = 0;
     let pendingCount = 0;
+    let blockedInactive = 0;
     let errorCount = 0;
 
     for (const extractedFile of zipResult.files) {
       try {
         const result = await this.processExtractedPdf(extractedFile, batch.id, batch.orgId, matcher);
-        if (result === "assigned") assignedCount++;
-        else if (result === "pending") pendingCount++;
+        if (result === "ready") readyCount++;
+        else if (result === "pending_review") pendingCount++;
+        else if (result === "blocked_inactive") blockedInactive++;
         else errorCount++;
       } catch (e) {
         console.error(`Error processing file ${extractedFile.fileName}:`, e);
@@ -199,7 +208,7 @@ class PayslipService implements IPayslipService {
             orgId: batch.orgId,
             tempFilePath: "ERROR_UPLOAD_FAILED",
             originalFileName: extractedFile.fileName,
-            status: "ERROR",
+            status: PayslipItemStatus.ERROR,
             errorMessage: e instanceof Error ? e.message : "Error desconocido durante el procesamiento",
             confidenceScore: 0,
           });
@@ -221,7 +230,7 @@ class PayslipService implements IPayslipService {
             orgId: batch.orgId,
             tempFilePath: "SKIPPED_VALIDATION",
             originalFileName: skipped.fileName,
-            status: "ERROR",
+            status: PayslipItemStatus.ERROR,
             errorMessage: `Archivo ignorado: ${skipped.reason}`,
             confidenceScore: 0,
           });
@@ -233,18 +242,32 @@ class PayslipService implements IPayslipService {
 
     return {
       totalFiles: zipResult.files.length + zipResult.skippedFiles.length,
-      assignedCount,
+      readyCount,
       pendingCount,
+      blockedInactive,
       errorCount,
+      // Mantener compatibilidad con campos legacy
+      assignedCount: readyCount,
     };
   }
 
+  /**
+   * Procesa un PDF extraído y determina su estado según el matching
+   *
+   * Nuevo flujo (Filosofía: "Ante la mínima duda, NO se asigna"):
+   * - canAutoAssign + empleado activo → READY (listo para publicar, esperando confirmación)
+   * - Match con empleado inactivo → BLOCKED_INACTIVE
+   * - Baja confianza / múltiples candidatos → PENDING_REVIEW
+   *
+   * NO se crea EmployeeDocument ni se envía notificación durante el procesamiento.
+   * Eso se hace en la fase de publicación (publish).
+   */
   private async processExtractedPdf(
     extractedFile: ExtractedFile,
     batchId: string,
     orgId: string,
     matcher: ReturnType<typeof createEmployeeMatcher>,
-  ): Promise<"assigned" | "pending" | "error"> {
+  ): Promise<"ready" | "pending_review" | "blocked_inactive" | "error"> {
     // Subir a storage temporal
     const tempUpload = await documentStorageService.uploadPayslipTempFile(
       orgId,
@@ -255,10 +278,9 @@ class PayslipService implements IPayslipService {
 
     // Matching
     const matchResult = matcher.findMatch(extractedFile.fileName);
-    const isAutoAssigned = matchResult.canAutoAssign && matchResult.employee;
 
-    // Si no hay auto-asignación, solo registramos el item pendiente
-    if (!isAutoAssigned) {
+    // Caso 1: Match con empleado INACTIVO → BLOCKED_INACTIVE
+    if (matchResult.matchedInactiveEmployee && matchResult.employee) {
       await this.createItem({
         batchId,
         orgId,
@@ -268,98 +290,15 @@ class PayslipService implements IPayslipService {
         detectedName: matchResult.detectedName,
         detectedCode: matchResult.detectedCode,
         confidenceScore: matchResult.confidenceScore,
-        status: "PENDING",
-        employeeId: null,
-        assignedAt: null,
+        status: PayslipItemStatus.BLOCKED_INACTIVE,
+        employeeId: matchResult.employee.id,
+        errorMessage: "Empleado inactivo - requiere revisión manual",
       });
-      return "pending";
+      return "blocked_inactive";
     }
 
-    // Auto-asignación: mover a ruta final y crear documento + item enlazado
-    try {
-      const batch = await prisma.payslipBatch.findUnique({
-        where: { id: batchId },
-        select: { uploadedById: true, month: true, year: true },
-      });
-      const uploaderId = batch?.uploadedById;
-      if (!uploaderId) {
-        throw new Error("Batch uploader not found");
-      }
-
-      // Mover al path final del empleado (elimina el temp)
-      const finalUpload = await documentStorageService.movePayslipToEmployee(
-        tempUpload.path,
-        orgId,
-        matchResult.employee!.id,
-        extractedFile.fileName,
-      );
-
-      // Crear item y documento en transacción para mantener consistencia
-      await prisma.$transaction(async (tx) => {
-        const item = await tx.payslipUploadItem.create({
-          data: {
-            batchId,
-            orgId,
-            tempFilePath: finalUpload.path,
-            originalFileName: extractedFile.fileName,
-            detectedDni: matchResult.detectedDni,
-            detectedName: matchResult.detectedName,
-            detectedCode: matchResult.detectedCode,
-            confidenceScore: matchResult.confidenceScore,
-            status: "ASSIGNED",
-            employeeId: matchResult.employee!.id,
-            assignedAt: new Date(),
-            assignedById: batch?.uploadedById ?? null,
-          },
-        });
-
-        const document = await tx.employeeDocument.create({
-          data: {
-            orgId,
-            employeeId: matchResult.employee!.id,
-            fileName: extractedFile.fileName,
-            storageUrl: finalUpload.path,
-            fileSize: finalUpload.size ?? extractedFile.size ?? tempUpload.size ?? 0,
-            mimeType: "application/pdf",
-            kind: "PAYSLIP",
-            payslipMonth: batch?.month ?? null,
-            payslipYear: batch?.year ?? null,
-            payslipBatchId: batchId,
-            uploadedById: uploaderId,
-          },
-        });
-
-        await tx.payslipUploadItem.update({
-          where: { id: item.id },
-          data: { documentId: document.id },
-        });
-      });
-
-      // Enviar notificación al empleado (fuera de la transacción)
-      // Necesitamos buscar el userId del empleado que puede no estar en EmployeeMatchCandidate
-      const employeeForNotification = await prisma.employee.findUnique({
-        where: { id: matchResult.employee!.id },
-        select: { userId: true },
-      });
-
-      if (employeeForNotification?.userId) {
-        const monthName = batch?.month ? MONTH_NAMES[batch.month - 1] : null;
-        const periodText = monthName && batch?.year ? `${monthName} ${batch.year}` : "";
-
-        await createNotification(
-          employeeForNotification.userId,
-          orgId,
-          "PAYSLIP_AVAILABLE",
-          `Nómina disponible${periodText ? `: ${periodText}` : ""}`,
-          `Tienes una nueva nómina disponible.`,
-        ).catch((err) => console.error("Error enviando notificación de nómina:", err));
-      }
-
-      return "assigned";
-    } catch (docError) {
-      console.error("Error auto-assigning payslip:", docError);
-
-      // Registrar item en error para revisión manual
+    // Caso 2: Match seguro con empleado activo → READY (sin publicar aún)
+    if (matchResult.canAutoAssign && matchResult.employee) {
       await this.createItem({
         batchId,
         orgId,
@@ -369,14 +308,27 @@ class PayslipService implements IPayslipService {
         detectedName: matchResult.detectedName,
         detectedCode: matchResult.detectedCode,
         confidenceScore: matchResult.confidenceScore,
-        status: "ERROR",
-        employeeId: null,
-        assignedAt: null,
-        errorMessage: docError instanceof Error ? docError.message : "Error autoasignando la nómina",
+        status: PayslipItemStatus.READY,
+        employeeId: matchResult.employee.id,
+        isAutoMatched: true,
       });
-
-      return "error";
+      return "ready";
     }
+
+    // Caso 3: Baja confianza, múltiples candidatos o sin match → PENDING_REVIEW
+    await this.createItem({
+      batchId,
+      orgId,
+      tempFilePath: tempUpload.path,
+      originalFileName: extractedFile.fileName,
+      detectedDni: matchResult.detectedDni,
+      detectedName: matchResult.detectedName,
+      detectedCode: matchResult.detectedCode,
+      confidenceScore: matchResult.confidenceScore,
+      status: PayslipItemStatus.PENDING_REVIEW,
+      employeeId: matchResult.employee?.id,
+    });
+    return "pending_review";
   }
 
   private async processMultipagePdf(
@@ -411,7 +363,7 @@ class PayslipService implements IPayslipService {
           originalFileName: pageFileName,
           pageNumber: page.pageNumber,
           confidenceScore: 0,
-          status: "PENDING",
+          status: PayslipItemStatus.PENDING_REVIEW, // PDF multipágina siempre necesita revisión manual
         });
         pendingCount++;
       } catch (e) {
@@ -425,7 +377,7 @@ class PayslipService implements IPayslipService {
             tempFilePath: "ERROR_PAGE_PROCESS",
             originalFileName: `${fileName} (Page ${page.pageNumber})`,
             pageNumber: page.pageNumber,
-            status: "ERROR",
+            status: PayslipItemStatus.ERROR,
             errorMessage: e instanceof Error ? e.message : "Error procesando página",
             confidenceScore: 0,
           });
@@ -437,28 +389,67 @@ class PayslipService implements IPayslipService {
 
     return {
       totalFiles: splitResult.pages.length,
-      assignedCount: 0,
+      readyCount: 0,
       pendingCount,
+      blockedInactive: 0,
       errorCount,
+      // Compatibilidad legacy
+      assignedCount: 0,
     };
   }
 
+  /**
+   * Calcula el estado del lote basado en los resultados del procesamiento
+   *
+   * Nuevos estados:
+   * - READY_TO_PUBLISH: Hay items READY y ninguno PENDING_REVIEW
+   * - REVIEW: Hay items que requieren revisión (PENDING_REVIEW o BLOCKED_INACTIVE)
+   * - ERROR: Solo hay errores
+   */
   private calculateBatchStatus(result: ProcessingResult): BatchStatus {
-    if (result.errorCount > 0 && result.pendingCount === 0 && result.assignedCount === 0) return "ERROR";
-    if (result.pendingCount > 0) return "REVIEW";
-    if (result.assignedCount > 0 && (result.pendingCount > 0 || result.errorCount > 0)) return "PARTIAL";
-    if (result.assignedCount > 0 && result.pendingCount === 0 && result.errorCount === 0) return "COMPLETED";
-    return "ERROR"; // Default fallback
+    const hasReady = result.readyCount > 0;
+    const hasPendingReview = result.pendingCount > 0;
+    const hasBlockedInactive = result.blockedInactive > 0;
+    const hasErrors = result.errorCount > 0;
+
+    // Solo errores → ERROR
+    if (hasErrors && !hasReady && !hasPendingReview && !hasBlockedInactive) {
+      return "ERROR";
+    }
+
+    // Items que requieren revisión (PENDING_REVIEW o BLOCKED_INACTIVE) → REVIEW
+    if (hasPendingReview || hasBlockedInactive) {
+      return "REVIEW";
+    }
+
+    // Solo items READY → READY_TO_PUBLISH
+    if (hasReady && !hasPendingReview && !hasBlockedInactive) {
+      return "READY_TO_PUBLISH";
+    }
+
+    // Fallback a REVIEW para cualquier otro caso
+    return "REVIEW";
   }
 
+  /**
+   * Asigna manualmente un item a un empleado
+   * NUEVO FLUJO: Solo marca como READY, no publica (no crea documento ni notifica)
+   * La publicación se hace después con publishBatch o publishItems
+   */
   async assignItem(itemId: string, employeeId: string, userId: string) {
     const item = await prisma.payslipUploadItem.findUnique({
       where: { id: itemId },
       include: { batch: true },
     });
 
-    if (!item || item.status === "ASSIGNED") {
-      throw new Error("Item not found or already assigned");
+    if (!item) {
+      throw new Error("Item not found");
+    }
+
+    // Solo se pueden asignar items en estado PENDING_REVIEW, BLOCKED_INACTIVE o ERROR
+    const assignableStatuses = ["PENDING_REVIEW", "BLOCKED_INACTIVE", "ERROR"];
+    if (!assignableStatuses.includes(item.status)) {
+      throw new Error("Item cannot be assigned in current status");
     }
 
     const employee = await prisma.employee.findUnique({
@@ -467,87 +458,45 @@ class PayslipService implements IPayslipService {
 
     if (!employee) throw new Error("Employee not found");
 
-    const previousStatus = item.status;
-    const finalFileName =
-      item.originalFileName ?? `nomina_${item.batch.month ?? "sin_mes"}_${item.batch.year ?? "sin_anio"}.pdf`;
-
-    let finalPath = item.tempFilePath;
-    let finalSize: number | null = null;
-
-    try {
-      if (item.tempFilePath.includes("/payslips/temp/")) {
-        const moved = await documentStorageService.movePayslipToEmployee(
-          item.tempFilePath,
-          item.orgId,
-          employeeId,
-          finalFileName,
-        );
-        finalPath = moved.path;
-        finalSize = moved.size || null;
-      }
-    } catch (moveError) {
-      console.error("Error moving payslip to employee storage (keeping temp path):", moveError);
+    // No permitir asignar a empleados inactivos
+    if (!employee.active) {
+      throw new Error("Cannot assign to inactive employee");
     }
+
+    const previousStatus = item.status;
 
     // Transacción para atomicidad
     await prisma.$transaction(async (tx) => {
-      const document = await tx.employeeDocument.create({
-        data: {
-          orgId: item.orgId,
-          employeeId: employee.id,
-          fileName: finalFileName,
-          storageUrl: finalPath,
-          fileSize: finalSize ?? 0,
-          mimeType: "application/pdf",
-          kind: "PAYSLIP",
-          payslipMonth: item.batch.month,
-          payslipYear: item.batch.year,
-          payslipBatchId: item.batchId,
-          uploadedById: userId,
-        },
-      });
-
-      // 1. Actualizar item
+      // 1. Actualizar item: marcar como READY (listo para publicar)
       await tx.payslipUploadItem.update({
         where: { id: itemId },
         data: {
           employeeId,
-          status: "ASSIGNED",
+          status: "READY",
           assignedAt: new Date(),
           assignedById: userId,
-          tempFilePath: finalPath,
-          documentId: document.id,
+          isAutoMatched: false, // Asignación manual
           errorMessage: null,
         },
       });
 
-      // 2. Actualizar contadores del batch
+      // 2. Actualizar contadores del batch con nuevos nombres
       await tx.payslipBatch.update({
         where: { id: item.batchId },
         data: {
-          assignedCount: { increment: 1 },
-          pendingCount: previousStatus === "PENDING" ? { decrement: 1 } : undefined,
+          readyCount: { increment: 1 },
+          pendingCount: previousStatus === "PENDING_REVIEW" ? { decrement: 1 } : undefined,
+          blockedInactive: previousStatus === "BLOCKED_INACTIVE" ? { decrement: 1 } : undefined,
           errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,
         },
       });
     });
 
-    // Recalcular estado del batch fuera de la transacción (menos crítico)
+    // Recalcular estado del batch
     await this.recalculateBatchStatus(item.batchId);
 
-    // Notificación (fuera de transacción)
-    if (employee.userId) {
-      const monthName = item.batch.month ? MONTH_NAMES[item.batch.month - 1] : null;
-      const periodText = monthName && item.batch.year ? `${monthName} ${item.batch.year}` : "";
-
-      await createNotification(
-        employee.userId,
-        item.orgId,
-        "PAYSLIP_AVAILABLE",
-        `Nómina disponible${periodText ? `: ${periodText}` : ""}`,
-        `Tienes una nueva nómina disponible.`,
-      ).catch(console.error);
-    }
+    // NO se crea documento ni se envía notificación aquí
+    // Eso se hace al publicar (publishBatch o publishItems)
 
     return { success: true };
   }
@@ -555,6 +504,12 @@ class PayslipService implements IPayslipService {
   async skipItem(itemId: string) {
     const item = await prisma.payslipUploadItem.findUnique({ where: { id: itemId } });
     if (!item) throw new Error("Item not found");
+
+    // Solo se pueden saltar items que no están publicados
+    const skippableStatuses = ["PENDING_OCR", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"];
+    if (!skippableStatuses.includes(item.status)) {
+      throw new Error("Cannot skip item in current status");
+    }
 
     const previousStatus = item.status;
 
@@ -566,7 +521,9 @@ class PayslipService implements IPayslipService {
     await prisma.payslipBatch.update({
       where: { id: item.batchId },
       data: {
-        pendingCount: previousStatus === "PENDING" ? { decrement: 1 } : undefined,
+        readyCount: previousStatus === "READY" ? { decrement: 1 } : undefined,
+        pendingCount: previousStatus === "PENDING_REVIEW" ? { decrement: 1 } : undefined,
+        blockedInactive: previousStatus === "BLOCKED_INACTIVE" ? { decrement: 1 } : undefined,
         errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,
       },
     });
@@ -579,14 +536,51 @@ class PayslipService implements IPayslipService {
     const batch = await prisma.payslipBatch.findUnique({ where: { id: batchId } });
     if (!batch) return;
 
+    // Si ya está CANCELLED, no cambiar estado
+    if (batch.status === "CANCELLED") return;
+
+    // Contar items en cola de OCR (PENDING_OCR)
+    const pendingOcrCount = await prisma.payslipUploadItem.count({
+      where: { batchId, status: "PENDING_OCR" },
+    });
+
+    // Contar items saltados
+    const skippedCount = await prisma.payslipUploadItem.count({
+      where: { batchId, status: "SKIPPED" },
+    });
+
+    // Calcular totales efectivos (excluyendo saltados)
+    const effectiveTotal = batch.totalFiles - skippedCount;
+
     const result: ProcessingResult = {
-      totalFiles: batch.totalFiles,
-      assignedCount: batch.assignedCount,
+      totalFiles: effectiveTotal,
+      readyCount: batch.readyCount,
       pendingCount: batch.pendingCount,
+      blockedInactive: batch.blockedInactive,
       errorCount: batch.errorCount,
+      // Campos legacy
+      assignedCount: batch.assignedCount,
     };
 
-    const newStatus = this.calculateBatchStatus(result);
+    let newStatus = this.calculateBatchStatus(result);
+
+    // Casos especiales:
+    // 1. Si hay items en OCR → PROCESSING
+    if (pendingOcrCount > 0) {
+      newStatus = "PROCESSING";
+    }
+    // 2. Si todos publicados → COMPLETED
+    else if (batch.publishedCount > 0 && batch.publishedCount >= effectiveTotal - batch.errorCount) {
+      newStatus = "COMPLETED";
+    }
+    // 3. Si hay publicados pero también hay pendientes → PARTIAL
+    else if (
+      batch.publishedCount > 0 &&
+      (batch.readyCount > 0 || batch.pendingCount > 0 || batch.blockedInactive > 0)
+    ) {
+      newStatus = "PARTIAL";
+    }
+
     if (newStatus !== batch.status) {
       await prisma.payslipBatch.update({
         where: { id: batchId },

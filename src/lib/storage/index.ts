@@ -177,6 +177,76 @@ export class DocumentStorageService {
   }
 
   /**
+   * Mueve un archivo temporal de nómina a su ubicación final (empleado)
+   * Alias de movePayslipToEmployee con parámetros reordenados para uso en server actions
+   * @param orgId ID de la organización
+   * @param employeeId ID del empleado
+   * @param tempPath Path temporal actual
+   * @param fileName Nombre final del archivo
+   * @returns Información del archivo movido incluyendo path, fileName y size
+   */
+  async movePayslipToFinal(
+    orgId: string,
+    employeeId: string,
+    tempPath: string,
+    fileName: string,
+  ): Promise<{ path: string; fileName: string; size?: number }> {
+    // Descargar el archivo temporal
+    const blob = await this.storageProvider.download(tempPath);
+    const buffer = Buffer.from(await blob.arrayBuffer());
+
+    // Subir a la ubicación final del empleado
+    const finalPath = this.generateDocumentPath(orgId, employeeId, fileName, "payslips");
+    const result = await this.storageProvider.upload(buffer, finalPath, {
+      mimeType: "application/pdf",
+    });
+
+    // Eliminar el archivo temporal
+    await this.storageProvider.delete(tempPath);
+
+    // Extraer el nombre del archivo del path final
+    const finalFileName = finalPath.split("/").pop() ?? fileName;
+
+    return {
+      path: result.path,
+      fileName: finalFileName,
+      size: buffer.length,
+    };
+  }
+
+  /**
+   * Sube un archivo de nómina directamente a la ubicación final del empleado
+   * (sin pasar por temporal - usado para subida individual de nóminas)
+   * @param orgId ID de la organización
+   * @param employeeId ID del empleado
+   * @param fileName Nombre del archivo
+   * @param content Contenido del archivo (Buffer o Uint8Array)
+   * @returns Información del archivo subido incluyendo path, fileName y size
+   */
+  async uploadPayslipFinalFile(
+    orgId: string,
+    employeeId: string,
+    fileName: string,
+    content: Buffer | Uint8Array,
+  ): Promise<{ path: string; fileName: string; size?: number }> {
+    const buffer = content instanceof Buffer ? content : Buffer.from(content);
+    const finalPath = this.generateDocumentPath(orgId, employeeId, fileName, "payslips");
+
+    const result = await this.storageProvider.upload(buffer, finalPath, {
+      mimeType: "application/pdf",
+    });
+
+    // Extraer el nombre del archivo del path final
+    const finalFileName = finalPath.split("/").pop() ?? fileName;
+
+    return {
+      path: result.path,
+      fileName: finalFileName,
+      size: buffer.length,
+    };
+  }
+
+  /**
    * Elimina todos los archivos temporales de un lote
    * @param orgId ID de la organización
    * @param batchId ID del lote

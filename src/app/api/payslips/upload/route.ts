@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
-import { ALLOWED_MIME_TYPES, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
+import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
 import { payslipService } from "@/services/payslips/payslip.service";
 
@@ -25,6 +25,10 @@ export async function POST(request: NextRequest) {
     const orgId = session.user.orgId;
     const role = session.user.role;
 
+    if (!orgId) {
+      return NextResponse.json({ error: "No se encontró una organización activa" }, { status: 400 });
+    }
+
     if (!PAYSLIP_ADMIN_ROLES.includes(role as (typeof PAYSLIP_ADMIN_ROLES)[number])) {
       return NextResponse.json({ error: "No tienes permisos para subir nóminas" }, { status: 403 });
     }
@@ -38,7 +42,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No se ha proporcionado archivo" }, { status: 400 });
     }
 
-    if (!ALLOWED_MIME_TYPES.includes(file.type as (typeof ALLOWED_MIME_TYPES)[number])) {
+    const normalizedMime = file.type?.toLowerCase() ?? "";
+    const fileExtension = file.name?.split(".").pop()?.toLowerCase() ?? "";
+    const normalizedExtension = fileExtension ? `.${fileExtension}` : "";
+
+    const isAllowedMime = ALLOWED_MIME_TYPES.some((type) => type === normalizedMime);
+    const isAllowedExtension = ALLOWED_EXTENSIONS.some((ext) => ext === normalizedExtension);
+
+    if (!isAllowedMime && !isAllowedExtension) {
       return NextResponse.json({ error: "Tipo de archivo no permitido. Solo ZIP o PDF." }, { status: 400 });
     }
 
@@ -50,7 +61,7 @@ export async function POST(request: NextRequest) {
     }
 
     const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const isZip = file.type.includes("zip");
+    const isZip = normalizedMime.includes("zip") || normalizedExtension === ".zip";
     const originalFileType = isZip ? "ZIP" : "PDF_MULTIPAGE";
 
     // 1. Crear Batch en estado PROCESSING
@@ -63,10 +74,10 @@ export async function POST(request: NextRequest) {
       year: yearStr ? parseInt(yearStr, 10) : null,
     });
 
-    // 2. Obtener empleados para matching
+    // 2. Obtener empleados para matching (incluye activos e inactivos para detectar bloqueados)
     const employees = await prisma.employee.findMany({
       where: { orgId },
-      select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true },
+      select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true, active: true },
     });
 
     // 3. Disparar procesamiento asíncrono
@@ -89,6 +100,7 @@ export async function POST(request: NextRequest) {
     );
   } catch (error) {
     console.error("Error en upload de nóminas:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Error interno del servidor";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

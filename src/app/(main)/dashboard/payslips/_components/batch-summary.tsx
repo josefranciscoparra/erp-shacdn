@@ -1,6 +1,18 @@
 "use client";
 
-import { AlertCircle, Calendar, CheckCircle2, Clock, FileArchive, FileText, User } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  FileArchive,
+  FileText,
+  User,
+  Send,
+  UserX,
+  Undo2,
+  XCircle,
+} from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,6 +54,13 @@ function getStatusBadge(status: string) {
           Pendiente revisión
         </Badge>
       );
+    case "READY_TO_PUBLISH":
+      return (
+        <Badge variant="outline" className="gap-1 border-blue-500 text-blue-600">
+          <Send className="h-3 w-3" />
+          Listo para publicar
+        </Badge>
+      );
     case "COMPLETED":
       return (
         <Badge variant="default" className="gap-1 bg-green-600">
@@ -61,6 +80,13 @@ function getStatusBadge(status: string) {
         <Badge variant="destructive" className="gap-1">
           <AlertCircle className="h-3 w-3" />
           Error
+        </Badge>
+      );
+    case "CANCELLED":
+      return (
+        <Badge variant="secondary" className="gap-1 line-through">
+          <XCircle className="h-3 w-3" />
+          Cancelado
         </Badge>
       );
     default:
@@ -84,7 +110,9 @@ function formatDate(date: Date) {
 }
 
 export function BatchSummary({ batch }: BatchSummaryProps) {
-  const progress = batch.totalFiles > 0 ? Math.round((batch.assignedCount / batch.totalFiles) * 100) : 0;
+  // Progreso: publicados + revocados (procesados) vs total
+  const processedCount = batch.publishedCount + batch.revokedCount;
+  const progress = batch.totalFiles > 0 ? Math.round((processedCount / batch.totalFiles) * 100) : 0;
 
   return (
     <div className="grid gap-4 @xl/main:grid-cols-2 @4xl/main:grid-cols-4">
@@ -119,7 +147,7 @@ export function BatchSummary({ batch }: BatchSummaryProps) {
             <span className="text-muted-foreground text-sm">{progress}%</span>
           </div>
           <div className="text-muted-foreground mt-1 text-xs">
-            {batch.assignedCount} de {batch.totalFiles} asignados
+            {processedCount} de {batch.totalFiles} procesados
           </div>
         </CardContent>
       </Card>
@@ -131,17 +159,47 @@ export function BatchSummary({ batch }: BatchSummaryProps) {
           <FileText className="text-muted-foreground h-4 w-4" />
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-2 text-center">
+          <div className="grid grid-cols-2 gap-2 text-center @xl/main:grid-cols-3">
             <div>
-              <div className="text-xl font-bold text-green-600">{batch.assignedCount}</div>
-              <div className="text-muted-foreground text-xs">Asignados</div>
+              <div className="flex items-center justify-center gap-1">
+                <Send className="h-3 w-3 text-blue-600" />
+                <span className="text-xl font-bold text-blue-600">{batch.readyCount}</span>
+              </div>
+              <div className="text-muted-foreground text-xs">Listos</div>
             </div>
             <div>
-              <div className="text-xl font-bold text-amber-600">{batch.pendingCount}</div>
+              <div className="flex items-center justify-center gap-1">
+                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                <span className="text-xl font-bold text-green-600">{batch.publishedCount}</span>
+              </div>
+              <div className="text-muted-foreground text-xs">Publicados</div>
+            </div>
+            <div>
+              <div className="flex items-center justify-center gap-1">
+                <AlertCircle className="h-3 w-3 text-amber-600" />
+                <span className="text-xl font-bold text-amber-600">{batch.pendingCount}</span>
+              </div>
               <div className="text-muted-foreground text-xs">Pendientes</div>
             </div>
             <div>
-              <div className="text-xl font-bold text-red-600">{batch.errorCount}</div>
+              <div className="flex items-center justify-center gap-1">
+                <UserX className="h-3 w-3 text-red-600" />
+                <span className="text-xl font-bold text-red-600">{batch.blockedInactive}</span>
+              </div>
+              <div className="text-muted-foreground text-xs">Bloqueados</div>
+            </div>
+            <div>
+              <div className="flex items-center justify-center gap-1">
+                <Undo2 className="h-3 w-3 text-gray-500" />
+                <span className="text-xl font-bold text-gray-500">{batch.revokedCount}</span>
+              </div>
+              <div className="text-muted-foreground text-xs">Revocados</div>
+            </div>
+            <div>
+              <div className="flex items-center justify-center gap-1">
+                <XCircle className="h-3 w-3 text-red-600" />
+                <span className="text-xl font-bold text-red-600">{batch.errorCount}</span>
+              </div>
               <div className="text-muted-foreground text-xs">Errores</div>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { FileText, Loader2, Plus, ShieldAlert } from "lucide-react";
+import { FileText, Loader2, Plus, ShieldAlert, UserPlus } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { getPayslipBatches } from "@/server/actions/payslips";
 
 import { BatchList } from "./_components/batch-list";
+import { SinglePayslipUploadDialog } from "./_components/single-payslip-upload-dialog";
 
 interface PayslipBatch {
   id: string;
@@ -36,6 +37,7 @@ export default function PayslipsPage() {
   const [batches, setBatches] = useState<PayslipBatch[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showSingleUploadDialog, setShowSingleUploadDialog] = useState(false);
 
   useEffect(() => {
     loadBatches();
@@ -102,12 +104,18 @@ export default function PayslipsPage() {
           title="Nóminas"
           subtitle="Gestión de subida masiva de nóminas"
           action={
-            <Button size="sm" asChild>
-              <Link href="/dashboard/payslips/upload">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Subir nóminas</span>
-              </Link>
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowSingleUploadDialog(true)}>
+                <UserPlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Subir individual</span>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/dashboard/payslips/upload">
+                  <Plus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Subir lote</span>
+                </Link>
+              </Button>
+            </div>
           }
         />
 
@@ -122,6 +130,15 @@ export default function PayslipsPage() {
             actionHref="/dashboard/payslips/upload"
           />
         )}
+
+        {/* Diálogo de subida individual */}
+        <SinglePayslipUploadDialog
+          open={showSingleUploadDialog}
+          onOpenChange={setShowSingleUploadDialog}
+          onSuccess={() => {
+            loadBatches();
+          }}
+        />
       </div>
     </PermissionGuard>
   );

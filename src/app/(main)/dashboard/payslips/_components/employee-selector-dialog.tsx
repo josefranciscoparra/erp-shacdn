@@ -16,7 +16,6 @@ interface Employee {
   lastName: string;
   nifNie: string | null;
   employeeNumber: string | null;
-  email: string | null;
 }
 
 interface EmployeeSelectorDialogProps {
@@ -149,7 +148,6 @@ export function EmployeeSelectorDialog({
                       <div className="text-muted-foreground flex items-center gap-2 text-sm">
                         {emp.nifNie && <Badge variant="outline">{emp.nifNie}</Badge>}
                         {emp.employeeNumber && <Badge variant="secondary">{emp.employeeNumber}</Badge>}
-                        {emp.email && <span className="truncate">{emp.email}</span>}
                       </div>
                     </div>
                     {selectedId === emp.id && <div className="text-primary text-sm font-medium">Seleccionado</div>}

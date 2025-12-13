@@ -15,6 +15,10 @@ import {
   X,
   Loader2,
   CheckSquare,
+  Send,
+  UserX,
+  Undo2,
+  Hourglass,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,6 +33,7 @@ import { assignPayslipItem, skipPayslipItem, type PayslipUploadItemDetail } from
 
 import { EmployeeSelectorDialog } from "./employee-selector-dialog";
 import { ItemPreviewDialog } from "./item-preview-dialog";
+import { RevokeItemDialog } from "./revoke-dialog";
 
 interface ReviewTableProps {
   items: PayslipUploadItemDetail[];
@@ -43,6 +48,50 @@ interface ReviewTableProps {
 
 function getStatusBadge(status: string) {
   switch (status) {
+    // Nuevos estados V2
+    case "PENDING_OCR":
+      return (
+        <Badge variant="outline" className="gap-1">
+          <Hourglass className="h-3 w-3" />
+          En cola OCR
+        </Badge>
+      );
+    case "PENDING_REVIEW":
+      return (
+        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-600">
+          <AlertCircle className="h-3 w-3" />
+          Revisar
+        </Badge>
+      );
+    case "READY":
+      return (
+        <Badge variant="outline" className="gap-1 border-blue-500 text-blue-600">
+          <Send className="h-3 w-3" />
+          Listo
+        </Badge>
+      );
+    case "PUBLISHED":
+      return (
+        <Badge variant="default" className="gap-1 bg-green-600">
+          <CheckCircle2 className="h-3 w-3" />
+          Publicado
+        </Badge>
+      );
+    case "BLOCKED_INACTIVE":
+      return (
+        <Badge variant="destructive" className="gap-1">
+          <UserX className="h-3 w-3" />
+          Empleado inactivo
+        </Badge>
+      );
+    case "REVOKED":
+      return (
+        <Badge variant="secondary" className="gap-1 line-through">
+          <Undo2 className="h-3 w-3" />
+          Revocado
+        </Badge>
+      );
+    // Estados legacy (mantener para compatibilidad)
     case "PENDING":
       return (
         <Badge variant="outline" className="gap-1">
@@ -110,6 +159,7 @@ export function ReviewTable({
 }: ReviewTableProps) {
   const [selectedItem, setSelectedItem] = useState<PayslipUploadItemDetail | null>(null);
   const [previewItem, setPreviewItem] = useState<PayslipUploadItemDetail | null>(null);
+  const [revokeItem, setRevokeItem] = useState<PayslipUploadItemDetail | null>(null);
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSkipping, setIsSkipping] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -228,10 +278,11 @@ export function ReviewTable({
             >
               <TabsList>
                 <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="PENDING">Pendientes</TabsTrigger>
-                <TabsTrigger value="ASSIGNED">Asignados</TabsTrigger>
+                <TabsTrigger value="PENDING_REVIEW">Revisar</TabsTrigger>
+                <TabsTrigger value="READY">Listos</TabsTrigger>
+                <TabsTrigger value="PUBLISHED">Publicados</TabsTrigger>
+                <TabsTrigger value="BLOCKED_INACTIVE">Bloqueados</TabsTrigger>
                 <TabsTrigger value="ERROR">Errores</TabsTrigger>
-                <TabsTrigger value="SKIPPED">Saltados</TabsTrigger>
               </TabsList>
             </Tabs>
 
@@ -248,10 +299,11 @@ export function ReviewTable({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="PENDING">Pendientes</SelectItem>
-                <SelectItem value="ASSIGNED">Asignados</SelectItem>
+                <SelectItem value="PENDING_REVIEW">Revisar</SelectItem>
+                <SelectItem value="READY">Listos</SelectItem>
+                <SelectItem value="PUBLISHED">Publicados</SelectItem>
+                <SelectItem value="BLOCKED_INACTIVE">Bloqueados</SelectItem>
                 <SelectItem value="ERROR">Errores</SelectItem>
-                <SelectItem value="SKIPPED">Saltados</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -337,7 +389,8 @@ export function ReviewTable({
                               <Eye className="h-4 w-4" />
                             </Button>
 
-                            {item.status === "PENDING" && (
+                            {/* Acciones para items que requieren revisión */}
+                            {(item.status === "PENDING" || item.status === "PENDING_REVIEW") && (
                               <>
                                 <Button
                                   variant="ghost"
@@ -361,6 +414,19 @@ export function ReviewTable({
                                   )}
                                 </Button>
                               </>
+                            )}
+
+                            {/* Botón revocar para items publicados */}
+                            {item.status === "PUBLISHED" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setRevokeItem(item)}
+                                title="Revocar acceso"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Undo2 className="h-4 w-4" />
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -448,6 +514,16 @@ export function ReviewTable({
         onOpenChange={(open) => !open && setPreviewItem(null)}
         item={previewItem}
       />
+
+      {/* Dialog para revocar item individual */}
+      {revokeItem && (
+        <RevokeItemDialog
+          open={!!revokeItem}
+          onOpenChange={(open) => !open && setRevokeItem(null)}
+          item={revokeItem}
+          onSuccess={onRefresh}
+        />
+      )}
     </>
   );
 }

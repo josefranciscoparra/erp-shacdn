@@ -60,8 +60,15 @@ export const EMPLOYEE_CODE_REGEX = /\b([A-Z]{3,4}\d{5})\b/;
 // MATCHING Y CONFIANZA
 // ============================================
 
-/** Umbral mínimo de confianza para auto-asignación */
-export const AUTO_ASSIGN_CONFIDENCE_THRESHOLD = 0.8;
+/**
+ * Umbral mínimo de confianza para marcar como READY (listo para publicar)
+ * Filosofía: "Ante la mínima duda, NO se asigna"
+ * Con 0.9 se requiere un match muy seguro para auto-marcar como READY
+ */
+export const AUTO_READY_CONFIDENCE_THRESHOLD = 0.9;
+
+/** @deprecated Usar AUTO_READY_CONFIDENCE_THRESHOLD */
+export const AUTO_ASSIGN_CONFIDENCE_THRESHOLD = AUTO_READY_CONFIDENCE_THRESHOLD;
 
 /** Peso para match por DNI en nombre de archivo (alta confianza) */
 export const DNI_FILENAME_CONFIDENCE = 0.95;
@@ -124,3 +131,13 @@ export const PAYSLIP_ADMIN_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_
 
 /** Roles que solo pueden ver sus propias nóminas */
 export const PAYSLIP_EMPLOYEE_ROLES = ["EMPLOYEE", "MANAGER"] as const;
+
+// ============================================
+// PERMISOS DE PUBLICACIÓN Y REVOCACIÓN
+// ============================================
+
+/** Roles que pueden publicar lotes de nóminas */
+export const PAYSLIP_PUBLISH_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_MANAGER"] as const;
+
+/** Roles que pueden revocar nóminas publicadas (más restrictivo) */
+export const PAYSLIP_REVOKE_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"] as const;
