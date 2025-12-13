@@ -13,6 +13,21 @@ import {
   type BatchStatus,
 } from "./payslip.interface";
 
+async function logBatchEvent(batchId: string, type: string, message: string, meta?: Prisma.JsonValue) {
+  try {
+    await prisma.payslipBatchEvent.create({
+      data: {
+        batchId,
+        type,
+        message,
+        meta,
+      },
+    });
+  } catch (error) {
+    console.error("Failed to log payslip batch event:", error);
+  }
+}
+
 /**
  * Nombres de meses para notificaciones
  */
@@ -33,7 +48,7 @@ const MONTH_NAMES = [
 
 class PayslipService implements IPayslipService {
   async createBatch(data: PayslipBatchCreateInput) {
-    return await prisma.payslipBatch.create({
+    const batch = await prisma.payslipBatch.create({
       data: {
         ...data,
         status: "PROCESSING",
@@ -47,6 +62,14 @@ class PayslipService implements IPayslipService {
         assignedCount: 0,
       },
     });
+    await logBatchEvent(batch.id, "BATCH_CREATED", "Lote creado", {
+      originalFileName: data.originalFileName,
+      month: data.month ?? null,
+      year: data.year ?? null,
+      uploadedById: data.uploadedById,
+      kind: data.originalFileType,
+    });
+    return batch;
   }
 
   async updateBatchStatus(batchId: string, status: BatchStatus, counts?: Partial<ProcessingResult>) {
@@ -153,6 +176,9 @@ class PayslipService implements IPayslipService {
     try {
       const batch = await prisma.payslipBatch.findUnique({ where: { id: batchId } });
       if (!batch) throw new Error("Batch not found");
+      await logBatchEvent(batchId, "PROCESSING_STARTED", `Procesando ${batch.originalFileName}`, {
+        originalFileType: batch.originalFileType,
+      });
 
       const matcher = createEmployeeMatcher(employees);
       let result: ProcessingResult;
@@ -169,8 +195,13 @@ class PayslipService implements IPayslipService {
 
       // Actualizar batch final
       await this.updateBatchStatus(batchId, newStatus, result);
+      await logBatchEvent(batchId, "PROCESSING_COMPLETED", "Procesamiento finalizado", {
+        status: newStatus,
+        ...result,
+      });
     } catch (error) {
       console.error("[PayslipService] Error processing batch:", error);
+      await logBatchEvent(batchId, "PROCESSING_ERROR", error instanceof Error ? error.message : "Error desconocido");
       await this.updateBatchStatus(batchId, "ERROR");
     }
   }
@@ -185,6 +216,10 @@ class PayslipService implements IPayslipService {
     // Optimización: Procesar uno a uno para liberar memoria lo antes posible
 
     const zipResult = await extractPdfsFromZip(fileBuffer);
+    await logBatchEvent(batch.id, "ZIP_EXTRACTED", "ZIP procesado", {
+      files: zipResult.files.length,
+      skipped: zipResult.skippedFiles.length,
+    });
 
     let readyCount = 0;
     let pendingCount = 0;
@@ -201,6 +236,9 @@ class PayslipService implements IPayslipService {
       } catch (e) {
         console.error(`Error processing file ${extractedFile.fileName}:`, e);
         errorCount++;
+        await logBatchEvent(batch.id, "ITEM_PROCESSING_ERROR", `Error procesando ${extractedFile.fileName}`, {
+          error: e instanceof Error ? e.message : e,
+        });
 
         try {
           await this.createItem({
@@ -225,6 +263,10 @@ class PayslipService implements IPayslipService {
     for (const skipped of zipResult.skippedFiles) {
       if (skipped.reason === "error" || skipped.reason === "too_large" || skipped.reason === "not_pdf") {
         try {
+          await logBatchEvent(batch.id, "FILE_SKIPPED", `Archivo ignorado (${skipped.reason})`, {
+            fileName: skipped.fileName,
+            size: skipped.size ?? null,
+          });
           await this.createItem({
             batchId: batch.id,
             orgId: batch.orgId,
@@ -281,6 +323,10 @@ class PayslipService implements IPayslipService {
 
     // Caso 1: Match con empleado INACTIVO → BLOCKED_INACTIVE
     if (matchResult.matchedInactiveEmployee && matchResult.employee) {
+      await logBatchEvent(batchId, "ITEM_BLOCKED_INACTIVE", `Empleado inactivo para ${extractedFile.fileName}`, {
+        employeeId: matchResult.employee.id,
+        employeeNumber: matchResult.employee.employeeNumber,
+      });
       await this.createItem({
         batchId,
         orgId,
@@ -299,6 +345,11 @@ class PayslipService implements IPayslipService {
 
     // Caso 2: Match seguro con empleado activo → READY (sin publicar aún)
     if (matchResult.canAutoAssign && matchResult.employee) {
+      await logBatchEvent(batchId, "ITEM_READY", `Nómina lista: ${extractedFile.fileName}`, {
+        employeeId: matchResult.employee.id,
+        employeeNumber: matchResult.employee.employeeNumber,
+        matchMethod: matchResult.matchMethod,
+      });
       await this.createItem({
         batchId,
         orgId,
@@ -328,6 +379,10 @@ class PayslipService implements IPayslipService {
       status: PayslipItemStatus.PENDING_REVIEW,
       employeeId: matchResult.employee?.id,
     });
+    await logBatchEvent(batchId, "ITEM_PENDING_REVIEW", `Revisión requerida: ${extractedFile.fileName}`, {
+      detectedDni: matchResult.detectedDni,
+      matchMethod: matchResult.matchMethod,
+    });
     return "pending_review";
   }
 
@@ -343,6 +398,10 @@ class PayslipService implements IPayslipService {
     }
 
     const splitResult = await splitPdfIntoPages(fileBuffer, fileName);
+    await logBatchEvent(batchId, "PDF_SPLIT", `PDF multipágina dividido (${splitResult.pages.length} páginas)`, {
+      fileName,
+      limitReached: splitResult.limitReached,
+    });
     let pendingCount = 0;
     let errorCount = 0;
 
@@ -369,6 +428,14 @@ class PayslipService implements IPayslipService {
       } catch (e) {
         console.error(`Error processing page ${page.pageNumber}:`, e);
         errorCount++;
+        await logBatchEvent(
+          batchId,
+          "ITEM_PROCESSING_ERROR",
+          `Error procesando ${fileName} página ${page.pageNumber}`,
+          {
+            error: e instanceof Error ? e.message : e,
+          },
+        );
 
         try {
           await this.createItem({
@@ -506,7 +573,7 @@ class PayslipService implements IPayslipService {
     if (!item) throw new Error("Item not found");
 
     // Solo se pueden saltar items que no están publicados
-    const skippableStatuses = ["PENDING_OCR", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"];
+    const skippableStatuses = ["PENDING_OCR", "PENDING", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"];
     if (!skippableStatuses.includes(item.status)) {
       throw new Error("Cannot skip item in current status");
     }
@@ -522,7 +589,8 @@ class PayslipService implements IPayslipService {
       where: { id: item.batchId },
       data: {
         readyCount: previousStatus === "READY" ? { decrement: 1 } : undefined,
-        pendingCount: previousStatus === "PENDING_REVIEW" ? { decrement: 1 } : undefined,
+        pendingCount:
+          previousStatus === "PENDING_REVIEW" || previousStatus === "PENDING" ? { decrement: 1 } : undefined,
         blockedInactive: previousStatus === "BLOCKED_INACTIVE" ? { decrement: 1 } : undefined,
         errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,
       },

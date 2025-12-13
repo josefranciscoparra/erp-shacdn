@@ -818,12 +818,27 @@ model PayslipBatch {
 
   // Documentos generados
   documents EmployeeDocument[] @relation("PayslipBatchDocuments")
+  events    PayslipBatchEvent[]
 
   @@index([orgId])
   @@index([year, month])
   @@index([status])
   @@index([kind])
   @@map("payslip_batches")
+}
+
+model PayslipBatchEvent {
+  id        String   @id @default(cuid())
+  batchId   String
+  batch     PayslipBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  type      String
+  message   String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([batchId])
+  @@index([createdAt])
+  @@map("payslip_batch_events")
 }
 
 // Item individual de nómina (cada PDF extraído)

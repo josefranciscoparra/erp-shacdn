@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 
 import Link from "next/link";
 
-import { AlertTriangle, ArrowLeft, Loader2, Send, ShieldAlert, Undo2, UserX } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Pencil, Send, ShieldAlert, Undo2, UserX } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -14,12 +14,17 @@ import { Button } from "@/components/ui/button";
 import { getBatchWithItems, type PayslipBatchListItem, type PayslipUploadItemDetail } from "@/server/actions/payslips";
 
 import { BatchSummary } from "../_components/batch-summary";
+import { EditBatchMetaDialog } from "../_components/edit-batch-meta-dialog";
 import { PublishDialog } from "../_components/publish-dialog";
 import { ReviewTable } from "../_components/review-table";
 import { RevokeBatchDialog } from "../_components/revoke-dialog";
 
 interface Props {
   params: Promise<{ batchId: string }>;
+}
+
+function formatStatusLabel(status: string) {
+  return status.toLowerCase().replace(/_/g, " ");
 }
 
 export default function PayslipBatchDetailPage({ params }: Props) {
@@ -34,6 +39,7 @@ export default function PayslipBatchDetailPage({ params }: Props) {
   const [pollCount, setPollCount] = useState(0);
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -135,7 +141,7 @@ export default function PayslipBatchDetailPage({ params }: Props) {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader
           title={batch.originalFileName}
-          subtitle={`Lote de nóminas - ${batch.status}`}
+          subtitle={`Lote de nóminas · ${formatStatusLabel(batch.status)}`}
           action={
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" asChild>
@@ -143,6 +149,10 @@ export default function PayslipBatchDetailPage({ params }: Props) {
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Volver
                 </Link>
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowEditDialog(true)}>
+                <Pencil className="mr-2 h-4 w-4" />
+                Editar periodo
               </Button>
               {/* Botón Publicar - solo si hay items listos y no está completado/cancelado */}
               {batch.readyCount > 0 && batch.status !== "COMPLETED" && batch.status !== "CANCELLED" && (
@@ -218,6 +228,15 @@ export default function PayslipBatchDetailPage({ params }: Props) {
         <RevokeBatchDialog
           open={showRevokeDialog}
           onOpenChange={setShowRevokeDialog}
+          batch={batch}
+          onSuccess={() => {
+            setPollCount(0);
+            loadData();
+          }}
+        />
+        <EditBatchMetaDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
           batch={batch}
           onSuccess={() => {
             setPollCount(0);

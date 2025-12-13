@@ -12,6 +12,7 @@ import {
   FileText,
   RefreshCw,
   Send,
+  Tag,
   Users,
 } from "lucide-react";
 
@@ -20,27 +21,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-interface PayslipBatch {
-  id: string;
-  originalFileName: string;
-  originalFileType: string;
-  month: number | null;
-  year: number | null;
-  status: string;
-  totalFiles: number;
-  assignedCount: number;
-  pendingCount: number;
-  errorCount: number;
-  createdAt: Date;
-  uploadedBy: {
-    name: string | null;
-    email: string;
-  };
-}
+import type { PayslipBatchListItem } from "@/server/actions/payslips";
 
 interface BatchListProps {
-  batches: PayslipBatch[];
+  batches: PayslipBatchListItem[];
   onRefresh: () => void;
 }
 
@@ -139,16 +123,15 @@ function formatDate(date: Date) {
 }
 
 export function BatchList({ batches, onRefresh }: BatchListProps) {
-  // Calcular estadísticas globales
   const stats = batches.reduce(
     (acc, batch) => ({
       totalBatches: acc.totalBatches + 1,
       totalFiles: acc.totalFiles + batch.totalFiles,
-      totalAssigned: acc.totalAssigned + batch.assignedCount,
-      totalPending: acc.totalPending + batch.pendingCount,
-      totalErrors: acc.totalErrors + batch.errorCount,
+      totalReady: acc.totalReady + batch.readyCount,
+      totalPublished: acc.totalPublished + batch.publishedCount,
+      totalPending: acc.totalPending + batch.pendingCount + batch.blockedInactive,
     }),
-    { totalBatches: 0, totalFiles: 0, totalAssigned: 0, totalPending: 0, totalErrors: 0 },
+    { totalBatches: 0, totalFiles: 0, totalReady: 0, totalPublished: 0, totalPending: 0 },
   );
 
   return (
@@ -166,7 +149,7 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
         </Card>
         <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Nóminas Totales</CardTitle>
+            <CardTitle className="text-sm font-medium">Documentos totales</CardTitle>
             <FileText className="text-muted-foreground h-4 w-4" />
           </CardHeader>
           <CardContent>
@@ -175,20 +158,21 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
         </Card>
         <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Asignadas</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-sm font-medium">Listos para publicar</CardTitle>
+            <Send className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{stats.totalAssigned}</div>
+            <div className="text-2xl font-bold text-blue-600">{stats.totalReady}</div>
+            <p className="text-muted-foreground mt-1 text-xs">Pendientes de revisión: {stats.totalPending}</p>
           </CardContent>
         </Card>
         <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-sm font-medium">Publicados</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-amber-600">{stats.totalPending}</div>
+            <div className="text-2xl font-bold text-green-600">{stats.totalPublished}</div>
           </CardContent>
         </Card>
       </div>
@@ -221,19 +205,30 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
               </TableHeader>
               <TableBody>
                 {batches.map((batch) => {
+                  const completedCount = batch.publishedCount + batch.revokedCount;
+                  const managedCount = completedCount + batch.readyCount;
+                  const reviewCount = batch.pendingCount + batch.blockedInactive;
                   const progress =
-                    batch.totalFiles > 0 ? Math.round((batch.assignedCount / batch.totalFiles) * 100) : 0;
+                    batch.totalFiles > 0 ? Math.min(100, Math.round((managedCount / batch.totalFiles) * 100)) : 0;
 
                   return (
                     <TableRow key={batch.id}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {batch.originalFileType === "ZIP" ? (
-                            <FileArchive className="text-muted-foreground h-4 w-4" />
-                          ) : (
-                            <FileText className="text-muted-foreground h-4 w-4" />
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            {batch.originalFileType === "ZIP" ? (
+                              <FileArchive className="text-muted-foreground h-4 w-4" />
+                            ) : (
+                              <FileText className="text-muted-foreground h-4 w-4" />
+                            )}
+                            <span className="font-medium">{batch.originalFileName}</span>
+                          </div>
+                          {batch.label && (
+                            <div className="text-muted-foreground flex items-center gap-1 text-xs">
+                              <Tag className="h-3 w-3" />
+                              {batch.label}
+                            </div>
                           )}
-                          <span className="font-medium">{batch.originalFileName}</span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -244,16 +239,19 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
                       </TableCell>
                       <TableCell>{getStatusBadge(batch.status)}</TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
+                        <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <Progress value={progress} className="w-20" />
+                            <Progress value={progress} className="w-24" />
                             <span className="text-muted-foreground text-xs">
-                              {batch.assignedCount}/{batch.totalFiles}
+                              {managedCount}/{batch.totalFiles}
                             </span>
                           </div>
-                          {batch.errorCount > 0 && (
-                            <span className="text-xs text-red-500">{batch.errorCount} errores</span>
-                          )}
+                          <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                            <span>Listos: {batch.readyCount}</span>
+                            <span>Publicados: {batch.publishedCount}</span>
+                            <span>Pendientes: {reviewCount}</span>
+                            {batch.errorCount > 0 && <span className="text-red-500">Errores: {batch.errorCount}</span>}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell>

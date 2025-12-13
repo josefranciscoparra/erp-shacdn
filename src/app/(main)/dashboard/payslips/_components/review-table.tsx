@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   AlertCircle,
@@ -29,7 +29,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { assignPayslipItem, skipPayslipItem, type PayslipUploadItemDetail } from "@/server/actions/payslips";
+import { AUTO_READY_CONFIDENCE_THRESHOLD } from "@/lib/payslip/config";
+import {
+  assignPayslipItem,
+  skipPayslipItem,
+  publishItems,
+  type PayslipUploadItemDetail,
+} from "@/server/actions/payslips";
 
 import { EmployeeSelectorDialog } from "./employee-selector-dialog";
 import { ItemPreviewDialog } from "./item-preview-dialog";
@@ -174,10 +180,31 @@ export function ReviewTable({
   const [isAssigning, setIsAssigning] = useState(false);
   const [isSkipping, setIsSkipping] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkSkipping, setIsBulkSkipping] = useState(false);
+  const [isPublishingSelection, setIsPublishingSelection] = useState(false);
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      let changed = false;
+      for (const item of items) {
+        const shouldAutoSelect =
+          item.status === "READY" && (item.isAutoMatched || item.confidenceScore >= AUTO_READY_CONFIDENCE_THRESHOLD);
+        if (shouldAutoSelect && SKIPPABLE_STATUSES.has(item.status) && !next.has(item.id)) {
+          next.add(item.id);
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [items]);
 
   const pageSize = 50;
   const totalPages = Math.ceil(total / pageSize);
+  const selectedReadyIds = items
+    .filter((item) => selectedIds.has(item.id) && item.status === "READY")
+    .map((item) => item.id);
+  const selectedReadyCount = selectedReadyIds.length;
+  const hasSelection = selectedIds.size > 0;
 
   // Manejo de selección
   const toggleSelectAll = () => {
@@ -242,24 +269,26 @@ export function ReviewTable({
     }
   };
 
-  const handleBulkSkip = async () => {
-    if (selectedIds.size === 0) return;
+  const handlePublishSelected = async () => {
+    if (selectedReadyIds.length === 0) {
+      toast.error("Selecciona al menos una nómina lista para publicar");
+      return;
+    }
 
-    if (!confirm(`¿Estás seguro de saltar ${selectedIds.size} items seleccionados?`)) return;
-
-    setIsBulkSkipping(true);
+    setIsPublishingSelection(true);
     try {
-      // Ejecutar en paralelo (idealmente debería haber un endpoint bulk en el backend)
-      const promises = Array.from(selectedIds).map((id) => skipPayslipItem(id));
-      await Promise.all(promises);
-
-      toast.success(`${selectedIds.size} items saltados correctamente`);
-      setSelectedIds(new Set());
-      onRefresh();
+      const result = await publishItems(selectedReadyIds);
+      if (result.success) {
+        toast.success(`Publicadas ${result.publishedCount ?? selectedReadyIds.length} nóminas seleccionadas`);
+        setSelectedIds(new Set());
+        onRefresh();
+      } else {
+        toast.error(result.error ?? "Error al publicar la selección");
+      }
     } catch {
-      toast.error("Error al procesar saltos masivos");
+      toast.error("Error al publicar la selección");
     } finally {
-      setIsBulkSkipping(false);
+      setIsPublishingSelection(false);
     }
   };
 
@@ -363,6 +392,7 @@ export function ReviewTable({
                     const canSelect = SKIPPABLE_STATUSES.has(item.status);
                     const canAssign = ASSIGNABLE_STATUSES.has(item.status);
                     const canSkip = SKIPPABLE_STATUSES.has(item.status);
+                    const assignLabel = item.employee ? "Cambiar" : "Asignar";
                     return (
                       <TableRow key={item.id} data-state={selectedIds.has(item.id) && "selected"}>
                         <TableCell>
@@ -398,40 +428,45 @@ export function ReviewTable({
                         </TableCell>
                         <TableCell>{getStatusBadge(item.status)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <Button
                               variant="ghost"
-                              size="icon"
+                              size="sm"
                               onClick={() => setPreviewItem(item)}
                               title="Ver preview"
+                              className="gap-1"
                             >
                               <Eye className="h-4 w-4" />
+                              Ver
                             </Button>
 
                             {canAssign && (
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 onClick={() => setSelectedItem(item)}
                                 title={item.employee ? "Cambiar empleado" : "Asignar a empleado"}
+                                className="gap-1"
                               >
                                 <UserPlus className="h-4 w-4" />
+                                {assignLabel}
                               </Button>
                             )}
                             {canSkip && (
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 onClick={() => handleSkip(item.id)}
                                 disabled={isSkipping === item.id}
                                 title="Quitar del lote"
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive hover:text-destructive gap-1"
                               >
                                 {isSkipping === item.id ? (
                                   <RefreshCw className="h-4 w-4 animate-spin" />
                                 ) : (
                                   <X className="h-4 w-4" />
                                 )}
+                                Quitar
                               </Button>
                             )}
 
@@ -439,12 +474,13 @@ export function ReviewTable({
                             {item.status === "PUBLISHED" && (
                               <Button
                                 variant="ghost"
-                                size="icon"
+                                size="sm"
                                 onClick={() => setRevokeItem(item)}
                                 title="Revocar acceso"
-                                className="text-destructive hover:text-destructive"
+                                className="text-destructive hover:text-destructive gap-1"
                               >
                                 <Undo2 className="h-4 w-4" />
+                                Revocar
                               </Button>
                             )}
                           </div>
@@ -484,26 +520,35 @@ export function ReviewTable({
       </Card>
 
       {/* Barra de acción flotante */}
-      {selectedIds.size > 0 && (
+      {hasSelection && (
         <div className="bg-foreground/95 text-background supports-[backdrop-filter]:bg-foreground/80 animate-in slide-in-from-bottom-4 fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full px-6 py-3 shadow-lg backdrop-blur">
-          <div className="flex items-center gap-2 border-r pr-4">
+          <div className="flex items-center gap-3 border-r pr-4">
             <CheckSquare className="h-4 w-4" />
-            <span className="text-sm font-medium">{selectedIds.size} seleccionados</span>
+            <div className="text-sm">
+              <div className="font-medium">{selectedIds.size} seleccionados</div>
+              <div className="text-background/70 text-xs">{selectedReadyCount} listos para publicar</div>
+            </div>
+          </div>
+          <div className="text-background/70 max-w-xs text-xs">
+            Solo se publicarán los items seleccionados. Ajusta la selección si necesitas excluir alguno.
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="secondary"
               size="sm"
-              onClick={handleBulkSkip}
-              disabled={isBulkSkipping}
-              className="hover:bg-destructive hover:text-destructive-foreground transition-colors"
+              onClick={handlePublishSelected}
+              disabled={isPublishingSelection || selectedReadyCount === 0}
             >
-              {isBulkSkipping ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {isPublishingSelection ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Publicando...
+                </>
               ) : (
-                <SkipForward className="mr-2 h-4 w-4" />
+                <>
+                  <Send className="mr-2 h-4 w-4" />
+                  Publicar {selectedReadyCount}
+                </>
               )}
-              Saltar selección
             </Button>
             <Button
               variant="ghost"
@@ -511,7 +556,7 @@ export function ReviewTable({
               onClick={() => setSelectedIds(new Set())}
               className="text-muted-foreground hover:text-foreground"
             >
-              Cancelar
+              Limpiar
             </Button>
           </div>
         </div>

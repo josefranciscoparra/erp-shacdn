@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import type { Prisma } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
 import { PAYSLIP_ADMIN_ROLES, PAYSLIP_PUBLISH_ROLES, PAYSLIP_REVOKE_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
@@ -24,6 +26,11 @@ const MONTH_NAMES = [
   "Diciembre",
 ];
 
+async function logBatchEvent(batchId: string, type: string, message: string, meta?: Prisma.JsonValue) {
+  // Sistema de actividad desactivado temporalmente
+  return;
+}
+
 // ============================================
 // TIPOS
 // ============================================
@@ -32,6 +39,7 @@ export type PayslipBatchListItem = {
   id: string;
   month: number | null;
   year: number | null;
+  label: string | null;
   originalFileName: string;
   originalFileType: string;
   totalFiles: number;
@@ -62,6 +70,7 @@ export type PayslipUploadItemDetail = {
   detectedName: string | null;
   detectedCode: string | null;
   confidenceScore: number;
+  isAutoMatched: boolean;
   status: string;
   errorMessage: string | null;
   employeeId: string | null;
@@ -76,6 +85,15 @@ export type PayslipUploadItemDetail = {
   createdAt: Date;
   assignedAt: Date | null;
   assignedById: string | null;
+};
+
+export type PayslipEmployeeOption = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber: string | null;
+  nifNie: string | null;
+  active: boolean;
 };
 
 // ============================================
@@ -153,6 +171,7 @@ export async function getPayslipBatches(
         id: b.id,
         month: b.month,
         year: b.year,
+        label: b.label,
         originalFileName: b.originalFileName,
         originalFileType: b.originalFileType,
         totalFiles: b.totalFiles,
@@ -222,6 +241,10 @@ export async function getBatchWithItems(
       return { success: false, error: "Lote no encontrado" };
     }
 
+    await logBatchEvent(batchId, "PUBLISH_STARTED", "Publicación de lote iniciada", {
+      readyCount: batch.readyCount,
+    });
+
     const itemWhere = {
       batchId,
       ...(status && {
@@ -264,6 +287,7 @@ export async function getBatchWithItems(
         id: batch.id,
         month: batch.month,
         year: batch.year,
+        label: batch.label,
         originalFileName: batch.originalFileName,
         originalFileType: batch.originalFileType,
         totalFiles: batch.totalFiles,
@@ -293,6 +317,7 @@ export async function getBatchWithItems(
         detectedName: item.detectedName,
         detectedCode: item.detectedCode,
         confidenceScore: item.confidenceScore,
+        isAutoMatched: item.isAutoMatched,
         status: item.status,
         errorMessage: item.errorMessage,
         employeeId: item.employeeId,
@@ -306,6 +331,50 @@ export async function getBatchWithItems(
     };
   } catch (error) {
     console.error("Error al obtener lote con items:", error);
+    return { success: false, error: "Error interno del servidor" };
+  }
+}
+
+export async function getActiveEmployees(
+  options: { includeInactive?: boolean; limit?: number } = {},
+): Promise<{ success: boolean; employees?: PayslipEmployeeOption[]; error?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const orgId = session.user.orgId;
+    const role = session.user.role;
+
+    if (!(await isPayslipAdmin(role))) {
+      return { success: false, error: "No tienes permisos para ver empleados" };
+    }
+
+    const includeInactive = options.includeInactive ?? true;
+
+    const where: Prisma.EmployeeWhereInput = {
+      orgId,
+      ...(includeInactive ? {} : { active: true }),
+    };
+
+    const employees = await prisma.employee.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeNumber: true,
+        nifNie: true,
+        active: true,
+      },
+      orderBy: [{ active: "desc" }, { lastName: "asc" }, { firstName: "asc" }],
+      ...(typeof options.limit === "number" ? { take: options.limit } : {}),
+    });
+
+    return { success: true, employees };
+  } catch (error) {
+    console.error("Error al obtener empleados para nóminas:", error);
     return { success: false, error: "Error interno del servidor" };
   }
 }
@@ -394,6 +463,12 @@ export async function assignPayslipItem(
     // Actualizar estado del batch si es necesario
     await updateBatchStatus(item.batchId);
 
+    await logBatchEvent(item.batchId, "ITEM_ASSIGNED_MANUAL", "Nómina asignada manualmente", {
+      itemId,
+      employeeId,
+      assignedById: userId,
+    });
+
     revalidatePath(`/dashboard/payslips/${item.batchId}`);
 
     return { success: true };
@@ -429,7 +504,7 @@ export async function skipPayslipItem(itemId: string): Promise<{ success: boolea
     }
 
     // Solo se pueden saltar items que no están publicados
-    const skippableStatuses = ["PENDING_OCR", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"];
+    const skippableStatuses = ["PENDING_OCR", "PENDING", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"];
     if (!skippableStatuses.includes(item.status)) {
       return { success: false, error: "Solo se pueden saltar items no publicados" };
     }
@@ -446,19 +521,97 @@ export async function skipPayslipItem(itemId: string): Promise<{ success: boolea
       where: { id: item.batchId },
       data: {
         readyCount: previousStatus === "READY" ? { decrement: 1 } : undefined,
-        pendingCount: previousStatus === "PENDING_REVIEW" ? { decrement: 1 } : undefined,
+        pendingCount:
+          previousStatus === "PENDING_REVIEW" || previousStatus === "PENDING" ? { decrement: 1 } : undefined,
         blockedInactive: previousStatus === "BLOCKED_INACTIVE" ? { decrement: 1 } : undefined,
         errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,
       },
     });
 
     await updateBatchStatus(item.batchId);
+    await logBatchEvent(item.batchId, "ITEM_SKIPPED", "Nómina quitada manualmente", {
+      itemId,
+      previousStatus,
+    });
 
     revalidatePath(`/dashboard/payslips/${item.batchId}`);
 
     return { success: true };
   } catch (error) {
     console.error("Error al saltar item:", error);
+    return { success: false, error: "Error interno del servidor" };
+  }
+}
+
+export async function updatePayslipBatchMeta(
+  batchId: string,
+  data: { month?: number | null; year?: number | null; label?: string | null },
+): Promise<{ success: boolean; batch?: PayslipBatchListItem; error?: string }> {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return { success: false, error: "No autorizado" };
+    }
+
+    const orgId = session.user.orgId;
+    const role = session.user.role;
+
+    if (!(await isPayslipAdmin(role))) {
+      return { success: false, error: "No tienes permisos para editar este lote" };
+    }
+
+    const batch = await prisma.payslipBatch.update({
+      where: { id: batchId, orgId },
+      data: {
+        month: data.month ?? null,
+        year: data.year ?? null,
+        label: data.label ?? null,
+      },
+      include: {
+        uploadedBy: {
+          select: { name: true, email: true },
+        },
+      },
+    });
+
+    await logBatchEvent(batch.id, "BATCH_METADATA_UPDATED", "Metadatos del lote actualizados", {
+      month: batch.month,
+      year: batch.year,
+      label: batch.label,
+      updatedById: session.user.id,
+    });
+
+    revalidatePath(`/dashboard/payslips/${batchId}`);
+    revalidatePath("/dashboard/payslips");
+
+    return {
+      success: true,
+      batch: {
+        id: batch.id,
+        month: batch.month,
+        year: batch.year,
+        label: batch.label,
+        originalFileName: batch.originalFileName,
+        originalFileType: batch.originalFileType,
+        totalFiles: batch.totalFiles,
+        readyCount: batch.readyCount,
+        pendingCount: batch.pendingCount,
+        blockedInactive: batch.blockedInactive,
+        publishedCount: batch.publishedCount,
+        revokedCount: batch.revokedCount,
+        errorCount: batch.errorCount,
+        assignedCount: batch.assignedCount,
+        status: batch.status,
+        createdAt: batch.createdAt,
+        publishedAt: batch.publishedAt,
+        uploadedBy: {
+          name: batch.uploadedBy.name,
+          email: batch.uploadedBy.email,
+        },
+      },
+    };
+  } catch (error) {
+    console.error("Error al actualizar metadatos del lote:", error);
     return { success: false, error: "Error interno del servidor" };
   }
 }
@@ -500,6 +653,10 @@ export async function retryOcrItem(itemId: string): Promise<{ success: boolean; 
         confidenceScore: 0,
         employeeId: null,
       },
+    });
+
+    await logBatchEvent(item.batchId, "ITEM_RESET_TO_OCR", "Nómina reenviada a OCR", {
+      itemId,
     });
 
     // Aquí se debería disparar el reprocesamiento async
@@ -996,6 +1153,11 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
     revalidatePath(`/dashboard/payslips/${batchId}`);
     revalidatePath("/dashboard/payslips");
 
+    await logBatchEvent(batchId, "PUBLISH_COMPLETED", "Publicación de lote finalizada", {
+      publishedCount,
+      skippedCount,
+    });
+
     return {
       success: true,
       publishedCount,
@@ -1003,6 +1165,7 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
     };
   } catch (error) {
     console.error("Error al publicar lote:", error);
+    await logBatchEvent(batchId, "PUBLISH_ERROR", error instanceof Error ? error.message : "Error al publicar");
     return { success: false, error: "Error interno del servidor" };
   }
 }
@@ -1011,6 +1174,7 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
  * Publica items específicos seleccionados
  */
 export async function publishItems(itemIds: string[]): Promise<PublishResult> {
+  let selectionBatchIds: string[] = [];
   try {
     const session = await auth();
     if (!session?.user) {
@@ -1047,10 +1211,22 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
       return { success: false, error: "No se encontraron items válidos para publicar" };
     }
 
+    const batchSelection = new Map<string, number>();
+    items.forEach((item) => {
+      batchSelection.set(item.batchId, (batchSelection.get(item.batchId) ?? 0) + 1);
+    });
+    selectionBatchIds = Array.from(batchSelection.keys());
+    for (const [batchId, count] of batchSelection) {
+      await logBatchEvent(batchId, "PUBLISH_PARTIAL_STARTED", "Publicación parcial iniciada", {
+        selectedCount: count,
+      });
+    }
+
     let publishedCount = 0;
     let skippedCount = 0;
     const now = new Date();
     const batchUpdates: Map<string, number> = new Map();
+    const batchStats: Map<string, { published: number; skipped: number }> = new Map();
 
     for (const item of items) {
       if (!item.employeeId || !item.employee) {
@@ -1113,11 +1289,17 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
         // Acumular actualizaciones por batch
         const currentCount = batchUpdates.get(item.batchId) ?? 0;
         batchUpdates.set(item.batchId, currentCount + 1);
+        const currentStats = batchStats.get(item.batchId) ?? { published: 0, skipped: 0 };
+        currentStats.published += 1;
+        batchStats.set(item.batchId, currentStats);
 
         publishedCount++;
       } catch (itemError) {
         console.error(`Error publicando item ${item.id}:`, itemError);
         skippedCount++;
+        const currentStats = batchStats.get(item.batchId) ?? { published: 0, skipped: 0 };
+        currentStats.skipped += 1;
+        batchStats.set(item.batchId, currentStats);
       }
     }
 
@@ -1131,6 +1313,11 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
         },
       });
       await updateBatchStatus(batchId);
+      const stats = batchStats.get(batchId);
+      await logBatchEvent(batchId, "PUBLISH_PARTIAL_COMPLETED", "Publicación parcial finalizada", {
+        publishedCount: stats?.published ?? count,
+        skippedCount: stats?.skipped ?? 0,
+      });
       revalidatePath(`/dashboard/payslips/${batchId}`);
     }
 
@@ -1143,6 +1330,13 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
     };
   } catch (error) {
     console.error("Error al publicar items:", error);
+    for (const batchId of selectionBatchIds ?? []) {
+      await logBatchEvent(
+        batchId,
+        "PUBLISH_ERROR",
+        error instanceof Error ? error.message : "Error al publicar selección",
+      );
+    }
     return { success: false, error: "Error interno del servidor" };
   }
 }
@@ -1226,6 +1420,10 @@ export async function revokePayslipItem(
     });
 
     await updateBatchStatus(item.batchId);
+    await logBatchEvent(item.batchId, "ITEM_REVOKED", "Nómina revocada", {
+      itemId,
+      reason: reason ?? null,
+    });
 
     revalidatePath(`/dashboard/payslips/${item.batchId}`);
     revalidatePath("/dashboard/payslips");
@@ -1327,6 +1525,11 @@ export async function revokeBatch(
       },
     });
 
+    await logBatchEvent(batchId, "BATCH_REVOKED", "Lote revocado", {
+      revokedCount,
+      reason: reason ?? null,
+    });
+
     revalidatePath(`/dashboard/payslips/${batchId}`);
     revalidatePath("/dashboard/payslips");
 
@@ -1374,6 +1577,10 @@ export async function uploadSinglePayslip(input: {
       return { success: false, error: "No tienes permisos para subir nóminas" };
     }
 
+    if (!input.month || input.month < 1 || input.month > 12 || !input.year || input.year < 1900) {
+      return { success: false, error: "Mes o año inválidos" };
+    }
+
     // 1. Validar empleado
     const employee = await prisma.employee.findFirst({
       where: { id: input.employeeId, orgId },
@@ -1397,6 +1604,7 @@ export async function uploadSinglePayslip(input: {
         kind: "MANUAL_SINGLE",
         month: input.month,
         year: input.year,
+        label: input.label ?? null,
         totalFiles: 1,
         readyCount: input.publishNow ? 0 : 1,
         publishedCount: input.publishNow ? 1 : 0,
@@ -1407,6 +1615,13 @@ export async function uploadSinglePayslip(input: {
         revokedCount: 0,
         status: input.publishNow ? "COMPLETED" : "READY_TO_PUBLISH",
       },
+    });
+    await logBatchEvent(batch.id, "BATCH_CREATED", "Nómina individual creada", {
+      employeeId: input.employeeId,
+      month: input.month,
+      year: input.year,
+      publishNow: input.publishNow ?? false,
+      label: input.label ?? null,
     });
 
     const buffer = Buffer.from(input.fileBuffer);
@@ -1458,6 +1673,9 @@ export async function uploadSinglePayslip(input: {
           publishedById: userId,
         },
       });
+      await logBatchEvent(batch.id, "ITEM_PUBLISHED", "Nómina individual publicada", {
+        employeeId: input.employeeId,
+      });
 
       // Actualizar batch como publicado
       await prisma.payslipBatch.update({
@@ -1497,6 +1715,9 @@ export async function uploadSinglePayslip(input: {
           assignedAt: now,
           assignedById: userId,
         },
+      });
+      await logBatchEvent(batch.id, "ITEM_READY", "Nómina individual lista para publicar", {
+        employeeId: input.employeeId,
       });
     }
 

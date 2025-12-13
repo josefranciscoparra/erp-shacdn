@@ -10,31 +10,13 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
-import { getPayslipBatches } from "@/server/actions/payslips";
+import { getPayslipBatches, type PayslipBatchListItem } from "@/server/actions/payslips";
 
 import { BatchList } from "./_components/batch-list";
 import { SinglePayslipUploadDialog } from "./_components/single-payslip-upload-dialog";
 
-interface PayslipBatch {
-  id: string;
-  originalFileName: string;
-  originalFileType: string;
-  month: number | null;
-  year: number | null;
-  status: string;
-  totalFiles: number;
-  assignedCount: number;
-  pendingCount: number;
-  errorCount: number;
-  createdAt: Date;
-  uploadedBy: {
-    name: string | null;
-    email: string;
-  };
-}
-
 export default function PayslipsPage() {
-  const [batches, setBatches] = useState<PayslipBatch[]>([]);
+  const [batches, setBatches] = useState<PayslipBatchListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSingleUploadDialog, setShowSingleUploadDialog] = useState(false);
@@ -49,7 +31,7 @@ export default function PayslipsPage() {
     try {
       const result = await getPayslipBatches();
       if (result.success && result.batches) {
-        setBatches(result.batches as PayslipBatch[]);
+        setBatches(result.batches);
       } else {
         setError(result.error ?? "Error desconocido");
       }

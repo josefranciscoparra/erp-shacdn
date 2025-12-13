@@ -35,8 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { getActiveEmployees } from "@/server/actions/employees";
-import { uploadSinglePayslip } from "@/server/actions/payslips";
+import { getActiveEmployees, uploadSinglePayslip } from "@/server/actions/payslips";
 
 interface SinglePayslipUploadDialogProps {
   open: boolean;
@@ -119,6 +118,8 @@ export function SinglePayslipUploadDialog({
             setStep(2); // Saltar al paso 2
           }
         }
+      } else {
+        toast.error(result.error ?? "No se pudieron cargar los empleados");
       }
     } catch {
       toast.error("Error al cargar empleados");

@@ -7,8 +7,9 @@ import {
   Clock,
   FileArchive,
   FileText,
-  User,
   Send,
+  Tag,
+  User,
   UserX,
   Undo2,
   XCircle,
@@ -140,6 +141,12 @@ export function BatchSummary({ batch }: BatchSummaryProps) {
             <Calendar className="h-3 w-3" />
             {formatPeriod(batch.month, batch.year)}
           </div>
+          {batch.label && (
+            <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+              <Tag className="h-3 w-3" />
+              {batch.label}
+            </div>
+          )}
         </CardContent>
       </Card>
 
