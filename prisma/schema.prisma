@@ -3625,5 +3625,41 @@ model WhistleblowingActivity {
   @@map("whistleblowing_activities")
 }
 
+// ==================== EMAIL SYSTEM ====================
+// Log de correos enviados para auditoría y soporte
+
+model EmailLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // Destinatario principal
+  toEmail String
+  toName  String?
+
+  // Contexto de negocio (opcionales)
+  userId String?
+  orgId  String?
+
+  // Plantilla / propósito
+  templateId String? // ej: "AUTH_INVITE", "AUTH_RESET_PASSWORD"
+  subject    String
+
+  // Estado del envío
+  status     String  // "SUCCESS" | "ERROR"
+  provider   String? // "resend"
+  providerId String? // id devuelto por el proveedor
+
+  errorCode    String?
+  errorMessage String?
+
+  metadata Json?
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([templateId])
+  @@index([createdAt])
+  @@map("email_logs")
+}
+
 // ==================== PRÓXIMOS SPRINTS ====================
 // Sprint 5: Añadir PayrollExport y configuraciones
