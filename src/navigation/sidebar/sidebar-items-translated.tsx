@@ -99,15 +99,11 @@ export function useSidebarItems(): NavGroup[] {
           icon: CalendarDays,
         },
         // "Mis Responsabilidades" REMOVED from here
-        ...(shiftsEnabled
-          ? [
-              {
-                title: "Mi Horario",
-                url: "/dashboard/me/shifts",
-                icon: CalendarClock,
-              },
-            ]
-          : []),
+        {
+          title: "Mi Horario",
+          url: "/dashboard/me/shifts",
+          icon: CalendarClock,
+        },
         {
           title: "Mi Calendario",
           url: "/dashboard/me/calendar",

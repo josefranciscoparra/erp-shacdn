@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 
 import { Bell } from "lucide-react";
+import { useSession } from "next-auth/react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +19,8 @@ export function NotificationBell() {
   const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const { unreadCount, loadNotifications, loadUnreadCount } = useNotificationsStore();
-  const canLoadNotifications = Boolean(session?.user && session.user.role !== "SUPER_ADMIN");
-
-  if (session?.user?.role === "SUPER_ADMIN") {
-    return null;
-  }
+  const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+  const canLoadNotifications = Boolean(session?.user && !isSuperAdmin);
 
   // Cargar al montar el componente
   useEffect(() => {
@@ -81,6 +78,11 @@ export function NotificationBell() {
 
     return () => clearInterval(interval);
   }, [canLoadNotifications, loadNotifications, loadUnreadCount]);
+
+  // No mostrar el componente para SUPER_ADMIN
+  if (isSuperAdmin) {
+    return null;
+  }
 
   return (
     <Popover

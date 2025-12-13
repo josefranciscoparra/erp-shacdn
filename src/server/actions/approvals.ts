@@ -104,8 +104,7 @@ export async function getMyApprovals(
       return { success: true, items: [], organizations: [], activeOrgId: null };
     }
 
-    const targetOrgId =
-      orgId && organizations.some((org) => org.id === orgId) ? orgId : organizations[0]?.id ?? null;
+    const targetOrgId = orgId && organizations.some((org) => org.id === orgId) ? orgId : (organizations[0]?.id ?? null);
 
     if (!targetOrgId) {
       return { success: true, items: [], organizations, activeOrgId: null };
