@@ -46,6 +46,13 @@ interface ReviewTableProps {
   isLoading: boolean;
 }
 
+const ASSIGNABLE_STATUSES = new Set(["PENDING", "PENDING_REVIEW", "BLOCKED_INACTIVE", "ERROR", "READY"]);
+const SKIPPABLE_STATUSES = new Set(["PENDING_OCR", "PENDING", "PENDING_REVIEW", "READY", "BLOCKED_INACTIVE", "ERROR"]);
+
+function formatStatusLabel(status: string) {
+  return status.toLowerCase().replace(/_/g, " ");
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     // Nuevos estados V2
@@ -121,7 +128,11 @@ function getStatusBadge(status: string) {
         </Badge>
       );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return (
+        <Badge variant="outline" className="capitalize">
+          {formatStatusLabel(status)}
+        </Badge>
+      );
   }
 }
 
@@ -170,11 +181,16 @@ export function ReviewTable({
 
   // Manejo de selección
   const toggleSelectAll = () => {
-    if (selectedIds.size === items.length) {
+    const selectableIds = items.filter((i) => SKIPPABLE_STATUSES.has(i.status)).map((i) => i.id);
+
+    if (selectableIds.length === 0) {
+      setSelectedIds(new Set());
+      return;
+    }
+
+    if (selectedIds.size === selectableIds.length) {
       setSelectedIds(new Set());
     } else {
-      // Solo seleccionar los que se pueden saltar (PENDING o ERROR)
-      const selectableIds = items.filter((i) => i.status === "PENDING" || i.status === "ERROR").map((i) => i.id);
       setSelectedIds(new Set(selectableIds));
     }
   };
@@ -317,7 +333,8 @@ export function ReviewTable({
                     <Checkbox
                       checked={
                         items.length > 0 &&
-                        selectedIds.size === items.filter((i) => i.status === "PENDING" || i.status === "ERROR").length
+                        selectedIds.size > 0 &&
+                        selectedIds.size === items.filter((i) => SKIPPABLE_STATUSES.has(i.status)).length
                       }
                       onCheckedChange={toggleSelectAll}
                       disabled={items.length === 0}
@@ -343,7 +360,9 @@ export function ReviewTable({
                   </TableRow>
                 ) : (
                   items.map((item) => {
-                    const canSelect = item.status === "PENDING" || item.status === "ERROR";
+                    const canSelect = SKIPPABLE_STATUSES.has(item.status);
+                    const canAssign = ASSIGNABLE_STATUSES.has(item.status);
+                    const canSkip = SKIPPABLE_STATUSES.has(item.status);
                     return (
                       <TableRow key={item.id} data-state={selectedIds.has(item.id) && "selected"}>
                         <TableCell>
@@ -389,31 +408,31 @@ export function ReviewTable({
                               <Eye className="h-4 w-4" />
                             </Button>
 
-                            {/* Acciones para items que requieren revisión */}
-                            {(item.status === "PENDING" || item.status === "PENDING_REVIEW") && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => setSelectedItem(item)}
-                                  title="Asignar a empleado"
-                                >
-                                  <UserPlus className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleSkip(item.id)}
-                                  disabled={isSkipping === item.id}
-                                  title="Saltar"
-                                >
-                                  {isSkipping === item.id ? (
-                                    <RefreshCw className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <X className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </>
+                            {canAssign && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => setSelectedItem(item)}
+                                title={item.employee ? "Cambiar empleado" : "Asignar a empleado"}
+                              >
+                                <UserPlus className="h-4 w-4" />
+                              </Button>
+                            )}
+                            {canSkip && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleSkip(item.id)}
+                                disabled={isSkipping === item.id}
+                                title="Quitar del lote"
+                                className="text-destructive hover:text-destructive"
+                              >
+                                {isSkipping === item.id ? (
+                                  <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <X className="h-4 w-4" />
+                                )}
+                              </Button>
                             )}
 
                             {/* Botón revocar para items publicados */}

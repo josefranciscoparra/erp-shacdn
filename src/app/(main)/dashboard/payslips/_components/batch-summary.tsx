@@ -38,6 +38,10 @@ interface BatchSummaryProps {
   batch: PayslipBatchListItem;
 }
 
+function formatStatusLabel(status: string) {
+  return status.toLowerCase().replace(/_/g, " ");
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "PROCESSING":
@@ -90,7 +94,11 @@ function getStatusBadge(status: string) {
         </Badge>
       );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return (
+        <Badge variant="outline" className="capitalize">
+          {formatStatusLabel(status)}
+        </Badge>
+      );
   }
 }
 

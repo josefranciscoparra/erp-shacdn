@@ -343,8 +343,8 @@ export async function assignPayslipItem(
       return { success: false, error: "Item no encontrado" };
     }
 
-    // Solo se pueden asignar items en estado PENDING_REVIEW, BLOCKED_INACTIVE o ERROR
-    const assignableStatuses = ["PENDING_REVIEW", "BLOCKED_INACTIVE", "ERROR"];
+    // Solo se pueden asignar items en estado PENDING_REVIEW, BLOCKED_INACTIVE, ERROR o READY (permite editar)
+    const assignableStatuses = ["PENDING_REVIEW", "BLOCKED_INACTIVE", "ERROR", "READY"];
     if (!assignableStatuses.includes(item.status)) {
       return { success: false, error: "Este item no se puede asignar en su estado actual" };
     }
@@ -383,7 +383,7 @@ export async function assignPayslipItem(
       await tx.payslipBatch.update({
         where: { id: item.batchId },
         data: {
-          readyCount: { increment: 1 },
+          readyCount: previousStatus === "READY" ? undefined : { increment: 1 },
           pendingCount: previousStatus === "PENDING_REVIEW" ? { decrement: 1 } : undefined,
           blockedInactive: previousStatus === "BLOCKED_INACTIVE" ? { decrement: 1 } : undefined,
           errorCount: previousStatus === "ERROR" ? { decrement: 1 } : undefined,

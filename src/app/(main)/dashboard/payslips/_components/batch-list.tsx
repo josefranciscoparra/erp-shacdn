@@ -11,6 +11,7 @@ import {
   FileArchive,
   FileText,
   RefreshCw,
+  Send,
   Users,
 } from "lucide-react";
 
@@ -58,6 +59,10 @@ const MONTH_NAMES = [
   "Diciembre",
 ];
 
+function formatStatusLabel(status: string) {
+  return status.toLowerCase().replace(/_/g, " ");
+}
+
 function getStatusBadge(status: string) {
   switch (status) {
     case "PROCESSING":
@@ -72,6 +77,13 @@ function getStatusBadge(status: string) {
         <Badge variant="secondary" className="gap-1">
           <Users className="h-3 w-3" />
           Pendiente revisión
+        </Badge>
+      );
+    case "READY_TO_PUBLISH":
+      return (
+        <Badge variant="outline" className="gap-1 border-blue-500 text-blue-600">
+          <Send className="h-3 w-3" />
+          Listo para publicar
         </Badge>
       );
     case "COMPLETED":
@@ -95,8 +107,19 @@ function getStatusBadge(status: string) {
           Error
         </Badge>
       );
+    case "CANCELLED":
+      return (
+        <Badge variant="secondary" className="gap-1 line-through">
+          <AlertCircle className="h-3 w-3" />
+          Cancelado
+        </Badge>
+      );
     default:
-      return <Badge variant="outline">{status}</Badge>;
+      return (
+        <Badge variant="outline" className="capitalize">
+          {formatStatusLabel(status)}
+        </Badge>
+      );
   }
 }
 
