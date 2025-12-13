@@ -71,7 +71,7 @@ export default function PayslipsPage() {
     <PermissionGuard
       permission="manage_organization"
       fallback={
-        <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
           <SectionHeader title="Nóminas" subtitle="Gestión de subida masiva de nóminas" />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
@@ -81,19 +81,19 @@ export default function PayslipsPage() {
         </div>
       }
     >
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
         <SectionHeader
           title="Nóminas"
           subtitle="Gestión de subida masiva de nóminas"
           action={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowSingleUploadDialog(true)}>
-                <UserPlus className="h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={() => setShowSingleUploadDialog(true)} className="h-9">
+                <UserPlus className="mr-2 h-4 w-4" />
                 <span className="hidden sm:inline">Subir individual</span>
               </Button>
-              <Button size="sm" asChild>
+              <Button size="sm" asChild className="h-9">
                 <Link href="/dashboard/payslips/upload">
-                  <Plus className="h-4 w-4" />
+                  <Plus className="mr-2 h-4 w-4" />
                   <span className="hidden sm:inline">Subir lote</span>
                 </Link>
               </Button>

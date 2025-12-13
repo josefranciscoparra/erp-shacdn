@@ -124,25 +124,23 @@ export function BatchSummary({ batch }: BatchSummaryProps) {
   const progress = batch.totalFiles > 0 ? Math.round((processedCount / batch.totalFiles) * 100) : 0;
 
   return (
-    <div className="grid gap-4 @xl/main:grid-cols-2 @4xl/main:grid-cols-4">
+    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
       {/* Info del archivo */}
-      <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+      <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Archivo</CardTitle>
-          {batch.originalFileType === "ZIP" ? (
-            <FileArchive className="text-muted-foreground h-4 w-4" />
-          ) : (
-            <FileText className="text-muted-foreground h-4 w-4" />
-          )}
+          <CardTitle className="text-muted-foreground text-sm font-medium">Archivo</CardTitle>
+          <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg">
+            {batch.originalFileType === "ZIP" ? <FileArchive className="h-4 w-4" /> : <FileText className="h-4 w-4" />}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="truncate text-lg font-bold">{batch.originalFileName}</div>
+          <div className="text-foreground truncate text-lg font-bold">{batch.originalFileName}</div>
           <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
-            <Calendar className="h-3 w-3" />
-            {formatPeriod(batch.month, batch.year)}
+            <Calendar className="h-3.5 w-3.5" />
+            <span>{formatPeriod(batch.month, batch.year)}</span>
           </div>
           {batch.label && (
-            <div className="text-muted-foreground mt-1 flex items-center gap-1 text-xs">
+            <div className="bg-muted/50 text-muted-foreground mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
               <Tag className="h-3 w-3" />
               {batch.label}
             </div>
@@ -151,85 +149,63 @@ export function BatchSummary({ batch }: BatchSummaryProps) {
       </Card>
 
       {/* Estado y progreso */}
-      <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+      <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Estado</CardTitle>
+          <CardTitle className="text-muted-foreground text-sm font-medium">Estado</CardTitle>
           {getStatusBadge(batch.status)}
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <Progress value={progress} className="flex-1" />
-            <span className="text-muted-foreground text-sm">{progress}%</span>
+          <div className="mt-2 flex items-center gap-3">
+            <Progress value={progress} className="h-2 flex-1" />
+            <span className="min-w-[3ch] text-sm font-medium">{progress}%</span>
           </div>
-          <div className="text-muted-foreground mt-1 text-xs">
-            {processedCount} de {batch.totalFiles} procesados
+          <div className="text-muted-foreground mt-2 text-xs">
+            <span className="text-foreground font-medium">{processedCount}</span> de{" "}
+            <span className="text-foreground font-medium">{batch.totalFiles}</span> procesados
           </div>
         </CardContent>
       </Card>
 
       {/* Estadísticas */}
-      <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+      <Card className="shadow-sm sm:col-span-2 lg:col-span-1 xl:col-span-1">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Distribución</CardTitle>
-          <FileText className="text-muted-foreground h-4 w-4" />
+          <CardTitle className="text-muted-foreground text-sm font-medium">Distribución</CardTitle>
+          <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg">
+            <FileText className="h-4 w-4" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 gap-2 text-center @xl/main:grid-cols-3">
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <Send className="h-3 w-3 text-blue-600" />
-                <span className="text-xl font-bold text-blue-600">{batch.readyCount}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Listos</div>
+          <div className="grid grid-cols-3 gap-x-2 gap-y-4 text-center">
+            <div className="space-y-1">
+              <div className="text-lg font-bold text-blue-600">{batch.readyCount}</div>
+              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">Listos</div>
             </div>
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <CheckCircle2 className="h-3 w-3 text-green-600" />
-                <span className="text-xl font-bold text-green-600">{batch.publishedCount}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Publicados</div>
+            <div className="space-y-1">
+              <div className="text-lg font-bold text-green-600">{batch.publishedCount}</div>
+              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">Publicados</div>
             </div>
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <AlertCircle className="h-3 w-3 text-amber-600" />
-                <span className="text-xl font-bold text-amber-600">{batch.pendingCount}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Pendientes</div>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <UserX className="h-3 w-3 text-red-600" />
-                <span className="text-xl font-bold text-red-600">{batch.blockedInactive}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Bloqueados</div>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <Undo2 className="h-3 w-3 text-gray-500" />
-                <span className="text-xl font-bold text-gray-500">{batch.revokedCount}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Revocados</div>
-            </div>
-            <div>
-              <div className="flex items-center justify-center gap-1">
-                <XCircle className="h-3 w-3 text-red-600" />
-                <span className="text-xl font-bold text-red-600">{batch.errorCount}</span>
-              </div>
-              <div className="text-muted-foreground text-xs">Errores</div>
+            <div className="space-y-1">
+              <div className="text-lg font-bold text-amber-600">{batch.pendingCount}</div>
+              <div className="text-muted-foreground text-[10px] font-medium tracking-wide uppercase">Pendientes</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
       {/* Fecha y usuario */}
-      <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+      <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">Subido por</CardTitle>
-          <User className="text-muted-foreground h-4 w-4" />
+          <CardTitle className="text-muted-foreground text-sm font-medium">Subido por</CardTitle>
+          <div className="bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg">
+            <User className="h-4 w-4" />
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="truncate font-medium">{batch.uploadedBy.name ?? batch.uploadedBy.email}</div>
-          <div className="text-muted-foreground mt-1 text-xs">{formatDate(batch.createdAt)}</div>
+          <div className="truncate text-base font-medium">{batch.uploadedBy.name ?? batch.uploadedBy.email}</div>
+          <div className="text-muted-foreground mt-1 flex items-center gap-2 text-xs">
+            <Clock className="h-3.5 w-3.5" />
+            {formatDate(batch.createdAt)}
+          </div>
         </CardContent>
       </Card>
     </div>

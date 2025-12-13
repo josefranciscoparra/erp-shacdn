@@ -128,7 +128,7 @@ export default function PayslipBatchDetailPage({ params }: Props) {
     <PermissionGuard
       permission="manage_organization"
       fallback={
-        <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
           <SectionHeader title="Detalle del Lote" subtitle="Acceso denegado" />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
@@ -138,32 +138,32 @@ export default function PayslipBatchDetailPage({ params }: Props) {
         </div>
       }
     >
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
         <SectionHeader
           title={batch.originalFileName}
           subtitle={`Lote de nóminas · ${formatStatusLabel(batch.status)}`}
           action={
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" asChild>
+              <Button variant="outline" size="sm" asChild className="h-9">
                 <Link href="/dashboard/payslips">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Volver
                 </Link>
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => setShowEditDialog(true)}>
+              <Button variant="secondary" size="sm" onClick={() => setShowEditDialog(true)} className="h-9">
                 <Pencil className="mr-2 h-4 w-4" />
                 Editar periodo
               </Button>
               {/* Botón Publicar - solo si hay items listos y no está completado/cancelado */}
               {batch.readyCount > 0 && batch.status !== "COMPLETED" && batch.status !== "CANCELLED" && (
-                <Button size="sm" onClick={() => setShowPublishDialog(true)}>
+                <Button size="sm" onClick={() => setShowPublishDialog(true)} className="h-9">
                   <Send className="mr-2 h-4 w-4" />
                   Publicar lote
                 </Button>
               )}
               {/* Botón Revocar - solo si hay items publicados */}
               {batch.publishedCount > 0 && (
-                <Button variant="destructive" size="sm" onClick={() => setShowRevokeDialog(true)}>
+                <Button variant="destructive" size="sm" onClick={() => setShowRevokeDialog(true)} className="h-9">
                   <Undo2 className="mr-2 h-4 w-4" />
                   Revocar lote
                 </Button>
@@ -173,27 +173,29 @@ export default function PayslipBatchDetailPage({ params }: Props) {
         />
 
         {/* Alertas de estado */}
-        {batch.blockedInactive > 0 && (
-          <Alert variant="destructive">
-            <UserX className="h-4 w-4" />
-            <AlertTitle>Empleados inactivos detectados</AlertTitle>
-            <AlertDescription>
-              Se detectaron <strong>{batch.blockedInactive}</strong> nóminas para empleados inactivos. Estas nóminas NO
-              se publicarán automáticamente. Revisa cada caso antes de continuar.
-            </AlertDescription>
-          </Alert>
-        )}
+        <div className="space-y-4">
+          {batch.blockedInactive > 0 && (
+            <Alert variant="destructive" className="bg-destructive/5 border-destructive/20">
+              <UserX className="h-4 w-4" />
+              <AlertTitle>Empleados inactivos detectados</AlertTitle>
+              <AlertDescription>
+                Se detectaron <strong>{batch.blockedInactive}</strong> nóminas para empleados inactivos. Estas nóminas
+                NO se publicarán automáticamente. Revisa cada caso antes de continuar.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {batch.pendingCount > 0 && batch.status !== "PROCESSING" && (
-          <Alert>
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Nóminas pendientes de revisión</AlertTitle>
-            <AlertDescription>
-              Hay <strong>{batch.pendingCount}</strong> nóminas que requieren revisión manual antes de poder publicarse.
-              Asigna o descarta estas nóminas para continuar.
-            </AlertDescription>
-          </Alert>
-        )}
+          {batch.pendingCount > 0 && batch.status !== "PROCESSING" && (
+            <Alert className="border-amber-500/20 bg-amber-500/10 text-amber-900 dark:text-amber-100">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertTitle className="text-amber-900 dark:text-amber-100">Nóminas pendientes de revisión</AlertTitle>
+              <AlertDescription className="text-amber-800/90 dark:text-amber-200/90">
+                Hay <strong>{batch.pendingCount}</strong> nóminas que requieren revisión manual antes de poder
+                publicarse. Asigna o descarta estas nóminas para continuar.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
 
         <BatchSummary batch={batch} />
 

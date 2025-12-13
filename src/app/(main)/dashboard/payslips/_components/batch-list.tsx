@@ -108,7 +108,8 @@ function getStatusBadge(status: string) {
 }
 
 function formatPeriod(month: number | null, year: number | null) {
-  if (!month || !year) return "Sin periodo";
+  const hasPeriod = month != null && year != null;
+  if (!hasPeriod) return "Sin periodo";
   return `${MONTH_NAMES[month - 1]} ${year}`;
 }
 
@@ -135,41 +136,49 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Estadísticas globales */}
-      <div className="grid gap-4 @xl/main:grid-cols-4">
-        <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <Card className="shadow-sm transition-all hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Lotes</CardTitle>
-            <FileArchive className="text-muted-foreground h-4 w-4" />
+            <CardTitle className="text-muted-foreground text-sm font-medium">Total Lotes</CardTitle>
+            <div className="bg-primary/10 flex h-8 w-8 items-center justify-center rounded-full">
+              <FileArchive className="text-primary h-4 w-4" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalBatches}</div>
           </CardContent>
         </Card>
-        <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+        <Card className="shadow-sm transition-all hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Documentos totales</CardTitle>
-            <FileText className="text-muted-foreground h-4 w-4" />
+            <CardTitle className="text-muted-foreground text-sm font-medium">Documentos</CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/10">
+              <FileText className="h-4 w-4 text-blue-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalFiles}</div>
           </CardContent>
         </Card>
-        <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+        <Card className="shadow-sm transition-all hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Listos para publicar</CardTitle>
-            <Send className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-muted-foreground text-sm font-medium">Para publicar</CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/10">
+              <Send className="h-4 w-4 text-indigo-600" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.totalReady}</div>
-            <p className="text-muted-foreground mt-1 text-xs">Pendientes de revisión: {stats.totalPending}</p>
+            <div className="text-2xl font-bold text-indigo-600">{stats.totalReady}</div>
+            <p className="text-muted-foreground mt-1 text-xs">Pendientes revisión: {stats.totalPending}</p>
           </CardContent>
         </Card>
-        <Card className="from-primary/5 to-card bg-gradient-to-t shadow-xs">
+        <Card className="shadow-sm transition-all hover:shadow-md">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Publicados</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-500" />
+            <CardTitle className="text-muted-foreground text-sm font-medium">Publicados</CardTitle>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500/10">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{stats.totalPublished}</div>
@@ -178,106 +187,115 @@ export function BatchList({ batches, onRefresh }: BatchListProps) {
       </div>
 
       {/* Lista de lotes */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Lotes de Nóminas</CardTitle>
-            <CardDescription>Historial de subidas masivas</CardDescription>
+            <h2 className="text-lg font-semibold tracking-tight">Historial de Lotes</h2>
+            <p className="text-muted-foreground text-sm">Gestina y revisa tus subidas de nóminas</p>
           </div>
-          <Button variant="outline" size="sm" onClick={onRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button variant="outline" size="sm" onClick={onRefresh} className="h-8">
+            <RefreshCw className="mr-2 h-3.5 w-3.5" />
             Actualizar
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Archivo</TableHead>
-                  <TableHead>Periodo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Progreso</TableHead>
-                  <TableHead>Subido por</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batches.map((batch) => {
-                  const completedCount = batch.publishedCount + batch.revokedCount;
-                  const managedCount = completedCount + batch.readyCount;
-                  const reviewCount = batch.pendingCount + batch.blockedInactive;
-                  const progress =
-                    batch.totalFiles > 0 ? Math.min(100, Math.round((managedCount / batch.totalFiles) * 100)) : 0;
+        </div>
 
-                  return (
-                    <TableRow key={batch.id}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            {batch.originalFileType === "ZIP" ? (
-                              <FileArchive className="text-muted-foreground h-4 w-4" />
-                            ) : (
-                              <FileText className="text-muted-foreground h-4 w-4" />
-                            )}
-                            <span className="font-medium">{batch.originalFileName}</span>
-                          </div>
+        <div className="bg-card text-card-foreground overflow-hidden rounded-xl border shadow-sm">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="pl-6">Archivo</TableHead>
+                <TableHead>Periodo</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>Progreso</TableHead>
+                <TableHead>Subido por</TableHead>
+                <TableHead>Fecha</TableHead>
+                <TableHead className="pr-6 text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {batches.map((batch) => {
+                const completedCount = batch.publishedCount + batch.revokedCount;
+                const managedCount = completedCount + batch.readyCount;
+                const reviewCount = batch.pendingCount + batch.blockedInactive;
+                const errorCount = batch.errorCount ?? 0;
+                const showIssues = reviewCount + errorCount > 0;
+                const progress =
+                  batch.totalFiles > 0 ? Math.min(100, Math.round((managedCount / batch.totalFiles) * 100)) : 0;
+
+                return (
+                  <TableRow key={batch.id} className="group hover:bg-muted/50 transition-colors">
+                    <TableCell className="py-4 pl-6">
+                      <div className="flex items-center gap-3">
+                        <div className="bg-background text-muted-foreground flex h-9 w-9 items-center justify-center rounded-lg border">
+                          {batch.originalFileType === "ZIP" ? (
+                            <FileArchive className="h-4 w-4" />
+                          ) : (
+                            <FileText className="h-4 w-4" />
+                          )}
+                        </div>
+                        <div className="space-y-0.5">
+                          <p className="text-foreground leading-none font-medium">{batch.originalFileName}</p>
                           {batch.label && (
-                            <div className="text-muted-foreground flex items-center gap-1 text-xs">
-                              <Tag className="h-3 w-3" />
-                              {batch.label}
+                            <div className="flex items-center gap-1.5 pt-1">
+                              <Tag className="text-muted-foreground h-3 w-3" />
+                              <span className="text-muted-foreground text-xs">{batch.label}</span>
                             </div>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Calendar className="text-muted-foreground h-3 w-3" />
-                          {formatPeriod(batch.month, batch.year)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                        <Calendar className="h-3.5 w-3.5" />
+                        <span>{formatPeriod(batch.month, batch.year)}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{getStatusBadge(batch.status)}</TableCell>
+                    <TableCell>
+                      <div className="w-[140px] space-y-1.5">
+                        <div className="text-muted-foreground flex items-center justify-between text-xs">
+                          <span>
+                            {managedCount}/{batch.totalFiles}
+                          </span>
+                          <span>{progress}%</span>
                         </div>
-                      </TableCell>
-                      <TableCell>{getStatusBadge(batch.status)}</TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <Progress value={progress} className="w-24" />
-                            <span className="text-muted-foreground text-xs">
-                              {managedCount}/{batch.totalFiles}
-                            </span>
+                        <Progress value={progress} className="h-1.5" />
+                        {showIssues && (
+                          <div className="flex gap-2 text-[10px]">
+                            {reviewCount > 0 && <span className="font-medium text-amber-600">{reviewCount} rev.</span>}
+                            {errorCount > 0 && <span className="text-destructive font-medium">{errorCount} err.</span>}
                           </div>
-                          <div className="text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                            <span>Listos: {batch.readyCount}</span>
-                            <span>Publicados: {batch.publishedCount}</span>
-                            <span>Pendientes: {reviewCount}</span>
-                            {batch.errorCount > 0 && <span className="text-red-500">Errores: {batch.errorCount}</span>}
-                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-muted-foreground flex items-center gap-2 text-sm">
+                        <div className="bg-muted flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-medium">
+                          {batch.uploadedBy.name?.charAt(0) ?? batch.uploadedBy.email.charAt(0)}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground text-sm">
+                        <span className="max-w-[120px] truncate">
                           {batch.uploadedBy.name ?? batch.uploadedBy.email}
                         </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-muted-foreground text-sm">{formatDate(batch.createdAt)}</span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link href={`/dashboard/payslips/${batch.id}`}>
-                            <ExternalLink className="mr-1 h-3 w-3" />
-                            Ver detalles
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground text-xs">{formatDate(batch.createdAt)}</span>
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <Button variant="ghost" size="sm" asChild className="transition-opacity">
+                        <Link href={`/dashboard/payslips/${batch.id}`}>
+                          Ver detalles
+                          <ExternalLink className="ml-2 h-3 w-3" />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
     </div>
   );
 }

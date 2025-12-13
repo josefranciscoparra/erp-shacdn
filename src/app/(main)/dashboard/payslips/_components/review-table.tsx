@@ -19,6 +19,7 @@ import {
   UserX,
   Undo2,
   Hourglass,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -164,6 +165,17 @@ function getConfidenceBadge(score: number) {
   );
 }
 
+const STATUS_FILTERS_LABELS: Record<string, string> = {
+  PENDING_OCR: "en cola de procesamiento OCR",
+  PENDING_REVIEW: "pendientes de revisión",
+  READY: "listas para publicar",
+  PUBLISHED: "publicadas",
+  BLOCKED_INACTIVE: "de empleados inactivos",
+  REVOKED: "revocadas",
+  ERROR: "con errores",
+  PENDING: "pendientes",
+};
+
 export function ReviewTable({
   items,
   total,
@@ -293,271 +305,287 @@ export function ReviewTable({
   };
 
   return (
-    <>
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Tabs
+            value={statusFilter ?? "all"}
+            onValueChange={(v) => {
+              onStatusFilterChange(v === "all" ? undefined : v);
+              setSelectedIds(new Set()); // Limpiar selección al cambiar filtro
+            }}
+            className="hidden lg:block"
+          >
+            <TabsList className="bg-muted/50">
+              <TabsTrigger value="all">Todos</TabsTrigger>
+              <TabsTrigger value="PENDING_REVIEW">Revisar</TabsTrigger>
+              <TabsTrigger value="READY">Listos</TabsTrigger>
+              <TabsTrigger value="PUBLISHED">Publicados</TabsTrigger>
+              <TabsTrigger value="BLOCKED_INACTIVE">Bloqueados</TabsTrigger>
+              <TabsTrigger value="ERROR">Errores</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {/* Select para móvil */}
+          <Select
+            value={statusFilter ?? "all"}
+            onValueChange={(v) => {
+              onStatusFilterChange(v === "all" ? undefined : v);
+              setSelectedIds(new Set());
+            }}
+          >
+            <SelectTrigger className="w-[180px] lg:hidden">
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="PENDING_REVIEW">Revisar</SelectItem>
+              <SelectItem value="READY">Listos</SelectItem>
+              <SelectItem value="PUBLISHED">Publicados</SelectItem>
+              <SelectItem value="BLOCKED_INACTIVE">Bloqueados</SelectItem>
+              <SelectItem value="ERROR">Errores</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading} className="h-9">
+            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
+      </div>
+
+      <div className="bg-card text-card-foreground overflow-hidden rounded-xl border shadow-sm">
+        <div className="flex items-center justify-between border-b p-6">
           <div>
-            <CardTitle>Items del Lote</CardTitle>
-            <CardDescription>
-              {total} items en total • Página {page} de {totalPages || 1}
-            </CardDescription>
+            <h3 className="leading-none font-semibold tracking-tight">Detalle de Nóminas</h3>
+            <p className="text-muted-foreground mt-1 text-sm">{total} items en total</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={onRefresh} disabled={isLoading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              Actualizar
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Filtros por estado */}
-          <div className="flex items-center gap-4">
-            {/* Tabs para desktop */}
-            <Tabs
-              value={statusFilter ?? "all"}
-              onValueChange={(v) => {
-                onStatusFilterChange(v === "all" ? undefined : v);
-                setSelectedIds(new Set()); // Limpiar selección al cambiar filtro
-              }}
-              className="hidden @3xl/main:block"
-            >
-              <TabsList>
-                <TabsTrigger value="all">Todos</TabsTrigger>
-                <TabsTrigger value="PENDING_REVIEW">Revisar</TabsTrigger>
-                <TabsTrigger value="READY">Listos</TabsTrigger>
-                <TabsTrigger value="PUBLISHED">Publicados</TabsTrigger>
-                <TabsTrigger value="BLOCKED_INACTIVE">Bloqueados</TabsTrigger>
-                <TabsTrigger value="ERROR">Errores</TabsTrigger>
-              </TabsList>
-            </Tabs>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground mr-2 text-sm">
+                {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onPageChange(page - 1)}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => onPageChange(page + 1)}
+                disabled={page >= totalPages}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
 
-            {/* Select para móvil */}
-            <Select
-              value={statusFilter ?? "all"}
-              onValueChange={(v) => {
-                onStatusFilterChange(v === "all" ? undefined : v);
-                setSelectedIds(new Set());
-              }}
-            >
-              <SelectTrigger className="w-[180px] @3xl/main:hidden">
-                <SelectValue placeholder="Filtrar por estado" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                <SelectItem value="PENDING_REVIEW">Revisar</SelectItem>
-                <SelectItem value="READY">Listos</SelectItem>
-                <SelectItem value="PUBLISHED">Publicados</SelectItem>
-                <SelectItem value="BLOCKED_INACTIVE">Bloqueados</SelectItem>
-                <SelectItem value="ERROR">Errores</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              <TableHead className="w-[40px] pl-6">
+                <Checkbox
+                  checked={
+                    items.length > 0 &&
+                    selectedIds.size > 0 &&
+                    selectedIds.size === items.filter((i) => SKIPPABLE_STATUSES.has(i.status)).length
+                  }
+                  onCheckedChange={toggleSelectAll}
+                  disabled={items.length === 0}
+                />
+              </TableHead>
+              <TableHead>Archivo / Página</TableHead>
+              <TableHead>DNI Detectado</TableHead>
+              <TableHead>Nombre Detectado</TableHead>
+              <TableHead>Confianza</TableHead>
+              <TableHead>Empleado Asignado</TableHead>
+              <TableHead>Estado</TableHead>
+              <TableHead className="pr-6 text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} className="py-12 text-center">
+                  <div className="text-muted-foreground flex flex-col items-center justify-center gap-2">
+                    <FileText className="h-10 w-10 opacity-10" />
+                    <p className="text-sm">
+                      No hay nóminas{" "}
+                      {statusFilter
+                        ? (STATUS_FILTERS_LABELS[statusFilter] ?? formatStatusLabel(statusFilter))
+                        : "en este lote"}
+                    </p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              items.map((item) => {
+                const canSelect = SKIPPABLE_STATUSES.has(item.status);
+                const canAssign = ASSIGNABLE_STATUSES.has(item.status);
+                const canSkip = SKIPPABLE_STATUSES.has(item.status);
+                const assignLabel = item.employee ? "Cambiar" : "Asignar";
+                const isSelected = selectedIds.has(item.id);
 
-          {/* Tabla */}
-          <div className="overflow-hidden rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[40px]">
-                    <Checkbox
-                      checked={
-                        items.length > 0 &&
-                        selectedIds.size > 0 &&
-                        selectedIds.size === items.filter((i) => SKIPPABLE_STATUSES.has(i.status)).length
-                      }
-                      onCheckedChange={toggleSelectAll}
-                      disabled={items.length === 0}
-                    />
-                  </TableHead>
-                  <TableHead>Archivo / Página</TableHead>
-                  <TableHead>DNI Detectado</TableHead>
-                  <TableHead>Nombre Detectado</TableHead>
-                  <TableHead>Confianza</TableHead>
-                  <TableHead>Empleado</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="py-8 text-center">
-                      <div className="text-muted-foreground">
-                        No hay items {statusFilter ? `con estado "${statusFilter}"` : ""}
+                return (
+                  <TableRow
+                    key={item.id}
+                    data-state={isSelected && "selected"}
+                    className="group hover:bg-muted/30 transition-colors"
+                  >
+                    <TableCell className="pl-6">
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => toggleSelectRow(item.id)}
+                        disabled={!canSelect}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm font-medium">
+                        {item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <code className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-xs">
+                        {item.detectedDni ?? "-"}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-muted-foreground text-sm">{item.detectedName ?? "-"}</span>
+                    </TableCell>
+                    <TableCell>{getConfidenceBadge(item.confidenceScore)}</TableCell>
+                    <TableCell>
+                      {item.employee ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                          </div>
+                          <span className="text-sm font-medium">
+                            {item.employee.firstName} {item.employee.lastName}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm italic">Sin asignar</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(item.status)}</TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <div className="flex flex-wrap justify-end gap-1 transition-opacity">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setPreviewItem(item)}
+                          title="Ver preview"
+                          className="h-8 w-8 p-0"
+                        >
+                          <Eye className="text-muted-foreground h-4 w-4" />
+                        </Button>
+
+                        {canAssign && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedItem(item)}
+                            title={item.employee ? "Cambiar empleado" : "Asignar a empleado"}
+                            className="h-8 w-8 p-0"
+                          >
+                            <UserPlus className="text-muted-foreground h-4 w-4" />
+                          </Button>
+                        )}
+                        {canSkip && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSkip(item.id)}
+                            disabled={isSkipping === item.id}
+                            title="Quitar del lote"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                          >
+                            {isSkipping === item.id ? (
+                              <RefreshCw className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Botón revocar para items publicados */}
+                        {item.status === "PUBLISHED" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setRevokeItem(item)}
+                            title="Revocar acceso"
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                          >
+                            <Undo2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  items.map((item) => {
-                    const canSelect = SKIPPABLE_STATUSES.has(item.status);
-                    const canAssign = ASSIGNABLE_STATUSES.has(item.status);
-                    const canSkip = SKIPPABLE_STATUSES.has(item.status);
-                    const assignLabel = item.employee ? "Cambiar" : "Asignar";
-                    return (
-                      <TableRow key={item.id} data-state={selectedIds.has(item.id) && "selected"}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedIds.has(item.id)}
-                            onCheckedChange={() => toggleSelectRow(item.id)}
-                            disabled={!canSelect}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-medium">
-                            {item.originalFileName ?? `Página ${item.pageNumber ?? "?"}`}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <code className="bg-muted rounded px-1 py-0.5 text-sm">{item.detectedDni ?? "-"}</code>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-muted-foreground">{item.detectedName ?? "-"}</span>
-                        </TableCell>
-                        <TableCell>{getConfidenceBadge(item.confidenceScore)}</TableCell>
-                        <TableCell>
-                          {item.employee ? (
-                            <div className="flex items-center gap-1">
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                              <span>
-                                {item.employee.firstName} {item.employee.lastName}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-muted-foreground">Sin asignar</span>
-                          )}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(item.status)}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex flex-wrap justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPreviewItem(item)}
-                              title="Ver preview"
-                              className="gap-1"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Ver
-                            </Button>
-
-                            {canAssign && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setSelectedItem(item)}
-                                title={item.employee ? "Cambiar empleado" : "Asignar a empleado"}
-                                className="gap-1"
-                              >
-                                <UserPlus className="h-4 w-4" />
-                                {assignLabel}
-                              </Button>
-                            )}
-                            {canSkip && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSkip(item.id)}
-                                disabled={isSkipping === item.id}
-                                title="Quitar del lote"
-                                className="text-destructive hover:text-destructive gap-1"
-                              >
-                                {isSkipping === item.id ? (
-                                  <RefreshCw className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <X className="h-4 w-4" />
-                                )}
-                                Quitar
-                              </Button>
-                            )}
-
-                            {/* Botón revocar para items publicados */}
-                            {item.status === "PUBLISHED" && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setRevokeItem(item)}
-                                title="Revocar acceso"
-                                className="text-destructive hover:text-destructive gap-1"
-                              >
-                                <Undo2 className="h-4 w-4" />
-                                Revocar
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Paginación */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <div className="text-muted-foreground text-sm">
-                Mostrando {(page - 1) * pageSize + 1} - {Math.min(page * pageSize, total)} de {total}
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => onPageChange(page - 1)} disabled={page === 1}>
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onPageChange(page + 1)}
-                  disabled={page >= totalPages}
-                >
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
       {/* Barra de acción flotante */}
       {hasSelection && (
-        <div className="bg-foreground/95 text-background supports-[backdrop-filter]:bg-foreground/80 animate-in slide-in-from-bottom-4 fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-full px-6 py-3 shadow-lg backdrop-blur">
-          <div className="flex items-center gap-3 border-r pr-4">
-            <CheckSquare className="h-4 w-4" />
-            <div className="text-sm">
-              <div className="font-medium">{selectedIds.size} seleccionados</div>
-              <div className="text-background/70 text-xs">{selectedReadyCount} listos para publicar</div>
+        <div className="animate-in slide-in-from-bottom-4 fade-in fixed bottom-6 left-1/2 z-50 -translate-x-1/2 duration-300">
+          <div className="bg-foreground/90 text-background supports-[backdrop-filter]:bg-foreground/80 flex items-center gap-6 rounded-full border border-white/10 py-2 pr-2 pl-6 shadow-xl backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="bg-primary text-primary-foreground rounded-full px-2 py-0.5 text-xs font-bold">
+                {selectedIds.size}
+              </div>
+              <div className="text-sm">
+                <span className="text-background font-medium">Seleccionados</span>
+                {selectedReadyCount > 0 && (
+                  <span className="text-background/60 ml-1 text-xs">({selectedReadyCount} listos)</span>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="text-background/70 max-w-xs text-xs">
-            Solo se publicarán los items seleccionados. Ajusta la selección si necesitas excluir alguno.
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              onClick={handlePublishSelected}
-              disabled={isPublishingSelection || selectedReadyCount === 0}
-            >
-              {isPublishingSelection ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publicando...
-                </>
-              ) : (
-                <>
-                  <Send className="mr-2 h-4 w-4" />
-                  Publicar {selectedReadyCount}
-                </>
-              )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSelectedIds(new Set())}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Limpiar
-            </Button>
+
+            <div className="bg-background/20 h-4 w-px" />
+
+            <div className="flex items-center gap-1">
+              <Button
+                size="sm"
+                className="bg-background text-foreground hover:bg-background/90 h-8 rounded-full border-0 px-4 font-medium"
+                onClick={handlePublishSelected}
+                disabled={isPublishingSelection || selectedReadyCount === 0}
+              >
+                {isPublishingSelection ? (
+                  <>
+                    <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                    Publicando...
+                  </>
+                ) : (
+                  <>
+                    <Send className="mr-2 h-4 w-4" />
+                    Publicar seleccionados
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-background/60 hover:text-background hover:bg-background/10 h-8 w-8 rounded-full"
+                title="Limpiar selección"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       )}
@@ -588,6 +616,6 @@ export function ReviewTable({
           onSuccess={onRefresh}
         />
       )}
-    </>
+    </div>
   );
 }
