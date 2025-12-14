@@ -15,7 +15,11 @@ type OrgMembershipPayload = {
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  remember: z.coerce.boolean().optional(),
 });
+
+const SHORT_SESSION_SECONDS = 12 * 60 * 60; // 12 horas para sesiones estándar
+const LONG_SESSION_SECONDS = 30 * 24 * 60 * 60; // 30 días para "Recordarme"
 
 async function getUserOrgScope(userId: string, fallbackOrgId?: string, userRole?: string) {
   // Si es SUPER_ADMIN, obtener TODAS las organizaciones activas
@@ -121,33 +125,39 @@ export const {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
+        const typedUser = user as typeof user & {
+          employeeId?: string | null;
+          employeeOrgId?: string | null;
+          lastPasswordChangeAt?: string | null;
+          rememberMe?: boolean;
+        };
         token.id = user.id;
         token.role = user.role;
         token.orgId = user.orgId;
         token.name = user.name;
         token.email = user.email;
         token.mustChangePassword = user.mustChangePassword;
-        token.employeeId = (user as typeof user & { employeeId?: string | null }).employeeId ?? null;
+        token.employeeId = typedUser.employeeId ?? null;
         // Avatar sin timestamp - se cachea por 24h
         token.image = user.image ? `/api/users/${user.id}/avatar` : null;
-        const typedUser = user as typeof user & {
-          employeeId?: string | null;
-          employeeOrgId?: string | null;
-        };
-        token.employeeId = typedUser.employeeId ?? null;
         token.employeeOrgId = typedUser.employeeOrgId ?? null;
         const orgScope = await getUserOrgScope(user.id, user.orgId, user.role);
         token.activeOrgId = orgScope.activeOrgId ?? user.orgId;
         token.accessibleOrgIds = orgScope.accessibleOrgIds;
         token.orgMemberships = orgScope.orgMemberships;
         token.orgId = token.activeOrgId;
-        token.lastPasswordChangeAt =
-          (user as typeof user & { lastPasswordChangeAt?: string | null }).lastPasswordChangeAt ?? null;
+        token.lastPasswordChangeAt = typedUser.lastPasswordChangeAt ?? null;
+        token.rememberMe = typedUser.rememberMe ?? false;
+        token.sessionExpiresAt = Date.now() + (token.rememberMe ? LONG_SESSION_SECONDS : SHORT_SESSION_SECONDS) * 1000;
         return token;
       }
 
       if (!token.id) {
         return token;
+      }
+
+      if (token.sessionExpiresAt && Date.now() > token.sessionExpiresAt) {
+        return null;
       }
 
       const dbUser = await prisma.user.findUnique({
@@ -225,6 +235,8 @@ export const {
         session.user.employeeOrgId = token.employeeOrgId ?? null;
         session.user.image = token.image ?? null;
         session.user.lastPasswordChangeAt = token.lastPasswordChangeAt ?? null;
+        session.user.rememberMe = token.rememberMe ?? false;
+        session.user.sessionExpiresAt = token.sessionExpiresAt ?? null;
         session.user.activeOrgId = session.user.orgId;
         session.user.accessibleOrgIds =
           (Array.isArray(token.accessibleOrgIds) && token.accessibleOrgIds.length > 0
@@ -251,6 +263,8 @@ export const {
           if (!validated.success) {
             return null;
           }
+
+          const rememberMe = validated.data.remember ?? false;
 
           // Buscar usuario con organización activa
           const user = await prisma.user.findFirst({
@@ -297,6 +311,7 @@ export const {
             employeeId: user.employee?.id ?? null,
             employeeOrgId: user.employee?.orgId ?? null,
             lastPasswordChangeAt: user.lastPasswordChangeAt?.toISOString() ?? null,
+            rememberMe,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -316,6 +331,7 @@ declare module "next-auth" {
     employeeId: string | null;
     employeeOrgId?: string | null;
     lastPasswordChangeAt?: string | null;
+    rememberMe?: boolean;
   }
   interface Session {
     user: {
@@ -332,6 +348,8 @@ declare module "next-auth" {
       employeeOrgId?: string | null;
       image?: string | null;
       lastPasswordChangeAt?: string | null;
+      rememberMe?: boolean;
+      sessionExpiresAt?: number | null;
     };
   }
 }
@@ -339,6 +357,8 @@ declare module "next-auth" {
 declare module "next-auth/jwt" {
   interface JWT {
     lastPasswordChangeAt?: string | null;
+    rememberMe?: boolean;
+    sessionExpiresAt?: number | null;
   }
 }
 
@@ -356,5 +376,7 @@ declare module "next-auth/jwt" {
     employeeId?: string | null;
     employeeOrgId?: string | null;
     image?: string | null;
+    rememberMe?: boolean;
+    sessionExpiresAt?: number | null;
   }
 }

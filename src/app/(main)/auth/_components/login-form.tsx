@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "next-auth/react";
@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PASSWORD_LOCK_MINUTES } from "@/lib/validations/password";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 
 const FormSchema = z.object({
@@ -25,8 +26,19 @@ const FormSchema = z.object({
 
 export function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isLoading, setIsLoading] = useState(false);
   const { resetStore } = useTimeTrackingStore();
+
+  const pwChanged = searchParams.get("pwChanged");
+  // Mostrar mensaje si viene de cambio de contraseña
+  useEffect(() => {
+    if (pwChanged === "1") {
+      toast.success("Contraseña actualizada", {
+        description: "Inicia sesión con tu nueva contraseña",
+      });
+    }
+  }, [pwChanged]);
 
   const form = useForm<z.infer<typeof FormSchema>>({
     resolver: zodResolver(FormSchema),
@@ -47,13 +59,20 @@ export function LoginForm() {
       const result = await signIn("credentials", {
         email: data.email,
         password: data.password,
+        remember: data.remember ? "true" : "false",
         redirect: false,
       });
 
       if (result?.error) {
-        toast.error("Error al iniciar sesión", {
-          description: "Email o contraseña incorrectos",
-        });
+        if (result.status === 429) {
+          toast.error("Cuenta bloqueada temporalmente", {
+            description: `Has superado los intentos permitidos. Inténtalo de nuevo en ${PASSWORD_LOCK_MINUTES} minutos.`,
+          });
+        } else {
+          toast.error("Error al iniciar sesión", {
+            description: "Email o contraseña incorrectos",
+          });
+        }
       } else {
         toast.success("¡Bienvenido!", {
           description: "Iniciando sesión...",

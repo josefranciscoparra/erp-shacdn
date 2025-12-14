@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { updateProfilePhoto, type ProfileData } from "@/server/actions/profile";
 
 import { AppearanceSettings } from "./appearance-settings";
+import { SecuritySettings } from "./security-settings";
 
 interface MyProfileProps {
   initialData: ProfileData;
@@ -256,6 +257,9 @@ export function MyProfile({ initialData }: MyProfileProps) {
           </div>
         </Card>
       </div>
+
+      {/* Seguridad */}
+      <SecuritySettings />
 
       {/* Preferencias de apariencia */}
       <AppearanceSettings />
