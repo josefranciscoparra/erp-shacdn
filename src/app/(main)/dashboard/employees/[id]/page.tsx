@@ -25,6 +25,8 @@ import {
   Loader2,
   CreditCard,
   Users,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 
 import { DocumentListTable } from "@/components/employees/document-list-table";
@@ -44,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
 import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
+import { resendInviteEmail } from "@/server/actions/auth-tokens";
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 import { getEmployeeCurrentAssignment } from "@/server/actions/schedules-v2";
 import { getEmployeeSettlements, type SettlementListItem } from "@/server/actions/vacation-settlement";
@@ -108,6 +111,7 @@ interface Employee {
     email: string;
     role: string;
     active: boolean;
+    mustChangePassword: boolean;
     temporaryPasswords?: Array<{
       id: string;
       password: string;
@@ -169,6 +173,10 @@ export default function EmployeeProfilePage() {
   // Estado para liquidaciones
   const [settlements, setSettlements] = useState<SettlementListItem[]>([]);
   const [isSettlementsLoading, setIsSettlementsLoading] = useState(false);
+
+  // Estado para reenvío de invitación
+  const [isResendingInvite, setIsResendingInvite] = useState(false);
+  const [inviteResendResult, setInviteResendResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Estado para documentos
   const {
@@ -282,6 +290,35 @@ export default function EmployeeProfilePage() {
       console.error("Error al cargar liquidaciones:", error);
     } finally {
       setIsSettlementsLoading(false);
+    }
+  };
+
+  const handleResendInvite = async () => {
+    if (!employee?.user?.id) return;
+
+    setIsResendingInvite(true);
+    setInviteResendResult(null);
+
+    try {
+      const result = await resendInviteEmail(employee.user.id);
+      if (result.success) {
+        setInviteResendResult({
+          success: true,
+          message: "Email de invitación enviado correctamente",
+        });
+      } else {
+        setInviteResendResult({
+          success: false,
+          message: result.error ?? "Error al enviar el email",
+        });
+      }
+    } catch {
+      setInviteResendResult({
+        success: false,
+        message: "Error al enviar el email de invitación",
+      });
+    } finally {
+      setIsResendingInvite(false);
     }
   };
 
@@ -837,12 +874,42 @@ export default function EmployeeProfilePage() {
               {/* Usuario del Sistema */}
               <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg">
-                    <Shield className="mr-2 inline h-5 w-5" />
-                    Usuario del Sistema
-                  </CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      <Shield className="mr-2 inline h-5 w-5" />
+                      Usuario del Sistema
+                    </CardTitle>
+                    {employee.user.mustChangePassword && (
+                      <Button variant="outline" size="sm" onClick={handleResendInvite} disabled={isResendingInvite}>
+                        {isResendingInvite ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="mr-2 h-4 w-4" />
+                        )}
+                        Reenviar invitación
+                      </Button>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {/* Resultado del reenvío */}
+                  {inviteResendResult && (
+                    <div
+                      className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
+                        inviteResendResult.success
+                          ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                          : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                      }`}
+                    >
+                      {inviteResendResult.success ? (
+                        <CheckCircle2 className="h-4 w-4" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4" />
+                      )}
+                      {inviteResendResult.message}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <span className="text-muted-foreground text-sm">Email:</span>
                     <span className="font-mono text-sm">{employee.user.email}</span>

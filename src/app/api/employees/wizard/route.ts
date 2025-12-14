@@ -4,8 +4,10 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { createInviteToken } from "@/server/actions/auth-tokens";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 
 // Schema de validación para el wizard completo
@@ -234,7 +236,43 @@ export async function POST(request: Request) {
       };
     });
 
-    return NextResponse.json(result, { status: 201 });
+    // Enviar email de invitación (FUERA de la transacción)
+    let inviteEmailSent = false;
+    if (result.userId && data.employee.email) {
+      try {
+        const tokenResult = await createInviteToken(result.userId);
+
+        if (tokenResult.success && tokenResult.data) {
+          const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite?token=${tokenResult.data.token}`;
+
+          const emailResult = await sendAuthInviteEmail({
+            to: {
+              email: data.employee.email,
+              name: `${data.employee.firstName} ${data.employee.lastName}`,
+            },
+            inviteLink,
+            orgId: currentUser.orgId,
+            userId: result.userId,
+          });
+
+          inviteEmailSent = emailResult.success;
+          console.log("📧 [WIZARD API] Email de invitación:", inviteEmailSent ? "enviado" : "falló");
+        }
+      } catch (emailError) {
+        console.error("📧 [WIZARD API] Error enviando email de invitación:", emailError);
+        // NO bloquear - el usuario ya fue creado, el admin puede reenviar
+      }
+    }
+
+    return NextResponse.json(
+      {
+        ...result,
+        inviteEmailSent,
+        // Solo incluir contraseña temporal si NO se envió el email
+        temporaryPassword: inviteEmailSent ? undefined : result.temporaryPassword,
+      },
+      { status: 201 },
+    );
   } catch (error: any) {
     console.error("Error creating employee via wizard:", error);
 

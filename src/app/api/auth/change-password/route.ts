@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 
+import { sendSecurityNotificationEmail } from "@/lib/email/email-service";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -61,17 +62,35 @@ export async function POST(request: Request) {
     // Hash de la nueva contraseña
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    // Actualizar contraseña y quitar flag mustChangePassword
+    // Actualizar contraseña y campos de seguridad
     await prisma.user.update({
       where: { id: userId },
       data: {
         password: hashedNewPassword,
         mustChangePassword: false,
+        lastPasswordChangeAt: new Date(),
+        failedPasswordAttempts: 0,
+        passwordLockedUntil: null,
         updatedAt: new Date(),
       },
     });
 
     console.log(`✅ Contraseña cambiada exitosamente para usuario: ${user.email}`);
+
+    // Enviar notificación de seguridad por email
+    try {
+      await sendSecurityNotificationEmail({
+        to: {
+          email: user.email,
+          name: user.name,
+        },
+        orgId: user.orgId,
+        userId: user.id,
+      });
+    } catch (emailError) {
+      // No fallar el cambio de contraseña si falla el email
+      console.error("⚠️ Error enviando email de notificación:", emailError);
+    }
 
     return NextResponse.json({
       message: "Contraseña cambiada exitosamente",

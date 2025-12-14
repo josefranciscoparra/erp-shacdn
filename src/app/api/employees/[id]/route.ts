@@ -75,7 +75,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       },
       include: {
         user: {
-          include: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+            active: true,
+            mustChangePassword: true,
             temporaryPasswords: {
               where: {
                 active: true,

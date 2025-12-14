@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -60,7 +61,7 @@ export function LoginForm() {
         router.push("/dashboard");
         router.refresh();
       }
-    } catch (error) {
+    } catch {
       toast.error("Error", {
         description: "Ocurrió un error al iniciar sesión",
       });
@@ -97,7 +98,15 @@ export function LoginForm() {
           name="password"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Contraseña</FormLabel>
+              <div className="flex items-center justify-between">
+                <FormLabel>Contraseña</FormLabel>
+                <Link
+                  href="/auth/forgot-password"
+                  className="text-muted-foreground hover:text-foreground text-xs transition-colors hover:underline"
+                >
+                  ¿Has olvidado tu contraseña?
+                </Link>
+              </div>
               <FormControl>
                 <Input
                   id="password"
