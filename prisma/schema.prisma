@@ -157,6 +157,9 @@ model Organization {
   // Nuevas relaciones multiempresa
   group OrganizationGroup? @relation(fields: [groupId], references: [id])
 
+  // Importaciones masivas de empleados
+  employeeImportJobs EmployeeImportJob[]
+
   @@map("organizations")
 }
 
@@ -218,6 +221,7 @@ model User {
   conversationsAsUserA      Conversation[]           @relation("ConversationUserA") // Conversaciones donde soy UserA
   conversationsAsUserB      Conversation[]           @relation("ConversationUserB") // Conversaciones donde soy UserB
   messagesSent              Message[] // Mensajes enviados
+  employeeImportJobs        EmployeeImportJob[]
   dismissedNotifications    DismissedNotification[] // Notificaciones descartadas por el usuario
   createdExceptions         ExceptionDayOverride[]   @relation("CreatedExceptions") // Excepciones de horario que he creado
   deletedExceptions         ExceptionDayOverride[]   @relation("DeletedExceptions") // Excepciones de horario que he eliminado
@@ -3503,6 +3507,78 @@ model AuditLog {
   @@index([action])
   @@index([performedById])
   @@map("audit_logs")
+}
+
+// ==================== IMPORTACIÓN MASIVA DE EMPLEADOS ====================
+
+enum EmployeeImportJobStatus {
+  DRAFT
+  VALIDATED
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum EmployeeImportRowStatus {
+  PENDING
+  READY
+  SKIPPED
+  ERROR
+  IMPORTED
+  FAILED
+}
+
+model EmployeeImportJob {
+  id         String                  @id @default(cuid())
+  status     EmployeeImportJobStatus @default(DRAFT)
+  options    Json                    @default("{}") // vacationMode, sendInvites, duplicatePolicy, etc.
+  filePath   String?
+  fileName   String?
+  fileHash   String?
+  totalRows    Int @default(0)
+  readyRows    Int @default(0)
+  skippedRows  Int @default(0)
+  warningRows  Int @default(0)
+  errorRows    Int @default(0)
+  importedRows Int @default(0)
+  failedRows   Int @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  validatedAt DateTime?
+  completedAt DateTime?
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  createdById String
+  createdBy   User @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  rows EmployeeImportRow[]
+
+  @@index([orgId])
+  @@index([status])
+  @@map("employee_import_jobs")
+}
+
+model EmployeeImportRow {
+  id        String                  @id @default(cuid())
+  rowIndex  Int
+  rowHash   String?
+  rawData   Json
+  status    EmployeeImportRowStatus @default(PENDING)
+  messages  Json                    @default("[]") // [{ type, field?, message }]
+  errorReason String?
+  createdEmployeeId String?
+  createdUserId     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  jobId String
+  job   EmployeeImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowIndex])
+  @@index([jobId, status])
+  @@map("employee_import_rows")
 }
 
 // ==================== CANAL DE DENUNCIAS (Ley 2/2023) ====================
