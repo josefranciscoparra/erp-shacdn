@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 
-import { format, isAfter } from "date-fns";
+import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Key, RotateCcw, Clock, AlertTriangle, Copy, Check, Loader2, Shield, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,10 @@ interface TemporaryPassword {
   expiresAt: string;
   reason: string | null;
   usedAt: string | null;
+  active: boolean;
+  invalidatedAt: string | null;
+  invalidatedReason: string | null;
+  notes: string | null;
   createdBy: {
     name: string;
   };
@@ -77,9 +81,52 @@ export function TemporaryPasswordManager({
     }
   }, [newPassword]);
 
-  const activePassword = temporaryPasswords.find((tp) => isAfter(new Date(tp.expiresAt), new Date()) && !tp.usedAt);
+  const now = Date.now();
+  const activePassword = temporaryPasswords.find(
+    (tp) => tp.active && !tp.usedAt && new Date(tp.expiresAt).getTime() > now,
+  );
+  const historyPasswords = temporaryPasswords.filter((tp) => tp.id !== activePassword?.id);
 
-  const expiredPasswords = temporaryPasswords.filter((tp) => !isAfter(new Date(tp.expiresAt), new Date()) || tp.usedAt);
+  const getStatusInfo = (tp: TemporaryPassword) => {
+    const expiresAt = new Date(tp.expiresAt);
+    const expired = expiresAt.getTime() <= now;
+
+    if (tp.usedAt) {
+      return {
+        label: "Usada",
+        badgeClass:
+          "border-green-200 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-950/30 dark:text-green-300",
+        description: `Usada el ${format(new Date(tp.usedAt), "PPP 'a las' p", { locale: es })}`,
+      };
+    }
+
+    if (!tp.active && tp.invalidatedAt) {
+      return {
+        label: "Invalidada",
+        badgeClass:
+          "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200",
+        description:
+          tp.invalidatedReason ??
+          `Invalidada el ${format(new Date(tp.invalidatedAt), "PPP 'a las' p", { locale: es })}`,
+      };
+    }
+
+    if (expired) {
+      return {
+        label: "Expirada",
+        badgeClass:
+          "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200",
+        description: `Expiró el ${format(expiresAt, "PPP 'a las' p", { locale: es })}`,
+      };
+    }
+
+    return {
+      label: "Inactiva",
+      badgeClass:
+        "border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-200",
+      description: tp.reason ?? tp.notes ?? "Entrada sin actividad registrada",
+    };
+  };
 
   const handleResetPassword = async () => {
     setIsResetting(true);
@@ -288,28 +335,36 @@ export function TemporaryPasswordManager({
           </Dialog>
         </div>
 
-        {/* Historial de contraseñas expiradas */}
-        {expiredPasswords.length > 0 && (
+        {/* Historial de contraseñas expiradas o invalidadas */}
+        {historyPasswords.length > 0 && (
           <>
             <Separator />
             <div className="space-y-3">
               <h4 className="text-muted-foreground font-medium">Historial</h4>
               <div className="space-y-2">
-                {expiredPasswords.slice(0, 3).map((tp) => (
-                  <div key={tp.id} className="bg-muted/50 flex items-center justify-between rounded-md px-3 py-2">
-                    <div className="flex items-center gap-2">
-                      <div className="font-mono text-sm">••••••••</div>
-                      <Badge variant="outline" size="sm">
-                        {tp.usedAt ? "Usada" : "Expirada"}
-                      </Badge>
+                {historyPasswords.slice(0, 3).map((tp) => {
+                  const status = getStatusInfo(tp);
+                  return (
+                    <div key={tp.id} className="bg-muted/50 space-y-1 rounded-md px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="font-mono text-sm">••••••••</div>
+                          <Badge variant="outline" size="sm" className={status.badgeClass}>
+                            {status.label}
+                          </Badge>
+                        </div>
+                        <div className="text-muted-foreground text-xs">
+                          Creada el {format(new Date(tp.createdAt), "dd/MM/yyyy", { locale: es })}
+                        </div>
+                      </div>
+                      {status.description && (
+                        <p className="text-muted-foreground text-xs leading-relaxed">{status.description}</p>
+                      )}
                     </div>
-                    <div className="text-muted-foreground text-xs">
-                      {format(new Date(tp.createdAt), "dd/MM/yyyy", { locale: es })}
-                    </div>
-                  </div>
-                ))}
-                {expiredPasswords.length > 3 && (
-                  <p className="text-muted-foreground text-center text-xs">... y {expiredPasswords.length - 3} más</p>
+                  );
+                })}
+                {historyPasswords.length > 3 && (
+                  <p className="text-muted-foreground text-center text-xs">... y {historyPasswords.length - 3} más</p>
                 )}
               </div>
             </div>

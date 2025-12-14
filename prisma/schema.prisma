@@ -998,6 +998,8 @@ model TemporaryPassword {
   usedAt    DateTime? // Cuando fue usada por primera vez
   expiresAt DateTime // Cuándo expira
   active    Boolean   @default(true)
+  invalidatedAt DateTime?
+  invalidatedReason String?
 
   // Notas administrativas
   reason String? // Razón de la generación (ej: "Nuevo empleado", "Reset solicitado")

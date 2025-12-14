@@ -91,6 +91,9 @@ export async function GET(request: NextRequest) {
               expiresAt: true,
               reason: true,
               usedAt: true,
+              active: true,
+              invalidatedAt: true,
+              invalidatedReason: true,
               createdBy: {
                 select: {
                   name: true,
@@ -510,6 +513,10 @@ async function resetUserPassword(userId: string, orgId: string, createdById: str
       },
       data: {
         active: false,
+        invalidatedAt: new Date(),
+        invalidatedReason: reason
+          ? `Contraseña reemplazada manualmente (${reason})`
+          : "Contraseña temporal reemplazada por un administrador",
       },
     });
 

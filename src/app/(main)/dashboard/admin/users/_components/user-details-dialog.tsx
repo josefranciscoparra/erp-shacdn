@@ -46,8 +46,9 @@ export function UserDetailsDialog({ user, open, onOpenChange, currentUserRole }:
 
   // Encontrar contraseña temporal activa
   const activePassword =
-    user.temporaryPasswords?.find((tp) => isAfter(new Date(tp.expiresAt), new Date()) && !tp.usedAt && tp.password) ??
-    null;
+    user.temporaryPasswords?.find(
+      (tp) => tp.active && isAfter(new Date(tp.expiresAt), new Date()) && !tp.usedAt && tp.password,
+    ) ?? null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

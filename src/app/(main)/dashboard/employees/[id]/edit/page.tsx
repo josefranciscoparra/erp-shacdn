@@ -119,6 +119,21 @@ interface Employee {
     email: string;
     role: string;
     active: boolean;
+    temporaryPasswords?: Array<{
+      id: string;
+      password: string;
+      createdAt: string;
+      expiresAt: string;
+      reason: string | null;
+      usedAt: string | null;
+      active: boolean;
+      invalidatedAt: string | null;
+      invalidatedReason: string | null;
+      notes: string | null;
+      createdBy: {
+        name: string;
+      };
+    }>;
   } | null;
 }
 

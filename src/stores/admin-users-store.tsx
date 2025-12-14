@@ -9,6 +9,9 @@ export interface TemporaryPassword {
   expiresAt: string;
   reason: string | null;
   usedAt: string | null;
+  active: boolean;
+  invalidatedAt: string | null;
+  invalidatedReason: string | null;
   createdBy: {
     name: string;
   };

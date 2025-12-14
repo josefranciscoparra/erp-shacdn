@@ -304,7 +304,7 @@ export async function acceptInvite(token: string, newPassword: string): Promise<
     // Hashear nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Transacción: actualizar usuario + marcar token
+    // Transacción: actualizar usuario + marcar token + desactivar contraseñas temporales
     await prisma.$transaction([
       // Actualizar usuario
       prisma.user.update({
@@ -321,6 +321,18 @@ export async function acceptInvite(token: string, newPassword: string): Promise<
       prisma.authToken.update({
         where: { id: authToken.id },
         data: { usedAt: new Date() },
+      }),
+      // Desactivar contraseñas temporales con nota de invalidación
+      prisma.temporaryPassword.updateMany({
+        where: {
+          userId: authToken.userId,
+          active: true,
+        },
+        data: {
+          active: false,
+          invalidatedAt: new Date(),
+          invalidatedReason: "Usuario configuró su contraseña desde invitación",
+        },
       }),
     ]);
 

@@ -34,6 +34,9 @@ export interface UserRow {
     expiresAt: Date | string;
     reason: string | null;
     usedAt: Date | string | null;
+    active: boolean;
+    invalidatedAt: Date | string | null;
+    invalidatedReason: string | null;
     createdBy: {
       name: string | null;
     };

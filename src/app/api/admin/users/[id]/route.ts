@@ -61,6 +61,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
             expiresAt: true,
             reason: true,
             usedAt: true,
+            active: true,
+            invalidatedAt: true,
+            invalidatedReason: true,
             createdBy: {
               select: {
                 name: true,

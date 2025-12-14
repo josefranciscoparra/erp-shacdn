@@ -82,12 +82,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
             active: true,
             mustChangePassword: true,
             temporaryPasswords: {
-              where: {
-                active: true,
-              },
               orderBy: {
                 createdAt: "desc",
               },
+              take: 10,
               select: {
                 id: true,
                 password: true,
@@ -95,6 +93,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
                 expiresAt: true,
                 reason: true,
                 usedAt: true,
+                active: true,
+                invalidatedAt: true,
+                invalidatedReason: true,
+                notes: true,
                 createdBy: {
                   select: {
                     name: true,

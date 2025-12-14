@@ -18,6 +18,10 @@ export interface UserWithRelations extends User {
     createdAt: Date;
     expiresAt: Date;
     reason: string | null;
+    usedAt: Date | null;
+    active: boolean;
+    invalidatedAt: Date | null;
+    invalidatedReason: string | null;
   }[];
   _count?: {
     sessions: number;

@@ -119,6 +119,10 @@ interface Employee {
       expiresAt: string;
       reason: string | null;
       usedAt: string | null;
+      active: boolean;
+      invalidatedAt: string | null;
+      invalidatedReason: string | null;
+      notes: string | null;
       createdBy: {
         name: string;
       };
