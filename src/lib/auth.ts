@@ -141,6 +141,8 @@ export const {
         token.accessibleOrgIds = orgScope.accessibleOrgIds;
         token.orgMemberships = orgScope.orgMemberships;
         token.orgId = token.activeOrgId;
+        token.lastPasswordChangeAt =
+          (user as typeof user & { lastPasswordChangeAt?: string | null }).lastPasswordChangeAt ?? null;
         return token;
       }
 
@@ -168,10 +170,18 @@ export const {
               updatedAt: true,
             },
           },
+          lastPasswordChangeAt: true,
         },
       });
 
       if (dbUser) {
+        if (dbUser.lastPasswordChangeAt && token.iat) {
+          const tokenIssuedAt = token.iat * 1000;
+          if (tokenIssuedAt < dbUser.lastPasswordChangeAt.getTime()) {
+            return null;
+          }
+        }
+
         // Si el usuario tiene empleado asociado, construir el nombre desde los datos del empleado
         // Esto asegura sincronización entre Employee y User.name
         if (dbUser.employee) {
@@ -198,6 +208,7 @@ export const {
         if (token.activeOrgId) {
           token.orgId = token.activeOrgId;
         }
+        token.lastPasswordChangeAt = dbUser.lastPasswordChangeAt?.toISOString() ?? null;
       }
 
       return token;
@@ -213,6 +224,7 @@ export const {
         session.user.employeeId = token.employeeId ?? null;
         session.user.employeeOrgId = token.employeeOrgId ?? null;
         session.user.image = token.image ?? null;
+        session.user.lastPasswordChangeAt = token.lastPasswordChangeAt ?? null;
         session.user.activeOrgId = session.user.orgId;
         session.user.accessibleOrgIds =
           (Array.isArray(token.accessibleOrgIds) && token.accessibleOrgIds.length > 0
@@ -284,6 +296,7 @@ export const {
             mustChangePassword: user.mustChangePassword,
             employeeId: user.employee?.id ?? null,
             employeeOrgId: user.employee?.orgId ?? null,
+            lastPasswordChangeAt: user.lastPasswordChangeAt?.toISOString() ?? null,
           };
         } catch (error) {
           console.error("Auth error:", error);
@@ -302,6 +315,7 @@ declare module "next-auth" {
     mustChangePassword: boolean;
     employeeId: string | null;
     employeeOrgId?: string | null;
+    lastPasswordChangeAt?: string | null;
   }
   interface Session {
     user: {
@@ -317,7 +331,14 @@ declare module "next-auth" {
       employeeId: string | null;
       employeeOrgId?: string | null;
       image?: string | null;
+      lastPasswordChangeAt?: string | null;
     };
+  }
+}
+
+declare module "next-auth/jwt" {
+  interface JWT {
+    lastPasswordChangeAt?: string | null;
   }
 }
 

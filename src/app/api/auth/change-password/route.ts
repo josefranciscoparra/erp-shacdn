@@ -66,9 +66,24 @@ export async function POST(request: Request) {
     // =========================================================================
     // 4. RATE LIMITING - Verificar bloqueo
     // =========================================================================
-    if (user.passwordLockedUntil && user.passwordLockedUntil > new Date()) {
+    const now = new Date();
+
+    if (user.passwordLockedUntil && user.passwordLockedUntil > now) {
       // No revelar cuánto tiempo falta
       return NextResponse.json({ error: "Cuenta bloqueada temporalmente. Inténtalo más tarde." }, { status: 429 });
+    }
+
+    // Si el bloqueo ya caducó, reiniciar contador antes de continuar
+    if (user.passwordLockedUntil && user.passwordLockedUntil <= now && (user.failedPasswordAttempts ?? 0) > 0) {
+      await prisma.user.update({
+        where: { id: userId },
+        data: {
+          failedPasswordAttempts: 0,
+          passwordLockedUntil: null,
+        },
+      });
+      user.failedPasswordAttempts = 0;
+      user.passwordLockedUntil = null;
     }
 
     // =========================================================================
@@ -154,10 +169,6 @@ export async function POST(request: Request) {
       });
 
       // 9.3 Invalidar TODAS las sesiones del usuario (fuerza re-login)
-      await tx.session.deleteMany({
-        where: { userId },
-      });
-
       // 9.4 Limpiar historial antiguo (mantener solo últimas N)
       const historyCount = await tx.passwordHistory.count({ where: { userId } });
       if (historyCount > PASSWORD_HISTORY_COUNT) {
