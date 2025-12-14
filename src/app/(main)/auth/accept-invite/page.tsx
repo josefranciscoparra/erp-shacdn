@@ -7,9 +7,10 @@ import { useSearchParams } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, AlertTriangle, CheckCircle2, XCircle, Loader2, Building2 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -57,6 +58,8 @@ export default function AcceptInvitePage() {
       confirmPassword: "",
     },
   });
+
+  const newPassword = useWatch({ control: form.control, name: "newPassword", defaultValue: "" });
 
   // Validar token al cargar
   useEffect(() => {
@@ -279,17 +282,8 @@ export default function AcceptInvitePage() {
           </form>
         </Form>
 
-        {/* Requisitos */}
-        <div className="bg-muted/50 rounded-lg p-4">
-          <h3 className="text-foreground mb-2 text-sm font-medium">Requisitos de contraseña</h3>
-          <ul className="text-muted-foreground space-y-1 text-xs">
-            <li>• Mínimo 10 caracteres</li>
-            <li>• Al menos una letra mayúscula (A-Z)</li>
-            <li>• Al menos una letra minúscula (a-z)</li>
-            <li>• Al menos un número (0-9)</li>
-            <li>• Al menos un símbolo (!@#$%^&*)</li>
-          </ul>
-        </div>
+        {/* Requisitos - validación en tiempo real */}
+        <PasswordRequirements password={newPassword} />
       </div>
     </div>
   );

@@ -7,25 +7,21 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, Shield, ArrowRight, AlertTriangle } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
+import { PasswordRequirements } from "@/components/auth/password-requirements";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { passwordSchema } from "@/lib/validations/password";
 
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, "La contraseña actual es obligatoria"),
-    newPassword: z
-      .string()
-      .min(8, "La contraseña debe tener al menos 8 caracteres")
-      .regex(/[A-Z]/, "Debe contener al menos una mayúscula")
-      .regex(/[a-z]/, "Debe contener al menos una minúscula")
-      .regex(/[0-9]/, "Debe contener al menos un número")
-      .regex(/[^A-Za-z0-9]/, "Debe contener al menos un símbolo"),
+    newPassword: passwordSchema,
     confirmPassword: z.string().min(1, "Confirma tu nueva contraseña"),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -54,6 +50,8 @@ export default function ChangePasswordPage() {
       confirmPassword: "",
     },
   });
+
+  const newPassword = useWatch({ control: form.control, name: "newPassword", defaultValue: "" });
 
   const onSubmit = async (data: ChangePasswordForm) => {
     if (!session?.user?.id) return;
@@ -175,7 +173,7 @@ export default function ChangePasswordPage() {
                           <Input
                             {...field}
                             type={showPasswords.new ? "text" : "password"}
-                            placeholder="Mínimo 8 caracteres, mayúsculas, números y símbolos"
+                            placeholder="Mínimo 10 caracteres, mayúsculas, números y símbolos"
                             className="pr-10 text-sm"
                           />
                           <Button
@@ -252,17 +250,11 @@ export default function ChangePasswordPage() {
           </CardContent>
         </Card>
 
-        {/* Información de requisitos */}
-        <div className="from-primary/5 to-card rounded-lg border bg-gradient-to-t p-4 shadow-xs">
-          <h3 className="text-foreground mb-2 text-sm font-medium">Requisitos de contraseña</h3>
-          <ul className="text-muted-foreground space-y-1 text-xs">
-            <li>• Mínimo 8 caracteres</li>
-            <li>• Al menos una letra mayúscula (A-Z)</li>
-            <li>• Al menos una letra minúscula (a-z)</li>
-            <li>• Al menos un número (0-9)</li>
-            <li>• Al menos un símbolo (!@#$%^&*)</li>
-          </ul>
-        </div>
+        {/* Información de requisitos - validación en tiempo real */}
+        <PasswordRequirements
+          password={newPassword}
+          className="from-primary/5 to-card border bg-gradient-to-t shadow-xs"
+        />
       </div>
     </div>
   );
