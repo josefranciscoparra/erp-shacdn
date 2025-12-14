@@ -6,6 +6,13 @@ import { z } from "zod";
 
 export const PASSWORD_MIN_LENGTH = 10;
 
+// Número de contraseñas anteriores a verificar (evitar reutilización)
+export const PASSWORD_HISTORY_COUNT = 5;
+
+// Configuración de rate limiting para cambio de contraseña
+export const MAX_PASSWORD_ATTEMPTS = 5;
+export const PASSWORD_LOCK_MINUTES = 15;
+
 // ============================================================================
 // TIPOS
 // ============================================================================

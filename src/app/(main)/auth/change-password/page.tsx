@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 
-import { useRouter } from "next/navigation";
-
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Eye, EyeOff, Lock, Shield, ArrowRight, AlertTriangle } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
@@ -32,8 +30,6 @@ const changePasswordSchema = z
 type ChangePasswordForm = z.infer<typeof changePasswordSchema>;
 
 export default function ChangePasswordPage() {
-  const { data: session } = useSession();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState({
@@ -54,8 +50,6 @@ export default function ChangePasswordPage() {
   const newPassword = useWatch({ control: form.control, name: "newPassword", defaultValue: "" });
 
   const onSubmit = async (data: ChangePasswordForm) => {
-    if (!session?.user?.id) return;
-
     setIsLoading(true);
     setError(null);
 
@@ -66,7 +60,6 @@ export default function ChangePasswordPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          userId: session.user.id,
           currentPassword: data.currentPassword,
           newPassword: data.newPassword,
         }),
@@ -74,15 +67,15 @@ export default function ChangePasswordPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message ?? "Error al cambiar la contraseña");
+        throw new Error(errorData.error ?? "Error al cambiar la contraseña");
       }
 
       // Contraseña cambiada exitosamente, cerrar sesión y redirigir
       await signOut({
         callbackUrl: "/auth/login?message=Contraseña cambiada exitosamente. Inicia sesión nuevamente.",
       });
-    } catch (error: any) {
-      setError(error.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Error al cambiar la contraseña");
     } finally {
       setIsLoading(false);
     }

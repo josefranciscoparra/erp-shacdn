@@ -262,6 +262,9 @@ model User {
   // NUEVO: Tokens de autenticación (invitaciones, reset password)
   authTokens AuthToken[]
 
+  // Historial de contraseñas (seguridad - evitar reutilización)
+  passwordHistory PasswordHistory[]
+
   @@index([email])
   @@index([orgId])
   @@map("users")
@@ -298,6 +301,19 @@ model Session {
 
   @@index([userId])
   @@map("sessions")
+}
+
+// Historial de contraseñas (seguridad - evitar reutilización de últimas N contraseñas)
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  password  String // Hash de contraseña anterior
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt]) // Índice compuesto para queries eficientes
+  @@map("password_history")
 }
 
 // Tipos de token de autenticación
