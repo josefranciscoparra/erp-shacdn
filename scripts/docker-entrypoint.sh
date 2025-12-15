@@ -5,7 +5,7 @@ echo "🚀 Starting deployment..."
 
 # Sincronizar schema (temporalmente usando db push)
 echo "📦 Syncing database schema..."
-npx prisma db push --skip-generate
+npx prisma db push --skip-generate --accept-data-loss
 
 # Verificar el estado
 echo "✅ Migrations applied successfully"
