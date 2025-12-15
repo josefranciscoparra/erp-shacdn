@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
-import { Plus, UserRound, Loader2, ShieldAlert } from "lucide-react";
+import { FileDown, Plus, UserRound, Loader2, ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -31,19 +31,12 @@ export default function EmployeesPage() {
           title="Empleados"
           subtitle="Gestiona los empleados de tu organización"
           action={
-            <div className="flex flex-wrap gap-2">
-              <Button asChild>
-                <Link href="/dashboard/employees/new" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  Alta manual
-                </Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/employees/import" className="whitespace-nowrap">
-                  Importar desde archivo
-                </Link>
-              </Button>
-            </div>
+            <Button asChild>
+              <Link href="/dashboard/employees/new" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nuevo empleado
+              </Link>
+            </Button>
           }
         />
         <div className="flex items-center justify-center py-12">
@@ -82,21 +75,18 @@ export default function EmployeesPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
-
-        <div className="flex flex-wrap gap-3">
-          <Button asChild>
-            <Link href="/dashboard/employees/new" className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Alta manual
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/employees/import" className="whitespace-nowrap">
-              Importar desde archivo
-            </Link>
-          </Button>
-        </div>
+        <SectionHeader
+          title="Empleados"
+          subtitle="Gestiona los empleados de tu organización"
+          action={
+            <Button asChild>
+              <Link href="/dashboard/employees/new" className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nuevo empleado
+              </Link>
+            </Button>
+          }
+        />
 
         {hasEmployees ? (
           <EmployeesDataTable data={employees} highlightId={highlightId} />
@@ -109,6 +99,15 @@ export default function EmployeesPage() {
             actionLabel="Agregar primer empleado"
           />
         )}
+
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/dashboard/employees/import" className="flex items-center gap-2 text-muted-foreground">
+              <FileDown className="h-4 w-4" />
+              Importar desde archivo
+            </Link>
+          </Button>
+        </div>
       </div>
     </PermissionGuard>
   );
