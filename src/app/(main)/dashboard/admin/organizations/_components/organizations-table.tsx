@@ -1,20 +1,25 @@
 "use client";
 
-import { Building2, Loader2, Pencil } from "lucide-react";
+import { Building2, Loader2, Pencil, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import type { OrganizationItem } from "./types";
 
 interface OrganizationRowProps {
   organization: OrganizationItem;
   onEdit: (organization: OrganizationItem) => void;
+  onSetup: (organization: OrganizationItem) => void;
 }
 
-function OrganizationRow({ organization, onEdit }: OrganizationRowProps) {
+function OrganizationRow({ organization, onEdit, onSetup }: OrganizationRowProps) {
   const statusVariant = organization.active ? ("secondary" as const) : ("outline" as const);
+  const departmentCount = organization._count?.departments ?? 0;
+  const costCenterCount = organization._count?.costCenters ?? 0;
+  const scheduleCount = organization._count?.scheduleTemplates ?? 0;
 
   return (
     <TableRow>
@@ -22,6 +27,28 @@ function OrganizationRow({ organization, onEdit }: OrganizationRowProps) {
         <div className="flex flex-col">
           <span className="font-medium">{organization.name}</span>
           <span className="text-muted-foreground text-xs">ID: {organization.id}</span>
+        </div>
+        <div className="text-muted-foreground mt-2 text-xs">
+          <p>
+            Prefijo empleados:{" "}
+            {organization.employeeNumberPrefix ? (
+              <span className="text-foreground font-medium">{organization.employeeNumberPrefix}</span>
+            ) : (
+              <span className="text-destructive">Pendiente</span>
+            )}
+          </p>
+          <p>Vacaciones anuales: {organization.annualPtoDays} días</p>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {organization.allowedEmailDomains.length > 0 ? (
+              organization.allowedEmailDomains.map((domain) => (
+                <span key={domain} className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px]">
+                  @{domain}
+                </span>
+              ))
+            ) : (
+              <span className="text-destructive/80 text-[11px]">Sin dominios de email configurados</span>
+            )}
+          </div>
         </div>
       </TableCell>
       <TableCell>{organization.vat ?? "—"}</TableCell>
@@ -31,14 +58,44 @@ function OrganizationRow({ organization, onEdit }: OrganizationRowProps) {
       <TableCell className="text-right">{organization._count?.users ?? 0}</TableCell>
       <TableCell className="text-right">{organization._count?.employees ?? 0}</TableCell>
       <TableCell className="text-right">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={() => onEdit(organization)}
-          aria-label={`Editar ${organization.name}`}
-        >
-          <Pencil className="h-4 w-4" />
-        </Button>
+        <div className="flex flex-wrap justify-end gap-1">
+          <Badge variant={departmentCount > 0 ? "secondary" : "outline"} className="text-[11px]">
+            Deptos {departmentCount}
+          </Badge>
+          <Badge variant={costCenterCount > 0 ? "secondary" : "outline"} className="text-[11px]">
+            Centros {costCenterCount}
+          </Badge>
+          <Badge variant={scheduleCount > 0 ? "secondary" : "outline"} className="text-[11px]">
+            Horarios {scheduleCount}
+          </Badge>
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onSetup(organization)}
+                  aria-label={`Checklist de ${organization.name}`}
+                >
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Checklist de arranque</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => onEdit(organization)}
+            aria-label={`Editar ${organization.name}`}
+          >
+            <Pencil className="h-4 w-4" />
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
   );
@@ -50,9 +107,17 @@ interface OrganizationsTableProps {
   error: string | null;
   onRetry: () => void;
   onEdit: (organization: OrganizationItem) => void;
+  onSetup: (organization: OrganizationItem) => void;
 }
 
-export function OrganizationsTable({ organizations, isLoading, error, onRetry, onEdit }: OrganizationsTableProps) {
+export function OrganizationsTable({
+  organizations,
+  isLoading,
+  error,
+  onRetry,
+  onEdit,
+  onSetup,
+}: OrganizationsTableProps) {
   if (isLoading) {
     return (
       <div className="text-muted-foreground flex items-center justify-center gap-2 py-16">
@@ -96,12 +161,13 @@ export function OrganizationsTable({ organizations, isLoading, error, onRetry, o
           <TableHead className="h-10">Estado</TableHead>
           <TableHead className="h-10 text-right">Usuarios</TableHead>
           <TableHead className="h-10 text-right">Empleados</TableHead>
+          <TableHead className="h-10 text-right">Catálogos</TableHead>
           <TableHead className="h-10 text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {organizations.map((organization) => (
-          <OrganizationRow key={organization.id} organization={organization} onEdit={onEdit} />
+          <OrganizationRow key={organization.id} organization={organization} onEdit={onEdit} onSetup={onSetup} />
         ))}
       </TableBody>
     </Table>

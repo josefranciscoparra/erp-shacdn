@@ -2,7 +2,9 @@
 
 import { useCallback, useMemo, useState } from "react";
 
-import { Loader2, ShieldCheck, Upload, XCircle } from "lucide-react";
+import Link from "next/link";
+
+import { ArrowLeft, Loader2, ShieldCheck, Upload, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -45,7 +47,7 @@ export default function EmployeeImportPage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <div className="flex justify-between">
         <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/employees" className="flex items-center gap-2 text-muted-foreground">
+          <Link href="/dashboard/employees" className="text-muted-foreground flex items-center gap-2">
             <ArrowLeft className="h-4 w-4" />
             Volver a empleados
           </Link>
@@ -55,16 +57,32 @@ export default function EmployeeImportPage() {
         <CardHeader>
           <CardTitle>Cómo usar el cargador paso a paso</CardTitle>
           <CardDescription>
-            Esta es la “chuleta” para RRHH: cada fila del archivo crea a una persona nueva. Sigue estos pasos y evitarás errores:
+            Esta es la “chuleta” para RRHH: cada fila del archivo crea a una persona nueva. Sigue estos pasos y evitarás
+            errores:
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ol className="list-decimal space-y-2 pl-4 text-sm text-muted-foreground">
-            <li>Descarga la plantilla y copia los datos de tus empleados (nombre, email, NIF, etc.). Sin ella, el sistema no entiende nada.</li>
-            <li>Rellena la columna <strong>schedule_template_id</strong> con el ID real del horario (aparece en la URL o en “Copiar ID”). Si inventas el número, fallará.</li>
-            <li>Elige <strong>Modo saldo</strong> si solo conoces cuántos días tiene cada persona hoy. Usa <strong>Modo anual</strong> si te han pasado los días totales y los usados.</li>
-            <li>Sube el archivo y mira la lista: si algo sale en rojo, corrige esa fila. Si todo sale verde, pulsa “Confirmar importación”.</li>
-            <li>Después revisa en la tabla de empleados que aparezcan y, si activaste las invitaciones, se les enviará un email automáticamente.</li>
+          <ol className="text-muted-foreground list-decimal space-y-2 pl-4 text-sm">
+            <li>
+              Descarga la plantilla y copia los datos de tus empleados (nombre, email, NIF, etc.). Sin ella, el sistema
+              no entiende nada.
+            </li>
+            <li>
+              Rellena la columna <strong>schedule_template_id</strong> con el ID real del horario (aparece en la URL o
+              en “Copiar ID”). Si inventas el número, fallará.
+            </li>
+            <li>
+              Elige <strong>Modo saldo</strong> si solo conoces cuántos días tiene cada persona hoy. Usa{" "}
+              <strong>Modo anual</strong> si te han pasado los días totales y los usados.
+            </li>
+            <li>
+              Sube el archivo y mira la lista: si algo sale en rojo, corrige esa fila. Si todo sale verde, pulsa
+              “Confirmar importación”.
+            </li>
+            <li>
+              Después revisa en la tabla de empleados que aparezcan y, si activaste las invitaciones, se les enviará un
+              email automáticamente.
+            </li>
           </ol>
         </CardContent>
       </Card>
@@ -73,7 +91,8 @@ export default function EmployeeImportPage() {
         <CardHeader>
           <CardTitle>Importación masiva de empleados</CardTitle>
           <CardDescription>
-            Sube un archivo XLSX o CSV con los datos de empleados para validarlos antes de importarlos en tu organización.
+            Sube un archivo XLSX o CSV con los datos de empleados para validarlos antes de importarlos en tu
+            organización.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -208,7 +227,7 @@ function EmployeeImportWizard() {
               className={cn(
                 "flex h-8 w-8 items-center justify-center rounded-full border text-sm font-medium",
                 currentStep === index + 1 && "bg-primary text-primary-foreground border-primary",
-                step.complete && currentStep !== index + 1 && "bg-emerald-600 text-white border-emerald-600",
+                step.complete && currentStep !== index + 1 && "border-emerald-600 bg-emerald-600 text-white",
               )}
             >
               {step.complete && currentStep !== index + 1 ? <ShieldCheck className="h-4 w-4" /> : index + 1}
@@ -230,7 +249,9 @@ function EmployeeImportWizard() {
           <Card>
             <CardHeader>
               <CardTitle>Descarga la plantilla oficial</CardTitle>
-              <CardDescription>Incluye la hoja de catálogos con IDs válidos para horarios y departamentos.</CardDescription>
+              <CardDescription>
+                Incluye la hoja de catálogos con IDs válidos para horarios y departamentos.
+              </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
               <Button onClick={() => handleTemplateDownload("xlsx")}>Descargar XLSX</Button>
@@ -249,15 +270,24 @@ function EmployeeImportWizard() {
               <CardContent className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="import-file">Archivo XLSX / CSV</Label>
-                  <Input id="import-file" type="file" accept=".xlsx,.csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
-                  <p className="text-xs text-muted-foreground">
-                    Utiliza la plantilla oficial para mantener los encabezados exactos. El campo `schedule_template_id` se obtiene desde la URL o
-                    el menú “Copiar ID” del horario, y puedes usar correos con <code>+</code> (alias corporativos) sin problema.
+                  <Input
+                    id="import-file"
+                    type="file"
+                    accept=".xlsx,.csv"
+                    onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Utiliza la plantilla oficial para mantener los encabezados exactos. El campo `schedule_template_id`
+                    se obtiene desde la URL o el menú “Copiar ID” del horario, y puedes usar correos con <code>+</code>{" "}
+                    (alias corporativos) sin problema.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label>Modo de vacaciones</Label>
-                  <Select value={options.vacationMode} onValueChange={(value) => setOptions((prev) => ({ ...prev, vacationMode: value }))}>
+                  <Select
+                    value={options.vacationMode}
+                    onValueChange={(value) => setOptions((prev) => ({ ...prev, vacationMode: value }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona modo" />
                     </SelectTrigger>
@@ -266,8 +296,9 @@ function EmployeeImportWizard() {
                       <SelectItem value="ANNUAL">Anualidad + consumidos (`pto_annual_*` + `pto_used_*`)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Solo rellena las columnas del modo elegido. En modo saldo basta con informar los días/minutos disponibles hoy.
+                  <p className="text-muted-foreground text-xs">
+                    Solo rellena las columnas del modo elegido. En modo saldo basta con informar los días/minutos
+                    disponibles hoy.
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -333,22 +364,30 @@ function EmployeeImportWizard() {
                 <CardTitle>Ayuda rápida</CardTitle>
                 <CardDescription>Explicado sin tecnicismos.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="rounded-md border border-primary/30 bg-primary/5 p-3">
-                  <p className="font-medium text-primary">¿De dónde saco el horario?</p>
-                  <p>Entra en el horario y copia el ID que ves en la URL (todo lo que va después de /schedules/). También puedes abrir el menú ⋯ y pulsar “Copiar ID”.</p>
+              <CardContent className="text-muted-foreground space-y-3 text-sm">
+                <div className="border-primary/30 bg-primary/5 rounded-md border p-3">
+                  <p className="text-primary font-medium">¿De dónde saco el horario?</p>
+                  <p>
+                    Entra en el horario y copia el ID que ves en la URL (todo lo que va después de /schedules/). También
+                    puedes abrir el menú ⋯ y pulsar “Copiar ID”.
+                  </p>
                 </div>
                 <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
                   <p className="font-medium text-emerald-700">¿Y el saldo de vacaciones?</p>
                   <p>
-                    <strong>Modo saldo:</strong> escribe cuántos días libres tiene hoy cada persona (ej: 23). Si prefieres, puedes poner los minutos directamente.
+                    <strong>Modo saldo:</strong> escribe cuántos días libres tiene hoy cada persona (ej: 23). Si
+                    prefieres, puedes poner los minutos directamente.
                     <br />
-                    <strong>Modo anual:</strong> rellena los días totales que le corresponden y los que ya gastó. Nosotros calculamos el resto.
+                    <strong>Modo anual:</strong> rellena los días totales que le corresponden y los que ya gastó.
+                    Nosotros calculamos el resto.
                   </p>
                 </div>
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
                   <p className="font-medium text-amber-700">Correos con “+”</p>
-                  <p>Los emails tipo <code>miguel.perez+demo@empresa.com</code> funcionan perfecto. Es la misma bandeja, solo lo usamos para distinguir a cada empleado.</p>
+                  <p>
+                    Los emails tipo <code>miguel.perez+demo@empresa.com</code> funcionan perfecto. Es la misma bandeja,
+                    solo lo usamos para distinguir a cada empleado.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -376,7 +415,10 @@ function EmployeeImportWizard() {
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label>Managers</Label>
-                  <Select value={options.managerPolicy} onValueChange={(value) => setOptions((prev) => ({ ...prev, managerPolicy: value }))}>
+                  <Select
+                    value={options.managerPolicy}
+                    onValueChange={(value) => setOptions((prev) => ({ ...prev, managerPolicy: value }))}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Selecciona política" />
                     </SelectTrigger>
@@ -386,12 +428,13 @@ function EmployeeImportWizard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Los managers deben existir como empleados en la organización (por email). Si seleccionas “Permitir warning”, la fila se importará
-                  aunque no se encuentre el manager.
+                <p className="text-muted-foreground text-xs">
+                  Los managers deben existir como empleados en la organización (por email). Si seleccionas “Permitir
+                  warning”, la fila se importará aunque no se encuentre el manager.
                 </p>
                 <p className="text-muted-foreground text-sm">
-                  Estas políticas solo afectan a la validación. En la confirmación se aplicarán los mismos criterios que definas aquí.
+                  Estas políticas solo afectan a la validación. En la confirmación se aplicarán los mismos criterios que
+                  definas aquí.
                 </p>
               </CardContent>
             </Card>
@@ -412,7 +455,9 @@ function EmployeeImportWizard() {
             <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <CardTitle>Vista previa de filas</CardTitle>
-                <CardDescription>Solo se muestran las primeras 50 filas. Podrás descargar el detalle completo tras confirmar.</CardDescription>
+                <CardDescription>
+                  Solo se muestran las primeras 50 filas. Podrás descargar el detalle completo tras confirmar.
+                </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -423,7 +468,10 @@ function EmployeeImportWizard() {
                 >
                   Volver al paso anterior
                 </Button>
-                <Button variant="outline" onClick={() => window.open(`/api/employees/import/${job.jobId}/report`, "_blank")}>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open(`/api/employees/import/${job.jobId}/report`, "_blank")}
+                >
                   Descargar reporte
                 </Button>
                 <Button onClick={handleConfirm} disabled={isConfirming}>
@@ -500,7 +548,13 @@ function EmployeeImportWizard() {
   );
 }
 
-function RowsTable({ rows, onSkipToggle }: { rows: ImportRow[]; onSkipToggle: (row: ImportRow, status: "SKIPPED" | "READY") => void }) {
+function RowsTable({
+  rows,
+  onSkipToggle,
+}: {
+  rows: ImportRow[];
+  onSkipToggle: (row: ImportRow, status: "SKIPPED" | "READY") => void;
+}) {
   if (!rows.length) {
     return <p className="text-muted-foreground text-sm">No hay filas para mostrar.</p>;
   }
@@ -517,7 +571,7 @@ function RowsTable({ rows, onSkipToggle }: { rows: ImportRow[]; onSkipToggle: (r
             <th className="px-4 py-2 font-medium">Vacaciones</th>
             <th className="px-4 py-2 font-medium">Estado</th>
             <th className="px-4 py-2 font-medium">Mensajes</th>
-            <th className="px-4 py-2 font-medium text-right">Acciones</th>
+            <th className="px-4 py-2 text-right font-medium">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -546,8 +600,8 @@ function RowsTable({ rows, onSkipToggle }: { rows: ImportRow[]; onSkipToggle: (r
                     <td className="px-4 py-2">{row.rowIndex}</td>
                     <td className="px-4 py-2 font-medium">{fullName}</td>
                     <td className="px-4 py-2">{email}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{scheduleId}</td>
-                    <td className="px-4 py-2 text-xs text-muted-foreground">{vacationInfo}</td>
+                    <td className="text-muted-foreground px-4 py-2 text-xs">{scheduleId}</td>
+                    <td className="text-muted-foreground px-4 py-2 text-xs">{vacationInfo}</td>
                   </>
                 );
               })()}
@@ -569,14 +623,19 @@ function RowsTable({ rows, onSkipToggle }: { rows: ImportRow[]; onSkipToggle: (r
                   {row.messages?.map((message) => (
                     <div
                       key={message.message}
-                      className={cn("flex items-center gap-1 rounded border px-2 py-1", message.type === "ERROR" ? "border-destructive/30 text-destructive" : "border-amber-400/40 text-amber-500")}
+                      className={cn(
+                        "flex items-center gap-1 rounded border px-2 py-1",
+                        message.type === "ERROR"
+                          ? "border-destructive/30 text-destructive"
+                          : "border-amber-400/40 text-amber-500",
+                      )}
                     >
                       {message.type === "ERROR" ? <XCircle className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
                       {message.message}
                     </div>
                   ))}
                   {row.errorReason && (
-                    <div className="flex items-center gap-1 rounded border border-destructive/40 px-2 py-1 text-destructive">
+                    <div className="border-destructive/40 text-destructive flex items-center gap-1 rounded border px-2 py-1">
                       <XCircle className="h-3 w-3" />
                       {row.errorReason}
                     </div>
@@ -602,7 +661,15 @@ function RowsTable({ rows, onSkipToggle }: { rows: ImportRow[]; onSkipToggle: (r
   );
 }
 
-function SummaryCard({ label, value, variant }: { label: string; value: number; variant?: "success" | "error" | "warning" }) {
+function SummaryCard({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number;
+  variant?: "success" | "error" | "warning";
+}) {
   return (
     <div className="rounded-lg border p-4">
       <p className="text-muted-foreground text-sm">{label}</p>

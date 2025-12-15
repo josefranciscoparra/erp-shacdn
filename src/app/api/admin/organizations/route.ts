@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, PresenceType, SchedulePeriodType, ScheduleTemplateType, TimeSlotType } from "@prisma/client";
 import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
@@ -24,6 +24,17 @@ const toggleOrganizationSchema = z.object({
 const toggleChatSchema = z.object({
   id: z.string().min(1, "El identificador es obligatorio"),
   chatEnabled: z.boolean(),
+});
+
+const seedBasicsSchema = z.object({
+  id: z.string().min(1, "El identificador es obligatorio"),
+  defaults: z
+    .object({
+      costCenterName: z.string().trim().min(1).optional(),
+      departmentName: z.string().trim().min(1).optional(),
+      scheduleName: z.string().trim().min(1).optional(),
+    })
+    .optional(),
 });
 
 function ensureSuperAdmin(role: string | undefined) {
@@ -53,12 +64,19 @@ export async function GET() {
         vat: true,
         active: true,
         chatEnabled: true,
+        hierarchyType: true,
         createdAt: true,
         updatedAt: true,
+        annualPtoDays: true,
+        employeeNumberPrefix: true,
+        allowedEmailDomains: true,
         _count: {
           select: {
             users: true,
             employees: true,
+            departments: true,
+            costCenters: true,
+            scheduleTemplates: true,
           },
         },
       },
@@ -206,6 +224,147 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
           success: true,
           organization,
+        });
+      }
+
+      case "seed-basics": {
+        const payload = seedBasicsSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        const createdEntities = await prisma.$transaction(async (tx) => {
+          const entities: {
+            costCenter?: { id: string; name: string };
+            department?: { id: string; name: string };
+            scheduleTemplate?: { id: string; name: string };
+          } = {};
+
+          const defaultCostCenterName = payload.defaults?.costCenterName ?? "Centro principal";
+          const defaultDepartmentName = payload.defaults?.departmentName ?? "Departamento general";
+          const defaultScheduleName = payload.defaults?.scheduleName ?? "Horario oficina 9-18h";
+
+          let primaryCostCenter = await tx.costCenter.findFirst({
+            where: { orgId: organization.id },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, name: true },
+          });
+
+          if (!primaryCostCenter) {
+            primaryCostCenter = await tx.costCenter.create({
+              data: {
+                name: defaultCostCenterName,
+                description: "Centro base creado automáticamente para arrancar la organización.",
+                orgId: organization.id,
+              },
+              select: { id: true, name: true },
+            });
+            entities.costCenter = primaryCostCenter;
+          }
+
+          const hasDepartments = await tx.department.count({
+            where: { orgId: organization.id },
+          });
+
+          if (hasDepartments === 0) {
+            const department = await tx.department.create({
+              data: {
+                name: defaultDepartmentName,
+                description: "Departamento inicial para asignar empleados importados.",
+                orgId: organization.id,
+                costCenterId: primaryCostCenter?.id,
+              },
+              select: { id: true, name: true },
+            });
+            entities.department = department;
+          }
+
+          const hasSchedules = await tx.scheduleTemplate.count({
+            where: { orgId: organization.id },
+          });
+
+          if (hasSchedules === 0) {
+            const workDayPatterns = Array.from({ length: 7 }).map((_, index) => {
+              const isWorkingDay = index >= 1 && index <= 5; // Lunes a viernes
+              return {
+                dayOfWeek: index,
+                isWorkingDay,
+                ...(isWorkingDay
+                  ? {
+                      timeSlots: {
+                        create: [
+                          {
+                            startTimeMinutes: 9 * 60,
+                            endTimeMinutes: 14 * 60,
+                            slotType: TimeSlotType.WORK,
+                            presenceType: PresenceType.MANDATORY,
+                            countsAsWork: true,
+                            description: "Trabajo de mañana",
+                          },
+                          {
+                            startTimeMinutes: 14 * 60,
+                            endTimeMinutes: 15 * 60,
+                            slotType: TimeSlotType.BREAK,
+                            presenceType: PresenceType.MANDATORY,
+                            countsAsWork: false,
+                            description: "Pausa comida",
+                          },
+                          {
+                            startTimeMinutes: 15 * 60,
+                            endTimeMinutes: 18 * 60,
+                            slotType: TimeSlotType.WORK,
+                            presenceType: PresenceType.MANDATORY,
+                            countsAsWork: true,
+                            description: "Trabajo de tarde",
+                          },
+                        ],
+                      },
+                    }
+                  : {}),
+              };
+            });
+
+            const scheduleTemplate = await tx.scheduleTemplate.create({
+              data: {
+                name: defaultScheduleName,
+                description: "Horario fijo laboral (L-V 09:00-18:00 con pausa de comida).",
+                templateType: ScheduleTemplateType.FIXED,
+                orgId: organization.id,
+                periods: {
+                  create: {
+                    periodType: SchedulePeriodType.REGULAR,
+                    name: "Horario regular",
+                    workDayPatterns: {
+                      create: workDayPatterns,
+                    },
+                  },
+                },
+              },
+              select: { id: true, name: true },
+            });
+
+            entities.scheduleTemplate = scheduleTemplate;
+          }
+
+          return entities;
+        });
+
+        await revalidatePath("/dashboard/admin/organizations");
+
+        return NextResponse.json({
+          success: true,
+          created: {
+            costCenter: Boolean(createdEntities.costCenter),
+            department: Boolean(createdEntities.department),
+            scheduleTemplate: Boolean(createdEntities.scheduleTemplate),
+          },
+          entities: createdEntities,
         });
       }
 

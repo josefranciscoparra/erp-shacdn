@@ -5,14 +5,16 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Role } from "@prisma/client";
-import { Building2, CirclePlus, Loader2 } from "lucide-react";
+import { Building2, CirclePlus, Loader2, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Button } from "@/components/ui/button";
 
 import { OrganizationFormDialog, type OrganizationFormValues } from "./_components/organization-form-dialog";
+import { OrganizationSetupDrawer } from "./_components/organization-setup-drawer";
 import { OrganizationsTable } from "./_components/organizations-table";
 import type { OrganizationItem } from "./_components/types";
 
@@ -55,35 +57,49 @@ export default function OrganizationsManagementPage() {
   const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
   const [selectedOrganization, setSelectedOrganization] = useState<OrganizationItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [togglingOrgId, setTogglingOrgId] = useState<string | null>(null);
+  const [setupDrawerOpen, setSetupDrawerOpen] = useState(false);
+  const [setupOrganization, setSetupOrganization] = useState<OrganizationItem | null>(null);
+  const [isSeedingBasics, setIsSeedingBasics] = useState(false);
 
   const userRole = session?.user.role as Role | undefined;
   const isSuperAdmin = userRole === "SUPER_ADMIN";
 
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await fetch("/api/admin/organizations", { cache: "no-store" });
-      const payload = await response.json().catch(() => null);
+  const fetchOrganizations = useCallback(
+    async (options?: { showLoader?: boolean }): Promise<OrganizationItem[] | null> => {
+      const shouldShowLoader = options?.showLoader ?? true;
 
-      if (!response.ok) {
-        throw new Error(payload?.error ?? "No se pudieron obtener las organizaciones");
+      try {
+        if (shouldShowLoader) {
+          setIsLoading(true);
+        }
+        setError(null);
+        const response = await fetch("/api/admin/organizations", { cache: "no-store" });
+        const payload = await response.json().catch(() => null);
+
+        if (!response.ok) {
+          throw new Error(payload?.error ?? "No se pudieron obtener las organizaciones");
+        }
+
+        const data = payload as OrganizationsResponse;
+        const list = data.organizations ?? [];
+        setOrganizations(list);
+        return list;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Error inesperado";
+        setError(message);
+        return null;
+      } finally {
+        if (shouldShowLoader) {
+          setIsLoading(false);
+        }
       }
-
-      const data = payload as OrganizationsResponse;
-      setOrganizations(data.organizations ?? []);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Error inesperado";
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (status === "authenticated" && isSuperAdmin) {
-      fetchOrganizations();
+      void fetchOrganizations();
     }
   }, [status, isSuperAdmin, fetchOrganizations]);
 
@@ -139,33 +155,69 @@ export default function OrganizationsManagementPage() {
     }
   };
 
-  const handleToggleActive = async (organization: OrganizationItem) => {
-    try {
-      setTogglingOrgId(organization.id);
-      const { organization: updated } = await requestOrganizationAction<{ organization: OrganizationItem }>(
-        "toggle-active",
-        {
-          id: organization.id,
-          active: !organization.active,
-        },
-        "No se pudo cambiar el estado",
-      );
-      setOrganizations((prev) =>
-        prev.map((item) => (item.id === organization.id ? { ...item, active: updated.active } : item)),
-      );
+  const handleOpenSetup = (organization: OrganizationItem) => {
+    setSetupOrganization(organization);
+    setSetupDrawerOpen(true);
+  };
 
-      toast.success(
-        updated.active
-          ? `La organización "${organization.name}" se ha activado`
-          : `La organización "${organization.name}" se ha desactivado`,
-      );
+  const handleSeedBasics = async () => {
+    if (!setupOrganization) {
+      return;
+    }
+
+    try {
+      setIsSeedingBasics(true);
+      const response = await fetch("/api/admin/organizations", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "seed-basics",
+          data: {
+            id: setupOrganization.id,
+          },
+        }),
+      });
+
+      const payload = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "No se pudieron crear los catálogos base");
+      }
+
+      const created = (payload?.created ?? {}) as {
+        costCenter?: boolean;
+        department?: boolean;
+        scheduleTemplate?: boolean;
+      };
+
+      const summaryParts: string[] = [];
+      if (created.costCenter) summaryParts.push("centro de trabajo");
+      if (created.department) summaryParts.push("departamento");
+      if (created.scheduleTemplate) summaryParts.push("horario");
+
+      const refreshed = await fetchOrganizations({ showLoader: false });
+      if (refreshed) {
+        const updatedOrganization = refreshed.find((item) => item.id === setupOrganization.id);
+        if (updatedOrganization) {
+          setSetupOrganization(updatedOrganization);
+        }
+      }
 
       router.refresh();
+
+      const successMessage =
+        summaryParts.length > 0
+          ? `Listo: ${summaryParts.join(", ")} ${summaryParts.length === 1 ? "creado" : "creados"} automáticamente.`
+          : "Todo estaba preparado, no se generaron nuevos catálogos.";
+
+      toast.success(successMessage);
     } catch (error) {
-      console.error("Error al cambiar estado", error);
-      toast.error(error instanceof Error ? error.message : "No se pudo cambiar el estado de la organización");
+      console.error("Error al crear catálogos base", error);
+      toast.error(error instanceof Error ? error.message : "No se pudieron crear los catálogos base");
     } finally {
-      setTogglingOrgId(null);
+      setIsSeedingBasics(false);
     }
   };
 
@@ -196,9 +248,23 @@ export default function OrganizationsManagementPage() {
             ? "Aún no hay organizaciones registradas"
             : `${organizationCount} organización${organizationCount !== 1 ? "es" : ""} registradas`
         }
-        actionLabel="Nueva organización"
-        onAction={handleOpenCreate}
-        actionIcon={<CirclePlus className="h-4 w-4" />}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={handleOpenCreate} className="gap-2">
+              <CirclePlus className="h-4 w-4" />
+              Nueva organización
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              onClick={() => router.push("/dashboard/admin/organizations/wizard")}
+            >
+              <Sparkles className="h-4 w-4" />
+              Organización guiada
+            </Button>
+          </div>
+        }
       />
 
       <div className="overflow-hidden rounded-lg border shadow-xs">
@@ -206,8 +272,11 @@ export default function OrganizationsManagementPage() {
           organizations={organizations}
           isLoading={isLoading}
           error={error}
-          onRetry={fetchOrganizations}
+          onRetry={() => {
+            void fetchOrganizations();
+          }}
           onEdit={handleOpenEdit}
+          onSetup={handleOpenSetup}
         />
       </div>
 
@@ -223,9 +292,25 @@ export default function OrganizationsManagementPage() {
                 name: selectedOrganization.name,
                 vat: selectedOrganization.vat,
                 active: selectedOrganization.active,
+                hierarchyType: selectedOrganization.hierarchyType,
+                employeeNumberPrefix: selectedOrganization.employeeNumberPrefix,
+                allowedEmailDomains: selectedOrganization.allowedEmailDomains,
               }
             : undefined
         }
+      />
+
+      <OrganizationSetupDrawer
+        open={setupDrawerOpen}
+        onOpenChange={(open) => {
+          setSetupDrawerOpen(open);
+          if (!open) {
+            setSetupOrganization(null);
+          }
+        }}
+        organization={setupOrganization}
+        onSeedBasics={handleSeedBasics}
+        isSeeding={isSeedingBasics}
       />
     </div>
   );
