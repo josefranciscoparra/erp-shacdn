@@ -27,18 +27,7 @@ export default function EmployeesPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Empleados"
-          subtitle="Gestiona los empleados de tu organización"
-          action={
-            <Button asChild>
-              <Link href="/dashboard/employees/new" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo empleado
-              </Link>
-            </Button>
-          }
-        />
+        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando empleados...</span>
@@ -75,18 +64,7 @@ export default function EmployeesPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Empleados"
-          subtitle="Gestiona los empleados de tu organización"
-          action={
-            <Button asChild>
-              <Link href="/dashboard/employees/new" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Nuevo empleado
-              </Link>
-            </Button>
-          }
-        />
+        <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
 
         {hasEmployees ? (
           <EmployeesDataTable data={employees} highlightId={highlightId} />
@@ -100,7 +78,13 @@ export default function EmployeesPage() {
           />
         )}
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/dashboard/employees/new" className="flex items-center gap-2 text-muted-foreground">
+              <Plus className="h-4 w-4" />
+              Nuevo empleado
+            </Link>
+          </Button>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/dashboard/employees/import" className="flex items-center gap-2 text-muted-foreground">
               <FileDown className="h-4 w-4" />
