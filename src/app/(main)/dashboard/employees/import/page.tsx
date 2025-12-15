@@ -43,6 +43,14 @@ interface JobInfo {
 export default function EmployeeImportPage() {
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <div className="flex justify-between">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/dashboard/employees" className="flex items-center gap-2 text-muted-foreground">
+            <ArrowLeft className="h-4 w-4" />
+            Volver a empleados
+          </Link>
+        </Button>
+      </div>
       <Card className="border-primary/30 bg-primary/5">
         <CardHeader>
           <CardTitle>Cómo usar el cargador paso a paso</CardTitle>
