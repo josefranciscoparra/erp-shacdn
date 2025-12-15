@@ -84,6 +84,20 @@ export default function EmployeesPage() {
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
 
+        <div className="flex flex-wrap gap-3">
+          <Button asChild>
+            <Link href="/dashboard/employees/new" className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Alta manual
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/dashboard/employees/import" className="whitespace-nowrap">
+              Importar desde archivo
+            </Link>
+          </Button>
+        </div>
+
         {hasEmployees ? (
           <EmployeesDataTable data={employees} highlightId={highlightId} />
         ) : (
