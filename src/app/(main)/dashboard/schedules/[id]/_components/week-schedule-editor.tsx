@@ -162,7 +162,12 @@ function FixedScheduleEditor({ period }: { period: SchedulePeriod }) {
 function WeeklySummary({ period }: { period: PeriodWithPatterns }) {
   const totalWeekMinutes = period.workDayPatterns.reduce((acc, pattern) => {
     if (!pattern.isWorkingDay) return acc;
-    const dayMinutes = pattern.timeSlots.reduce((sum, slot) => sum + (slot.endTimeMinutes - slot.startTimeMinutes), 0);
+    const dayMinutes = pattern.timeSlots.reduce((sum, slot) => {
+      if (slot.slotType === "BREAK" || slot.countsAsWork === false) {
+        return sum;
+      }
+      return sum + (slot.endTimeMinutes - slot.startTimeMinutes);
+    }, 0);
     return acc + dayMinutes;
   }, 0);
 
@@ -215,7 +220,12 @@ function DayScheduleRow({
   const isWorkingDay = pattern?.isWorkingDay ?? false;
 
   const totalMinutes =
-    pattern?.timeSlots.reduce((acc, slot) => acc + (slot.endTimeMinutes - slot.startTimeMinutes), 0) ?? 0;
+    pattern?.timeSlots.reduce((acc, slot) => {
+      if (slot.slotType === "BREAK" || slot.countsAsWork === false) {
+        return acc;
+      }
+      return acc + (slot.endTimeMinutes - slot.startTimeMinutes);
+    }, 0) ?? 0;
 
   const totalHours = (totalMinutes / 60).toFixed(1);
 
@@ -248,11 +258,19 @@ function DayScheduleRow({
 
             {/* Badges con horarios */}
             <div className="flex flex-wrap items-center gap-2">
-              {pattern.timeSlots.map((slot) => (
-                <Badge key={slot.id} variant="secondary" className="text-xs">
-                  {minutesToTime(slot.startTimeMinutes)} - {minutesToTime(slot.endTimeMinutes)}
-                </Badge>
-              ))}
+              {pattern.timeSlots.map((slot) => {
+                const isBreak = slot.slotType === "BREAK" || slot.countsAsWork === false;
+                return (
+                  <Badge
+                    key={slot.id}
+                    variant={isBreak ? "outline" : "secondary"}
+                    className={`text-xs ${isBreak ? "border-amber-400 text-amber-700 dark:border-amber-300 dark:text-amber-300" : ""}`}
+                  >
+                    {minutesToTime(slot.startTimeMinutes)} - {minutesToTime(slot.endTimeMinutes)}
+                    {isBreak ? " (Pausa)" : ""}
+                  </Badge>
+                );
+              })}
               {totalMinutes > 0 && (
                 <>
                   <span className="text-muted-foreground text-sm">({totalHours}h totales)</span>
@@ -280,6 +298,8 @@ function DayScheduleRow({
                   id: slot.id,
                   startMinutes: slot.startTimeMinutes,
                   endMinutes: slot.endTimeMinutes,
+                  slotType: slot.slotType as "WORK" | "BREAK" | undefined,
+                  isAutomatic: slot.isAutomatic ?? false,
                 })),
               }}
             />
@@ -342,20 +362,23 @@ function TimelineBar({ timeSlots }: TimelineBarProps) {
       {/* Barra base (fondo gris) */}
       <div className="bg-muted relative h-3 w-full overflow-hidden rounded-full">
         {/* Franjas horarias coloreadas */}
-        {slots.map((slot) => (
-          <div
-            key={slot.id}
-            className={`absolute top-0 h-full rounded-full ${
-              slot.slotType === "BREAK"
-                ? "bg-amber-400 dark:bg-amber-500"
-                : slot.slotType === "ON_CALL"
-                  ? "bg-purple-400 dark:bg-purple-500"
-                  : "bg-primary"
-            }`}
-            style={{ left: slot.left, width: slot.width }}
-            title={slot.slotType}
-          />
-        ))}
+        {slots.map((slot) => {
+          const isBreak = slot.slotType === "BREAK";
+          return (
+            <div
+              key={slot.id}
+              className={`absolute top-0 h-full rounded-full ${
+                isBreak
+                  ? "bg-amber-300 dark:bg-amber-500"
+                  : slot.slotType === "ON_CALL"
+                    ? "bg-purple-400 dark:bg-purple-500"
+                    : "bg-primary"
+              } ${isBreak ? "opacity-90" : ""}`}
+              style={{ left: slot.left, width: slot.width }}
+              title={slot.slotType}
+            />
+          );
+        })}
       </div>
 
       {/* Marcadores de hora */}
