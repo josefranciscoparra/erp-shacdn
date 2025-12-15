@@ -24,7 +24,6 @@ export function SwitchToEmployeeOrgButton({ employeeOrgId, employeeOrgName }: Sw
         await switchActiveOrganization(employeeOrgId);
         router.refresh();
       } catch {
-        // En caso de error, simplemente recargamos la página
         router.refresh();
       }
     });

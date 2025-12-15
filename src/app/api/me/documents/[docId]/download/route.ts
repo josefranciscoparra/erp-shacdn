@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 
@@ -14,9 +15,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId || !session?.user?.employeeId) {
+    if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    await ensureEmployeeHasAccessToActiveOrg(session);
 
     const { docId } = await params;
 
@@ -64,6 +67,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       );
     }
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Cambia a la organización donde tienes ficha de empleado para descargar tus documentos."
+          : "Este módulo solo está disponible para usuarios con ficha de empleado.";
+      return NextResponse.json({ error: message, reason: error.code }, { status: 403 });
+    }
     console.error("❌ Error al descargar documento:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
@@ -76,9 +86,11 @@ export async function HEAD(request: NextRequest, { params }: { params: Promise<{
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId || !session?.user?.employeeId) {
+    if (!session?.user?.orgId) {
       return new NextResponse(null, { status: 401 });
     }
+
+    await ensureEmployeeHasAccessToActiveOrg(session);
 
     const { docId } = await params;
 
@@ -107,6 +119,9 @@ export async function HEAD(request: NextRequest, { params }: { params: Promise<{
       headers,
     });
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      return new NextResponse(null, { status: 403 });
+    }
     console.error("❌ Error en HEAD documento:", error);
     return new NextResponse(null, { status: 500 });
   }

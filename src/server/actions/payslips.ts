@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
+import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { PAYSLIP_ADMIN_ROLES, PAYSLIP_PUBLISH_ROLES, PAYSLIP_REVOKE_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
@@ -696,24 +697,14 @@ export async function getMyPayslips(options: { year?: number; page?: number; pag
       return { success: false, error: "No autorizado" };
     }
 
-    const userId = session.user.id;
-    const orgId = session.user.orgId;
-
-    // Obtener el empleado asociado al usuario
-    const employee = await prisma.employee.findFirst({
-      where: { userId, orgId },
-    });
-
-    if (!employee) {
-      return { success: false, error: "No tienes un perfil de empleado asociado" };
-    }
+    const { employeeId, activeOrgId } = await ensureEmployeeHasAccessToActiveOrg(session);
 
     const { year, page = 1, pageSize = 20 } = options;
     const skip = (page - 1) * pageSize;
 
     const where = {
-      employeeId: employee.id,
-      orgId,
+      employeeId,
+      orgId: activeOrgId,
       kind: "PAYSLIP" as const,
       ...(year && { payslipYear: year }),
     };
@@ -747,6 +738,13 @@ export async function getMyPayslips(options: { year?: number; page?: number; pag
       total,
     };
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Cambia a tu organización de empleado para consultar tus nóminas."
+          : "No tienes un perfil de empleado asociado.";
+      return { success: false, error: message };
+    }
     console.error("Error al obtener mis nóminas:", error);
     return { success: false, error: "Error interno del servidor" };
   }
@@ -762,21 +760,12 @@ export async function getMyPayslipYears(): Promise<{ success: boolean; years?: n
       return { success: false, error: "No autorizado" };
     }
 
-    const userId = session.user.id;
-    const orgId = session.user.orgId;
-
-    const employee = await prisma.employee.findFirst({
-      where: { userId, orgId },
-    });
-
-    if (!employee) {
-      return { success: false, error: "No tienes un perfil de empleado asociado" };
-    }
+    const { employeeId, activeOrgId } = await ensureEmployeeHasAccessToActiveOrg(session);
 
     const payslips = await prisma.employeeDocument.findMany({
       where: {
-        employeeId: employee.id,
-        orgId,
+        employeeId,
+        orgId: activeOrgId,
         kind: "PAYSLIP",
         payslipYear: { not: null },
       },
@@ -790,6 +779,13 @@ export async function getMyPayslipYears(): Promise<{ success: boolean; years?: n
       years: payslips.map((p) => p.payslipYear!).filter(Boolean),
     };
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Cambia a tu organización de empleado para consultar tus nóminas."
+          : "No tienes un perfil de empleado asociado.";
+      return { success: false, error: message };
+    }
     console.error("Error al obtener años de nóminas:", error);
     return { success: false, error: "Error interno del servidor" };
   }

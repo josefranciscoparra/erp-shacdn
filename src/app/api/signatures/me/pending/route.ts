@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -21,11 +22,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Buscar el empleado asociado al usuario
-    const employee = await prisma.employee.findFirst({
+    let employeeId: string;
+    try {
+      const guard = await ensureEmployeeHasAccessToActiveOrg(session);
+      employeeId = guard.employeeId;
+    } catch (error) {
+      if (error instanceof EmployeeOrgGuardError) {
+        const message =
+          error.code === "WRONG_ORG"
+            ? "Cambia a tu organización de empleado para revisar tus firmas."
+            : "No tienes un perfil de empleado asociado.";
+        return NextResponse.json({ error: message, reason: error.code }, { status: 403 });
+      }
+      throw error;
+    }
+
+    // Confirmar que el empleado sigue existiendo
+    const employee = await prisma.employee.findUnique({
       where: {
-        orgId: session.user.orgId,
-        email: session.user.email,
+        id: employeeId,
+      },
+      select: {
+        id: true,
       },
     });
 

@@ -1,8 +1,27 @@
 import { Suspense } from "react";
 
+import { PersonalSpaceNoEmployeeNotice, PersonalSpaceWrongOrgNotice } from "@/components/hr/personal-space-access";
+import { getEmployeeOrgAccessState } from "@/server/actions/shared/get-employee-org-access";
+
 import { ChatContainer } from "./_components/chat-container";
 
-export default function ChatPage() {
+export default async function ChatPage() {
+  const access = await getEmployeeOrgAccessState();
+
+  if (!access.canAccess) {
+    if (access.reason === "WRONG_ORG" && access.employeeOrg) {
+      return (
+        <PersonalSpaceWrongOrgNotice
+          employeeOrgId={access.employeeOrg.id}
+          employeeOrgName={access.employeeOrg.name}
+          viewingOrgName={access.activeOrg?.name ?? "otra empresa"}
+        />
+      );
+    }
+
+    return <PersonalSpaceNoEmployeeNotice userRole={access.userRole ?? undefined} />;
+  }
+
   return (
     <div
       className="@container/main flex min-h-0 flex-col md:h-[calc(100dvh-7rem)]"

@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { documentKindSchema } from "@/lib/validations/document";
@@ -46,9 +47,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId || !session?.user?.employeeId) {
+    if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    await ensureEmployeeHasAccessToActiveOrg(session);
 
     // Obtener parámetros de consulta
     const searchParams = request.nextUrl.searchParams;
@@ -112,6 +115,13 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Cambia a la organización donde tienes ficha de empleado para gestionar tus documentos."
+          : "Este módulo solo está disponible para usuarios con ficha de empleado.";
+      return NextResponse.json({ error: message, reason: error.code }, { status: 403 });
+    }
     console.error("❌ Error al obtener documentos:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
@@ -127,9 +137,11 @@ export async function POST(request: NextRequest) {
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId || !session?.user?.employeeId) {
+    if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    await ensureEmployeeHasAccessToActiveOrg(session);
 
     // Obtener form data
     const formData = await request.formData();
@@ -252,6 +264,13 @@ export async function POST(request: NextRequest) {
       document: transformedDocument,
     });
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Cambia a la organización donde tienes ficha de empleado para subir documentos."
+          : "Necesitas una ficha de empleado para usar este módulo.";
+      return NextResponse.json({ error: message, reason: error.code }, { status: 403 });
+    }
     console.error("❌ Error al subir documento:", error);
 
     // Manejar errores específicos del storage
@@ -278,9 +297,11 @@ export async function DELETE(request: NextRequest) {
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId || !session?.user?.employeeId) {
+    if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
+
+    await ensureEmployeeHasAccessToActiveOrg(session);
 
     const { searchParams } = request.nextUrl;
     const documentId = searchParams.get("documentId");
@@ -326,6 +347,13 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof EmployeeOrgGuardError) {
+      const message =
+        error.code === "WRONG_ORG"
+          ? "Solo puedes eliminar documentos cuando gestionas tu propia organización."
+          : "Necesitas una ficha de empleado para usar este módulo.";
+      return NextResponse.json({ error: message, reason: error.code }, { status: 403 });
+    }
     console.error("❌ Error al eliminar documento:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
   }
