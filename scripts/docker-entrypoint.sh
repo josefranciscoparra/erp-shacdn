@@ -3,12 +3,12 @@ set -e
 
 echo "🚀 Starting deployment..."
 
-# Sincronizar schema con la base de datos (sin migraciones)
-echo "📦 Syncing database schema..."
-npx prisma db push --accept-data-loss
+# Aplicar migraciones pendientes
+echo "📦 Running database migrations..."
+npx prisma migrate deploy
 
 # Verificar el estado
-echo "✅ Database schema synced successfully"
+echo "✅ Migrations applied successfully"
 
 # Iniciar la aplicación
 echo "🎯 Starting application..."
