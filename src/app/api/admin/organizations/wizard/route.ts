@@ -14,6 +14,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { createDefaultWhistleblowingCategories } from "@/lib/whistleblowing-defaults";
+import { createDefaultAbsenceTypes } from "@/server/actions/absence-types";
 import { generateOrganizationPrefix } from "@/services/employees";
 
 const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -116,16 +117,9 @@ export async function POST(request: NextRequest) {
     const workSlots = [
       {
         start: startMinutes,
-        end: breakSlots.length ? breakSlots[0].start : endMinutes,
+        end: endMinutes,
       },
     ];
-
-    if (breakSlots.length) {
-      workSlots.push({
-        start: breakSlots[0].end,
-        end: endMinutes,
-      });
-    }
 
     const organization = await prisma.organization.create({
       data: {
@@ -157,6 +151,25 @@ export async function POST(request: NextRequest) {
             description: payload.catalogs.department.description ?? null,
             orgId: organization.id,
             costCenterId: costCenter.id,
+          },
+        });
+
+        const positionLevel = await tx.positionLevel.create({
+          data: {
+            name: "Nivel general",
+            code: "L1",
+            description: "Nivel jerárquico base generado automáticamente.",
+            order: 1,
+            orgId: organization.id,
+          },
+        });
+
+        const position = await tx.position.create({
+          data: {
+            title: "Puesto general",
+            description: "Puesto base para importar empleados.",
+            orgId: organization.id,
+            levelId: positionLevel.id,
           },
         });
 
@@ -200,18 +213,6 @@ export async function POST(request: NextRequest) {
                                       },
                                     ]
                                   : []),
-                                ...(breakSlots.length
-                                  ? [
-                                      {
-                                        startTimeMinutes: workSlots[1].start,
-                                        endTimeMinutes: workSlots[1].end,
-                                        slotType: TimeSlotType.WORK,
-                                        presenceType: PresenceType.MANDATORY,
-                                        countsAsWork: true,
-                                        description: "Jornada (tarde)",
-                                      },
-                                    ]
-                                  : []),
                               ],
                             },
                           }
@@ -234,7 +235,7 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        return { costCenter, department, scheduleTemplate };
+        return { costCenter, department, positionLevel, position, scheduleTemplate };
       })
       .catch(async (txError) => {
         await prisma.organization.delete({ where: { id: organization.id } }).catch(() => undefined);
@@ -242,6 +243,11 @@ export async function POST(request: NextRequest) {
       });
 
     await createDefaultWhistleblowingCategories(organization.id);
+    try {
+      await createDefaultAbsenceTypes(organization.id);
+    } catch (absenceError) {
+      console.warn("[wizard] No se pudieron crear los tipos de ausencia por defecto:", absenceError);
+    }
 
     let setupJobRecorded = false;
     const setupJobModel = (prisma as unknown as { organizationSetupJob?: typeof prisma.organization })
