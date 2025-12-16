@@ -107,24 +107,16 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
   // Ordenar por timestamp
   const sorted = entries.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
-  console.log("🔍 Calculando minutos trabajados para", sorted.length, "entradas");
-
   for (const entry of sorted) {
-    console.log(`  📝 ${entry.entryType} a las ${new Date(entry.timestamp).toLocaleTimeString()}`);
-
     switch (entry.entryType) {
       case "CLOCK_IN":
         lastClockIn = entry.timestamp;
-        console.log("    ⏰ Inicio de sesión registrado");
         break;
 
       case "PROJECT_SWITCH":
         if (lastClockIn) {
           const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           totalWorked += minutes;
-          console.log(`    🔁 Cambio de proyecto: +${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
-        } else {
-          console.log("    ⚠️ Cambio de proyecto sin sesión activa previa");
         }
         lastClockIn = entry.timestamp;
         break;
@@ -134,11 +126,8 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           // Calcular tiempo trabajado hasta la pausa
           const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           totalWorked += minutes;
-          console.log(`    ➕ Sesión trabajada: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`);
           lastBreakStart = entry.timestamp;
           lastClockIn = null; // Cerrar sesión de trabajo
-        } else {
-          console.log("    ⚠️ BREAK_START sin CLOCK_IN previo");
         }
         break;
 
@@ -147,11 +136,8 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           // Calcular tiempo de pausa
           const minutes = (entry.timestamp.getTime() - lastBreakStart.getTime()) / (1000 * 60);
           totalBreak += minutes;
-          console.log(`    ☕ Pausa: ${minutes.toFixed(2)} min (total pausas: ${totalBreak.toFixed(2)})`);
           lastClockIn = entry.timestamp; // Continuar desde aquí
           lastBreakStart = null;
-        } else {
-          console.log("    ⚠️ BREAK_END sin BREAK_START previo");
         }
         break;
 
@@ -160,25 +146,17 @@ function calculateWorkedMinutes(entries: any[]): { worked: number; break: number
           // Calcular tiempo trabajado hasta la salida
           const minutes = (entry.timestamp.getTime() - lastClockIn.getTime()) / (1000 * 60);
           totalWorked += minutes;
-          console.log(
-            `    ➕ Sesión trabajada hasta salida: ${minutes.toFixed(2)} min (total: ${totalWorked.toFixed(2)})`,
-          );
           lastClockIn = null;
-        } else {
-          console.log("    ⚠️ CLOCK_OUT sin CLOCK_IN activo");
         }
         if (lastBreakStart) {
           // Si estaba en pausa, cerrar la pausa también
           const minutes = (new Date().getTime() - lastBreakStart.getTime()) / (1000 * 60);
           totalBreak += minutes;
-          console.log(`    ☕ Cerrando pausa pendiente: ${minutes.toFixed(2)} min`);
           lastBreakStart = null;
         }
         break;
     }
   }
-
-  console.log(`✅ Total calculado: ${totalWorked.toFixed(2)} min trabajados, ${totalBreak.toFixed(2)} min pausa`);
 
   return {
     worked: totalWorked, // NO redondear, mantener decimales para segundos
@@ -343,8 +321,6 @@ async function processAutomaticBreaks(
   const windowStart = subDays(todayStart, 1);
   const windowEnd = endOfDay(clockOutTime);
 
-  console.log("🔄 [AUTOMATIC_BREAKS] Procesando pausas automáticas para", employeeId);
-
   try {
     // 1. Obtener fichajes del rango (ayer + hoy) para detectar sesiones cruzando medianoche
     const windowEntries = await prisma.timeEntry.findMany({
@@ -360,7 +336,6 @@ async function processAutomaticBreaks(
     // Determinar el último CLOCK_IN relevante (puede ser del día anterior)
     const lastClockIn = [...windowEntries].reverse().find((e) => e.entryType === "CLOCK_IN");
     if (!lastClockIn) {
-      console.log("⏭️ [AUTOMATIC_BREAKS] Sin fichaje de entrada en la ventana (ayer+hoy)");
       result.reasons.push("Sin fichaje de entrada");
       return result;
     }
@@ -375,13 +350,11 @@ async function processAutomaticBreaks(
 
     // Verificar precondiciones
     if (!schedule.isWorkingDay) {
-      console.log("⏭️ [AUTOMATIC_BREAKS] Día no laborable, saltando");
       result.reasons.push("Día no laborable");
       return result;
     }
 
     if (schedule.source === "ABSENCE") {
-      console.log("⏭️ [AUTOMATIC_BREAKS] Día con ausencia, saltando");
       result.reasons.push("Día con ausencia registrada");
       return result;
     }
@@ -392,12 +365,9 @@ async function processAutomaticBreaks(
     );
 
     if (automaticBreakSlots.length === 0) {
-      console.log("⏭️ [AUTOMATIC_BREAKS] No hay pausas automáticas configuradas");
       result.reasons.push("Sin pausas automáticas configuradas");
       return result;
     }
-
-    console.log(`📋 [AUTOMATIC_BREAKS] Encontradas ${automaticBreakSlots.length} pausas automáticas`);
 
     const relevantEntries = windowEntries.filter((e) => e.timestamp >= scheduleBaseDate);
 
@@ -411,8 +381,6 @@ async function processAutomaticBreaks(
       scheduleBaseDate,
     );
 
-    console.log(`📊 [AUTOMATIC_BREAKS] Pausas manuales encontradas: ${manualBreaks.length}`);
-
     // Calcular hora de salida en minutos respecto al día lógico (puede ser >1440 si cruza medianoche)
     const clockOutMinutes = dateToMinutes(scheduleBaseDate, clockOutTime);
 
@@ -422,17 +390,12 @@ async function processAutomaticBreaks(
       const breakStartMinutes = slot.startMinutes;
       const breakEndMinutes = slot.endMinutes;
 
-      console.log(
-        `  🔍 Procesando slot ${slotId}: ${Math.floor(breakStartMinutes / 60)}:${String(breakStartMinutes % 60).padStart(2, "0")} - ${Math.floor(breakEndMinutes / 60)}:${String(breakEndMinutes % 60).padStart(2, "0")}`,
-      );
-
       // 4a. Verificar idempotencia: ¿ya existe pausa automática para este slot?
       const existingAutoBreak = relevantEntries.find(
         (e) => e.automaticBreakSlotId === slotId && e.entryType === "BREAK_START",
       );
 
       if (existingAutoBreak) {
-        console.log(`  ⏭️ Ya existe pausa automática para slot ${slotId}`);
         result.skipped++;
         result.reasons.push(`Slot ${slotId}: ya existe`);
         continue;
@@ -440,7 +403,6 @@ async function processAutomaticBreaks(
 
       // 4b. Verificar solapamiento con pausas manuales
       if (checkBreakOverlap(manualBreaks, breakStartMinutes, breakEndMinutes)) {
-        console.log(`  ⏭️ Solapamiento con pausa manual para slot ${slotId}`);
         result.skipped++;
         result.reasons.push(`Slot ${slotId}: solapamiento con pausa manual`);
         continue;
@@ -450,7 +412,6 @@ async function processAutomaticBreaks(
       const effectiveInterval = calculateEffectiveBreakInterval(breakStartMinutes, breakEndMinutes, clockOutMinutes);
 
       if (!effectiveInterval) {
-        console.log(`  ⏭️ Salida antes del inicio de pausa para slot ${slotId}`);
         result.skipped++;
         result.reasons.push(`Slot ${slotId}: salida antes del inicio de pausa`);
         continue;
@@ -463,8 +424,6 @@ async function processAutomaticBreaks(
 
       // Preparar nota descriptiva
       const breakNote = `Pausa automática ${Math.floor(effectiveInterval.start / 60)}:${String(effectiveInterval.start % 60).padStart(2, "0")} - ${Math.floor(effectiveInterval.end / 60)}:${String(effectiveInterval.end % 60).padStart(2, "0")} (${breakDuration} min)`;
-
-      console.log(`  ✅ Creando pausa automática: ${breakNote}`);
 
       // Crear BREAK_START + BREAK_END de forma atómica para evitar parciales
       const transactionResult = await prisma.$transaction(
@@ -514,7 +473,6 @@ async function processAutomaticBreaks(
       );
 
       if (!transactionResult) {
-        console.log(`  ⏭️ Pausa automática ya creada durante la transacción para slot ${slotId}`);
         result.skipped++;
         result.reasons.push(`Slot ${slotId}: ya existe (revalidado)`);
         continue;
@@ -524,10 +482,6 @@ async function processAutomaticBreaks(
       result.totalMinutes += breakDuration;
       result.entries.push({ breakStart: transactionResult.breakStartEntry, breakEnd: transactionResult.breakEndEntry });
     }
-
-    console.log(
-      `✅ [AUTOMATIC_BREAKS] Completado: ${result.created} creadas, ${result.skipped} omitidas, ${result.totalMinutes} min total`,
-    );
 
     return result;
   } catch (error) {

@@ -188,6 +188,9 @@ export function DayCard({ day }: DayCardProps) {
 
   const ComplianceIcon = day.compliance >= 100 ? CheckCircle2 : day.compliance >= 80 ? AlertCircle : XCircle;
 
+  const isJustifiedAbsence = !!day.holidayName;
+  const showCompliance = day.expectedHours > 0;
+
   return (
     <Card className="overflow-hidden rounded-lg border shadow-sm transition-shadow hover:shadow-md">
       {/* Header Accordion Compacto - Clickeable */}
@@ -203,10 +206,14 @@ export function DayCard({ day }: DayCardProps) {
           <span className="text-sm font-semibold capitalize">
             {format(new Date(day.date), "EEEE, d MMM", { locale: es })}
           </span>
-          <Badge className={cn("shrink-0", statusInfo.badgeClass)}>
-            <StatusIcon className="mr-1 size-3" />
-            {statusInfo.label}
-          </Badge>
+          {/* Solo mostrar badge de estado si NO es una ausencia justificada (ya que mostramos el nombre de la ausencia)
+              o si el estado NO es ABSENT (ej: si trabajó en festivo y está COMPLETED) */}
+          {(!isJustifiedAbsence || day.status !== "ABSENT") && (
+            <Badge className={cn("shrink-0", statusInfo.badgeClass)}>
+              <StatusIcon className="mr-1 size-3" />
+              {statusInfo.label}
+            </Badge>
+          )}
           {day.holidayName && (
             <Badge
               variant="outline"
@@ -235,10 +242,12 @@ export function DayCard({ day }: DayCardProps) {
 
         {/* Derecha: % + Icono compliance + Chevron */}
         <div className="flex shrink-0 items-center gap-2">
-          <div className="flex items-center gap-1">
-            <ComplianceIcon className={cn("size-4", complianceColor)} />
-            <span className={cn("text-sm font-bold tabular-nums", complianceColor)}>{day.compliance}%</span>
-          </div>
+          {showCompliance && (
+            <div className="flex items-center gap-1">
+              <ComplianceIcon className={cn("size-4", complianceColor)} />
+              <span className={cn("text-sm font-bold tabular-nums", complianceColor)}>{day.compliance}%</span>
+            </div>
+          )}
           {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </div>
       </button>
@@ -285,13 +294,13 @@ export function DayCard({ day }: DayCardProps) {
           {/* Indicadores visuales (condicional) */}
           {(day.compliance < 80 || day.status === "ABSENT" || day.compliance > 120) && (
             <div className="flex flex-wrap items-center gap-1.5">
-              {day.compliance < 80 && day.status !== "ABSENT" && (
+              {showCompliance && day.compliance < 80 && day.status !== "ABSENT" && (
                 <div className="flex items-center gap-1 rounded-full bg-amber-50 px-2 py-1 dark:bg-amber-950/30">
                   <AlertCircle className="size-3.5 text-amber-600 dark:text-amber-500" />
                   <span className="text-xs text-amber-600 dark:text-amber-500">Por debajo del objetivo</span>
                 </div>
               )}
-              {day.status === "ABSENT" && (
+              {day.status === "ABSENT" && !isJustifiedAbsence && (
                 <div className="flex items-center gap-1 rounded-full bg-red-50 px-2 py-1 dark:bg-red-950/30">
                   <XCircle className="size-3.5 text-red-600 dark:text-red-500" />
                   <span className="text-xs text-red-600 dark:text-red-500">Día ausente</span>

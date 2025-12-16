@@ -16,6 +16,7 @@ import {
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
 function getLocalDateKey(date: Date): string {
   const localDate = new Date(date);
@@ -1674,16 +1675,15 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
       entriesByDay.get(dayKey)!.push(entry);
     });
 
-    // Obtener información de días laborables para todos los días del rango (en paralelo)
-    const dayInfoPromises = allDaysInRange.map((dayDate) => getExpectedHoursForDay(employeeId, dayDate));
-    const dayInfos = await Promise.all(dayInfoPromises);
+    // OBTENER HORARIOS EFECTIVOS EN LOTE (Motor V2.0 - Optimizado)
+    // Esto reemplaza las 30+ consultas individuales y asegura consistencia con la vista del empleado
+    const effectiveSchedules = await getEffectiveScheduleForRange(employeeId, startDate, endDate);
 
-    // Crear un mapa de información de días por fecha
-    // IMPORTANTE: Normalizar fechas a UTC antes de crear keys
-    const dayInfoMap = new Map<string, Awaited<ReturnType<typeof getExpectedHoursForDay>>>();
-    allDaysInRange.forEach((dayDate, index) => {
-      const dayKey = getLocalDateKey(dayDate);
-      dayInfoMap.set(dayKey, dayInfos[index]);
+    // Crear mapa de horarios para acceso rápido
+    type EffectiveScheduleItem = (typeof effectiveSchedules)[number];
+    const scheduleMap = new Map<string, EffectiveScheduleItem>();
+    effectiveSchedules.forEach((schedule) => {
+      scheduleMap.set(getLocalDateKey(schedule.date), schedule);
     });
 
     return {
@@ -1699,12 +1699,55 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           const dayKey = getLocalDateKey(dayDate);
           const summary = summariesByDate.get(dayKey);
           const dayEntries = entriesByDay.get(dayKey) ?? [];
-          const dayInfo = dayInfoMap.get(dayKey)!;
+
+          // Obtener datos del motor de horarios
+          const schedule = scheduleMap.get(dayKey);
+
+          // Mapear datos del motor a la estructura de la vista
+          const hoursExpected = schedule ? schedule.expectedMinutes / 60 : 0;
+          const isWorkingDay = schedule ? schedule.isWorkingDay : false;
+
+          // Detectar Festivos
+          let isHoliday = schedule?.source === "EXCEPTION" && schedule.exceptionType === "HOLIDAY";
+          let holidayName = isHoliday ? schedule?.exceptionReason : undefined;
+
+          // Detectar Ausencias (Vacaciones, Bajas, etc.)
+          // Reutilizamos la lógica visual de "Holiday" para mostrar el badge de ausencia
+          if (schedule?.source === "ABSENCE" || schedule?.absence) {
+            isHoliday = true;
+            holidayName = schedule.absence?.type ?? "Ausencia";
+          }
 
           // Si existe summary, usarlo; si no, crear uno virtual
           if (summary) {
             const workedHours = Number(summary.totalWorkedMinutes) / 60;
-            const compliance = dayInfo.hoursExpected > 0 ? Math.round((workedHours / dayInfo.hoursExpected) * 100) : 0;
+            const compliance = hoursExpected > 0 ? Math.round((workedHours / hoursExpected) * 100) : 0;
+
+            // Recalcular estado dinámicamente para corregir inconsistencias visuales
+            let displayStatus = summary.status;
+
+            if (summary.status !== "IN_PROGRESS") {
+              if (hoursExpected > 0) {
+                // Día laborable normal: calcular por cumplimiento
+                displayStatus = compliance >= 95 ? "COMPLETED" : "INCOMPLETE";
+              } else {
+                // Día con 0 horas esperadas (Festivo, Vacaciones, Fin de semana)
+                // Forzar el estado visual correcto en lugar de mostrar "COMPLETED" erróneamente
+                if (schedule?.source === "ABSENCE" || schedule?.absence) {
+                  displayStatus = "ABSENT";
+                } else if (isHoliday) {
+                  displayStatus = "HOLIDAY";
+                } else if (!isWorkingDay) {
+                  displayStatus = "NON_WORKDAY";
+                }
+              }
+            }
+
+            // Si es un día de ausencia justificada (vacaciones), forzar estado visual si no hay horas trabajadas
+            // (Redundancia de seguridad)
+            if ((schedule?.source === "ABSENCE" || schedule?.absence) && workedHours === 0) {
+              displayStatus = "ABSENT";
+            }
 
             return {
               id: summary.id,
@@ -1713,13 +1756,13 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               clockOut: summary.clockOut,
               totalWorkedMinutes: Number(summary.totalWorkedMinutes),
               totalBreakMinutes: Number(summary.totalBreakMinutes),
-              status: summary.status,
-              expectedHours: dayInfo.hoursExpected,
+              status: displayStatus,
+              expectedHours: hoursExpected,
               actualHours: Math.round(workedHours * 100) / 100,
               compliance,
-              isWorkingDay: dayInfo.isWorkingDay,
-              isHoliday: dayInfo.isHoliday,
-              holidayName: dayInfo.holidayName,
+              isWorkingDay,
+              isHoliday,
+              holidayName,
               timeEntries: dayEntries.map((entry) => ({
                 id: entry.id,
                 entryType: entry.entryType,
@@ -1754,12 +1797,15 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
           // Crear un summary virtual para días sin fichajes
           // Determinar el status correcto según el tipo de día
           let virtualStatus: "ABSENT" | "HOLIDAY" | "NON_WORKDAY";
-          if (dayInfo.isHoliday) {
+
+          if (schedule?.source === "ABSENCE" || schedule?.absence) {
+            virtualStatus = "ABSENT"; // Ausencia justificada
+          } else if (schedule?.source === "EXCEPTION" && schedule.exceptionType === "HOLIDAY") {
             virtualStatus = "HOLIDAY";
-          } else if (!dayInfo.isWorkingDay) {
+          } else if (!isWorkingDay) {
             virtualStatus = "NON_WORKDAY";
           } else {
-            virtualStatus = "ABSENT";
+            virtualStatus = "ABSENT"; // Ausencia injustificada
           }
 
           return {
@@ -1770,12 +1816,12 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
             totalWorkedMinutes: 0,
             totalBreakMinutes: 0,
             status: virtualStatus,
-            expectedHours: dayInfo.hoursExpected,
+            expectedHours: hoursExpected,
             actualHours: 0,
             compliance: 0,
-            isWorkingDay: dayInfo.isWorkingDay,
-            isHoliday: dayInfo.isHoliday,
-            holidayName: dayInfo.holidayName,
+            isWorkingDay,
+            isHoliday,
+            holidayName,
             timeEntries: dayEntries.map((entry) => ({
               id: entry.id,
               entryType: entry.entryType,

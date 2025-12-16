@@ -167,11 +167,21 @@ export default function EmployeeTimeTrackingPage() {
           }
         }
 
-        // Enriquecer los días con información de alertas
+        // Enriquecer los días con información de alertas y aplicar corrección visual
         const daysWithAlerts = data.days.map((day) => {
           const dateKey = new Date(day.date).toISOString().split("T")[0];
+
+          // Corrección visual para días no laborables (ej: fines de semana)
+          // Si no se esperaba trabajar y no se trabajó, forzar estado NON_WORKDAY
+          // Esto evita que aparezcan como "Completado" o "Incompleto" erróneamente en la UI
+          let displayStatus = day.status;
+          if (day.expectedHours === 0 && day.actualHours === 0 && day.timeEntries.length === 0) {
+            displayStatus = "NON_WORKDAY";
+          }
+
           return {
             ...day,
+            status: displayStatus,
             alerts: alertsByDate[dateKey],
           };
         });
