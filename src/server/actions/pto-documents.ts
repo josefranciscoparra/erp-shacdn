@@ -1,9 +1,12 @@
 "use server";
 
+import { FileCategory, RetentionPolicy } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ADMIN_ROLES, ALLOWED_UPLOAD_STATUSES, MAX_DOCUMENTS_PER_REQUEST } from "@/lib/pto-documents-config";
 import { getStorageProvider } from "@/lib/storage";
+import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
 
 /**
  * Verifica si el usuario tiene permisos para gestionar documentos de una solicitud PTO
@@ -102,6 +105,7 @@ export async function getDocumentDownloadUrl(documentId: string) {
         ptoRequest: {
           select: { orgId: true },
         },
+        storedFile: true,
       },
     });
 
@@ -109,9 +113,14 @@ export async function getDocumentDownloadUrl(documentId: string) {
       return { success: false, error: "Documento no encontrado" };
     }
 
+    const resolvedPath = document.storedFile?.path ?? document.filePath;
+    if (!resolvedPath) {
+      return { success: false, error: "Documento sin ruta de almacenamiento" };
+    }
+
     // Generar URL firmada
     const storageProvider = getStorageProvider();
-    const url = await storageProvider.getSignedUrl(document.filePath, {
+    const url = await storageProvider.getSignedUrl(resolvedPath, {
       expiresIn: 3600, // 1 hora
       operation: "read",
     });
@@ -152,6 +161,7 @@ export async function deletePtoDocument(documentId: string) {
             },
           },
         },
+        storedFile: true,
       },
     });
 
@@ -165,13 +175,27 @@ export async function deletePtoDocument(documentId: string) {
       return { success: false, error: permission.reason };
     }
 
-    // Eliminar del storage
-    const storageProvider = getStorageProvider();
-    try {
-      await storageProvider.delete(document.filePath);
-    } catch (storageError) {
-      console.warn("Error al eliminar archivo del storage:", storageError);
-      // Continuamos aunque falle la eliminación del storage
+    if (document.storedFileId) {
+      try {
+        await markStoredFileAsDeleted(document.storedFileId, userId);
+      } catch (storageError) {
+        console.warn("Error al marcar archivo PTO como eliminado:", storageError);
+        return {
+          success: false,
+          error:
+            storageError instanceof Error
+              ? storageError.message
+              : "El documento está protegido por una obligación legal",
+        };
+      }
+    } else {
+      const storageProvider = getStorageProvider();
+      try {
+        await storageProvider.delete(document.filePath);
+      } catch (storageError) {
+        console.warn("Error al eliminar archivo del storage:", storageError);
+        // Continuamos aunque falle la eliminación legacy
+      }
     }
 
     // Eliminar de la base de datos
@@ -322,22 +346,36 @@ export async function createPtoDocumentRecord(
       };
     }
 
-    // Crear registro
-    const document = await prisma.ptoRequestDocument.create({
-      data: {
-        ptoRequestId,
-        fileName,
-        filePath,
-        fileSize,
+    // Crear registro con ledger de almacenamiento
+    const document = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
+        orgId,
+        employeeId: ptoRequest.employeeId,
+        path: filePath,
+        sizeBytes: fileSize,
         mimeType,
-        description,
-        uploadedById: userId,
-      },
-      include: {
-        uploadedBy: {
-          select: { id: true, name: true, email: true },
+        category: FileCategory.PTO,
+        retentionPolicy: RetentionPolicy.PTO,
+        tx,
+      });
+
+      return tx.ptoRequestDocument.create({
+        data: {
+          ptoRequestId,
+          fileName,
+          filePath,
+          fileSize,
+          mimeType,
+          description,
+          uploadedById: userId,
+          storedFileId: storedFile.id,
         },
-      },
+        include: {
+          uploadedBy: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
     });
 
     // Registrar en auditoría

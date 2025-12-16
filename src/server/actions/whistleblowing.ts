@@ -2,18 +2,22 @@
 
 import { revalidatePath } from "next/cache";
 
-import type {
-  WhistleblowingStatus,
-  WhistleblowingPriority,
-  ReporterType,
-  ResolutionType,
-  WhistleblowingActivityType,
+import {
+  FileCategory,
+  RetentionPolicy,
+  type ReporterType,
+  type ResolutionType,
+  type WhistleblowingActivityType,
+  type WhistleblowingPriority,
+  type WhistleblowingStatus,
 } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encryptJson, decryptJson } from "@/lib/encryption";
 import { prisma } from "@/lib/prisma";
+import { documentStorageService, getStorageProvider } from "@/lib/storage";
+import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
 
 // ========================================
 // TIPOS
@@ -60,7 +64,10 @@ export type WhistleblowingReportDetail = {
     fileName: string;
     fileSize: number;
     mimeType: string;
+    description: string | null;
     uploadedAt: Date;
+    uploadedBy: { id: string; name: string | null; email: string | null } | null;
+    storedFileId?: string | null;
   }>;
   activities: Array<{
     id: string;
@@ -82,6 +89,9 @@ export type WhistleblowingCategory = {
   description: string | null;
   requiresEvidence: boolean;
 };
+
+export const WHISTLEBLOWING_ALLOWED_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+export const WHISTLEBLOWING_MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 // ========================================
 // HELPERS
@@ -586,7 +596,12 @@ export async function getWhistleblowingReportDetail(
             fileName: true,
             fileSize: true,
             mimeType: true,
+            description: true,
             uploadedAt: true,
+            storedFileId: true,
+            uploadedBy: {
+              select: { id: true, name: true, email: true },
+            },
           },
           orderBy: { uploadedAt: "desc" },
         },
@@ -1521,5 +1536,262 @@ export async function getMyWhistleblowingReportDetail(reportId: string): Promise
   } catch (error) {
     console.error("Error obteniendo detalle de mi denuncia:", error);
     return { success: false, error: "Error al obtener detalle" };
+  }
+}
+
+// ========================================
+// DOCUMENTOS (Almacenamiento legal)
+// ========================================
+
+export type WhistleblowingDocumentRecord = {
+  id: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  description: string | null;
+  uploadedAt: Date;
+  uploadedBy: { id: string; name: string | null; email: string | null } | null;
+};
+
+export async function getWhistleblowingDocuments(reportId: string): Promise<{
+  success: boolean;
+  documents?: WhistleblowingDocumentRecord[];
+  error?: string;
+  status?: number;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.orgId) {
+      return { success: false, error: "No autenticado", status: 401 };
+    }
+
+    const report = await prisma.whistleblowingReport.findFirst({
+      where: { id: reportId, orgId: session.user.orgId },
+      select: {
+        id: true,
+        orgId: true,
+        employee: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!report) {
+      return { success: false, error: "Denuncia no encontrada", status: 404 };
+    }
+
+    const hasPermission = await checkWhistleblowingPermission(session.user.id, session.user.orgId);
+    const isReporter = report.employee?.userId === session.user.id;
+
+    if (!hasPermission && !isReporter) {
+      return { success: false, error: "Sin permisos", status: 403 };
+    }
+
+    const documents = await prisma.whistleblowingDocument.findMany({
+      where: { reportId },
+      include: {
+        uploadedBy: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+      orderBy: { uploadedAt: "desc" },
+    });
+
+    return { success: true, documents };
+  } catch (error) {
+    console.error("Error obteniendo documentos de denuncia:", error);
+    return { success: false, error: "Error interno", status: 500 };
+  }
+}
+
+export async function createWhistleblowingDocument(
+  reportId: string,
+  fileName: string,
+  filePath: string,
+  fileSize: number,
+  mimeType: string,
+  description?: string,
+): Promise<{ success: boolean; document?: WhistleblowingDocumentRecord; error?: string; status?: number }> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.orgId) {
+      return { success: false, error: "No autenticado", status: 401 };
+    }
+
+    const report = await prisma.whistleblowingReport.findFirst({
+      where: { id: reportId, orgId: session.user.orgId },
+      select: {
+        id: true,
+        orgId: true,
+        employee: {
+          select: { id: true, userId: true },
+        },
+      },
+    });
+
+    if (!report) {
+      return { success: false, error: "Denuncia no encontrada", status: 404 };
+    }
+
+    const hasPermission = await checkWhistleblowingPermission(session.user.id, session.user.orgId);
+    const isReporter = report.employee?.userId === session.user.id;
+
+    if (!hasPermission && !isReporter) {
+      return { success: false, error: "Sin permisos", status: 403 };
+    }
+
+    const document = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
+        orgId: report.orgId,
+        employeeId: report.employee?.id,
+        path: filePath,
+        sizeBytes: fileSize,
+        mimeType,
+        category: FileCategory.WHISTLEBLOWING,
+        retentionPolicy: RetentionPolicy.WHISTLEBLOWING,
+        tx,
+      });
+
+      return tx.whistleblowingDocument.create({
+        data: {
+          reportId,
+          fileName,
+          filePath,
+          fileSize,
+          mimeType,
+          description,
+          uploadedById: session.user.id,
+          storedFileId: storedFile.id,
+        },
+        include: {
+          uploadedBy: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      });
+    });
+
+    await logActivity(reportId, "DOCUMENT_ADDED", `Documento "${fileName}" adjuntado`, session.user.id);
+
+    return { success: true, document };
+  } catch (error) {
+    console.error("Error creando documento de whistleblowing:", error);
+    return { success: false, error: "Error interno", status: 500 };
+  }
+}
+
+export async function deleteWhistleblowingDocument(documentId: string): Promise<{
+  success: boolean;
+  error?: string;
+  status?: number;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.orgId) {
+      return { success: false, error: "No autenticado", status: 401 };
+    }
+
+    const document = await prisma.whistleblowingDocument.findFirst({
+      where: { id: documentId },
+      include: {
+        storedFile: true,
+        report: {
+          select: {
+            id: true,
+            orgId: true,
+          },
+        },
+      },
+    });
+
+    if (!document || document.report.orgId !== session.user.orgId) {
+      return { success: false, error: "Documento no encontrado", status: 404 };
+    }
+
+    const hasPermission = await checkWhistleblowingPermission(session.user.id, session.user.orgId);
+    if (!hasPermission) {
+      return { success: false, error: "Sin permisos", status: 403 };
+    }
+
+    if (document.storedFileId) {
+      await markStoredFileAsDeleted(document.storedFileId, session.user.id);
+    } else {
+      const storageProvider = getStorageProvider();
+      try {
+        await storageProvider.delete(document.filePath);
+      } catch (storageError) {
+        console.warn("Error al eliminar archivo huérfano de whistleblowing:", storageError);
+      }
+    }
+
+    await prisma.whistleblowingDocument.delete({ where: { id: documentId } });
+    await logActivity(
+      document.reportId,
+      "DOCUMENT_ADDED",
+      `Documento "${document.fileName}" eliminado`,
+      session.user.id,
+    );
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error eliminando documento de whistleblowing:", error);
+    const message = error instanceof Error ? error.message : "Error interno";
+    const status = message.includes("obligación legal") ? 409 : 500;
+    return { success: false, error: message, status };
+  }
+}
+
+export async function getWhistleblowingDocumentUrl(documentId: string): Promise<{
+  success: boolean;
+  url?: string;
+  fileName?: string;
+  mimeType?: string;
+  error?: string;
+  status?: number;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session.user.orgId) {
+      return { success: false, error: "No autenticado", status: 401 };
+    }
+
+    const document = await prisma.whistleblowingDocument.findFirst({
+      where: { id: documentId },
+      include: {
+        storedFile: true,
+        report: {
+          select: {
+            id: true,
+            orgId: true,
+            employee: {
+              select: { userId: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!document || document.report.orgId !== session.user.orgId) {
+      return { success: false, error: "Documento no encontrado", status: 404 };
+    }
+
+    const hasPermission = await checkWhistleblowingPermission(session.user.id, session.user.orgId);
+    const isReporter = document.report.employee?.userId === session.user.id;
+
+    if (!hasPermission && !isReporter) {
+      return { success: false, error: "Sin permisos", status: 403 };
+    }
+
+    const filePath = document.storedFile?.path ?? document.filePath;
+    if (!filePath) {
+      return { success: false, error: "Documento sin ruta de almacenamiento", status: 500 };
+    }
+
+    const url = await documentStorageService.getDocumentUrl(filePath, 3600);
+
+    return { success: true, url, fileName: document.fileName, mimeType: document.mimeType };
+  } catch (error) {
+    console.error("Error obteniendo URL de documento de whistleblowing:", error);
+    return { success: false, error: "Error interno", status: 500 };
   }
 }

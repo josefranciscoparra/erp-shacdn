@@ -68,6 +68,10 @@ model Organization {
   // Feature flags (DEPRECATED: migrar a campos booleanos específicos)
   features Json @default("{}") // Feature flags JSON: { chat: true, ... }
 
+  // Métricas de almacenamiento (Cloudflare R2 / provider seleccionado)
+  storageUsedBytes  Int @default(0)
+  storageLimitBytes Int @default(1073741824) // 1GB por defecto, personalizable por plan
+
   // Relaciones
   users                   User[]
   userOrganizations       UserOrganization[]
@@ -78,6 +82,7 @@ model Organization {
   positionLevels          PositionLevel[]
   employmentContracts     EmploymentContract[]
   employeeDocuments       EmployeeDocument[]
+  storedFiles             StoredFile[]
   temporaryPasswords      TemporaryPassword[]
   calendars               Calendar[]
   timeClockTerminals      TimeClockTerminal[]
@@ -245,6 +250,7 @@ model User {
   publishedPayslipItems    PayslipUploadItem[]  @relation("ItemPublisher") // Items que ha publicado
   revokedPayslipItems      PayslipUploadItem[]  @relation("ItemRevoker") // Items que ha revocado
   revokedEmployeeDocuments EmployeeDocument[]   @relation("DocumentRevoker") // Documentos que ha revocado
+  deletedStoredFiles       StoredFile[]         @relation("StoredFileDeletedBy") // Archivos cuya eliminación ha solicitado
 
   // Sistema de permisos y alertas
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
@@ -563,6 +569,7 @@ model Employee {
   // Relaciones
   employmentContracts     EmploymentContract[]
   documents               EmployeeDocument[]
+  storedFiles             StoredFile[]
   managedContracts        EmploymentContract[]     @relation("ManagerSubordinates")
   managedDepartments      Department[]             @relation("DepartmentManager")
   timeEntries             TimeEntry[]
@@ -775,6 +782,10 @@ model EmployeeDocument {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  // Ledger de almacenamiento
+  storedFileId String?
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
+
   // Campos específicos para nóminas (kind = PAYSLIP) - Mejora 3
   payslipMonth Int? // Mes de la nómina (1-12)
   payslipYear  Int? // Año de la nómina
@@ -809,7 +820,47 @@ model EmployeeDocument {
   @@index([employeeId])
   @@index([kind, payslipYear, payslipMonth])
   @@index([isRevoked])
+  @@index([storedFileId])
   @@map("employee_documents")
+}
+
+// =============================================
+// SISTEMA CENTRALIZADO DE STORAGE Y RETENCIÓN
+// =============================================
+model StoredFile {
+  id String @id @default(cuid())
+
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  path     String
+  sizeBytes Int
+  mimeType String
+
+  category        FileCategory
+  retentionPolicy RetentionPolicy
+
+  retainUntil DateTime?
+  legalHold   Boolean  @default(false)
+  legalHoldReason String?
+
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
+  deletedById String?
+  deletedBy   User? @relation("StoredFileDeletedBy", fields: [deletedById], references: [id])
+
+  employeeDocuments        EmployeeDocument[]
+  ptoRequestDocuments      PtoRequestDocument[]
+  expenseAttachments       ExpenseAttachment[]
+  whistleblowingDocuments  WhistleblowingDocument[]
+  signableDocuments        SignableDocument[]
+
+  @@index([orgId])
+  @@index([retainUntil])
+  @@map("stored_files")
 }
 
 // =============================================
@@ -967,6 +1018,29 @@ enum DocumentKind {
   CERTIFICATE // Certificados (idiomas, formación, etc.)
   MEDICAL // Documentos médicos
   OTHER // Otros documentos
+}
+
+// Categorías funcionales de archivos
+enum FileCategory {
+  PAYROLL
+  CONTRACT
+  TIME_TRACKING
+  PTO
+  WHISTLEBLOWING
+  SIGNATURE
+  EXPENSE
+  OTHER
+}
+
+// Políticas legales de retención (pueden coincidir en nombre con categorías, pero tienen semántica legal)
+enum RetentionPolicy {
+  PAYROLL
+  CONTRACT
+  TIME_TRACKING
+  PTO
+  WHISTLEBLOWING
+  SIGNATURE
+  GENERIC
 }
 
 // Estados del lote de nóminas (Mejora 3 - Fortalecido)
@@ -1686,6 +1760,8 @@ model PtoRequestDocument {
   filePath String // Ruta en storage (org-X/pto-requests/Y/archivo.pdf)
   fileSize Int // Tamaño en bytes
   mimeType String // "application/pdf", "image/jpeg", "image/png"
+  storedFileId String?
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
 
   // Auditoría
   uploadedById String // Usuario que subió el archivo
@@ -1697,6 +1773,7 @@ model PtoRequestDocument {
 
   @@index([ptoRequestId])
   @@index([uploadedById])
+  @@index([storedFileId])
   @@map("pto_request_documents")
 }
 
@@ -1917,6 +1994,8 @@ model SignableDocument {
   originalHash    String // SHA-256 del archivo original
   fileSize        Int // Tamaño en bytes
   mimeType        String @default("application/pdf")
+  storedFileId String?
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
 
   // Versión y metadatos
   version   Int       @default(1)
@@ -1941,6 +2020,7 @@ model SignableDocument {
   @@index([orgId])
   @@index([createdById])
   @@index([category])
+  @@index([storedFileId])
   @@map("signable_documents")
 }
 
@@ -2447,12 +2527,15 @@ model ExpenseAttachment {
   fileName  String
   mimeType  String?
   fileSize  Int
+  storedFileId String?
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 
   expenseId String
   expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
 
   @@index([expenseId])
+  @@index([storedFileId])
   @@map("expense_attachments")
 }
 
@@ -3753,12 +3836,15 @@ model WhistleblowingDocument {
   fileSize    Int
   mimeType    String
   description String?
+  storedFileId String?
+  storedFile   StoredFile? @relation(fields: [storedFileId], references: [id], onDelete: SetNull)
 
   uploadedById String? // null si anónimo
   uploadedBy   User?   @relation(fields: [uploadedById], references: [id])
   uploadedAt   DateTime @default(now())
 
   @@index([reportId])
+  @@index([storedFileId])
   @@map("whistleblowing_documents")
 }
 

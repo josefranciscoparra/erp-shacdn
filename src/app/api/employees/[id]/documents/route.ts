@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { documentStorageService } from "@/lib/storage";
+import { markStoredFileAsDeleted } from "@/lib/storage/storage-ledger";
 import { documentFiltersSchema } from "@/lib/validations/document";
 
 export const runtime = "nodejs";
@@ -139,14 +141,38 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         employeeId,
         orgId: session.user.orgId,
       },
+      include: {
+        storedFile: true,
+      },
     });
 
     if (!document) {
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
-    // TODO: Eliminar archivo del storage
-    // await documentStorageService.deleteDocument(document.storageUrl);
+    if (document.storedFileId) {
+      try {
+        await markStoredFileAsDeleted(document.storedFileId, session.user.id);
+      } catch (storageError) {
+        console.error("⚠️ Error al marcar archivo como eliminado:", storageError);
+        return NextResponse.json(
+          {
+            error:
+              storageError instanceof Error
+                ? storageError.message
+                : "No se puede eliminar el documento por obligación legal",
+          },
+          { status: 409 },
+        );
+      }
+    } else {
+      // Documentos legacy sin ledger
+      try {
+        await documentStorageService.deleteDocument(document.storageUrl);
+      } catch (storageError) {
+        console.error("⚠️ Error al eliminar del storage:", storageError);
+      }
+    }
 
     // Eliminar registro de la base de datos
     await prisma.employeeDocument.delete({

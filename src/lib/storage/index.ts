@@ -88,6 +88,84 @@ export class DocumentStorageService {
     this.storageProvider = provider ?? getStorageProvider();
   }
 
+  private isRemoteUrl(value: string): boolean {
+    return /^https?:\/\//i.test(value);
+  }
+
+  private extractKeyFromUrl(urlStr: string): string | null {
+    try {
+      const url = new URL(urlStr);
+      const path = url.pathname.replace(/^\/+/, "");
+      if (!path) {
+        return null;
+      }
+
+      const provider = (process.env.STORAGE_PROVIDER as StorageProviderType) || "local";
+      if (provider === "r2") {
+        const bucket = process.env.R2_BUCKET;
+        if (bucket && path.startsWith(`${bucket}/`)) {
+          return path.slice(bucket.length + 1);
+        }
+      } else if (provider === "azure") {
+        const container = process.env.AZURE_CONTAINER_PREFIX;
+        if (container && path.startsWith(`${container}/`)) {
+          return path.slice(container.length + 1);
+        }
+      } else if (provider === "local") {
+        const extracted = this.extractLocalKey(url, path);
+        if (extracted) return extracted;
+      }
+
+      return path;
+    } catch {
+      return null;
+    }
+  }
+
+  private extractLocalKey(url: URL, fallbackPath: string): string | null {
+    const baseUrl = (process.env.LOCAL_STORAGE_URL ?? "/uploads").replace(/^https?:\/\//, "").replace(/\/$/, "");
+    if (!baseUrl) return null;
+
+    const hostAndPath = `${url.host}${url.pathname}`.replace(/^\/+/, "");
+    if (!hostAndPath.includes(baseUrl)) return null;
+
+    const extracted = hostAndPath.split(baseUrl).pop()?.replace(/^\/+/, "");
+    return extracted ?? fallbackPath;
+  }
+
+  private resolveFileTarget(filePath: string): { key?: string; remoteUrl?: string } {
+    if (!filePath) {
+      throw new Error("Ruta de archivo no válida");
+    }
+
+    if (this.isRemoteUrl(filePath)) {
+      const key = this.extractKeyFromUrl(filePath);
+      if (key) {
+        return { key };
+      }
+      return { remoteUrl: filePath };
+    }
+
+    return { key: filePath };
+  }
+
+  private async fetchRemoteUrl(url: string): Promise<Blob> {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error("No se pudo acceder al archivo remoto legacy");
+    }
+    const arrayBuffer = await response.arrayBuffer();
+    return new Blob([arrayBuffer], { type: response.headers.get("content-type") ?? "application/octet-stream" });
+  }
+
+  private async downloadToBuffer(filePath: string): Promise<Buffer> {
+    const target = this.resolveFileTarget(filePath);
+    const blob = target.remoteUrl
+      ? await this.fetchRemoteUrl(target.remoteUrl)
+      : await this.storageProvider.download(target.key!);
+    return Buffer.from(await blob.arrayBuffer());
+  }
+
   // Subir documento de empleado
   async uploadEmployeeDocument(
     orgId: string,
@@ -113,17 +191,30 @@ export class DocumentStorageService {
 
   // Descargar documento
   async downloadDocument(filePath: string) {
-    return await this.storageProvider.download(filePath);
+    const target = this.resolveFileTarget(filePath);
+    if (target.remoteUrl) {
+      return await this.fetchRemoteUrl(target.remoteUrl);
+    }
+
+    return await this.storageProvider.download(target.key!);
   }
 
   // Obtener URL firmada para acceso temporal
   async getDocumentUrl(filePath: string, expiresIn: number = 3600) {
-    return await this.storageProvider.getSignedUrl(filePath, { expiresIn });
+    const target = this.resolveFileTarget(filePath);
+    if (target.remoteUrl) {
+      return target.remoteUrl;
+    }
+    return await this.storageProvider.getSignedUrl(target.key!, { expiresIn });
   }
 
   // Eliminar documento
   async deleteDocument(filePath: string) {
-    return await this.storageProvider.delete(filePath);
+    const target = this.resolveFileTarget(filePath);
+    if (!target.key) {
+      throw new Error("No es posible eliminar archivos legacy con URL absoluta");
+    }
+    return await this.storageProvider.delete(target.key);
   }
 
   // Listar documentos de un empleado
@@ -161,8 +252,7 @@ export class DocumentStorageService {
    */
   async movePayslipToEmployee(tempPath: string, orgId: string, employeeId: string, fileName: string) {
     // Descargar el archivo temporal
-    const blob = await this.storageProvider.download(tempPath);
-    const buffer = Buffer.from(await blob.arrayBuffer());
+    const buffer = await this.downloadToBuffer(tempPath);
 
     // Subir a la ubicación final del empleado
     const finalPath = this.generateDocumentPath(orgId, employeeId, fileName, "payslips");
@@ -171,7 +261,10 @@ export class DocumentStorageService {
     });
 
     // Eliminar el archivo temporal
-    await this.storageProvider.delete(tempPath);
+    const target = this.resolveFileTarget(tempPath);
+    if (target.key) {
+      await this.storageProvider.delete(target.key);
+    }
 
     return result;
   }
@@ -192,8 +285,7 @@ export class DocumentStorageService {
     fileName: string,
   ): Promise<{ path: string; fileName: string; size?: number }> {
     // Descargar el archivo temporal
-    const blob = await this.storageProvider.download(tempPath);
-    const buffer = Buffer.from(await blob.arrayBuffer());
+    const buffer = await this.downloadToBuffer(tempPath);
 
     // Subir a la ubicación final del empleado
     const finalPath = this.generateDocumentPath(orgId, employeeId, fileName, "payslips");
@@ -202,7 +294,10 @@ export class DocumentStorageService {
     });
 
     // Eliminar el archivo temporal
-    await this.storageProvider.delete(tempPath);
+    const target = this.resolveFileTarget(tempPath);
+    if (target.key) {
+      await this.storageProvider.delete(target.key);
+    }
 
     // Extraer el nombre del archivo del path final
     const finalFileName = finalPath.split("/").pop() ?? fileName;

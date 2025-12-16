@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { FileCategory, RetentionPolicy } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { calculateHash } from "@/lib/signatures/hash";
 import { signatureStorageService } from "@/lib/signatures/storage";
+import { registerStoredFile } from "@/lib/storage/storage-ledger";
 
 export const runtime = "nodejs";
 
@@ -59,21 +62,36 @@ export async function POST(request: NextRequest) {
     // Subir a storage
     const uploadResult = await signatureStorageService.uploadOriginalDocument(session.user.orgId, documentId, file);
 
-    // Crear documento en la BD
-    // IMPORTANTE: Guardamos el path, no la url, para generar URLs firmadas después
-    const document = await prisma.signableDocument.create({
-      data: {
-        title,
-        description: description ?? undefined,
-        category,
-        originalFileUrl: uploadResult.path, // Guardamos el path para generar signed URLs
-        originalHash: fileHash,
-        fileSize: uploadResult.size,
-        mimeType: uploadResult.mimeType,
-        version: 1,
+    const normalizedMimeType = uploadResult.mimeType || file.type || "application/pdf";
+    const sizeBytes = uploadResult.size ?? file.size;
+
+    // Crear documento en la BD y registrar en el ledger
+    const document = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
         orgId: session.user.orgId,
-        createdById: session.user.id,
-      },
+        path: uploadResult.path,
+        sizeBytes,
+        mimeType: normalizedMimeType,
+        category: FileCategory.SIGNATURE,
+        retentionPolicy: RetentionPolicy.SIGNATURE,
+        tx,
+      });
+
+      return tx.signableDocument.create({
+        data: {
+          title,
+          description: description ?? undefined,
+          category,
+          originalFileUrl: uploadResult.path,
+          originalHash: fileHash,
+          fileSize: sizeBytes,
+          mimeType: normalizedMimeType,
+          version: 1,
+          orgId: session.user.orgId,
+          createdById: session.user.id,
+          storedFileId: storedFile.id,
+        },
+      });
     });
 
     return NextResponse.json(

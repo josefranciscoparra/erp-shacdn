@@ -6,6 +6,8 @@ import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
+import { getFileCategoryForDocumentKind, getRetentionPolicyForDocumentKind } from "@/lib/storage/retention-policies";
+import { registerStoredFile } from "@/lib/storage/storage-ledger";
 import { documentKindSchema, documentKindLabels } from "@/lib/validations/document";
 import { createNotification } from "@/server/actions/notifications";
 
@@ -120,28 +122,47 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     );
 
-    // Guardar metadata en la base de datos
-    const document = await prisma.employeeDocument.create({
-      data: {
-        kind: validDocumentKind,
-        fileName: file.name,
-        storageUrl: uploadResult.path, // Guardamos el path, no la URL completa
-        fileSize: uploadResult.size,
-        mimeType: uploadResult.mimeType,
-        description: validDescription,
+    const fileCategory = getFileCategoryForDocumentKind(validDocumentKind);
+    const retentionPolicy = getRetentionPolicyForDocumentKind(validDocumentKind);
+    const normalizedMimeType = uploadResult.mimeType || file.type || "application/octet-stream";
+    const sizeBytes = uploadResult.size ?? file.size ?? 0;
+
+    // Guardar metadata en la base de datos y registrar el archivo de storage
+    const document = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
         orgId: session.user.orgId,
         employeeId,
-        uploadedById: session.user.id,
-      },
-      include: {
-        uploadedBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        path: uploadResult.path,
+        sizeBytes,
+        mimeType: normalizedMimeType,
+        category: fileCategory,
+        retentionPolicy,
+        tx,
+      });
+
+      return tx.employeeDocument.create({
+        data: {
+          kind: validDocumentKind,
+          fileName: file.name,
+          storageUrl: uploadResult.path, // Guardamos el path, no la URL completa
+          fileSize: sizeBytes,
+          mimeType: normalizedMimeType,
+          description: validDescription,
+          orgId: session.user.orgId,
+          employeeId,
+          uploadedById: session.user.id,
+          storedFileId: storedFile.id,
+        },
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
+      });
     });
 
     // Notificar al empleado si tiene usuario asociado

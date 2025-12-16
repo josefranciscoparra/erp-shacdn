@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { FileCategory, RetentionPolicy } from "@prisma/client";
+
 import { prisma } from "@/lib/prisma";
 import { getStorageProvider } from "@/lib/storage";
+import { registerStoredFile } from "@/lib/storage/storage-ledger";
 import { getAuthenticatedEmployee } from "@/server/actions/shared/get-authenticated-employee";
 
 /**
@@ -74,15 +77,32 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       },
     });
 
-    // Crear registro en la base de datos
-    const attachment = await prisma.expenseAttachment.create({
-      data: {
-        url: uploadResult.url,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        expenseId,
-      },
+    const normalizedMimeType = file.type || uploadResult.mimeType || "application/octet-stream";
+    const sizeBytes = uploadResult.size ?? file.size;
+
+    // Crear registro en la base de datos y ledger
+    const attachment = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
+        orgId: employee.orgId,
+        employeeId: employee.id,
+        path: uploadResult.path,
+        sizeBytes,
+        mimeType: normalizedMimeType,
+        category: FileCategory.EXPENSE,
+        retentionPolicy: RetentionPolicy.GENERIC,
+        tx,
+      });
+
+      return tx.expenseAttachment.create({
+        data: {
+          url: uploadResult.url,
+          fileName: file.name,
+          mimeType: normalizedMimeType,
+          fileSize: sizeBytes,
+          expenseId,
+          storedFileId: storedFile.id,
+        },
+      });
     });
 
     return NextResponse.json(attachment, { status: 201 });

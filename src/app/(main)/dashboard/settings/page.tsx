@@ -20,6 +20,7 @@ import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
 import { OrganizationTab } from "./_components/organization-tab";
 import { ShiftsTab } from "./_components/shifts-tab";
+import { StorageTab } from "./_components/storage-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 import { TimeBankTab } from "./_components/time-bank-tab";
 import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
@@ -47,6 +48,7 @@ export default function SettingsPage() {
       { value: "validations", label: "Fichajes" },
       { value: "time-bank", label: "Bolsa Horas" },
       { value: "expenses", label: "Gastos" },
+      { value: "storage", label: "Storage" },
       { value: "system", label: "Sistema" },
       ...(isSuperAdmin ? [{ value: "admin", label: "Admin" }] : []),
     ],
@@ -147,6 +149,10 @@ export default function SettingsPage() {
 
           <TabsContent value="expenses" className="mt-4 md:mt-6">
             <ExpensesTab />
+          </TabsContent>
+
+          <TabsContent value="storage" className="mt-4 md:mt-6">
+            <StorageTab />
           </TabsContent>
 
           <TabsContent value="system" className="mt-4 md:mt-6">

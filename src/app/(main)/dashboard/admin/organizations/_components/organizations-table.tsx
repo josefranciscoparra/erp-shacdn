@@ -9,6 +9,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 import type { OrganizationItem } from "./types";
 
+function formatBytes(bytes: number): string {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / 1024 ** exponent;
+  return `${value.toFixed(value >= 10 ? 0 : 1)} ${units[exponent]}`;
+}
+
 interface OrganizationRowProps {
   organization: OrganizationItem;
   onEdit: (organization: OrganizationItem) => void;
@@ -20,6 +28,8 @@ function OrganizationRow({ organization, onEdit, onSetup }: OrganizationRowProps
   const departmentCount = organization._count?.departments ?? 0;
   const costCenterCount = organization._count?.costCenters ?? 0;
   const scheduleCount = organization._count?.scheduleTemplates ?? 0;
+  const limitBytes = Math.max(organization.storageLimitBytes, 1);
+  const usagePercent = Math.min((organization.storageUsedBytes / limitBytes) * 100, 999);
 
   return (
     <TableRow>
@@ -68,6 +78,20 @@ function OrganizationRow({ organization, onEdit, onSetup }: OrganizationRowProps
           <Badge variant={scheduleCount > 0 ? "secondary" : "outline"} className="text-[11px]">
             Horarios {scheduleCount}
           </Badge>
+        </div>
+      </TableCell>
+      <TableCell className="text-right">
+        <div className="flex flex-col items-end gap-1">
+          <span className="text-sm font-semibold">
+            {formatBytes(organization.storageUsedBytes)} / {formatBytes(organization.storageLimitBytes)}
+          </span>
+          <div className="bg-muted relative h-1.5 w-28 rounded-full">
+            <div
+              className={`${usagePercent > 85 ? "bg-destructive" : "bg-primary"} absolute inset-y-0 left-0 rounded-full`}
+              style={{ width: `${Math.min(usagePercent, 100)}%` }}
+            />
+          </div>
+          <span className="text-muted-foreground text-[11px]">{Math.round(usagePercent)}% usado</span>
         </div>
       </TableCell>
       <TableCell className="text-right">
@@ -162,6 +186,7 @@ export function OrganizationsTable({
           <TableHead className="h-10 text-right">Usuarios</TableHead>
           <TableHead className="h-10 text-right">Empleados</TableHead>
           <TableHead className="h-10 text-right">Catálogos</TableHead>
+          <TableHead className="h-10 text-right">Storage</TableHead>
           <TableHead className="h-10 text-right">Acciones</TableHead>
         </TableRow>
       </TableHeader>

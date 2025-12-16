@@ -26,7 +26,6 @@ import {
   XCircle,
 } from "lucide-react";
 
-import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { WhistleblowingDocumentsSection } from "@/components/whistleblowing/documents-section";
 import {
   getWhistleblowingReportDetail,
   updateReportStatus,
@@ -323,34 +323,7 @@ export default function WhistleblowingDetailPage() {
             </Card>
           )}
 
-          {/* Documentos */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Documentos adjuntos</CardTitle>
-              <CardDescription>
-                {report.documents.length} documento{report.documents.length !== 1 ? "s" : ""}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {report.documents.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No hay documentos adjuntos</p>
-              ) : (
-                <ul className="space-y-2">
-                  {report.documents.map((doc) => (
-                    <li key={doc.id} className="flex items-center gap-2 rounded-md border p-2">
-                      <FileText className="text-muted-foreground h-4 w-4" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{doc.fileName}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {(doc.fileSize / 1024).toFixed(1)} KB • {format(new Date(doc.uploadedAt), "dd/MM/yyyy HH:mm")}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
+          <WhistleblowingDocumentsSection reportId={report.id} allowUpload allowDelete />
 
           {/* Timeline de actividad */}
           <Card>

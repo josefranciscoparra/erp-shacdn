@@ -33,6 +33,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const attachment = await prisma.expenseAttachment.findUnique({
       where: { id: attachmentId },
       include: {
+        storedFile: true,
         expense: {
           include: {
             approvals: {
@@ -62,19 +63,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "No tienes permisos para ver este adjunto" }, { status: 403 });
     }
 
-    // Extraer el path del storage desde la URL
-    // La URL guardada es del tipo: https://xxx.r2.cloudflarestorage.com/bucket-name/org-xxx/expenses/...
-    // Necesitamos extraer solo la parte después del bucket
-    const urlParts = attachment.url.split("/");
-    const bucketIndex = urlParts.findIndex((part) => part.includes("r2.cloudflarestorage.com"));
+    let filePath = attachment.storedFile?.path;
+    if (!filePath) {
+      const urlParts = attachment.url.split("/");
+      const bucketIndex = urlParts.findIndex((part) => part.includes("r2.cloudflarestorage.com"));
 
-    let filePath: string;
-    if (bucketIndex >= 0) {
-      // Tomar todo después del dominio/bucket
-      filePath = urlParts.slice(bucketIndex + 2).join("/"); // +2 para saltar dominio y bucket
-    } else {
-      // Si no es URL de R2, asumir que ya es un path
-      filePath = attachment.url;
+      if (bucketIndex >= 0) {
+        filePath = urlParts.slice(bucketIndex + 2).join("/");
+      } else {
+        filePath = attachment.url;
+      }
     }
 
     // Generar URL firmada temporal (1 hora de expiración)

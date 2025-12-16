@@ -64,6 +64,8 @@ export async function GET() {
         vat: true,
         active: true,
         chatEnabled: true,
+        storageUsedBytes: true,
+        storageLimitBytes: true,
         hierarchyType: true,
         createdAt: true,
         updatedAt: true,

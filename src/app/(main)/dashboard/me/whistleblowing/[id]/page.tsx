@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { WhistleblowingDocumentsSection } from "@/components/whistleblowing/documents-section";
 import { getMyWhistleblowingReportDetail, type MyWhistleblowingReportDetail } from "@/server/actions/whistleblowing";
 
 const statusConfig = {
@@ -323,6 +324,14 @@ export default function MyWhistleblowingDetailPage() {
           </div>
         </CardContent>
       </Card>
+
+      <WhistleblowingDocumentsSection
+        reportId={report.id}
+        allowDelete={false}
+        title="Documentos aportados"
+        description="Adjunta evidencias complementarias (capturas, comunicaciones, contratos...) para reforzar tu denuncia."
+        emptyMessage="Todavía no has subido documentación a este expediente."
+      />
 
       {/* Resolucion (solo si existe) */}
       {(report.status === "RESOLVED" || report.status === "CLOSED") && report.resolution && (

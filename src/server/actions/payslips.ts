@@ -2,13 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 
-import type { Prisma } from "@prisma/client";
+import { FileCategory, RetentionPolicy, type Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
 import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { PAYSLIP_ADMIN_ROLES, PAYSLIP_PUBLISH_ROLES, PAYSLIP_REVOKE_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
+import { registerStoredFile } from "@/lib/storage/storage-ledger";
 import { createNotification } from "@/server/actions/notifications";
 
 // Nombres de meses para notificaciones
@@ -83,6 +84,12 @@ export type PayslipUploadItemDetail = {
     employeeNumber: string | null;
   } | null;
   documentId: string | null;
+  document?: {
+    id: string;
+    fileName: string;
+    storageUrl: string;
+    mimeType: string;
+  } | null;
   createdAt: Date;
   assignedAt: Date | null;
   assignedById: string | null;
@@ -274,6 +281,14 @@ export async function getBatchWithItems(
               employeeNumber: true,
             },
           },
+          document: {
+            select: {
+              id: true,
+              fileName: true,
+              storageUrl: true,
+              mimeType: true,
+            },
+          },
         },
         orderBy: [{ status: "asc" }, { createdAt: "asc" }],
         skip,
@@ -324,6 +339,14 @@ export async function getBatchWithItems(
         employeeId: item.employeeId,
         employee: item.employee,
         documentId: item.documentId,
+        document: item.document
+          ? {
+              id: item.document.id,
+              fileName: item.document.fileName,
+              storageUrl: item.document.storageUrl,
+              mimeType: item.document.mimeType,
+            }
+          : null,
         createdAt: item.createdAt,
         assignedAt: item.assignedAt,
         assignedById: item.assignedById,
@@ -1082,7 +1105,17 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
 
         // 2. Crear EmployeeDocument en una transacción
         await prisma.$transaction(async (tx) => {
-          // Crear documento
+          const storedFile = await registerStoredFile({
+            orgId,
+            employeeId: item.employeeId!,
+            path: movedFile.path,
+            sizeBytes: movedFile.size ?? 0,
+            mimeType: "application/pdf",
+            category: FileCategory.PAYROLL,
+            retentionPolicy: RetentionPolicy.PAYROLL,
+            tx,
+          });
+
           const document = await tx.employeeDocument.create({
             data: {
               employeeId: item.employeeId!,
@@ -1095,6 +1128,7 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
               payslipMonth: batch.month,
               payslipYear: batch.year,
               uploadedById: userId,
+              storedFileId: storedFile.id,
             },
           });
 
@@ -1241,6 +1275,17 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
 
         // 2. Crear EmployeeDocument
         await prisma.$transaction(async (tx) => {
+          const storedFile = await registerStoredFile({
+            orgId,
+            employeeId: item.employeeId!,
+            path: movedFile.path,
+            sizeBytes: movedFile.size ?? 0,
+            mimeType: "application/pdf",
+            category: FileCategory.PAYROLL,
+            retentionPolicy: RetentionPolicy.PAYROLL,
+            tx,
+          });
+
           const document = await tx.employeeDocument.create({
             data: {
               employeeId: item.employeeId!,
@@ -1253,6 +1298,7 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
               payslipMonth: item.batch.month,
               payslipYear: item.batch.year,
               uploadedById: userId,
+              storedFileId: storedFile.id,
             },
           });
 
@@ -1633,20 +1679,35 @@ export async function uploadSinglePayslip(input: {
         buffer,
       );
 
-      // Crear documento
-      const document = await prisma.employeeDocument.create({
-        data: {
-          employeeId: input.employeeId,
+      const fileSize = uploadResult.size ?? buffer.length;
+
+      const document = await prisma.$transaction(async (tx) => {
+        const storedFile = await registerStoredFile({
           orgId,
-          kind: "PAYSLIP",
-          fileName: uploadResult.fileName,
-          storageUrl: uploadResult.path,
-          fileSize: uploadResult.size ?? buffer.length,
+          employeeId: input.employeeId,
+          path: uploadResult.path,
+          sizeBytes: fileSize,
           mimeType: "application/pdf",
-          payslipMonth: input.month,
-          payslipYear: input.year,
-          uploadedById: userId,
-        },
+          category: FileCategory.PAYROLL,
+          retentionPolicy: RetentionPolicy.PAYROLL,
+          tx,
+        });
+
+        return tx.employeeDocument.create({
+          data: {
+            employeeId: input.employeeId,
+            orgId,
+            kind: "PAYSLIP",
+            fileName: uploadResult.fileName,
+            storageUrl: uploadResult.path,
+            fileSize,
+            mimeType: "application/pdf",
+            payslipMonth: input.month,
+            payslipYear: input.year,
+            uploadedById: userId,
+            storedFileId: storedFile.id,
+          },
+        });
       });
 
       documentId = document.id;

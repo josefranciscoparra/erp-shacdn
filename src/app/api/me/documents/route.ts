@@ -7,6 +7,8 @@ import { auth } from "@/lib/auth";
 import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
+import { getFileCategoryForDocumentKind, getRetentionPolicyForDocumentKind } from "@/lib/storage/retention-policies";
+import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
 import { documentKindSchema } from "@/lib/validations/document";
 
 export const runtime = "nodejs";
@@ -227,28 +229,47 @@ export async function POST(request: NextRequest) {
       },
     );
 
+    const fileCategory = getFileCategoryForDocumentKind(validDocumentKind);
+    const retentionPolicy = getRetentionPolicyForDocumentKind(validDocumentKind);
+    const normalizedMimeType = uploadResult.mimeType || file.type || "application/octet-stream";
+    const sizeBytes = uploadResult.size ?? file.size ?? 0;
+
     // Guardar metadata en la base de datos
-    const document = await prisma.employeeDocument.create({
-      data: {
-        kind: validDocumentKind,
-        fileName: file.name,
-        storageUrl: uploadResult.path,
-        fileSize: uploadResult.size,
-        mimeType: uploadResult.mimeType,
-        description: validDescription,
+    const document = await prisma.$transaction(async (tx) => {
+      const storedFile = await registerStoredFile({
         orgId: session.user.orgId,
         employeeId: session.user.employeeId,
-        uploadedById: session.user.id,
-      },
-      include: {
-        uploadedBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        path: uploadResult.path,
+        sizeBytes,
+        mimeType: normalizedMimeType,
+        category: fileCategory,
+        retentionPolicy,
+        tx,
+      });
+
+      return tx.employeeDocument.create({
+        data: {
+          kind: validDocumentKind,
+          fileName: file.name,
+          storageUrl: uploadResult.path,
+          fileSize: sizeBytes,
+          mimeType: normalizedMimeType,
+          description: validDescription,
+          orgId: session.user.orgId,
+          employeeId: session.user.employeeId,
+          uploadedById: session.user.id,
+          storedFileId: storedFile.id,
+        },
+        include: {
+          uploadedBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
-      },
+      });
     });
 
     // Transformar fechas para el cliente
@@ -318,6 +339,9 @@ export async function DELETE(request: NextRequest) {
         orgId: session.user.orgId,
         uploadedById: session.user.id, // Solo puede eliminar lo que subió
       },
+      include: {
+        storedFile: true,
+      },
     });
 
     if (!document) {
@@ -332,12 +356,28 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "No tienes permiso para eliminar este tipo de documento" }, { status: 403 });
     }
 
-    // Eliminar archivo del storage
-    try {
-      await documentStorageService.deleteDocument(document.storageUrl);
-    } catch (storageError) {
-      console.error("⚠️ Error al eliminar del storage:", storageError);
-      // Continuar aunque falle el borrado del storage
+    if (document.storedFileId) {
+      try {
+        await markStoredFileAsDeleted(document.storedFileId, session.user.id);
+      } catch (storageError) {
+        console.error("⚠️ Error al marcar archivo como eliminado:", storageError);
+        return NextResponse.json(
+          {
+            error:
+              storageError instanceof Error
+                ? storageError.message
+                : "No se puede eliminar el documento por obligación legal",
+          },
+          { status: 409 },
+        );
+      }
+    } else {
+      // Fallback para documentos legacy
+      try {
+        await documentStorageService.deleteDocument(document.storageUrl);
+      } catch (storageError) {
+        console.error("⚠️ Error al eliminar del storage:", storageError);
+      }
     }
 
     // Eliminar registro de la base de datos

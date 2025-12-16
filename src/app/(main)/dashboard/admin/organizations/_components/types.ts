@@ -12,6 +12,8 @@ export interface OrganizationItem {
   employeeNumberPrefix: string | null;
   allowedEmailDomains: string[];
   annualPtoDays: number;
+  storageUsedBytes: number;
+  storageLimitBytes: number;
   _count?: {
     users: number;
     employees: number;
