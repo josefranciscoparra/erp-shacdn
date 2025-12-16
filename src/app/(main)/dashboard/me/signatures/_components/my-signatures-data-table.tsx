@@ -17,7 +17,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { FileSignature, Clock, CheckCircle2, XCircle, AlertTriangle, Eye, Users } from "lucide-react";
+import { FileSignature, Clock, CheckCircle2, XCircle, AlertTriangle, Eye, Users, Filter } from "lucide-react";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { EmptyState } from "@/components/hr/empty-state";
@@ -65,6 +65,7 @@ export function MySignaturesDataTable({
 }: MySignaturesDataTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [showOnlyActionable, setShowOnlyActionable] = useState(false);
 
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
@@ -86,6 +87,22 @@ export function MySignaturesDataTable({
                 <p className="truncate font-medium">{signature.document.title}</p>
                 {signature.document.description && (
                   <p className="text-muted-foreground truncate text-xs">{signature.document.description}</p>
+                )}
+                {signature.status === "PENDING" && (
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {signature.isMyTurn ? (
+                      <Badge className="bg-emerald-500/15 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-300">
+                        Tu turno
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-200"
+                      >
+                        Esperando a {signature.waitingFor ?? "otro firmante"}
+                      </Badge>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -143,10 +160,9 @@ export function MySignaturesDataTable({
         header: "Firmante actual",
         cell: ({ row }) => {
           const signature = row.original;
+          const orderedSigners = [...signature.allSigners].sort((a, b) => a.order - b.order);
           // Encontrar el firmante actual (el primero que está pendiente según order)
-          const currentSigner = signature.allSigners
-            .sort((a, b) => a.order - b.order)
-            .find((s) => s.status === "PENDING");
+          const currentSigner = orderedSigners.find((s) => s.status === "PENDING");
 
           // Si todos firmaron o no hay pendientes
           if (!currentSigner) {
@@ -181,7 +197,11 @@ export function MySignaturesDataTable({
                   {currentSigner.employee.firstName} {currentSigner.employee.lastName}
                 </span>
                 <span className="text-muted-foreground text-xs">
-                  Turno {currentSigner.order} de {signature.allSigners.length}
+                  {signature.status === "PENDING"
+                    ? signature.isMyTurn
+                      ? "Te corresponde firmar ahora"
+                      : `Esperando a ${signature.waitingFor ?? "otro firmante"}`
+                    : `Turno ${currentSigner.order} de ${signature.allSigners.length}`}
                 </span>
               </div>
             </div>
@@ -289,21 +309,15 @@ export function MySignaturesDataTable({
         id: "actions",
         cell: ({ row }) => {
           const signature = row.original;
+          const isPending = signature.status === "PENDING";
+          const canSignNow = isPending && signature.isMyTurn;
+          const Icon = canSignNow ? FileSignature : Eye;
 
           return (
             <Link href={`/dashboard/me/signatures/${signature.signToken}`}>
-              <Button variant={signature.status === "PENDING" ? "default" : "outline"} size="sm" className="gap-2">
-                {signature.status === "PENDING" ? (
-                  <>
-                    <FileSignature className="h-4 w-4" />
-                    Firmar
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-4 w-4" />
-                    Ver
-                  </>
-                )}
+              <Button variant={canSignNow ? "default" : "outline"} size="sm" className="gap-2">
+                <Icon className="h-4 w-4" />
+                {canSignNow ? "Firmar" : "Ver"}
               </Button>
             </Link>
           );
@@ -314,14 +328,31 @@ export function MySignaturesDataTable({
   );
 
   // Ordenar firmas: más recientes primero
-  const sortedSignatures = useMemo(() => {
+  const prioritizedSignatures = useMemo(() => {
     return [...signatures].sort((a, b) => {
+      if (status === "pending" && a.isMyTurn !== b.isMyTurn) {
+        return a.isMyTurn ? -1 : 1;
+      }
       return new Date(b.request.createdAt).getTime() - new Date(a.request.createdAt).getTime();
     });
-  }, [signatures]);
+  }, [signatures, status]);
+
+  const actionableCount = useMemo(() => {
+    if (status !== "pending") {
+      return 0;
+    }
+    return prioritizedSignatures.filter((signature) => signature.isMyTurn).length;
+  }, [prioritizedSignatures, status]);
+
+  const visibleSignatures = useMemo(() => {
+    if (status === "pending" && showOnlyActionable) {
+      return prioritizedSignatures.filter((signature) => signature.isMyTurn);
+    }
+    return prioritizedSignatures;
+  }, [prioritizedSignatures, showOnlyActionable, status]);
 
   const table = useReactTable({
-    data: sortedSignatures,
+    data: visibleSignatures,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -342,6 +373,27 @@ export function MySignaturesDataTable({
 
   return (
     <>
+      {status === "pending" && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-muted-foreground text-sm">
+            Prioridad: primero verás los documentos que puedes firmar ahora mismo.
+          </p>
+          <Button
+            variant={showOnlyActionable ? "default" : "outline"}
+            size="sm"
+            className="gap-2"
+            disabled={!showOnlyActionable && actionableCount === 0}
+            onClick={() => {
+              setShowOnlyActionable((prev) => !prev);
+              table.setPageIndex(0);
+            }}
+          >
+            <Filter className="h-4 w-4" />
+            {showOnlyActionable ? "Ver todos" : `Solo firmables (${actionableCount})`}
+          </Button>
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>

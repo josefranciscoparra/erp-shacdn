@@ -160,6 +160,7 @@ export default function SignatureViewerPage({ params }: PageProps) {
   const isAlreadyCompleted = isSigned || isRejected;
   const currentSigner = currentSession.allSigners.find((signer) => signer.id === currentSession.signerId);
   const signedTimestamp = currentSession.signedAt ?? currentSigner?.signedAt ?? null;
+  const waitingForSigner = currentSession.waitingFor;
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
@@ -265,6 +266,29 @@ export default function SignatureViewerPage({ params }: PageProps) {
               className="min-w-[180px] flex-1"
             >
               Volver a mis firmas
+            </Button>
+          </div>
+        </Card>
+      ) : !currentSession.canSignNow ? (
+        <Card className="sticky bottom-0 z-10 space-y-4 p-6">
+          <div>
+            <h3 className="text-lg font-semibold">Aún no es tu turno</h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Este documento usa un flujo secuencial. Debe firmar{" "}
+              <span className="text-foreground font-medium">{waitingForSigner ?? "otro firmante asignado"}</span> antes
+              de que puedas continuar.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/dashboard/me/signatures")}
+              className="min-w-[180px] flex-1"
+            >
+              Volver a mis firmas
+            </Button>
+            <Button variant="default" onClick={() => fetchSessionByToken(token)} className="min-w-[180px] flex-1">
+              Actualizar estado
             </Button>
           </div>
         </Card>

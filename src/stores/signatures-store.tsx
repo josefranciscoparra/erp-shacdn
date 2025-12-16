@@ -72,6 +72,8 @@ export interface MySignature {
     createdAt: string;
   };
   allSigners: Signer[];
+  isMyTurn: boolean;
+  waitingFor?: string | null;
 }
 
 export interface SignSession {
@@ -93,6 +95,8 @@ export interface SignSession {
   };
   document: SignableDocument;
   allSigners: Signer[];
+  canSignNow: boolean;
+  waitingFor?: string | null;
 }
 
 // ==================== STATE ====================

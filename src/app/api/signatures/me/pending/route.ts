@@ -100,6 +100,16 @@ export async function GET(request: NextRequest) {
     };
 
     for (const signer of mySigners) {
+      const sortedSigners = [...signer.request.signers].sort((a, b) => a.order - b.order);
+      const previousPendingSigner = sortedSigners
+        .filter((s) => s.order < signer.order)
+        .find((s) => s.status !== "SIGNED");
+      const isMyTurn = signer.status === "PENDING" && !previousPendingSigner;
+      const waitingFor =
+        !isMyTurn && signer.status === "PENDING" && previousPendingSigner?.employee
+          ? `${previousPendingSigner.employee.firstName} ${previousPendingSigner.employee.lastName}`.trim()
+          : null;
+
       const transformed = {
         id: signer.id,
         requestId: signer.requestId,
@@ -123,6 +133,8 @@ export async function GET(request: NextRequest) {
           status: s.status,
           employee: s.employee,
         })),
+        isMyTurn,
+        waitingFor,
       };
 
       // Clasificar por estado

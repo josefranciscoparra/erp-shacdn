@@ -82,6 +82,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     const documentPath = resolveSignatureStoragePath(signer.request.document.originalFileUrl);
     const signedUrl = await signatureStorageService.getDocumentUrl(documentPath, 3600); // 1 hora
 
+    const sortedSigners = [...signer.request.signers].sort((a, b) => a.order - b.order);
+    const previousPendingSigner = sortedSigners
+      .filter((s) => s.order < signer.order)
+      .find((s) => s.status !== "SIGNED");
+    const canSignNow = signer.status === "PENDING" && !previousPendingSigner;
+    const waitingFor =
+      !canSignNow && signer.status === "PENDING" && previousPendingSigner?.employee
+        ? `${previousPendingSigner.employee.firstName} ${previousPendingSigner.employee.lastName}`.trim()
+        : null;
+
     // Devolver información completa incluso si está firmado/rechazado/expirado
     // para que la UI pueda mostrar el estado correcto
     const response = {
@@ -115,6 +125,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         rejectedAt: s.rejectedAt?.toISOString() ?? null,
         rejectionReason: s.rejectionReason ?? null,
       })),
+      canSignNow,
+      waitingFor,
     };
 
     return NextResponse.json(response);
