@@ -26,6 +26,7 @@ export interface DownloadOptions {
 export interface SignedUrlOptions {
   expiresIn?: number; // En segundos, por defecto 3600 (1 hora)
   operation?: "read" | "write" | "delete";
+  responseContentDisposition?: string;
 }
 
 export abstract class StorageProvider {

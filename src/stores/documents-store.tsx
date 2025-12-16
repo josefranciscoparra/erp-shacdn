@@ -73,7 +73,7 @@ interface DocumentsActions {
   fetchDocuments: (employeeId: string, options?: { refresh?: boolean }) => Promise<void>;
   uploadDocument: (employeeId: string, formData: FormData) => Promise<boolean>;
   deleteDocument: (employeeId: string, documentId: string) => Promise<boolean>;
-  downloadDocument: (employeeId: string, documentId: string) => Promise<string | null>;
+  downloadDocument: (employeeId: string, documentId: string) => Promise<void>;
 
   // Acciones para vista global
   fetchAllDocuments: (options?: { refresh?: boolean }) => Promise<void>;
@@ -268,26 +268,15 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
   // Descargar documento
   downloadDocument: async (employeeId: string, documentId: string) => {
     if (!ensureDocumentsEnabled()) {
-      return null;
+      return;
     }
 
     try {
-      const response = await fetch(`/api/employees/${employeeId}/documents/${documentId}/download`);
-
-      if (!response.ok) {
-        throw new Error("Error al descargar documento");
-      }
-
-      // Obtener el blob del archivo
-      const blob = await response.blob();
-
-      // Crear una URL temporal para el blob
-      const url = window.URL.createObjectURL(blob);
-      return url;
+      // Usar el helper centralizado con la estrategia de URL firmada (Enterprise pattern)
+      await downloadFileFromApi(`/api/employees/${employeeId}/documents/${documentId}/download?action=url`);
     } catch (error) {
       console.error("Error downloading document:", error);
-      toast.error("Error al descargar documento");
-      return null;
+      toast.error(error instanceof Error ? error.message : "Error al descargar documento");
     }
   },
 

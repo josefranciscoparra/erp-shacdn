@@ -66,25 +66,25 @@ export function ItemPreviewDialog({ open, onOpenChange, item }: ItemPreviewDialo
     if (!item) return;
 
     try {
-      // 1. Obtener URL firmada
       const response = await fetch(`/api/payslips/items/${item.id}/preview`);
-      if (!response.ok) return;
+      if (!response.ok) {
+        toast.error("Error al obtener URL de descarga");
+        return;
+      }
 
       const data = await response.json();
-      if (!data.success || !data.url) return;
+      if (!data.success || !data.url) {
+        toast.error("URL de descarga no válida");
+        return;
+      }
 
-      // 2. Descargar el archivo desde la URL firmada
-      const fileResponse = await fetch(data.url);
-      const blob = await fileResponse.blob();
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = item.originalFileName ?? `nomina_${item.id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const link = document.createElement("a");
+      link.href = data.url;
+      link.download = item.originalFileName ?? `nomina_${item.id}.pdf`;
+      link.target = "_blank";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch {
       toast.error("Error al descargar el archivo");
     }

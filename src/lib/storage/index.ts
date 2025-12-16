@@ -200,12 +200,12 @@ export class DocumentStorageService {
   }
 
   // Obtener URL firmada para acceso temporal
-  async getDocumentUrl(filePath: string, expiresIn: number = 3600) {
+  async getDocumentUrl(filePath: string, expiresIn: number = 3600, responseContentDisposition?: string) {
     const target = this.resolveFileTarget(filePath);
     if (target.remoteUrl) {
       return target.remoteUrl;
     }
-    return await this.storageProvider.getSignedUrl(target.key!, { expiresIn });
+    return await this.storageProvider.getSignedUrl(target.key!, { expiresIn, responseContentDisposition });
   }
 
   // Eliminar documento

@@ -172,6 +172,7 @@ export class R2StorageProvider extends StorageProvider {
     const command = new GetObjectCommand({
       Bucket: this.bucket,
       Key: path,
+      ResponseContentDisposition: options?.responseContentDisposition,
     });
 
     return await getSignedUrl(this.client, command, {

@@ -1,17 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
+  getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type SortingState,
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Calendar, Download, FileText } from "lucide-react";
+import { Calendar, Download, FileText, ArrowUpDown } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -19,6 +21,7 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { downloadFileFromApi } from "@/lib/client/file-download";
 
 const MONTH_NAMES = [
   "Enero",
@@ -54,24 +57,19 @@ function formatPeriod(month: number | null, year: number | null) {
 }
 
 export function PayslipsTable({ payslips, yearFilter }: PayslipsTableProps) {
+  const [sorting, setSorting] = useState<SortingState>([
+    { id: "period", desc: true }, // Default sort: Period DESC
+  ]);
+
   const handleDownload = async (payslip: Payslip) => {
     try {
-      const response = await fetch(`/api/me/documents/${payslip.id}/download`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = payslip.fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success("Nómina descargada");
-      } else {
-        toast.error("Error al descargar la nómina");
-      }
-    } catch {
+      await downloadFileFromApi(
+        `/api/me/documents/${payslip.id}/download?action=url&disposition=attachment`,
+        payslip.fileName,
+      );
+      toast.success("Nómina descargada");
+    } catch (error) {
+      console.error("Error downloading payslip:", error);
       toast.error("Error al descargar la nómina");
     }
   };
@@ -79,8 +77,20 @@ export function PayslipsTable({ payslips, yearFilter }: PayslipsTableProps) {
   const columns: ColumnDef<Payslip>[] = useMemo(
     () => [
       {
-        accessorKey: "period",
-        header: "Periodo",
+        id: "period",
+        accessorFn: (row) => (row.year ?? 0) * 100 + (row.month ?? 0),
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-4"
+            >
+              Periodo
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
         cell: ({ row }) => {
           return (
             <div className="flex items-center gap-3">
@@ -94,7 +104,18 @@ export function PayslipsTable({ payslips, yearFilter }: PayslipsTableProps) {
       },
       {
         accessorKey: "createdAt",
-        header: "Fecha de subida",
+        header: ({ column }) => {
+          return (
+            <Button
+              variant="ghost"
+              onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+              className="-ml-4"
+            >
+              Fecha de subida
+              <ArrowUpDown className="ml-2 h-4 w-4" />
+            </Button>
+          );
+        },
         cell: ({ row }) => (
           <div className="text-muted-foreground flex items-center gap-2 text-sm">
             <Calendar className="h-3.5 w-3.5" />
@@ -142,19 +163,16 @@ export function PayslipsTable({ payslips, yearFilter }: PayslipsTableProps) {
     return payslips.filter((p) => p.year === yearFilter);
   }, [payslips, yearFilter]);
 
-  // Ordenar por periodo (año desc, mes desc)
-  const sortedPayslips = useMemo(() => {
-    return [...filteredPayslips].sort((a, b) => {
-      if (a.year !== b.year) return (b.year ?? 0) - (a.year ?? 0);
-      return (b.month ?? 0) - (a.month ?? 0);
-    });
-  }, [filteredPayslips]);
-
   const table = useReactTable({
-    data: sortedPayslips,
+    data: filteredPayslips,
     columns,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setSorting,
+    state: {
+      sorting,
+    },
     initialState: {
       pagination: {
         pageSize: 10,

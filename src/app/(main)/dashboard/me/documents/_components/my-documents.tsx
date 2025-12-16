@@ -41,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { downloadFileFromApi, openFilePreviewFromApi } from "@/lib/client/file-download";
 import { documentKindLabels, formatFileSize, type DocumentKind } from "@/lib/validations/document";
 import { getMyDocuments, type MyDocument } from "@/server/actions/my-documents";
 
@@ -84,51 +85,21 @@ export function MyDocuments() {
   // Descargar documento
   const handleDownload = async (documentId: string, fileName: string) => {
     try {
-      const response = await fetch(`/api/me/documents/${documentId}/download`);
-
-      if (!response.ok) {
-        throw new Error("Error al descargar documento");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      link.target = "_blank";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-
+      await downloadFileFromApi(`/api/me/documents/${documentId}/download?action=url`, fileName);
       toast.success("Descarga iniciada");
     } catch (error) {
       console.error("Error downloading document:", error);
-      toast.error("Error al descargar documento");
+      toast.error(error instanceof Error ? error.message : "Error al descargar documento");
     }
   };
 
   // Ver documento
   const handlePreview = async (documentId: string) => {
     try {
-      const response = await fetch(`/api/me/documents/${documentId}/download`);
-
-      if (!response.ok) {
-        throw new Error("Error al abrir documento");
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const newWindow = window.open(url, "_blank");
-
-      if (newWindow) {
-        setTimeout(() => {
-          window.URL.revokeObjectURL(url);
-        }, 5000);
-      }
+      await openFilePreviewFromApi(`/api/me/documents/${documentId}/download?action=url`);
     } catch (error) {
       console.error("Error previewing document:", error);
-      toast.error("Error al abrir documento");
+      toast.error(error instanceof Error ? error.message : "Error al abrir documento");
     }
   };
 
