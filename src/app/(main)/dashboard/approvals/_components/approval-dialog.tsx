@@ -37,6 +37,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { downloadFileFromApi, openFilePreviewFromApi } from "@/lib/client/file-download";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
 
 const expenseCategories: Record<string, string> = {
@@ -345,6 +346,26 @@ function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
   const merchant = item.details?.merchant as string | undefined;
   const notes = item.details?.notes as string | undefined;
 
+  const handlePreview = async () => {
+    if (!downloadUrl) return;
+    try {
+      await openFilePreviewFromApi(downloadUrl);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo abrir el comprobante";
+      toast.error(message);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (!downloadUrl) return;
+    try {
+      await downloadFileFromApi(downloadUrl, item.details?.attachmentName as string | undefined);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "No se pudo descargar el comprobante";
+      toast.error(message);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-card flex items-center justify-between rounded-lg border p-4">
@@ -391,7 +412,7 @@ function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
               variant="outline"
               className="h-auto flex-1 justify-center py-2"
               onClick={() => {
-                window.open(downloadUrl, "_blank");
+                void handlePreview();
               }}
             >
               <span className="flex items-center gap-2">
@@ -403,13 +424,7 @@ function ExpenseDetails({ item }: { item: PendingApprovalItem }) {
               variant="outline"
               className="h-auto flex-1 justify-center py-2"
               onClick={() => {
-                const link = document.createElement("a");
-                link.href = downloadUrl;
-                link.target = "_blank";
-                // Usually endpoint sets content-disposition, but we can try forcing if same origin
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
+                void handleDownload();
               }}
             >
               <span className="flex items-center gap-2">
