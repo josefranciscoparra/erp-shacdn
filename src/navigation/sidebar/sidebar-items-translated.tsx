@@ -8,7 +8,6 @@ import {
   Calendar,
   Settings,
   FolderOpen,
-  FolderKanban,
   Clock,
   CalendarDays,
   Timer,
@@ -157,7 +156,7 @@ export function useSidebarItems(): NavGroup[] {
           ? [
               {
                 title: "Mis Firmas",
-                url: "/dashboard/my-signatures",
+                url: "/dashboard/me/signatures",
                 icon: FileSignature,
               },
             ]

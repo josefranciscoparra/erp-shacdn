@@ -11,7 +11,7 @@ export const runtime = "nodejs";
  * GET /api/signatures/me/pending
  * Obtiene las solicitudes de firma pendientes del empleado logueado
  */
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   if (!features.signatures) {
     return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 503 });
   }
@@ -110,6 +110,17 @@ export async function GET(request: NextRequest) {
           ? `${previousPendingSigner.employee.firstName} ${previousPendingSigner.employee.lastName}`.trim()
           : null;
 
+      const daysUntilExpiration = Math.ceil(
+        (signer.request.expiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+      );
+
+      let urgencyLevel: "HIGH" | "MEDIUM" | "NORMAL" = "NORMAL";
+      if (daysUntilExpiration <= 3) {
+        urgencyLevel = "HIGH";
+      } else if (daysUntilExpiration <= 7) {
+        urgencyLevel = "MEDIUM";
+      }
+
       const transformed = {
         id: signer.id,
         requestId: signer.requestId,
@@ -127,6 +138,7 @@ export async function GET(request: NextRequest) {
           expiresAt: signer.request.expiresAt.toISOString(),
           createdAt: signer.request.createdAt.toISOString(),
         },
+        urgencyLevel, // Nuevo campo calculado por el servidor
         allSigners: signer.request.signers.map((s) => ({
           id: s.id,
           order: s.order,

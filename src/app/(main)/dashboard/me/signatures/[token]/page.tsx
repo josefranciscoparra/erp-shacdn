@@ -174,7 +174,10 @@ export default function SignatureViewerPage({ params }: PageProps) {
             )}
           </div>
           <div className="flex gap-2">
-            <SignatureUrgencyBadge expiresAt={currentSession.request.expiresAt} />
+            <SignatureUrgencyBadge
+              expiresAt={currentSession.request.expiresAt}
+              urgencyLevel={currentSession.urgencyLevel}
+            />
             <SignatureStatusBadge status={currentSession.request.status as any} />
           </div>
         </div>

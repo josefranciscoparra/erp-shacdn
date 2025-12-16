@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import { differenceInDays, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   AlertCircle,
@@ -97,7 +97,7 @@ export default function SignPage() {
       setShowConfirmModal(false);
       // Redirigir a mis firmas después de 2 segundos
       setTimeout(() => {
-        router.push("/dashboard/my-signatures");
+        router.push("/dashboard/me/signatures");
       }, 2000);
     }
   };
@@ -110,7 +110,7 @@ export default function SignPage() {
       setShowRejectDialog(false);
       // Redirigir a mis firmas después de 2 segundos
       setTimeout(() => {
-        router.push("/dashboard/my-signatures");
+        router.push("/dashboard/me/signatures");
       }, 2000);
     }
   };
@@ -143,7 +143,7 @@ export default function SignPage() {
             <CardDescription className="text-center">El enlace de firma no es válido o ha expirado</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => router.push("/dashboard/my-signatures")} className="w-full">
+            <Button onClick={() => router.push("/dashboard/me/signatures")} className="w-full">
               Ir a Mis Firmas
             </Button>
           </CardContent>
@@ -152,11 +152,10 @@ export default function SignPage() {
     );
   }
 
-  const { status, document: doc, request, employee, consentGiven, allSigners } = currentSession;
+  const { status, document: doc, request, consentGiven, allSigners } = currentSession;
   const isExpired = new Date(request.expiresAt) < new Date();
   const isSigned = status === "SIGNED";
   const isRejected = status === "REJECTED";
-  const isPending = status === "PENDING" && !isExpired;
 
   const signedCount = allSigners.filter((s) => s.status === "SIGNED").length;
   const totalCount = allSigners.length;
@@ -179,7 +178,7 @@ export default function SignPage() {
               <p className="text-sm font-medium">{doc.title}</p>
               <p className="text-muted-foreground text-xs">{doc.category}</p>
             </div>
-            <Button onClick={() => router.push("/dashboard/my-signatures")} className="w-full">
+            <Button onClick={() => router.push("/dashboard/me/signatures")} className="w-full">
               Ver mis firmas
             </Button>
           </CardContent>
@@ -205,7 +204,7 @@ export default function SignPage() {
               <p className="text-sm font-medium">{doc.title}</p>
               <p className="text-muted-foreground text-xs">{doc.category}</p>
             </div>
-            <Button onClick={() => router.push("/dashboard/my-signatures")} className="w-full">
+            <Button onClick={() => router.push("/dashboard/me/signatures")} className="w-full">
               Ver mis firmas
             </Button>
           </CardContent>
@@ -233,7 +232,7 @@ export default function SignPage() {
                 Expiró el {new Date(request.expiresAt).toLocaleDateString("es-ES")}
               </p>
             </div>
-            <Button onClick={() => router.push("/dashboard/my-signatures")} className="w-full">
+            <Button onClick={() => router.push("/dashboard/me/signatures")} className="w-full">
               Ver mis firmas
             </Button>
           </CardContent>

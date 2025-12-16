@@ -357,7 +357,7 @@ Sistema de firma electrónica simple (SES) integrado con notificaciones basadas 
 **Estructura:**
 
 - `page.tsx` - Layout principal
-- `_components/my-signatures-table.tsx` - Tabla de firmas pendientes
+- `_components/my-signatures-data-table.tsx` - Tabla de firmas profesionales (pendientes, firmadas, etc.)
 
 **Tabs:**
 
@@ -624,7 +624,7 @@ src/app/(main)/dashboard/
         ├── page.tsx ✅
         ├── [token]/page.tsx ✅
         └── _components/
-            └── my-signatures-table.tsx ✅
+            └── my-signatures-data-table.tsx ✅
 
 src/navigation/sidebar/
 └── sidebar-items.ts (modificado) ✅

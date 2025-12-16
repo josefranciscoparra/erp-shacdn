@@ -41,10 +41,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { token } = await params;
     const body = await request.json();
 
+    // Obtener IP real del cliente (seguridad)
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const realIp = forwardedFor ? forwardedFor.split(",")[0].trim() : (request.ip ?? "unknown");
+
     // Validar datos
     const data = confirmSignatureSchema.parse({
       signToken: token,
-      ipAddress: body.ipAddress,
+      ipAddress: realIp, // Usar IP extraída del servidor
       userAgent: body.userAgent,
     });
 

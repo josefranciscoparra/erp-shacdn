@@ -126,6 +126,14 @@ export const signatureRequestStatusColors: Record<SignatureRequestStatus, string
   EXPIRED: "bg-gray-50 text-gray-700 border-gray-200",
 };
 
+// Colores para badges de estado de firmante
+export const signerStatusColors: Record<SignerStatus, string> = {
+  PENDING: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  SIGNED: "bg-green-50 text-green-700 border-green-200",
+  REJECTED: "bg-red-50 text-red-700 border-red-200",
+  EXPIRED: "bg-gray-50 text-gray-700 border-gray-200",
+};
+
 // Colores para badges de urgencia (basado en días restantes)
 export const urgencyColors = {
   expired: "bg-gray-50 text-gray-700 border-gray-200",

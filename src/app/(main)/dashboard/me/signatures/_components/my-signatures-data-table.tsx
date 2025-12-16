@@ -27,29 +27,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { signerStatusColors, signerStatusLabels, type SignerStatus } from "@/lib/validations/signature";
 import type { MySignature } from "@/stores/signatures-store";
 
-const statusConfig = {
-  PENDING: {
-    label: "Pendiente",
-    icon: Clock,
-    className: "bg-yellow-500/20 text-yellow-800 dark:bg-yellow-500/30 dark:text-yellow-300 font-semibold",
-  },
-  SIGNED: {
-    label: "Firmado",
-    icon: CheckCircle2,
-    className: "bg-green-500/10 text-green-700 dark:text-green-400",
-  },
-  REJECTED: {
-    label: "Rechazado",
-    icon: XCircle,
-    className: "bg-red-500/10 text-red-700 dark:text-red-400",
-  },
-  EXPIRED: {
-    label: "Expirado",
-    icon: AlertTriangle,
-    className: "bg-gray-500/10 text-gray-700 dark:text-gray-400",
-  },
+const signerStatusIcons: Record<SignerStatus, React.ElementType> = {
+  PENDING: Clock,
+  SIGNED: CheckCircle2,
+  REJECTED: XCircle,
+  EXPIRED: AlertTriangle,
 };
 
 interface MySignaturesDataTableProps {
@@ -214,7 +199,9 @@ export function MySignaturesDataTable({
         cell: ({ row }) => {
           const signature = row.original;
           if (status === "pending") {
-            return <SignatureUrgencyBadge expiresAt={signature.request.expiresAt} />;
+            return (
+              <SignatureUrgencyBadge expiresAt={signature.request.expiresAt} urgencyLevel={signature.urgencyLevel} />
+            );
           }
           return (
             <span className="text-muted-foreground text-sm">
@@ -261,7 +248,7 @@ export function MySignaturesDataTable({
                       <Users className="mr-1 inline h-3 w-3" />
                       {signedCount} de {totalSigners} firmantes
                     </p>
-                    {signature.allSigners.map((signer, index) => (
+                    {signature.allSigners.map((signer) => (
                       <p key={signer.id} className="text-xs">
                         {signer.employee.firstName} {signer.employee.lastName}
                         {" - "}
@@ -294,13 +281,15 @@ export function MySignaturesDataTable({
         header: "Estado",
         cell: ({ row }) => {
           const signature = row.original;
-          const config = statusConfig[signature.status] ?? statusConfig.PENDING;
-          const Icon = config.icon;
+          const status = signature.status as SignerStatus; // Cast seguro
+          const Icon = signerStatusIcons[status] ?? Clock;
+          const label = signerStatusLabels[status] ?? status;
+          const colorClass = signerStatusColors[status] ?? "bg-gray-100 text-gray-800";
 
           return (
-            <Badge variant="outline" className={config.className}>
+            <Badge variant="outline" className={colorClass}>
               <Icon className="mr-1 h-3 w-3" />
-              {config.label}
+              {label}
             </Badge>
           );
         },

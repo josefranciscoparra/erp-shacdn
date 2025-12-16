@@ -6539,7 +6539,7 @@ El sistema de firma electrónica implementa **SES (Simple Electronic Signature)*
 │       ├── page.tsx ← Mis documentos pendientes de firma
 │       ├── [token]/page.tsx ← Visor PDF + consentimiento + firma
 │       └── _components/
-│           └── my-signatures-table.tsx ← Tabla mis firmas
+│           └── my-signatures-data-table.tsx ← Tabla mis firmas
 │
 ├── 📄 COMPONENTES REUTILIZABLES
 │   └── src/components/signatures/

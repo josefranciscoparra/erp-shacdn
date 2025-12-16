@@ -92,6 +92,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ? `${previousPendingSigner.employee.firstName} ${previousPendingSigner.employee.lastName}`.trim()
         : null;
 
+    const daysUntilExpiration = Math.ceil(
+      (signer.request.expiresAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    let urgencyLevel: "HIGH" | "MEDIUM" | "NORMAL" = "NORMAL";
+    if (daysUntilExpiration <= 3) {
+      urgencyLevel = "HIGH";
+    } else if (daysUntilExpiration <= 7) {
+      urgencyLevel = "MEDIUM";
+    }
+
     // Devolver información completa incluso si está firmado/rechazado/expirado
     // para que la UI pueda mostrar el estado correcto
     const response = {
@@ -111,6 +122,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         expiresAt: signer.request.expiresAt.toISOString(),
         createdAt: signer.request.createdAt.toISOString(),
       },
+      urgencyLevel,
       document: {
         ...signer.request.document,
         originalFileUrl: signedUrl, // Reemplazar path con URL firmada

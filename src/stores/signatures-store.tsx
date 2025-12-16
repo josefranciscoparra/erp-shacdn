@@ -1,6 +1,5 @@
 "use client";
 
-import { differenceInDays } from "date-fns";
 import { toast } from "sonner";
 import { create } from "zustand";
 
@@ -71,6 +70,7 @@ export interface MySignature {
     expiresAt: string;
     createdAt: string;
   };
+  urgencyLevel?: "HIGH" | "MEDIUM" | "NORMAL";
   allSigners: Signer[];
   isMyTurn: boolean;
   waitingFor?: string | null;
@@ -93,11 +93,55 @@ export interface SignSession {
     expiresAt: string;
     createdAt: string;
   };
+  urgencyLevel?: "HIGH" | "MEDIUM" | "NORMAL";
   document: SignableDocument;
   allSigners: Signer[];
   canSignNow: boolean;
   waitingFor?: string | null;
 }
+
+const buildTurnInfo = (signature: MySignature): Pick<MySignature, "isMyTurn" | "waitingFor"> => {
+  const fallback = {
+    isMyTurn: signature.isMyTurn ?? false,
+    waitingFor: signature.waitingFor ?? null,
+  };
+
+  if (!signature.allSigners?.length) {
+    return fallback;
+  }
+
+  const orderedSigners = [...signature.allSigners].sort((a, b) => a.order - b.order);
+  const currentSigner = orderedSigners.find((signer) => signer.id === signature.id);
+
+  if (!currentSigner) {
+    return fallback;
+  }
+
+  const blockingSigner = orderedSigners
+    .filter((signer) => signer.order < currentSigner.order)
+    .find((signer) => signer.status !== "SIGNED");
+
+  const isMyTurn = signature.isMyTurn ?? (currentSigner.status === "PENDING" && !blockingSigner);
+
+  const waitingFor =
+    signature.waitingFor ??
+    (!isMyTurn && blockingSigner?.employee
+      ? `${blockingSigner.employee.firstName ?? ""} ${blockingSigner.employee.lastName ?? ""}`.trim()
+      : null);
+
+  return {
+    isMyTurn,
+    waitingFor: waitingFor ?? null,
+  };
+};
+
+const normalizeSignature = (signature: MySignature): MySignature => {
+  const turnInfo = buildTurnInfo(signature);
+  return {
+    ...signature,
+    ...turnInfo,
+  };
+};
 
 // ==================== STATE ====================
 
@@ -359,17 +403,19 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
 
       const data = await response.json();
 
-      // Calcular urgentes en cliente
-      const urgent = data.pending.filter((sig: MySignature) => {
-        const days = differenceInDays(new Date(sig.request.expiresAt), new Date());
-        return days >= 0 && days <= 3;
-      });
+      const normalizedPending = data.pending.map((signature: MySignature) => normalizeSignature(signature));
+      const normalizedSigned = data.signed.map((signature: MySignature) => normalizeSignature(signature));
+      const normalizedRejected = data.rejected.map((signature: MySignature) => normalizeSignature(signature));
+      const normalizedExpired = data.expired.map((signature: MySignature) => normalizeSignature(signature));
+
+      // Calcular urgentes usando el flag del servidor
+      const urgent = normalizedPending.filter((sig: MySignature) => sig.urgencyLevel === "HIGH");
 
       set({
-        myPendingSignatures: data.pending,
-        mySignedSignatures: data.signed,
-        myRejectedSignatures: data.rejected,
-        myExpiredSignatures: data.expired,
+        myPendingSignatures: normalizedPending,
+        mySignedSignatures: normalizedSigned,
+        myRejectedSignatures: normalizedRejected,
+        myExpiredSignatures: normalizedExpired,
         urgentCount: urgent.length,
         isLoadingMySignatures: false,
       });
@@ -510,11 +556,43 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
           },
           isSigning: false,
         });
+
+        // OPTIMISTIC UPDATE: Mover de pendientes a firmados inmediatamente
+        // Esto evita el delay de esperar al refetch
+        const currentPending = state.myPendingSignatures;
+        const signedItem = currentPending.find((s) => s.id === session.signerId);
+
+        if (signedItem) {
+          const newPending = currentPending.filter((s) => s.id !== session.signerId);
+          const newSignedItem: MySignature = {
+            ...signedItem,
+            status: "SIGNED",
+            signedAt: result.signedAt ?? new Date().toISOString(),
+            // Actualizar estado interno del request si es necesario
+            request: {
+              ...signedItem.request,
+              status: result.allCompleted ? "COMPLETED" : "IN_PROGRESS",
+            },
+            allSigners: updatedSigners, // Actualizar firmantes
+            isMyTurn: false,
+          };
+
+          set({
+            myPendingSignatures: newPending,
+            mySignedSignatures: [newSignedItem, ...state.mySignedSignatures],
+            urgentCount: newPending.filter((s) => s.urgencyLevel === "HIGH").length,
+          });
+        }
       } else {
         set({ isSigning: false });
       }
 
-      await get().fetchMyPendingSignatures({ refresh: true });
+      // Refetch silencioso para asegurar consistencia
+      void get()
+        .fetchMyPendingSignatures({ refresh: true })
+        .catch((err) => {
+          console.warn("Background fetch failed:", err);
+        });
 
       toast.success("Documento firmado exitosamente");
       return true;
@@ -576,11 +654,42 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
           },
           isSigning: false,
         });
+
+        // OPTIMISTIC UPDATE: Mover de pendientes a rechazados inmediatamente
+        const currentPending = state.myPendingSignatures;
+        const rejectedItem = currentPending.find((s) => s.id === session.signerId);
+
+        if (rejectedItem) {
+          const newPending = currentPending.filter((s) => s.id !== session.signerId);
+          const newRejectedItem: MySignature = {
+            ...rejectedItem,
+            status: "REJECTED",
+            rejectedAt: result.rejectedAt ?? new Date().toISOString(),
+            rejectionReason: reason,
+            request: {
+              ...rejectedItem.request,
+              status: "REJECTED",
+            },
+            allSigners: updatedSigners,
+            isMyTurn: false,
+          };
+
+          set({
+            myPendingSignatures: newPending,
+            myRejectedSignatures: [newRejectedItem, ...state.myRejectedSignatures],
+            urgentCount: newPending.filter((s) => s.urgencyLevel === "HIGH").length,
+          });
+        }
       } else {
         set({ isSigning: false });
       }
 
-      await get().fetchMyPendingSignatures({ refresh: true });
+      // Refetch silencioso
+      void get()
+        .fetchMyPendingSignatures({ refresh: true })
+        .catch((err) => {
+          console.warn("Background fetch failed:", err);
+        });
 
       toast.success("Documento rechazado");
       return true;
