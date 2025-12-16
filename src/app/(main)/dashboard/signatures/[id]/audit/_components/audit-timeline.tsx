@@ -29,7 +29,7 @@ interface TimelineEvent {
   event: string;
   timestamp: string;
   user?: string;
-  details?: string;
+  details?: string | Record<string, unknown>;
 }
 
 // Tipo para los metadatos del firmante
@@ -89,12 +89,14 @@ interface AuditTimelineProps {
 const eventIcons: Record<string, React.ReactNode> = {
   CREATED: <FileText className="h-4 w-4" />,
   REQUEST_CREATED: <Send className="h-4 w-4" />,
+  SIGNATURE_REQUEST_CREATED: <Send className="h-4 w-4" />,
   CONSENT_GIVEN: <Shield className="h-4 w-4" />,
   SIGNED: <PenTool className="h-4 w-4" />,
   REJECTED: <XCircle className="h-4 w-4" />,
   EXPIRED: <Clock className="h-4 w-4" />,
   REMINDER_SENT: <Bell className="h-4 w-4" />,
   DOCUMENT_VIEWED: <FileText className="h-4 w-4" />,
+  DOCUMENT_SIGNED: <PenTool className="h-4 w-4" />,
   HASH_VERIFIED: <Hash className="h-4 w-4" />,
   DEFAULT: <AlertCircle className="h-4 w-4" />,
 };
@@ -102,8 +104,10 @@ const eventIcons: Record<string, React.ReactNode> = {
 const eventLabels: Record<string, string> = {
   CREATED: "Documento creado",
   REQUEST_CREATED: "Solicitud creada",
+  SIGNATURE_REQUEST_CREATED: "Solicitud creada",
   CONSENT_GIVEN: "Consentimiento dado",
   SIGNED: "Documento firmado",
+  DOCUMENT_SIGNED: "Documento firmado",
   REJECTED: "Documento rechazado",
   EXPIRED: "Solicitud expirada",
   REMINDER_SENT: "Recordatorio enviado",
@@ -114,8 +118,10 @@ const eventLabels: Record<string, string> = {
 const eventColors: Record<string, string> = {
   CREATED: "bg-blue-500",
   REQUEST_CREATED: "bg-blue-500",
+  SIGNATURE_REQUEST_CREATED: "bg-blue-500",
   CONSENT_GIVEN: "bg-purple-500",
   SIGNED: "bg-green-500",
+  DOCUMENT_SIGNED: "bg-green-500",
   REJECTED: "bg-red-500",
   EXPIRED: "bg-gray-500",
   REMINDER_SENT: "bg-amber-500",
@@ -140,6 +146,40 @@ function parseUserAgent(userAgent: string): string {
   if (userAgent.includes("Safari")) return "Safari";
   if (userAgent.includes("Edge")) return "Edge";
   return "Navegador desconocido";
+}
+
+function formatEventDetails(details?: string | Record<string, unknown>): string | null {
+  if (!details) {
+    return null;
+  }
+
+  if (typeof details === "string") {
+    return details;
+  }
+
+  try {
+    if ("action" in details && typeof details.action === "string") {
+      return details.action;
+    }
+    if ("documentTitle" in details && "signersCount" in details) {
+      return `Documento: ${details.documentTitle} · Firmantes: ${details.signersCount}`;
+    }
+    return JSON.stringify(details);
+  } catch {
+    return null;
+  }
+}
+
+function getReadableEventLabel(event: string): string {
+  if (eventLabels[event]) {
+    return eventLabels[event];
+  }
+
+  return event
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 export function AuditTimeline({ data }: AuditTimelineProps) {
@@ -356,7 +396,7 @@ export function AuditTimeline({ data }: AuditTimelineProps) {
                 <div className="ml-4 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">{eventIcons[event.event] ?? eventIcons.DEFAULT}</span>
-                    <span className="font-medium">{eventLabels[event.event] ?? event.event}</span>
+                    <span className="font-medium">{getReadableEventLabel(event.event)}</span>
                     {event.signerName && (
                       <Badge variant="outline" className="text-xs">
                         {event.signerName}
@@ -364,7 +404,9 @@ export function AuditTimeline({ data }: AuditTimelineProps) {
                     )}
                   </div>
                   <p className="text-muted-foreground text-sm">{formatTimestamp(event.timestamp)}</p>
-                  {event.details && <p className="text-muted-foreground text-sm">{event.details}</p>}
+                  {formatEventDetails(event.details) && (
+                    <p className="text-muted-foreground text-sm">{formatEventDetails(event.details)}</p>
+                  )}
                 </div>
               </div>
             ))}

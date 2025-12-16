@@ -12,6 +12,7 @@ import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+import { SignatureDocumentActions } from "./_components/document-actions";
 import { DownloadEvidenceButton } from "./_components/download-evidence-button";
 
 export default async function SignatureRequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -115,6 +116,7 @@ export default async function SignatureRequestDetailPage({ params }: { params: P
             <div className="flex flex-col items-end gap-2">
               <SignatureStatusBadge status={request.status} />
               <SignatureUrgencyBadge expiresAt={request.expiresAt} />
+              <SignatureDocumentActions requestId={request.id} documentTitle={request.document.title} />
             </div>
           </div>
         </CardHeader>

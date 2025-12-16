@@ -44,7 +44,9 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
               employeeNumber: true,
             },
           },
-          evidence: true,
+          evidences: {
+            orderBy: { createdAt: "desc" },
+          },
         },
         orderBy: {
           order: "asc",
@@ -95,38 +97,38 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
       rejectedAt: signer.rejectedAt?.toISOString() ?? null,
       rejectionReason: signer.rejectionReason,
       consentGivenAt: signer.consentGivenAt?.toISOString() ?? null,
-      evidence: signer.evidence
-        ? {
-            id: signer.evidence.id,
-            timeline: signer.evidence.timeline as Array<{
-              event: string;
-              timestamp: string;
-              user?: string;
-              details?: string;
-            }>,
-            preSignHash: signer.evidence.preSignHash,
-            postSignHash: signer.evidence.postSignHash,
-            signerMetadata: signer.evidence.signerMetadata as {
-              ip?: string;
-              userAgent?: string;
-              geolocation?: {
-                latitude?: number;
-                longitude?: number;
-                accuracy?: number;
-              };
-              sessionId?: string;
-            },
-            policy: signer.evidence.policy,
-            result: signer.evidence.result,
-            createdAt: signer.evidence.createdAt.toISOString(),
-          }
-        : null,
+      evidence:
+        signer.evidences && signer.evidences.length > 0
+          ? {
+              id: signer.evidences[0].id,
+              timeline: signer.evidences[0].timeline as Array<{
+                event: string;
+                timestamp: string;
+                user?: string;
+                details?: string;
+              }>,
+              preSignHash: signer.evidences[0].preSignHash,
+              postSignHash: signer.evidences[0].postSignHash,
+              signerMetadata: signer.evidences[0].signerMetadata as {
+                ip?: string;
+                userAgent?: string;
+                geolocation?: {
+                  latitude?: number;
+                  longitude?: number;
+                  accuracy?: number;
+                };
+                sessionId?: string;
+              },
+              policy: signer.evidences[0].policy,
+              result: signer.evidences[0].result,
+              createdAt: signer.evidences[0].createdAt.toISOString(),
+            }
+          : null,
     })),
   };
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="mb-2 flex items-center gap-2">
@@ -148,7 +150,6 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
           </div>
         </div>
 
-        {/* Acciones rápidas */}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" asChild>
             <Link href={`/dashboard/signatures/${id}`}>
@@ -167,8 +168,11 @@ export default async function SignatureAuditPage({ params }: { params: Promise<{
         </div>
       </div>
 
-      {/* Contenido principal */}
-      <AuditTimeline data={auditData} />
+      <div className="space-y-6">
+        <div className="bg-card rounded-lg border p-6">
+          <AuditTimeline data={auditData} />
+        </div>
+      </div>
     </div>
   );
 }

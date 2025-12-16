@@ -37,6 +37,7 @@ export default function SignatureViewerPage({ params }: PageProps) {
     confirmSignature,
     rejectSignature,
     clearSession,
+    downloadSignedDocument,
   } = useSignaturesStore();
 
   const [consentChecked, setConsentChecked] = useState(false);
@@ -154,6 +155,12 @@ export default function SignatureViewerPage({ params }: PageProps) {
     );
   }
 
+  const isSigned = currentSession.status === "SIGNED";
+  const isRejected = currentSession.status === "REJECTED";
+  const isAlreadyCompleted = isSigned || isRejected;
+  const currentSigner = currentSession.allSigners.find((signer) => signer.id === currentSession.signerId);
+  const signedTimestamp = currentSession.signedAt ?? currentSigner?.signedAt ?? null;
+
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       {/* Header */}
@@ -223,7 +230,45 @@ export default function SignatureViewerPage({ params }: PageProps) {
       </div>
 
       {/* Footer - Acciones de Firma */}
-      {!showRejectDialog ? (
+      {isAlreadyCompleted ? (
+        <Card className="sticky bottom-0 z-10 space-y-4 p-6">
+          <div>
+            <h3 className="text-lg font-semibold">
+              {isSigned ? "Ya has firmado este documento" : "Has rechazado este documento"}
+            </h3>
+            <p className="text-muted-foreground mt-1 text-sm">
+              {isSigned && signedTimestamp
+                ? `Firmado el ${new Date(signedTimestamp).toLocaleDateString("es-ES", {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}.`
+                : null}
+              {isRejected && currentSession.rejectionReason ? ` Motivo: ${currentSession.rejectionReason}` : null}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {isSigned && (
+              <Button
+                variant="outline"
+                onClick={() => void downloadSignedDocument(currentSession.request.id)}
+                className="min-w-[180px] flex-1"
+              >
+                Descargar PDF firmado
+              </Button>
+            )}
+            <Button
+              variant="default"
+              onClick={() => router.push("/dashboard/me/signatures")}
+              className="min-w-[180px] flex-1"
+            >
+              Volver a mis firmas
+            </Button>
+          </div>
+        </Card>
+      ) : !showRejectDialog ? (
         <Card className="sticky bottom-0 z-10 space-y-4 p-6">
           {/* Checkbox de consentimiento */}
           <div className="flex items-start space-x-3">
