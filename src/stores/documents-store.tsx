@@ -66,6 +66,10 @@ interface DocumentsState {
     total: number;
     totalPages: number;
   };
+  storage: {
+    limit: number;
+    used: number;
+  };
 }
 
 interface DocumentsActions {
@@ -128,6 +132,10 @@ const initialState: DocumentsState = {
     limit: 20,
     total: 0,
     totalPages: 0,
+  },
+  storage: {
+    limit: 0,
+    used: 0,
   },
 };
 
@@ -397,6 +405,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       set({
         globalDocuments: data.documents,
         globalPagination: data.pagination,
+        storage: data.storage ?? { limit: 0, used: 0 },
         isLoadingGlobal: false,
       });
     } catch (error) {
@@ -513,6 +522,7 @@ export const useGlobalDocumentsByKind = () => {
 export const useGlobalDocumentStats = () => {
   const globalDocuments = useDocumentsStore((state) => state.globalDocuments);
   const pagination = useDocumentsStore((state) => state.globalPagination);
+  const storage = useDocumentsStore((state) => state.storage);
 
   const stats = {
     total: pagination.total, // Usar el total de la paginación
@@ -524,7 +534,9 @@ export const useGlobalDocumentStats = () => {
       },
       {} as Record<DocumentKind, number>,
     ),
-    totalSize: globalDocuments.reduce((acc, doc) => acc + doc.fileSize, 0),
+    // Usar datos reales del servidor si existen, fallback al cálculo local (que es parcial por paginación)
+    totalSize: storage.used > 0 ? storage.used : globalDocuments.reduce((acc, doc) => acc + doc.fileSize, 0),
+    storageLimit: storage.limit,
     lastUploaded:
       globalDocuments.length > 0
         ? globalDocuments.reduce((latest, doc) => (new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest))

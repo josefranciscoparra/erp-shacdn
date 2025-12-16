@@ -13,8 +13,8 @@ import { useGlobalDocumentStats } from "@/stores/documents-store";
 export function DocumentStatsCards() {
   const stats = useGlobalDocumentStats();
 
-  // Límite de almacenamiento (3 GB en bytes)
-  const STORAGE_LIMIT = 3 * 1024 * 1024 * 1024; // 3 GB
+  // Límite de almacenamiento real de la organización (fallback a 1GB)
+  const STORAGE_LIMIT = stats.storageLimit > 0 ? stats.storageLimit : 1 * 1024 * 1024 * 1024;
   const storagePercentage = Math.min((stats.totalSize / STORAGE_LIMIT) * 100, 100);
 
   const cards = [
