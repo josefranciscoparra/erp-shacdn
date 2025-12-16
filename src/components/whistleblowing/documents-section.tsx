@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { downloadFileFromApi } from "@/lib/client/file-download";
 
 interface WhistleblowingDocument {
   id: string;
@@ -139,23 +140,12 @@ export function WhistleblowingDocumentsSection({
   async function handleDownload(documentId: string) {
     setDownloadingId(documentId);
     try {
-      const response = await fetch(`/api/whistleblowing/${reportId}/documents/${documentId}`);
-      const payload = await response.json().catch(() => null);
-
-      if (!response.ok) {
-        const message = getFriendlyErrorMessage(
-          response.status,
-          payload?.error ?? "No se pudo obtener la URL de descarga",
-        );
-        throw new Error(message);
-      }
-
-      if (payload?.downloadUrl) {
-        window.open(payload.downloadUrl, "_blank", "noopener");
-      }
+      const targetDocument = documents.find((doc) => doc.id === documentId);
+      await downloadFileFromApi(`/api/whistleblowing/${reportId}/documents/${documentId}`, targetDocument?.fileName);
     } catch (error) {
       console.error("Error downloading whistleblowing document:", error);
-      toast.error(error instanceof Error ? error.message : "No se pudo descargar el documento");
+      const message = error instanceof Error ? error.message : "No se pudo descargar el documento";
+      toast.error(message);
     } finally {
       setDownloadingId(null);
     }

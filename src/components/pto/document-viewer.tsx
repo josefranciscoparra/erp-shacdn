@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { downloadFileFromApi } from "@/lib/client/file-download";
 import { cn } from "@/lib/utils";
 
 export interface PtoDocument {
@@ -118,11 +119,12 @@ export function DocumentViewer({
   const handleDownload = async (doc: PtoDocument) => {
     setDownloadingId(doc.id);
     try {
-      const url = await fetchDocumentUrl(doc.id, doc.ptoRequestId);
-      if (url) {
-        // Abrir en nueva pestaña para descargar
-        window.open(url, "_blank");
-      }
+      await downloadFileFromApi(`/api/pto-requests/${doc.ptoRequestId}/documents/${doc.id}`, doc.fileName);
+      toast.success("Descarga iniciada");
+    } catch (error) {
+      console.error("Error downloading PTO document:", error);
+      const message = error instanceof Error ? error.message : "Error al descargar el documento";
+      toast.error(message);
     } finally {
       setDownloadingId(null);
     }

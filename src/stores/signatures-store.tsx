@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { create } from "zustand";
 
 import { features } from "@/config/features";
+import { downloadFileFromApi } from "@/lib/client/file-download";
 
 // ==================== TIPOS ====================
 
@@ -595,32 +596,11 @@ export const useSignaturesStore = create<SignaturesStore>((set, get) => ({
     }
 
     try {
-      const response = await fetch(`/api/signatures/documents/${id}/download`);
-
-      if (!response.ok) {
-        const errorPayload = await response.json().catch(() => null);
-        throw new Error(errorPayload?.error ?? "Error al descargar documento");
-      }
-
-      const { downloadUrl, fileName } = await response.json();
-
-      if (!downloadUrl) {
-        throw new Error("Documento no disponible");
-      }
-
-      const anchor = document.createElement("a");
-      anchor.href = downloadUrl;
-      anchor.target = "_blank";
-      anchor.rel = "noopener";
-      anchor.download = fileName ?? `documento-firmado-${id}.pdf`;
-      document.body.appendChild(anchor);
-      anchor.click();
-      document.body.removeChild(anchor);
-
+      await downloadFileFromApi(`/api/signatures/documents/${id}/download`, `documento-firmado-${id}.pdf`);
       toast.success("Documento descargado");
     } catch (error) {
       console.error("Error downloading document:", error);
-      toast.error("Error al descargar documento");
+      toast.error(error instanceof Error ? error.message : "Error al descargar documento");
     }
   },
 
