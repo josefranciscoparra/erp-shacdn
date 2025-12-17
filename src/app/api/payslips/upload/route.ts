@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
 import { prisma } from "@/lib/prisma";
+import { getOrgStorageQuota } from "@/server/storage/quota";
 import { payslipService } from "@/services/payslips/payslip.service";
 
 export const runtime = "nodejs";
@@ -57,6 +58,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `El archivo excede el tamaño máximo de ${MAX_FILE_SIZE / 1024 / 1024}MB` },
         { status: 400 },
+      );
+    }
+
+    // Verificar que hay espacio de almacenamiento disponible
+    // NOTA: Los archivos de payslip se suben a temp y se cuentan individualmente
+    // cuando se publican. Esta verificación previene subidas cuando ya no hay espacio.
+    const quota = await getOrgStorageQuota(orgId);
+    if (quota.availableBytes < BigInt(file.size)) {
+      return NextResponse.json(
+        { error: "No hay espacio de almacenamiento suficiente. Contacta con tu administrador." },
+        { status: 507 },
       );
     }
 

@@ -69,6 +69,7 @@ interface DocumentsState {
   storage: {
     limit: number;
     used: number;
+    reserved: number;
   };
 }
 
@@ -136,6 +137,7 @@ const initialState: DocumentsState = {
   storage: {
     limit: 0,
     used: 0,
+    reserved: 0,
   },
 };
 
@@ -405,7 +407,7 @@ export const useDocumentsStore = create<DocumentsStore>((set, get) => ({
       set({
         globalDocuments: data.documents,
         globalPagination: data.pagination,
-        storage: data.storage ?? { limit: 0, used: 0 },
+        storage: data.storage ?? { limit: 0, used: 0, reserved: 0 },
         isLoadingGlobal: false,
       });
     } catch (error) {
@@ -537,6 +539,7 @@ export const useGlobalDocumentStats = () => {
     // Usar datos reales del servidor si existen, fallback al cálculo local (que es parcial por paginación)
     totalSize: storage.used > 0 ? storage.used : globalDocuments.reduce((acc, doc) => acc + doc.fileSize, 0),
     storageLimit: storage.limit,
+    storageReserved: storage.reserved,
     lastUploaded:
       globalDocuments.length > 0
         ? globalDocuments.reduce((latest, doc) => (new Date(doc.createdAt) > new Date(latest.createdAt) ? doc : latest))

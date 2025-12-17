@@ -4,6 +4,7 @@ import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentFiltersSchema } from "@/lib/validations/document";
+import { expireReservations } from "@/server/storage/quota";
 
 export const runtime = "nodejs";
 
@@ -104,6 +105,26 @@ export async function GET(request: NextRequest) {
       updatedAt: doc.updatedAt.toISOString(),
     }));
 
+    // Limpiar reservas expiradas y obtener estado de storage (on-demand)
+    await expireReservations(session.user.orgId);
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: {
+        storageUsedBytes: true,
+        storageLimitBytes: true,
+        storageReservedBytes: true,
+      },
+    });
+
+    // Convertir BigInt a number para JSON (BigInt no es serializable)
+    const storage = org
+      ? {
+          limit: Number(org.storageLimitBytes),
+          used: Number(org.storageUsedBytes),
+          reserved: Number(org.storageReservedBytes),
+        }
+      : { limit: 0, used: 0, reserved: 0 };
+
     return NextResponse.json({
       documents: transformedDocuments,
       pagination: {
@@ -112,6 +133,7 @@ export async function GET(request: NextRequest) {
         total: totalCount,
         totalPages: Math.ceil(totalCount / filters.limit),
       },
+      storage,
     });
   } catch (error) {
     console.error("❌ Error al obtener documentos:", error);

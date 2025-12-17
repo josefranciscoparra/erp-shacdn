@@ -11,6 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { registerStoredFile } from "@/lib/storage/storage-ledger";
 import { createNotification } from "@/server/actions/notifications";
+import { getOrgStorageQuota } from "@/server/storage/quota";
 
 // Nombres de meses para notificaciones
 const MONTH_NAMES = [
@@ -1084,6 +1085,23 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
       return { success: false, error: "No hay nóminas listas para publicar" };
     }
 
+    // Verificar cuota de almacenamiento antes de publicar
+    // Estimación conservadora: 1MB por nómina (mejor rechazar de más que exceder cuota)
+    const ESTIMATED_SIZE_PER_PAYSLIP = 1024 * 1024; // 1MB
+    const estimatedTotalSize = BigInt(readyItems.length * ESTIMATED_SIZE_PER_PAYSLIP);
+    try {
+      const quota = await getOrgStorageQuota(orgId);
+      if (quota.availableBytes < estimatedTotalSize) {
+        return {
+          success: false,
+          error: `No hay espacio de almacenamiento suficiente para publicar ${readyItems.length} nóminas. Contacta con tu administrador.`,
+        };
+      }
+    } catch (quotaError) {
+      // Si falla la verificación de cuota, continuar (no bloquear por error técnico)
+      console.warn("[publishBatch] Error verificando cuota, continuando:", quotaError);
+    }
+
     let publishedCount = 0;
     let skippedCount = 0;
     const now = new Date();
@@ -1239,6 +1257,23 @@ export async function publishItems(itemIds: string[]): Promise<PublishResult> {
 
     if (items.length === 0) {
       return { success: false, error: "No se encontraron items válidos para publicar" };
+    }
+
+    // Verificar cuota de almacenamiento antes de publicar
+    // Estimación conservadora: 1MB por nómina (mejor rechazar de más que exceder cuota)
+    const ESTIMATED_SIZE_PER_PAYSLIP = 1024 * 1024; // 1MB
+    const estimatedTotalSize = BigInt(items.length * ESTIMATED_SIZE_PER_PAYSLIP);
+    try {
+      const quota = await getOrgStorageQuota(orgId);
+      if (quota.availableBytes < estimatedTotalSize) {
+        return {
+          success: false,
+          error: `No hay espacio de almacenamiento suficiente para publicar ${items.length} nóminas. Contacta con tu administrador.`,
+        };
+      }
+    } catch (quotaError) {
+      // Si falla la verificación de cuota, continuar (no bloquear por error técnico)
+      console.warn("[publishItems] Error verificando cuota, continuando:", quotaError);
     }
 
     const batchSelection = new Map<string, number>();

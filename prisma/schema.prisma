@@ -69,8 +69,10 @@ model Organization {
   features Json @default("{}") // Feature flags JSON: { chat: true, ... }
 
   // Métricas de almacenamiento (Cloudflare R2 / provider seleccionado)
-  storageUsedBytes  Int @default(0)
-  storageLimitBytes Int @default(1073741824) // 1GB por defecto, personalizable por plan
+  // CRÍTICO: BigInt para soportar hasta 100GB (Int32 max = 2.1GB)
+  storageUsedBytes     BigInt @default(0)
+  storageLimitBytes    BigInt @default(1073741824) // 1GB por defecto, personalizable por plan
+  storageReservedBytes BigInt @default(0) // Bytes reservados pendientes de commit
 
   // Relaciones
   users                   User[]
@@ -166,6 +168,9 @@ model Organization {
   // Importaciones masivas de empleados
   employeeImportJobs EmployeeImportJob[]
 
+  // Sistema de reservas de storage
+  storageReservations StorageReservation[]
+
   @@map("organizations")
 }
 
@@ -179,6 +184,23 @@ model OrganizationGroup {
   organizations Organization[]
 
   @@map("organization_groups")
+}
+
+// Sistema de reservas de storage para uploads atómicos
+// Evita race conditions: 2 uploads simultáneos no pueden superar el límite
+model StorageReservation {
+  id        String   @id @default(cuid())
+  orgId     String
+  org       Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  bytes     BigInt // Bytes reservados (BigInt para soportar archivos grandes)
+  expiresAt DateTime // Expiración de la reserva (30 min por defecto)
+  createdAt DateTime @default(now())
+  userId    String? // Auditoría: quién reservó
+  fileKey   String? // Trazabilidad opcional: clave del archivo
+
+  @@index([orgId])
+  @@index([expiresAt])
+  @@map("storage_reservations")
 }
 
 model User {

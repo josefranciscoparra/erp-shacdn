@@ -8,6 +8,12 @@ import { prisma } from "@/lib/prisma";
 import { calculateHash } from "@/lib/signatures/hash";
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { registerStoredFile } from "@/lib/storage/storage-ledger";
+import {
+  cancelReservation,
+  commitReservation,
+  reserveStorage,
+  StorageQuotaExceededError,
+} from "@/server/storage/quota";
 
 export const runtime = "nodejs";
 
@@ -52,59 +58,94 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "El archivo no puede superar 20MB" }, { status: 400 });
     }
 
-    // Calcular hash del archivo
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileHash = calculateHash(fileBuffer);
+    // 1. Reservar espacio de storage ANTES de subir (control de cuota)
+    let reservationId: string;
+    try {
+      reservationId = await reserveStorage(session.user.orgId, BigInt(file.size), session.user.id, `signature-doc`);
+    } catch (error) {
+      if (error instanceof StorageQuotaExceededError) {
+        return NextResponse.json(
+          { error: "No hay espacio de almacenamiento suficiente. Contacta con tu administrador." },
+          { status: 507 },
+        );
+      }
+      throw error;
+    }
 
-    // Generar ID para el documento
-    const documentId = crypto.randomUUID();
+    // Variable para tracking del upload (para rollback en caso de error)
+    let uploadResult: { path: string; size?: number; mimeType?: string } | null = null;
 
-    // Subir a storage
-    const uploadResult = await signatureStorageService.uploadOriginalDocument(session.user.orgId, documentId, file);
+    try {
+      // Calcular hash del archivo
+      const fileBuffer = Buffer.from(await file.arrayBuffer());
+      const fileHash = calculateHash(fileBuffer);
 
-    const normalizedMimeType = uploadResult.mimeType || file.type || "application/pdf";
-    const sizeBytes = uploadResult.size ?? file.size;
+      // Generar ID para el documento
+      const documentId = crypto.randomUUID();
 
-    // Crear documento en la BD y registrar en el ledger
-    const document = await prisma.$transaction(async (tx) => {
-      const storedFile = await registerStoredFile({
-        orgId: session.user.orgId,
-        path: uploadResult.path,
-        sizeBytes,
-        mimeType: normalizedMimeType,
-        category: FileCategory.SIGNATURE,
-        retentionPolicy: RetentionPolicy.SIGNATURE,
-        tx,
-      });
+      // 2. Subir a storage
+      uploadResult = await signatureStorageService.uploadOriginalDocument(session.user.orgId, documentId, file);
 
-      return tx.signableDocument.create({
-        data: {
-          title,
-          description: description ?? undefined,
-          category,
-          originalFileUrl: uploadResult.path,
-          originalHash: fileHash,
-          fileSize: sizeBytes,
-          mimeType: normalizedMimeType,
-          version: 1,
+      const normalizedMimeType = uploadResult.mimeType ?? file.type ?? "application/pdf";
+      const sizeBytes = uploadResult.size ?? file.size;
+
+      // 3. Crear documento en la BD (con skipStorageIncrement porque ya reservamos)
+      const document = await prisma.$transaction(async (tx) => {
+        const storedFile = await registerStoredFile({
           orgId: session.user.orgId,
-          createdById: session.user.id,
-          storedFileId: storedFile.id,
-        },
-      });
-    });
+          path: uploadResult!.path,
+          sizeBytes,
+          mimeType: normalizedMimeType,
+          category: FileCategory.SIGNATURE,
+          retentionPolicy: RetentionPolicy.SIGNATURE,
+          skipStorageIncrement: true, // Ya reservamos el espacio
+          tx,
+        });
 
-    return NextResponse.json(
-      {
-        document: {
-          id: document.id,
-          title: document.title,
-          category: document.category,
-          fileSize: document.fileSize,
+        return tx.signableDocument.create({
+          data: {
+            title,
+            description: description ?? undefined,
+            category,
+            originalFileUrl: uploadResult!.path,
+            originalHash: fileHash,
+            fileSize: sizeBytes,
+            mimeType: normalizedMimeType,
+            version: 1,
+            orgId: session.user.orgId,
+            createdById: session.user.id,
+            storedFileId: storedFile.id,
+          },
+        });
+      });
+
+      // 4. Confirmar reserva (reserved → used)
+      await commitReservation(reservationId);
+
+      return NextResponse.json(
+        {
+          document: {
+            id: document.id,
+            title: document.title,
+            category: document.category,
+            fileSize: document.fileSize,
+          },
         },
-      },
-      { status: 201 },
-    );
+        { status: 201 },
+      );
+    } catch (error) {
+      // 5. Rollback: cancelar reserva
+      await cancelReservation(reservationId);
+
+      // NOTA: No intentamos borrar el archivo subido porque signatureStorageService
+      // no expone un método de delete individual. El archivo quedará huérfano
+      // pero no cuenta contra la cuota (la reserva se canceló).
+      if (uploadResult?.path) {
+        console.warn("⚠️ Archivo huérfano en storage (reserva cancelada):", uploadResult.path);
+      }
+
+      throw error;
+    }
   } catch (error) {
     console.error("❌ Error al subir documento:", error);
     return NextResponse.json(

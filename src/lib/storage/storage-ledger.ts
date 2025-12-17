@@ -19,6 +19,12 @@ interface RegisterStoredFileInput {
   legalHoldReason?: string | null;
   createdAt?: Date;
   tx?: TransactionClient;
+  /**
+   * Si true, NO incrementa storageUsedBytes en la organización.
+   * Usar cuando ya se reservó espacio previamente con reserveStorage().
+   * @default false
+   */
+  skipStorageIncrement?: boolean;
 }
 
 interface MarkDeletionOptions {
@@ -77,7 +83,12 @@ export async function registerStoredFile(input: RegisterStoredFileInput): Promis
       },
     });
 
-    await adjustStorageUsage(client, input.orgId, input.sizeBytes, "increment");
+    // Solo incrementar storage si NO se reservó previamente
+    // Cuando skipStorageIncrement=true, el espacio ya fue reservado con reserveStorage()
+    // y se moverá de reserved a used con commitReservation()
+    if (!input.skipStorageIncrement) {
+      await adjustStorageUsage(client, input.orgId, input.sizeBytes, "increment");
+    }
 
     return storedFile;
   });

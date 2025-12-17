@@ -11,6 +11,7 @@ const vatSchema = z
   .regex(/^[a-zA-Z0-9]+$/, "El NIF/CIF solo puede contener letras y números")
   .optional()
   .or(z.literal(""))
+  .or(z.null())
   .transform((value) => {
     if (!value) return null;
     return value;
@@ -24,6 +25,7 @@ const employeeNumberPrefixSchema = z
   .regex(/^[A-Z]+$/, "El prefijo solo puede contener letras mayúsculas")
   .optional()
   .or(z.literal(""))
+  .or(z.null())
   .transform((value) => {
     if (!value) return null;
     return value.toUpperCase();
@@ -37,6 +39,21 @@ const allowedEmailDomainsSchema = z
     // Normalizar y filtrar dominios válidos
     return domains.map((domain) => normalizeDomain(domain)).filter((domain): domain is string => domain !== null);
   });
+
+// Constantes para límites de storage
+const MIN_STORAGE_BYTES = 2 * 1024 * 1024; // 2MB (temporal para testing, cambiar a 100MB en prod)
+const MAX_STORAGE_BYTES = 100 * 1024 * 1024 * 1024; // 100GB
+
+/**
+ * Schema para límite de almacenamiento.
+ * Acepta number (en bytes) y valida rango 100MB - 100GB.
+ * El valor se convierte a BigInt en la capa de persistencia.
+ */
+const storageLimitBytesSchema = z
+  .number()
+  .min(MIN_STORAGE_BYTES, `El límite mínimo es 100MB`)
+  .max(MAX_STORAGE_BYTES, `El límite máximo es 100GB`)
+  .optional();
 
 export const createOrganizationSchema = z.object({
   name: z.string().trim().min(2, "El nombre debe tener al menos 2 caracteres").max(120, "El nombre es demasiado largo"),
@@ -61,6 +78,7 @@ export const updateOrganizationSchema = z
     hierarchyType: z.nativeEnum(HierarchyType).optional(),
     employeeNumberPrefix: employeeNumberPrefixSchema,
     allowedEmailDomains: allowedEmailDomainsSchema,
+    storageLimitBytes: storageLimitBytesSchema,
   })
   .superRefine((data, ctx) => {
     if (
@@ -69,7 +87,8 @@ export const updateOrganizationSchema = z
       data.active === undefined &&
       data.hierarchyType === undefined &&
       data.employeeNumberPrefix === undefined &&
-      data.allowedEmailDomains === undefined
+      data.allowedEmailDomains === undefined &&
+      data.storageLimitBytes === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

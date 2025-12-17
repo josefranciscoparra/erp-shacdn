@@ -43,6 +43,16 @@ function ensureSuperAdmin(role: string | undefined) {
   }
 }
 
+/**
+ * Formatea bytes a formato legible (KB, MB, GB)
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
 export async function GET() {
   try {
     const session = await auth();
@@ -56,7 +66,7 @@ export async function GET() {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
-    const organizations = await prisma.organization.findMany({
+    const orgsRaw = await prisma.organization.findMany({
       orderBy: { createdAt: "asc" },
       select: {
         id: true,
@@ -66,6 +76,7 @@ export async function GET() {
         chatEnabled: true,
         storageUsedBytes: true,
         storageLimitBytes: true,
+        storageReservedBytes: true,
         hierarchyType: true,
         createdAt: true,
         updatedAt: true,
@@ -83,6 +94,14 @@ export async function GET() {
         },
       },
     });
+
+    // Convertir BigInt a Number para serialización JSON
+    const organizations = orgsRaw.map((org) => ({
+      ...org,
+      storageUsedBytes: Number(org.storageUsedBytes),
+      storageLimitBytes: Number(org.storageLimitBytes),
+      storageReservedBytes: Number(org.storageReservedBytes),
+    }));
 
     return NextResponse.json({
       organizations,
@@ -144,9 +163,29 @@ export async function POST(request: NextRequest) {
 
       case "update": {
         const payload = updateOrganizationSchema.parse(data);
-        const { id, name, vat, active, hierarchyType, employeeNumberPrefix, allowedEmailDomains } = payload;
+        const { id, name, vat, active, hierarchyType, employeeNumberPrefix, allowedEmailDomains, storageLimitBytes } =
+          payload;
 
-        const organization = await prisma.organization.update({
+        // Si se está actualizando el límite de storage, validar que no sea menor al uso actual
+        if (storageLimitBytes !== undefined) {
+          const currentOrg = await prisma.organization.findUnique({
+            where: { id },
+            select: { storageUsedBytes: true, storageReservedBytes: true },
+          });
+          const currentUsage = currentOrg
+            ? Number(currentOrg.storageUsedBytes) + Number(currentOrg.storageReservedBytes)
+            : 0;
+          if (storageLimitBytes < currentUsage) {
+            return NextResponse.json(
+              {
+                error: `El nuevo límite (${formatBytes(storageLimitBytes)}) no puede ser menor al uso actual (${formatBytes(currentUsage)})`,
+              },
+              { status: 400 },
+            );
+          }
+        }
+
+        const orgUpdated = await prisma.organization.update({
           where: { id },
           data: {
             ...(name !== undefined ? { name } : {}),
@@ -155,8 +194,17 @@ export async function POST(request: NextRequest) {
             ...(hierarchyType !== undefined ? { hierarchyType } : {}),
             ...(employeeNumberPrefix !== undefined ? { employeeNumberPrefix } : {}),
             ...(allowedEmailDomains !== undefined ? { allowedEmailDomains } : {}),
+            ...(storageLimitBytes !== undefined ? { storageLimitBytes: BigInt(storageLimitBytes) } : {}),
           },
         });
+
+        // Convertir BigInt a Number para serialización JSON
+        const organization = {
+          ...orgUpdated,
+          storageUsedBytes: Number(orgUpdated.storageUsedBytes),
+          storageLimitBytes: Number(orgUpdated.storageLimitBytes),
+          storageReservedBytes: Number(orgUpdated.storageReservedBytes),
+        };
 
         await revalidatePath("/dashboard/admin/organizations");
         return NextResponse.json({ organization });

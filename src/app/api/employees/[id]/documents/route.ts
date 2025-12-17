@@ -4,7 +4,7 @@ import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
-import { markStoredFileAsDeleted } from "@/lib/storage/storage-ledger";
+import { finalizeStoredFileDeletion, markStoredFileAsDeleted } from "@/lib/storage/storage-ledger";
 import { documentFiltersSchema } from "@/lib/validations/document";
 
 export const runtime = "nodejs";
@@ -150,9 +150,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
-    if (document.storedFileId) {
+    if (document.storedFileId && document.storedFile) {
+      // 1. Soft delete - Marcar como eliminado (valida retención/legalHold)
+      let markedFile;
       try {
-        await markStoredFileAsDeleted(document.storedFileId, session.user.id);
+        markedFile = await markStoredFileAsDeleted(document.storedFileId, session.user.id);
       } catch (storageError) {
         console.error("⚠️ Error al marcar archivo como eliminado:", storageError);
         return NextResponse.json(
@@ -165,16 +167,29 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
           { status: 409 },
         );
       }
-    } else {
+
+      // 2. Best-effort purge físico - Solo si no hay retención activa
+      // Si falla, el archivo queda marcado como deleted pero aún existe físicamente
+      try {
+        // Intentar borrar del storage físico
+        await documentStorageService.deleteDocument(document.storageUrl);
+        // Finalizar eliminación del ledger (decrementa storage y borra registro)
+        await finalizeStoredFileDeletion(markedFile);
+      } catch (purgeError) {
+        // Best-effort: si falla el purge físico, el archivo queda marcado como deleted
+        // pero aún existe. Un proceso de limpieza puede reintentarlo después.
+        console.warn("⚠️ Best-effort purge fallido, archivo queda marcado como deleted:", purgeError);
+      }
+    } else if (!document.storedFileId) {
       // Documentos legacy sin ledger
       try {
         await documentStorageService.deleteDocument(document.storageUrl);
       } catch (storageError) {
-        console.error("⚠️ Error al eliminar del storage:", storageError);
+        console.error("⚠️ Error al eliminar del storage (legacy):", storageError);
       }
     }
 
-    // Eliminar registro de la base de datos
+    // 3. Eliminar registro de EmployeeDocument de la base de datos
     await prisma.employeeDocument.delete({
       where: { id: documentId },
     });

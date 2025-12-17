@@ -27,10 +27,25 @@ import { createOrganizationSchema, type CreateOrganizationInput } from "@/valida
 
 export type OrganizationFormValues = CreateOrganizationInput;
 
+// Constantes para límites de storage
+const MIN_STORAGE_GB = 0.002; // 2MB en GB (temporal para testing)
+const MAX_STORAGE_GB = 100; // 100GB
+const GB_TO_BYTES = 1024 * 1024 * 1024;
+
+/**
+ * Formatea bytes a formato legible
+ */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < GB_TO_BYTES) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / GB_TO_BYTES).toFixed(2)} GB`;
+}
+
 interface OrganizationFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: OrganizationFormValues) => Promise<void>;
+  onSubmit: (values: OrganizationFormValues & { storageLimitBytes?: number }) => Promise<void>;
   isSubmitting: boolean;
   initialValues?: {
     name: string;
@@ -39,6 +54,9 @@ interface OrganizationFormDialogProps {
     hierarchyType?: HierarchyType;
     employeeNumberPrefix?: string | null;
     allowedEmailDomains?: string[];
+    storageLimitBytes?: number;
+    storageUsedBytes?: number;
+    storageReservedBytes?: number;
   } | null;
   mode: "create" | "edit";
 }
@@ -53,6 +71,7 @@ export function OrganizationFormDialog({
 }: OrganizationFormDialogProps) {
   const [emailDomains, setEmailDomains] = useState<string[]>([]);
   const [emailInput, setEmailInput] = useState("");
+  const [storageLimitGB, setStorageLimitGB] = useState<number>(1); // Default 1GB
 
   const form = useForm<OrganizationFormValues>({
     resolver: zodResolver(createOrganizationSchema),
@@ -88,6 +107,9 @@ export function OrganizationFormDialog({
       });
       setEmailDomains(initialValues?.allowedEmailDomains ?? []);
       setEmailInput("");
+      // Convertir bytes a GB para el input
+      const limitBytes = initialValues?.storageLimitBytes ?? GB_TO_BYTES; // Default 1GB
+      setStorageLimitGB(Number((limitBytes / GB_TO_BYTES).toFixed(2)));
     }
   }, [open, initialValues, form]);
 
@@ -96,9 +118,15 @@ export function OrganizationFormDialog({
     const finalValues = {
       ...values,
       allowedEmailDomains: emailDomains,
+      // Solo incluir el límite de storage en modo edit
+      ...(mode === "edit" ? { storageLimitBytes: Math.round(storageLimitGB * GB_TO_BYTES) } : {}),
     };
     await onSubmit(finalValues);
   };
+
+  // Calcular uso actual para mostrar al usuario
+  const currentUsageBytes = (initialValues?.storageUsedBytes ?? 0) + (initialValues?.storageReservedBytes ?? 0);
+  const minAllowedGB = Math.max(MIN_STORAGE_GB, currentUsageBytes / GB_TO_BYTES);
 
   const addEmailDomain = () => {
     const domain = emailInput.trim().toLowerCase().replace(/^@/, "");
@@ -269,6 +297,42 @@ export function OrganizationFormDialog({
                   </FormItem>
                 )}
               />
+            )}
+
+            {mode === "edit" && (
+              <div className="space-y-2">
+                <FormLabel>Límite de almacenamiento</FormLabel>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={minAllowedGB}
+                    max={MAX_STORAGE_GB}
+                    step={0.1}
+                    value={storageLimitGB}
+                    onChange={(e) => {
+                      const value = parseFloat(e.target.value);
+                      if (!isNaN(value)) {
+                        setStorageLimitGB(Math.max(minAllowedGB, Math.min(MAX_STORAGE_GB, value)));
+                      }
+                    }}
+                    className="w-32"
+                  />
+                  <span className="text-muted-foreground text-sm">GB</span>
+                </div>
+                <p className="text-muted-foreground text-sm">
+                  Uso actual: {formatBytes(initialValues?.storageUsedBytes ?? 0)}
+                  {(initialValues?.storageReservedBytes ?? 0) > 0 && (
+                    <span className="text-amber-600">
+                      {" "}
+                      (+{formatBytes(initialValues?.storageReservedBytes ?? 0)} reservado)
+                    </span>
+                  )}
+                  {" / "}Límite: {formatBytes(storageLimitGB * GB_TO_BYTES)}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  Rango permitido: 100MB - 100GB. No puede ser menor al uso actual.
+                </p>
+              </div>
             )}
 
             <FormField

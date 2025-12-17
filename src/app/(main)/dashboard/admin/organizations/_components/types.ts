@@ -14,6 +14,7 @@ export interface OrganizationItem {
   annualPtoDays: number;
   storageUsedBytes: number;
   storageLimitBytes: number;
+  storageReservedBytes: number;
   _count?: {
     users: number;
     employees: number;
