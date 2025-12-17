@@ -47,9 +47,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     });
 
     // Construir filtros para Prisma
+    // Excluir documentos eliminados (deletedAt != null van a la Papelera Legal)
     const whereClause: any = {
       employeeId,
       orgId: session.user.orgId,
+      deletedAt: null, // Solo documentos activos
     };
 
     if (filters.documentKind) {
@@ -150,8 +152,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
     }
 
+    // NUEVO FLUJO: Papelera Legal (soft delete)
+    // El documento se mueve a la papelera, NO se elimina físicamente hasta que expire la retención
+
     if (document.storedFileId && document.storedFile) {
-      // 1. Soft delete - Marcar como eliminado (valida retención/legalHold)
+      // 1. Soft delete del StoredFile (siempre permitido excepto legalHold)
       let markedFile;
       try {
         markedFile = await markStoredFileAsDeleted(document.storedFileId, session.user.id);
@@ -168,20 +173,48 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
         );
       }
 
-      // 2. Best-effort purge físico - Solo si no hay retención activa
-      // Si falla, el archivo queda marcado como deleted pero aún existe físicamente
+      // 2. Soft delete del EmployeeDocument (mover a papelera)
+      await prisma.employeeDocument.update({
+        where: { id: documentId },
+        data: {
+          deletedAt: new Date(),
+          deletedById: session.user.id,
+        },
+      });
+
+      // 3. Best-effort purge físico - Solo si no hay retención activa
+      let purged = false;
       try {
-        // Intentar borrar del storage físico
         await documentStorageService.deleteDocument(document.storageUrl);
-        // Finalizar eliminación del ledger (decrementa storage y borra registro)
         await finalizeStoredFileDeletion(markedFile);
-      } catch (purgeError) {
-        // Best-effort: si falla el purge físico, el archivo queda marcado como deleted
-        // pero aún existe. Un proceso de limpieza puede reintentarlo después.
-        console.warn("⚠️ Best-effort purge fallido, archivo queda marcado como deleted:", purgeError);
+        purged = true;
+      } catch {
+        // Best-effort: si falla el purge, el archivo queda en papelera
+        console.info("📁 Documento movido a papelera (retención vigente o purge fallido)");
       }
-    } else if (!document.storedFileId) {
-      // Documentos legacy sin ledger
+
+      // Si se purgó completamente, eliminar el EmployeeDocument
+      if (purged) {
+        await prisma.employeeDocument.delete({
+          where: { id: documentId },
+        });
+        return NextResponse.json({ success: true, message: "Documento eliminado permanentemente" });
+      }
+
+      // Retornar mensaje de papelera con fecha de retención
+      const retainUntil = document.storedFile.retainUntil;
+      return NextResponse.json({
+        success: true,
+        message: retainUntil
+          ? `Documento movido a la papelera. Se conservará hasta ${retainUntil.toLocaleDateString("es-ES")} por retención legal.`
+          : "Documento movido a la papelera.",
+        movedToTrash: true,
+        retainUntil: retainUntil?.toISOString() ?? null,
+      });
+    }
+
+    // Documentos legacy sin ledger - eliminar directamente
+    if (!document.storedFileId) {
       try {
         await documentStorageService.deleteDocument(document.storageUrl);
       } catch (storageError) {
@@ -189,12 +222,11 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
       }
     }
 
-    // 3. Eliminar registro de EmployeeDocument de la base de datos
     await prisma.employeeDocument.delete({
       where: { id: documentId },
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, message: "Documento eliminado" });
   } catch (error) {
     console.error("❌ Error al eliminar documento:", error);
     return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });

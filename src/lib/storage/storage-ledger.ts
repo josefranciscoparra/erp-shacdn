@@ -94,6 +94,12 @@ export async function registerStoredFile(input: RegisterStoredFileInput): Promis
   });
 }
 
+/**
+ * Marca un archivo como eliminado (soft delete).
+ * SIEMPRE permite soft delete, incluso con retención vigente.
+ * El archivo se mueve a la "Papelera Legal" y sigue existiendo para cumplimiento.
+ * Solo bloquea si hay legalHold activo (caso de inspección/juicio).
+ */
 export async function markStoredFileAsDeleted(
   storedFileId: string,
   userId: string,
@@ -112,14 +118,47 @@ export async function markStoredFileAsDeleted(
       return storedFile;
     }
 
-    enforceDeletionAllowed(storedFile);
+    // Solo bloquear soft delete si hay legalHold activo
+    // La retención NO bloquea el soft delete, solo la purga física
+    if (storedFile.legalHold) {
+      throw new Error("Documento protegido por obligación legal (legal hold activo)");
+    }
 
     return client.storedFile.update({
       where: { id: storedFile.id },
       data: {
         deletedAt: new Date(),
         deletedById: userId,
-        legalHoldReason: storedFile.legalHoldReason ?? options?.reason ?? null,
+      },
+    });
+  });
+}
+
+/**
+ * Restaura un archivo eliminado (quita de la papelera).
+ */
+export async function restoreStoredFile(
+  storedFileId: string,
+  options?: { tx?: TransactionClient },
+): Promise<StoredFile> {
+  return withTransaction(options?.tx, async (client) => {
+    const storedFile = await client.storedFile.findUnique({
+      where: { id: storedFileId },
+    });
+
+    if (!storedFile) {
+      throw new Error("Archivo no encontrado");
+    }
+
+    if (!storedFile.deletedAt) {
+      return storedFile; // Ya está restaurado
+    }
+
+    return client.storedFile.update({
+      where: { id: storedFile.id },
+      data: {
+        deletedAt: null,
+        deletedById: null,
       },
     });
   });
@@ -166,6 +205,10 @@ export function hasRetentionExpired(file: Pick<StoredFile, "retainUntil">, refer
   return referenceDate >= file.retainUntil;
 }
 
+/**
+ * Valida si un archivo puede ser purgado físicamente.
+ * Solo lanza error si NO se puede purgar.
+ */
 export function enforceDeletionAllowed(file: Pick<StoredFile, "retainUntil" | "legalHold">) {
   if (file.legalHold) {
     throw new Error("Documento protegido por obligación legal (legal hold activo)");
@@ -174,4 +217,54 @@ export function enforceDeletionAllowed(file: Pick<StoredFile, "retainUntil" | "l
   if (file.retainUntil && file.retainUntil > new Date()) {
     throw new Error("Documento protegido por obligación legal (retención vigente)");
   }
+}
+
+export interface PurgeStatus {
+  canPurge: boolean;
+  reason: string | null;
+  retainUntil: Date | null;
+  legalHold: boolean;
+}
+
+/**
+ * Verifica si un archivo puede ser purgado físicamente.
+ * Retorna información útil para la UI (tooltips, botones deshabilitados).
+ */
+export function canPurgeFile(file: Pick<StoredFile, "deletedAt" | "retainUntil" | "legalHold">): PurgeStatus {
+  // Debe estar marcado como eliminado primero
+  if (!file.deletedAt) {
+    return {
+      canPurge: false,
+      reason: "El archivo no está en la papelera",
+      retainUntil: file.retainUntil,
+      legalHold: file.legalHold,
+    };
+  }
+
+  // Legal hold bloquea purga
+  if (file.legalHold) {
+    return {
+      canPurge: false,
+      reason: "Legal hold activo",
+      retainUntil: file.retainUntil,
+      legalHold: true,
+    };
+  }
+
+  // Retención vigente bloquea purga
+  if (file.retainUntil && file.retainUntil > new Date()) {
+    return {
+      canPurge: false,
+      reason: `Retención hasta ${file.retainUntil.toLocaleDateString("es-ES")}`,
+      retainUntil: file.retainUntil,
+      legalHold: false,
+    };
+  }
+
+  return {
+    canPurge: true,
+    reason: null,
+    retainUntil: file.retainUntil,
+    legalHold: false,
+  };
 }

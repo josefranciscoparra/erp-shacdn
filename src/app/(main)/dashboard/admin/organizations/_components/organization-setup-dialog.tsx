@@ -1,33 +1,18 @@
 "use client";
 
-/**
- * @deprecated This component has been replaced by OrganizationSetupDialog in organization-setup-dialog.tsx
- * Do not delete this file yet as per user request, but avoid using it in new code.
- */
-
 import Link from "next/link";
 
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  Layers,
-  LayoutDashboard,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, Layers, LayoutDashboard, Settings, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 import type { OrganizationItem } from "./types";
 
-interface OrganizationSetupDrawerProps {
+interface OrganizationSetupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   organization: OrganizationItem | null;
@@ -82,20 +67,19 @@ function ChecklistRow({ ok, title, description, action }: ChecklistRowProps) {
   );
 }
 
-export function OrganizationSetupDrawer({
+export function OrganizationSetupDialog({
   open,
   onOpenChange,
   organization,
   onSeedBasics,
   isSeeding,
-}: OrganizationSetupDrawerProps) {
+}: OrganizationSetupDialogProps) {
   if (!organization) {
     return null;
   }
 
   const hasPrefix = Boolean(organization.employeeNumberPrefix);
   const hasDomains = organization.allowedEmailDomains.length > 0;
-  const hasPto = organization.annualPtoDays > 0;
 
   const departmentCount = organization._count?.departments ?? 0;
   const costCenterCount = organization._count?.costCenters ?? 0;
@@ -104,23 +88,23 @@ export function OrganizationSetupDrawer({
   const allBasicsReady = departmentCount > 0 && costCenterCount > 0 && scheduleCount > 0;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
-        <SheetHeader className="border-b bg-slate-50/50 px-6 py-6 dark:bg-slate-900/50">
-          <div className="mb-2 flex items-center gap-3">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="space-y-1 border-b bg-slate-50/50 px-6 py-6 dark:bg-slate-900/50">
+          <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
-              <SheetTitle>Configuración Inicial</SheetTitle>
-              <p className="text-muted-foreground text-sm">
+              <DialogTitle>Configuración Inicial</DialogTitle>
+              <DialogDescription className="mt-1">
                 Prepara <strong>{organization.name}</strong> para el lanzamiento.
-              </p>
+              </DialogDescription>
             </div>
           </div>
-        </SheetHeader>
+        </DialogHeader>
 
-        <ScrollArea className="flex-1">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-8 px-6 py-6">
             <div className="space-y-4">
               <h3 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-100">
@@ -210,17 +194,14 @@ export function OrganizationSetupDrawer({
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
-        <div className="border-t bg-slate-50/50 p-6 dark:bg-slate-900/50">
-          <Button asChild className="w-full gap-2" size="lg">
-            <Link href="/dashboard/employees">
-              <LayoutDashboard className="h-4 w-4" />
-              Ir al Panel de Empleados
-            </Link>
+        <div className="flex justify-end border-t bg-slate-50/50 p-6 dark:bg-slate-900/50">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cerrar
           </Button>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }

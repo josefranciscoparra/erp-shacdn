@@ -32,8 +32,10 @@ export async function GET(request: NextRequest) {
     });
 
     // Construir filtros para Prisma
+    // Excluir documentos eliminados (deletedAt != null van a la Papelera Legal)
     const whereClause: any = {
       orgId: session.user.orgId,
+      deletedAt: null, // Solo documentos activos
     };
 
     if (filters.employeeId) {

@@ -272,6 +272,7 @@ model User {
   publishedPayslipItems    PayslipUploadItem[]  @relation("ItemPublisher") // Items que ha publicado
   revokedPayslipItems      PayslipUploadItem[]  @relation("ItemRevoker") // Items que ha revocado
   revokedEmployeeDocuments EmployeeDocument[]   @relation("DocumentRevoker") // Documentos que ha revocado
+  deletedEmployeeDocuments EmployeeDocument[]   @relation("DocumentDeleter") // Documentos que ha eliminado (soft delete)
   deletedStoredFiles       StoredFile[]         @relation("StoredFileDeletedBy") // Archivos cuya eliminación ha solicitado
 
   // Sistema de permisos y alertas
@@ -826,6 +827,11 @@ model EmployeeDocument {
   revokedBy    User?     @relation("DocumentRevoker", fields: [revokedById], references: [id])
   revokeReason String?   // Motivo de revocación
 
+  // Soft delete (Papelera Legal)
+  deletedAt   DateTime? // Fecha de eliminación (soft delete)
+  deletedById String?   // Usuario que eliminó
+  deletedBy   User?     @relation("DocumentDeleter", fields: [deletedById], references: [id])
+
   // Multi-tenancy
   orgId        String
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -843,6 +849,7 @@ model EmployeeDocument {
   @@index([kind, payslipYear, payslipMonth])
   @@index([isRevoked])
   @@index([storedFileId])
+  @@index([deletedAt]) // Para filtrar papelera
   @@map("employee_documents")
 }
 

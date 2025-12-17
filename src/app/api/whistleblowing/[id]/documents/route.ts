@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { WHISTLEBLOWING_ALLOWED_MIME_TYPES, WHISTLEBLOWING_MAX_FILE_SIZE } from "@/config/whistleblowing";
 import { auth } from "@/lib/auth";
 import { getStorageProvider } from "@/lib/storage";
-import {
-  WHISTLEBLOWING_ALLOWED_MIME_TYPES,
-  WHISTLEBLOWING_MAX_FILE_SIZE,
-  createWhistleblowingDocument,
-  getWhistleblowingDocuments,
-} from "@/server/actions/whistleblowing";
+import { createWhistleblowingDocument, getWhistleblowingDocuments } from "@/server/actions/whistleblowing";
 
 function sanitizeFileName(fileName: string): string {
   return fileName.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();

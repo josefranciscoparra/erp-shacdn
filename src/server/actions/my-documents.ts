@@ -74,9 +74,11 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
   }
 
   // Construir filtros para Prisma
+  // Excluir documentos eliminados (deletedAt != null van a la Papelera Legal)
   const whereClause: any = {
     employeeId,
     orgId,
+    deletedAt: null, // Solo documentos activos
   };
 
   if (documentKind) {
@@ -108,11 +110,12 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
       take: limit,
     }),
     prisma.employeeDocument.count({ where: whereClause }),
-    // Obtener todos los documentos para estadísticas
+    // Obtener todos los documentos para estadísticas (solo activos)
     prisma.employeeDocument.findMany({
       where: {
         employeeId,
         orgId,
+        deletedAt: null,
       },
       select: {
         kind: true,
@@ -179,6 +182,7 @@ export async function getMyDocumentsStats() {
     where: {
       employeeId,
       orgId,
+      deletedAt: null, // Solo documentos activos
     },
     select: {
       kind: true,

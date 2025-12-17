@@ -69,9 +69,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") ?? "50");
 
     // Construir filtros para Prisma
+    // Excluir documentos eliminados (deletedAt != null van a la Papelera Legal)
     const whereClause: any = {
       employeeId: session.user.employeeId,
       orgId: session.user.orgId,
+      deletedAt: null, // Solo documentos activos
     };
 
     if (documentKind) {

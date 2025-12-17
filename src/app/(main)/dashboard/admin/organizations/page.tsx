@@ -14,8 +14,9 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 
 import { OrganizationFormDialog, type OrganizationFormValues } from "./_components/organization-form-dialog";
-import { OrganizationSetupDrawer } from "./_components/organization-setup-drawer";
+import { OrganizationSetupDialog } from "./_components/organization-setup-dialog";
 import { OrganizationsTable } from "./_components/organizations-table";
+import { StatsCards } from "./_components/stats-cards";
 import type { OrganizationItem } from "./_components/types";
 
 interface OrganizationsResponse {
@@ -267,6 +268,8 @@ export default function OrganizationsManagementPage() {
         }
       />
 
+      <StatsCards organizations={organizations} />
+
       <div className="overflow-hidden rounded-lg border shadow-xs">
         <OrganizationsTable
           organizations={organizations}
@@ -300,7 +303,7 @@ export default function OrganizationsManagementPage() {
         }
       />
 
-      <OrganizationSetupDrawer
+      <OrganizationSetupDialog
         open={setupDrawerOpen}
         onOpenChange={(open) => {
           setSetupDrawerOpen(open);
