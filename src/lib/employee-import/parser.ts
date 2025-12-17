@@ -1,11 +1,7 @@
-import ExcelJS from "exceljs";
 import { parse } from "csv-parse/sync";
+import ExcelJS from "exceljs";
 
-import {
-  EMPLOYEE_IMPORT_COLUMNS,
-  EMPLOYEE_IMPORT_HEADER_MAP,
-  EMPLOYEE_IMPORT_SAMPLE_ROW,
-} from "./constants";
+import { EMPLOYEE_IMPORT_COLUMNS, EMPLOYEE_IMPORT_HEADER_MAP, EMPLOYEE_IMPORT_SAMPLE_ROW } from "./constants";
 import type { EmployeeImportRowData, ParsedEmployeeImportRow } from "./types";
 
 function normalizeKey(key: string): string {
@@ -24,6 +20,44 @@ function normalizeValue(value: unknown): string {
 
   if (value instanceof Date) {
     return value.toISOString().slice(0, 10);
+  }
+
+  // Handle ExcelJS object values (Hyperlinks, Formulas, RichText)
+  if (typeof value === "object") {
+    // Hyperlink: { text: '...', hyperlink: '...' }
+    if ("text" in value) {
+      const textValue = (value as any).text;
+      if (typeof textValue === "string" && textValue.trim()) {
+        return textValue.trim();
+      }
+    }
+    // Fórmulas: { formula: '...', result: ... }
+    if ("result" in value) {
+      return normalizeValue((value as any).result);
+    }
+    // Rich Text: { richText: [ { text: '...' }, ... ] }
+    if ("richText" in value && Array.isArray((value as any).richText)) {
+      return (value as any).richText
+        .map((rt: any) => rt.text)
+        .join("")
+        .trim();
+    }
+    // Hipervínculos sin texto (Excel convierte emails a mailto:...)
+    if ("hyperlink" in value) {
+      const hyperlink = String((value as any).hyperlink ?? "").trim();
+      if (hyperlink) {
+        if (hyperlink.toLowerCase().startsWith("mailto:")) {
+          return hyperlink.slice(7).trim();
+        }
+        return hyperlink;
+      }
+    }
+
+    try {
+      return JSON.stringify(value);
+    } catch {
+      // ignore circular reference errors etc
+    }
   }
 
   return String(value).trim();
@@ -124,7 +158,10 @@ function parseCsv(buffer: Buffer): ParsedEmployeeImportRow[] {
   });
 }
 
-export function parseEmployeeImportBuffer(params: { buffer: Buffer; fileName?: string }): Promise<ParsedEmployeeImportRow[]> {
+export function parseEmployeeImportBuffer(params: {
+  buffer: Buffer;
+  fileName?: string;
+}): Promise<ParsedEmployeeImportRow[]> {
   const fileName = params.fileName?.toLowerCase() ?? "";
   if (fileName.endsWith(".csv")) {
     return Promise.resolve(parseCsv(params.buffer));
