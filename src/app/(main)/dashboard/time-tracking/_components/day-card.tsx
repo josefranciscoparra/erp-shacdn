@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 
 interface TimeEntry {
@@ -252,8 +251,13 @@ export function DayCard({ day }: DayCardProps) {
       <div className={cn("absolute top-0 bottom-0 left-0 w-1.5 rounded-l-lg", borderClass)} />
 
       {/* Header / Resumen (Clickeable) */}
-      <div
-        className="flex cursor-pointer flex-col gap-4 py-3 pr-4 pl-5 sm:flex-row sm:items-center"
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        className={cn(
+          "flex w-full flex-col gap-4 border-0 bg-transparent py-3 pr-4 pl-5 text-left sm:flex-row sm:items-center",
+          "focus-visible:ring-primary focus-visible:ring-offset-background focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+        )}
         onClick={() => setIsExpanded(!isExpanded)}
       >
         {/* 1. Fecha y Estado */}
@@ -346,7 +350,7 @@ export function DayCard({ day }: DayCardProps) {
             {isExpanded ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
           </div>
         </div>
-      </div>
+      </button>
 
       {/* Detalles Expandibles (Forense) */}
       {isExpanded && (

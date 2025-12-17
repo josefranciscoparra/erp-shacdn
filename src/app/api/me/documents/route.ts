@@ -10,6 +10,12 @@ import { documentStorageService } from "@/lib/storage";
 import { getFileCategoryForDocumentKind, getRetentionPolicyForDocumentKind } from "@/lib/storage/retention-policies";
 import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
 import { documentKindSchema } from "@/lib/validations/document";
+import {
+  cancelReservation,
+  commitReservation,
+  reserveStorage,
+  StorageQuotaExceededError,
+} from "@/server/storage/quota";
 
 export const runtime = "nodejs";
 
@@ -217,73 +223,118 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Subir archivo al storage
-    const uploadResult = await documentStorageService.uploadEmployeeDocument(
-      session.user.orgId,
-      session.user.employeeId,
-      file,
-      validDocumentKind,
-      {
-        uploadedBy: session.user.name || session.user.email,
-        uploadedById: session.user.id,
-      },
-    );
+    // Reservar cuota antes de subir
+    let reservationId: string | null = null;
+    try {
+      reservationId = await reserveStorage(
+        session.user.orgId,
+        BigInt(file.size),
+        session.user.id,
+        `employee-self-doc-${session.user.employeeId}`,
+      );
+    } catch (error) {
+      if (error instanceof StorageQuotaExceededError) {
+        return NextResponse.json(
+          {
+            error: "No hay espacio de almacenamiento suficiente. Contacta con tu administrador.",
+          },
+          { status: 507 },
+        );
+      }
+      throw error;
+    }
 
-    const fileCategory = getFileCategoryForDocumentKind(validDocumentKind);
-    const retentionPolicy = getRetentionPolicyForDocumentKind(validDocumentKind);
-    const normalizedMimeType = uploadResult.mimeType || file.type || "application/octet-stream";
-    const sizeBytes = uploadResult.size ?? file.size ?? 0;
+    let uploadResult: { path: string; size?: number; mimeType?: string } | null = null;
 
-    // Guardar metadata en la base de datos
-    const document = await prisma.$transaction(async (tx) => {
-      const storedFile = await registerStoredFile({
-        orgId: session.user.orgId,
-        employeeId: session.user.employeeId,
-        path: uploadResult.path,
-        sizeBytes,
-        mimeType: normalizedMimeType,
-        category: fileCategory,
-        retentionPolicy,
-        tx,
-      });
+    try {
+      // Subir archivo al storage
+      uploadResult = await documentStorageService.uploadEmployeeDocument(
+        session.user.orgId,
+        session.user.employeeId,
+        file,
+        validDocumentKind,
+        {
+          uploadedBy: session.user.name || session.user.email,
+          uploadedById: session.user.id,
+        },
+      );
 
-      return tx.employeeDocument.create({
-        data: {
-          kind: validDocumentKind,
-          fileName: file.name,
-          storageUrl: uploadResult.path,
-          fileSize: sizeBytes,
-          mimeType: normalizedMimeType,
-          description: validDescription,
+      const fileCategory = getFileCategoryForDocumentKind(validDocumentKind);
+      const retentionPolicy = getRetentionPolicyForDocumentKind(validDocumentKind);
+      const normalizedMimeType = uploadResult.mimeType ?? file.type ?? "application/octet-stream";
+      const sizeBytes = uploadResult.size ?? file.size ?? 0;
+
+      // Guardar metadata en la base de datos (sin volver a incrementar storage)
+      const document = await prisma.$transaction(async (tx) => {
+        const storedFile = await registerStoredFile({
           orgId: session.user.orgId,
           employeeId: session.user.employeeId,
-          uploadedById: session.user.id,
-          storedFileId: storedFile.id,
-        },
-        include: {
-          uploadedBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+          path: uploadResult!.path,
+          sizeBytes,
+          mimeType: normalizedMimeType,
+          category: fileCategory,
+          retentionPolicy,
+          skipStorageIncrement: true,
+          tx,
+        });
+
+        return tx.employeeDocument.create({
+          data: {
+            kind: validDocumentKind,
+            fileName: file.name,
+            storageUrl: uploadResult!.path,
+            fileSize: sizeBytes,
+            mimeType: normalizedMimeType,
+            description: validDescription,
+            orgId: session.user.orgId,
+            employeeId: session.user.employeeId,
+            uploadedById: session.user.id,
+            storedFileId: storedFile.id,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
           },
-        },
+        });
       });
-    });
 
-    // Transformar fechas para el cliente
-    const transformedDocument = {
-      ...document,
-      createdAt: document.createdAt.toISOString(),
-      updatedAt: document.updatedAt.toISOString(),
-      canDelete: true, // El empleado puede eliminar lo que subió
-    };
+      if (!reservationId) {
+        throw new Error("No se pudo confirmar la reserva de almacenamiento");
+      }
+      await commitReservation(reservationId);
 
-    return NextResponse.json({
-      success: true,
-      document: transformedDocument,
-    });
+      // Transformar fechas para el cliente
+      const transformedDocument = {
+        ...document,
+        createdAt: document.createdAt.toISOString(),
+        updatedAt: document.updatedAt.toISOString(),
+        canDelete: true, // El empleado puede eliminar lo que subió
+      };
+
+      return NextResponse.json({
+        success: true,
+        document: transformedDocument,
+      });
+    } catch (error) {
+      if (reservationId) {
+        await cancelReservation(reservationId);
+      }
+
+      if (uploadResult?.path) {
+        try {
+          await documentStorageService.deleteDocument(uploadResult.path);
+        } catch (deleteError) {
+          console.error("⚠️ Error al limpiar archivo huérfano del storage:", deleteError);
+        }
+      }
+
+      throw error;
+    }
   } catch (error) {
     if (error instanceof EmployeeOrgGuardError) {
       const message =
