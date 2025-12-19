@@ -89,14 +89,14 @@ type DateRange = {
 };
 
 const ALERT_TYPES = [
-  { value: "DAILY_SUMMARY", label: "Resumen del Día" },
-  { value: "LATE_ARRIVAL", label: "Entrada tardía" },
-  { value: "CRITICAL_LATE_ARRIVAL", label: "Entrada crítica" },
-  { value: "EARLY_DEPARTURE", label: "Salida temprana" },
-  { value: "CRITICAL_EARLY_DEPARTURE", label: "Salida crítica" },
-  { value: "MISSING_CLOCK_IN", label: "Falta entrada" },
-  { value: "MISSING_CLOCK_OUT", label: "Falta salida" },
-  { value: "NON_WORKDAY_CLOCK_IN", label: "Fichaje día no laboral" },
+  { value: "DAILY_SUMMARY", label: "Resumen diario" },
+  { value: "LATE_ARRIVAL", label: "Llega tarde" },
+  { value: "CRITICAL_LATE_ARRIVAL", label: "Llega tarde (crítico)" },
+  { value: "EARLY_DEPARTURE", label: "Se va antes" },
+  { value: "CRITICAL_EARLY_DEPARTURE", label: "Se va antes (crítico)" },
+  { value: "MISSING_CLOCK_IN", label: "Falta fichaje de entrada" },
+  { value: "MISSING_CLOCK_OUT", label: "Falta fichaje de salida" },
+  { value: "NON_WORKDAY_CLOCK_IN", label: "Fichaje en día no laboral" },
   { value: "EXCESSIVE_HOURS", label: "Horas excesivas" },
 ];
 
@@ -139,6 +139,9 @@ export default function AlertsPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [quickFilter, setQuickFilter] = useState<
+    "critical_today" | "today_yesterday" | "yesterday" | "last_7_days" | "history" | "custom"
+  >("today_yesterday");
   const [dateRange, setDateRange] = useState<DateRange>(() => {
     const today = new Date();
     return {
@@ -151,7 +154,10 @@ export default function AlertsPage() {
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    deviationMinutes: false,
+    timeline: false,
+  });
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
 
   // Cargar contexto activo y scopes disponibles al montar
@@ -386,27 +392,36 @@ export default function AlertsPage() {
     setSelectedSeverity("CRITICAL");
     setDateRange({ from: startOfDay(today), to: endOfDay(today) });
     setActiveTab("active");
+    setQuickFilter("critical_today");
   };
 
   const handleQuickTodayAndYesterday = () => {
+    setSelectedSeverity("all");
     setDateRange(getDefaultDateRange());
     setActiveTab("active");
+    setQuickFilter("today_yesterday");
   };
 
   const handleQuickYesterday = () => {
     const yesterday = subDays(new Date(), 1);
+    setSelectedSeverity("all");
     setDateRange({ from: startOfDay(yesterday), to: endOfDay(yesterday) });
     setActiveTab("active");
+    setQuickFilter("yesterday");
   };
 
   const handleQuickLast7Days = () => {
     const today = new Date();
+    setSelectedSeverity("all");
     setDateRange({ from: startOfDay(subDays(today, 6)), to: endOfDay(today) });
     setActiveTab("active");
+    setQuickFilter("last_7_days");
   };
 
   const handleShowHistory = () => {
+    setSelectedSeverity("all");
     setDateRange({ from: undefined, to: undefined });
+    setQuickFilter("history");
   };
 
   const handleResetFilters = () => {
@@ -416,6 +431,14 @@ export default function AlertsPage() {
     setSelectedType("all");
     setDateRange(getDefaultDateRange());
     setActiveTab("active");
+    setQuickFilter("today_yesterday");
+  };
+
+  const handleSeverityChange = (value: string) => {
+    setSelectedSeverity(value);
+    if (quickFilter === "critical_today" && value !== "CRITICAL") {
+      setQuickFilter("custom");
+    }
   };
 
   return (
@@ -445,11 +468,6 @@ export default function AlertsPage() {
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
             </Button>
-            {!alertsRequireResolution && (
-              <Badge variant="outline" className="border-amber-200 text-amber-700">
-                Resolución desactivada
-              </Badge>
-            )}
             <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Actualizar
@@ -489,126 +507,24 @@ export default function AlertsPage() {
         </Card>
       </div>
 
-      {/* Estadísticas mejoradas */}
       {stats && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-l-4 border-l-red-500 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">Alertas Activas</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.active}</div>
-              <p className="text-muted-foreground text-xs">Requieren atención inmediata</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-green-500 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">Resueltas</CardTitle>
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.resolved}</div>
-              <p className="text-muted-foreground text-xs">Incidencias solucionadas</p>
-            </CardContent>
-          </Card>
-
-          <Card className="border-l-4 border-l-gray-500 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">Descartadas</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-gray-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.dismissed}</div>
-              <p className="text-muted-foreground text-xs">Falsos positivos o irrelevantes</p>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-muted-foreground text-sm font-medium">Total Histórico</CardTitle>
-              <Info className="text-primary h-4 w-4" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
-              <p className="text-muted-foreground text-xs">Registradas en el sistema</p>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {stats && (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Distribución por Severidad</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {stats.bySeverity.length === 0 && (
-                <p className="text-muted-foreground text-sm">Sin datos de severidad para los filtros actuales.</p>
-              )}
-              {stats.bySeverity.length > 0 && (
-                <div className="space-y-3">
-                  {(() => {
-                    const totalSeverity = stats.bySeverity.reduce((acc, curr) => acc + curr.count, 0) || 1;
-                    return stats.bySeverity.map((item) => {
-                      const pct = Math.round((item.count / totalSeverity) * 100);
-                      const color =
-                        item.severity === "CRITICAL"
-                          ? "bg-red-500"
-                          : item.severity === "WARNING"
-                            ? "bg-amber-500"
-                            : "bg-blue-500";
-                      return (
-                        <div key={item.severity} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="flex items-center gap-2">
-                              <span className={`h-2 w-2 rounded-full ${color}`} />
-                              {SEVERITY_LABELS[item.severity] ?? item.severity}
-                            </span>
-                            <span className="text-muted-foreground text-xs">
-                              {item.count} ({pct}%)
-                            </span>
-                          </div>
-                          <div className="bg-muted h-2 rounded-full">
-                            <div className={`h-2 rounded-full ${color}`} style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="lg:col-span-2">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Top Tipos de Incidencia</CardTitle>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {stats.byType.length === 0 && (
-                <p className="text-muted-foreground text-sm">Sin incidencias para los filtros actuales.</p>
-              )}
-              {stats.byType
-                .slice()
-                .sort((a, b) => b.count - a.count)
-                .slice(0, 6)
-                .map((item) => (
-                  <div key={item.type} className="rounded-md border p-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">
-                        {ALERT_TYPES.find((t) => t.value === item.type)?.label ?? item.type}
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {item.count}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
-            </CardContent>
-          </Card>
+        <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-foreground font-medium">Resumen</span>
+          <span>
+            Activas <span className="text-foreground font-semibold">{stats.active}</span>
+          </span>
+          <span>·</span>
+          <span>
+            Resueltas <span className="text-foreground font-semibold">{stats.resolved}</span>
+          </span>
+          <span>·</span>
+          <span>
+            Descartadas <span className="text-foreground font-semibold">{stats.dismissed}</span>
+          </span>
+          <span>·</span>
+          <span>
+            Total <span className="text-foreground font-semibold">{stats.total}</span>
+          </span>
         </div>
       )}
 
@@ -621,19 +537,39 @@ export default function AlertsPage() {
               Filtrar por:
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={handleQuickCriticalToday}>
+              <Button
+                variant={quickFilter === "critical_today" ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleQuickCriticalToday}
+              >
                 Críticas de hoy
               </Button>
-              <Button variant="outline" size="sm" onClick={handleQuickTodayAndYesterday}>
+              <Button
+                variant={quickFilter === "today_yesterday" ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleQuickTodayAndYesterday}
+              >
                 Hoy y ayer
               </Button>
-              <Button variant="outline" size="sm" onClick={handleQuickYesterday}>
+              <Button
+                variant={quickFilter === "yesterday" ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleQuickYesterday}
+              >
                 Ayer
               </Button>
-              <Button variant="outline" size="sm" onClick={handleQuickLast7Days}>
+              <Button
+                variant={quickFilter === "last_7_days" ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleQuickLast7Days}
+              >
                 Últimos 7 días
               </Button>
-              <Button variant="outline" size="sm" onClick={handleShowHistory}>
+              <Button
+                variant={quickFilter === "history" ? "secondary" : "outline"}
+                size="sm"
+                onClick={handleShowHistory}
+              >
                 Histórico
               </Button>
               <Button variant="outline" size="sm" onClick={handleResetFilters}>
@@ -678,7 +614,7 @@ export default function AlertsPage() {
               </Select>
 
               {/* Filtro por Severidad */}
-              <Select value={selectedSeverity} onValueChange={setSelectedSeverity}>
+              <Select value={selectedSeverity} onValueChange={handleSeverityChange}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Todas las severidades" />
                 </SelectTrigger>
@@ -738,6 +674,7 @@ export default function AlertsPage() {
                 date={dateRange}
                 onDateChange={(newRange) => {
                   setDateRange(newRange ?? { from: undefined, to: undefined });
+                  setQuickFilter("custom");
                 }}
               />
             </div>

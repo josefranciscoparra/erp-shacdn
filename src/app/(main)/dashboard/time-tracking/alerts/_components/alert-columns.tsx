@@ -3,7 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertCircle, AlertTriangle, Info, MoreHorizontal } from "lucide-react";
+import { AlertCircle, AlertTriangle, Eye, Info, MoreHorizontal } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -91,15 +90,15 @@ const severityConfig = {
 
 // Configuración de tipos de alerta
 const alertTypeLabels: Record<string, string> = {
-  DAILY_SUMMARY: "Resumen del Día",
-  LATE_ARRIVAL: "Llegada Tarde",
-  CRITICAL_LATE_ARRIVAL: "Llegada Tarde Crítica",
-  EARLY_DEPARTURE: "Salida Temprana",
-  CRITICAL_EARLY_DEPARTURE: "Salida Temprana Crítica",
-  MISSING_CLOCK_IN: "Falta Fichaje Entrada",
-  MISSING_CLOCK_OUT: "Falta Fichaje Salida",
-  EXCESSIVE_HOURS: "Horas Excesivas",
-  NON_WORKDAY_CLOCK_IN: "Fichaje Día No Laboral",
+  DAILY_SUMMARY: "Resumen diario",
+  LATE_ARRIVAL: "Llega tarde",
+  CRITICAL_LATE_ARRIVAL: "Llega tarde (crítico)",
+  EARLY_DEPARTURE: "Se va antes",
+  CRITICAL_EARLY_DEPARTURE: "Se va antes (crítico)",
+  MISSING_CLOCK_IN: "Falta fichaje de entrada",
+  MISSING_CLOCK_OUT: "Falta fichaje de salida",
+  EXCESSIVE_HOURS: "Horas excesivas",
+  NON_WORKDAY_CLOCK_IN: "Fichaje en día no laboral",
 };
 
 export const alertColumns: ColumnDef<AlertRow>[] = [
@@ -163,23 +162,14 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
   },
   {
     accessorKey: "type",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Motivo" />,
     cell: ({ row }) => {
       const type = row.original.type;
       const label = alertTypeLabels[type] ?? type;
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Badge variant="outline" className="max-w-[120px] truncate font-normal">
-                {label}
-              </Badge>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{label}</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <span className="max-w-[160px] truncate text-sm" title={label}>
+          {label}
+        </span>
       );
     },
     filterFn: (row, id, value) => {
@@ -190,7 +180,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
   },
   {
     accessorKey: "title",
-    header: ({ column }) => <DataTableColumnHeader column={column} title="Detalles" />,
+    header: ({ column }) => <DataTableColumnHeader column={column} title="Resumen" />,
     cell: ({ row }) => {
       const incidents = row.original.incidents;
       const type = row.original.type;
@@ -216,44 +206,17 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           },
           { late: 0, early: 0, other: 0 },
         );
+        const summaryParts: string[] = [];
+        if (counts.late > 0) summaryParts.push(`Llegadas tarde: ${counts.late}`);
+        if (counts.early > 0) summaryParts.push(`Salidas antes: ${counts.early}`);
+        if (counts.other > 0) summaryParts.push(`Otras: ${counts.other}`);
+        const summaryText = summaryParts.join(" · ");
 
         return (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="flex max-w-[250px] cursor-help flex-col gap-1.5">
-                  <span className="truncate text-sm font-medium">{row.original.title}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {counts.late > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="h-5 border-orange-200 bg-orange-50 px-1.5 text-[10px] font-normal text-orange-700 dark:border-orange-900 dark:bg-orange-900/30 dark:text-orange-400"
-                      >
-                        {counts.late} Tarde
-                      </Badge>
-                    )}
-                    {counts.early > 0 && (
-                      <Badge
-                        variant="secondary"
-                        className="h-5 border-blue-200 bg-blue-50 px-1.5 text-[10px] font-normal text-blue-700 dark:border-blue-900 dark:bg-blue-900/30 dark:text-blue-400"
-                      >
-                        {counts.early} Salida
-                      </Badge>
-                    )}
-                    {counts.other > 0 && (
-                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                        {counts.other} Otros
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs">
-                {tooltipContent}
-                <p className="text-muted-foreground mt-2 border-t pt-1 text-xs">Clic para ver detalles completos</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <div className="flex max-w-[260px] flex-col gap-1">
+            <span className="truncate text-sm font-medium">{row.original.title}</span>
+            {summaryText && <span className="text-muted-foreground truncate text-xs">{summaryText}</span>}
+          </div>
         );
       }
 
@@ -262,8 +225,8 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="flex max-w-[250px] cursor-help flex-col">
-                <span className="truncate font-medium">{row.original.title}</span>
+              <div className="flex max-w-[260px] cursor-help flex-col">
+                <span className="truncate text-sm font-medium">{row.original.title}</span>
                 {description && <span className="text-muted-foreground truncate text-xs">{description}</span>}
               </div>
             </TooltipTrigger>
@@ -326,7 +289,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           <span className="font-medium">{status === "ACTIVE" ? `Abierta ${ageLabel}` : `Cerrada ${ageLabel}`}</span>
           {resolver && status !== "ACTIVE" && <span className="text-muted-foreground">Por {resolver}</span>}
           {olderThanDay && (
-            <Badge variant="destructive" className="mt-1 w-fit px-2 text-[10px]">
+            <Badge variant="outline" className="text-muted-foreground mt-1 w-fit px-2 text-[10px]">
               +24h abierta
             </Badge>
           )}
@@ -340,18 +303,20 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
   {
     accessorKey: "status",
     header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
-    cell: ({ row }) => {
+    cell: ({ row, table }) => {
       const status = row.original.status;
-      const variant = status === "ACTIVE" ? "default" : status === "RESOLVED" ? "secondary" : "outline";
+      const allowResolution = (table.options.meta as any)?.allowResolution !== false;
+      const label =
+        status === "ACTIVE"
+          ? allowResolution
+            ? "Activa"
+            : "Registrada"
+          : status === "RESOLVED"
+            ? "Resuelta"
+            : "Descartada";
+      const tone = status === "ACTIVE" && allowResolution ? "text-foreground" : "text-muted-foreground";
 
-      // Versión compacta del badge
-      const label = status === "ACTIVE" ? "Activa" : status === "RESOLVED" ? "Resuelta" : "Desc.";
-
-      return (
-        <Badge variant={variant} className="h-5 px-1.5 text-xs">
-          {label}
-        </Badge>
-      );
+      return <span className={`text-xs font-medium ${tone}`}>{label}</span>;
     },
     filterFn: (row, id, value) => {
       return value.includes(row.getValue(id));
@@ -368,25 +333,34 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
       const canResolve = allowResolution ?? true;
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menú</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>Ver detalles</DropdownMenuItem>
-            {alert.status === "ACTIVE" && canResolve && (
-              <>
-                <DropdownMenuSeparator />
+        <div className="flex items-center justify-end gap-1">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onViewDetails?.(alert)}>
+                  <Eye className="h-4 w-4" />
+                  <span className="sr-only">Ver detalles</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Ver detalles</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {alert.status === "ACTIVE" && canResolve && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                  <span className="sr-only">Abrir menú</span>
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => onResolve?.(alert)}>Resolver</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onDismiss?.(alert)}>Descartar</DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       );
     },
     size: 50,
