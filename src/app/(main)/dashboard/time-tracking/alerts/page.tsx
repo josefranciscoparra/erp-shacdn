@@ -16,7 +16,7 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { endOfDay, format, startOfDay } from "date-fns";
+import { endOfDay, format, startOfDay, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import {
   AlertCircle,
@@ -63,6 +63,7 @@ import {
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
 import { getMyAlerts, getMyAlertStats, getMySubscriptions } from "@/server/actions/alerts";
+import { getOrganizationValidationConfig } from "@/server/actions/time-clock-validations";
 import { getActiveContext, getAvailableScopes } from "@/server/actions/user-context";
 
 import { alertColumns, type AlertRow } from "./_components/alert-columns";
@@ -138,7 +139,14 @@ export default function AlertsPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<DateRange>({ from: undefined, to: undefined });
+  const [dateRange, setDateRange] = useState<DateRange>(() => {
+    const today = new Date();
+    return {
+      from: startOfDay(subDays(today, 1)),
+      to: endOfDay(today),
+    };
+  });
+  const [alertsRequireResolution, setAlertsRequireResolution] = useState(true);
 
   // Table state
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -168,6 +176,19 @@ export default function AlertsPage() {
       }
     };
     loadContext();
+  }, []);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await getOrganizationValidationConfig();
+        setAlertsRequireResolution(config.alertsRequireResolution);
+      } catch (error) {
+        console.error("Error al cargar configuración de alertas:", error);
+      }
+    };
+
+    loadConfig();
   }, []);
 
   // Cargar filtros disponibles al montar
@@ -250,8 +271,9 @@ export default function AlertsPage() {
         setSelectedAlert(alert);
         setActionDialog("details");
       },
+      allowResolution: alertsRequireResolution,
     }),
-    [],
+    [alertsRequireResolution],
   );
 
   // Configurar tabla
@@ -280,6 +302,10 @@ export default function AlertsPage() {
   // Manejar resolver alerta
   const handleResolve = async () => {
     if (!selectedAlert) return;
+    if (!alertsRequireResolution) {
+      toast.error("La resolución de alertas está desactivada");
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -302,6 +328,10 @@ export default function AlertsPage() {
   // Manejar descartar alerta
   const handleDismiss = async () => {
     if (!selectedAlert) return;
+    if (!alertsRequireResolution) {
+      toast.error("La resolución de alertas está desactivada");
+      return;
+    }
 
     try {
       setProcessing(true);
@@ -343,6 +373,14 @@ export default function AlertsPage() {
     return "Todo";
   };
 
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    return {
+      from: startOfDay(subDays(today, 1)),
+      to: endOfDay(today),
+    };
+  };
+
   const handleQuickCriticalToday = () => {
     const today = new Date();
     setSelectedSeverity("CRITICAL");
@@ -350,12 +388,33 @@ export default function AlertsPage() {
     setActiveTab("active");
   };
 
+  const handleQuickTodayAndYesterday = () => {
+    setDateRange(getDefaultDateRange());
+    setActiveTab("active");
+  };
+
+  const handleQuickYesterday = () => {
+    const yesterday = subDays(new Date(), 1);
+    setDateRange({ from: startOfDay(yesterday), to: endOfDay(yesterday) });
+    setActiveTab("active");
+  };
+
+  const handleQuickLast7Days = () => {
+    const today = new Date();
+    setDateRange({ from: startOfDay(subDays(today, 6)), to: endOfDay(today) });
+    setActiveTab("active");
+  };
+
+  const handleShowHistory = () => {
+    setDateRange({ from: undefined, to: undefined });
+  };
+
   const handleResetFilters = () => {
     setSelectedCenter("all");
     setSelectedTeam("all");
     setSelectedSeverity("all");
     setSelectedType("all");
-    setDateRange({ from: undefined, to: undefined });
+    setDateRange(getDefaultDateRange());
     setActiveTab("active");
   };
 
@@ -386,6 +445,11 @@ export default function AlertsPage() {
             <Button variant="outline" size="sm" asChild>
               <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
             </Button>
+            {!alertsRequireResolution && (
+              <Badge variant="outline" className="border-amber-200 text-amber-700">
+                Resolución desactivada
+              </Badge>
+            )}
             <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Actualizar
@@ -559,6 +623,18 @@ export default function AlertsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="secondary" size="sm" onClick={handleQuickCriticalToday}>
                 Críticas de hoy
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleQuickTodayAndYesterday}>
+                Hoy y ayer
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleQuickYesterday}>
+                Ayer
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleQuickLast7Days}>
+                Últimos 7 días
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleShowHistory}>
+                Histórico
               </Button>
               <Button variant="outline" size="sm" onClick={handleResetFilters}>
                 Limpiar filtros

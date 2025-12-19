@@ -120,13 +120,22 @@ export async function getMyAlerts(filters?: AlertFilters) {
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),
       ...(filters?.status && { status: filters.status }),
-      ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
-      ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
       ...(filters?.employeeId && { employeeId: filters.employeeId }),
       ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
       ...(filters?.departmentId && { departmentId: filters.departmentId }),
       ...(filters?.teamId && { teamId: filters.teamId }),
     };
+
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (filters?.dateFrom) {
+      dateFilter.gte = filters.dateFrom;
+    }
+    if (filters?.dateTo) {
+      dateFilter.lte = filters.dateTo;
+    }
+    if (Object.keys(dateFilter).length > 0) {
+      whereClause.date = dateFilter;
+    }
 
     // Query con filtrado por severidad y tipo de alerta
     const alerts = await prisma.alert.findMany({
@@ -285,6 +294,36 @@ export async function subscribeToAlerts(
     const session = await auth();
     if (!session?.user?.id || !session?.user?.orgId) {
       throw new Error("Usuario no autenticado");
+    }
+
+    const isAdmin =
+      session.user.role === "SUPER_ADMIN" || session.user.role === "ORG_ADMIN" || session.user.role === "HR_ADMIN";
+
+    if (!isAdmin) {
+      const responsibilityWhere: Record<string, unknown> = {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+        isActive: true,
+        scope,
+        permissions: { has: "VIEW_ALERTS" },
+      };
+
+      if (scope === "DEPARTMENT") {
+        responsibilityWhere.departmentId = scopeId;
+      } else if (scope === "COST_CENTER") {
+        responsibilityWhere.costCenterId = scopeId;
+      } else if (scope === "TEAM") {
+        responsibilityWhere.teamId = scopeId;
+      }
+
+      const responsibility = await prisma.areaResponsible.findFirst({
+        where: responsibilityWhere,
+        select: { id: true },
+      });
+
+      if (!responsibility) {
+        throw new Error("No tienes permisos para suscribirte a este ámbito");
+      }
     }
 
     // Validar que no exista ya una suscripción activa para este scope

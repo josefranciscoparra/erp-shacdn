@@ -13,6 +13,7 @@ interface ValidationConfig {
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
   alertsEnabled: boolean;
+  alertsRequireResolution: boolean;
   alertNotificationsEnabled: boolean;
   alertNotificationRoles: string[];
 }
@@ -40,6 +41,7 @@ export async function getOrganizationValidationConfig(): Promise<ValidationConfi
         criticalLateArrivalMinutes: true,
         criticalEarlyDepartureMinutes: true,
         alertsEnabled: true,
+        alertsRequireResolution: true,
         alertNotificationsEnabled: true,
         alertNotificationRoles: true,
       },
@@ -101,6 +103,7 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
         criticalLateArrivalMinutes: config.criticalLateArrivalMinutes,
         criticalEarlyDepartureMinutes: config.criticalEarlyDepartureMinutes,
         alertsEnabled: config.alertsEnabled,
+        alertsRequireResolution: config.alertsRequireResolution,
         alertNotificationsEnabled: config.alertNotificationsEnabled,
         alertNotificationRoles: config.alertNotificationRoles,
       },

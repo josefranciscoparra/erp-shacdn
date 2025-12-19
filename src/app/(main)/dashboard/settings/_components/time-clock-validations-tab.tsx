@@ -31,6 +31,7 @@ interface ValidationConfig {
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
   alertsEnabled: boolean;
+  alertsRequireResolution: boolean;
   alertNotificationsEnabled: boolean;
   alertNotificationRoles: string[];
 }
@@ -49,6 +50,7 @@ export function TimeClockValidationsTab() {
     criticalLateArrivalMinutes: 30,
     criticalEarlyDepartureMinutes: 30,
     alertsEnabled: true,
+    alertsRequireResolution: true,
     alertNotificationsEnabled: false,
     alertNotificationRoles: ["RRHH"],
   });
@@ -286,6 +288,21 @@ export function TimeClockValidationsTab() {
                   id="alertsEnabled"
                   checked={config.alertsEnabled}
                   onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertsEnabled: checked }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between rounded-lg border p-4">
+                <div className="space-y-0.5">
+                  <Label htmlFor="alertsRequireResolution">Requerir resolución de alertas</Label>
+                  <p className="text-muted-foreground text-sm">
+                    Si lo desactivas, las alertas se muestran en modo lectura y no se pueden resolver.
+                  </p>
+                </div>
+                <Switch
+                  id="alertsRequireResolution"
+                  checked={config.alertsRequireResolution}
+                  onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, alertsRequireResolution: checked }))}
+                  disabled={!config.alertsEnabled}
                 />
               </div>
 

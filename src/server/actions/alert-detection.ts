@@ -602,7 +602,7 @@ export async function getActiveAlerts(filters?: {
     }
 
     // Obtener filtro de scope del usuario
-    const scopeFilter = await buildScopeFilter(session.user.id);
+    const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
 
     // Construir where clause
     const whereClause: any = {
@@ -613,9 +613,18 @@ export async function getActiveAlerts(filters?: {
       ...(filters?.teamId && { teamId: filters.teamId }),
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),
-      ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
-      ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
     };
+
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (filters?.dateFrom) {
+      dateFilter.gte = filters.dateFrom;
+    }
+    if (filters?.dateTo) {
+      dateFilter.lte = filters.dateTo;
+    }
+    if (Object.keys(dateFilter).length > 0) {
+      whereClause.date = dateFilter;
+    }
 
     // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
     if (Object.keys(scopeFilter).length > 0) {
@@ -674,6 +683,63 @@ export async function getActiveAlerts(filters?: {
   }
 }
 
+async function canResolveAlertForUser(
+  userId: string,
+  orgId: string,
+  alert: {
+    departmentId: string | null;
+    costCenterId: string | null;
+    originalCostCenterId: string | null;
+    teamId: string | null;
+  },
+) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true },
+  });
+
+  if (!user) {
+    return false;
+  }
+
+  if (user.role === "ORG_ADMIN" || user.role === "SUPER_ADMIN" || user.role === "HR_ADMIN") {
+    return true;
+  }
+
+  const responsibilities = await prisma.areaResponsible.findMany({
+    where: {
+      userId,
+      orgId,
+      isActive: true,
+      permissions: { has: "RESOLVE_ALERTS" },
+    },
+    select: { scope: true, departmentId: true, costCenterId: true, teamId: true },
+  });
+
+  if (responsibilities.length === 0) {
+    return false;
+  }
+
+  return responsibilities.some((responsibility) => {
+    if (responsibility.scope === "ORGANIZATION") {
+      return true;
+    }
+    if (responsibility.scope === "DEPARTMENT") {
+      return responsibility.departmentId !== null && responsibility.departmentId === alert.departmentId;
+    }
+    if (responsibility.scope === "COST_CENTER") {
+      if (!responsibility.costCenterId) return false;
+      return (
+        responsibility.costCenterId === alert.costCenterId || responsibility.costCenterId === alert.originalCostCenterId
+      );
+    }
+    if (responsibility.scope === "TEAM") {
+      return responsibility.teamId !== null && responsibility.teamId === alert.teamId;
+    }
+    return false;
+  });
+}
+
 /**
  * Resuelve una alerta
  */
@@ -687,6 +753,11 @@ export async function resolveAlert(alertId: string, comment?: string): Promise<{
       throw new Error("Usuario no autenticado o sin organización");
     }
 
+    const config = await getOrganizationValidationConfig();
+    if (!config.alertsRequireResolution) {
+      throw new Error("La resolución de alertas está desactivada");
+    }
+
     // Verificar que la alerta pertenece a la organización
     const alert = await prisma.alert.findUnique({
       where: { id: alertId },
@@ -694,6 +765,11 @@ export async function resolveAlert(alertId: string, comment?: string): Promise<{
 
     if (!alert || alert.orgId !== session.user.orgId) {
       throw new Error("Alerta no encontrada o sin permisos");
+    }
+
+    const canResolve = await canResolveAlertForUser(session.user.id, session.user.orgId, alert);
+    if (!canResolve) {
+      throw new Error("No tienes permisos para resolver esta alerta");
     }
 
     await prisma.alert.update({
@@ -726,6 +802,11 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
       throw new Error("Usuario no autenticado o sin organización");
     }
 
+    const config = await getOrganizationValidationConfig();
+    if (!config.alertsRequireResolution) {
+      throw new Error("La resolución de alertas está desactivada");
+    }
+
     // Verificar que la alerta pertenece a la organización
     const alert = await prisma.alert.findUnique({
       where: { id: alertId },
@@ -733,6 +814,11 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
 
     if (!alert || alert.orgId !== session.user.orgId) {
       throw new Error("Alerta no encontrada o sin permisos");
+    }
+
+    const canResolve = await canResolveAlertForUser(session.user.id, session.user.orgId, alert);
+    if (!canResolve) {
+      throw new Error("No tienes permisos para resolver esta alerta");
     }
 
     await prisma.alert.update({
@@ -775,18 +861,27 @@ export async function getAlertStats(filters?: {
     }
 
     // Obtener filtro de scope del usuario
-    const scopeFilter = await buildScopeFilter(session.user.id);
+    const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
 
     const where: any = {
       orgId: session.user.orgId,
-      ...(filters?.dateFrom && { date: { gte: filters.dateFrom } }),
-      ...(filters?.dateTo && { date: { lte: filters.dateTo } }),
       ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
       ...(filters?.departmentId && { departmentId: filters.departmentId }),
       ...(filters?.teamId && { teamId: filters.teamId }),
       ...(filters?.severity && { severity: filters.severity }),
       ...(filters?.type && { type: filters.type }),
     };
+
+    const dateFilter: { gte?: Date; lte?: Date } = {};
+    if (filters?.dateFrom) {
+      dateFilter.gte = filters.dateFrom;
+    }
+    if (filters?.dateTo) {
+      dateFilter.lte = filters.dateTo;
+    }
+    if (Object.keys(dateFilter).length > 0) {
+      where.date = dateFilter;
+    }
 
     // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
     if (Object.keys(scopeFilter).length > 0) {
@@ -902,7 +997,7 @@ export async function getActiveAlertsCount(): Promise<number> {
     }
 
     // Obtener filtro de scope del usuario
-    const scopeFilter = await buildScopeFilter(session.user.id);
+    const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
 
     const where: any = {
       orgId: session.user.orgId,

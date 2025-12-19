@@ -58,6 +58,7 @@ model Organization {
   criticalLateArrivalMinutes    Int      @default(30) // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)
   criticalEarlyDepartureMinutes Int      @default(30) // Minutos de salida temprana para alerta CRÍTICA
   alertsEnabled                 Boolean  @default(true) // Activar/desactivar sistema de alertas de fichajes
+  alertsRequireResolution       Boolean  @default(true) // Requerir resolucion manual de alertas
   alertNotificationsEnabled     Boolean  @default(false) // Enviar notificaciones a RRHH/managers sobre alertas
   alertNotificationRoles        String[] @default(["RRHH"]) // Roles que reciben notificaciones de alertas
 

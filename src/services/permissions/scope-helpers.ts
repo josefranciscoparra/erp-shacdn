@@ -38,7 +38,7 @@ export type Scope = "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM";
  *   }
  * });
  */
-export async function buildScopeFilter(userId: string) {
+export async function buildScopeFilter(userId: string, permission?: Permission) {
   // Obtener usuario con rol
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -52,7 +52,11 @@ export async function buildScopeFilter(userId: string) {
 
   // Para otros roles, validar AreaResponsible
   const responsibilities = await prisma.areaResponsible.findMany({
-    where: { userId, isActive: true },
+    where: {
+      userId,
+      isActive: true,
+      ...(permission ? { permissions: { has: permission } } : {}),
+    },
     select: { scope: true, departmentId: true, costCenterId: true, teamId: true },
   });
 

@@ -364,7 +364,8 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
     id: "actions",
     cell: ({ row, table }) => {
       const alert = row.original;
-      const { onResolve, onDismiss, onViewDetails } = (table.options.meta as any) ?? {};
+      const { onResolve, onDismiss, onViewDetails, allowResolution } = (table.options.meta as any) ?? {};
+      const canResolve = allowResolution ?? true;
 
       return (
         <DropdownMenu>
@@ -377,7 +378,7 @@ export const alertColumns: ColumnDef<AlertRow>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem onClick={() => onViewDetails?.(alert)}>Ver detalles</DropdownMenuItem>
-            {alert.status === "ACTIVE" && (
+            {alert.status === "ACTIVE" && canResolve && (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => onResolve?.(alert)}>Resolver</DropdownMenuItem>
