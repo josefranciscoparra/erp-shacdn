@@ -14,10 +14,6 @@ export default async function PoliciesPage() {
         mealDailyLimit: policy.mealDailyLimit ? Number(policy.mealDailyLimit) : null,
         lodgingDailyLimit: policy.lodgingDailyLimit ? Number(policy.lodgingDailyLimit) : null,
         expenseMode: expenseMode ?? "PRIVATE", // Añadir modo
-        approvalFlow:
-          ((policy as Record<string, unknown>).approvalFlow as string) ??
-          ((policy.categoryRequirements as Record<string, unknown>)?.approvalFlowConfig as string) ??
-          "DEFAULT",
       }
     : null;
 
@@ -25,7 +21,7 @@ export default async function PoliciesPage() {
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
         title="Políticas de Gastos"
-        description="Configura los límites, reglas de aprobación y requisitos para los gastos de tu organización."
+        description="Configura los limites y requisitos para los gastos de tu organizacion."
       />
 
       {formattedPolicy ? (

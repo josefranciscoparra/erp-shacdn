@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { updatePolicy } from "@/server/actions/expense-policies";
 
@@ -21,8 +20,6 @@ const policyFormSchema = z.object({
   mealDailyLimit: z.coerce.number().min(0),
   lodgingDailyLimit: z.coerce.number().min(0),
   attachmentRequired: z.boolean(),
-  approvalLevels: z.coerce.number().min(1).max(3),
-  approvalFlow: z.enum(["DEFAULT", "HR_ONLY"]),
 });
 
 type PolicyFormValues = z.infer<typeof policyFormSchema>;
@@ -32,8 +29,6 @@ interface ExpensePolicy {
   mealDailyLimit: string | number | null;
   lodgingDailyLimit: string | number | null;
   attachmentRequired: boolean;
-  approvalLevels: number;
-  approvalFlow?: "DEFAULT" | "HR_ONLY";
   expenseMode?: string; // Se recibe para contexto, pero no se edita
 }
 
@@ -52,13 +47,8 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
       mealDailyLimit: initialData.mealDailyLimit ? Number(initialData.mealDailyLimit) : 30,
       lodgingDailyLimit: initialData.lodgingDailyLimit ? Number(initialData.lodgingDailyLimit) : 100,
       attachmentRequired: initialData.attachmentRequired,
-      approvalLevels: initialData.approvalLevels || 1,
-      approvalFlow: initialData.approvalFlow ?? "DEFAULT",
     },
   });
-
-  const selectedFlow = form.watch("approvalFlow");
-  const isHrOnly = selectedFlow === "HR_ONLY";
 
   async function onSubmit(data: PolicyFormValues) {
     setIsSaving(true);
@@ -168,70 +158,13 @@ export function PolicySettingsForm({ initialData }: PolicySettingsFormProps) {
             </CardContent>
           </Card>
 
-          {/* SECCIÓN 2: REGLAS DE APROBACIÓN */}
+          {/* SECCIÓN 2: REQUISITOS */}
           <Card>
             <CardHeader>
-              <CardTitle>Reglas de Aprobación</CardTitle>
-              <CardDescription>Configura cómo se validan los gastos.</CardDescription>
+              <CardTitle>Requisitos</CardTitle>
+              <CardDescription>Configura validaciones obligatorias para los gastos.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="approvalFlow"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Flujo de aprobación</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona flujo" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="DEFAULT">Responsable/Manager y después RRHH/Admin</SelectItem>
-                        <SelectItem value="HR_ONLY">Solo RRHH/Admin (salta manager)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      Define quién inicia la cadena: responsable/manager del empleado o directamente RRHH/Admin.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="approvalLevels"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Niveles de aprobación</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(Number(val))} defaultValue={field.value.toString()}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona niveles" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="1">1 Nivel ({isHrOnly ? "RRHH/Admin" : "Responsable/Manager"})</SelectItem>
-                        <SelectItem value="2">
-                          2 Niveles ({isHrOnly ? "RRHH + Finanzas/Admin" : "Responsable/Manager + RRHH"})
-                        </SelectItem>
-                        <SelectItem value="3">
-                          3 Niveles ({isHrOnly ? "RRHH + Finanzas + Dirección" : "Responsable + Dirección + RRHH"})
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {isHrOnly
-                        ? "Los niveles se asignan dentro de RRHH/Admin según el orden configurado en aprobadores organizacionales."
-                        : "El primer nivel es el responsable/manager; los siguientes niveles usan los aprobadores organizacionales (RRHH/Finanzas)."}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
               <FormField
                 control={form.control}
                 name="attachmentRequired"

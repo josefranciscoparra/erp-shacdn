@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 
 export type PendingApprovalItem = {
   id: string;
-  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE" | "ALERT";
+  type: "PTO" | "MANUAL_TIME_ENTRY" | "EXPENSE";
   employeeName: string;
   employeeImage?: string | null;
   employeeId: string; // Necesario para algunas lógicas UI
@@ -119,8 +119,6 @@ export async function getMyApprovals(
     // Si es historial, buscamos explícitamente donde el usuario actuó como aprobador
     // O si es admin, quizás quiera ver todo, pero por ahora limitamos a "Mis acciones" para consistencia
     const historyWhereClause = isHistory ? { approverId: userId } : {};
-    const isGlobalAdmin = ["ORG_ADMIN", "SUPER_ADMIN", "HR_ADMIN"].includes(session.user.role);
-
     // --- PREPARAR CONSULTAS ---
 
     // 1. PTO Promise
@@ -244,42 +242,8 @@ export async function getMyApprovals(
       take: isHistory ? 50 : undefined,
     });
 
-    // 4. Alerts Promise (Solo Admin)
-    const alertsPromise = isGlobalAdmin
-      ? prisma.alert.findMany({
-          where: {
-            orgId: { in: orgFilterIds },
-            status: isHistory ? { in: ["RESOLVED", "DISMISSED"] } : "ACTIVE",
-          },
-          include: {
-            organization: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-            employee: {
-              include: {
-                employmentContracts: {
-                  where: { active: true },
-                  take: 1,
-                  include: { position: true, department: true },
-                },
-              },
-            },
-          },
-          orderBy: { date: "desc" },
-          take: isHistory ? 50 : undefined,
-        })
-      : Promise.resolve([]);
-
     // --- EJECUTAR EN PARALELO ---
-    const [ptoRequests, manualRequests, expenses, alerts] = await Promise.all([
-      ptoPromise,
-      manualPromise,
-      expensesPromise,
-      alertsPromise,
-    ]);
+    const [ptoRequests, manualRequests, expenses] = await Promise.all([ptoPromise, manualPromise, expensesPromise]);
 
     // --- PROCESAR PTO ---
     for (const req of ptoRequests) {
@@ -426,41 +390,6 @@ export async function getMyApprovals(
             approverName: myApproval?.approver?.name,
             approverImage: myApproval?.approver?.image,
           },
-        },
-      });
-    }
-
-    // --- PROCESAR ALERTS ---
-    for (const alert of alerts) {
-      const incidents = alert.incidents as any[];
-      const incidentCount = Array.isArray(incidents) ? incidents.length : 0;
-      const activeContract = alert.employee.employmentContracts[0];
-
-      items.push({
-        id: alert.id,
-        type: "ALERT",
-        employeeId: alert.employeeId,
-        employeeName: `${alert.employee.firstName} ${alert.employee.lastName}`,
-        employeeImage: alert.employee.photoUrl,
-        orgId: alert.orgId,
-        organization: alert.organization
-          ? {
-              id: alert.organization.id,
-              name: alert.organization.name,
-            }
-          : undefined,
-        date: alert.date.toISOString(),
-        summary: `Alerta: ${incidentCount} incidencia(s) detectada(s)`,
-        status: alert.status,
-        createdAt: alert.createdAt,
-        details: {
-          date: alert.date.toISOString(),
-          incidents: incidents,
-          position: activeContract?.position?.title,
-          department: activeContract?.department?.name,
-          alertType: alert.type,
-          // Audit info for alerts (resolver)
-          // TODO: Fetch resolver if needed, currently assuming current user action for new ones
         },
       });
     }

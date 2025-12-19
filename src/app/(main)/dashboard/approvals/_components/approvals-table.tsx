@@ -18,17 +18,7 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  CheckCircle2,
-  Clock,
-  ArrowRight,
-  FileText,
-  AlertCircle,
-  Check,
-  Loader2,
-  TriangleAlert,
-  Eye,
-} from "lucide-react";
+import { CheckCircle2, Clock, ArrowRight, FileText, Check, Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -49,8 +39,6 @@ function getTypeLabel(type: PendingApprovalItem["type"]) {
       return "Fichaje";
     case "EXPENSE":
       return "Gasto";
-    case "ALERT":
-      return "Alerta";
     default:
       return "Solicitud";
   }
@@ -163,8 +151,8 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
         cell: ({ row }) => {
           const type = row.original.type;
           const label = getTypeLabel(type);
-          let icon = AlertCircle;
-          let colorClass = "text-gray-500";
+          let icon = FileText;
+          let colorClass = "text-green-500";
 
           switch (type) {
             case "PTO":
@@ -178,10 +166,6 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
             case "EXPENSE":
               icon = FileText;
               colorClass = "text-green-500";
-              break;
-            case "ALERT":
-              icon = TriangleAlert;
-              colorClass = "text-destructive"; // Rojo semántico
               break;
             default:
               break;
@@ -221,9 +205,6 @@ export function ApprovalsTable({ items, filterType = "all", onReview, onSuccess 
           const item = row.original;
           let isPending = false;
           switch (item.type) {
-            case "ALERT":
-              isPending = item.status === "ACTIVE";
-              break;
             case "EXPENSE":
               isPending = item.status === "SUBMITTED";
               break;

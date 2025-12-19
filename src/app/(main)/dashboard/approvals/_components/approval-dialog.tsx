@@ -81,12 +81,6 @@ function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
       case "REJECTED":
         type = "REJECTED";
         break;
-      case "RESOLVED":
-        type = "RESOLVED";
-        break;
-      case "DISMISSED":
-        type = "DISMISSED";
-        break;
     }
 
     events.push({
@@ -96,20 +90,6 @@ function buildTimelineEvents(item: PendingApprovalItem): TimelineEvent[] {
       actorImage: audit.approverImage,
       date,
       comment: getDetailString(item, "approverComments") ?? getDetailString(item, "rejectionReason"),
-    });
-  } else if (item.type === "ALERT" && item.status !== "ACTIVE") {
-    // Fallback for alerts without proper audit structure yet
-    // This part handles alerts that are not active (resolved/dismissed) but might not have full audit object
-    let type: TimelineEvent["type"] = "COMMENT";
-    if (item.status === "RESOLVED") type = "RESOLVED";
-    if (item.status === "DISMISSED") type = "DISMISSED";
-
-    events.push({
-      id: "alert-decision",
-      type,
-      actorName: "Usuario",
-      date: item.createdAt, // We don't have update time easily available here without audit
-      comment: "Alerta gestionada",
     });
   }
 

@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getMyApprovals, type PendingApprovalItem } from "@/server/actions/approvals";
 
-import { AlertResolutionDialog } from "./_components/alert-resolution-dialog";
 import { ApprovalDialog } from "./_components/approval-dialog";
 import { ApprovalsKpiCards } from "./_components/approvals-kpi-cards";
 import { ApprovalsTable } from "./_components/approvals-table";
@@ -240,7 +239,6 @@ export default function ApprovalsPage() {
                   <SelectItem value="PTO">Ausencias</SelectItem>
                   <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
                   <SelectItem value="EXPENSE">Gastos</SelectItem>
-                  <SelectItem value="ALERT">Alertas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -285,17 +283,8 @@ export default function ApprovalsPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Diálogo de Aprobación o Resolución de Alerta */}
-      {selectedItem?.type === "ALERT" ? (
-        <AlertResolutionDialog
-          item={selectedItem}
-          open={dialogOpen}
-          onOpenChange={setDialogOpen}
-          onSuccess={handleSuccess}
-        />
-      ) : (
-        <ApprovalDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={handleSuccess} />
-      )}
+      {/* Diálogo de Aprobación */}
+      <ApprovalDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={handleSuccess} />
     </div>
   );
 }

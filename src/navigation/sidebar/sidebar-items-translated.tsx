@@ -23,6 +23,7 @@ import {
   Calculator,
   FileArchive,
   Shield,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -204,6 +205,13 @@ export function useSidebarItems(): NavGroup[] {
           permission: "approve_requests",
         },
         {
+          title: "Alertas",
+          url: "/dashboard/time-tracking/alerts",
+          icon: TriangleAlert,
+          permission: "view_time_tracking",
+          isNew: true,
+        },
+        {
           title: "Responsables de Área",
           url: "/dashboard/me/responsibilities",
           icon: ClipboardList,
@@ -341,12 +349,6 @@ export function useSidebarItems(): NavGroup[] {
               title: "Monitor en Vivo",
               url: "/dashboard/time-tracking/live",
               permission: "view_time_tracking",
-            },
-            {
-              title: "Alertas",
-              url: "/dashboard/time-tracking/alerts",
-              permission: "view_time_tracking",
-              isNew: true,
             },
             {
               title: "Bolsa de Horas",
