@@ -55,6 +55,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { usePermissions } from "@/hooks/use-permissions";
+import { getAlertAssignments } from "@/server/actions/alert-assignments";
 import {
   getActiveAlerts,
   resolveAlert,
@@ -62,6 +63,7 @@ import {
   getAlertStats,
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
+import { addAlertNote, getAlertNotes } from "@/server/actions/alert-notes";
 import { getMyAlerts, getMyAlertStats, getMySubscriptions } from "@/server/actions/alerts";
 import { getOrganizationValidationConfig } from "@/server/actions/time-clock-validations";
 import { getActiveContext, getAvailableScopes } from "@/server/actions/user-context";
@@ -88,6 +90,29 @@ type DateRange = {
   to: Date | undefined;
 };
 
+type AlertAssignment = {
+  id: string;
+  userId: string;
+  source: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+};
+
+type AlertNote = {
+  id: string;
+  content: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+  };
+};
+
 const ALERT_TYPES = [
   { value: "DAILY_SUMMARY", label: "Resumen diario" },
   { value: "LATE_ARRIVAL", label: "Llega tarde" },
@@ -107,12 +132,23 @@ const SEVERITY_LABELS: Record<string, string> = {
   CRITICAL: "Crítico",
 };
 
+const ASSIGNMENT_SOURCE_LABELS: Record<string, string> = {
+  DIRECT_MANAGER: "Manager directo",
+  TEAM_RESPONSIBLE: "Responsable de equipo",
+  DEPARTMENT_RESPONSIBLE: "Responsable de departamento",
+  COST_CENTER_RESPONSIBLE: "Responsable de centro",
+  ORG_RESPONSIBLE: "Responsable de organización",
+  HR_FALLBACK: "RRHH",
+  MANUAL: "Manual",
+};
+
 export default function AlertsPage() {
-  const { hasPermission } = usePermissions();
+  const { hasPermission, userRole } = usePermissions();
   const canManageUsers = hasPermission("manage_users");
+  const isAdminScope = userRole === "HR_ADMIN" || userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN";
 
   // ========== SCOPE MODE: "mine" (mis suscripciones) | "all" (según contexto activo) ==========
-  const [scopeMode, setScopeMode] = useState<"mine" | "all">("mine");
+  const [scopeMode, setScopeMode] = useState<"mine" | "all">(isAdminScope ? "all" : "mine");
 
   // ========== CONTEXT SELECTOR ==========
   const [activeContext, setActiveContext] = useState<any>(null);
@@ -126,6 +162,12 @@ export default function AlertsPage() {
   const [actionDialog, setActionDialog] = useState<"resolve" | "dismiss" | "details" | null>(null);
   const [comment, setComment] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [alertAssignments, setAlertAssignments] = useState<AlertAssignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [alertNotes, setAlertNotes] = useState<AlertNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
 
   // Filtros disponibles según scope del usuario
   const [availableFilters, setAvailableFilters] = useState<AvailableFilters>({
@@ -159,6 +201,12 @@ export default function AlertsPage() {
     timeline: false,
   });
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+
+  useEffect(() => {
+    if (isAdminScope) {
+      setScopeMode("all");
+    }
+  }, [isAdminScope]);
 
   // Cargar contexto activo y scopes disponibles al montar
   useEffect(() => {
@@ -243,6 +291,33 @@ export default function AlertsPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (actionDialog !== "details" || !selectedAlert) {
+      return;
+    }
+
+    const loadMeta = async () => {
+      try {
+        setAssignmentsLoading(true);
+        setNotesLoading(true);
+        const [assignments, notes] = await Promise.all([
+          getAlertAssignments(selectedAlert.id),
+          getAlertNotes(selectedAlert.id),
+        ]);
+        setAlertAssignments(assignments);
+        setAlertNotes(notes);
+      } catch (error) {
+        console.error("Error al cargar detalle de alerta:", error);
+        toast.error("No se pudo cargar la información de la alerta");
+      } finally {
+        setAssignmentsLoading(false);
+        setNotesLoading(false);
+      }
+    };
+
+    loadMeta();
+  }, [actionDialog, selectedAlert]);
 
   // Filtrar alertas por tab activo y equipo (cliente-side)
   const filteredAlerts = useMemo(() => {
@@ -354,6 +429,27 @@ export default function AlertsPage() {
       toast.error("No se pudo descartar la alerta");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!selectedAlert) return;
+    if (!noteDraft.trim()) {
+      toast.error("Escribe una nota antes de guardar");
+      return;
+    }
+
+    try {
+      setNoteSaving(true);
+      const note = await addAlertNote(selectedAlert.id, noteDraft);
+      setAlertNotes((prev) => [note, ...prev]);
+      setNoteDraft("");
+      toast.success("Nota guardada");
+    } catch (error) {
+      console.error("Error al guardar nota:", error);
+      toast.error("No se pudo guardar la nota");
+    } finally {
+      setNoteSaving(false);
     }
   };
 
@@ -827,7 +923,17 @@ export default function AlertsPage() {
       </Dialog>
 
       {/* Dialog para ver detalles */}
-      <Dialog open={actionDialog === "details"} onOpenChange={() => setActionDialog(null)}>
+      <Dialog
+        open={actionDialog === "details"}
+        onOpenChange={(open) => {
+          if (!open) {
+            setActionDialog(null);
+            setAlertAssignments([]);
+            setAlertNotes([]);
+            setNoteDraft("");
+          }
+        }}
+      >
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Detalle de Incidencia</DialogTitle>
@@ -881,6 +987,26 @@ export default function AlertsPage() {
                       {Math.floor(Math.abs(selectedAlert.deviationMinutes) / 60)}h{" "}
                       {Math.abs(selectedAlert.deviationMinutes) % 60}min
                     </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold">Asignación</h4>
+                {assignmentsLoading ? (
+                  <p className="text-muted-foreground text-sm">Cargando responsables...</p>
+                ) : alertAssignments.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Sin responsables asignados.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {alertAssignments.map((assignment) => (
+                      <div key={assignment.id} className="rounded-md border px-2 py-1">
+                        <p className="text-sm font-medium">{assignment.user.name ?? assignment.user.email}</p>
+                        <p className="text-muted-foreground text-xs">
+                          {ASSIGNMENT_SOURCE_LABELS[assignment.source] ?? assignment.source}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -943,6 +1069,40 @@ export default function AlertsPage() {
                     </div>
                   </div>
                 )}
+
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold">Notas internas</h4>
+                <div className="space-y-2">
+                  <Textarea
+                    value={noteDraft}
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    placeholder="Añade una nota interna para RRHH..."
+                  />
+                  <div className="flex justify-end">
+                    <Button size="sm" onClick={handleAddNote} disabled={noteSaving}>
+                      {noteSaving ? "Guardando..." : "Guardar nota"}
+                    </Button>
+                  </div>
+                </div>
+
+                {notesLoading ? (
+                  <p className="text-muted-foreground text-sm">Cargando notas...</p>
+                ) : alertNotes.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">No hay notas aún.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {alertNotes.map((note) => (
+                      <div key={note.id} className="rounded-lg border p-3">
+                        <div className="text-muted-foreground flex items-center justify-between text-xs">
+                          <span>{note.user.name ?? note.user.email}</span>
+                          <span>{format(new Date(note.createdAt), "d MMM, HH:mm", { locale: es })}</span>
+                        </div>
+                        <p className="mt-2 text-sm">{note.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Información de resolución si existe */}
               {selectedAlert.status !== "ACTIVE" && (

@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { ensureAlertAssignments } from "@/services/alerts/alert-assignments";
 import {
   buildScopeFilter,
   getUserAccessibleCostCenters,
@@ -540,7 +541,7 @@ async function saveDetectedAlerts(
     const title = `Resumen del día: ${allIncidents.length} incidencia${allIncidents.length > 1 ? "s" : ""}`;
 
     // Crear o actualizar la alerta resumen
-    await prisma.alert.upsert({
+    const savedAlert = await prisma.alert.upsert({
       where: {
         employeeId_date_type: {
           employeeId,
@@ -570,6 +571,8 @@ async function saveDetectedAlerts(
         updatedAt: new Date(),
       },
     });
+
+    await ensureAlertAssignments(savedAlert.id, employeeId);
 
     console.log(`✅ [SAVE_ALERTS] Alerta resumen actualizada: ${allIncidents.length} incidencias totales`);
   } catch (error) {

@@ -283,6 +283,9 @@ model User {
   areaResponsibilities AreaResponsible[]         @relation("UserAreaResponsibilities") // Áreas de las que es responsable
   alertSubscriptions   AlertSubscription[]       @relation("UserAlertSubscriptions") // Suscripciones a alertas
   resolvedAlerts       Alert[]                   @relation("AlertResolver") // Alertas que ha resuelto
+  alertAssignments     AlertAssignment[]         @relation("AlertAssignmentUser") // Alertas asignadas
+  alertAssignmentsMade AlertAssignment[]         @relation("AlertAssignmentAssignedBy") // Asignaciones creadas
+  alertNotes           AlertNote[]               @relation("AlertNoteAuthor") // Notas internas en alertas
   activeContext        UserActiveContext? // Contexto activo seleccionado por el usuario
   procedureHistory     ExpenseProcedureHistory[] // Historial de expedientes donde ha actuado
 
@@ -3530,6 +3533,10 @@ model Alert {
   // Notificaciones enviadas
   notifiedUsers String[] @default([]) // IDs de usuarios notificados
 
+  // Asignaciones y notas internas
+  assignments AlertAssignment[]
+  notes       AlertNote[]
+
   // Constraint único para alertas resumen diarias
   // Solo puede haber UNA alerta DAILY_SUMMARY por empleado por día
   @@unique([employeeId, date, type])
@@ -3552,6 +3559,47 @@ model Alert {
   @@index([teamId, status, date]) // Dashboard de equipo
   @@index([employeeId, date, type]) // Deduplicación
   @@map("alerts")
+}
+
+// Asignaciones de alertas (una alerta puede tener varios responsables asignados)
+model AlertAssignment {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  alertId String
+  alert   Alert  @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("AlertAssignmentUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  assignedById String?
+  assignedBy   User?  @relation("AlertAssignmentAssignedBy", fields: [assignedById], references: [id])
+
+  // Motivo/origen de la asignación
+  source String // "DIRECT_MANAGER" | "TEAM_RESPONSIBLE" | "DEPARTMENT_RESPONSIBLE" | "COST_CENTER_RESPONSIBLE" | "ORG_RESPONSIBLE" | "HR_FALLBACK" | "MANUAL"
+
+  @@unique([alertId, userId])
+  @@index([alertId])
+  @@index([userId])
+  @@map("alert_assignments")
+}
+
+// Notas internas de alertas
+model AlertNote {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  alertId String
+  alert   Alert  @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("AlertNoteAuthor", fields: [userId], references: [id], onDelete: Cascade)
+
+  content String
+
+  @@index([alertId])
+  @@index([userId])
+  @@map("alert_notes")
 }
 
 // Contexto activo del usuario para filtrado de vistas
