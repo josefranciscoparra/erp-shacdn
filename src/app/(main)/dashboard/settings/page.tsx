@@ -15,6 +15,7 @@ import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 
 import { AbsenceTypesTab } from "./_components/absence-types-tab";
 import { AdminTab } from "./_components/admin-tab";
+import { ApprovalSettingsTab } from "./_components/approval-settings-tab";
 import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
@@ -46,6 +47,7 @@ export default function SettingsPage() {
       { value: "whistleblowing", label: "Denuncias" },
       { value: "geolocation", label: "Geolocalización" },
       { value: "validations", label: "Fichajes" },
+      { value: "approvals", label: "Aprobaciones" },
       { value: "time-bank", label: "Bolsa Horas" },
       { value: "expenses", label: "Gastos" },
       { value: "storage", label: "Storage" },
@@ -141,6 +143,10 @@ export default function SettingsPage() {
 
           <TabsContent value="validations" className="mt-4 md:mt-6">
             <TimeClockValidationsTab />
+          </TabsContent>
+
+          <TabsContent value="approvals" className="mt-4 md:mt-6">
+            <ApprovalSettingsTab />
           </TabsContent>
 
           <TabsContent value="time-bank" className="mt-4 md:mt-6">

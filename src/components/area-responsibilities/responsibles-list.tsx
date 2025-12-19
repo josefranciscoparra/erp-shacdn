@@ -23,7 +23,7 @@ import {
   removeResponsibility,
   type AreaResponsibilityData,
 } from "@/server/actions/area-responsibilities";
-import type { Scope } from "@/services/permissions";
+import type { Scope } from "@/services/permissions/scope-helpers";
 
 import { AddResponsibleDialog } from "./add-responsible-dialog";
 import { EditPermissionsDialog } from "./edit-permissions-dialog";

@@ -1,15 +1,12 @@
-import { TimeBankApprovalFlow } from "@prisma/client";
-
 import { prisma } from "@/lib/prisma";
-import { Permission } from "@/services/permissions";
+import { type Permission as ScopePermission } from "@/services/permissions/scope-helpers";
 
-/**
- * Tipos de solicitud que requieren aprobación
- */
-export type ApprovalRequestType =
-  | "PTO" // Vacaciones y ausencias
-  | "MANUAL_TIME_ENTRY" // Fichajes manuales
-  | "EXPENSE"; // Gastos
+import {
+  type ApprovalRequestType,
+  type ApprovalCriterion,
+  DEFAULT_APPROVAL_SETTINGS,
+  normalizeApprovalSettings,
+} from "./approval-settings";
 
 /**
  * Datos mínimos de un aprobador autorizado
@@ -19,25 +16,103 @@ export type AuthorizedApprover = {
   name: string | null;
   email: string;
   role: string;
-  source: "DIRECT_MANAGER" | "TEAM_LEAD" | "DEPARTMENT_MANAGER" | "COST_CENTER_MANAGER" | "HR_ADMIN" | "ORG_ADMIN";
-  level: number; // 1=Directo, 2=Equipo, 3=Depto, 4=Centro, 5=HR/Admin
+  source:
+    | "DIRECT_MANAGER"
+    | "TEAM_RESPONSIBLE"
+    | "DEPARTMENT_RESPONSIBLE"
+    | "COST_CENTER_RESPONSIBLE"
+    | "EXPENSE_APPROVER_LIST"
+    | "HR_ADMIN"
+    | "ORG_ADMIN";
+  level: number;
 };
 
-async function getOrgApprovalFlow(orgId: string): Promise<TimeBankApprovalFlow> {
-  const settings = await prisma.timeBankSettings.findUnique({
-    where: { orgId },
-    select: { approvalFlow: true },
+type EmployeeApprovalContext = {
+  orgId: string;
+  teamId: string | null;
+  contract: {
+    managerUser?: {
+      id: string;
+      name: string | null;
+      email: string;
+      role: string;
+      active: boolean;
+    } | null;
+    departmentId?: string | null;
+    costCenterId?: string | null;
+  } | null;
+};
+
+/**
+ * Mapeo de tipos de solicitud a permisos requeridos en responsables de area.
+ */
+export const APPROVAL_PERMISSIONS: Record<ApprovalRequestType, ScopePermission> = {
+  PTO: "APPROVE_PTO_REQUESTS",
+  MANUAL_TIME_ENTRY: "MANAGE_TIME_ENTRIES",
+  TIME_BANK: "APPROVE_PTO_REQUESTS",
+  EXPENSE: "APPROVE_EXPENSES",
+};
+
+async function getApprovalSettingsForOrg(orgId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { approvalSettings: true },
   });
 
-  return settings?.approvalFlow ?? "MIRROR_PTO";
+  return normalizeApprovalSettings(org?.approvalSettings ?? DEFAULT_APPROVAL_SETTINGS);
 }
 
-async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
-  const hrMemberships = await prisma.userOrganization.findMany({
+async function getEmployeeApprovalContext(employeeId: string): Promise<EmployeeApprovalContext> {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      orgId: true,
+      teamId: true,
+      employmentContracts: {
+        where: { active: true },
+        take: 1,
+        orderBy: { startDate: "desc" },
+        select: {
+          manager: {
+            select: {
+              user: {
+                select: { id: true, name: true, email: true, role: true, active: true },
+              },
+            },
+          },
+          departmentId: true,
+          costCenterId: true,
+        },
+      },
+    },
+  });
+
+  if (!employee) {
+    throw new Error("Empleado no encontrado");
+  }
+
+  const contract = employee.employmentContracts[0];
+  const managerUser = contract?.manager?.user ?? null;
+
+  return {
+    orgId: employee.orgId,
+    teamId: employee.teamId ?? null,
+    contract: contract
+      ? {
+          managerUser: managerUser ?? null,
+          departmentId: contract.departmentId,
+          costCenterId: contract.costCenterId,
+        }
+      : null,
+  };
+}
+
+async function getRoleApprovers(orgId: string, roles: Array<"HR_ADMIN" | "ORG_ADMIN" | "SUPER_ADMIN">) {
+  const memberships = await prisma.userOrganization.findMany({
     where: {
       orgId,
       isActive: true,
-      role: { in: ["HR_ADMIN", "ORG_ADMIN"] },
+      role: { in: roles },
       user: { active: true },
     },
     include: {
@@ -53,8 +128,9 @@ async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
   });
 
   const uniqueApprovers = new Map<string, AuthorizedApprover>();
+  const source = roles.includes("HR_ADMIN") ? "HR_ADMIN" : "ORG_ADMIN";
 
-  for (const membership of hrMemberships) {
+  for (const membership of memberships) {
     if (!membership.user) {
       continue;
     }
@@ -64,7 +140,7 @@ async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
       name: membership.user.name,
       email: membership.user.email,
       role: membership.role,
-      source: membership.role === "HR_ADMIN" ? "HR_ADMIN" : "ORG_ADMIN",
+      source,
       level: 5,
     });
   }
@@ -72,208 +148,180 @@ async function getHrApprovers(orgId: string): Promise<AuthorizedApprover[]> {
   return Array.from(uniqueApprovers.values());
 }
 
-/**
- * Devuelve la lista de aprobadores según el flujo configurado para la organización.
- * - MIRROR_PTO: jerarquía (manager > equipo > centro > HR/Admin)
- * - HR_ONLY: siempre HR/Admin (ignora jerarquía)
- */
-export async function resolveApproverUsers(employeeId: string, orgId: string): Promise<AuthorizedApprover[]> {
-  const flow = await getOrgApprovalFlow(orgId);
-
-  if (flow === "HR_ONLY") {
-    const hrOnly = await getHrApprovers(orgId);
-    if (hrOnly.length > 0) {
-      return hrOnly;
-    }
+async function getFallbackApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const hrApprovers = await getRoleApprovers(orgId, ["HR_ADMIN"]);
+  if (hrApprovers.length > 0) {
+    return hrApprovers;
   }
 
-  const approvers = await getAuthorizedApprovers(employeeId, "PTO");
-  if (approvers.length > 0) {
-    return approvers;
+  return await getRoleApprovers(orgId, ["ORG_ADMIN", "SUPER_ADMIN"]);
+}
+
+async function getExpenseListApprovers(orgId: string): Promise<AuthorizedApprover[]> {
+  const approvers = await prisma.expenseApprover.findMany({
+    where: { orgId },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, role: true, active: true },
+      },
+    },
+    orderBy: [{ isPrimary: "desc" }, { order: "asc" }],
+  });
+
+  return approvers
+    .filter((approver) => approver.user?.active)
+    .map((approver) => ({
+      userId: approver.userId,
+      name: approver.user?.name ?? null,
+      email: approver.user?.email ?? "",
+      role: approver.user?.role ?? "EMPLOYEE",
+      source: "EXPENSE_APPROVER_LIST",
+      level: 1,
+    }));
+}
+
+async function getResponsibleApprovers(
+  orgId: string,
+  scope: "TEAM" | "DEPARTMENT" | "COST_CENTER",
+  scopeId: string | null,
+  permission: ScopePermission,
+  source: AuthorizedApprover["source"],
+): Promise<AuthorizedApprover[]> {
+  if (!scopeId) {
+    return [];
   }
 
-  const fallback = await getHrApprovers(orgId);
-  return fallback;
+  const responsibles = await prisma.areaResponsible.findMany({
+    where: {
+      orgId,
+      scope,
+      isActive: true,
+      permissions: { has: permission },
+      ...(scope === "TEAM" ? { teamId: scopeId } : {}),
+      ...(scope === "DEPARTMENT" ? { departmentId: scopeId } : {}),
+      ...(scope === "COST_CENTER" ? { costCenterId: scopeId } : {}),
+    },
+    include: {
+      user: {
+        select: { id: true, name: true, email: true, role: true, active: true },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return responsibles
+    .filter((responsible) => responsible.user?.active)
+    .map((responsible) => ({
+      userId: responsible.userId,
+      name: responsible.user?.name ?? null,
+      email: responsible.user?.email ?? "",
+      role: responsible.user?.role ?? "EMPLOYEE",
+      source,
+      level: 1,
+    }));
+}
+
+async function resolveCandidatesByCriterion(
+  context: EmployeeApprovalContext,
+  criterion: ApprovalCriterion,
+  permission: ScopePermission,
+): Promise<AuthorizedApprover[]> {
+  const contract = context.contract;
+
+  switch (criterion) {
+    case "DIRECT_MANAGER":
+      if (contract?.managerUser && contract.managerUser.active) {
+        return [
+          {
+            userId: contract.managerUser.id,
+            name: contract.managerUser.name,
+            email: contract.managerUser.email,
+            role: contract.managerUser.role,
+            source: "DIRECT_MANAGER",
+            level: 1,
+          },
+        ];
+      }
+      return [];
+    case "TEAM_RESPONSIBLE":
+      return await getResponsibleApprovers(context.orgId, "TEAM", context.teamId, permission, "TEAM_RESPONSIBLE");
+    case "DEPARTMENT_RESPONSIBLE":
+      return await getResponsibleApprovers(
+        context.orgId,
+        "DEPARTMENT",
+        contract?.departmentId ?? null,
+        permission,
+        "DEPARTMENT_RESPONSIBLE",
+      );
+    case "COST_CENTER_RESPONSIBLE":
+      return await getResponsibleApprovers(
+        context.orgId,
+        "COST_CENTER",
+        contract?.costCenterId ?? null,
+        permission,
+        "COST_CENTER_RESPONSIBLE",
+      );
+    default:
+      return [];
+  }
 }
 
 /**
- * Mapeo de tipos de solicitud a permisos requeridos
+ * Devuelve la lista de aprobadores según el flujo configurado para la organizacion.
+ * Se detiene en el primer criterio que tenga aprobadores.
  */
-export const APPROVAL_PERMISSIONS: Record<ApprovalRequestType, Permission> = {
-  PTO: "APPROVE_PTO_REQUESTS",
-  MANUAL_TIME_ENTRY: "MANAGE_TIME_ENTRIES",
-  EXPENSE: "MANAGE_EMPLOYEES", // Temporal, debería ser APPROVE_EXPENSES si existiera
-};
+export async function resolveApproverUsers(
+  employeeId: string,
+  orgId: string,
+  requestType: ApprovalRequestType,
+): Promise<AuthorizedApprover[]> {
+  const settings = await getApprovalSettingsForOrg(orgId);
+  const workflow = settings.workflows[requestType] ?? DEFAULT_APPROVAL_SETTINGS.workflows[requestType];
+
+  if (requestType === "EXPENSE" && workflow.mode === "LIST") {
+    const listApprovers = await getExpenseListApprovers(orgId);
+    if (listApprovers.length > 0) {
+      return listApprovers;
+    }
+  }
+
+  const context = await getEmployeeApprovalContext(employeeId);
+  const permission = APPROVAL_PERMISSIONS[requestType];
+
+  for (const criterion of workflow.criteriaOrder) {
+    const candidates = await resolveCandidatesByCriterion(context, criterion, permission);
+    if (candidates.length > 0) {
+      return candidates;
+    }
+  }
+
+  const fallback = await getFallbackApprovers(orgId);
+  if (fallback.length > 0) {
+    return fallback;
+  }
+
+  return [];
+}
 
 /**
- * Obtiene los aprobadores autorizados para un empleado y tipo de solicitud específicos.
- * Sigue la jerarquía: Contrato -> Equipo -> Depto -> Centro -> Admin
- *
- * @param employeeId ID del empleado que hace la solicitud
- * @param requestType Tipo de solicitud (PTO, Gasto, etc.)
- * @returns Lista de aprobadores autorizados ordenados por cercanía (nivel 1 primero)
+ * Obtiene los aprobadores autorizados para un empleado y tipo de solicitud.
  */
 export async function getAuthorizedApprovers(
   employeeId: string,
   requestType: ApprovalRequestType,
 ): Promise<AuthorizedApprover[]> {
-  // 1. Obtener datos completos del empleado y su contrato activo
-  const employee = await prisma.employee.findUnique({
-    where: { id: employeeId },
-    include: {
-      user: { select: { id: true, name: true, email: true, role: true } }, // Incluimos user solo si existe
-      team: true,
-      employmentContracts: {
-        where: { active: true },
-        include: {
-          manager: {
-            include: { user: true },
-          },
-          department: true,
-          costCenter: true,
-        },
-        orderBy: { startDate: "desc" },
-        take: 1,
-      },
-    },
-  });
-
-  if (!employee) {
-    throw new Error("Empleado no encontrado");
-  }
-
-  const orgId = employee.orgId; // Usamos orgId del empleado, que es obligatorio
-  const contract = employee.employmentContracts[0];
-  const approvers: AuthorizedApprover[] = [];
-  const addedUserIds = new Set<string>();
-
-  const requiredPermission = APPROVAL_PERMISSIONS[requestType];
-
-  // Helper para añadir aprobador si no existe ya
-  const addApprover = (
-    user: { id: string; name: string | null; email: string; role: string },
-    source: AuthorizedApprover["source"],
-    level: number,
-  ) => {
-    if (!addedUserIds.has(user.id)) {
-      approvers.push({
-        userId: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        source,
-        level,
-      });
-      addedUserIds.add(user.id);
-    }
-  };
-
-  // ========================================================================
-  // NIVEL 1: RESPONSABLE DIRECTO (Por Contrato)
-  // ========================================================================
-  // Si el contrato tiene un manager asignado explícitamente, es el primer aprobador.
-  if (contract?.manager?.user) {
-    addApprover(contract.manager.user, "DIRECT_MANAGER", 1);
-  }
-
-  // ========================================================================
-  // NIVEL 2: RESPONSABLE DE EQUIPO (Team Lead)
-  // ========================================================================
-  // Si el empleado pertenece a un equipo, buscamos los responsables de ese equipo
-  // que tengan el permiso requerido.
-  if (employee.teamId) {
-    const teamResponsibles = await prisma.areaResponsible.findMany({
-      where: {
-        orgId,
-        scope: "TEAM",
-        teamId: employee.teamId,
-        isActive: true,
-        permissions: { has: requiredPermission },
-      },
-      include: { user: true },
-    });
-
-    for (const resp of teamResponsibles) {
-      addApprover(resp.user, "TEAM_LEAD", 2);
-    }
-  }
-
-  // ========================================================================
-  // NIVEL 3: RESPONSABLE DE DEPARTAMENTO
-  // ========================================================================
-  // Si el contrato tiene departamento, buscamos responsables de ese departamento.
-  if (contract?.departmentId) {
-    const deptResponsibles = await prisma.areaResponsible.findMany({
-      where: {
-        orgId,
-        scope: "DEPARTMENT",
-        departmentId: contract.departmentId,
-        isActive: true,
-        permissions: { has: requiredPermission },
-      },
-      include: { user: true },
-    });
-
-    for (const resp of deptResponsibles) {
-      addApprover(resp.user, "DEPARTMENT_MANAGER", 3);
-    }
-  }
-
-  // ========================================================================
-  // NIVEL 4: RESPONSABLE DE CENTRO DE COSTE
-  // ========================================================================
-  // Si el contrato tiene centro de coste, buscamos responsables de ese centro.
-  // NOTA: Team y Dept suelen estar en el mismo centro, pero validamos por si acaso.
-  if (contract?.costCenterId) {
-    const centerResponsibles = await prisma.areaResponsible.findMany({
-      where: {
-        orgId,
-        scope: "COST_CENTER",
-        costCenterId: contract.costCenterId,
-        isActive: true,
-        permissions: { has: requiredPermission },
-      },
-      include: { user: true },
-    });
-
-    for (const resp of centerResponsibles) {
-      addApprover(resp.user, "COST_CENTER_MANAGER", 4);
-    }
-  }
-
-  // ========================================================================
-  // NIVEL 5: ADMINS y RRHH (Fallback Global)
-  // ========================================================================
-  // Si no se ha encontrado ningún aprobador en la jerarquía (o como red de seguridad),
-  // añadimos a los administradores y RRHH de la organización.
-  // OJO: Normalmente solo se añaden si la lista está vacía, pero en algunos sistemas
-  // siempre pueden aprobar. Aquí aplicamos: "Si lista vacía -> Fallback".
-  if (approvers.length === 0) {
-    return getHrApprovers(orgId);
-  }
-
-  return approvers.sort((a, b) => a.level - b.level);
+  const context = await getEmployeeApprovalContext(employeeId);
+  return await resolveApproverUsers(employeeId, context.orgId, requestType);
 }
 
 /**
- * Verifica si un usuario específico puede aprobar una solicitud de un empleado.
+ * Verifica si un usuario especifico puede aprobar una solicitud de un empleado.
  */
 export async function canUserApprove(
   approverUserId: string,
   employeeId: string,
   requestType: ApprovalRequestType,
 ): Promise<boolean> {
-  // 1. Shortcut: Admins siempre pueden
-  const approver = await prisma.user.findUnique({
-    where: { id: approverUserId },
-    select: { role: true },
-  });
-
-  if (approver?.role === "ORG_ADMIN" || approver?.role === "SUPER_ADMIN" || approver?.role === "HR_ADMIN") {
-    return true;
-  }
-
-  // 2. Verificar jerarquía
-  const authorizedApprovers = await getAuthorizedApprovers(employeeId, requestType);
-  return authorizedApprovers.some((a) => a.userId === approverUserId);
+  const approvers = await getAuthorizedApprovers(employeeId, requestType);
+  return approvers.some((approver) => approver.userId === approverUserId);
 }

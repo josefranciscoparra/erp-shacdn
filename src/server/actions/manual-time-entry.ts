@@ -2,50 +2,11 @@
 
 import { startOfDay, endOfDay, isPast, isFuture, isToday } from "date-fns";
 
+import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
-
-/**
- * Obtiene el aprobador por defecto para un empleado (manager del contrato)
- */
-async function getManagerForApproval(employeeId: string, orgId: string): Promise<string> {
-  // Buscar el manager del empleado en su contrato activo
-  const contract = await prisma.employmentContract.findFirst({
-    where: {
-      employeeId,
-      orgId,
-      active: true,
-    },
-    include: {
-      manager: {
-        include: {
-          user: true,
-        },
-      },
-    },
-  });
-
-  if (contract?.manager?.user) {
-    return contract.manager.user.id;
-  }
-
-  // Si no tiene manager, buscar un usuario con rol HR_ADMIN
-  const hrAdmin = await prisma.user.findFirst({
-    where: {
-      orgId,
-      role: "HR_ADMIN",
-      active: true,
-    },
-  });
-
-  if (hrAdmin) {
-    return hrAdmin.id;
-  }
-
-  throw new Error("No se encontró un aprobador disponible. Contacta con RRHH.");
-}
 
 /**
  * Crear una nueva solicitud de fichaje manual
@@ -141,8 +102,13 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
       throw new Error("Ya tienes una solicitud pendiente para ese día");
     }
 
-    // Obtener el manager/aprobador
-    const approverId = await getManagerForApproval(employee.id, orgId);
+    const approvers = await resolveApproverUsers(employee.id, orgId, "MANUAL_TIME_ENTRY");
+    const approverIds = approvers.map((approver) => approver.userId);
+    const approverId = approverIds[0] ?? null;
+
+    if (!approverId) {
+      throw new Error("No se encontró un aprobador disponible. Contacta con RRHH.");
+    }
 
     // Determinar si esta solicitud reemplaza fichajes automáticos (completos o incompletos)
     const hasClockIn = automaticEntries.some((e) => e.entryType === "CLOCK_IN");
@@ -183,16 +149,18 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
       },
     });
 
-    // Notificar al aprobador
-    await createNotification(
-      approverId,
-      orgId,
-      "MANUAL_TIME_ENTRY_SUBMITTED",
-      "Nueva solicitud de fichaje manual",
-      `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${input.date.toLocaleDateString("es-ES")}`,
-      undefined, // ptoRequestId
-      request.id, // manualTimeEntryRequestId
-    );
+    // Notificar a los aprobadores
+    for (const recipientId of approverIds) {
+      await createNotification(
+        recipientId,
+        orgId,
+        "MANUAL_TIME_ENTRY_SUBMITTED",
+        "Nueva solicitud de fichaje manual",
+        `${request.employee.firstName} ${request.employee.lastName} ha solicitado un fichaje manual para el ${input.date.toLocaleDateString("es-ES")}`,
+        undefined, // ptoRequestId
+        request.id, // manualTimeEntryRequestId
+      );
+    }
 
     return {
       success: true,

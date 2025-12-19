@@ -188,20 +188,13 @@ export class PublicExpenseService implements IExpenseService {
       }
 
       const policy = await prisma.expensePolicy.findUnique({ where: { orgId: expense.orgId } });
-      const approvalLevels = policy?.approvalLevels ?? 1;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const approvalFlow = (policy?.categoryRequirements as any)?.approvalFlowConfig ?? "DEFAULT";
-      const approverChain = await buildApprovalChain(
-        {
-          id: expense.id,
-          orgId: expense.orgId,
-          employeeId: expense.employeeId,
-          costCenterId: expense.costCenterId,
-          createdBy: expense.createdBy,
-        },
-        approvalLevels,
-        approvalFlow,
-      );
+      const approverChain = await buildApprovalChain({
+        id: expense.id,
+        orgId: expense.orgId,
+        employeeId: expense.employeeId,
+        costCenterId: expense.costCenterId,
+        createdBy: expense.createdBy,
+      });
 
       const updated = await prisma.$transaction(async (tx) => {
         if (expense.approvals.length === 0) {

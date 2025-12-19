@@ -205,14 +205,12 @@ export async function getMyApprovals(
       status: expenseStatus,
     };
 
-    if (isHistory || !isGlobalAdmin) {
-      expensesWhere.approvals = {
-        some: {
-          approverId: userId,
-          ...expenseApprovalsFilter,
-        },
-      };
-    }
+    expensesWhere.approvals = {
+      some: {
+        approverId: userId,
+        ...expenseApprovalsFilter,
+      },
+    };
 
     const expensesPromise = prisma.expense.findMany({
       where: expensesWhere,
@@ -233,7 +231,7 @@ export async function getMyApprovals(
           },
         },
         approvals: {
-          where: isGlobalAdmin && !isHistory ? {} : { approverId: userId },
+          where: { approverId: userId },
           take: 1,
           include: { approver: { select: { name: true, image: true } } },
         },
@@ -285,8 +283,8 @@ export async function getMyApprovals(
 
     // --- PROCESAR PTO ---
     for (const req of ptoRequests) {
-      let canView = isGlobalAdmin;
-      if (!isHistory && !canView) {
+      let canView = false;
+      if (!isHistory) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "PTO");
         if (approvers.some((a) => a.userId === userId)) canView = true;
       } else if (isHistory) {
@@ -345,8 +343,8 @@ export async function getMyApprovals(
 
     // --- PROCESAR MANUAL TIME ENTRIES ---
     for (const req of manualRequests) {
-      let canView = isGlobalAdmin;
-      if (!isHistory && !canView) {
+      let canView = false;
+      if (!isHistory) {
         const approvers = await getAuthorizedApprovers(req.employeeId, "MANUAL_TIME_ENTRY");
         if (approvers.some((a) => a.userId === userId)) canView = true;
       } else if (isHistory) {

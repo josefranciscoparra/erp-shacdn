@@ -25,6 +25,9 @@ model Organization {
   // Configuración de estructura organizacional
   hierarchyType HierarchyType @default(DEPARTMENTAL) // Tipo de jerarquía de la organización
 
+  // Configuración de aprobaciones por tipo de solicitud (flujo configurable)
+  approvalSettings Json @default("{}")
+
   // Configuración de identidad de empleados (numeración automática)
   employeeNumberPrefix  String? // Prefijo para números de empleado (ej: "TMNW", "ACME")
   employeeNumberCounter Int     @default(0) // Contador atómico para generar números únicos

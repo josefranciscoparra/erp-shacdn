@@ -205,6 +205,20 @@ export async function approveExpense(id: string, comment?: string) {
       },
     });
 
+    await tx.expenseApproval.updateMany({
+      where: {
+        expenseId: id,
+        decision: "PENDING",
+        level: approval.level,
+        id: { not: approval.id },
+      },
+      data: {
+        decision: "APPROVED",
+        comment: "Aprobado por otro responsable",
+        decidedAt: new Date(),
+      },
+    });
+
     // Actualizar el estado del gasto
     await tx.expense.update({
       where: { id },
@@ -299,6 +313,20 @@ export async function rejectExpense(id: string, reason: string) {
       data: {
         decision: "REJECTED",
         comment: reason,
+        decidedAt: new Date(),
+      },
+    });
+
+    await tx.expenseApproval.updateMany({
+      where: {
+        expenseId: id,
+        decision: "PENDING",
+        level: approval.level,
+        id: { not: approval.id },
+      },
+      data: {
+        decision: "REJECTED",
+        comment: "Rechazado por otro responsable",
         decidedAt: new Date(),
       },
     });

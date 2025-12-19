@@ -23,7 +23,7 @@ import {
   type AreaResponsibilityData,
   type Permission,
 } from "@/server/actions/area-responsibilities";
-import type { Scope } from "@/services/permissions";
+import type { Scope } from "@/services/permissions/scope-helpers";
 
 interface EditPermissionsDialogProps {
   responsibility: AreaResponsibilityData;
@@ -52,6 +52,7 @@ const availablePermissions = [
   { value: "MANAGE_SCHEDULES" as const, label: "Gestionar Horarios" },
   { value: "VIEW_PTO_REQUESTS" as const, label: "Ver Ausencias" },
   { value: "APPROVE_PTO_REQUESTS" as const, label: "Aprobar Ausencias" },
+  { value: "APPROVE_EXPENSES" as const, label: "Aprobar Gastos" },
 ];
 
 const formSchema = z.object({

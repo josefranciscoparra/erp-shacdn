@@ -31,6 +31,7 @@ const permissionLabels: Record<string, string> = {
   MANAGE_SCHEDULES: "Gestionar Horarios",
   VIEW_PTO_REQUESTS: "Ver Ausencias",
   APPROVE_PTO_REQUESTS: "Aprobar Ausencias",
+  APPROVE_EXPENSES: "Aprobar Gastos",
 };
 
 export const responsiblesColumns: ColumnDef<AreaResponsibilityData>[] = [

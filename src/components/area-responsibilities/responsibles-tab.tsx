@@ -1,6 +1,6 @@
 "use client";
 
-import type { Scope } from "@/services/permissions";
+import type { Scope } from "@/services/permissions/scope-helpers";
 
 import { AddResponsibleDialog } from "./add-responsible-dialog";
 import { ResponsiblesList } from "./responsibles-list";

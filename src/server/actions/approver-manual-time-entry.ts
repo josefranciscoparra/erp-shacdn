@@ -2,6 +2,7 @@
 
 import { startOfDay, endOfDay } from "date-fns";
 
+import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -41,12 +42,9 @@ export async function getManualTimeEntryRequestsToApprove(status: ApproverReques
   try {
     const { session, user } = await getApproverBaseData();
 
-    // Buscar solicitudes donde el usuario es el aprobador
     const requests = await prisma.manualTimeEntryRequest.findMany({
       where: {
         orgId: user.orgId,
-        approverId: session.user.id,
-        status,
       },
       include: {
         employee: {
@@ -65,39 +63,32 @@ export async function getManualTimeEntryRequestsToApprove(status: ApproverReques
       },
     });
 
-    // Contar totales
-    const [pendingTotal, approvedTotal, rejectedTotal] = await Promise.all([
-      prisma.manualTimeEntryRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "PENDING",
-        },
-      }),
-      prisma.manualTimeEntryRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "APPROVED",
-        },
-      }),
-      prisma.manualTimeEntryRequest.count({
-        where: {
-          orgId: user.orgId,
-          approverId: session.user.id,
-          status: "REJECTED",
-        },
-      }),
-    ]);
-
+    const filteredRequests = [];
     const totals: ApproverManualTimeEntryTotals = {
-      pending: pendingTotal,
-      approved: approvedTotal,
-      rejected: rejectedTotal,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
     };
 
+    for (const request of requests) {
+      const canApprove = await canUserApprove(session.user.id, request.employeeId, "MANUAL_TIME_ENTRY");
+      if (canApprove) {
+        if (request.status === "PENDING") {
+          totals.pending += 1;
+        } else if (request.status === "APPROVED") {
+          totals.approved += 1;
+        } else if (request.status === "REJECTED") {
+          totals.rejected += 1;
+        }
+
+        if (request.status === status) {
+          filteredRequests.push(request);
+        }
+      }
+    }
+
     return {
-      requests: requests.map((r) => ({
+      requests: filteredRequests.map((r) => ({
         id: r.id,
         date: r.date,
         clockInTime: r.clockInTime,
@@ -206,8 +197,8 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       throw new Error("Solicitud no encontrada");
     }
 
-    // Verificar permisos (debe ser el aprobador asignado o HR_ADMIN)
-    if (request.approverId !== session.user.id && user.role !== "HR_ADMIN") {
+    const canApprove = await canUserApprove(session.user.id, request.employeeId, "MANUAL_TIME_ENTRY");
+    if (!canApprove) {
       throw new Error("No tienes permiso para aprobar esta solicitud");
     }
 
@@ -380,6 +371,7 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
       where: { id: input.requestId },
       data: {
         status: "APPROVED",
+        approverId: session.user.id,
         approvedAt: new Date(),
         approverComments: input.comments,
         createdClockInId: clockInEntry.id,
@@ -445,8 +437,8 @@ export async function rejectManualTimeEntryRequest(input: RejectManualTimeEntryR
       throw new Error("Solicitud no encontrada");
     }
 
-    // Verificar permisos
-    if (request.approverId !== session.user.id && user.role !== "HR_ADMIN") {
+    const canApprove = await canUserApprove(session.user.id, request.employeeId, "MANUAL_TIME_ENTRY");
+    if (!canApprove) {
       throw new Error("No tienes permiso para rechazar esta solicitud");
     }
 
@@ -459,6 +451,7 @@ export async function rejectManualTimeEntryRequest(input: RejectManualTimeEntryR
       where: { id: input.requestId },
       data: {
         status: "REJECTED",
+        approverId: session.user.id,
         rejectedAt: new Date(),
         rejectionReason: input.rejectionReason.trim(),
       },

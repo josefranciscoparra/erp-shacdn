@@ -29,7 +29,7 @@ import {
   searchUsersForResponsibility,
   type Permission,
 } from "@/server/actions/area-responsibilities";
-import type { Scope } from "@/services/permissions";
+import type { Scope } from "@/services/permissions/scope-helpers";
 
 interface AddResponsibleDialogProps {
   scope: Scope;
@@ -66,6 +66,7 @@ const ALL_PERMISSIONS: Permission[] = [
   "MANAGE_SCHEDULES",
   "VIEW_PTO_REQUESTS",
   "APPROVE_PTO_REQUESTS",
+  "APPROVE_EXPENSES",
 ];
 
 const formSchema = z.object({

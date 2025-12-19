@@ -13,7 +13,8 @@ export type Permission =
   | "VIEW_SCHEDULES"
   | "MANAGE_SCHEDULES"
   | "VIEW_PTO_REQUESTS"
-  | "APPROVE_PTO_REQUESTS";
+  | "APPROVE_PTO_REQUESTS"
+  | "APPROVE_EXPENSES";
 
 /**
  * Tipos de scope disponibles

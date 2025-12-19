@@ -63,7 +63,7 @@ function describeSlots(slots: SlotRange[]): string {
  * Obtiene el aprobador por defecto para un empleado según el flujo configurado
  */
 export async function getDefaultApprover(employeeId: string, orgId: string): Promise<string> {
-  const approvers = await resolveApproverUsers(employeeId, orgId);
+  const approvers = await resolveApproverUsers(employeeId, orgId, "PTO");
   if (approvers[0]) {
     return approvers[0].userId;
   }
@@ -576,7 +576,7 @@ export async function createPtoRequest(data: {
     }
 
     // Resolver destinatarios de aprobación según el flujo configurado
-    const approverUsers = await resolveApproverUsers(employeeId, orgId);
+    const approverUsers = await resolveApproverUsers(employeeId, orgId, "PTO");
     const approverIds = approverUsers.map((a) => a.userId);
 
     // Obtener aprobador principal (para guardar en la solicitud)

@@ -15,7 +15,7 @@ import {
 } from "@prisma/client";
 import { endOfDay, startOfDay } from "date-fns";
 
-import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
+import { canUserApprove, resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -495,7 +495,7 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
     throw new Error("Ya tienes una solicitud pendiente para esa fecha");
   }
 
-  const approverUsers = await resolveApproverUsers(employeeId, orgId);
+  const approverUsers = await resolveApproverUsers(employeeId, orgId, "TIME_BANK");
   const approverIds = approverUsers.map((a) => a.userId);
   const reviewerId: string | null = approverIds[0] ?? null;
   const requiresApproval = approverIds.length > 0;
@@ -619,8 +619,7 @@ export interface TimeBankRequestWithEmployee extends TimeBankRequest {
 export async function getTimeBankRequestsForReview(
   status: TimeBankRequestStatus = "PENDING",
 ): Promise<TimeBankRequestWithEmployee[]> {
-  const { orgId, role } = await getAuthenticatedUser();
-  ensureReviewerRole(role);
+  const { orgId, userId } = await getAuthenticatedUser();
 
   const requests = await prisma.timeBankRequest.findMany({
     where: {
@@ -642,7 +641,15 @@ export async function getTimeBankRequestsForReview(
     },
   });
 
-  return requests;
+  const filtered: TimeBankRequestWithEmployee[] = [];
+  for (const request of requests) {
+    const canApprove = await canUserApprove(userId, request.employeeId, "TIME_BANK");
+    if (canApprove) {
+      filtered.push(request);
+    }
+  }
+
+  return filtered;
 }
 
 interface ReviewTimeBankRequestInput {
@@ -758,8 +765,7 @@ export async function getTimeBankAdminStats(): Promise<TimeBankAdminStats> {
 }
 
 export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
-  const { orgId, role, userId } = await getAuthenticatedUser();
-  ensureReviewerRole(role);
+  const { orgId, userId } = await getAuthenticatedUser();
 
   const request = await prisma.timeBankRequest.findUnique({
     where: { id: input.requestId },
@@ -780,6 +786,11 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
 
   if (!request || request.orgId !== orgId) {
     throw new Error("Solicitud no encontrada");
+  }
+
+  const canApprove = await canUserApprove(userId, request.employeeId, "TIME_BANK");
+  if (!canApprove) {
+    throw new Error("No tienes permisos para revisar esta solicitud");
   }
 
   if (request.status !== "PENDING") {
