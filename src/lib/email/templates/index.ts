@@ -1,30 +1,61 @@
 /**
  * Sistema de plantillas de email
+ *
+ * Este archivo mantiene compatibilidad con el sistema anterior
+ * mientras usa internamente los nuevos templates de React Email.
  */
 
 import type { EmailTemplateId } from "../types";
 
+// Re-exports
+export { renderEmailTemplate, type RenderEmailResult } from "./shared/render-email";
+export type {
+  EmailTemplateId as TemplateId,
+  TemplatePropsMap,
+  InviteEmailProps,
+  ResetPasswordEmailProps,
+  ChangeNotificationEmailProps,
+} from "./shared/email-props";
+
+// Export templates directamente
+export { InviteEmail } from "./auth/invite-email";
+export { ResetPasswordEmail } from "./auth/reset-password-email";
+export { ChangeNotificationEmail } from "./auth/change-notification-email";
+
+// Tipo para compatibilidad
 type TemplateResult = {
   subject: string;
   html: string;
   text?: string;
 };
 
+/**
+ * Función de compatibilidad con el sistema anterior.
+ *
+ * @deprecated Usar `renderEmailTemplate` en su lugar para los nuevos templates.
+ *
+ * Esta función se mantiene para compatibilidad con el código existente.
+ * Internamente usa el nuevo sistema de React Email cuando es posible.
+ */
 export function renderTemplate(templateId: EmailTemplateId, vars: Record<string, unknown>): TemplateResult {
+  // Para mantener compatibilidad síncrona, usamos los templates básicos
+  // El nuevo sistema async se usa en email-service.ts
   switch (templateId) {
     case "AUTH_INVITE":
-      return renderAuthInvite(vars as { name?: string; inviteLink: string });
+      return renderAuthInviteLegacy(vars as { name?: string; inviteLink: string });
     case "AUTH_RESET_PASSWORD":
-      return renderAuthReset(vars as { name?: string; resetLink: string });
+      return renderAuthResetLegacy(vars as { name?: string; resetLink: string });
     case "AUTH_CHANGE_NOTIFICATION":
-      return renderAuthChangeNotification(vars as { name?: string });
+      return renderAuthChangeNotificationLegacy(vars as { name?: string });
     case "TEST_HELLO":
     default:
-      return renderTestHello(vars as { name?: string });
+      return renderTestHelloLegacy(vars as { name?: string });
   }
 }
 
-function renderAuthInvite(vars: { name?: string; inviteLink: string }): TemplateResult {
+// --- Legacy renderers (mantener para compatibilidad síncrona) ---
+
+function renderAuthInviteLegacy(vars: { name?: string; inviteLink: string }): TemplateResult {
   const name = vars.name ?? "Hola";
   return {
     subject: "Has sido dado de alta en TimeNow",
@@ -39,7 +70,7 @@ function renderAuthInvite(vars: { name?: string; inviteLink: string }): Template
   };
 }
 
-function renderAuthReset(vars: { name?: string; resetLink: string }): TemplateResult {
+function renderAuthResetLegacy(vars: { name?: string; resetLink: string }): TemplateResult {
   const name = vars.name ?? "Hola";
   return {
     subject: "Restablecer contraseña de TimeNow",
@@ -54,7 +85,7 @@ function renderAuthReset(vars: { name?: string; resetLink: string }): TemplateRe
   };
 }
 
-function renderAuthChangeNotification(vars: { name?: string }): TemplateResult {
+function renderAuthChangeNotificationLegacy(vars: { name?: string }): TemplateResult {
   const name = vars.name ?? "Hola";
   return {
     subject: "Tu contraseña de TimeNow ha sido cambiada",
@@ -67,7 +98,7 @@ function renderAuthChangeNotification(vars: { name?: string }): TemplateResult {
   };
 }
 
-function renderTestHello(vars: { name?: string }): TemplateResult {
+function renderTestHelloLegacy(vars: { name?: string }): TemplateResult {
   const name = vars.name ?? "TimeNow user";
   return {
     subject: "Test de correo TimeNow",

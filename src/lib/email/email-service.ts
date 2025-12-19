@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 
 import { getEmailProvider } from "./provider";
-import { renderTemplate } from "./templates";
+import { renderEmailTemplate } from "./templates/shared/render-email";
 import type { BaseEmailPayload, EmailRecipient, EmailSendResult } from "./types";
 
 type SendEmailOptions = BaseEmailPayload & {
@@ -48,16 +48,24 @@ export async function sendEmailRaw(options: SendEmailOptions): Promise<EmailSend
 
 /**
  * Envía email de invitación (alta de usuario)
+ * Usa el nuevo template React Email "Factorial-like"
  */
 export async function sendAuthInviteEmail(opts: {
   to: EmailRecipient;
   orgId?: string;
   inviteLink: string;
   userId?: string;
+  // Props adicionales para el nuevo template
+  companyName?: string;
+  inviterName?: string;
+  expiresAt?: Date | string;
 }): Promise<EmailSendResult> {
-  const { subject, html, text } = renderTemplate("AUTH_INVITE", {
-    name: opts.to.name,
-    inviteLink: opts.inviteLink,
+  const { subject, html, text } = await renderEmailTemplate("AUTH_INVITE", {
+    recipientName: opts.to.name,
+    inviteUrl: opts.inviteLink,
+    companyName: opts.companyName,
+    inviterName: opts.inviterName,
+    expiresAt: opts.expiresAt,
   });
 
   return sendEmailRaw({
@@ -73,16 +81,20 @@ export async function sendAuthInviteEmail(opts: {
 
 /**
  * Envía email de reset de contraseña
+ * Usa el nuevo template React Email "Factorial-like"
  */
 export async function sendResetPasswordEmail(opts: {
   to: EmailRecipient;
   resetLink: string;
   orgId?: string;
   userId?: string;
+  // Props adicionales para el nuevo template
+  expiresAt?: Date | string;
 }): Promise<EmailSendResult> {
-  const { subject, html, text } = renderTemplate("AUTH_RESET_PASSWORD", {
-    name: opts.to.name,
-    resetLink: opts.resetLink,
+  const { subject, html, text } = await renderEmailTemplate("AUTH_RESET_PASSWORD", {
+    recipientName: opts.to.name,
+    resetUrl: opts.resetLink,
+    expiresAt: opts.expiresAt,
   });
 
   return sendEmailRaw({
@@ -98,14 +110,18 @@ export async function sendResetPasswordEmail(opts: {
 
 /**
  * Envía notificación de cambio de contraseña
+ * Usa el nuevo template React Email "Factorial-like"
  */
 export async function sendSecurityNotificationEmail(opts: {
   to: EmailRecipient;
   orgId?: string;
   userId?: string;
+  // Props adicionales para el nuevo template
+  changedAt?: Date | string;
 }): Promise<EmailSendResult> {
-  const { subject, html, text } = renderTemplate("AUTH_CHANGE_NOTIFICATION", {
-    name: opts.to.name,
+  const { subject, html, text } = await renderEmailTemplate("AUTH_CHANGE_NOTIFICATION", {
+    recipientName: opts.to.name,
+    changedAt: opts.changedAt ?? new Date(),
   });
 
   return sendEmailRaw({
@@ -127,7 +143,7 @@ export async function sendTestEmail(opts: {
   orgId?: string;
   userId?: string;
 }): Promise<EmailSendResult> {
-  const { subject, html, text } = renderTemplate("TEST_HELLO", {
+  const { subject, html, text } = await renderEmailTemplate("TEST_HELLO", {
     name: opts.to.name,
   });
 
