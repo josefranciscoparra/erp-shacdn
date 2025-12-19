@@ -73,6 +73,7 @@ export async function POST(request: Request) {
     }
 
     const currentUser = session.user;
+    let organizationName: string | null = null;
 
     const body = await request.json();
     console.log("🔍 [WIZARD API] Body recibido:", JSON.stringify(body, null, 2));
@@ -120,8 +121,9 @@ export async function POST(request: Request) {
       // Primero obtener prefijo de la organización
       const org = await tx.organization.findUnique({
         where: { id: currentUser.orgId },
-        select: { employeeNumberPrefix: true },
+        select: { employeeNumberPrefix: true, name: true },
       });
+      organizationName = org?.name ?? organizationName;
       const prefix = org?.employeeNumberPrefix ?? "EMP";
 
       // Usar función segura con sistema de reintentos (4 capas de defensa)
@@ -253,6 +255,9 @@ export async function POST(request: Request) {
             inviteLink,
             orgId: currentUser.orgId,
             userId: result.userId,
+            companyName: organizationName ?? undefined,
+            inviterName: currentUser.name ?? currentUser.email ?? undefined,
+            expiresAt: tokenResult.data.expiresAt,
           });
 
           inviteEmailSent = emailResult.success;

@@ -5,16 +5,15 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
 import { sendAuthInviteEmail } from "@/lib/email/email-service";
+import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
-import { generateSafeEmployeeNumber } from "@/services/employees";
-import { daysToMinutes } from "@/services/pto";
-
-import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
+import { createInviteToken } from "@/server/actions/auth-tokens";
 import { requireEmployeeImportPermission } from "@/server/actions/employee-import/permissions";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
-import { createInviteToken } from "@/server/actions/auth-tokens";
+import { generateSafeEmployeeNumber } from "@/services/employees";
+import { daysToMinutes } from "@/services/pto";
 
 async function createEmployeeFromRow(params: {
   data: EmployeeImportRowData;
@@ -36,9 +35,8 @@ async function createEmployeeFromRow(params: {
     throw new Error(emailValidation.error ?? "El correo no pertenece a los dominios permitidos.");
   }
 
-  const userRole = data.role && ["EMPLOYEE", "MANAGER", "HR_ADMIN", "ORG_ADMIN"].includes(data.role)
-    ? data.role
-    : "EMPLOYEE";
+  const userRole =
+    data.role && ["EMPLOYEE", "MANAGER", "HR_ADMIN", "ORG_ADMIN"].includes(data.role) ? data.role : "EMPLOYEE";
 
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await hash(temporaryPassword, 10);
@@ -130,20 +128,22 @@ async function createEmployeeFromRow(params: {
     });
 
     const currentYear = new Date().getFullYear();
-    const allowanceDays = options.vacationMode === "ANNUAL"
-      ? data.ptoAnnualDays ?? 0
-      : data.ptoBalanceDays ?? 0;
-    const usedDays = options.vacationMode === "ANNUAL" ? data.ptoUsedDays ?? 0 : 0;
-    const availableDays =
-      options.vacationMode === "ANNUAL" ? Math.max(allowanceDays - usedDays, 0) : allowanceDays;
+    const allowanceDays = options.vacationMode === "ANNUAL" ? (data.ptoAnnualDays ?? 0) : (data.ptoBalanceDays ?? 0);
+    const usedDays = options.vacationMode === "ANNUAL" ? (data.ptoUsedDays ?? 0) : 0;
+    const availableDays = options.vacationMode === "ANNUAL" ? Math.max(allowanceDays - usedDays, 0) : allowanceDays;
 
     const allowanceMinutes =
-      data.ptoAnnualMinutes ?? (options.vacationMode === "ANNUAL" ? daysToMinutes(allowanceDays, workdayMinutes) : daysToMinutes(allowanceDays, workdayMinutes));
+      data.ptoAnnualMinutes ??
+      (options.vacationMode === "ANNUAL"
+        ? daysToMinutes(allowanceDays, workdayMinutes)
+        : daysToMinutes(allowanceDays, workdayMinutes));
     const usedMinutes =
       data.ptoUsedMinutes ?? (options.vacationMode === "ANNUAL" ? daysToMinutes(usedDays, workdayMinutes) : 0);
     const balanceMinutes =
       data.ptoBalanceMinutes ??
-      (options.vacationMode === "ANNUAL" ? daysToMinutes(availableDays, workdayMinutes) : daysToMinutes(allowanceDays, workdayMinutes));
+      (options.vacationMode === "ANNUAL"
+        ? daysToMinutes(availableDays, workdayMinutes)
+        : daysToMinutes(allowanceDays, workdayMinutes));
 
     await tx.ptoBalance.upsert({
       where: {
@@ -195,6 +195,7 @@ async function processImportRow(params: {
   orgId: string;
   prefix: string;
   allowedDomains: string[];
+  organizationName?: string | null;
   performedBy: {
     id: string;
     email: string;
@@ -202,7 +203,7 @@ async function processImportRow(params: {
     name: string | null;
   };
 }) {
-  const { row, options, orgId, prefix, allowedDomains, performedBy } = params;
+  const { row, options, orgId, prefix, allowedDomains, performedBy, organizationName } = params;
   const data = row.rawData as EmployeeImportRowData | undefined;
   if (!data) {
     throw new Error("Fila sin datos normalizados.");
@@ -241,6 +242,9 @@ async function processImportRow(params: {
             inviteLink,
             orgId,
             userId: creationResult.userId,
+            companyName: organizationName ?? undefined,
+            inviterName: performedBy.name ?? performedBy.email ?? undefined,
+            expiresAt: inviteToken.data.expiresAt,
           });
         }
       } catch (inviteError) {
@@ -311,7 +315,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
 
     const organization = await prisma.organization.findUnique({
       where: { id: user.orgId },
-      select: { employeeNumberPrefix: true, allowedEmailDomains: true },
+      select: { employeeNumberPrefix: true, allowedEmailDomains: true, name: true },
     });
 
     await prisma.employeeImportJob.update({
@@ -337,7 +341,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
 
     const prefix = organization?.employeeNumberPrefix ?? "EMP";
     const allowedDomains = organization?.allowedEmailDomains ?? [];
-    const options = (job.options as EmployeeImportOptions) ?? { vacationMode: "BALANCE", sendInvites: true, departmentPolicy: "REQUIRE_EXISTING", managerPolicy: "ALLOW_MISSING_WARNING" };
+    const options = (job.options as EmployeeImportOptions) ?? {
+      vacationMode: "BALANCE",
+      sendInvites: true,
+      departmentPolicy: "REQUIRE_EXISTING",
+      managerPolicy: "ALLOW_MISSING_WARNING",
+    };
 
     let successes = 0;
     let failures = 0;
@@ -349,6 +358,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
         orgId: user.orgId,
         prefix,
         allowedDomains,
+        organizationName: organization?.name ?? undefined,
         performedBy: {
           id: user.id,
           email: user.email,

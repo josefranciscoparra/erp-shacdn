@@ -4,6 +4,7 @@ import { randomBytes } from "crypto";
 
 import bcrypt from "bcryptjs";
 
+import { auth } from "@/lib/auth";
 import { sendResetPasswordEmail, sendSecurityNotificationEmail } from "@/lib/email/email-service";
 import { prisma } from "@/lib/prisma";
 import { passwordSchema } from "@/lib/validations/password";
@@ -96,6 +97,7 @@ export async function requestPasswordReset(email: string): Promise<ActionResult>
       resetLink,
       orgId: user.orgId,
       userId: user.id,
+      expiresAt,
     });
 
     console.log("[requestPasswordReset] Resultado email:", emailResult);
@@ -354,6 +356,15 @@ export async function acceptInvite(token: string, newPassword: string): Promise<
  */
 export async function resendInviteEmail(userId: string): Promise<ActionResult> {
   try {
+    const session = await auth();
+    if (!session?.user) {
+      return {
+        success: false,
+        error: "No autorizado.",
+      };
+    }
+    const inviterName = session.user.name ?? session.user.email ?? undefined;
+
     // Verificar que el usuario existe y está activo
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -363,6 +374,9 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult> {
         name: true,
         active: true,
         orgId: true,
+        organization: {
+          select: { name: true },
+        },
       },
     });
 
@@ -397,6 +411,9 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult> {
       inviteLink,
       orgId: user.orgId,
       userId: user.id,
+      companyName: user.organization?.name ?? undefined,
+      inviterName,
+      expiresAt: tokenResult.data.expiresAt,
     });
 
     if (!emailResult.success) {
@@ -422,7 +439,7 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult> {
  * Crea un token de invitación para un usuario.
  * Se usa cuando RRHH da de alta un nuevo usuario.
  */
-export async function createInviteToken(userId: string): Promise<ActionResult<{ token: string }>> {
+export async function createInviteToken(userId: string): Promise<ActionResult<{ token: string; expiresAt: Date }>> {
   try {
     // Verificar que el usuario existe y está activo
     const user = await prisma.user.findUnique({
@@ -459,7 +476,7 @@ export async function createInviteToken(userId: string): Promise<ActionResult<{ 
       },
     });
 
-    return { success: true, data: { token } };
+    return { success: true, data: { token, expiresAt } };
   } catch (error) {
     console.error("[createInviteToken] Error:", error);
     return {

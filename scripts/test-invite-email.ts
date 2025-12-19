@@ -23,6 +23,8 @@ async function main() {
   console.log(`\n📧 Enviando email de prueba a: ${testEmail}`);
   console.log(`🔗 URL base: ${appUrl}\n`);
 
+  let exitCode = 0;
+
   try {
     const result = await sendAuthInviteEmail({
       to: {
@@ -40,12 +42,14 @@ async function main() {
       console.log(`   ID: ${result.id}`);
     } else {
       console.error("❌ Error al enviar:", result.error);
+      exitCode = 1;
     }
   } catch (error) {
     console.error("❌ Error:", error);
+    exitCode = 1;
   }
 
-  process.exit(0);
+  process.exit(exitCode);
 }
 
 main();
