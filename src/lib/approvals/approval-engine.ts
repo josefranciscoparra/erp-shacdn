@@ -21,7 +21,7 @@ export type AuthorizedApprover = {
     | "TEAM_RESPONSIBLE"
     | "DEPARTMENT_RESPONSIBLE"
     | "COST_CENTER_RESPONSIBLE"
-    | "EXPENSE_APPROVER_LIST"
+    | "APPROVER_LIST"
     | "HR_ADMIN"
     | "ORG_ADMIN";
   level: number;
@@ -157,27 +157,33 @@ async function getFallbackApprovers(orgId: string): Promise<AuthorizedApprover[]
   return await getRoleApprovers(orgId, ["ORG_ADMIN", "SUPER_ADMIN"]);
 }
 
-async function getExpenseListApprovers(orgId: string): Promise<AuthorizedApprover[]> {
-  const approvers = await prisma.expenseApprover.findMany({
-    where: { orgId },
-    include: {
-      user: {
-        select: { id: true, name: true, email: true, role: true, active: true },
-      },
+async function getListApprovers(orgId: string, approverList: string[]): Promise<AuthorizedApprover[]> {
+  if (approverList.length === 0) {
+    return [];
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      orgId,
+      id: { in: approverList },
+      active: true,
     },
-    orderBy: [{ isPrimary: "desc" }, { order: "asc" }],
+    select: { id: true, name: true, email: true, role: true },
   });
 
-  return approvers
-    .filter((approver) => approver.user?.active)
-    .map((approver) => ({
-      userId: approver.userId,
-      name: approver.user?.name ?? null,
-      email: approver.user?.email ?? "",
-      role: approver.user?.role ?? "EMPLOYEE",
-      source: "EXPENSE_APPROVER_LIST",
-      level: 1,
-    }));
+  const userMap = new Map(users.map((user) => [user.id, user]));
+  const ordered = approverList
+    .map((id) => userMap.get(id))
+    .filter((user): user is NonNullable<typeof user> => Boolean(user));
+
+  return ordered.map((user) => ({
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    source: "APPROVER_LIST",
+    level: 1,
+  }));
 }
 
 async function getResponsibleApprovers(
@@ -261,6 +267,8 @@ async function resolveCandidatesByCriterion(
         permission,
         "COST_CENTER_RESPONSIBLE",
       );
+    case "HR_ADMIN":
+      return await getRoleApprovers(context.orgId, ["HR_ADMIN"]);
     default:
       return [];
   }
@@ -278,8 +286,8 @@ export async function resolveApproverUsers(
   const settings = await getApprovalSettingsForOrg(orgId);
   const workflow = settings.workflows[requestType] ?? DEFAULT_APPROVAL_SETTINGS.workflows[requestType];
 
-  if (requestType === "EXPENSE" && workflow.mode === "LIST") {
-    const listApprovers = await getExpenseListApprovers(orgId);
+  if (workflow.mode === "LIST") {
+    const listApprovers = await getListApprovers(orgId, workflow.approverList);
     if (listApprovers.length > 0) {
       return listApprovers;
     }

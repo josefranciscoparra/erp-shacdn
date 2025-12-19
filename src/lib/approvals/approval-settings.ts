@@ -8,6 +8,7 @@ export const ApprovalCriterionSchema = z.enum([
   "TEAM_RESPONSIBLE",
   "DEPARTMENT_RESPONSIBLE",
   "COST_CENTER_RESPONSIBLE",
+  "HR_ADMIN",
 ]);
 export type ApprovalCriterion = z.infer<typeof ApprovalCriterionSchema>;
 
@@ -17,6 +18,7 @@ export type ApprovalMode = z.infer<typeof ApprovalModeSchema>;
 export const ApprovalWorkflowSchema = z.object({
   mode: ApprovalModeSchema,
   criteriaOrder: z.array(ApprovalCriterionSchema).min(1),
+  approverList: z.array(z.string()).default([]),
 });
 
 export type ApprovalWorkflowConfig = z.infer<typeof ApprovalWorkflowSchema>;
@@ -46,18 +48,22 @@ export const DEFAULT_APPROVAL_SETTINGS: ApprovalSettings = {
     PTO: {
       mode: "HIERARCHY",
       criteriaOrder: defaultCriteriaOrder,
+      approverList: [],
     },
     MANUAL_TIME_ENTRY: {
       mode: "HIERARCHY",
       criteriaOrder: defaultCriteriaOrder,
+      approverList: [],
     },
     TIME_BANK: {
       mode: "HIERARCHY",
       criteriaOrder: defaultCriteriaOrder,
+      approverList: [],
     },
     EXPENSE: {
       mode: "LIST",
       criteriaOrder: defaultCriteriaOrder,
+      approverList: [],
     },
   },
 };

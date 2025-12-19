@@ -2,10 +2,10 @@
 
 import { Receipt } from "lucide-react";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
-import { ExpenseApproversList } from "./expense-approvers-list";
 import { ExpenseModeSettings } from "./expense-mode-settings";
 
 export function ExpensesTab() {
@@ -26,7 +26,12 @@ export function ExpensesTab() {
             </div>
           </div>
 
-          <ExpenseApproversList />
+          <Alert>
+            <AlertTitle>Configuracion unificada</AlertTitle>
+            <AlertDescription>
+              Los aprobadores de gastos ahora se configuran desde la pestaña &quot;Aprobaciones&quot;.
+            </AlertDescription>
+          </Alert>
         </div>
       </Card>
     </div>

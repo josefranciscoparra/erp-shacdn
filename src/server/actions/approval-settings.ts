@@ -30,16 +30,13 @@ function hasUniqueCriteria(criteria: string[]) {
 function validateSettings(settings: ApprovalSettings) {
   const { workflows } = settings;
 
-  const nonExpenseKeys = ["PTO", "MANUAL_TIME_ENTRY", "TIME_BANK"] as const;
-  for (const key of nonExpenseKeys) {
-    if (workflows[key].mode !== "HIERARCHY") {
-      throw new Error("Solo los gastos permiten modo de lista de aprobadores.");
-    }
-  }
-
   Object.values(workflows).forEach((workflow) => {
     if (!hasUniqueCriteria(workflow.criteriaOrder)) {
       throw new Error("El orden de criterios no puede repetir valores.");
+    }
+
+    if (workflow.approverList.length > 0 && !hasUniqueCriteria(workflow.approverList)) {
+      throw new Error("La lista de aprobadores no puede repetir usuarios.");
     }
   });
 }
