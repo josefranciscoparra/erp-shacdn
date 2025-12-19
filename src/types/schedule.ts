@@ -245,7 +245,7 @@ export interface CreateTimeSlotInput {
  */
 export interface CreateEmployeeScheduleAssignmentInput {
   employeeId: string;
-  assignmentType: ScheduleAssignmentType;
+  assignmentType?: ScheduleAssignmentType;
   scheduleTemplateId?: string;
   rotationPatternId?: string;
   rotationStartDate?: Date;

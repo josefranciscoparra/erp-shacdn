@@ -3,8 +3,6 @@
 import type { Role } from "@prisma/client";
 import { isValid, parseISO } from "date-fns";
 
-import { prisma } from "@/lib/prisma";
-
 import {
   EMPLOYEE_IMPORT_ALLOWED_ROLES,
   EMPLOYEE_IMPORT_MAX_ROWS,
@@ -16,6 +14,7 @@ import type {
   RowMessage,
   RowValidationResult,
 } from "@/lib/employee-import/types";
+import { prisma } from "@/lib/prisma";
 
 interface ValidationOutput {
   rows: RowValidationResult[];
@@ -167,7 +166,11 @@ export async function validateRowsForOrganization(params: {
     }
 
     if (!data.scheduleTemplateId?.trim()) {
-      messages.push({ type: "ERROR", field: "scheduleTemplateId", message: "Debes indicar un horario (scheduleTemplateId)." });
+      messages.push({
+        type: "ERROR",
+        field: "scheduleTemplateId",
+        message: "Debes indicar un horario (scheduleTemplateId).",
+      });
     }
 
     if (!data.startDate?.trim()) {
@@ -175,7 +178,11 @@ export async function validateRowsForOrganization(params: {
     } else {
       const parsed = parseISO(data.startDate);
       if (!isValid(parsed)) {
-        messages.push({ type: "ERROR", field: "startDate", message: "La fecha de inicio no tiene un formato válido (YYYY-MM-DD)." });
+        messages.push({
+          type: "ERROR",
+          field: "startDate",
+          message: "La fecha de inicio no tiene un formato válido (YYYY-MM-DD).",
+        });
       }
     }
 
@@ -248,6 +255,7 @@ export async function validateRowsForOrganization(params: {
             field: "departmentId",
             message: `El departamento ${data.departmentId} no existe. Se ignorará.`,
           });
+          row.data.departmentId = undefined;
         }
       }
     }
@@ -258,10 +266,12 @@ export async function validateRowsForOrganization(params: {
         field: "costCenterId",
         message: `El centro de coste ${data.costCenterId} no existe. Se ignorará.`,
       });
+      row.data.costCenterId = undefined;
     }
 
     if (data.managerEmail) {
-      const managerId = managerMap.get(data.managerEmail.toLowerCase());
+      const managerKey = data.managerEmail.toLowerCase();
+      const managerId = managerMap.get(managerKey);
       if (!managerId) {
         if (options.managerPolicy === "ERROR_IF_MISSING") {
           messages.push({
@@ -275,6 +285,7 @@ export async function validateRowsForOrganization(params: {
             field: "managerEmail",
             message: `No se encontró un manager con email ${data.managerEmail}.`,
           });
+          row.data.managerEmail = undefined;
         }
       }
     }
