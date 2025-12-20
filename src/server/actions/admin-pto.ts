@@ -483,6 +483,7 @@ export async function getEmployeePtoRequests(employeeId: string) {
     absenceType: {
       ...request.absenceType,
       compensationFactor: Number(request.absenceType.compensationFactor),
+      balanceType: request.absenceType.balanceType ?? "VACATION",
     },
     approver: request.approver,
   }));
@@ -497,21 +498,27 @@ export async function getEmployeePtoAdjustments(employeeId: string, year?: numbe
   const currentYear = year ?? new Date().getFullYear();
 
   // Obtener el balance del año
-  const balance = await prisma.ptoBalance.findFirst({
+  const balances = await prisma.ptoBalance.findMany({
     where: {
       employeeId,
       year: currentYear,
       orgId: user.orgId,
     },
+    select: {
+      id: true,
+      balanceType: true,
+    },
   });
 
-  if (!balance) {
+  if (balances.length === 0) {
     return [];
   }
 
+  const balanceIds = balances.map((balance) => balance.id);
+
   const adjustments = await prisma.ptoBalanceAdjustment.findMany({
     where: {
-      ptoBalanceId: balance.id,
+      ptoBalanceId: { in: balanceIds },
       orgId: user.orgId,
     },
     include: {
@@ -520,6 +527,11 @@ export async function getEmployeePtoAdjustments(employeeId: string, year?: numbe
           id: true,
           name: true,
           email: true,
+        },
+      },
+      ptoBalance: {
+        select: {
+          balanceType: true,
         },
       },
     },
@@ -539,6 +551,7 @@ export async function getEmployeePtoAdjustments(employeeId: string, year?: numbe
     createdById: adj.createdById,
     orgId: adj.orgId,
     ptoBalanceId: adj.ptoBalanceId,
+    balanceType: adj.ptoBalance.balanceType ?? "VACATION",
     createdBy: adj.createdBy,
   }));
 }
@@ -548,6 +561,11 @@ export async function getEmployeePtoAdjustments(employeeId: string, year?: numbe
  */
 export async function getOrganizationPtoConfig() {
   const user = await getCurrentUser();
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: user.orgId },
+    select: { annualPtoDays: true },
+  });
 
   let config = await prisma.organizationPtoConfig.findUnique({
     where: {
@@ -568,6 +586,8 @@ export async function getOrganizationPtoConfig() {
     carryoverDeadlineDay: 29,
     carryoverRequestDeadlineMonth: 1,
     carryoverRequestDeadlineDay: 29,
+    personalMattersDays: new Decimal(0),
+    compTimeDays: new Decimal(0),
   } as unknown as Prisma.OrganizationPtoConfigCreateInput;
 
   config =
@@ -582,15 +602,20 @@ export async function getOrganizationPtoConfig() {
     carryoverDeadlineDay?: number | null;
     carryoverRequestDeadlineMonth?: number | null;
     carryoverRequestDeadlineDay?: number | null;
+    personalMattersDays?: Decimal | null;
+    compTimeDays?: Decimal | null;
   };
 
   return {
     ...config,
+    annualPtoDays: organization?.annualPtoDays ?? 0,
     carryoverMode: normalizedConfig.carryoverMode ?? "NONE",
     carryoverDeadlineMonth: normalizedConfig.carryoverDeadlineMonth ?? 1,
     carryoverDeadlineDay: normalizedConfig.carryoverDeadlineDay ?? 29,
     carryoverRequestDeadlineMonth: normalizedConfig.carryoverRequestDeadlineMonth ?? 1,
     carryoverRequestDeadlineDay: normalizedConfig.carryoverRequestDeadlineDay ?? 29,
+    personalMattersDays: Number(normalizedConfig.personalMattersDays ?? 0),
+    compTimeDays: Number(normalizedConfig.compTimeDays ?? 0),
   };
 }
 
@@ -604,6 +629,7 @@ interface AdjustBalanceParams {
   notes?: string;
   year?: number;
   isRecurring?: boolean; // Si es recurrente, se aplicará cada año
+  balanceType?: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
 }
 
 /**
@@ -612,7 +638,16 @@ interface AdjustBalanceParams {
 export async function adjustPtoBalance(params: AdjustBalanceParams) {
   const user = await requireHRAdmin();
 
-  const { employeeId, daysAdjusted, adjustmentType, reason, notes, year, isRecurring = false } = params;
+  const {
+    employeeId,
+    daysAdjusted,
+    adjustmentType,
+    reason,
+    notes,
+    year,
+    isRecurring = false,
+    balanceType = "VACATION",
+  } = params;
 
   if (!reason.trim()) {
     throw new Error("Debes proporcionar un motivo para el ajuste");
@@ -652,6 +687,7 @@ export async function adjustPtoBalance(params: AdjustBalanceParams) {
         employeeId,
         extraDays: new Decimal(daysAdjusted),
         adjustmentType,
+        balanceType,
         reason,
         notes,
         startYear: currentYear,
@@ -668,6 +704,7 @@ export async function adjustPtoBalance(params: AdjustBalanceParams) {
       employeeId,
       year: currentYear,
       orgId: user.orgId,
+      balanceType,
     },
   });
 
@@ -689,6 +726,7 @@ export async function adjustPtoBalance(params: AdjustBalanceParams) {
         employeeId,
         year: currentYear,
         orgId: user.orgId,
+        balanceType,
         annualAllowance: new Decimal(0),
         daysUsed: new Decimal(0),
         daysPending: new Decimal(0),
@@ -718,13 +756,19 @@ export async function adjustPtoBalance(params: AdjustBalanceParams) {
   if (employee.user) {
     const actionText = daysAdjusted > 0 ? "añadido" : "restado";
     const recurringText = isRecurring ? " (se aplicará automáticamente cada año)" : "";
+    const balanceLabel =
+      balanceType === "PERSONAL_MATTERS"
+        ? "asuntos propios"
+        : balanceType === "COMP_TIME"
+          ? "compensación"
+          : "vacaciones";
 
     await createNotification(
       employee.user.id,
       user.orgId,
       "SYSTEM_ANNOUNCEMENT",
-      "Ajuste en tu balance de vacaciones",
-      `Se ha ${actionText} ${Math.abs(daysAdjusted)} día(s) a tu balance${recurringText}. Motivo: ${reason}`,
+      `Ajuste en tu balance de ${balanceLabel}`,
+      `Se ha ${actionText} ${Math.abs(daysAdjusted)} día(s) a tu balance de ${balanceLabel}${recurringText}. Motivo: ${reason}`,
     );
   }
 
@@ -930,6 +974,7 @@ export async function applyMaternityPaternityLeave(params: MaternityPaternityPar
       employeeId,
       year: currentYear,
       orgId: user.orgId,
+      balanceType: "VACATION",
     },
   });
 
@@ -1040,11 +1085,14 @@ interface UpdatePtoConfigParams {
   seniorityRules?: SeniorityRule[];
   allowNegativeBalance?: boolean;
   maxAdvanceRequestMonths?: number;
+  annualPtoDays?: number;
   carryoverMode?: "NONE" | "UNTIL_DATE" | "UNLIMITED";
   carryoverDeadlineMonth?: number;
   carryoverDeadlineDay?: number;
   carryoverRequestDeadlineMonth?: number;
   carryoverRequestDeadlineDay?: number;
+  personalMattersDays?: number;
+  compTimeDays?: number;
 }
 
 /**
@@ -1053,6 +1101,15 @@ interface UpdatePtoConfigParams {
 export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams) {
   const user = await requireHRAdmin();
   const updateData: UpdatePtoConfigParams = { ...params };
+  const annualPtoDays = params.annualPtoDays;
+
+  if (annualPtoDays !== undefined) {
+    const normalizedAnnualPtoDays = Math.min(Math.max(annualPtoDays, 0), 60);
+    await prisma.organization.update({
+      where: { id: user.orgId },
+      data: { annualPtoDays: normalizedAnnualPtoDays },
+    });
+  }
 
   if (params.carryoverDeadlineMonth !== undefined) {
     updateData.carryoverDeadlineMonth = Math.min(Math.max(params.carryoverDeadlineMonth, 1), 12);
@@ -1068,6 +1125,14 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
 
   if (params.carryoverRequestDeadlineDay !== undefined) {
     updateData.carryoverRequestDeadlineDay = Math.min(Math.max(params.carryoverRequestDeadlineDay, 1), 31);
+  }
+
+  if (params.personalMattersDays !== undefined) {
+    updateData.personalMattersDays = new Decimal(params.personalMattersDays);
+  }
+
+  if (params.compTimeDays !== undefined) {
+    updateData.compTimeDays = new Decimal(params.compTimeDays);
   }
 
   const config = await prisma.organizationPtoConfig.upsert({
@@ -1087,10 +1152,22 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
       carryoverDeadlineDay: params.carryoverDeadlineDay ?? 29,
       carryoverRequestDeadlineMonth: params.carryoverRequestDeadlineMonth ?? 1,
       carryoverRequestDeadlineDay: params.carryoverRequestDeadlineDay ?? 29,
+      personalMattersDays: new Decimal(params.personalMattersDays ?? 0),
+      compTimeDays: new Decimal(params.compTimeDays ?? 0),
     } as unknown as Prisma.OrganizationPtoConfigCreateInput,
   });
 
-  return config;
+  const organization = await prisma.organization.findUnique({
+    where: { id: user.orgId },
+    select: { annualPtoDays: true },
+  });
+
+  return {
+    ...config,
+    annualPtoDays: organization?.annualPtoDays ?? 0,
+    personalMattersDays: Number(config.personalMattersDays ?? 0),
+    compTimeDays: Number(config.compTimeDays ?? 0),
+  };
 }
 
 // ==================== AJUSTES RECURRENTES ====================
@@ -1126,6 +1203,7 @@ export async function getRecurringAdjustments(employeeId: string) {
     id: adj.id,
     extraDays: Number(adj.extraDays),
     adjustmentType: adj.adjustmentType,
+    balanceType: adj.balanceType ?? "VACATION",
     reason: adj.reason,
     notes: adj.notes,
     active: adj.active,

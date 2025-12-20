@@ -1614,6 +1614,13 @@ enum TimeBankApprovalFlow {
   HR_ONLY
 }
 
+// Buckets de balance PTO
+enum PtoBalanceType {
+  VACATION
+  PERSONAL_MATTERS
+  COMP_TIME
+}
+
 // ==================== SPRINT 3: SISTEMA DE VACACIONES (PTO) ====================
 
 // Tipos de ausencia configurables (Vacaciones, Asuntos personales, Baja médica, etc.)
@@ -1640,7 +1647,7 @@ model AbsenceType {
   compensationFactor Decimal @default(1.0) @db.Decimal(3, 2) // 1.0=normal, 1.5=nocturno, 1.75=festivo
 
   // 🆕 SISTEMA DE BALANCE EN MINUTOS - ¿A qué contador de balance afecta?
-  balanceType String @default("VACATION") // "VACATION" | "COMPENSATED" | "FREE_DISPOSAL" | "PERSONAL_MATTERS"
+  balanceType PtoBalanceType @default(VACATION) // Bucket de balance
 
   // 🆕 MEJORA 2: Justificantes de ausencias
   requiresDocument Boolean @default(false) // ¿Requiere justificante obligatorio para enviar la solicitud?
@@ -1665,6 +1672,7 @@ model AbsenceType {
 model PtoBalance {
   id   String @id @default(cuid())
   year Int // Año al que aplica el balance
+  balanceType PtoBalanceType @default(VACATION)
 
   // ❌ DEPRECAR (mantener temporalmente para migración y reportes legacy)
   annualAllowance Decimal @db.Decimal(5, 2) // Días asignados este año (puede ser proporcional)
@@ -1704,7 +1712,7 @@ model PtoBalance {
   // Relaciones
   adjustments PtoBalanceAdjustment[] // Ajustes manuales realizados a este balance
 
-  @@unique([orgId, employeeId, year]) // Un balance por empleado por año
+  @@unique([orgId, employeeId, year, balanceType]) // Un balance por empleado por año y bucket
   @@index([orgId])
   @@index([employeeId])
   @@index([year])
@@ -1985,6 +1993,8 @@ model OrganizationPtoConfig {
   carryoverDeadlineDay    Int              @default(29) // Día límite de disfrute (1-31)
   carryoverRequestDeadlineMonth Int @default(1) // Mes límite de solicitud (1-12)
   carryoverRequestDeadlineDay   Int @default(29) // Día límite de solicitud (1-31)
+  personalMattersDays     Decimal @default(0) @db.Decimal(5, 2) // Asuntos propios anuales
+  compTimeDays            Decimal @default(0) @db.Decimal(5, 2) // Compensación anual (días)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1998,6 +2008,7 @@ model RecurringPtoAdjustment {
 
   // Cantidad de días adicionales cada año
   extraDays Decimal @db.Decimal(5, 2)
+  balanceType PtoBalanceType @default(VACATION)
 
   // Tipo y justificación
   adjustmentType PtoAdjustmentType

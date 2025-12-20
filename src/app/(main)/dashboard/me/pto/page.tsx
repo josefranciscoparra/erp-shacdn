@@ -67,8 +67,8 @@ export default function PtoPage() {
         {!canCreateRequests && (
           <p className="text-muted-foreground text-sm">
             {hasProvisionalContract
-              ? "Tu contrato está pendiente de completar. En cuanto RRHH añada los detalles podrás solicitar vacaciones."
-              : "Aún no tienes un contrato activo. Podrás solicitar vacaciones cuando se registre."}
+              ? "Tu contrato está pendiente de completar. En cuanto RRHH añada los detalles podrás solicitar ausencias."
+              : "Aún no tienes un contrato activo. Podrás solicitar ausencias cuando se registre."}
           </p>
         )}
       </SectionHeader>

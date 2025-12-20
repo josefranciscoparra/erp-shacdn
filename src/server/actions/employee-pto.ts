@@ -4,6 +4,8 @@ import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
+import { calculatePtoBalanceByType } from "@/lib/pto/balance-service";
+import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
 import { calculateVacationBalance, getVacationDisplayInfo } from "@/lib/vacation";
 import { applyCompensationFactor, daysToMinutes, getWorkdayMinutes } from "@/services/pto";
 import { getEffectiveSchedule, getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
@@ -251,7 +253,7 @@ export async function calculateWorkingDays(
  * - Contratos normales: prorrateo desde fecha de alta
  * - Fijos discontinuos: devengo día a día solo durante períodos ACTIVE
  */
-export async function getMyPtoBalance() {
+export async function getMyPtoBalance(balanceType: PtoBalanceType = DEFAULT_PTO_BALANCE_TYPE) {
   try {
     const { employeeId, hasActiveContract, hasProvisionalContract, activeContract } = await getAuthenticatedEmployee();
     const currentYear = new Date().getFullYear();
@@ -260,6 +262,7 @@ export async function getMyPtoBalance() {
       return {
         id: "NO_CONTRACT",
         year: currentYear,
+        balanceType,
         // ❌ DEPRECADO
         annualAllowance: 0,
         daysUsed: 0,
@@ -276,34 +279,61 @@ export async function getMyPtoBalance() {
       };
     }
 
-    // 🆕 CÁLCULO EN TIEMPO REAL usando VacationService
-    // Diferencia automáticamente entre contratos normales y fijos discontinuos
-    const balance = await calculateVacationBalance(employeeId, { year: currentYear });
-    const displayInfo = await getVacationDisplayInfo(employeeId);
+    if (balanceType === "VACATION") {
+      // 🆕 CÁLCULO EN TIEMPO REAL usando VacationService
+      // Diferencia automáticamente entre contratos normales y fijos discontinuos
+      const balance = await calculateVacationBalance(employeeId, { year: currentYear });
+      const displayInfo = await getVacationDisplayInfo(employeeId);
+
+      return {
+        id: `REALTIME_${employeeId}_${currentYear}`,
+        year: currentYear,
+        balanceType,
+        // Campos legacy en días (para compatibilidad)
+        annualAllowance: balance.annualAllowanceDays,
+        daysUsed: balance.usedDays,
+        daysPending: balance.pendingDays,
+        daysAvailable: balance.availableDays,
+        // Campos nuevos en minutos
+        annualAllowanceMinutes: daysToMinutes(balance.annualAllowanceDays, balance.workdayMinutes),
+        minutesUsed: balance.usedMinutes,
+        minutesPending: balance.pendingMinutes,
+        minutesAvailable: balance.availableMinutes,
+        workdayMinutesSnapshot: balance.workdayMinutes,
+        // Metadatos del contrato
+        hasActiveContract: true,
+        hasProvisionalContract,
+        // 🆕 Información adicional para UI
+        displayLabel: displayInfo.label,
+        contractType: balance.contractType,
+        discontinuousStatus: balance.discontinuousStatus,
+        showFrozenIndicator: displayInfo.showFrozenIndicator,
+        frozenSince: displayInfo.frozenSince,
+      };
+    }
+
+    const balance = await calculatePtoBalanceByType(employeeId, balanceType, { year: currentYear });
 
     return {
-      id: `REALTIME_${employeeId}_${currentYear}`,
+      id: `REALTIME_${employeeId}_${currentYear}_${balanceType}`,
       year: currentYear,
-      // Campos legacy en días (para compatibilidad)
+      balanceType,
       annualAllowance: balance.annualAllowanceDays,
       daysUsed: balance.usedDays,
       daysPending: balance.pendingDays,
       daysAvailable: balance.availableDays,
-      // Campos nuevos en minutos
       annualAllowanceMinutes: daysToMinutes(balance.annualAllowanceDays, balance.workdayMinutes),
       minutesUsed: balance.usedMinutes,
       minutesPending: balance.pendingMinutes,
       minutesAvailable: balance.availableMinutes,
       workdayMinutesSnapshot: balance.workdayMinutes,
-      // Metadatos del contrato
       hasActiveContract: true,
       hasProvisionalContract,
-      // 🆕 Información adicional para UI
-      displayLabel: displayInfo.label,
+      displayLabel: balance.displayLabel,
       contractType: balance.contractType,
       discontinuousStatus: balance.discontinuousStatus,
-      showFrozenIndicator: displayInfo.showFrozenIndicator,
-      frozenSince: displayInfo.frozenSince,
+      showFrozenIndicator: false,
+      frozenSince: null,
     };
   } catch (error) {
     console.error("Error al obtener balance de PTO:", error);
@@ -332,6 +362,7 @@ export async function getAbsenceTypes() {
     return types.map((type) => ({
       ...type,
       compensationFactor: Number(type.compensationFactor),
+      balanceType: type.balanceType ?? "VACATION",
     }));
   } catch (error) {
     console.error("Error al obtener tipos de ausencia:", error);
@@ -391,6 +422,7 @@ export async function getMyPtoRequests() {
       absenceType: {
         ...r.absenceType,
         compensationFactor: Number(r.absenceType.compensationFactor),
+        balanceType: r.absenceType.balanceType ?? "VACATION",
       },
       approver: r.approver,
       // 🆕 Campos para ausencias parciales
@@ -634,12 +666,14 @@ export async function createPtoRequest(data: {
     // 🆕 Usa cálculo en tiempo real (VacationService)
     if (absenceType.affectsBalance) {
       const requestYear = data.startDate.getFullYear();
-      const balance = await calculateVacationBalance(employeeId, { year: requestYear });
+      const requestBalanceType =
+        (absenceType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
+      const balance = await calculatePtoBalanceByType(employeeId, requestBalanceType, { year: requestYear });
       const shortage = workingDays - balance.availableDays;
 
       if (balance.availableDays < workingDays) {
         // Verificar si el problema es por límite de carryover
-        if (absenceType.balanceType === "VACATION") {
+        if (requestBalanceType === "VACATION") {
           const carryoverMsg = await checkCarryoverLimitMessage(
             orgId,
             employeeId,

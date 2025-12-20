@@ -43,6 +43,7 @@ const absenceTypeSchema = z
     requiresDocument: z.boolean(),
     minDaysAdvance: z.number().min(0, "No puede ser negativo").max(365, "Máximo 365 días"),
     affectsBalance: z.boolean(),
+    balanceType: z.enum(["VACATION", "PERSONAL_MATTERS", "COMP_TIME"]),
     allowPartialDays: z.boolean(),
     granularityMinutes: z.number().min(1, "Mínimo 1 minuto").max(480, "Máximo 480 minutos (8 horas)"),
     minimumDurationMinutes: z.number().min(1, "Mínimo 1 minuto"),
@@ -82,6 +83,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
       requiresDocument: false,
       minDaysAdvance: 0,
       affectsBalance: true,
+      balanceType: "VACATION",
       allowPartialDays: false,
       granularityMinutes: 480,
       minimumDurationMinutes: 480,
@@ -103,6 +105,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresDocument: editingType.requiresDocument,
         minDaysAdvance: editingType.minDaysAdvance,
         affectsBalance: editingType.affectsBalance,
+        balanceType: editingType.balanceType ?? "VACATION",
         allowPartialDays: editingType.allowPartialDays,
         granularityMinutes: editingType.granularityMinutes,
         minimumDurationMinutes: editingType.minimumDurationMinutes,
@@ -120,6 +123,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresDocument: false,
         minDaysAdvance: 0,
         affectsBalance: true,
+        balanceType: "VACATION",
         allowPartialDays: false,
         granularityMinutes: 480,
         minimumDurationMinutes: 480,
@@ -143,6 +147,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
         requiresDocument: data.requiresDocument,
         minDaysAdvance: data.minDaysAdvance,
         affectsBalance: data.affectsBalance,
+        balanceType: data.balanceType,
         allowPartialDays: data.allowPartialDays,
         granularityMinutes: data.granularityMinutes,
         minimumDurationMinutes: data.minimumDurationMinutes,
@@ -168,6 +173,7 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
   };
 
   const allowPartialDays = form.watch("allowPartialDays");
+  const affectsBalance = form.watch("affectsBalance");
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
@@ -314,6 +320,30 @@ export function AbsenceTypeDialog({ open, onClose, onSuccess, editingType }: Abs
                       <FormLabel>Afecta balance</FormLabel>
                       <FormDescription>Descuenta del saldo de días disponibles</FormDescription>
                     </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="balanceType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Balance a descontar</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange} disabled={!affectsBalance}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un balance" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="VACATION">Vacaciones</SelectItem>
+                        <SelectItem value="PERSONAL_MATTERS">Asuntos propios</SelectItem>
+                        <SelectItem value="COMP_TIME">Compensación</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>Solo aplica si afecta al balance</FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

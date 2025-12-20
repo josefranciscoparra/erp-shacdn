@@ -55,6 +55,12 @@ function formatAdjustmentType(type: string): string {
   return translations[type] ?? type;
 }
 
+const BALANCE_TYPE_LABELS: Record<string, string> = {
+  VACATION: "Vacaciones",
+  PERSONAL_MATTERS: "Asuntos propios",
+  COMP_TIME: "Compensación",
+};
+
 export default function EmployeePtoManagementPage() {
   const params = useParams();
   const router = useRouter();
@@ -238,6 +244,9 @@ export default function EmployeePtoManagementPage() {
                               {adjustment.daysAdjusted > 0 ? "+" : ""}
                               {adjustment.daysAdjusted} días
                             </span>
+                          </p>
+                          <p className="text-muted-foreground text-xs">
+                            Balance: {BALANCE_TYPE_LABELS[adjustment.balanceType] ?? adjustment.balanceType}
                           </p>
                           <p className="text-muted-foreground text-sm">{adjustment.reason}</p>
                           {adjustment.notes && (

@@ -38,6 +38,12 @@ import { deleteAbsenceType, getAllAbsenceTypes, toggleAbsenceTypeStatus } from "
 
 import { AbsenceTypeDialog } from "./absence-type-dialog";
 
+const BALANCE_TYPE_LABELS: Record<string, string> = {
+  VACATION: "Vacaciones",
+  PERSONAL_MATTERS: "Asuntos propios",
+  COMP_TIME: "Compensación",
+};
+
 // Tipo para la fila de la tabla
 export interface AbsenceTypeRow {
   id: string;
@@ -50,6 +56,7 @@ export interface AbsenceTypeRow {
   requiresDocument: boolean;
   minDaysAdvance: number;
   affectsBalance: boolean;
+  balanceType: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
   active: boolean;
   allowPartialDays: boolean;
   granularityMinutes: number;
@@ -211,6 +218,18 @@ export function AbsenceTypesTab() {
             {row.original.affectsBalance && <Badge variant="outline">Afecta balance</Badge>}
           </div>
         ),
+      },
+      {
+        accessorKey: "balanceType",
+        header: "Balance",
+        cell: ({ row }) => {
+          if (!row.original.affectsBalance) {
+            return <span className="text-muted-foreground text-xs">No aplica</span>;
+          }
+
+          const label = BALANCE_TYPE_LABELS[row.original.balanceType] ?? row.original.balanceType;
+          return <Badge variant="secondary">{label}</Badge>;
+        },
       },
       {
         accessorKey: "usageCount",

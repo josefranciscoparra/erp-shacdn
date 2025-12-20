@@ -17,6 +17,7 @@ export interface CreateAbsenceTypeInput {
   requiresDocument: boolean;
   minDaysAdvance: number;
   affectsBalance: boolean;
+  balanceType: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
   // Granularidad
   allowPartialDays: boolean;
   granularityMinutes: number;
@@ -60,6 +61,7 @@ export async function getAllAbsenceTypes() {
     requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
     affectsBalance: type.affectsBalance,
+    balanceType: type.balanceType,
     active: type.active,
     allowPartialDays: type.allowPartialDays,
     granularityMinutes: type.granularityMinutes,
@@ -97,6 +99,7 @@ export async function getActiveAbsenceTypes() {
     requiresDocument: type.requiresDocument,
     minDaysAdvance: type.minDaysAdvance,
     affectsBalance: type.affectsBalance,
+    balanceType: type.balanceType,
     allowPartialDays: type.allowPartialDays,
     granularityMinutes: type.granularityMinutes,
     minimumDurationMinutes: type.minimumDurationMinutes,
@@ -140,6 +143,7 @@ export async function getAbsenceTypeById(id: string) {
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
+    balanceType: absenceType.balanceType,
     active: absenceType.active,
     allowPartialDays: absenceType.allowPartialDays,
     granularityMinutes: absenceType.granularityMinutes,
@@ -198,6 +202,7 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
       requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
       affectsBalance: input.affectsBalance,
+      balanceType: input.balanceType,
       active: true,
       allowPartialDays: input.allowPartialDays,
       granularityMinutes: input.granularityMinutes,
@@ -219,6 +224,7 @@ export async function createAbsenceType(input: CreateAbsenceTypeInput) {
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
+    balanceType: absenceType.balanceType,
     active: absenceType.active,
     allowPartialDays: absenceType.allowPartialDays,
     granularityMinutes: absenceType.granularityMinutes,
@@ -291,6 +297,7 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
       requiresDocument: input.requiresDocument,
       minDaysAdvance: input.minDaysAdvance,
       affectsBalance: input.affectsBalance,
+      balanceType: input.balanceType,
       allowPartialDays: input.allowPartialDays,
       granularityMinutes: input.granularityMinutes,
       minimumDurationMinutes: input.minimumDurationMinutes,
@@ -310,6 +317,7 @@ export async function updateAbsenceType(input: UpdateAbsenceTypeInput) {
     requiresDocument: absenceType.requiresDocument,
     minDaysAdvance: absenceType.minDaysAdvance,
     affectsBalance: absenceType.affectsBalance,
+    balanceType: absenceType.balanceType,
     active: absenceType.active,
     allowPartialDays: absenceType.allowPartialDays,
     granularityMinutes: absenceType.granularityMinutes,
@@ -400,6 +408,7 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       requiresApproval: true,
       minDaysAdvance: 15,
       affectsBalance: true,
+      balanceType: "VACATION",
       allowPartialDays: false,
       granularityMinutes: 480, // 1 día completo
       minimumDurationMinutes: 480,
@@ -415,6 +424,7 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       requiresApproval: true,
       minDaysAdvance: 3,
       affectsBalance: true,
+      balanceType: "PERSONAL_MATTERS",
       allowPartialDays: false,
       granularityMinutes: 480,
       minimumDurationMinutes: 480,
@@ -430,6 +440,7 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       requiresApproval: false,
       minDaysAdvance: 0,
       affectsBalance: false,
+      balanceType: "VACATION",
       allowPartialDays: false,
       granularityMinutes: 480,
       minimumDurationMinutes: 480,
@@ -445,6 +456,7 @@ export async function createDefaultAbsenceTypes(orgId: string) {
       requiresApproval: true,
       minDaysAdvance: 1,
       affectsBalance: true,
+      balanceType: "PERSONAL_MATTERS",
       allowPartialDays: true,
       granularityMinutes: 60, // Por horas
       minimumDurationMinutes: 60,

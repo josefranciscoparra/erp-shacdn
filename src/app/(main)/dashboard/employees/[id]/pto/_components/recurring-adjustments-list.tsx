@@ -23,6 +23,7 @@ interface RecurringAdjustment {
   id: string;
   extraDays: number;
   adjustmentType: string;
+  balanceType: "VACATION" | "PERSONAL_MATTERS" | "COMP_TIME";
   reason: string;
   notes: string | null;
   startYear: number;
@@ -45,6 +46,12 @@ const ADJUSTMENT_TYPE_LABELS: Record<string, string> = {
   SENIORITY_BONUS: "Días por antigüedad",
   COLLECTIVE_AGREEMENT: "Días por convenio",
   OTHER: "Otro",
+};
+
+const BALANCE_TYPE_LABELS: Record<string, string> = {
+  VACATION: "Vacaciones",
+  PERSONAL_MATTERS: "Asuntos propios",
+  COMP_TIME: "Compensación",
 };
 
 export function RecurringAdjustmentsList({ adjustments, onSuccess }: RecurringAdjustmentsListProps) {
@@ -96,6 +103,9 @@ export function RecurringAdjustmentsList({ adjustments, onSuccess }: RecurringAd
                   </span>
                   <Badge variant="secondary" className="text-xs">
                     {ADJUSTMENT_TYPE_LABELS[adjustment.adjustmentType] ?? adjustment.adjustmentType}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {BALANCE_TYPE_LABELS[adjustment.balanceType] ?? adjustment.balanceType}
                   </Badge>
                   <Badge variant="outline" className="text-xs">
                     Desde {adjustment.startYear}

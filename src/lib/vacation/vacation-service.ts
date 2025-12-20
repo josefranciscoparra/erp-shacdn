@@ -11,6 +11,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
 
 import { VacationStrategy } from "./strategies/base-strategy";
 import { DiscontinuousVacationStrategy } from "./strategies/discontinuous-strategy";
@@ -101,6 +102,7 @@ async function getVacationAdjustments(
   orgId: string,
   year: number,
   workdayMinutes: number,
+  balanceType: PtoBalanceType = DEFAULT_PTO_BALANCE_TYPE,
 ): Promise<{ days: number; minutes: number }> {
   const manualAdjustments = await prisma.ptoBalanceAdjustment.findMany({
     where: {
@@ -108,6 +110,7 @@ async function getVacationAdjustments(
       ptoBalance: {
         employeeId,
         year,
+        balanceType,
       },
     },
     select: {
@@ -123,6 +126,7 @@ async function getVacationAdjustments(
       startYear: {
         lte: year,
       },
+      balanceType,
     },
     select: {
       extraDays: true,
@@ -242,7 +246,13 @@ export async function calculateVacationBalance(
 
   // Calcular devengado
   const accrued = strategy.calculateAccrued(contractInfo, cutoffDate, annualDays, workdayMinutes);
-  const adjustments = await getVacationAdjustments(employeeId, employee.orgId, year, workdayMinutes);
+  const adjustments = await getVacationAdjustments(
+    employeeId,
+    employee.orgId,
+    year,
+    workdayMinutes,
+    DEFAULT_PTO_BALANCE_TYPE,
+  );
   const assignedBaseDays = accrued.assignedDays ?? annualDays;
   const annualAllowanceDays = roundDays(assignedBaseDays + adjustments.days);
 
@@ -264,6 +274,7 @@ export async function calculateVacationBalance(
       employeeId,
       absenceType: {
         affectsBalance: true,
+        balanceType: DEFAULT_PTO_BALANCE_TYPE,
       },
       startDate: { lte: yearEnd },
       endDate: { gte: yearStart },

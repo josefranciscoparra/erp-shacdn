@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 type RequestStatus = "pending" | "approved" | "rejected";
 
@@ -104,7 +105,7 @@ export function PtoRequests() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Mis Vacaciones" actionLabel="Nueva Solicitud" onAction={() => setOpen(true)} />
+      <SectionHeader title="Mis ausencias" actionLabel="Nueva Solicitud" onAction={() => setOpen(true)} />
 
       {/* Resumen de días */}
       <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-3">
@@ -171,7 +172,7 @@ export function PtoRequests() {
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-end">
-                    <span className="text-2xl font-bold">{request.days}</span>
+                    <span className="text-2xl font-bold">{formatWorkingDays(request.days)}</span>
                     <span className="text-muted-foreground text-xs">{request.days === 1 ? "día" : "días"}</span>
                   </div>
                 </div>
@@ -185,8 +186,8 @@ export function PtoRequests() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Nueva solicitud de vacaciones</DialogTitle>
-            <DialogDescription>Completa el formulario para solicitar días de vacaciones o ausencia.</DialogDescription>
+            <DialogTitle>Nueva solicitud de ausencia</DialogTitle>
+            <DialogDescription>Completa el formulario para solicitar días de ausencia.</DialogDescription>
           </DialogHeader>
 
           <form className="flex flex-col gap-4">

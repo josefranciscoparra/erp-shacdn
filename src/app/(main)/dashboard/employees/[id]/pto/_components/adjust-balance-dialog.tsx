@@ -47,6 +47,7 @@ export function AdjustBalanceDialog({
   const [days, setDays] = useState("");
   const [adjustmentType, setAdjustmentType] = useState<PtoAdjustmentType | "">("");
   const [isRecurring, setIsRecurring] = useState(false);
+  const [balanceType, setBalanceType] = useState<"VACATION" | "PERSONAL_MATTERS" | "COMP_TIME">("VACATION");
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,6 +59,7 @@ export function AdjustBalanceDialog({
       setDays("");
       setAdjustmentType("");
       setIsRecurring(false);
+      setBalanceType("VACATION");
       setReason("");
       setNotes("");
     }
@@ -87,6 +89,7 @@ export function AdjustBalanceDialog({
         employeeId,
         daysAdjusted,
         adjustmentType,
+        balanceType,
         reason,
         notes: notes.trim() || undefined,
         isRecurring,
@@ -104,12 +107,13 @@ export function AdjustBalanceDialog({
     }
   };
 
-  const previewBalance = currentBalance
-    ? {
-        before: currentBalance.annualAllowance,
-        after: currentBalance.annualAllowance + (action === "add" ? Number(days || 0) : -Number(days || 0)),
-      }
-    : null;
+  const previewBalance =
+    balanceType === "VACATION" && currentBalance
+      ? {
+          before: currentBalance.annualAllowance,
+          after: currentBalance.annualAllowance + (action === "add" ? Number(days || 0) : -Number(days || 0)),
+        }
+      : null;
   const previewDisplay = previewBalance
     ? {
         beforeRounded: Number(previewBalance.before.toFixed(1)),
@@ -121,8 +125,8 @@ export function AdjustBalanceDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Ajustar Balance de Vacaciones</DialogTitle>
-          <DialogDescription>Añade o quita días del balance de vacaciones del empleado</DialogDescription>
+          <DialogTitle>Ajustar balance de ausencias</DialogTitle>
+          <DialogDescription>Añade o quita días del balance del empleado</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -143,6 +147,20 @@ export function AdjustBalanceDialog({
                 </Label>
               </div>
             </RadioGroup>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Balance *</Label>
+            <Select value={balanceType} onValueChange={(value) => setBalanceType(value as typeof balanceType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="VACATION">Vacaciones</SelectItem>
+                <SelectItem value="PERSONAL_MATTERS">Asuntos propios</SelectItem>
+                <SelectItem value="COMP_TIME">Compensación</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Cantidad */}

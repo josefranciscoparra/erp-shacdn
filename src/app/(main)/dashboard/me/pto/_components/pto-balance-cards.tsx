@@ -61,9 +61,10 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   // ✅ SISTEMA DE BALANCE EN MINUTOS - Usar campos en minutos y formatear
   const workdayMinutes = balance.workdayMinutesSnapshot ?? 480;
-  const availableDisplay = formatVacationBalance(balance.minutesAvailable ?? 0, workdayMinutes);
-  const usedDisplay = formatVacationBalance(balance.minutesUsed ?? 0, workdayMinutes);
-  const totalDisplay = formatVacationBalance(balance.annualAllowanceMinutes ?? 0, workdayMinutes);
+  const displayOptions = { fractionStep: 0.1 };
+  const availableDisplay = formatVacationBalance(balance.minutesAvailable ?? 0, workdayMinutes, displayOptions);
+  const usedDisplay = formatVacationBalance(balance.minutesUsed ?? 0, workdayMinutes, displayOptions);
+  const totalDisplay = formatVacationBalance(balance.annualAllowanceMinutes ?? 0, workdayMinutes, displayOptions);
 
   // Filtrar próximas vacaciones aprobadas (futuras)
   const today = new Date();

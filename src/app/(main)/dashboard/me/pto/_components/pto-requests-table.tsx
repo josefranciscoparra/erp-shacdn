@@ -362,7 +362,7 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="p-0">
-                  <EmptyState title="Nada por aquí" description="No tienes solicitudes de vacaciones." />
+                  <EmptyState title="Nada por aquí" description="No tienes solicitudes de ausencias." />
                 </TableCell>
               </TableRow>
             )}

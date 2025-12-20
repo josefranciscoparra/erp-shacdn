@@ -147,16 +147,18 @@ async function createEmployeeFromRow(params: {
 
     await tx.ptoBalance.upsert({
       where: {
-        orgId_employeeId_year: {
+        orgId_employeeId_year_balanceType: {
           orgId,
           employeeId: employee.id,
           year: currentYear,
+          balanceType: "VACATION",
         },
       },
       create: {
         orgId,
         employeeId: employee.id,
         year: currentYear,
+        balanceType: "VACATION",
         annualAllowance: new Decimal(allowanceDays),
         daysUsed: new Decimal(usedDays),
         daysPending: new Decimal(0),

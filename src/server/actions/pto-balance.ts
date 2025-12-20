@@ -3,7 +3,8 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
-import { calculateVacationBalance } from "@/lib/vacation";
+import { calculatePtoBalanceByType } from "@/lib/pto/balance-service";
+import { DEFAULT_PTO_BALANCE_TYPE, PTO_BALANCE_TYPES, type PtoBalanceType } from "@/lib/pto/balance-types";
 import { calculateActiveDays } from "@/lib/vacation-calculator";
 import { daysToMinutes } from "@/services/pto";
 
@@ -101,9 +102,11 @@ export async function calculateOrUpdatePtoBalance(
   employeeId: string,
   orgId: string,
   year: number,
+  balanceType: PtoBalanceType = DEFAULT_PTO_BALANCE_TYPE,
 ): Promise<{
   id: string;
   year: number;
+  balanceType: PtoBalanceType;
   annualAllowance: number;
   daysUsed: number;
   daysPending: number;
@@ -133,22 +136,24 @@ export async function calculateOrUpdatePtoBalance(
     throw new Error("No se encontró un contrato activo para el empleado");
   }
 
-  const snapshot = await calculateVacationBalance(employeeId, { year });
+  const snapshot = await calculatePtoBalanceByType(employeeId, balanceType, { year });
   const annualAllowanceMinutes = daysToMinutes(snapshot.annualAllowanceDays, snapshot.workdayMinutes);
 
   // Crear o actualizar el balance
   const balance = await prisma.ptoBalance.upsert({
     where: {
-      orgId_employeeId_year: {
+      orgId_employeeId_year_balanceType: {
         orgId,
         employeeId,
         year,
+        balanceType,
       },
     },
     create: {
       orgId,
       employeeId,
       year,
+      balanceType,
       // ❌ DEPRECADO (mantener temporalmente para migración)
       annualAllowance: new Decimal(snapshot.annualAllowanceDays),
       daysUsed: new Decimal(snapshot.usedDays),
@@ -182,6 +187,7 @@ export async function calculateOrUpdatePtoBalance(
   return {
     id: balance.id,
     year: balance.year,
+    balanceType,
     // ❌ DEPRECADO - Mantener temporalmente para compatibilidad
     annualAllowance: Number(balance.annualAllowance),
     daysUsed: Number(balance.daysUsed),
@@ -200,6 +206,16 @@ export async function calculateOrUpdatePtoBalance(
  * Recalcula el balance después de un cambio en solicitudes
  * (aprobar, rechazar, cancelar)
  */
-export async function recalculatePtoBalance(employeeId: string, orgId: string, year: number): Promise<void> {
-  await calculateOrUpdatePtoBalance(employeeId, orgId, year);
+export async function recalculatePtoBalance(
+  employeeId: string,
+  orgId: string,
+  year: number,
+  balanceType?: PtoBalanceType,
+): Promise<void> {
+  if (balanceType) {
+    await calculateOrUpdatePtoBalance(employeeId, orgId, year, balanceType);
+    return;
+  }
+
+  await Promise.all(PTO_BALANCE_TYPES.map((type) => calculateOrUpdatePtoBalance(employeeId, orgId, year, type)));
 }

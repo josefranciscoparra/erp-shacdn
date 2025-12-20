@@ -3,6 +3,7 @@
 import type { AbsenceType } from "@prisma/client";
 import { create } from "zustand";
 
+import { DEFAULT_PTO_BALANCE_TYPE, PTO_BALANCE_TYPES, type PtoBalanceType } from "@/lib/pto/balance-types";
 import {
   getMyPtoBalance,
   getAbsenceTypes,
@@ -28,6 +29,7 @@ export interface PtoBalance {
   workdayMinutesSnapshot?: number;
   hasActiveContract?: boolean;
   hasProvisionalContract?: boolean;
+  balanceType?: PtoBalanceType;
 }
 
 export interface PtoRequest {
@@ -64,6 +66,8 @@ export interface PtoRequest {
 interface PtoState {
   // Balance
   balance: PtoBalance | null;
+  balancesByType: Partial<Record<PtoBalanceType, PtoBalance>>;
+  isLoadingBalanceByType: Partial<Record<PtoBalanceType, boolean>>;
 
   // Solicitudes
   requests: PtoRequest[];
@@ -82,6 +86,7 @@ interface PtoState {
 
   // Acciones
   loadBalance: () => Promise<void>;
+  loadBalanceByType: (balanceType: PtoBalanceType) => Promise<void>;
   loadRequests: () => Promise<void>;
   loadAbsenceTypes: () => Promise<void>;
   createRequest: (data: {
@@ -112,6 +117,8 @@ interface PtoState {
 
 const initialState = {
   balance: null,
+  balancesByType: {},
+  isLoadingBalanceByType: {},
   requests: [],
   absenceTypes: [],
   isLoadingBalance: false,
@@ -129,16 +136,39 @@ export const usePtoStore = create<PtoState>((set, get) => ({
     set({ isLoadingBalance: true, error: null });
     try {
       const balance = await getMyPtoBalance();
-      set({
+      set((state) => ({
         balance: balance as PtoBalance,
+        balancesByType: { ...state.balancesByType, VACATION: balance as PtoBalance },
         isLoadingBalance: false,
-      });
+      }));
     } catch (error) {
       const message = error instanceof Error ? error.message : "Error al cargar balance";
       set({
         error: `[Balance] ${message}`,
         isLoadingBalance: false,
       });
+    }
+  },
+
+  loadBalanceByType: async (balanceType) => {
+    set((state) => ({
+      isLoadingBalanceByType: { ...state.isLoadingBalanceByType, [balanceType]: true },
+      error: null,
+    }));
+
+    try {
+      const balance = await getMyPtoBalance(balanceType);
+      set((state) => ({
+        balancesByType: { ...state.balancesByType, [balanceType]: balance as PtoBalance },
+        isLoadingBalanceByType: { ...state.isLoadingBalanceByType, [balanceType]: false },
+        balance: balanceType === "VACATION" ? (balance as PtoBalance) : state.balance,
+      }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error al cargar balance";
+      set((state) => ({
+        error: `[Balance] ${message}`,
+        isLoadingBalanceByType: { ...state.isLoadingBalanceByType, [balanceType]: false },
+      }));
     }
   },
 
@@ -185,7 +215,16 @@ export const usePtoStore = create<PtoState>((set, get) => ({
       const result = await createPtoRequestAction(data);
 
       // Recargar balance y solicitudes
-      await get().loadBalance();
+      const selectedType = get().absenceTypes.find((type) => type.id === data.absenceTypeId) ?? null;
+      const selectedBalanceType: PtoBalanceType =
+        (selectedType ? (selectedType as { balanceType?: PtoBalanceType | null }).balanceType : null) ??
+        DEFAULT_PTO_BALANCE_TYPE;
+
+      if (selectedType?.affectsBalance) {
+        await get().loadBalanceByType(selectedBalanceType);
+      } else {
+        await get().loadBalance();
+      }
       await get().loadRequests();
 
       set({ isSubmitting: false });
@@ -212,8 +251,8 @@ export const usePtoStore = create<PtoState>((set, get) => ({
     try {
       await cancelPtoRequestAction(requestId, reason);
 
-      // Recargar balance y solicitudes
-      await get().loadBalance();
+      // Recargar balances y solicitudes
+      await Promise.all(PTO_BALANCE_TYPES.map((type) => get().loadBalanceByType(type)));
       await get().loadRequests();
 
       set({ isSubmitting: false });

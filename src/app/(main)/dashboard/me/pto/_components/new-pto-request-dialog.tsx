@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
 import { cn } from "@/lib/utils";
 import { getOrganizationPtoConfig } from "@/server/actions/admin-pto";
 import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
@@ -33,6 +34,7 @@ interface WorkingDaysDisplayProps {
   workingDaysCalc: number | null;
   holidays: Array<{ date: Date; name: string }>;
   isCalculating: boolean;
+  isLoadingBalance: boolean;
   hasEnoughDays: boolean;
   carryoverPolicy: {
     mode: "NONE" | "UNTIL_DATE" | "UNLIMITED";
@@ -64,9 +66,14 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   workingDaysCalc,
   holidays,
   isCalculating,
+  isLoadingBalance,
   hasEnoughDays,
   carryoverPolicy,
 }: WorkingDaysDisplayProps) {
+  const selectedBalanceType: PtoBalanceType =
+    (selectedType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
+  const isVacationBalance = selectedBalanceType === "VACATION";
+
   const formatDays = (days: number) => {
     const rounded = Math.round(days * 10) / 10;
     return {
@@ -90,7 +97,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   }, [balance, workingDaysCalc, selectedType]);
 
   const policyDescription = useMemo(() => {
-    if (!carryoverPolicy || !balance || !selectedType?.affectsBalance) return null;
+    if (!carryoverPolicy || !balance || !selectedType?.affectsBalance || !isVacationBalance) return null;
 
     if (carryoverPolicy.mode === "UNLIMITED") {
       return "Las vacaciones no usadas se acumulan sin caducidad.";
@@ -105,9 +112,20 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
     }
 
     return `Las vacaciones no usadas caducan el 31 de diciembre de ${balance.year}.`;
-  }, [balance, carryoverPolicy, selectedType?.affectsBalance]);
+  }, [balance, carryoverPolicy, isVacationBalance, selectedType?.affectsBalance]);
 
   if (!selectedType) return null;
+
+  if (selectedType.affectsBalance && isLoadingBalance) {
+    return (
+      <div className="rounded-[14px] border bg-white p-6 shadow-sm dark:bg-gray-800">
+        <div className="text-muted-foreground flex items-center gap-2 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Cargando balance disponible...
+        </div>
+      </div>
+    );
+  }
 
   // Calcular días restantes
   const remainingDays = balance ? balance.daysAvailable - (workingDaysCalc ?? 0) : 0;
@@ -258,7 +276,17 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 });
 
 export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogProps) {
-  const { absenceTypes, balance, createRequest, isSubmitting, calculateWorkingDays, requests } = usePtoStore();
+  const {
+    absenceTypes,
+    balance,
+    balancesByType,
+    isLoadingBalanceByType,
+    loadBalanceByType,
+    createRequest,
+    isSubmitting,
+    calculateWorkingDays,
+    requests,
+  } = usePtoStore();
 
   const [selectedTypeId, setSelectedTypeId] = useState<string>("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -567,8 +595,32 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   };
 
   const selectedType = absenceTypes.find((t) => t.id === selectedTypeId) ?? null;
-  const hasEnoughDays =
-    selectedType?.affectsBalance && balance && workingDaysCalc ? balance.daysAvailable >= workingDaysCalc : true;
+  const selectedBalanceType = useMemo<PtoBalanceType>(() => {
+    if (!selectedType) return DEFAULT_PTO_BALANCE_TYPE;
+    return (selectedType as { balanceType?: PtoBalanceType | null }).balanceType ?? DEFAULT_PTO_BALANCE_TYPE;
+  }, [selectedType]);
+
+  const balanceForType = selectedType?.affectsBalance
+    ? (balancesByType[selectedBalanceType] ?? (selectedBalanceType === "VACATION" ? balance : null))
+    : balance;
+  const isLoadingSelectedBalance = selectedType?.affectsBalance
+    ? (isLoadingBalanceByType[selectedBalanceType] ?? false)
+    : false;
+
+  useEffect(() => {
+    if (!selectedType?.affectsBalance) return;
+    if (balancesByType[selectedBalanceType]) return;
+    if ((isLoadingBalanceByType[selectedBalanceType] ?? false) === true) return;
+    void loadBalanceByType(selectedBalanceType);
+  }, [balancesByType, isLoadingBalanceByType, loadBalanceByType, selectedBalanceType, selectedType?.affectsBalance]);
+
+  const hasEnoughDays = (() => {
+    if (!selectedType?.affectsBalance) return true;
+    if (workingDaysCalc === null) return true;
+    if (isLoadingSelectedBalance) return true;
+    if (!balanceForType) return false;
+    return balanceForType.daysAvailable >= workingDaysCalc;
+  })();
   const requiresDocument = selectedType?.requiresDocument === true;
   const allowsPartialDays = selectedType?.allowPartialDays === true;
   const isSubmitDisabled = [
@@ -579,6 +631,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     isSubmitting,
     isUploadingFiles,
     isCalculating,
+    isLoadingSelectedBalance,
     !hasActiveContract,
     requiresDocument && pendingFiles.length === 0,
     allowsPartialDays && isPartialDay && !validateTimeRange.valid,
@@ -601,8 +654,8 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
                 <AlertCircle className="mt-1 h-4 w-4 flex-shrink-0" />
                 <AlertDescription>
                   {hasProvisionalContract
-                    ? "Tu contrato está pendiente de completar. Contacta con RRHH para poder solicitar vacaciones."
-                    : "Aún no tienes un contrato activo asignado. Contacta con RRHH para poder solicitar vacaciones."}
+                    ? "Tu contrato está pendiente de completar. Contacta con RRHH para poder solicitar ausencias."
+                    : "Aún no tienes un contrato activo asignado. Contacta con RRHH para poder solicitar ausencias."}
                 </AlertDescription>
               </div>
             </Alert>
@@ -634,10 +687,11 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
           {selectedType && (
             <WorkingDaysDisplay
               selectedType={selectedType}
-              balance={balance}
+              balance={balanceForType}
               workingDaysCalc={workingDaysCalc}
               holidays={holidays}
               isCalculating={isCalculating}
+              isLoadingBalance={isLoadingSelectedBalance}
               hasEnoughDays={hasEnoughDays}
               carryoverPolicy={carryoverPolicy}
             />

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -39,12 +40,18 @@ export function VacationsTab() {
   const [usageDeadlineDay, setUsageDeadlineDay] = useState(29);
   const [requestDeadlineMonth, setRequestDeadlineMonth] = useState(1);
   const [requestDeadlineDay, setRequestDeadlineDay] = useState(29);
+  const [annualPtoDays, setAnnualPtoDays] = useState(23);
+  const [personalMattersDays, setPersonalMattersDays] = useState(0);
+  const [compTimeDays, setCompTimeDays] = useState(0);
   const [initialConfig, setInitialConfig] = useState({
     mode: "NONE" as CarryoverMode,
     usageDeadlineMonth: 1,
     usageDeadlineDay: 29,
     requestDeadlineMonth: 1,
     requestDeadlineDay: 29,
+    annualPtoDays: 23,
+    personalMattersDays: 0,
+    compTimeDays: 0,
   });
 
   useEffect(() => {
@@ -57,18 +64,27 @@ export function VacationsTab() {
         const nextUsageDeadlineDay = Number(config.carryoverDeadlineDay ?? 29);
         const nextRequestDeadlineMonth = Number(config.carryoverRequestDeadlineMonth ?? nextUsageDeadlineMonth);
         const nextRequestDeadlineDay = Number(config.carryoverRequestDeadlineDay ?? nextUsageDeadlineDay);
+        const nextAnnualPtoDays = Number(config.annualPtoDays ?? 23);
+        const nextPersonalMattersDays = Number(config.personalMattersDays ?? 0);
+        const nextCompTimeDays = Number(config.compTimeDays ?? 0);
 
         setMode(nextMode);
         setUsageDeadlineMonth(nextUsageDeadlineMonth);
         setUsageDeadlineDay(nextUsageDeadlineDay);
         setRequestDeadlineMonth(nextRequestDeadlineMonth);
         setRequestDeadlineDay(nextRequestDeadlineDay);
+        setAnnualPtoDays(nextAnnualPtoDays);
+        setPersonalMattersDays(nextPersonalMattersDays);
+        setCompTimeDays(nextCompTimeDays);
         setInitialConfig({
           mode: nextMode,
           usageDeadlineMonth: nextUsageDeadlineMonth,
           usageDeadlineDay: nextUsageDeadlineDay,
           requestDeadlineMonth: nextRequestDeadlineMonth,
           requestDeadlineDay: nextRequestDeadlineDay,
+          annualPtoDays: nextAnnualPtoDays,
+          personalMattersDays: nextPersonalMattersDays,
+          compTimeDays: nextCompTimeDays,
         });
       } catch (error) {
         console.error("Error loading PTO config:", error);
@@ -86,7 +102,10 @@ export function VacationsTab() {
     usageDeadlineMonth !== initialConfig.usageDeadlineMonth ||
     usageDeadlineDay !== initialConfig.usageDeadlineDay ||
     requestDeadlineMonth !== initialConfig.requestDeadlineMonth ||
-    requestDeadlineDay !== initialConfig.requestDeadlineDay;
+    requestDeadlineDay !== initialConfig.requestDeadlineDay ||
+    annualPtoDays !== initialConfig.annualPtoDays ||
+    personalMattersDays !== initialConfig.personalMattersDays ||
+    compTimeDays !== initialConfig.compTimeDays;
 
   const usageDeadlineLabel = useMemo(() => {
     const monthLabel = monthOptions.find((month) => month.value === usageDeadlineMonth)?.label ?? "enero";
@@ -116,11 +135,14 @@ export function VacationsTab() {
     try {
       setIsSaving(true);
       await updateOrganizationPtoConfig({
+        annualPtoDays,
         carryoverMode: mode,
         carryoverDeadlineMonth: usageDeadlineMonth,
         carryoverDeadlineDay: usageDeadlineDay,
         carryoverRequestDeadlineMonth: requestDeadlineMonth,
         carryoverRequestDeadlineDay: requestDeadlineDay,
+        personalMattersDays,
+        compTimeDays,
       });
       setInitialConfig({
         mode,
@@ -128,6 +150,9 @@ export function VacationsTab() {
         usageDeadlineDay,
         requestDeadlineMonth,
         requestDeadlineDay,
+        annualPtoDays,
+        personalMattersDays,
+        compTimeDays,
       });
       toast.success("Configuración de vacaciones actualizada");
     } catch (error) {
@@ -174,6 +199,28 @@ export function VacationsTab() {
               <p className="text-muted-foreground text-sm">
                 Define cómo se gestionan las vacaciones no usadas al cambiar de año
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">Vacaciones anuales</h4>
+              <p className="text-muted-foreground text-xs">Días base por organización</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="annual-pto-days">Días de vacaciones anuales</Label>
+              <Input
+                id="annual-pto-days"
+                type="number"
+                min={0}
+                max={60}
+                step={0.5}
+                value={annualPtoDays}
+                onChange={(event) => {
+                  const nextValue = Number(event.target.value);
+                  setAnnualPtoDays(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0);
+                }}
+              />
             </div>
           </div>
 
@@ -263,6 +310,52 @@ export function VacationsTab() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800">
+            <div className="mb-4 flex items-center gap-2">
+              <CalendarClock className="text-muted-foreground h-4 w-4" />
+              <div>
+                <h4 className="text-sm font-semibold">Bolsas adicionales</h4>
+                <p className="text-muted-foreground text-xs">
+                  Define los días anuales para asuntos propios y compensación
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 @xl/main:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="personal-matters-days">Asuntos propios (días/año)</Label>
+                <Input
+                  id="personal-matters-days"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={personalMattersDays}
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value);
+                    setPersonalMattersDays(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0);
+                  }}
+                />
+                <p className="text-muted-foreground text-xs">Se descuenta del balance &quot;Asuntos propios&quot;.</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="comp-time-days">Compensación (días/año)</Label>
+                <Input
+                  id="comp-time-days"
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={compTimeDays}
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value);
+                    setCompTimeDays(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0);
+                  }}
+                />
+                <p className="text-muted-foreground text-xs">Se descuenta del balance &quot;Compensación&quot;.</p>
               </div>
             </div>
           </div>
