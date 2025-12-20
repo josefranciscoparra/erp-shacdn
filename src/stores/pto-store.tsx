@@ -30,6 +30,8 @@ export interface PtoBalance {
   hasActiveContract?: boolean;
   hasProvisionalContract?: boolean;
   balanceType?: PtoBalanceType;
+  roundingUnit?: number;
+  roundingMode?: "DOWN" | "NEAREST" | "UP";
 }
 
 export interface PtoRequest {

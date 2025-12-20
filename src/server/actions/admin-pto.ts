@@ -586,6 +586,8 @@ export async function getOrganizationPtoConfig() {
     carryoverDeadlineDay: 29,
     carryoverRequestDeadlineMonth: 1,
     carryoverRequestDeadlineDay: 29,
+    vacationRoundingUnit: new Decimal(0.1),
+    vacationRoundingMode: "NEAREST",
     personalMattersDays: new Decimal(0),
     compTimeDays: new Decimal(0),
   } as unknown as Prisma.OrganizationPtoConfigCreateInput;
@@ -602,9 +604,16 @@ export async function getOrganizationPtoConfig() {
     carryoverDeadlineDay?: number | null;
     carryoverRequestDeadlineMonth?: number | null;
     carryoverRequestDeadlineDay?: number | null;
+    vacationRoundingUnit?: Decimal | null;
+    vacationRoundingMode?: "DOWN" | "NEAREST" | "UP" | null;
     personalMattersDays?: Decimal | null;
     compTimeDays?: Decimal | null;
   };
+
+  const rawRoundingUnit = normalizedConfig.vacationRoundingUnit;
+  const roundingUnit = rawRoundingUnit === null || rawRoundingUnit === undefined ? 0.1 : Number(rawRoundingUnit);
+  const rawRoundingMode = normalizedConfig.vacationRoundingMode;
+  const roundingMode = rawRoundingMode ?? "NEAREST";
 
   return {
     ...config,
@@ -614,6 +623,8 @@ export async function getOrganizationPtoConfig() {
     carryoverDeadlineDay: normalizedConfig.carryoverDeadlineDay ?? 29,
     carryoverRequestDeadlineMonth: normalizedConfig.carryoverRequestDeadlineMonth ?? 1,
     carryoverRequestDeadlineDay: normalizedConfig.carryoverRequestDeadlineDay ?? 29,
+    vacationRoundingUnit: roundingUnit,
+    vacationRoundingMode: roundingMode,
     personalMattersDays: Number(normalizedConfig.personalMattersDays ?? 0),
     compTimeDays: Number(normalizedConfig.compTimeDays ?? 0),
   };
@@ -1091,6 +1102,8 @@ interface UpdatePtoConfigParams {
   carryoverDeadlineDay?: number;
   carryoverRequestDeadlineMonth?: number;
   carryoverRequestDeadlineDay?: number;
+  vacationRoundingUnit?: number;
+  vacationRoundingMode?: "DOWN" | "NEAREST" | "UP";
   personalMattersDays?: number;
   compTimeDays?: number;
 }
@@ -1102,6 +1115,10 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
   const user = await requireHRAdmin();
   const updateData: UpdatePtoConfigParams = { ...params };
   const annualPtoDays = params.annualPtoDays;
+
+  if (updateData.annualPtoDays !== undefined) {
+    delete updateData.annualPtoDays;
+  }
 
   if (annualPtoDays !== undefined) {
     const normalizedAnnualPtoDays = Math.min(Math.max(annualPtoDays, 0), 60);
@@ -1135,6 +1152,15 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
     updateData.compTimeDays = new Decimal(params.compTimeDays);
   }
 
+  if (params.vacationRoundingUnit !== undefined) {
+    const normalizedUnit = Math.min(Math.max(params.vacationRoundingUnit, 0.1), 1);
+    updateData.vacationRoundingUnit = new Decimal(normalizedUnit);
+  }
+
+  if (params.vacationRoundingMode !== undefined) {
+    updateData.vacationRoundingMode = params.vacationRoundingMode;
+  }
+
   const config = await prisma.organizationPtoConfig.upsert({
     where: {
       orgId: user.orgId,
@@ -1152,6 +1178,8 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
       carryoverDeadlineDay: params.carryoverDeadlineDay ?? 29,
       carryoverRequestDeadlineMonth: params.carryoverRequestDeadlineMonth ?? 1,
       carryoverRequestDeadlineDay: params.carryoverRequestDeadlineDay ?? 29,
+      vacationRoundingUnit: new Decimal(params.vacationRoundingUnit ?? 0.1),
+      vacationRoundingMode: params.vacationRoundingMode ?? "NEAREST",
       personalMattersDays: new Decimal(params.personalMattersDays ?? 0),
       compTimeDays: new Decimal(params.compTimeDays ?? 0),
     } as unknown as Prisma.OrganizationPtoConfigCreateInput,
@@ -1165,6 +1193,8 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
   return {
     ...config,
     annualPtoDays: organization?.annualPtoDays ?? 0,
+    vacationRoundingUnit: Number(config.vacationRoundingUnit ?? 0.1),
+    vacationRoundingMode: config.vacationRoundingMode ?? "NEAREST",
     personalMattersDays: Number(config.personalMattersDays ?? 0),
     compTimeDays: Number(config.compTimeDays ?? 0),
   };

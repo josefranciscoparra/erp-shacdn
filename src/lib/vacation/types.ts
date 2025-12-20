@@ -41,6 +41,10 @@ export interface VacationBalance {
 
   /** Estado del contrato discontinuo (solo para FIJO_DISCONTINUO) */
   discontinuousStatus?: "ACTIVE" | "PAUSED" | null;
+
+  /** Configuración de redondeo aplicada */
+  roundingUnit?: number;
+  roundingMode?: "DOWN" | "NEAREST" | "UP";
 }
 
 /**

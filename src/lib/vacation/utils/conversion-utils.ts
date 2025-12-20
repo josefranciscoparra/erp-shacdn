@@ -102,3 +102,24 @@ export function formatMinutesAsTime(minutes: number, workdayMinutes: number = 48
 export function roundDays(days: number): number {
   return Math.round(days * 100) / 100;
 }
+
+export type PtoRoundingMode = "DOWN" | "NEAREST" | "UP";
+
+export function roundDaysByPolicy(days: number, unit: number, mode: PtoRoundingMode): number {
+  if (!Number.isFinite(days)) return 0;
+
+  const safeUnit = unit > 0 ? unit : 0.1;
+  const factor = days / safeUnit;
+  let roundedFactor = 0;
+
+  if (mode === "DOWN") {
+    roundedFactor = Math.floor(factor);
+  } else if (mode === "UP") {
+    roundedFactor = Math.ceil(factor);
+  } else {
+    roundedFactor = Math.round(factor);
+  }
+
+  const rounded = roundedFactor * safeUnit;
+  return Math.round(rounded * 100) / 100;
+}

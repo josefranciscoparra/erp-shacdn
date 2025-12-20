@@ -61,7 +61,9 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
 
   // ✅ SISTEMA DE BALANCE EN MINUTOS - Usar campos en minutos y formatear
   const workdayMinutes = balance.workdayMinutesSnapshot ?? 480;
-  const displayOptions = { fractionStep: 0.1 };
+  const roundingUnit = balance.roundingUnit ?? 0.1;
+  const roundingMode = balance.roundingMode ?? "NEAREST";
+  const displayOptions = { fractionStep: roundingUnit, roundingMode };
   const availableDisplay = formatVacationBalance(balance.minutesAvailable ?? 0, workdayMinutes, displayOptions);
   const usedDisplay = formatVacationBalance(balance.minutesUsed ?? 0, workdayMinutes, displayOptions);
   const totalDisplay = formatVacationBalance(balance.annualAllowanceMinutes ?? 0, workdayMinutes, displayOptions);

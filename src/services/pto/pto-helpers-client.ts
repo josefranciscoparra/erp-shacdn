@@ -97,11 +97,24 @@ export function applyCompensationFactor(minutes: number, compensationFactor: num
 export function formatVacationBalance(
   minutes: number,
   workdayMinutes: number = 480,
-  options: { fractionStep?: number } = {},
+  options: { fractionStep?: number; roundingMode?: "DOWN" | "NEAREST" | "UP" } = {},
 ): { primaryLabel: string; detailLabel: string } {
   const fractionStep = options.fractionStep ?? 0.25;
+  const roundingMode = options.roundingMode ?? "NEAREST";
   const days = minutesToDays(minutes, workdayMinutes);
-  const roundedDays = Math.round(days / fractionStep) * fractionStep;
+  const safeStep = fractionStep > 0 ? fractionStep : 0.1;
+  const factor = days / safeStep;
+  let roundedDays = 0;
+
+  if (roundingMode === "DOWN") {
+    roundedDays = Math.floor(factor) * safeStep;
+  } else if (roundingMode === "UP") {
+    roundedDays = Math.ceil(factor) * safeStep;
+  } else {
+    roundedDays = Math.round(factor) * safeStep;
+  }
+
+  roundedDays = Math.round(roundedDays * 100) / 100;
 
   const primaryLabel = `${roundedDays.toLocaleString("es-ES")} día${roundedDays === 1 ? "" : "s"}`;
   const detailRaw = minutes === 0 ? "0 días" : formatMinutes(minutes, workdayMinutes);

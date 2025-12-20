@@ -43,6 +43,8 @@ export function VacationsTab() {
   const [annualPtoDays, setAnnualPtoDays] = useState(23);
   const [personalMattersDays, setPersonalMattersDays] = useState(0);
   const [compTimeDays, setCompTimeDays] = useState(0);
+  const [vacationRoundingUnit, setVacationRoundingUnit] = useState(0.1);
+  const [vacationRoundingMode, setVacationRoundingMode] = useState<"DOWN" | "NEAREST" | "UP">("NEAREST");
   const [initialConfig, setInitialConfig] = useState({
     mode: "NONE" as CarryoverMode,
     usageDeadlineMonth: 1,
@@ -52,6 +54,8 @@ export function VacationsTab() {
     annualPtoDays: 23,
     personalMattersDays: 0,
     compTimeDays: 0,
+    vacationRoundingUnit: 0.1,
+    vacationRoundingMode: "NEAREST" as "DOWN" | "NEAREST" | "UP",
   });
 
   useEffect(() => {
@@ -67,6 +71,8 @@ export function VacationsTab() {
         const nextAnnualPtoDays = Number(config.annualPtoDays ?? 23);
         const nextPersonalMattersDays = Number(config.personalMattersDays ?? 0);
         const nextCompTimeDays = Number(config.compTimeDays ?? 0);
+        const nextRoundingUnit = Number(config.vacationRoundingUnit ?? 0.1);
+        const nextRoundingMode = config.vacationRoundingMode ?? "NEAREST";
 
         setMode(nextMode);
         setUsageDeadlineMonth(nextUsageDeadlineMonth);
@@ -76,6 +82,8 @@ export function VacationsTab() {
         setAnnualPtoDays(nextAnnualPtoDays);
         setPersonalMattersDays(nextPersonalMattersDays);
         setCompTimeDays(nextCompTimeDays);
+        setVacationRoundingUnit(nextRoundingUnit);
+        setVacationRoundingMode(nextRoundingMode);
         setInitialConfig({
           mode: nextMode,
           usageDeadlineMonth: nextUsageDeadlineMonth,
@@ -85,6 +93,8 @@ export function VacationsTab() {
           annualPtoDays: nextAnnualPtoDays,
           personalMattersDays: nextPersonalMattersDays,
           compTimeDays: nextCompTimeDays,
+          vacationRoundingUnit: nextRoundingUnit,
+          vacationRoundingMode: nextRoundingMode,
         });
       } catch (error) {
         console.error("Error loading PTO config:", error);
@@ -105,7 +115,9 @@ export function VacationsTab() {
     requestDeadlineDay !== initialConfig.requestDeadlineDay ||
     annualPtoDays !== initialConfig.annualPtoDays ||
     personalMattersDays !== initialConfig.personalMattersDays ||
-    compTimeDays !== initialConfig.compTimeDays;
+    compTimeDays !== initialConfig.compTimeDays ||
+    vacationRoundingUnit !== initialConfig.vacationRoundingUnit ||
+    vacationRoundingMode !== initialConfig.vacationRoundingMode;
 
   const usageDeadlineLabel = useMemo(() => {
     const monthLabel = monthOptions.find((month) => month.value === usageDeadlineMonth)?.label ?? "enero";
@@ -143,6 +155,8 @@ export function VacationsTab() {
         carryoverRequestDeadlineDay: requestDeadlineDay,
         personalMattersDays,
         compTimeDays,
+        vacationRoundingUnit,
+        vacationRoundingMode,
       });
       setInitialConfig({
         mode,
@@ -153,6 +167,8 @@ export function VacationsTab() {
         annualPtoDays,
         personalMattersDays,
         compTimeDays,
+        vacationRoundingUnit,
+        vacationRoundingMode,
       });
       toast.success("Configuración de vacaciones actualizada");
     } catch (error) {
@@ -221,6 +237,48 @@ export function VacationsTab() {
                   setAnnualPtoDays(Number.isFinite(nextValue) ? Math.max(0, nextValue) : 0);
                 }}
               />
+            </div>
+          </div>
+
+          <div className="rounded-lg border bg-white p-4 shadow-sm dark:bg-gray-800">
+            <div className="mb-3">
+              <h4 className="text-sm font-semibold">Redondeo de vacaciones</h4>
+              <p className="text-muted-foreground text-xs">Controla la granularidad y el redondeo del saldo</p>
+            </div>
+            <div className="grid gap-4 @xl/main:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Granularidad</Label>
+                <Select
+                  value={vacationRoundingUnit.toString()}
+                  onValueChange={(value) => setVacationRoundingUnit(Number(value))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una opción" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0.1">Exacto (0,1 días)</SelectItem>
+                    <SelectItem value="0.5">Medios días (0,5)</SelectItem>
+                    <SelectItem value="1">Días completos (1,0)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Regla de redondeo</Label>
+                <Select
+                  value={vacationRoundingMode}
+                  onValueChange={(value) => setVacationRoundingMode(value as "DOWN" | "NEAREST" | "UP")}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una regla" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="DOWN">A la baja</SelectItem>
+                    <SelectItem value="NEAREST">Al más cercano</SelectItem>
+                    <SelectItem value="UP">Al alza</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 

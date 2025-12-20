@@ -23,7 +23,14 @@ import type {
   VacationBalance,
   VacationDisplayInfo,
 } from "./types";
-import { calculateWorkdayMinutes, daysToMinutes, minutesToDays, roundDays } from "./utils/conversion-utils";
+import {
+  calculateWorkdayMinutes,
+  daysToMinutes,
+  minutesToDays,
+  roundDays,
+  roundDaysByPolicy,
+  type PtoRoundingMode,
+} from "./utils/conversion-utils";
 import { calculateUsageFromRequests } from "./utils/usage-utils";
 
 // Instancias singleton de las estrategias
@@ -184,6 +191,8 @@ export async function calculateVacationBalance(
               carryoverDeadlineDay: true,
               carryoverRequestDeadlineMonth: true,
               carryoverRequestDeadlineDay: true,
+              vacationRoundingUnit: true,
+              vacationRoundingMode: true,
             },
           },
         },
@@ -218,12 +227,18 @@ export async function calculateVacationBalance(
     carryoverDeadlineDay?: number | null;
     carryoverRequestDeadlineMonth?: number | null;
     carryoverRequestDeadlineDay?: number | null;
+    vacationRoundingUnit?: unknown | null;
+    vacationRoundingMode?: PtoRoundingMode | null;
   } | null;
   const rawCarryoverMode = ptoConfig?.carryoverMode;
   const rawUsageDeadlineMonth = ptoConfig?.carryoverDeadlineMonth;
   const rawUsageDeadlineDay = ptoConfig?.carryoverDeadlineDay;
   const rawRequestDeadlineMonth = ptoConfig?.carryoverRequestDeadlineMonth;
   const rawRequestDeadlineDay = ptoConfig?.carryoverRequestDeadlineDay;
+  const rawRoundingUnit = ptoConfig?.vacationRoundingUnit;
+  const roundingUnit = rawRoundingUnit === null || rawRoundingUnit === undefined ? 0.1 : Number(rawRoundingUnit);
+  const rawRoundingMode = ptoConfig?.vacationRoundingMode;
+  const roundingMode = rawRoundingMode ?? "NEAREST";
   const usageDeadlineMonth = rawUsageDeadlineMonth ?? 1;
   const usageDeadlineDay = rawUsageDeadlineDay ?? 29;
   const requestDeadlineMonth = rawRequestDeadlineMonth ?? usageDeadlineMonth;
@@ -350,12 +365,16 @@ export async function calculateVacationBalance(
   const usageAllYearTotal = usageAllYear.usedMinutes + usageAllYear.pendingMinutes;
   const availableMinutes = accruedMinutesWithAdjustments - usageAllYearTotal + carryoverMinutes;
 
+  const usedDaysRaw = minutesToDays(usageAllYear.usedMinutes, workdayMinutes);
+  const pendingDaysRaw = minutesToDays(usageAllYear.pendingMinutes, workdayMinutes);
+  const availableDaysRaw = minutesToDays(availableMinutes, workdayMinutes);
+
   return {
-    annualAllowanceDays,
-    accruedDays: roundDays(accruedDaysWithAdjustments),
-    usedDays: usageAllYear.usedDays,
-    pendingDays: usageAllYear.pendingDays,
-    availableDays: roundDays(minutesToDays(availableMinutes, workdayMinutes)),
+    annualAllowanceDays: roundDaysByPolicy(annualAllowanceDays, roundingUnit, roundingMode),
+    accruedDays: roundDaysByPolicy(roundDays(accruedDaysWithAdjustments), roundingUnit, roundingMode),
+    usedDays: roundDaysByPolicy(roundDays(usedDaysRaw), roundingUnit, roundingMode),
+    pendingDays: roundDaysByPolicy(roundDays(pendingDaysRaw), roundingUnit, roundingMode),
+    availableDays: roundDaysByPolicy(roundDays(availableDaysRaw), roundingUnit, roundingMode),
     accruedMinutes: accruedMinutesWithAdjustments,
     usedMinutes: usageAllYear.usedMinutes,
     pendingMinutes: usageAllYear.pendingMinutes,
@@ -364,6 +383,8 @@ export async function calculateVacationBalance(
     displayLabel: strategy.getDisplayLabel(),
     contractType: contract.contractType,
     discontinuousStatus: contractInfo.discontinuousStatus,
+    roundingUnit,
+    roundingMode,
   };
 }
 

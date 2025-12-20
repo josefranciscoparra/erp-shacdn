@@ -309,6 +309,8 @@ export async function getMyPtoBalance(balanceType: PtoBalanceType = DEFAULT_PTO_
         discontinuousStatus: balance.discontinuousStatus,
         showFrozenIndicator: displayInfo.showFrozenIndicator,
         frozenSince: displayInfo.frozenSince,
+        roundingUnit: balance.roundingUnit,
+        roundingMode: balance.roundingMode,
       };
     }
 
@@ -553,6 +555,25 @@ export async function createPtoRequest(data: {
       throw new Error("Este tipo de ausencia no permite especificar horas");
     }
     // Si allowPartialDays=true pero NO se enviaron horas → día completo, válido
+
+    const rawBalanceType = (absenceType as { balanceType?: string | null }).balanceType;
+    const requestBalanceType = rawBalanceType ?? "VACATION";
+
+    if (requestBalanceType === "VACATION" && requestedDurationMinutes !== null) {
+      const ptoConfig = await prisma.organizationPtoConfig.findUnique({
+        where: { orgId },
+        select: { vacationRoundingUnit: true },
+      });
+      const rawRoundingUnit = ptoConfig?.vacationRoundingUnit;
+      const roundingUnit = rawRoundingUnit === null || rawRoundingUnit === undefined ? 0.1 : Number(rawRoundingUnit);
+      const requestedDays = requestedDurationMinutes / workdayMinutes;
+      const ratio = requestedDays / roundingUnit;
+      const isAligned = Math.abs(Math.round(ratio) - ratio) < 0.0001;
+
+      if (!isAligned) {
+        throw new Error(`Las vacaciones deben solicitarse en múltiplos de ${roundingUnit} días.`);
+      }
+    }
 
     let forceManualReview = false;
     let systemWarningReason = "";

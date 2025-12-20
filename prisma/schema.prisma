@@ -1969,6 +1969,13 @@ enum PtoCarryoverMode {
   UNLIMITED // Acumular indefinidamente
 }
 
+// Política de redondeo de vacaciones
+enum PtoRoundingMode {
+  DOWN // Redondeo a la baja
+  NEAREST // Redondeo al más cercano
+  UP // Redondeo al alza
+}
+
 // Configuración de PTO por organización
 model OrganizationPtoConfig {
   id String @id @default(cuid())
@@ -1993,6 +2000,8 @@ model OrganizationPtoConfig {
   carryoverDeadlineDay    Int              @default(29) // Día límite de disfrute (1-31)
   carryoverRequestDeadlineMonth Int @default(1) // Mes límite de solicitud (1-12)
   carryoverRequestDeadlineDay   Int @default(29) // Día límite de solicitud (1-31)
+  vacationRoundingUnit    Decimal @default(0.1) @db.Decimal(4, 2) // Granularidad (0.1, 0.5, 1.0)
+  vacationRoundingMode    PtoRoundingMode @default(NEAREST) // Redondeo de días de vacaciones
   personalMattersDays     Decimal @default(0) @db.Decimal(5, 2) // Asuntos propios anuales
   compTimeDays            Decimal @default(0) @db.Decimal(5, 2) // Compensación anual (días)
 
