@@ -64,6 +64,7 @@ export class StandardVacationStrategy extends VacationStrategy {
     return {
       days: accruedDays,
       minutes: daysToMinutes(accruedDays, workdayMinutes),
+      assignedDays,
     };
   }
 

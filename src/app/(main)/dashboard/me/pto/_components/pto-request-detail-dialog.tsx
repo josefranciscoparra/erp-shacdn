@@ -196,7 +196,7 @@ export function PtoRequestDetailDialog({
       );
     }
 
-    const roundedDays = Number(request.workingDays.toFixed(1));
+    const roundedDays = Math.round(request.workingDays * 10) / 10;
     const dayLabel = formatWorkingDays(roundedDays);
     const unit = roundedDays === 1 ? "día laborable" : "días laborables";
 

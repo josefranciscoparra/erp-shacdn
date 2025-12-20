@@ -162,7 +162,7 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           }
 
           // Ausencia de días completos → mostrar días
-          const roundedDays = Number(request.workingDays.toFixed(1));
+          const roundedDays = Math.round(request.workingDays * 10) / 10;
           const dayLabel = formatWorkingDays(roundedDays);
           const unit = roundedDays === 1 ? "día" : "días";
 

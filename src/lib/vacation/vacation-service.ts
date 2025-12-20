@@ -19,11 +19,11 @@ import type {
   CalculateBalanceOptions,
   ContractInfo,
   PauseHistoryEntry,
-  UsageResult,
   VacationBalance,
   VacationDisplayInfo,
 } from "./types";
 import { calculateWorkdayMinutes, daysToMinutes, minutesToDays, roundDays } from "./utils/conversion-utils";
+import { calculateUsageFromRequests } from "./utils/usage-utils";
 
 // Instancias singleton de las estrategias
 const standardStrategy = new StandardVacationStrategy();
@@ -73,67 +73,28 @@ function toContractInfo(contract: any): ContractInfo {
   };
 }
 
-/**
- * Calcula los días usados y pendientes de un empleado
- */
-async function calculateUsage(
-  employeeId: string,
-  workdayMinutes: number,
-  options: CalculateBalanceOptions = {},
-): Promise<UsageResult> {
-  const { includePending = true, year = new Date().getFullYear() } = options;
-  const cutoffDate = options.cutoffDate ?? new Date();
-
-  // Inicio y fin del año para filtrar solicitudes
-  const yearStart = new Date(year, 0, 1);
-  const yearEnd = new Date(year, 11, 31, 23, 59, 59, 999);
-
-  // Obtener solicitudes de PTO del año
-  const ptoRequests = await prisma.ptoRequest.findMany({
-    where: {
-      employeeId,
-      // Solo vacaciones (no otros tipos de ausencia)
-      absenceType: {
-        affectsBalance: true,
-      },
-      // Solicitudes que caen dentro del año
-      startDate: { lte: yearEnd },
-      endDate: { gte: yearStart },
-    },
-    select: {
-      status: true,
-      durationMinutes: true,
-      startDate: true,
-      endDate: true,
-    },
-  });
-
-  let usedMinutes = 0;
-  let pendingMinutes = 0;
-
-  for (const request of ptoRequests) {
-    const duration = request.durationMinutes ?? 0;
-
-    if (request.status === "APPROVED") {
-      // Solo contar como usado si la fecha de fin ya pasó
-      if (request.endDate <= cutoffDate) {
-        usedMinutes += duration;
-      } else if (includePending) {
-        // Solicitud aprobada pero aún no disfrutada
-        pendingMinutes += duration;
-      }
-    } else if (request.status === "PENDING" && includePending) {
-      pendingMinutes += duration;
-    }
-  }
-
-  return {
-    usedDays: roundDays(minutesToDays(usedMinutes, workdayMinutes)),
-    usedMinutes,
-    pendingDays: roundDays(minutesToDays(pendingMinutes, workdayMinutes)),
-    pendingMinutes,
-  };
+function endOfYear(year: number): Date {
+  return new Date(year, 11, 31, 23, 59, 59, 999);
 }
+
+function clampDayToMonth(year: number, monthIndex: number, day: number): number {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return Math.min(Math.max(day, 1), lastDay);
+}
+
+function buildCarryoverDeadline(year: number, month: number, day: number): Date {
+  const monthIndex = Math.min(Math.max(month, 1), 12) - 1;
+  const safeDay = clampDayToMonth(year, monthIndex, day);
+  return new Date(year, monthIndex, safeDay, 23, 59, 59, 999);
+}
+
+type CarryoverConfig = {
+  mode: "NONE" | "UNTIL_DATE" | "UNLIMITED";
+  usageDeadlineMonth: number;
+  usageDeadlineDay: number;
+  requestDeadlineMonth: number;
+  requestDeadlineDay: number;
+};
 
 async function getVacationAdjustments(
   employeeId: string,
@@ -201,6 +162,9 @@ export async function calculateVacationBalance(
 ): Promise<VacationBalance> {
   const { year = new Date().getFullYear() } = options;
   const cutoffDate = options.cutoffDate ?? new Date();
+  const accrualMode = options.accrualMode ?? "ASSIGNED";
+  const includeCarryover = options.includeCarryover ?? true;
+  const includePending = options.includePending ?? true;
 
   // Obtener empleado con contrato activo y configuración de organización
   const employee = await prisma.employee.findUnique({
@@ -209,6 +173,15 @@ export async function calculateVacationBalance(
       organization: {
         select: {
           annualPtoDays: true,
+          ptoConfig: {
+            select: {
+              carryoverMode: true,
+              carryoverDeadlineMonth: true,
+              carryoverDeadlineDay: true,
+              carryoverRequestDeadlineMonth: true,
+              carryoverRequestDeadlineDay: true,
+            },
+          },
         },
       },
       employmentContracts: {
@@ -235,6 +208,30 @@ export async function calculateVacationBalance(
 
   // Configuración
   const annualDays = employee.organization.annualPtoDays ?? 23;
+  const ptoConfig = employee.organization.ptoConfig as {
+    carryoverMode?: CarryoverConfig["mode"] | null;
+    carryoverDeadlineMonth?: number | null;
+    carryoverDeadlineDay?: number | null;
+    carryoverRequestDeadlineMonth?: number | null;
+    carryoverRequestDeadlineDay?: number | null;
+  } | null;
+  const rawCarryoverMode = ptoConfig?.carryoverMode;
+  const rawUsageDeadlineMonth = ptoConfig?.carryoverDeadlineMonth;
+  const rawUsageDeadlineDay = ptoConfig?.carryoverDeadlineDay;
+  const rawRequestDeadlineMonth = ptoConfig?.carryoverRequestDeadlineMonth;
+  const rawRequestDeadlineDay = ptoConfig?.carryoverRequestDeadlineDay;
+  const usageDeadlineMonth = rawUsageDeadlineMonth ?? 1;
+  const usageDeadlineDay = rawUsageDeadlineDay ?? 29;
+  const requestDeadlineMonth = rawRequestDeadlineMonth ?? usageDeadlineMonth;
+  const requestDeadlineDay = rawRequestDeadlineDay ?? usageDeadlineDay;
+
+  const carryoverConfig: CarryoverConfig = {
+    mode: includeCarryover ? (rawCarryoverMode ?? "NONE") : "NONE",
+    usageDeadlineMonth,
+    usageDeadlineDay,
+    requestDeadlineMonth,
+    requestDeadlineDay,
+  };
   const contractInfo = toContractInfo(contract);
   // Usar los valores ya convertidos a number desde contractInfo
   const workdayMinutes =
@@ -246,28 +243,111 @@ export async function calculateVacationBalance(
   // Calcular devengado
   const accrued = strategy.calculateAccrued(contractInfo, cutoffDate, annualDays, workdayMinutes);
   const adjustments = await getVacationAdjustments(employeeId, employee.orgId, year, workdayMinutes);
-  const accruedMinutesWithAdjustments = accrued.minutes + adjustments.minutes;
-  const accruedDaysWithAdjustments = accrued.days + adjustments.days;
+  const assignedBaseDays = accrued.assignedDays ?? annualDays;
+  const annualAllowanceDays = roundDays(assignedBaseDays + adjustments.days);
 
-  // Calcular usado y pendiente
-  const usage = await calculateUsage(employeeId, workdayMinutes, {
-    ...options,
-    year,
-    cutoffDate,
+  const accrualBaseDays =
+    accrualMode === "ASSIGNED" && accrued.assignedDays !== undefined ? accrued.assignedDays : accrued.days;
+  const accrualBaseMinutes =
+    accrualMode === "ASSIGNED" && accrued.assignedDays !== undefined
+      ? daysToMinutes(accrualBaseDays, workdayMinutes)
+      : accrued.minutes;
+
+  const accruedMinutesWithAdjustments = accrualBaseMinutes + adjustments.minutes;
+  const accruedDaysWithAdjustments = roundDays(minutesToDays(accruedMinutesWithAdjustments, workdayMinutes));
+
+  const yearStart = new Date(year, 0, 1);
+  const yearEnd = endOfYear(year);
+
+  const ptoRequests = await prisma.ptoRequest.findMany({
+    where: {
+      employeeId,
+      absenceType: {
+        affectsBalance: true,
+      },
+      startDate: { lte: yearEnd },
+      endDate: { gte: yearStart },
+    },
+    select: {
+      status: true,
+      durationMinutes: true,
+      effectiveMinutes: true,
+      workingDays: true,
+      startDate: true,
+      endDate: true,
+      submittedAt: true,
+    },
   });
 
-  // Calcular disponible
-  const availableMinutes = accruedMinutesWithAdjustments - usage.usedMinutes - usage.pendingMinutes;
+  const usageAllYear = calculateUsageFromRequests(ptoRequests, workdayMinutes, {
+    includePending,
+    cutoffDate,
+    windowStart: yearStart,
+    windowEnd: yearEnd,
+  });
+
+  let carryoverMinutes = 0;
+  let usageBeforeDeadlineTotal = 0;
+
+  if (carryoverConfig.mode !== "NONE") {
+    const contractStartYear = new Date(contractInfo.startDate).getFullYear();
+    const previousYear = year - 1;
+
+    if (previousYear >= contractStartYear) {
+      const carryoverBalance = await calculateVacationBalance(employeeId, {
+        year: previousYear,
+        cutoffDate: endOfYear(previousYear),
+        includePending: true,
+        accrualMode: "ASSIGNED",
+        includeCarryover: carryoverConfig.mode === "UNLIMITED",
+      });
+
+      carryoverMinutes = Math.max(0, carryoverBalance.availableMinutes);
+    }
+
+    const requestDeadlineDate = buildCarryoverDeadline(
+      year,
+      carryoverConfig.requestDeadlineMonth,
+      carryoverConfig.requestDeadlineDay,
+    );
+    const usageDeadlineDate = buildCarryoverDeadline(
+      year,
+      carryoverConfig.usageDeadlineMonth,
+      carryoverConfig.usageDeadlineDay,
+    );
+    const usageBeforeDeadline = calculateUsageFromRequests(ptoRequests, workdayMinutes, {
+      includePending,
+      cutoffDate,
+      windowStart: yearStart,
+      windowEnd: usageDeadlineDate,
+      submittedBefore: requestDeadlineDate,
+    });
+
+    usageBeforeDeadlineTotal = usageBeforeDeadline.usedMinutes + usageBeforeDeadline.pendingMinutes;
+
+    if (carryoverConfig.mode === "UNTIL_DATE" && cutoffDate > requestDeadlineDate) {
+      const carryoverConsumed = Math.min(usageBeforeDeadlineTotal, carryoverMinutes);
+      carryoverMinutes = carryoverConsumed;
+    }
+
+    if (carryoverConfig.mode === "UNTIL_DATE" && cutoffDate > usageDeadlineDate) {
+      const carryoverConsumed = Math.min(usageBeforeDeadlineTotal, carryoverMinutes);
+      carryoverMinutes = carryoverConsumed;
+    }
+  }
+
+  const usageAllYearTotal = usageAllYear.usedMinutes + usageAllYear.pendingMinutes;
+  const availableMinutes = accruedMinutesWithAdjustments - usageAllYearTotal + carryoverMinutes;
 
   return {
-    annualAllowanceDays: roundDays(annualDays + adjustments.days),
+    annualAllowanceDays,
     accruedDays: roundDays(accruedDaysWithAdjustments),
-    usedDays: usage.usedDays,
-    pendingDays: usage.pendingDays,
+    usedDays: usageAllYear.usedDays,
+    pendingDays: usageAllYear.pendingDays,
     availableDays: roundDays(minutesToDays(availableMinutes, workdayMinutes)),
     accruedMinutes: accruedMinutesWithAdjustments,
-    usedMinutes: usage.usedMinutes,
-    pendingMinutes: usage.pendingMinutes,
+    usedMinutes: usageAllYear.usedMinutes,
+    pendingMinutes: usageAllYear.pendingMinutes,
     availableMinutes: Math.max(0, availableMinutes),
     workdayMinutes,
     displayLabel: strategy.getDisplayLabel(),
@@ -324,6 +404,7 @@ export async function calculateSettlementBalance(employeeId: string, settlementD
   return calculateVacationBalance(employeeId, {
     cutoffDate: settlementDate,
     includePending: true,
+    accrualMode: "ACCRUED",
     year: settlementDate.getFullYear(),
   });
 }

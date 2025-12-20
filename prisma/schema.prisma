@@ -1954,6 +1954,13 @@ enum PtoAdjustmentType {
   OTHER // Otro tipo de ajuste
 }
 
+// Política de acumulación de vacaciones
+enum PtoCarryoverMode {
+  NONE // No acumular al siguiente año
+  UNTIL_DATE // Acumular hasta una fecha límite
+  UNLIMITED // Acumular indefinidamente
+}
+
 // Configuración de PTO por organización
 model OrganizationPtoConfig {
   id String @id @default(cuid())
@@ -1973,6 +1980,11 @@ model OrganizationPtoConfig {
   // Otras configuraciones
   allowNegativeBalance    Boolean @default(false) // Permitir balance negativo
   maxAdvanceRequestMonths Int     @default(12) // Meses máximos de anticipación
+  carryoverMode           PtoCarryoverMode @default(NONE) // Política de acumulación
+  carryoverDeadlineMonth  Int              @default(1) // Mes límite de disfrute (1-12)
+  carryoverDeadlineDay    Int              @default(29) // Día límite de disfrute (1-31)
+  carryoverRequestDeadlineMonth Int @default(1) // Mes límite de solicitud (1-12)
+  carryoverRequestDeadlineDay   Int @default(29) // Día límite de solicitud (1-31)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

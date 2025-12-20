@@ -17,6 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { getOrganizationPtoConfig } from "@/server/actions/admin-pto";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { usePtoStore, type PtoBalance } from "@/stores/pto-store";
 
 interface NewPtoRequestDialogProps {
@@ -32,7 +34,29 @@ interface WorkingDaysDisplayProps {
   holidays: Array<{ date: Date; name: string }>;
   isCalculating: boolean;
   hasEnoughDays: boolean;
+  carryoverPolicy: {
+    mode: "NONE" | "UNTIL_DATE" | "UNLIMITED";
+    requestDeadlineMonth: number;
+    requestDeadlineDay: number;
+    usageDeadlineMonth: number;
+    usageDeadlineDay: number;
+  } | null;
 }
+
+const monthLabels = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
 
 const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   selectedType,
@@ -41,9 +65,15 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
   holidays,
   isCalculating,
   hasEnoughDays,
+  carryoverPolicy,
 }: WorkingDaysDisplayProps) {
-  // Helper para formatear días (quita .0 si es entero)
-  const formatDays = (days: number) => (days % 1 === 0 ? days.toFixed(0) : days.toFixed(1));
+  const formatDays = (days: number) => {
+    const rounded = Math.round(days * 10) / 10;
+    return {
+      rounded,
+      label: formatWorkingDays(rounded),
+    };
+  };
 
   const progressBarWidths = useMemo(() => {
     if (!balance || !selectedType?.affectsBalance) return { used: 0, selected: 0 };
@@ -59,10 +89,36 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
     };
   }, [balance, workingDaysCalc, selectedType]);
 
+  const policyDescription = useMemo(() => {
+    if (!carryoverPolicy || !balance || !selectedType?.affectsBalance) return null;
+
+    if (carryoverPolicy.mode === "UNLIMITED") {
+      return "Las vacaciones no usadas se acumulan sin caducidad.";
+    }
+
+    if (carryoverPolicy.mode === "UNTIL_DATE") {
+      const requestMonthLabel = monthLabels[carryoverPolicy.requestDeadlineMonth - 1] ?? "enero";
+      const usageMonthLabel = monthLabels[carryoverPolicy.usageDeadlineMonth - 1] ?? "enero";
+      return `Puedes solicitar hasta el ${carryoverPolicy.requestDeadlineDay} de ${requestMonthLabel} y disfrutarlas hasta el ${carryoverPolicy.usageDeadlineDay} de ${usageMonthLabel} de ${
+        balance.year + 1
+      }.`;
+    }
+
+    return `Las vacaciones no usadas caducan el 31 de diciembre de ${balance.year}.`;
+  }, [balance, carryoverPolicy, selectedType?.affectsBalance]);
+
   if (!selectedType) return null;
 
   // Calcular días restantes
   const remainingDays = balance ? balance.daysAvailable - (workingDaysCalc ?? 0) : 0;
+  const remainingDisplay = formatDays(Math.max(0, remainingDays));
+  const usedDisplay = balance ? formatDays(balance.daysUsed) : null;
+  const pendingDisplay = balance ? formatDays(balance.daysPending) : null;
+  const availableDisplay = balance ? formatDays(balance.daysAvailable) : null;
+  const allowanceDisplay = balance ? formatDays(balance.annualAllowance) : null;
+  const requestDisplay = workingDaysCalc !== null ? formatDays(workingDaysCalc) : null;
+  const missingDays = workingDaysCalc !== null ? workingDaysCalc - (balance?.daysAvailable ?? 0) : 0;
+  const missingDisplay = formatDays(missingDays);
 
   return (
     <div
@@ -79,7 +135,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
           </h4>
           {selectedType.affectsBalance && balance && (
             <p className="text-muted-foreground mt-0.5 text-sm">
-              {formatDays(balance.daysAvailable)} disponibles / {formatDays(balance.annualAllowance)} totales
+              {availableDisplay?.label} disponibles / {allowanceDisplay?.label} totales
             </p>
           )}
         </div>
@@ -110,11 +166,11 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                 <div className="text-center">
                   <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Consumo</div>
                   <div className="text-xl font-bold">
-                    {formatDays(balance.daysUsed)} día{balance.daysUsed !== 1 ? "s" : ""}
+                    {usedDisplay?.label} día{usedDisplay?.rounded === 1 ? "" : "s"}
                   </div>
-                  {balance.daysPending > 0 && (
+                  {balance.daysPending > 0 && pendingDisplay && (
                     <div className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-500">
-                      (+{formatDays(balance.daysPending)} en trámite)
+                      (+{pendingDisplay.label} en trámite)
                     </div>
                   )}
                 </div>
@@ -122,14 +178,16 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
                   <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">
                     Solicitud
                   </div>
-                  <div className="text-xl font-bold text-green-600">
-                    +{workingDaysCalc} día{workingDaysCalc !== 1 ? "s" : ""}
-                  </div>
+                  {requestDisplay && (
+                    <div className="text-xl font-bold text-green-600">
+                      +{requestDisplay.label} día{requestDisplay.rounded === 1 ? "" : "s"}
+                    </div>
+                  )}
                 </div>
                 <div className="text-center">
                   <div className="text-muted-foreground mb-1 text-xs font-medium tracking-wide uppercase">Restante</div>
                   <div className={cn("text-xl font-bold", remainingDays < 0 && "text-destructive")}>
-                    {formatDays(Math.max(0, remainingDays))} día{remainingDays !== 1 ? "s" : ""}
+                    {remainingDisplay.label} día{remainingDisplay.rounded === 1 ? "" : "s"}
                   </div>
                 </div>
               </div>
@@ -162,10 +220,10 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
 
           {/* Info adicional minimalista */}
           <ul className="text-muted-foreground mt-4 space-y-2 text-xs">
-            {selectedType.affectsBalance && balance && (
+            {policyDescription && (
               <li className="flex items-start gap-2">
                 <CheckCircle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-emerald-600" />
-                <span>Válido hasta el 30 de enero de {balance.year + 1}</span>
+                <span>{policyDescription}</span>
               </li>
             )}
             <li className="flex items-start gap-2">
@@ -185,8 +243,7 @@ const WorkingDaysDisplay = memo(function WorkingDaysDisplay({
             <Alert className="border-destructive bg-destructive/10 mt-4">
               <AlertCircle className="text-destructive h-4 w-4" />
               <AlertDescription className="text-destructive text-sm">
-                No tienes suficientes días disponibles. Faltan{" "}
-                {formatDays(workingDaysCalc - (balance?.daysAvailable ?? 0))} días.
+                No tienes suficientes días disponibles. Faltan {missingDisplay.label} días.
               </AlertDescription>
             </Alert>
           )}
@@ -209,6 +266,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
   const [workingDaysCalc, setWorkingDaysCalc] = useState<number | null>(null);
   const [holidays, setHolidays] = useState<Array<{ date: Date; name: string }>>([]);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [carryoverPolicy, setCarryoverPolicy] = useState<{
+    mode: "NONE" | "UNTIL_DATE" | "UNLIMITED";
+    requestDeadlineMonth: number;
+    requestDeadlineDay: number;
+    usageDeadlineMonth: number;
+    usageDeadlineDay: number;
+  } | null>(null);
 
   // 🆕 Estados para ausencias parciales (horas)
   const [startTime, setStartTime] = useState<string>("09:00"); // Formato HH:mm
@@ -322,6 +386,38 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
     return { valid: true, error: null };
   }, [isPartialDay, startTime, endTime]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    let isActive = true;
+
+    const loadCarryoverPolicy = async () => {
+      try {
+        const config = await getOrganizationPtoConfig();
+        if (!isActive) return;
+
+        setCarryoverPolicy({
+          mode: config.carryoverMode ?? "NONE",
+          requestDeadlineMonth: Number(config.carryoverRequestDeadlineMonth ?? config.carryoverDeadlineMonth ?? 1),
+          requestDeadlineDay: Number(config.carryoverRequestDeadlineDay ?? config.carryoverDeadlineDay ?? 29),
+          usageDeadlineMonth: Number(config.carryoverDeadlineMonth ?? 1),
+          usageDeadlineDay: Number(config.carryoverDeadlineDay ?? 29),
+        });
+      } catch (error) {
+        console.error("Error loading PTO policy:", error);
+        if (isActive) {
+          setCarryoverPolicy(null);
+        }
+      }
+    };
+
+    void loadCarryoverPolicy();
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
+
   // Limpiar formulario cuando se cierre la modal
   useEffect(() => {
     if (!open) {
@@ -333,6 +429,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       setStartTime("09:00");
       setEndTime("17:00");
       setIsPartialDay(false);
+      setCarryoverPolicy(null);
       // 🆕 Limpiar archivos pendientes y revocar URLs de preview
       pendingFiles.forEach((f) => {
         if (f.preview) URL.revokeObjectURL(f.preview);
@@ -542,6 +639,7 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
               holidays={holidays}
               isCalculating={isCalculating}
               hasEnoughDays={hasEnoughDays}
+              carryoverPolicy={carryoverPolicy}
             />
           )}
 

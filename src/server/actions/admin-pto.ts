@@ -1,6 +1,6 @@
 "use server";
 
-import type { PtoAdjustmentType } from "@prisma/client";
+import type { Prisma, PtoAdjustmentType } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { addWeeks, startOfDay } from "date-fns";
 
@@ -361,34 +361,19 @@ export async function getEmployeePtoBalance(employeeId: string) {
   }
 
   const currentYear = new Date().getFullYear();
+  const balance = await calculateVacationBalance(employeeId, { year: currentYear });
 
-  const balance = await prisma.ptoBalance.findFirst({
-    where: {
-      employeeId,
-      year: currentYear,
-      orgId: user.orgId,
-    },
-  });
-
-  if (!balance) {
-    return null;
-  }
-
-  // Convertir Decimals a números y Dates a strings para el cliente
   return {
-    id: balance.id,
-    year: balance.year,
-    annualAllowance: Number(balance.annualAllowance),
-    daysUsed: Number(balance.daysUsed),
-    daysPending: Number(balance.daysPending),
-    daysAvailable: Number(balance.daysAvailable),
-    calculationDate: balance.calculationDate.toISOString(),
-    contractStartDate: balance.contractStartDate.toISOString(),
-    notes: balance.notes,
-    createdAt: balance.createdAt.toISOString(),
-    updatedAt: balance.updatedAt.toISOString(),
-    orgId: balance.orgId,
-    employeeId: balance.employeeId,
+    id: `REALTIME_${employeeId}_${currentYear}`,
+    year: currentYear,
+    annualAllowance: balance.annualAllowanceDays,
+    daysUsed: balance.usedDays,
+    daysPending: balance.pendingDays,
+    daysAvailable: balance.availableDays,
+    workdayMinutes: balance.workdayMinutes,
+    contractType: balance.contractType,
+    discontinuousStatus: balance.discontinuousStatus,
+    calculatedAt: new Date().toISOString(),
   };
 }
 
@@ -571,20 +556,42 @@ export async function getOrganizationPtoConfig() {
   });
 
   // Si no existe, crear una con valores por defecto
+  const createData = {
+    orgId: user.orgId,
+    maternityLeaveWeeks: 17,
+    paternityLeaveWeeks: 17,
+    seniorityRules: [],
+    allowNegativeBalance: false,
+    maxAdvanceRequestMonths: 12,
+    carryoverMode: "NONE",
+    carryoverDeadlineMonth: 1,
+    carryoverDeadlineDay: 29,
+    carryoverRequestDeadlineMonth: 1,
+    carryoverRequestDeadlineDay: 29,
+  } as unknown as Prisma.OrganizationPtoConfigCreateInput;
+
   config =
     config ??
     (await prisma.organizationPtoConfig.create({
-      data: {
-        orgId: user.orgId,
-        maternityLeaveWeeks: 17,
-        paternityLeaveWeeks: 17,
-        seniorityRules: [],
-        allowNegativeBalance: false,
-        maxAdvanceRequestMonths: 12,
-      },
+      data: createData,
     }));
 
-  return config;
+  const normalizedConfig = config as typeof config & {
+    carryoverMode?: "NONE" | "UNTIL_DATE" | "UNLIMITED" | null;
+    carryoverDeadlineMonth?: number | null;
+    carryoverDeadlineDay?: number | null;
+    carryoverRequestDeadlineMonth?: number | null;
+    carryoverRequestDeadlineDay?: number | null;
+  };
+
+  return {
+    ...config,
+    carryoverMode: normalizedConfig.carryoverMode ?? "NONE",
+    carryoverDeadlineMonth: normalizedConfig.carryoverDeadlineMonth ?? 1,
+    carryoverDeadlineDay: normalizedConfig.carryoverDeadlineDay ?? 29,
+    carryoverRequestDeadlineMonth: normalizedConfig.carryoverRequestDeadlineMonth ?? 1,
+    carryoverRequestDeadlineDay: normalizedConfig.carryoverRequestDeadlineDay ?? 29,
+  };
 }
 
 // ==================== AJUSTES DE BALANCE ====================
@@ -1033,6 +1040,11 @@ interface UpdatePtoConfigParams {
   seniorityRules?: SeniorityRule[];
   allowNegativeBalance?: boolean;
   maxAdvanceRequestMonths?: number;
+  carryoverMode?: "NONE" | "UNTIL_DATE" | "UNLIMITED";
+  carryoverDeadlineMonth?: number;
+  carryoverDeadlineDay?: number;
+  carryoverRequestDeadlineMonth?: number;
+  carryoverRequestDeadlineDay?: number;
 }
 
 /**
@@ -1040,12 +1052,29 @@ interface UpdatePtoConfigParams {
  */
 export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams) {
   const user = await requireHRAdmin();
+  const updateData: UpdatePtoConfigParams = { ...params };
+
+  if (params.carryoverDeadlineMonth !== undefined) {
+    updateData.carryoverDeadlineMonth = Math.min(Math.max(params.carryoverDeadlineMonth, 1), 12);
+  }
+
+  if (params.carryoverDeadlineDay !== undefined) {
+    updateData.carryoverDeadlineDay = Math.min(Math.max(params.carryoverDeadlineDay, 1), 31);
+  }
+
+  if (params.carryoverRequestDeadlineMonth !== undefined) {
+    updateData.carryoverRequestDeadlineMonth = Math.min(Math.max(params.carryoverRequestDeadlineMonth, 1), 12);
+  }
+
+  if (params.carryoverRequestDeadlineDay !== undefined) {
+    updateData.carryoverRequestDeadlineDay = Math.min(Math.max(params.carryoverRequestDeadlineDay, 1), 31);
+  }
 
   const config = await prisma.organizationPtoConfig.upsert({
     where: {
       orgId: user.orgId,
     },
-    update: params,
+    update: updateData as unknown as Prisma.OrganizationPtoConfigUpdateInput,
     create: {
       orgId: user.orgId,
       maternityLeaveWeeks: params.maternityLeaveWeeks ?? 17,
@@ -1053,7 +1082,12 @@ export async function updateOrganizationPtoConfig(params: UpdatePtoConfigParams)
       seniorityRules: params.seniorityRules ?? [],
       allowNegativeBalance: params.allowNegativeBalance ?? false,
       maxAdvanceRequestMonths: params.maxAdvanceRequestMonths ?? 12,
-    },
+      carryoverMode: params.carryoverMode ?? "NONE",
+      carryoverDeadlineMonth: params.carryoverDeadlineMonth ?? 1,
+      carryoverDeadlineDay: params.carryoverDeadlineDay ?? 29,
+      carryoverRequestDeadlineMonth: params.carryoverRequestDeadlineMonth ?? 1,
+      carryoverRequestDeadlineDay: params.carryoverRequestDeadlineDay ?? 29,
+    } as unknown as Prisma.OrganizationPtoConfigCreateInput,
   });
 
   return config;

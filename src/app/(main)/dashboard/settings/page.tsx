@@ -25,6 +25,7 @@ import { StorageTab } from "./_components/storage-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
 import { TimeBankTab } from "./_components/time-bank-tab";
 import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
+import { VacationsTab } from "./_components/vacations-tab";
 import { WhistleblowingTab } from "./_components/whistleblowing-tab";
 
 export default function SettingsPage() {
@@ -42,6 +43,7 @@ export default function SettingsPage() {
     () => [
       { value: "organization", label: "Organización" },
       { value: "absence-types", label: "Tipos de Ausencia" },
+      { value: "vacations", label: "Vacaciones" },
       { value: "chat", label: "Chat" },
       { value: "shifts", label: "Turnos" },
       { value: "whistleblowing", label: "Denuncias" },
@@ -123,6 +125,10 @@ export default function SettingsPage() {
 
           <TabsContent value="absence-types" className="mt-4 md:mt-6">
             <AbsenceTypesTab />
+          </TabsContent>
+
+          <TabsContent value="vacations" className="mt-4 md:mt-6">
+            <VacationsTab />
           </TabsContent>
 
           <TabsContent value="chat" className="mt-4 md:mt-6">

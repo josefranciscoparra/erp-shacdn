@@ -3,8 +3,9 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { prisma } from "@/lib/prisma";
+import { calculateVacationBalance } from "@/lib/vacation";
 import { calculateActiveDays } from "@/lib/vacation-calculator";
-import { daysToMinutes, getWorkdayMinutes } from "@/services/pto";
+import { daysToMinutes } from "@/services/pto";
 
 // =====================================================
 // TIPOS INTERNOS
@@ -108,16 +109,6 @@ export async function calculateOrUpdatePtoBalance(
   daysPending: number;
   daysAvailable: number;
 }> {
-  // Obtener configuración de la organización
-  const org = await prisma.organization.findUnique({
-    where: { id: orgId },
-    select: { annualPtoDays: true },
-  });
-
-  if (!org) {
-    throw new Error("Organización no encontrada");
-  }
-
   // Obtener el contrato activo del empleado con historial de pausas (para fijos discontinuos)
   const activeContract = await prisma.employmentContract.findFirst({
     where: {
@@ -142,161 +133,8 @@ export async function calculateOrUpdatePtoBalance(
     throw new Error("No se encontró un contrato activo para el empleado");
   }
 
-  // Preparar datos del contrato para cálculo de fijos discontinuos
-  const contractForCalculation =
-    activeContract.contractType === "FIJO_DISCONTINUO"
-      ? {
-          contractType: activeContract.contractType,
-          startDate: activeContract.startDate,
-          endDate: activeContract.endDate,
-          discontinuousStatus: activeContract.discontinuousStatus,
-          pauseHistory: activeContract.pauseHistory.map((p) => ({
-            action: p.action,
-            startDate: p.startDate,
-            endDate: p.endDate,
-          })),
-        }
-      : undefined;
-
-  // Calcular días permitidos según fecha de inicio de contrato
-  // Para fijos discontinuos, se calculan los días activos restando períodos pausados
-  let allowance = await calculateAnnualAllowance(
-    activeContract.startDate,
-    year,
-    org.annualPtoDays,
-    contractForCalculation,
-  );
-
-  // Sumar ajustes recurrentes activos
-  const recurringAdjustments = await prisma.recurringPtoAdjustment.findMany({
-    where: {
-      employeeId,
-      orgId,
-      active: true,
-      startYear: {
-        lte: year, // Solo los que ya están activos para este año
-      },
-    },
-  });
-
-  recurringAdjustments.forEach((adj) => {
-    allowance += Number(adj.extraDays);
-  });
-
-  // Sumar ajustes manuales aplicados sobre el balance del año
-  const manualAdjustments = await prisma.ptoBalanceAdjustment.findMany({
-    where: {
-      orgId,
-      ptoBalance: {
-        employeeId,
-        year,
-      },
-    },
-    select: {
-      daysAdjusted: true,
-    },
-  });
-
-  const manualAdjustmentTotal = manualAdjustments.reduce((total, adj) => total + Number(adj.daysAdjusted), 0);
-
-  allowance += manualAdjustmentTotal;
-
-  // Calcular días usados (solicitudes APPROVED)
-  const approvedRequests = await prisma.ptoRequest.findMany({
-    where: {
-      employeeId,
-      orgId,
-      status: "APPROVED",
-      startDate: {
-        gte: new Date(year, 0, 1),
-        lte: new Date(year, 11, 31),
-      },
-    },
-    select: {
-      workingDays: true,
-    },
-  });
-
-  const daysUsed = approvedRequests.reduce((sum, req) => sum + Number(req.workingDays), 0);
-
-  // Calcular días pendientes (solicitudes PENDING)
-  const pendingRequests = await prisma.ptoRequest.findMany({
-    where: {
-      employeeId,
-      orgId,
-      status: "PENDING",
-      startDate: {
-        gte: new Date(year, 0, 1),
-        lte: new Date(year, 11, 31),
-      },
-    },
-    select: {
-      workingDays: true,
-    },
-  });
-
-  const daysPending = pendingRequests.reduce((sum, req) => sum + Number(req.workingDays), 0);
-
-  // Días disponibles = allowance - used - pending
-  const daysAvailable = allowance - daysUsed - daysPending;
-
-  // 🆕 SISTEMA DE BALANCE EN MINUTOS - Calcular campos en minutos
-  // Usar suma directa de effectiveMinutes para precisión exacta, fallback a días convertidos para legacy
-  const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
-
-  // Calcular minutos usados (solicitudes APPROVED)
-  const approvedRequestsMinutes = await prisma.ptoRequest.findMany({
-    where: {
-      employeeId,
-      orgId,
-      status: "APPROVED",
-      startDate: {
-        gte: new Date(year, 0, 1),
-        lte: new Date(year, 11, 31),
-      },
-      absenceType: {
-        affectsBalance: true, // Solo sumar si afecta al balance
-      },
-    },
-    select: {
-      workingDays: true,
-      effectiveMinutes: true,
-    },
-  });
-
-  const minutesUsed = approvedRequestsMinutes.reduce((sum, req) => {
-    // Si tiene effectiveMinutes (nuevo sistema), usarlo. Si no, convertir workingDays.
-    if (req.effectiveMinutes > 0) return sum + req.effectiveMinutes;
-    return sum + daysToMinutes(Number(req.workingDays), workdayMinutes);
-  }, 0);
-
-  // Calcular minutos pendientes (solicitudes PENDING)
-  const pendingRequestsMinutes = await prisma.ptoRequest.findMany({
-    where: {
-      employeeId,
-      orgId,
-      status: "PENDING",
-      startDate: {
-        gte: new Date(year, 0, 1),
-        lte: new Date(year, 11, 31),
-      },
-      absenceType: {
-        affectsBalance: true,
-      },
-    },
-    select: {
-      workingDays: true,
-      effectiveMinutes: true,
-    },
-  });
-
-  const minutesPending = pendingRequestsMinutes.reduce((sum, req) => {
-    if (req.effectiveMinutes > 0) return sum + req.effectiveMinutes;
-    return sum + daysToMinutes(Number(req.workingDays), workdayMinutes);
-  }, 0);
-
-  const annualAllowanceMinutes = daysToMinutes(allowance, workdayMinutes);
-  const minutesAvailable = annualAllowanceMinutes - minutesUsed - minutesPending;
+  const snapshot = await calculateVacationBalance(employeeId, { year });
+  const annualAllowanceMinutes = daysToMinutes(snapshot.annualAllowanceDays, snapshot.workdayMinutes);
 
   // Crear o actualizar el balance
   const balance = await prisma.ptoBalance.upsert({
@@ -312,31 +150,31 @@ export async function calculateOrUpdatePtoBalance(
       employeeId,
       year,
       // ❌ DEPRECADO (mantener temporalmente para migración)
-      annualAllowance: new Decimal(allowance),
-      daysUsed: new Decimal(daysUsed),
-      daysPending: new Decimal(daysPending),
-      daysAvailable: new Decimal(daysAvailable),
+      annualAllowance: new Decimal(snapshot.annualAllowanceDays),
+      daysUsed: new Decimal(snapshot.usedDays),
+      daysPending: new Decimal(snapshot.pendingDays),
+      daysAvailable: new Decimal(snapshot.availableDays),
       // ✅ NUEVOS CAMPOS (en minutos)
       annualAllowanceMinutes,
-      minutesUsed,
-      minutesPending,
-      minutesAvailable,
-      workdayMinutesSnapshot: workdayMinutes,
+      minutesUsed: snapshot.usedMinutes,
+      minutesPending: snapshot.pendingMinutes,
+      minutesAvailable: snapshot.availableMinutes,
+      workdayMinutesSnapshot: snapshot.workdayMinutes,
       contractStartDate: activeContract.startDate,
       calculationDate: new Date(),
     },
     update: {
       // ❌ DEPRECADO (mantener temporalmente para migración)
-      annualAllowance: new Decimal(allowance),
-      daysUsed: new Decimal(daysUsed),
-      daysPending: new Decimal(daysPending),
-      daysAvailable: new Decimal(daysAvailable),
+      annualAllowance: new Decimal(snapshot.annualAllowanceDays),
+      daysUsed: new Decimal(snapshot.usedDays),
+      daysPending: new Decimal(snapshot.pendingDays),
+      daysAvailable: new Decimal(snapshot.availableDays),
       // ✅ NUEVOS CAMPOS (en minutos)
       annualAllowanceMinutes,
-      minutesUsed,
-      minutesPending,
-      minutesAvailable,
-      workdayMinutesSnapshot: workdayMinutes,
+      minutesUsed: snapshot.usedMinutes,
+      minutesPending: snapshot.pendingMinutes,
+      minutesAvailable: snapshot.availableMinutes,
+      workdayMinutesSnapshot: snapshot.workdayMinutes,
       calculationDate: new Date(),
     },
   });

@@ -330,6 +330,7 @@ export async function calculateVacationAccrual(employeeId: string, cutoffDate: D
   const balance = await calculateFromService(employeeId, {
     cutoffDate,
     includePending: true,
+    accrualMode: "ACCRUED",
     year: cutoffDate.getFullYear(),
   });
 

@@ -78,6 +78,8 @@ export interface AccruedResult {
   days: number;
   /** Minutos devengados (para precisión) */
   minutes: number;
+  /** Días asignados para el año (si aplica) */
+  assignedDays?: number;
   /** Días activos trabajados (para fijos discontinuos) */
   activeDays?: number;
   /** Días pausados (para fijos discontinuos) */
@@ -108,6 +110,10 @@ export interface CalculateBalanceOptions {
   includePending?: boolean;
   /** Año para el cálculo (default: año actual) */
   year?: number;
+  /** Modo de devengo para contratos estándar */
+  accrualMode?: "ASSIGNED" | "ACCRUED";
+  /** Incluir carryover del año anterior si está configurado */
+  includeCarryover?: boolean;
 }
 
 /**

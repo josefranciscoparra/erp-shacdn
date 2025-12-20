@@ -22,6 +22,73 @@ function formatMinutesToTime(minutes: number): string {
   return `${hours}:${mins}`;
 }
 
+function clampDayToMonth(year: number, monthIndex: number, day: number): number {
+  const lastDay = new Date(year, monthIndex + 1, 0).getDate();
+  return Math.min(Math.max(day, 1), lastDay);
+}
+
+function buildCarryoverDeadline(year: number, month: number, day: number): Date {
+  const monthIndex = Math.min(Math.max(month, 1), 12) - 1;
+  const safeDay = clampDayToMonth(year, monthIndex, day);
+  return new Date(year, monthIndex, safeDay, 23, 59, 59, 999);
+}
+
+function formatCarryoverLimit(date: Date): string {
+  return date.toLocaleDateString("es-ES", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+async function checkCarryoverLimitMessage(
+  orgId: string,
+  employeeId: string,
+  requestYear: number,
+  endDate: Date,
+  workingDays: number,
+): Promise<string | null> {
+  const ptoConfig = await prisma.organizationPtoConfig.findUnique({
+    where: { orgId },
+    select: {
+      carryoverMode: true,
+      carryoverDeadlineMonth: true,
+      carryoverDeadlineDay: true,
+      carryoverRequestDeadlineMonth: true,
+      carryoverRequestDeadlineDay: true,
+    },
+  });
+
+  const carryoverMode = ptoConfig?.carryoverMode ?? "NONE";
+  if (carryoverMode !== "UNTIL_DATE") return null;
+
+  const usageDeadlineMonth = ptoConfig?.carryoverDeadlineMonth ?? 1;
+  const usageDeadlineDay = ptoConfig?.carryoverDeadlineDay ?? 29;
+  const requestDeadlineMonth = ptoConfig?.carryoverRequestDeadlineMonth ?? usageDeadlineMonth;
+  const requestDeadlineDay = ptoConfig?.carryoverRequestDeadlineDay ?? usageDeadlineDay;
+
+  const requestDeadlineDate = buildCarryoverDeadline(requestYear, requestDeadlineMonth, requestDeadlineDay);
+  const usageDeadlineDate = buildCarryoverDeadline(requestYear, usageDeadlineMonth, usageDeadlineDay);
+  const requestIsLate = new Date() > requestDeadlineDate;
+  const usageIsLate = endDate > usageDeadlineDate;
+
+  if (!requestIsLate && !usageIsLate) return null;
+
+  const cutoffDate =
+    requestDeadlineDate.getTime() < usageDeadlineDate.getTime() ? requestDeadlineDate : usageDeadlineDate;
+  const balanceBeforeDeadline = await calculateVacationBalance(employeeId, {
+    year: requestYear,
+    cutoffDate,
+    includePending: true,
+  });
+
+  if (balanceBeforeDeadline.availableDays < workingDays) return null;
+
+  const requestLimitLabel = formatCarryoverLimit(requestDeadlineDate);
+  const usageLimitLabel = formatCarryoverLimit(usageDeadlineDate);
+  return `Las vacaciones de ${requestYear - 1} solo se pueden solicitar hasta el ${requestLimitLabel} y disfrutar hasta el ${usageLimitLabel}.`;
+}
+
 function mergeSlotRanges(slots: SlotRange[]): SlotRange[] {
   if (slots.length === 0) return [];
 
@@ -223,7 +290,7 @@ export async function getMyPtoBalance() {
       daysPending: balance.pendingDays,
       daysAvailable: balance.availableDays,
       // Campos nuevos en minutos
-      annualAllowanceMinutes: balance.accruedMinutes, // Minutos devengados (no anuales teóricos)
+      annualAllowanceMinutes: daysToMinutes(balance.annualAllowanceDays, balance.workdayMinutes),
       minutesUsed: balance.usedMinutes,
       minutesPending: balance.pendingMinutes,
       minutesAvailable: balance.availableMinutes,
@@ -566,12 +633,26 @@ export async function createPtoRequest(data: {
     // Si afecta al balance, validar días disponibles
     // 🆕 Usa cálculo en tiempo real (VacationService)
     if (absenceType.affectsBalance) {
-      const balance = await calculateVacationBalance(employeeId);
+      const requestYear = data.startDate.getFullYear();
+      const balance = await calculateVacationBalance(employeeId, { year: requestYear });
+      const shortage = workingDays - balance.availableDays;
 
       if (balance.availableDays < workingDays) {
-        throw new Error(
-          `No tienes suficientes días disponibles (te faltan ${workingDays - balance.availableDays} días)`,
-        );
+        // Verificar si el problema es por límite de carryover
+        if (absenceType.balanceType === "VACATION") {
+          const carryoverMsg = await checkCarryoverLimitMessage(
+            orgId,
+            employeeId,
+            requestYear,
+            data.endDate,
+            workingDays,
+          );
+          if (carryoverMsg) {
+            throw new Error(carryoverMsg);
+          }
+        }
+
+        throw new Error(`No tienes suficientes días disponibles (te faltan ${shortage} días)`);
       }
     }
 
