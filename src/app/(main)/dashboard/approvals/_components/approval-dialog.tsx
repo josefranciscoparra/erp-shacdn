@@ -39,6 +39,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { downloadFileFromApi, openFilePreviewFromApi } from "@/lib/client/file-download";
 import { approveRequest, rejectRequest, type PendingApprovalItem } from "@/server/actions/approvals";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 const expenseCategories: Record<string, string> = {
   FUEL: "Combustible",
@@ -235,6 +236,10 @@ function PtoDetails({ item }: { item: PendingApprovalItem }) {
   const absenceType = item.details?.absenceType as string | undefined;
   const color = item.details?.color as string | undefined;
   const reason = item.details?.reason as string | undefined;
+  const hasDaysValue = typeof days === "number" && Number.isFinite(days);
+  const roundedDays = hasDaysValue ? Number(days.toFixed(1)) : null;
+  const dayLabel = hasDaysValue && roundedDays !== null ? formatWorkingDays(roundedDays) : "-";
+  const unit = roundedDays === 1 ? "día" : "días";
 
   return (
     <div className="space-y-6">
@@ -255,7 +260,7 @@ function PtoDetails({ item }: { item: PendingApprovalItem }) {
           <span className="text-muted-foreground flex items-center gap-1 text-xs">
             <Clock className="h-3.5 w-3.5" /> Duración
           </span>
-          <p className="font-medium">{days?.toFixed(1)} días</p>
+          <p className="font-medium">{hasDaysValue ? `${dayLabel} ${unit}` : "-"}</p>
         </div>
         <div className="space-y-1">
           <span className="text-muted-foreground flex items-center gap-1 text-xs">

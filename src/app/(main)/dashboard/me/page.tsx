@@ -211,8 +211,8 @@ export default function MySpacePage() {
                 <CalendarDays className="size-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">Mis Vacaciones</p>
-                <p className="text-muted-foreground truncate text-xs">Solicitar días</p>
+                <p className="truncate text-sm font-semibold">Mis ausencias</p>
+                <p className="text-muted-foreground truncate text-xs">Solicitar ausencias</p>
               </div>
               <ChevronRight className="text-muted-foreground/30 size-4 transition-transform duration-300 group-hover:translate-x-1" />
             </div>

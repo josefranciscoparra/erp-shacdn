@@ -21,6 +21,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { adjustPtoBalance } from "@/server/actions/admin-pto";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 interface AdjustBalanceDialogProps {
   open: boolean;
@@ -107,6 +108,12 @@ export function AdjustBalanceDialog({
     ? {
         before: currentBalance.annualAllowance,
         after: currentBalance.annualAllowance + (action === "add" ? Number(days || 0) : -Number(days || 0)),
+      }
+    : null;
+  const previewDisplay = previewBalance
+    ? {
+        beforeRounded: Number(previewBalance.before.toFixed(1)),
+        afterRounded: Number(previewBalance.after.toFixed(1)),
       }
     : null;
 
@@ -226,16 +233,19 @@ export function AdjustBalanceDialog({
           </div>
 
           {/* Preview */}
-          {previewBalance && (
+          {previewBalance && previewDisplay && (
             <div className="border-t pt-4">
               <div className="flex flex-wrap items-center justify-between gap-1 text-sm">
                 <span className="text-muted-foreground">Balance actual ({new Date().getFullYear()}):</span>
-                <span className="font-medium">{previewBalance.before.toFixed(1)} días</span>
+                <span className="font-medium">
+                  {formatWorkingDays(previewDisplay.beforeRounded)}{" "}
+                  {previewDisplay.beforeRounded === 1 ? "día" : "días"}
+                </span>
               </div>
               <div className="mt-1 flex flex-wrap items-center justify-between gap-1 text-sm font-semibold">
                 <span>Después del ajuste:</span>
                 <span className={previewBalance.after > previewBalance.before ? "text-green-600" : "text-red-600"}>
-                  {previewBalance.after.toFixed(1)} días
+                  {formatWorkingDays(previewDisplay.afterRounded)} {previewDisplay.afterRounded === 1 ? "día" : "días"}
                 </span>
               </div>
             </div>

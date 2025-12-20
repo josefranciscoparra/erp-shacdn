@@ -41,6 +41,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { adminApprovePtoRequest, adminCancelPtoRequest, adminRejectPtoRequest } from "@/server/actions/admin-pto";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 interface PtoRequest {
   id: string;
@@ -189,7 +190,7 @@ export function EmployeePtoRequestsTable({
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{row.original.workingDays.toFixed(1)}</span>,
+        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(row.original.workingDays)}</span>,
       },
       {
         accessorKey: "status",
@@ -334,7 +335,7 @@ export function EmployeePtoRequestsTable({
                 <div className="grid gap-3">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Días hábiles</span>
-                    <span className="font-semibold">{Number(selectedRequest.workingDays).toFixed(1)}</span>
+                    <span className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Solicitado:</span>

@@ -35,6 +35,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { getApproverPtoRequests, approvePtoRequest, rejectPtoRequest } from "@/server/actions/approver-pto";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 type TabKey = "pending" | "approved" | "rejected";
 type RequestStatus = "PENDING" | "APPROVED" | "REJECTED";
@@ -294,7 +295,7 @@ export default function PtoApprovalsPage() {
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{Number(row.original.workingDays).toFixed(1)}</span>,
+        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
       },
       {
         accessorKey: "submittedAt",
@@ -389,7 +390,7 @@ export default function PtoApprovalsPage() {
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{Number(row.original.workingDays).toFixed(1)}</span>,
+        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
       },
       {
         accessorKey: "submittedAt",
@@ -447,7 +448,7 @@ export default function PtoApprovalsPage() {
       {
         accessorKey: "workingDays",
         header: "Días",
-        cell: ({ row }) => <span className="font-semibold">{Number(row.original.workingDays).toFixed(1)}</span>,
+        cell: ({ row }) => <span className="font-semibold">{formatWorkingDays(Number(row.original.workingDays))}</span>,
       },
       {
         accessorKey: "submittedAt",
@@ -771,7 +772,7 @@ export default function PtoApprovalsPage() {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Días hábiles:</span>
-                    <p className="font-semibold">{Number(selectedRequest.workingDays).toFixed(1)}</p>
+                    <p className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Solicitado:</span>

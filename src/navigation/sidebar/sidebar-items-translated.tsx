@@ -94,7 +94,7 @@ export function useSidebarItems(): NavGroup[] {
         },
         // "Mi Bolsa de Horas" REMOVED from here (Merged into Mis Fichajes)
         {
-          title: "Mis Vacaciones",
+          title: "Mis ausencias",
           url: "/dashboard/me/pto",
           icon: CalendarDays,
         },

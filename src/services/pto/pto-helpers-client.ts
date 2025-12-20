@@ -68,6 +68,17 @@ export function minutesToDays(minutes: number, workdayMinutes: number = 480): nu
 }
 
 /**
+ * Formatea días con un decimal como máximo y sin .0 cuando es entero.
+ */
+export function formatWorkingDays(days: number): string {
+  if (!Number.isFinite(days)) return "0";
+
+  const rounded = Math.round(days * 10) / 10;
+
+  return rounded % 1 === 0 ? rounded.toFixed(0) : rounded.toFixed(1);
+}
+
+/**
  * Calcula los minutos efectivos aplicando factor de compensación
  *
  * Ejemplos:

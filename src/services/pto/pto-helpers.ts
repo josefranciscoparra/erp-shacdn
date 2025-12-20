@@ -12,7 +12,13 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { prisma } from "@/lib/prisma";
 
 // Re-exportar funciones de cliente para compatibilidad con código existente del servidor
-export { formatMinutes, daysToMinutes, minutesToDays, applyCompensationFactor } from "./pto-helpers-client";
+export {
+  formatMinutes,
+  daysToMinutes,
+  minutesToDays,
+  applyCompensationFactor,
+  formatWorkingDays,
+} from "./pto-helpers-client";
 
 /**
  * Obtiene los minutos de jornada laboral de un empleado

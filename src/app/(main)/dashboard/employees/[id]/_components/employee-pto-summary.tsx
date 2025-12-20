@@ -4,6 +4,7 @@ import { Calendar, CalendarDays, CheckCircle2, Clock } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 
 interface PtoBalance {
   id: string;
@@ -50,7 +51,7 @@ export function EmployeePtoSummary({ balance, isLoading, error }: EmployeePtoSum
           <Calendar className="h-4 w-4" />
           Días asignados
         </div>
-        <div className="text-3xl font-bold">{balance.annualAllowance.toFixed(1)}</div>
+        <div className="text-3xl font-bold">{formatWorkingDays(balance.annualAllowance)}</div>
         <div className="text-muted-foreground text-xs">Año {balance.year}</div>
       </Card>
 
@@ -59,7 +60,7 @@ export function EmployeePtoSummary({ balance, isLoading, error }: EmployeePtoSum
           <CheckCircle2 className="h-4 w-4" />
           Días usados
         </div>
-        <div className="text-3xl font-bold">{balance.daysUsed.toFixed(1)}</div>
+        <div className="text-3xl font-bold">{formatWorkingDays(balance.daysUsed)}</div>
         <div className="text-muted-foreground text-xs">
           {balance.annualAllowance > 0
             ? `${((balance.daysUsed / balance.annualAllowance) * 100).toFixed(0)}% del total`
@@ -72,7 +73,7 @@ export function EmployeePtoSummary({ balance, isLoading, error }: EmployeePtoSum
           <Clock className="h-4 w-4" />
           Días pendientes
         </div>
-        <div className="text-3xl font-bold">{balance.daysPending.toFixed(1)}</div>
+        <div className="text-3xl font-bold">{formatWorkingDays(balance.daysPending)}</div>
         <div className="text-muted-foreground text-xs">En revisión</div>
       </Card>
 
@@ -81,7 +82,7 @@ export function EmployeePtoSummary({ balance, isLoading, error }: EmployeePtoSum
           <CalendarDays className="h-4 w-4" />
           Días disponibles
         </div>
-        <div className="text-3xl font-bold">{balance.daysAvailable.toFixed(1)}</div>
+        <div className="text-3xl font-bold">{formatWorkingDays(balance.daysAvailable)}</div>
         <div className="text-muted-foreground text-xs">Puede solicitar</div>
       </Card>
     </div>

@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { type PtoRequest } from "@/stores/pto-store";
 
 const statusConfig = {
@@ -195,7 +196,15 @@ export function PtoRequestDetailDialog({
       );
     }
 
-    return <span className="font-semibold">{request.workingDays.toFixed(1)} días laborables</span>;
+    const roundedDays = Number(request.workingDays.toFixed(1));
+    const dayLabel = formatWorkingDays(roundedDays);
+    const unit = roundedDays === 1 ? "día laborable" : "días laborables";
+
+    return (
+      <span className="font-semibold">
+        {dayLabel} {unit}
+      </span>
+    );
   };
 
   return (

@@ -60,6 +60,7 @@ import {
   markNotificationAsUnread,
   markAllNotificationsAsRead,
 } from "@/server/actions/notifications";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { useNotificationsStore } from "@/stores/notifications-store";
 
 interface Notification {
@@ -892,7 +893,9 @@ export default function NotificationsPage() {
                     </div>
                     <div>
                       <span className="text-muted-foreground">Días hábiles</span>
-                      <p className="font-semibold">{Number(selectedNotification.ptoRequest.workingDays).toFixed(1)}</p>
+                      <p className="font-semibold">
+                        {formatWorkingDays(Number(selectedNotification.ptoRequest.workingDays))}
+                      </p>
                     </div>
                     {selectedNotification.ptoRequest.absenceType && (
                       <div className="flex flex-col gap-1">

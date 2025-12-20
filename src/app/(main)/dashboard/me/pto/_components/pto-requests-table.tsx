@@ -40,6 +40,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatWorkingDays } from "@/services/pto/pto-helpers-client";
 import { usePtoStore, type PtoRequest } from "@/stores/pto-store";
 
 import { PtoRequestDetailDialog } from "./pto-request-detail-dialog";
@@ -161,7 +162,15 @@ export function PtoRequestsTable({ status = "all", yearFilter = "all" }: PtoRequ
           }
 
           // Ausencia de días completos → mostrar días
-          return <span className="font-semibold">{request.workingDays.toFixed(1)} días</span>;
+          const roundedDays = Number(request.workingDays.toFixed(1));
+          const dayLabel = formatWorkingDays(roundedDays);
+          const unit = roundedDays === 1 ? "día" : "días";
+
+          return (
+            <span className="font-semibold">
+              {dayLabel} {unit}
+            </span>
+          );
         },
       },
       {
