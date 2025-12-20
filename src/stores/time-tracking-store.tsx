@@ -66,6 +66,8 @@ export interface WeeklySummary {
   days: WorkdaySummary[];
 }
 
+let initialLoadPromise: Promise<void> | null = null;
+
 interface TimeTrackingState {
   // Estado actual
   currentStatus: ClockStatus;
@@ -325,51 +327,61 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
       return;
     }
 
-    set({ isLoading: true, error: null });
-    try {
-      const startTime = Date.now();
-
-      const [status, summary, hoursInfo] = await Promise.all([
-        getCurrentStatusAction(),
-        getTodaySummaryAction(),
-        getExpectedHoursForTodayAction(),
-      ]);
-
-      // Duración mínima de 400ms para que se vea la animación
-      const elapsed = Date.now() - startTime;
-      const minimumLoadTime = 400;
-      if (elapsed < minimumLoadTime) {
-        await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
-      }
-
-      // Inicializar liveWorkedMinutes con los minutos trabajados actuales
-      const initialMinutes = summary?.totalWorkedMinutes ?? 0;
-
-      set({
-        currentStatus: status?.status ?? "CLOCKED_OUT",
-        todaySummary: summary as any,
-        liveWorkedMinutes: initialMinutes,
-        expectedDailyHours: hoursInfo.hoursToday,
-        hasActiveContract: hoursInfo.hasActiveContract,
-        isWorkingDay: hoursInfo.isWorkingDay,
-        isLoading: false,
-      });
-    } catch (error) {
-      console.error("Error al cargar datos iniciales:", error);
-      set({
-        error: error instanceof Error ? error.message : "Error al cargar datos",
-        isLoading: false,
-        // Establecer un summary vacío para evitar skeleton infinito
-        todaySummary: {
-          id: "error",
-          date: new Date(),
-          totalWorkedMinutes: 0,
-          totalBreakMinutes: 0,
-          status: "ABSENT" as const,
-          timeEntries: [],
-        } as any,
-      });
+    if (initialLoadPromise) {
+      return initialLoadPromise;
     }
+
+    initialLoadPromise = (async () => {
+      set({ isLoading: true, error: null });
+      try {
+        const startTime = Date.now();
+
+        const [status, summary, hoursInfo] = await Promise.all([
+          getCurrentStatusAction(),
+          getTodaySummaryAction(),
+          getExpectedHoursForTodayAction(),
+        ]);
+
+        // Duración mínima de 400ms para que se vea la animación
+        const elapsed = Date.now() - startTime;
+        const minimumLoadTime = 400;
+        if (elapsed < minimumLoadTime) {
+          await new Promise((resolve) => setTimeout(resolve, minimumLoadTime - elapsed));
+        }
+
+        // Inicializar liveWorkedMinutes con los minutos trabajados actuales
+        const initialMinutes = summary?.totalWorkedMinutes ?? 0;
+
+        set({
+          currentStatus: status?.status ?? "CLOCKED_OUT",
+          todaySummary: summary as any,
+          liveWorkedMinutes: initialMinutes,
+          expectedDailyHours: hoursInfo.hoursToday,
+          hasActiveContract: hoursInfo.hasActiveContract,
+          isWorkingDay: hoursInfo.isWorkingDay,
+          isLoading: false,
+        });
+      } catch (error) {
+        console.error("Error al cargar datos iniciales:", error);
+        set({
+          error: error instanceof Error ? error.message : "Error al cargar datos",
+          isLoading: false,
+          // Establecer un summary vacío para evitar skeleton infinito
+          todaySummary: {
+            id: "error",
+            date: new Date(),
+            totalWorkedMinutes: 0,
+            totalBreakMinutes: 0,
+            status: "ABSENT" as const,
+            timeEntries: [],
+          } as any,
+        });
+      } finally {
+        initialLoadPromise = null;
+      }
+    })();
+
+    return initialLoadPromise;
   },
 
   // Reset

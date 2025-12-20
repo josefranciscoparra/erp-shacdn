@@ -3,7 +3,7 @@
 import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
+import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 
@@ -46,31 +46,6 @@ export interface MonthlyCalendarData {
     absentDays: number;
     workdays: number;
   };
-}
-
-// Helper: Obtener horas esperadas para un día usando Schedule V2.0
-interface ScheduleInfo {
-  expectedMinutes: number;
-  isWorkday: boolean;
-  source?: string | null;
-}
-
-async function getScheduleInfoForDay(employeeId: string, date: Date): Promise<ScheduleInfo> {
-  try {
-    const schedule = await getEffectiveSchedule(employeeId, date);
-
-    return {
-      expectedMinutes: schedule.expectedMinutes ?? 0,
-      isWorkday: schedule.isWorkingDay,
-      source: schedule.source,
-    };
-  } catch (error) {
-    console.error(`Error al obtener horario para ${date.toISOString()}:`, error);
-    return {
-      expectedMinutes: 0,
-      isWorkday: false,
-    };
-  }
 }
 
 async function getContractFallbackMinutes(employeeId: string, orgId: string): Promise<number | null> {
@@ -198,24 +173,21 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
     // Procesar cada día del mes - calcular expected hours usando Schedule V2.0
     const fallbackMinutes = await getContractFallbackMinutes(employeeId, orgId);
 
-    const daysWithSchedules = await Promise.all(
-      daysInMonth.map(async (date) => {
-        const scheduleInfo = await getScheduleInfoForDay(employeeId, date);
-        return { date, scheduleInfo };
-      }),
-    );
+    const effectiveSchedules = await getEffectiveScheduleForRange(employeeId, monthStart, monthEnd);
+    const scheduleMap = new Map(effectiveSchedules.map((schedule) => [format(schedule.date, "yyyy-MM-dd"), schedule]));
 
     // Procesar cada día del mes
-    const days: DayCalendarData[] = daysWithSchedules.map(({ date, scheduleInfo }) => {
+    const days: DayCalendarData[] = daysInMonth.map((date) => {
       const dateKey = format(date, "yyyy-MM-dd");
       const summary = summaryMap.get(dateKey);
+      const schedule = scheduleMap.get(dateKey);
       const summaryExpectedMinutes =
         summary?.expectedMinutes !== null && summary?.expectedMinutes !== undefined
           ? Number(summary.expectedMinutes)
           : null;
-      const scheduleExpectedMinutes = scheduleInfo.expectedMinutes ?? 0;
+      const scheduleExpectedMinutes = schedule?.expectedMinutes ?? 0;
 
-      const isWorkday = scheduleInfo.isWorkday;
+      const isWorkday = schedule?.isWorkingDay ?? false;
       // En días de descanso mantenemos 0h esperadas aunque exista un resumen previo con fallback
       let expectedMinutes = isWorkday ? scheduleExpectedMinutes : 0;
       if (summaryExpectedMinutes !== null && isWorkday) {

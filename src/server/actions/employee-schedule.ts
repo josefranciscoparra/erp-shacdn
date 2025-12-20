@@ -234,6 +234,165 @@ export async function getTodaySummary(): Promise<{
 }
 
 /**
+ * Obtiene horario efectivo + resumen diario en una sola llamada
+ * Evita duplicar consultas cuando la UI necesita ambos
+ */
+export async function getTodayScheduleAndSummary(): Promise<{
+  success: boolean;
+  schedule?: EffectiveSchedule;
+  summary?: {
+    expectedMinutes: number | null;
+    workedMinutes: number;
+    deviationMinutes: number | null;
+    status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE";
+    hasFinished: boolean;
+    validationWarnings: string[];
+    validationErrors: string[];
+  };
+  error?: string;
+}> {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    // Force fresh data for UI consistency
+    revalidatePath("/dashboard/me/clock");
+
+    const employee = await prisma.employee.findFirst({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!employee) {
+      return {
+        success: false,
+        error: "No se encontró perfil de empleado",
+      };
+    }
+
+    const today = new Date();
+    const scheduleDate = new Date(today);
+    scheduleDate.setHours(12, 0, 0, 0);
+
+    const dayStart = new Date(today);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(today);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const schedulePromise = getEffectiveSchedule(employee.id, scheduleDate).catch((error) => {
+      console.warn("Error al obtener horario del día:", error);
+      return null;
+    });
+
+    const [schedule, workdaySummary, timeEntries] = await Promise.all([
+      schedulePromise,
+      prisma.workdaySummary.findUnique({
+        where: {
+          orgId_employeeId_date: {
+            orgId: session.user.orgId,
+            employeeId: employee.id,
+            date: dayStart,
+          },
+        },
+        select: {
+          totalWorkedMinutes: true,
+          expectedMinutes: true,
+          deviationMinutes: true,
+          status: true,
+          clockOut: true,
+        },
+      }),
+      prisma.timeEntry.findMany({
+        where: {
+          employeeId: employee.id,
+          timestamp: {
+            gte: dayStart,
+            lte: dayEnd,
+          },
+        },
+        select: {
+          validationWarnings: true,
+          validationErrors: true,
+        },
+      }),
+    ]);
+
+    const allWarnings = new Set<string>();
+    const allErrors = new Set<string>();
+
+    for (const entry of timeEntries) {
+      entry.validationWarnings.forEach((w) => allWarnings.add(w));
+      entry.validationErrors.forEach((e) => allErrors.add(e));
+    }
+
+    if (!workdaySummary) {
+      return {
+        success: true,
+        schedule: schedule ?? undefined,
+        summary: {
+          expectedMinutes: null,
+          workedMinutes: 0,
+          deviationMinutes: null,
+          status: "IN_PROGRESS",
+          hasFinished: false,
+          validationWarnings: Array.from(allWarnings),
+          validationErrors: Array.from(allErrors),
+        },
+      };
+    }
+
+    const expectedMinutes = schedule ? schedule.expectedMinutes : Number(workdaySummary.expectedMinutes ?? 0);
+    const deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
+    const dbExpectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : 0;
+
+    if (schedule && dbExpectedMinutes !== expectedMinutes) {
+      prisma.workdaySummary
+        .update({
+          where: {
+            orgId_employeeId_date: {
+              orgId: session.user.orgId,
+              employeeId: employee.id,
+              date: dayStart,
+            },
+          },
+          data: {
+            expectedMinutes,
+            deviationMinutes,
+          },
+        })
+        .catch((err) => console.error("Error syncing expectedMinutes to DB:", err));
+    }
+
+    return {
+      success: true,
+      schedule: schedule ?? undefined,
+      summary: {
+        expectedMinutes,
+        workedMinutes: Number(workdaySummary.totalWorkedMinutes),
+        deviationMinutes,
+        status: workdaySummary.status,
+        hasFinished: Boolean(workdaySummary.clockOut),
+        validationWarnings: Array.from(allWarnings),
+        validationErrors: Array.from(allErrors),
+      },
+    };
+  } catch (error) {
+    console.error("Error al obtener horario y resumen del día:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error desconocido",
+    };
+  }
+}
+
+/**
  * Obtiene el horario semanal del empleado autenticado
  */
 export async function getMyWeekSchedule(weekStart: Date): Promise<{

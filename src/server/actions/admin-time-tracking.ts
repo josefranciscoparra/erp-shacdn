@@ -1,4 +1,5 @@
 "use server";
+/* eslint-disable no-underscore-dangle */ // Prisma usa _sum, _count, _all para agregaciones
 
 import {
   startOfDay,
@@ -10,7 +11,6 @@ import {
   startOfYear,
   endOfYear,
   eachDayOfInterval,
-  isWeekend,
   format,
 } from "date-fns";
 
@@ -40,16 +40,8 @@ async function calculateWorkableDays(
   // Si el contrato empieza después del período, no hay días laborables
   if (effectiveStart > periodEnd) return 0;
 
-  const days = eachDayOfInterval({ start: effectiveStart, end: periodEnd });
-
-  // Obtener información de días laborables para todos los días (en paralelo)
-  const dayInfoPromises = days.map((day) => getExpectedHoursForDay(employeeId, day));
-  const dayInfos = await Promise.all(dayInfoPromises);
-
-  // Contar solo días laborables
-  const workableDays = dayInfos.filter((info) => info.isWorkingDay).length;
-
-  return workableDays;
+  const schedules = await getEffectiveScheduleForRange(employeeId, effectiveStart, periodEnd);
+  return schedules.filter((schedule) => schedule.isWorkingDay).length;
 }
 
 // Tipos de filtros
@@ -138,6 +130,22 @@ function calculateAverageHours(
   const hours = isIntensivePeriod && intensiveWeeklyHours ? Number(intensiveWeeklyHours) : Number(weeklyHours);
   const days = Number(workingDaysPerWeek ?? 5);
   return hours / days;
+}
+
+function isInIntensivePeriod(contract: any, targetDate: Date): boolean {
+  if (!contract?.hasIntensiveSchedule || !contract.intensiveStartDate || !contract.intensiveEndDate) {
+    return false;
+  }
+
+  const currentMonthDay = format(targetDate, "MM-dd");
+  const startMonthDay = contract.intensiveStartDate;
+  const endMonthDay = contract.intensiveEndDate;
+
+  if (startMonthDay <= endMonthDay) {
+    return currentMonthDay >= startMonthDay && currentMonthDay <= endMonthDay;
+  }
+
+  return currentMonthDay >= startMonthDay || currentMonthDay <= endMonthDay;
 }
 
 // Helper: Calcular horas para un día en horario FIXED
@@ -255,6 +263,142 @@ function calculateFixedScheduleHours(
     contract.weeklyHours,
     contract.workingDaysPerWeek,
   );
+}
+
+function getExpectedHoursFromContract(
+  contract: any,
+  targetDate: Date,
+  isHoliday: boolean,
+): { hoursExpected: number; isWorkingDay: boolean; hasActiveContract: boolean } {
+  if (!contract) {
+    return { hoursExpected: 0, isWorkingDay: false, hasActiveContract: false };
+  }
+
+  if (isHoliday) {
+    return { hoursExpected: 0, isWorkingDay: false, hasActiveContract: true };
+  }
+
+  const dayOfWeek = targetDate.getDay();
+  const isIntensivePeriod = isInIntensivePeriod(contract, targetDate);
+
+  const regularHoursByDay = [
+    contract.sundayHours,
+    contract.mondayHours,
+    contract.tuesdayHours,
+    contract.wednesdayHours,
+    contract.thursdayHours,
+    contract.fridayHours,
+    contract.saturdayHours,
+  ];
+
+  const intensiveHoursByDay = [
+    contract.intensiveSundayHours,
+    contract.intensiveMondayHours,
+    contract.intensiveTuesdayHours,
+    contract.intensiveWednesdayHours,
+    contract.intensiveThursdayHours,
+    contract.intensiveFridayHours,
+    contract.intensiveSaturdayHours,
+  ];
+
+  const workDaysByDay = [
+    contract.workSunday,
+    contract.workMonday,
+    contract.workTuesday,
+    contract.workWednesday,
+    contract.workThursday,
+    contract.workFriday,
+    contract.workSaturday,
+  ];
+
+  let hoursExpected = 0;
+  let isWorkingDay = false;
+
+  if (contract.scheduleType === "FLEXIBLE") {
+    if (contract.hasCustomWeeklyPattern) {
+      const todayHours = isIntensivePeriod ? intensiveHoursByDay[dayOfWeek] : regularHoursByDay[dayOfWeek];
+      if (todayHours !== null && todayHours !== undefined) {
+        hoursExpected = Number(todayHours);
+        isWorkingDay = hoursExpected > 0;
+      } else {
+        hoursExpected = 0;
+        isWorkingDay = false;
+      }
+    } else {
+      hoursExpected = calculateAverageHours(
+        isIntensivePeriod,
+        contract.intensiveWeeklyHours,
+        contract.weeklyHours,
+        contract.workingDaysPerWeek,
+      );
+      isWorkingDay = true;
+    }
+  } else if (contract.scheduleType === "FIXED") {
+    const worksToday = workDaysByDay[dayOfWeek] ?? false;
+    isWorkingDay = worksToday;
+    hoursExpected = calculateFixedScheduleHours(
+      worksToday,
+      contract.hasFixedTimeSlots ?? false,
+      dayOfWeek,
+      isIntensivePeriod,
+      contract,
+    );
+  } else {
+    hoursExpected = calculateAverageHours(
+      isIntensivePeriod,
+      contract.intensiveWeeklyHours,
+      contract.weeklyHours,
+      contract.workingDaysPerWeek,
+    );
+    isWorkingDay = true;
+  }
+
+  return { hoursExpected, isWorkingDay, hasActiveContract: true };
+}
+
+function getExpectedEntryTimeFromContract(contract: any, targetDate: Date): string | null {
+  if (!contract || contract.scheduleType !== "FIXED" || !contract.hasFixedTimeSlots) {
+    return null;
+  }
+
+  const dayOfWeek = targetDate.getDay();
+  const workDaysByDay = [
+    contract.workSunday,
+    contract.workMonday,
+    contract.workTuesday,
+    contract.workWednesday,
+    contract.workThursday,
+    contract.workFriday,
+    contract.workSaturday,
+  ];
+
+  const worksToday = workDaysByDay[dayOfWeek] ?? false;
+  if (!worksToday) {
+    return null;
+  }
+
+  const isIntensivePeriod = isInIntensivePeriod(contract, targetDate);
+  const startTimeFields = [
+    contract.sundayStartTime,
+    contract.mondayStartTime,
+    contract.tuesdayStartTime,
+    contract.wednesdayStartTime,
+    contract.thursdayStartTime,
+    contract.fridayStartTime,
+    contract.saturdayStartTime,
+  ];
+  const intensiveStartTimeFields = [
+    contract.intensiveSundayStartTime,
+    contract.intensiveMondayStartTime,
+    contract.intensiveTuesdayStartTime,
+    contract.intensiveWednesdayStartTime,
+    contract.intensiveThursdayStartTime,
+    contract.intensiveFridayStartTime,
+    contract.intensiveSaturdayStartTime,
+  ];
+
+  const startTime = isIntensivePeriod ? intensiveStartTimeFields[dayOfWeek] : startTimeFields[dayOfWeek];
+  return startTime ?? null;
 }
 
 // ============================================================================
@@ -1288,6 +1432,36 @@ export async function getCurrentlyWorkingEmployees() {
     const dayStart = startOfDay(today);
     const dayEnd = endOfDay(today);
 
+    // Detectar festivo del día (una sola consulta para toda la org)
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const day = today.getDate();
+    const normalizedDate = new Date(Date.UTC(year, month, day, 12, 0, 0, 0));
+    const holidayDayStart = startOfDay(normalizedDate);
+    const holidayDayEnd = endOfDay(normalizedDate);
+    const targetYear = normalizedDate.getFullYear();
+
+    const holiday = await prisma.calendarEvent.findFirst({
+      where: {
+        calendar: {
+          orgId,
+          active: true,
+          year: targetYear,
+        },
+        date: {
+          gte: holidayDayStart,
+          lte: holidayDayEnd,
+        },
+        eventType: "HOLIDAY",
+      },
+      select: {
+        name: true,
+      },
+    });
+
+    const isHoliday = Boolean(holiday);
+    const holidayName = holiday?.name;
+
     // Margen de tolerancia para considerar ausencia (15 minutos)
     const ABSENCE_MARGIN_MINUTES = 15;
 
@@ -1353,77 +1527,71 @@ export async function getCurrentlyWorkingEmployees() {
     });
 
     // Determinar el estado actual de cada empleado (con validación de días laborables)
-    const employeesWithStatus = await Promise.all(
-      employees.map(async (employee) => {
-        const lastEntry = employee.timeEntries[0];
-        const todaySummary = employee.workdaySummaries[0];
-        const contract = employee.employmentContracts[0];
+    const employeesWithStatus = employees.map((employee) => {
+      const lastEntry = employee.timeEntries[0];
+      const todaySummary = employee.workdaySummaries[0];
+      const contract = employee.employmentContracts[0];
 
-        // Obtener información del día laborable
-        const dayInfo = await getExpectedHoursForDay(employee.id, today);
-        const expectedEntryTime = await getEmployeeEntryTime(employee.id, today);
+      const dayInfo = getExpectedHoursFromContract(contract, today, isHoliday);
+      const expectedEntryTime = dayInfo.isWorkingDay ? getExpectedEntryTimeFromContract(contract, today) : null;
 
-        // Determinar estado de fichaje actual
-        let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
-        let lastAction = null;
+      // Determinar estado de fichaje actual
+      let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
+      let lastAction = null;
 
-        if (lastEntry) {
-          lastAction = lastEntry.timestamp;
-          switch (lastEntry.entryType) {
-            case "CLOCK_IN":
-            case "BREAK_END":
-              status = "CLOCKED_IN";
-              break;
-            case "BREAK_START":
-              status = "ON_BREAK";
-              break;
-            case "CLOCK_OUT":
-            default:
-              status = "CLOCKED_OUT";
-              break;
-          }
+      if (lastEntry) {
+        lastAction = lastEntry.timestamp;
+        switch (lastEntry.entryType) {
+          case "CLOCK_IN":
+          case "BREAK_END":
+            status = "CLOCKED_IN";
+            break;
+          case "BREAK_START":
+            status = "ON_BREAK";
+            break;
+          case "CLOCK_OUT":
+          default:
+            status = "CLOCKED_OUT";
+            break;
         }
+      }
 
-        // Calcular si está ausente (solo si es día laborable y tiene hora de entrada definida)
-        let isAbsent = false;
-        if (dayInfo.isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT") {
-          // Parsear hora de entrada esperada (formato "HH:MM")
-          const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
-          const expectedEntry = new Date(today);
-          expectedEntry.setHours(entryHour, entryMinute, 0, 0);
+      // Calcular si está ausente (solo si es día laborable y tiene hora de entrada definida)
+      let isAbsent = false;
+      if (dayInfo.isWorkingDay && expectedEntryTime && status === "CLOCKED_OUT") {
+        const [entryHour, entryMinute] = expectedEntryTime.split(":").map(Number);
+        const expectedEntry = new Date(today);
+        expectedEntry.setHours(entryHour, entryMinute, 0, 0);
 
-          // Añadir margen de tolerancia
-          const absenceThreshold = new Date(expectedEntry);
-          absenceThreshold.setMinutes(absenceThreshold.getMinutes() + ABSENCE_MARGIN_MINUTES);
+        const absenceThreshold = new Date(expectedEntry);
+        absenceThreshold.setMinutes(absenceThreshold.getMinutes() + ABSENCE_MARGIN_MINUTES);
 
-          // Si la hora actual ya pasó el umbral y no ha fichado, está ausente
-          if (today >= absenceThreshold) {
-            isAbsent = true;
-          }
+        if (today >= absenceThreshold) {
+          isAbsent = true;
         }
+      }
 
-        return {
-          id: employee.id,
-          name: employee.user.name,
-          email: employee.user.email,
-          department: contract?.department?.name ?? "Sin departamento",
-          costCenter: contract?.costCenter?.name ?? "Sin centro de coste",
-          status,
-          lastAction,
-          todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
-          todayBreakMinutes: todaySummary ? Number(todaySummary.totalBreakMinutes) : 0,
-          clockIn: todaySummary?.clockIn,
-          clockOut: todaySummary?.clockOut,
-          // Nuevos campos
-          isWorkingDay: dayInfo.isWorkingDay,
-          isHoliday: dayInfo.isHoliday,
-          holidayName: dayInfo.holidayName,
-          expectedHours: dayInfo.hoursExpected,
-          expectedEntryTime,
-          isAbsent,
-        };
-      }),
-    );
+      return {
+        id: employee.id,
+        name: employee.user.name,
+        email: employee.user.email,
+        department: contract?.department?.name ?? "Sin departamento",
+        costCenter: contract?.costCenter?.name ?? "Sin centro de coste",
+        status,
+        lastAction,
+        todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
+        todayBreakMinutes: todaySummary ? Number(todaySummary.totalBreakMinutes) : 0,
+        clockIn: todaySummary?.clockIn,
+        clockOut: todaySummary?.clockOut,
+        // Nuevos campos
+        isWorkingDay: dayInfo.isWorkingDay,
+        isHoliday,
+        holidayName,
+        expectedHours: dayInfo.hoursExpected,
+        expectedEntryTime,
+        isAbsent,
+      };
+    });
 
     return employeesWithStatus;
   } catch (error) {
@@ -1451,26 +1619,47 @@ export async function getTimeTrackingStats(dateFrom?: Date, dateTo?: Date) {
       }
     }
 
-    const summaries = await prisma.workdaySummary.findMany({
-      where,
-    });
+    const [totals, byStatus] = await Promise.all([
+      prisma.workdaySummary.aggregate({
+        where,
+        _sum: {
+          totalWorkedMinutes: true,
+          totalBreakMinutes: true,
+        },
+        _count: {
+          _all: true,
+        },
+      }),
+      prisma.workdaySummary.groupBy({
+        by: ["status"],
+        where,
+        _count: {
+          _all: true,
+        },
+      }),
+    ]);
 
-    const totalWorkedMinutes = summaries.reduce((acc, s) => acc + Number(s.totalWorkedMinutes), 0);
-    const totalBreakMinutes = summaries.reduce((acc, s) => acc + Number(s.totalBreakMinutes), 0);
+    const totalWorkedMinutes = Number(totals._sum.totalWorkedMinutes ?? 0);
+    const totalBreakMinutes = Number(totals._sum.totalBreakMinutes ?? 0);
+    const totalRecords = totals._count._all ?? 0;
 
     const statusCounts = {
-      IN_PROGRESS: summaries.filter((s) => s.status === "IN_PROGRESS").length,
-      COMPLETED: summaries.filter((s) => s.status === "COMPLETED").length,
-      INCOMPLETE: summaries.filter((s) => s.status === "INCOMPLETE").length,
-      ABSENT: summaries.filter((s) => s.status === "ABSENT").length,
+      IN_PROGRESS: 0,
+      COMPLETED: 0,
+      INCOMPLETE: 0,
+      ABSENT: 0,
     };
 
+    for (const item of byStatus) {
+      statusCounts[item.status as keyof typeof statusCounts] = item._count._all;
+    }
+
     return {
-      totalRecords: summaries.length,
+      totalRecords,
       totalWorkedHours: Math.round(totalWorkedMinutes / 60),
       totalBreakHours: Math.round(totalBreakMinutes / 60),
       statusCounts,
-      averageWorkedMinutesPerDay: summaries.length > 0 ? Math.round(totalWorkedMinutes / summaries.length) : 0,
+      averageWorkedMinutesPerDay: totalRecords > 0 ? Math.round(totalWorkedMinutes / totalRecords) : 0,
     };
   } catch (error) {
     console.error("Error al obtener estadísticas:", error);

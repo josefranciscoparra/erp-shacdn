@@ -63,32 +63,34 @@ export async function getManualTimeEntryRequestsToApprove(status: ApproverReques
       },
     });
 
-    const filteredRequests = [];
-    const totals: ApproverManualTimeEntryTotals = {
-      pending: 0,
-      approved: 0,
-      rejected: 0,
-    };
+    const uniqueEmployeeIds = Array.from(new Set(requests.map((request) => request.employeeId)));
+    const approvals = await Promise.all(
+      uniqueEmployeeIds.map(async (employeeId) => {
+        const canApprove = await canUserApprove(session.user.id, employeeId, "MANUAL_TIME_ENTRY");
+        return [employeeId, canApprove] as const;
+      }),
+    );
+    const approvalMap = new Map(approvals);
 
-    for (const request of requests) {
-      const canApprove = await canUserApprove(session.user.id, request.employeeId, "MANUAL_TIME_ENTRY");
-      if (canApprove) {
+    const filteredRequests = requests.filter((request) => approvalMap.get(request.employeeId));
+    const totals: ApproverManualTimeEntryTotals = filteredRequests.reduce(
+      (acc, request) => {
         if (request.status === "PENDING") {
-          totals.pending += 1;
+          acc.pending += 1;
         } else if (request.status === "APPROVED") {
-          totals.approved += 1;
+          acc.approved += 1;
         } else if (request.status === "REJECTED") {
-          totals.rejected += 1;
+          acc.rejected += 1;
         }
+        return acc;
+      },
+      { pending: 0, approved: 0, rejected: 0 },
+    );
 
-        if (request.status === status) {
-          filteredRequests.push(request);
-        }
-      }
-    }
+    const filteredByStatus = filteredRequests.filter((request) => request.status === status);
 
     return {
-      requests: filteredRequests.map((r) => ({
+      requests: filteredByStatus.map((r) => ({
         id: r.id,
         date: r.date,
         clockInTime: r.clockInTime,

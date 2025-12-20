@@ -30,12 +30,8 @@ function formatMinutesLabel(minutes: number): string {
 }
 
 export function TimeBalanceSidebar() {
-  const { monthlyData, selectedMonth, selectedYear, isLoading, loadMonthlyData } = useTimeCalendarStore();
-  const { summary: timeBankSummary, loadSummary: loadTimeBankSummary } = useTimeBankStore();
-
-  useEffect(() => {
-    loadMonthlyData(selectedYear, selectedMonth);
-  }, [selectedYear, selectedMonth, loadMonthlyData]);
+  const { monthlyData, isLoading } = useTimeCalendarStore();
+  const { loadSummary: loadTimeBankSummary } = useTimeBankStore();
 
   useEffect(() => {
     loadTimeBankSummary();

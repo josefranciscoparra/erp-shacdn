@@ -709,6 +709,7 @@ export async function getCurrentStatus() {
       where: {
         employeeId,
         orgId,
+        isCancelled: false,
         timestamp: {
           gte: dayStart,
           lte: dayEnd,

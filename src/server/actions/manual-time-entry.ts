@@ -319,57 +319,25 @@ export async function getMyApprover() {
   try {
     const { employee, orgId } = await getAuthenticatedEmployee();
 
-    // Buscar el manager del empleado en su contrato activo
-    const contract = await prisma.employmentContract.findFirst({
-      where: {
-        employeeId: employee.id,
-        orgId,
-        active: true,
-      },
-      include: {
-        manager: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
+    const approvers = await resolveApproverUsers(employee.id, orgId, "MANUAL_TIME_ENTRY");
+    const approver = approvers[0];
 
-    if (contract?.manager?.user) {
-      return {
-        id: contract.manager.user.id,
-        name: contract.manager.user.name,
-        email: contract.manager.user.email,
-        role: "Manager",
+    if (approver) {
+      const sourceLabelMap: Record<string, string> = {
+        DIRECT_MANAGER: "Responsable directo",
+        TEAM_RESPONSIBLE: "Responsable de equipo",
+        DEPARTMENT_RESPONSIBLE: "Responsable de departamento",
+        COST_CENTER_RESPONSIBLE: "Responsable de centro de coste",
+        APPROVER_LIST: "Lista de aprobadores",
+        HR_ADMIN: "RRHH",
+        ORG_ADMIN: "Administración",
       };
-    }
 
-    // Si no tiene manager, buscar un usuario con rol HR_ADMIN
-    const hrAdmin = await prisma.user.findFirst({
-      where: {
-        orgId,
-        role: "HR_ADMIN",
-        active: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
-    });
-
-    if (hrAdmin) {
       return {
-        id: hrAdmin.id,
-        name: hrAdmin.name,
-        email: hrAdmin.email,
-        role: "RRHH",
+        id: approver.userId,
+        name: approver.name ?? approver.email,
+        email: approver.email,
+        role: sourceLabelMap[approver.source] ?? approver.role,
       };
     }
 

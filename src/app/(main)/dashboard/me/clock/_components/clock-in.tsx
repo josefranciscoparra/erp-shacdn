@@ -22,7 +22,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
 import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
-import { getTodaySchedule, getTodaySummary } from "@/server/actions/employee-schedule";
+import { getTodayScheduleAndSummary } from "@/server/actions/employee-schedule";
 import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
 import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
 import { formatDuration } from "@/services/schedules";
@@ -175,15 +175,15 @@ export function ClockIn() {
   useEffect(() => {
     async function loadScheduleAndSummary() {
       try {
-        const [scheduleResult, summaryResult] = await Promise.all([getTodaySchedule(), getTodaySummary()]);
+        const result = await getTodayScheduleAndSummary();
 
-        if (scheduleResult.success && scheduleResult.schedule) {
-          setTodaySchedule(scheduleResult.schedule);
-          setScheduleExpectedMinutes(scheduleResult.schedule.expectedMinutes);
+        if (result.success && result.schedule) {
+          setTodaySchedule(result.schedule);
+          setScheduleExpectedMinutes(result.schedule.expectedMinutes);
         }
 
-        if (summaryResult.success && summaryResult.summary) {
-          setTodayDeviation(summaryResult.summary.deviationMinutes);
+        if (result.success && result.summary) {
+          setTodayDeviation(result.summary.deviationMinutes);
         }
       } catch (error) {
         console.error("Error loading schedule/summary:", error);
