@@ -99,6 +99,13 @@ interface TimeTrackingState {
   setClocking: (clocking: boolean) => void;
   setError: (error: string | null) => void;
   setLiveWorkedMinutes: (minutes: number) => void;
+  hydrateFromBootstrap: (payload: {
+    currentStatus: ClockStatus;
+    todaySummary: WorkdaySummary | null;
+    expectedDailyHours: number;
+    hasActiveContract: boolean;
+    isWorkingDay: boolean;
+  }) => void;
 
   // Acciones de fichaje (se conectarán a server actions)
   clockIn: (
@@ -151,6 +158,17 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   setClocking: (clocking) => set({ isClocking: clocking }),
   setError: (error) => set({ error }),
   setLiveWorkedMinutes: (minutes) => set({ liveWorkedMinutes: minutes }),
+  hydrateFromBootstrap: (payload) =>
+    set({
+      currentStatus: payload.currentStatus,
+      todaySummary: payload.todaySummary,
+      liveWorkedMinutes: payload.todaySummary?.totalWorkedMinutes ?? 0,
+      expectedDailyHours: payload.expectedDailyHours,
+      hasActiveContract: payload.hasActiveContract,
+      isWorkingDay: payload.isWorkingDay,
+      isLoading: false,
+      error: null,
+    }),
 
   // Acciones de fichaje
   clockIn: async (latitude?, longitude?, accuracy?, projectId?, task?) => {

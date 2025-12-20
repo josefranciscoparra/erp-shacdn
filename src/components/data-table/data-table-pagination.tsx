@@ -7,14 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 interface DataTablePaginationProps<TData> {
   table: Table<TData>;
+  rowCount?: number;
 }
 
-export function DataTablePagination<TData>({ table }: DataTablePaginationProps<TData>) {
+export function DataTablePagination<TData>({ table, rowCount }: DataTablePaginationProps<TData>) {
+  const totalRows = rowCount ?? table.getFilteredRowModel().rows.length;
+  const lastPageIndex = Math.max(0, table.getPageCount() - 1);
+
   return (
     <div className="flex items-center justify-between px-4">
       <div className="text-muted-foreground hidden flex-1 text-sm lg:flex">
-        {table.getFilteredSelectedRowModel().rows.length} de {table.getFilteredRowModel().rows.length} fila(s)
-        seleccionada(s).
+        {table.getFilteredSelectedRowModel().rows.length} de {totalRows} fila(s) seleccionada(s).
       </div>
       <div className="flex w-full items-center gap-8 lg:w-fit">
         <div className="hidden items-center gap-2 lg:flex">
@@ -76,7 +79,7 @@ export function DataTablePagination<TData>({ table }: DataTablePaginationProps<T
             variant="outline"
             className="hidden size-8 lg:flex"
             size="icon"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
+            onClick={() => table.setPageIndex(lastPageIndex)}
             disabled={!table.getCanNextPage()}
           >
             <span className="sr-only">Ir a la última página</span>

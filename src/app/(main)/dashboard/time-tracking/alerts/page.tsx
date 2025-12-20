@@ -57,14 +57,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { usePermissions } from "@/hooks/use-permissions";
 import { getAlertAssignments } from "@/server/actions/alert-assignments";
 import {
-  getActiveAlerts,
+  getActiveAlertsPage,
   resolveAlert,
   dismissAlert,
   getAlertStats,
   getAvailableAlertFilters,
 } from "@/server/actions/alert-detection";
 import { addAlertNote, getAlertNotes } from "@/server/actions/alert-notes";
-import { getMyAlerts, getMyAlertStats, getMySubscriptions } from "@/server/actions/alerts";
+import { getMyAlertsPage, getMyAlertStats, getMySubscriptions } from "@/server/actions/alerts";
 import { getOrganizationValidationConfig } from "@/server/actions/time-clock-validations";
 import { getActiveContext, getAvailableScopes } from "@/server/actions/user-context";
 
@@ -158,6 +158,7 @@ export default function AlertsPage() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [stats, setStats] = useState<AlertStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [totalRows, setTotalRows] = useState(0);
   const [selectedAlert, setSelectedAlert] = useState<AlertRow | null>(null);
   const [actionDialog, setActionDialog] = useState<"resolve" | "dismiss" | "details" | null>(null);
   const [comment, setComment] = useState("");
@@ -181,6 +182,8 @@ export default function AlertsPage() {
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
   const [selectedSeverity, setSelectedSeverity] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
+  const [employeeSearchInput, setEmployeeSearchInput] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
   const [quickFilter, setQuickFilter] = useState<
     "critical_today" | "today_yesterday" | "yesterday" | "last_7_days" | "history" | "custom"
   >("today_yesterday");
@@ -201,6 +204,7 @@ export default function AlertsPage() {
     timeline: false,
   });
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const pageCount = totalRows > 0 ? Math.ceil(totalRows / pagination.pageSize) : 0;
 
   useEffect(() => {
     if (isAdminScope) {
@@ -258,27 +262,42 @@ export default function AlertsPage() {
     loadFilters();
   }, []);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setEmployeeSearch(employeeSearchInput);
+    }, 300);
+
+    return () => clearTimeout(timeout);
+  }, [employeeSearchInput]);
+
   // Cargar alertas y estadísticas con filtros aplicados
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
 
       // Construir filtros dinámicos
-      const filters: any = {};
-      if (selectedCenter !== "all") filters.costCenterId = selectedCenter;
-      if (selectedTeam !== "all") filters.teamId = selectedTeam;
-      if (selectedSeverity !== "all") filters.severity = selectedSeverity;
-      if (selectedType !== "all") filters.type = selectedType;
-      if (dateRange.from) filters.dateFrom = dateRange.from;
-      if (dateRange.to) filters.dateTo = dateRange.to;
+      const baseFilters: any = {};
+      if (selectedCenter !== "all") baseFilters.costCenterId = selectedCenter;
+      if (selectedTeam !== "all") baseFilters.teamId = selectedTeam;
+      if (selectedSeverity !== "all") baseFilters.severity = selectedSeverity;
+      if (selectedType !== "all") baseFilters.type = selectedType;
+      if (dateRange.from) baseFilters.dateFrom = dateRange.from;
+      if (dateRange.to) baseFilters.dateTo = dateRange.to;
+      if (employeeSearch.trim()) baseFilters.search = employeeSearch.trim();
+
+      const listFilters = {
+        ...baseFilters,
+        status: activeTab === "active" ? "ACTIVE" : activeTab === "resolved" ? "RESOLVED" : "DISMISSED",
+      };
 
       const [alertsData, statsData] = await Promise.all(
         scopeMode === "mine"
-          ? [getMyAlerts(filters), getMyAlertStats(filters)]
-          : [getActiveAlerts(filters), getAlertStats(filters)],
+          ? [getMyAlertsPage(listFilters, pagination.pageIndex, pagination.pageSize), getMyAlertStats(baseFilters)]
+          : [getActiveAlertsPage(listFilters, pagination.pageIndex, pagination.pageSize), getAlertStats(baseFilters)],
       );
 
-      setAlerts(alertsData);
+      setAlerts(alertsData.alerts);
+      setTotalRows(alertsData.total);
       setStats(statsData);
     } catch (error) {
       console.error("Error al cargar alertas:", error);
@@ -286,11 +305,41 @@ export default function AlertsPage() {
     } finally {
       setLoading(false);
     }
-  }, [scopeMode, selectedCenter, selectedTeam, selectedSeverity, selectedType, dateRange]);
+  }, [
+    scopeMode,
+    selectedCenter,
+    selectedTeam,
+    selectedSeverity,
+    selectedType,
+    dateRange,
+    activeTab,
+    employeeSearch,
+    pagination.pageIndex,
+    pagination.pageSize,
+  ]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    setPagination((prev) => {
+      if (prev.pageIndex === 0) {
+        return prev;
+      }
+      return { ...prev, pageIndex: 0 };
+    });
+  }, [
+    scopeMode,
+    selectedCenter,
+    selectedTeam,
+    selectedSeverity,
+    selectedType,
+    dateRange,
+    activeTab,
+    employeeSearch,
+    pagination.pageSize,
+  ]);
 
   useEffect(() => {
     if (actionDialog !== "details" || !selectedAlert) {
@@ -319,22 +368,6 @@ export default function AlertsPage() {
     loadMeta();
   }, [actionDialog, selectedAlert]);
 
-  // Filtrar alertas por tab activo y equipo (cliente-side)
-  const filteredAlerts = useMemo(() => {
-    return alerts.filter((alert) => {
-      // Tab Filter
-      let matchesTab = false;
-      if (activeTab === "active") matchesTab = alert.status === "ACTIVE";
-      else if (activeTab === "resolved") matchesTab = alert.status === "RESOLVED";
-      else if (activeTab === "dismissed") matchesTab = alert.status === "DISMISSED";
-
-      // Team Filter (cliente-side porque ya tenemos las alertas filtradas por scope)
-      const matchesTeam = selectedTeam === "all" || alert.teamId === selectedTeam;
-
-      return matchesTab && matchesTeam;
-    });
-  }, [alerts, activeTab, selectedTeam]);
-
   // Memoizar meta functions para evitar recrear la tabla
   const tableMeta = useMemo(
     () => ({
@@ -359,7 +392,7 @@ export default function AlertsPage() {
 
   // Configurar tabla
   const table = useReactTable({
-    data: filteredAlerts,
+    data: alerts,
     columns: alertColumns,
     state: {
       sorting,
@@ -378,6 +411,8 @@ export default function AlertsPage() {
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
     meta: tableMeta,
+    manualPagination: true,
+    pageCount,
   });
 
   // Manejar resolver alerta
@@ -525,6 +560,7 @@ export default function AlertsPage() {
     setSelectedTeam("all");
     setSelectedSeverity("all");
     setSelectedType("all");
+    setEmployeeSearchInput("");
     setDateRange(getDefaultDateRange());
     setActiveTab("active");
     setQuickFilter("today_yesterday");
@@ -760,8 +796,8 @@ export default function AlertsPage() {
                 <Input
                   placeholder="Buscar empleado..."
                   className="w-full"
-                  value={(table.getColumn("employee")?.getFilterValue() as string) || ""}
-                  onChange={(event) => table.getColumn("employee")?.setFilterValue(event.target.value)}
+                  value={employeeSearchInput}
+                  onChange={(event) => setEmployeeSearchInput(event.target.value)}
                 />
               </div>
 
@@ -800,7 +836,7 @@ export default function AlertsPage() {
                 <p className="text-muted-foreground text-sm">Cargando alertas...</p>
               </div>
             </div>
-          ) : filteredAlerts.length === 0 ? (
+          ) : alerts.length === 0 ? (
             <div className="bg-card rounded-md border p-8">
               <EmptyState
                 icon={<AlertCircle className="text-muted-foreground h-10 w-10" />}
@@ -815,7 +851,7 @@ export default function AlertsPage() {
               <div className="bg-card rounded-md border">
                 <DataTable table={table} columns={alertColumns} />
               </div>
-              <DataTablePagination table={table} />
+              <DataTablePagination table={table} rowCount={totalRows} />
             </div>
           )}
         </TabsContent>

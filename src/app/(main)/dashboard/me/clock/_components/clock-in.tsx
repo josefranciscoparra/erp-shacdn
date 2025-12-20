@@ -21,10 +21,10 @@ import { ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
-import { dismissNotification, isNotificationDismissed } from "@/server/actions/dismissed-notifications";
-import { getTodayScheduleAndSummary } from "@/server/actions/employee-schedule";
-import { checkGeolocationConsent, getOrganizationGeolocationConfig } from "@/server/actions/geolocation";
-import { detectIncompleteEntries, clockOut } from "@/server/actions/time-tracking";
+import { getClockBootstrap } from "@/server/actions/clock-bootstrap";
+import { dismissNotification } from "@/server/actions/dismissed-notifications";
+import { checkGeolocationConsent } from "@/server/actions/geolocation";
+import { clockOut } from "@/server/actions/time-tracking";
 import { formatDuration } from "@/services/schedules";
 import { useTimeTrackingStore } from "@/stores/time-tracking-store";
 import type { EffectiveSchedule } from "@/types/schedule";
@@ -33,6 +33,15 @@ import { MinifiedDailyInfo } from "./minified-daily-info";
 import { ProjectSelector } from "./project-selector";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
+
+type ClockBootstrapResult = Awaited<ReturnType<typeof getClockBootstrap>>;
+type ClockBootstrapReady = ClockBootstrapResult & {
+  todaySummary: NonNullable<ClockBootstrapResult["todaySummary"]>;
+  currentStatus: NonNullable<ClockBootstrapResult["currentStatus"]>;
+};
+
+const isBootstrapReady = (result: ClockBootstrapResult): result is ClockBootstrapReady =>
+  Boolean(result.success && result.todaySummary && result.currentStatus);
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -51,6 +60,7 @@ export function ClockIn() {
     workedMinutes: 0,
     breakMinutes: 0,
   });
+  const isMountedRef = useRef(true);
 
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
@@ -78,6 +88,13 @@ export function ClockIn() {
 
   const router = useRouter();
 
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const {
     currentStatus,
     todaySummary,
@@ -92,7 +109,9 @@ export function ClockIn() {
     startBreak: startBreakAction,
     endBreak: endBreakAction,
     setLiveWorkedMinutes,
-    loadInitialData,
+    setLoading,
+    setError,
+    hydrateFromBootstrap,
   } = useTimeTrackingStore();
 
   // Actualizar hora y contador en vivo cada segundo
@@ -130,69 +149,90 @@ export function ClockIn() {
     return () => clearInterval(interval);
   }, [currentStatus, todaySummary, setLiveWorkedMinutes]);
 
-  // Cargar estado inicial y configuración de geolocalización
-  useEffect(() => {
-    const load = async () => {
-      await loadInitialData();
+  const applyBootstrapResult = useCallback(
+    (result: ClockBootstrapReady) => {
+      const hoursInfo = result.hoursInfo;
+      const expectedDailyHours = hoursInfo ? hoursInfo.hoursToday : 0;
+      const hasActive = hoursInfo ? hoursInfo.hasActiveContract : false;
+      const workingDay = hoursInfo ? hoursInfo.isWorkingDay : true;
 
-      // Verificar si la organización tiene geolocalización habilitada
-      try {
-        const config = await getOrganizationGeolocationConfig();
-        setGeolocationEnabled(config.geolocationEnabled);
-      } catch (error) {
-        console.error("Error al cargar config de geolocalización:", error);
+      hydrateFromBootstrap({
+        currentStatus: result.currentStatus,
+        todaySummary: result.todaySummary,
+        expectedDailyHours,
+        hasActiveContract: hasActive,
+        isWorkingDay: workingDay,
+      });
+
+      setTodaySchedule(result.schedule ?? null);
+      const expectedMinutes = result.scheduleSummary ? result.scheduleSummary.expectedMinutes : null;
+      const deviationMinutes = result.scheduleSummary ? result.scheduleSummary.deviationMinutes : null;
+      setScheduleExpectedMinutes(expectedMinutes);
+      setTodayDeviation(deviationMinutes);
+
+      const geoEnabled = result.geolocationConfig ? result.geolocationConfig.geolocationEnabled : false;
+      setGeolocationEnabled(geoEnabled);
+
+      if (result.incompleteEntry) {
+        setHasIncompleteEntry(true);
+        setIsExcessive(result.incompleteEntry.isExcessive ?? false);
+        setIncompleteEntryInfo({
+          date: result.incompleteEntry.clockInDate,
+          lastEntryTime: result.incompleteEntry.clockInTime,
+          durationHours: result.incompleteEntry.durationHours,
+          durationMinutes: result.incompleteEntry.durationMinutes,
+          dailyHours: result.incompleteEntry.dailyHours,
+          percentageOfJourney: result.incompleteEntry.percentageOfJourney,
+          clockInId: result.incompleteEntry.clockInId,
+        });
+      } else {
+        setHasIncompleteEntry(false);
+        setIsExcessive(false);
+        setIncompleteEntryInfo(null);
+      }
+    },
+    [
+      hydrateFromBootstrap,
+      setGeolocationEnabled,
+      setHasIncompleteEntry,
+      setIncompleteEntryInfo,
+      setIsExcessive,
+      setScheduleExpectedMinutes,
+      setTodayDeviation,
+      setTodaySchedule,
+    ],
+  );
+
+  const loadBootstrap = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setIsScheduleLoading(true);
+
+    try {
+      const result = await getClockBootstrap();
+      if (!isMountedRef.current) return;
+
+      if (!isBootstrapReady(result)) {
+        setError(result.error ?? "Error al cargar datos de fichaje");
+        return;
       }
 
-      // Detectar fichajes incompletos y verificar si ya fueron descartados
-      try {
-        const incompleteData = await detectIncompleteEntries();
-        if (incompleteData?.hasIncompleteEntry) {
-          // Verificar si la notificación ya fue descartada
-          const isDismissed = await isNotificationDismissed("INCOMPLETE_ENTRY", incompleteData.clockInId);
-
-          if (!isDismissed) {
-            setHasIncompleteEntry(true);
-            setIsExcessive(incompleteData.isExcessive ?? false);
-            setIncompleteEntryInfo({
-              date: incompleteData.clockInDate,
-              lastEntryTime: incompleteData.clockInTime,
-              durationHours: incompleteData.durationHours,
-              durationMinutes: incompleteData.durationMinutes,
-              dailyHours: incompleteData.dailyHours,
-              percentageOfJourney: incompleteData.percentageOfJourney,
-              clockInId: incompleteData.clockInId,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Error al detectar fichajes incompletos:", error);
-      }
-    };
-    load();
-  }, [loadInitialData]);
-
-  // Cargar horario esperado del Schedule V2.0 y Resumen
-  useEffect(() => {
-    async function loadScheduleAndSummary() {
-      try {
-        const result = await getTodayScheduleAndSummary();
-
-        if (result.success && result.schedule) {
-          setTodaySchedule(result.schedule);
-          setScheduleExpectedMinutes(result.schedule.expectedMinutes);
-        }
-
-        if (result.success && result.summary) {
-          setTodayDeviation(result.summary.deviationMinutes);
-        }
-      } catch (error) {
-        console.error("Error loading schedule/summary:", error);
-      } finally {
+      applyBootstrapResult(result);
+    } catch (error) {
+      console.error("Error al cargar bootstrap de fichaje:", error);
+      setError(error instanceof Error ? error.message : "Error al cargar fichaje");
+    } finally {
+      if (isMountedRef.current) {
+        setLoading(false);
         setIsScheduleLoading(false);
       }
     }
-    loadScheduleAndSummary();
-  }, []);
+  }, [applyBootstrapResult, setError, setIsScheduleLoading, setLoading]);
+
+  // Cargar estado inicial, horario y configuración en una sola llamada
+  useEffect(() => {
+    loadBootstrap();
+  }, [loadBootstrap]);
 
   const restartChartAnimation = useCallback(() => {
     setShouldAnimateChart(false);
@@ -398,7 +438,7 @@ export function ClockIn() {
 
       toast.success("Fichaje cerrado y cancelado correctamente");
       setShowExcessiveDialog(false);
-      await loadInitialData(); // Recargar datos
+      await loadBootstrap(); // Recargar datos
     } catch (error) {
       console.error("Error al cerrar fichaje excesivo:", error);
       toast.error("Error al cerrar fichaje");

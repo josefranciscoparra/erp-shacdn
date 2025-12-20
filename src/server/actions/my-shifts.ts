@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveScheduleForRange, getWeekSchedule } from "@/services/schedules/schedule-engine";
 
-import { getTodaySummary, getWeeklySummary } from "./time-tracking";
+import { getTodaySummaryLite, getWeeklySummaryLite } from "./time-tracking";
 
 /**
  * Convierte minutos (ej: 540) a hora (ej: "09:00")
@@ -17,6 +17,10 @@ function minutesToTime(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+}
+
+function isActiveWorkEntryType(entryType: string | null): boolean {
+  return entryType === "CLOCK_IN" || entryType === "BREAK_END" || entryType === "PROJECT_SWITCH";
 }
 
 /**
@@ -42,31 +46,16 @@ export async function getMyShiftsDashboardMetrics(): Promise<MyShiftsMetrics | n
     const weekHoursAssigned = weekSchedule.totalExpectedMinutes / 60;
 
     // Trabajadas (Completadas) - Incluyendo tiempo en vivo
-    const [weeklySummary, todaySummary] = await Promise.all([getWeeklySummary(), getTodaySummary()]);
+    const [weeklySummary, todaySummary] = await Promise.all([getWeeklySummaryLite(), getTodaySummaryLite()]);
 
-    let totalWorkedMinutes = weeklySummary?.totalWorkedMinutes ?? 0;
+    let totalWorkedMinutes = weeklySummary.totalWorkedMinutes;
 
-    // Lógica de tiempo en vivo (copiada de my-space.ts)
-    if (todaySummary?.timeEntries) {
+    if (isActiveWorkEntryType(todaySummary.lastEntryType) && todaySummary.lastEntryTime) {
       const now = new Date();
-      const entries = todaySummary.timeEntries;
-      // Buscar la última entrada de tipo CLOCK_IN o BREAK_END
-      const lastWorkStart = [...entries]
-        .reverse()
-        .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
-
-      // Si el último evento fue inicio de trabajo, sumar tiempo transcurrido
-      // Verificar también que no haya un evento de fin posterior (aunque .reverse().find() ayuda,
-      // lo ideal es ver si el estado actual es CLOCKED_IN)
-      const lastEntry = entries[entries.length - 1];
-      if (lastEntry && (lastEntry.entryType === "CLOCK_IN" || lastEntry.entryType === "BREAK_END")) {
-        if (lastWorkStart) {
-          const startTime = new Date(lastWorkStart.timestamp);
-          const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
-          const minutesFromStart = secondsFromStart / 60;
-          totalWorkedMinutes += minutesFromStart;
-        }
-      }
+      const startTime = new Date(todaySummary.lastEntryTime);
+      const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
+      const minutesFromStart = secondsFromStart / 60;
+      totalWorkedMinutes += minutesFromStart;
     }
 
     const weekHoursWorked = totalWorkedMinutes / 60;

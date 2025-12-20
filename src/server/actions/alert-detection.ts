@@ -25,6 +25,21 @@ export type AlertType = "DAILY_SUMMARY" | IncidentType;
 
 export type AlertSeverity = "INFO" | "WARNING" | "CRITICAL";
 
+export type AlertStatus = "ACTIVE" | "RESOLVED" | "DISMISSED";
+
+type AlertFilters = {
+  employeeId?: string;
+  costCenterId?: string;
+  departmentId?: string;
+  teamId?: string;
+  severity?: AlertSeverity;
+  type?: AlertType;
+  status?: AlertStatus;
+  dateFrom?: Date;
+  dateTo?: Date;
+  search?: string;
+};
+
 export interface Incident {
   type: IncidentType;
   severity: AlertSeverity;
@@ -582,19 +597,57 @@ async function saveDetectedAlerts(
 }
 
 /**
+ * Construye el where clause para filtros y scopes.
+ */
+function buildAlertWhereClause(orgId: string, scopeFilter: Record<string, unknown>, filters?: AlertFilters) {
+  const whereClause: Record<string, unknown> = {
+    orgId,
+    ...(filters?.employeeId && { employeeId: filters.employeeId }),
+    ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+    ...(filters?.departmentId && { departmentId: filters.departmentId }),
+    ...(filters?.teamId && { teamId: filters.teamId }),
+    ...(filters?.severity && { severity: filters.severity }),
+    ...(filters?.type && { type: filters.type }),
+    ...(filters?.status && { status: filters.status }),
+  };
+
+  const dateFilter: { gte?: Date; lte?: Date } = {};
+  if (filters?.dateFrom) {
+    dateFilter.gte = filters.dateFrom;
+  }
+  if (filters?.dateTo) {
+    dateFilter.lte = filters.dateTo;
+  }
+  if (Object.keys(dateFilter).length > 0) {
+    whereClause.date = dateFilter;
+  }
+
+  const searchValue = filters?.search?.trim();
+  const employeeSearch = searchValue
+    ? {
+        OR: [
+          { firstName: { contains: searchValue, mode: "insensitive" } },
+          { lastName: { contains: searchValue, mode: "insensitive" } },
+          { email: { contains: searchValue, mode: "insensitive" } },
+        ],
+      }
+    : null;
+
+  if (employeeSearch) {
+    whereClause.employee =
+      Object.keys(scopeFilter).length > 0 ? { AND: [scopeFilter, employeeSearch] } : employeeSearch;
+  } else if (Object.keys(scopeFilter).length > 0) {
+    whereClause.employee = scopeFilter;
+  }
+
+  return whereClause;
+}
+
+/**
  * Obtiene alertas activas de la organización con filtros opcionales
  * APLICA FILTRADO POR SCOPE: solo retorna alertas del ámbito del usuario
  */
-export async function getActiveAlerts(filters?: {
-  employeeId?: string;
-  costCenterId?: string;
-  departmentId?: string;
-  teamId?: string;
-  severity?: AlertSeverity;
-  type?: AlertType;
-  dateFrom?: Date;
-  dateTo?: Date;
-}) {
+export async function getActiveAlerts(filters?: AlertFilters) {
   "use server";
 
   try {
@@ -607,32 +660,7 @@ export async function getActiveAlerts(filters?: {
     // Obtener filtro de scope del usuario
     const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
 
-    // Construir where clause
-    const whereClause: any = {
-      orgId: session.user.orgId,
-      ...(filters?.employeeId && { employeeId: filters.employeeId }),
-      ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
-      ...(filters?.departmentId && { departmentId: filters.departmentId }),
-      ...(filters?.teamId && { teamId: filters.teamId }),
-      ...(filters?.severity && { severity: filters.severity }),
-      ...(filters?.type && { type: filters.type }),
-    };
-
-    const dateFilter: { gte?: Date; lte?: Date } = {};
-    if (filters?.dateFrom) {
-      dateFilter.gte = filters.dateFrom;
-    }
-    if (filters?.dateTo) {
-      dateFilter.lte = filters.dateTo;
-    }
-    if (Object.keys(dateFilter).length > 0) {
-      whereClause.date = dateFilter;
-    }
-
-    // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
-    if (Object.keys(scopeFilter).length > 0) {
-      whereClause.employee = scopeFilter;
-    }
+    const whereClause = buildAlertWhereClause(session.user.orgId, scopeFilter, filters);
 
     const alerts = await prisma.alert.findMany({
       where: whereClause,
@@ -682,6 +710,84 @@ export async function getActiveAlerts(filters?: {
     }));
   } catch (error) {
     console.error("Error al obtener alertas activas:", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene alertas con paginación para el panel
+ */
+export async function getActiveAlertsPage(filters?: AlertFilters, pageIndex = 0, pageSize = 10) {
+  "use server";
+
+  try {
+    const session = await auth();
+
+    if (!session?.user?.orgId || !session?.user?.id) {
+      throw new Error("Usuario no autenticado o sin organización");
+    }
+
+    const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
+    const whereClause = buildAlertWhereClause(session.user.orgId, scopeFilter, filters);
+
+    const safePageIndex = Math.max(0, pageIndex);
+    const safePageSize = Math.max(1, pageSize);
+
+    const [alerts, total] = await Promise.all([
+      prisma.alert.findMany({
+        where: whereClause,
+        include: {
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          costCenter: {
+            select: {
+              name: true,
+              id: true,
+            },
+          },
+          department: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          team: {
+            select: {
+              name: true,
+              code: true,
+              id: true,
+            },
+          },
+          resolver: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: [{ severity: "desc" }, { date: "desc" }, { createdAt: "desc" }],
+        skip: safePageIndex * safePageSize,
+        take: safePageSize,
+      }),
+      prisma.alert.count({ where: whereClause }),
+    ]);
+
+    return {
+      alerts: alerts.map((alert) => ({
+        ...alert,
+        date: alert.date.toISOString(),
+        createdAt: alert.createdAt.toISOString(),
+        updatedAt: alert.updatedAt.toISOString(),
+        resolvedAt: alert.resolvedAt ? alert.resolvedAt.toISOString() : null,
+      })),
+      total,
+    };
+  } catch (error) {
+    console.error("Error al obtener alertas activas paginadas:", error);
     throw error;
   }
 }
@@ -845,15 +951,7 @@ export async function dismissAlert(alertId: string, comment?: string): Promise<{
  * Obtiene estadísticas de alertas para un período
  * APLICA FILTRADO POR SCOPE: solo cuenta alertas del ámbito del usuario
  */
-export async function getAlertStats(filters?: {
-  costCenterId?: string;
-  departmentId?: string;
-  teamId?: string;
-  severity?: AlertSeverity;
-  type?: AlertType;
-  dateFrom?: Date;
-  dateTo?: Date;
-}) {
+export async function getAlertStats(filters?: AlertFilters) {
   "use server";
 
   try {
@@ -866,30 +964,10 @@ export async function getAlertStats(filters?: {
     // Obtener filtro de scope del usuario
     const scopeFilter = await buildScopeFilter(session.user.id, "VIEW_ALERTS");
 
-    const where: any = {
-      orgId: session.user.orgId,
-      ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
-      ...(filters?.departmentId && { departmentId: filters.departmentId }),
-      ...(filters?.teamId && { teamId: filters.teamId }),
-      ...(filters?.severity && { severity: filters.severity }),
-      ...(filters?.type && { type: filters.type }),
-    };
-
-    const dateFilter: { gte?: Date; lte?: Date } = {};
-    if (filters?.dateFrom) {
-      dateFilter.gte = filters.dateFrom;
-    }
-    if (filters?.dateTo) {
-      dateFilter.lte = filters.dateTo;
-    }
-    if (Object.keys(dateFilter).length > 0) {
-      where.date = dateFilter;
-    }
-
-    // Solo aplicar scopeFilter si NO está vacío (roles no-ADMIN/RRHH)
-    if (Object.keys(scopeFilter).length > 0) {
-      where.employee = scopeFilter;
-    }
+    const where = buildAlertWhereClause(session.user.orgId, scopeFilter, {
+      ...filters,
+      status: undefined,
+    });
 
     const [total, active, resolved, dismissed, bySeverity, byType] = await Promise.all([
       prisma.alert.count({ where }),
@@ -945,8 +1023,8 @@ export async function getEmployeeAlertsByDateRange(
       throw new Error("Usuario no autenticado o sin organización");
     }
 
-    // Obtener todas las alertas del empleado en el rango de fechas
-    const alerts = await prisma.alert.findMany({
+    const groupedAlerts = await prisma.alert.groupBy({
+      by: ["date", "severity"],
       where: {
         orgId: session.user.orgId,
         employeeId,
@@ -956,17 +1034,17 @@ export async function getEmployeeAlertsByDateRange(
         },
         status: "ACTIVE", // Solo alertas activas (no resueltas ni descartadas)
       },
-      select: {
-        date: true,
-        severity: true,
+      _count: {
+        _all: true,
       },
     });
 
-    // Agrupar por fecha y severidad
     const result: Record<string, { total: number; bySeverity: Record<string, number> }> = {};
 
-    for (const alert of alerts) {
-      const dateKey = alert.date.toISOString().split("T")[0]; // YYYY-MM-DD
+    for (const item of groupedAlerts) {
+      const dateKey = item.date.toISOString().split("T")[0];
+      const { _count: countData } = item;
+      const { _all: count } = countData;
 
       if (!result[dateKey]) {
         result[dateKey] = {
@@ -975,8 +1053,8 @@ export async function getEmployeeAlertsByDateRange(
         };
       }
 
-      result[dateKey].total++;
-      result[dateKey].bySeverity[alert.severity] = (result[dateKey].bySeverity[alert.severity] || 0) + 1;
+      result[dateKey].total += count;
+      result[dateKey].bySeverity[item.severity] = (result[dateKey].bySeverity[item.severity] ?? 0) + count;
     }
 
     return result;

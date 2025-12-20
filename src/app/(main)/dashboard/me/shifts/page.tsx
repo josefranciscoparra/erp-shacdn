@@ -12,11 +12,13 @@ import {
   subMonths,
   startOfToday,
   getDay,
+  differenceInCalendarDays,
+  parseISO,
 } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
-import { formatShiftTime, getEmptyDayType } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
+import { formatShiftTime } from "@/app/(main)/dashboard/shifts/_lib/shift-utils";
 import type { Shift, EmployeeShift } from "@/app/(main)/dashboard/shifts/_lib/types";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
@@ -152,6 +154,80 @@ export default function MyShiftsPage() {
     return grouped;
   }, [myShifts]);
 
+  const sortedShiftDates = useMemo(() => {
+    if (myShifts.length === 0) return [];
+    const uniqueDates = Array.from(new Set(myShifts.map((shift) => shift.date)));
+    uniqueDates.sort();
+    return uniqueDates;
+  }, [myShifts]);
+
+  const plannedRange = useMemo(() => {
+    if (sortedShiftDates.length === 0) return null;
+    return {
+      start: sortedShiftDates[0],
+      end: sortedShiftDates[sortedShiftDates.length - 1],
+    };
+  }, [sortedShiftDates]);
+
+  const emptyDayTypeByDate = useMemo(() => {
+    const map = new Map<string, "rest" | "unplanned">();
+    if (sortedShiftDates.length === 0) return map;
+
+    const tolerance = 7;
+
+    const findAdjacentDates = (dateKey: string) => {
+      let left = 0;
+      let right = sortedShiftDates.length - 1;
+      let prevDate: string | null = null;
+      let nextDate: string | null = null;
+
+      while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const value = sortedShiftDates[mid];
+
+        if (value === dateKey) {
+          prevDate = value;
+          nextDate = value;
+          break;
+        }
+
+        if (value < dateKey) {
+          prevDate = value;
+          left = mid + 1;
+        } else {
+          nextDate = value;
+          right = mid - 1;
+        }
+      }
+
+      return { prevDate, nextDate };
+    };
+
+    daysInMonth.forEach((day) => {
+      const dateKey = format(day, "yyyy-MM-dd");
+
+      if (plannedRange && dateKey >= plannedRange.start && dateKey <= plannedRange.end) {
+        map.set(dateKey, "rest");
+        return;
+      }
+
+      const { prevDate, nextDate } = findAdjacentDates(dateKey);
+      const prevDiff =
+        prevDate === null ? Number.POSITIVE_INFINITY : differenceInCalendarDays(parseISO(dateKey), parseISO(prevDate));
+      const nextDiff =
+        nextDate === null ? Number.POSITIVE_INFINITY : differenceInCalendarDays(parseISO(nextDate), parseISO(dateKey));
+
+      if (prevDiff <= tolerance || nextDiff <= tolerance) {
+        map.set(dateKey, "rest");
+        return;
+      }
+
+      map.set(dateKey, "unplanned");
+    });
+
+    return map;
+  }, [daysInMonth, plannedRange, sortedShiftDates]);
+
   if (!currentEmployee && !isLoading) {
     return (
       <div className="@container/main flex flex-col gap-6">
@@ -232,7 +308,7 @@ export default function MyShiftsPage() {
                   const today = isToday(day);
 
                   // Determinar el tipo de día vacío (descanso vs sin planificar)
-                  const emptyDayType = getEmptyDayType(dateKey, shifts);
+                  const emptyDayType = emptyDayTypeByDate.get(dateKey) ?? "unplanned";
 
                   // Lógica de consolidación: Si hay trabajo, ocultamos las ausencias parciales pero marcamos el día
                   const workShifts = dayShifts.filter(

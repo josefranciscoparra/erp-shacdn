@@ -19,18 +19,34 @@ import { employeeColumns, type EmployeeTimeTracking } from "./_components/employ
 export default function TimeTrackingPage() {
   const [employees, setEmployees] = useState<EmployeeTimeTracking[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [totalRows, setTotalRows] = useState(0);
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    workingCount: 0,
+    breakCount: 0,
+    clockedTodayCount: 0,
+  });
+
+  const pageCount = totalRows > 0 ? Math.ceil(totalRows / pagination.pageSize) : 0;
 
   const table = useDataTableInstance({
     data: employees,
     columns: employeeColumns,
     getRowId: (row) => row.id,
+    manualPagination: true,
+    pageCount,
+    paginationState: pagination,
+    onPaginationChange: setPagination,
   });
 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const data = await getEmployeesForTimeTracking();
-      setEmployees(data);
+      const data = await getEmployeesForTimeTracking(pagination.pageIndex, pagination.pageSize);
+      setEmployees(data.data);
+      setTotalRows(data.total);
+      setStats(data.stats);
     } catch (error) {
       console.error("Error al cargar empleados:", error);
     } finally {
@@ -40,11 +56,7 @@ export default function TimeTrackingPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
-
-  const workingCount = employees.filter((e) => e.status === "CLOCKED_IN").length;
-  const breakCount = employees.filter((e) => e.status === "ON_BREAK").length;
-  const clockedTodayCount = employees.filter((e) => e.todayWorkedMinutes > 0).length;
+  }, [pagination.pageIndex, pagination.pageSize]);
 
   return (
     <PermissionGuard
@@ -72,7 +84,7 @@ export default function TimeTrackingPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-sm">Total empleados</span>
-                <span className="text-2xl font-bold">{employees.length}</span>
+                <span className="text-2xl font-bold">{stats.totalEmployees}</span>
               </div>
             </div>
           </Card>
@@ -84,7 +96,7 @@ export default function TimeTrackingPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-sm">Trabajando ahora</span>
-                <span className="text-2xl font-bold">{workingCount}</span>
+                <span className="text-2xl font-bold">{stats.workingCount}</span>
               </div>
             </div>
           </Card>
@@ -96,7 +108,7 @@ export default function TimeTrackingPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-sm">En pausa</span>
-                <span className="text-2xl font-bold">{breakCount}</span>
+                <span className="text-2xl font-bold">{stats.breakCount}</span>
               </div>
             </div>
           </Card>
@@ -108,7 +120,7 @@ export default function TimeTrackingPage() {
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-muted-foreground text-sm">Fichados hoy</span>
-                <span className="text-2xl font-bold">{clockedTodayCount}</span>
+                <span className="text-2xl font-bold">{stats.clockedTodayCount}</span>
               </div>
             </div>
           </Card>
@@ -136,7 +148,7 @@ export default function TimeTrackingPage() {
               <div className="overflow-hidden rounded-lg border">
                 <DataTableNew table={table} columns={employeeColumns} />
               </div>
-              <DataTablePagination table={table} />
+              <DataTablePagination table={table} rowCount={totalRows} />
             </>
           )}
         </div>

@@ -1694,6 +1694,125 @@ export async function getTodaySummary() {
   }
 }
 
+export interface TodaySummaryLite {
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+  lastEntryType: string | null;
+  lastEntryTime: Date | null;
+}
+
+export interface WeeklySummaryLite {
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+}
+
+/**
+ * Resumen ligero del día (sin timeEntries)
+ * Optimizado para dashboards que solo necesitan totales y último evento.
+ */
+export async function getTodaySummaryLite(): Promise<TodaySummaryLite> {
+  try {
+    const { employee, orgId } = await getAuthenticatedUser();
+
+    if (!employee) {
+      return {
+        totalWorkedMinutes: 0,
+        totalBreakMinutes: 0,
+        lastEntryType: null,
+        lastEntryTime: null,
+      };
+    }
+
+    const today = new Date();
+    const dayStart = startOfDay(today);
+    const dayEnd = endOfDay(today);
+
+    const [summary, lastEntry] = await Promise.all([
+      prisma.workdaySummary.findUnique({
+        where: {
+          orgId_employeeId_date: {
+            orgId,
+            employeeId: employee.id,
+            date: dayStart,
+          },
+        },
+        select: {
+          totalWorkedMinutes: true,
+          totalBreakMinutes: true,
+        },
+      }),
+      prisma.timeEntry.findFirst({
+        where: {
+          employeeId: employee.id,
+          orgId,
+          timestamp: {
+            gte: dayStart,
+            lte: dayEnd,
+          },
+        },
+        select: {
+          entryType: true,
+          timestamp: true,
+        },
+        orderBy: {
+          timestamp: "desc",
+        },
+      }),
+    ]);
+
+    const lastEntryType = lastEntry ? lastEntry.entryType : null;
+    const lastEntryTime = lastEntry ? lastEntry.timestamp : null;
+
+    return {
+      totalWorkedMinutes: Number(summary?.totalWorkedMinutes ?? 0),
+      totalBreakMinutes: Number(summary?.totalBreakMinutes ?? 0),
+      lastEntryType,
+      lastEntryTime,
+    };
+  } catch (error) {
+    console.error("Error al obtener resumen ligero del día:", error);
+    throw error;
+  }
+}
+
+/**
+ * Resumen ligero semanal (solo totales)
+ * Optimizado para dashboards y métricas rápidas.
+ */
+export async function getWeeklySummaryLite(): Promise<WeeklySummaryLite> {
+  try {
+    const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+
+    const summary = await prisma.workdaySummary.aggregate({
+      where: {
+        orgId,
+        employeeId,
+        date: {
+          gte: weekStart,
+          lte: weekEnd,
+        },
+      },
+      _sum: {
+        totalWorkedMinutes: true,
+        totalBreakMinutes: true,
+      },
+    });
+
+    const { _sum: sumData } = summary;
+    return {
+      totalWorkedMinutes: Number(sumData.totalWorkedMinutes ?? 0),
+      totalBreakMinutes: Number(sumData.totalBreakMinutes ?? 0),
+    };
+  } catch (error) {
+    console.error("Error al obtener resumen ligero semanal:", error);
+    throw error;
+  }
+}
+
 // Obtener resumen semanal
 export async function getWeeklySummary() {
   try {
@@ -1792,7 +1911,6 @@ export async function detectIncompleteEntries() {
   try {
     const employee = await getAuthenticatedEmployee();
     const now = new Date();
-    const today = startOfDay(now);
 
     // Buscar último CLOCK_IN sin CLOCK_OUT correspondiente (NO cancelado)
     const openClockIn = await prisma.timeEntry.findFirst({
@@ -2050,12 +2168,10 @@ export async function recalculateWorkdaySummary(date: Date) {
     // 3. Obtener horario efectivo usando el motor de cálculo V2.0
     let expectedMinutes: number | null = null;
     let deviationMinutes: number | null = null;
-    let scheduleSource: string | null = null;
     let scheduleIsWorkday: boolean | null = null;
 
     try {
       const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
-      scheduleSource = effectiveSchedule.source ?? null;
       scheduleIsWorkday = effectiveSchedule.isWorkingDay;
       expectedMinutes = effectiveSchedule.expectedMinutes;
       deviationMinutes = worked - expectedMinutes;
@@ -2064,7 +2180,7 @@ export async function recalculateWorkdaySummary(date: Date) {
       console.log(
         `   📊 Desviación: ${deviationMinutes > 0 ? "+" : ""}${deviationMinutes.toFixed(2)} min (${(deviationMinutes / 60).toFixed(2)} horas)`,
       );
-    } catch (error) {
+    } catch {
       console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
     }
 

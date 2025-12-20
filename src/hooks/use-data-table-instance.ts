@@ -5,6 +5,8 @@ import {
   ColumnFiltersState,
   SortingState,
   VisibilityState,
+  PaginationState,
+  Updater,
   getCoreRowModel,
   getFacetedRowModel,
   getFacetedUniqueValues,
@@ -21,6 +23,10 @@ type UseDataTableInstanceProps<TData, TValue> = {
   defaultPageIndex?: number;
   defaultPageSize?: number;
   getRowId?: (row: TData, index: number) => string;
+  manualPagination?: boolean;
+  pageCount?: number;
+  paginationState?: PaginationState;
+  onPaginationChange?: (updater: Updater<PaginationState>) => void;
 };
 
 export function useDataTableInstance<TData, TValue>({
@@ -30,6 +36,10 @@ export function useDataTableInstance<TData, TValue>({
   defaultPageIndex,
   defaultPageSize,
   getRowId,
+  manualPagination = false,
+  pageCount,
+  paginationState,
+  onPaginationChange,
 }: UseDataTableInstanceProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -39,6 +49,8 @@ export function useDataTableInstance<TData, TValue>({
     pageIndex: defaultPageIndex ?? 0,
     pageSize: defaultPageSize ?? 10,
   });
+  const resolvedPagination = paginationState ?? pagination;
+  const handlePaginationChange = onPaginationChange ?? setPagination;
 
   const table = useReactTable({
     data,
@@ -48,7 +60,7 @@ export function useDataTableInstance<TData, TValue>({
       columnVisibility,
       rowSelection,
       columnFilters,
-      pagination,
+      pagination: resolvedPagination,
     },
     enableRowSelection,
     getRowId: getRowId ?? ((row) => (row as any).id.toString()),
@@ -56,13 +68,15 @@ export function useDataTableInstance<TData, TValue>({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: setColumnVisibility,
-    onPaginationChange: setPagination,
+    onPaginationChange: handlePaginationChange,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
+    manualPagination,
+    pageCount: manualPagination && pageCount !== undefined ? pageCount : undefined,
   });
 
   return table;

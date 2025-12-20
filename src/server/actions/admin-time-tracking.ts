@@ -26,24 +26,6 @@ function getLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper: Calcular días laborables en un período
-// Considera: inicio de contrato, patrón de días laborables, festivos
-async function calculateWorkableDays(
-  employeeId: string,
-  periodStart: Date,
-  periodEnd: Date,
-  contractStartDate: Date | null,
-): Promise<number> {
-  // El período efectivo empieza en la fecha más tardía entre el inicio del período y el inicio del contrato
-  const effectiveStart = contractStartDate && contractStartDate > periodStart ? contractStartDate : periodStart;
-
-  // Si el contrato empieza después del período, no hay días laborables
-  if (effectiveStart > periodEnd) return 0;
-
-  const schedules = await getEffectiveScheduleForRange(employeeId, effectiveStart, periodEnd);
-  return schedules.filter((schedule) => schedule.isWorkingDay).length;
-}
-
 // Tipos de filtros
 export interface TimeTrackingFilters {
   employeeId?: string;
@@ -401,6 +383,41 @@ function getExpectedEntryTimeFromContract(contract: any, targetDate: Date): stri
   return startTime ?? null;
 }
 
+async function getScheduleMapForRange(employeeId: string, rangeStart: Date, rangeEnd: Date) {
+  const schedules = await getEffectiveScheduleForRange(employeeId, rangeStart, rangeEnd);
+  type ScheduleItem = (typeof schedules)[number];
+  const scheduleMap = new Map<string, ScheduleItem>();
+  schedules.forEach((schedule) => {
+    scheduleMap.set(getLocalDateKey(schedule.date), schedule);
+  });
+  return scheduleMap;
+}
+
+function countWorkingDaysInRange(
+  scheduleMap: Map<string, { isWorkingDay: boolean }>,
+  rangeStart: Date,
+  rangeEnd: Date,
+  contractStartDate: Date | null,
+): number {
+  const start = startOfDay(rangeStart);
+  const end = startOfDay(rangeEnd);
+  const contractStart = contractStartDate ? startOfDay(contractStartDate) : null;
+
+  const days = eachDayOfInterval({ start, end });
+  return days.reduce((acc, day) => {
+    if (contractStart && day < contractStart) {
+      return acc;
+    }
+
+    const schedule = scheduleMap.get(getLocalDateKey(day));
+    if (schedule?.isWorkingDay) {
+      return acc + 1;
+    }
+
+    return acc;
+  }, 0);
+}
+
 // ============================================================================
 // FUNCIÓN PRINCIPAL - Obtener horas esperadas para un día específico
 // ============================================================================
@@ -710,99 +727,175 @@ export async function getEmployeeEntryTime(employeeId: string, targetDate: Date)
 }
 
 // Obtener lista de empleados para time tracking
-export async function getEmployeesForTimeTracking() {
+export async function getEmployeesForTimeTracking(pageIndex = 0, pageSize = 10) {
   try {
     const { orgId } = await checkAdminPermissions();
 
     const today = new Date();
     const dayStart = startOfDay(today);
 
-    const employees = await prisma.employee.findMany({
-      where: {
-        orgId,
-        active: true,
-      },
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-            image: true,
-          },
+    const safePageIndex = Math.max(0, pageIndex);
+    const safePageSize = Math.max(1, pageSize);
+
+    const [totalEmployees, employees] = await Promise.all([
+      prisma.employee.count({
+        where: {
+          orgId,
+          active: true,
         },
-        employmentContracts: {
-          where: {
-            active: true,
+      }),
+      prisma.employee.findMany({
+        where: {
+          orgId,
+          active: true,
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true,
+              image: true,
+            },
           },
-          include: {
-            department: {
-              select: {
-                id: true,
-                name: true,
+          employmentContracts: {
+            where: {
+              active: true,
+            },
+            include: {
+              department: {
+                select: {
+                  id: true,
+                  name: true,
+                },
               },
             },
+            take: 1,
           },
-          take: 1,
         },
-        timeEntries: {
-          where: {
-            timestamp: {
-              gte: dayStart,
+        orderBy: {
+          user: {
+            name: "asc",
+          },
+        },
+        skip: safePageIndex * safePageSize,
+        take: safePageSize,
+      }),
+    ]);
+
+    const employeeIds = employees.map((employee) => employee.id);
+
+    const [lastEntries, todaySummaries, latestEntriesToday] = await Promise.all([
+      employeeIds.length > 0
+        ? prisma.timeEntry.findMany({
+            where: {
+              orgId,
+              employeeId: { in: employeeIds },
+              timestamp: {
+                gte: dayStart,
+              },
             },
+            select: {
+              employeeId: true,
+              entryType: true,
+              timestamp: true,
+            },
+            orderBy: [{ employeeId: "asc" }, { timestamp: "desc" }],
+            distinct: ["employeeId"],
+          })
+        : [],
+      employeeIds.length > 0
+        ? prisma.workdaySummary.findMany({
+            where: {
+              orgId,
+              employeeId: { in: employeeIds },
+              date: dayStart,
+            },
+            select: {
+              employeeId: true,
+              totalWorkedMinutes: true,
+            },
+          })
+        : [],
+      prisma.timeEntry.findMany({
+        where: {
+          orgId,
+          timestamp: {
+            gte: dayStart,
           },
-          orderBy: {
-            timestamp: "desc",
+          employee: {
+            active: true,
           },
-          take: 1,
         },
-        workdaySummaries: {
-          where: {
-            date: dayStart,
-          },
-          take: 1,
+        select: {
+          employeeId: true,
+          entryType: true,
         },
-      },
-      orderBy: {
-        user: {
-          name: "asc",
-        },
-      },
-    });
+        orderBy: [{ employeeId: "asc" }, { timestamp: "desc" }],
+        distinct: ["employeeId"],
+      }),
+    ]);
 
-    return employees.map((employee) => {
-      const lastEntry = employee.timeEntries[0];
-      const todaySummary = employee.workdaySummaries[0];
-      const contract = employee.employmentContracts[0];
+    const lastEntryByEmployee = new Map(lastEntries.map((entry) => [entry.employeeId, entry]));
+    const summaryByEmployee = new Map(todaySummaries.map((summary) => [summary.employeeId, summary]));
 
-      let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
+    let workingCount = 0;
+    let breakCount = 0;
 
-      if (lastEntry) {
-        switch (lastEntry.entryType) {
-          case "CLOCK_IN":
-          case "BREAK_END":
-            status = "CLOCKED_IN";
-            break;
-          case "BREAK_START":
-            status = "ON_BREAK";
-            break;
-          case "CLOCK_OUT":
-          default:
-            status = "CLOCKED_OUT";
-            break;
-        }
+    latestEntriesToday.forEach((entry) => {
+      if (entry.entryType === "CLOCK_IN" || entry.entryType === "BREAK_END") {
+        workingCount += 1;
+        return;
       }
-
-      return {
-        id: employee.id,
-        name: employee.user?.name ?? "Sin nombre",
-        email: employee.user?.email ?? "",
-        image: employee.user?.image,
-        department: contract?.department?.name ?? "Sin departamento",
-        status,
-        lastAction: lastEntry?.timestamp || null,
-        todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
-      };
+      if (entry.entryType === "BREAK_START") {
+        breakCount += 1;
+      }
     });
+
+    const clockedTodayCount = latestEntriesToday.length;
+
+    return {
+      data: employees.map((employee) => {
+        const lastEntry = lastEntryByEmployee.get(employee.id);
+        const todaySummary = summaryByEmployee.get(employee.id);
+        const contract = employee.employmentContracts[0];
+
+        let status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
+
+        if (lastEntry) {
+          switch (lastEntry.entryType) {
+            case "CLOCK_IN":
+            case "BREAK_END":
+              status = "CLOCKED_IN";
+              break;
+            case "BREAK_START":
+              status = "ON_BREAK";
+              break;
+            case "CLOCK_OUT":
+            default:
+              status = "CLOCKED_OUT";
+              break;
+          }
+        }
+
+        return {
+          id: employee.id,
+          name: employee.user?.name ?? "Sin nombre",
+          email: employee.user?.email ?? "",
+          image: employee.user?.image,
+          department: contract?.department?.name ?? "Sin departamento",
+          status,
+          lastAction: lastEntry?.timestamp ?? null,
+          todayWorkedMinutes: todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0,
+        };
+      }),
+      total: totalEmployees,
+      stats: {
+        totalEmployees,
+        workingCount,
+        breakCount,
+        clockedTodayCount,
+      },
+    };
   } catch (error) {
     console.error("Error al obtener empleados:", error);
     throw error;
@@ -853,6 +946,10 @@ export async function getEmployeeWeeklySummary(employeeId: string, dateFrom?: Da
       },
     });
 
+    if (summaries.length === 0) {
+      return [];
+    }
+
     // Agrupar por semana
     const weeklyData = new Map<
       string,
@@ -896,10 +993,18 @@ export async function getEmployeeWeeklySummary(employeeId: string, dateFrom?: Da
       if (summary.status === "ABSENT") week.daysAbsent++;
     });
 
+    const rangeStart = dateFrom
+      ? startOfWeek(dateFrom, { weekStartsOn: 1 })
+      : startOfWeek(new Date(summaries[0].date), { weekStartsOn: 1 });
+    const rangeEnd = dateTo
+      ? endOfWeek(dateTo, { weekStartsOn: 1 })
+      : endOfWeek(new Date(summaries[summaries.length - 1].date), { weekStartsOn: 1 });
+    const scheduleMap = await getScheduleMapForRange(employeeId, rangeStart, rangeEnd);
+
     return Promise.all(
       Array.from(weeklyData.values()).map(async (week) => {
         // Calcular días laborables esperados en esta semana (considerando inicio de contrato)
-        const expectedDays = await calculateWorkableDays(employeeId, week.weekStart, week.weekEnd, contractStartDate);
+        const expectedDays = countWorkingDaysInRange(scheduleMap, week.weekStart, week.weekEnd, contractStartDate);
         const expectedHours = expectedDays * dailyHours;
 
         const actualHours = week.totalWorkedMinutes / 60;
@@ -978,6 +1083,10 @@ export async function getEmployeeMonthlySummary(employeeId: string, dateFrom?: D
       },
     });
 
+    if (summaries.length === 0) {
+      return [];
+    }
+
     // Agrupar por mes
     const monthlyData = new Map<
       string,
@@ -1018,11 +1127,15 @@ export async function getEmployeeMonthlySummary(employeeId: string, dateFrom?: D
       if (summary.status === "ABSENT") monthData.daysAbsent++;
     });
 
+    const rangeStart = dateFrom ? startOfMonth(dateFrom) : startOfMonth(new Date(summaries[0].date));
+    const rangeEnd = dateTo ? endOfMonth(dateTo) : endOfMonth(new Date(summaries[summaries.length - 1].date));
+    const scheduleMap = await getScheduleMapForRange(employeeId, rangeStart, rangeEnd);
+
     return Promise.all(
       Array.from(monthlyData.values()).map(async (month) => {
         // Calcular días laborables esperados en este mes (considerando inicio de contrato)
         const monthEnd = endOfMonth(month.month);
-        const expectedDays = await calculateWorkableDays(employeeId, month.month, monthEnd, contractStartDate);
+        const expectedDays = countWorkingDaysInRange(scheduleMap, month.month, monthEnd, contractStartDate);
         const expectedHours = expectedDays * dailyHours;
 
         const actualHours = month.totalWorkedMinutes / 60;
@@ -1096,6 +1209,10 @@ export async function getEmployeeYearlySummary(employeeId: string, dateFrom?: Da
       },
     });
 
+    if (summaries.length === 0) {
+      return [];
+    }
+
     // Agrupar por año
     const yearlyData = new Map<
       string,
@@ -1136,12 +1253,16 @@ export async function getEmployeeYearlySummary(employeeId: string, dateFrom?: Da
       if (summary.status === "ABSENT") yearData.daysAbsent++;
     });
 
+    const rangeStart = dateFrom ? startOfYear(dateFrom) : startOfYear(new Date(summaries[0].date));
+    const rangeEnd = dateTo ? endOfYear(dateTo) : endOfYear(new Date(summaries[summaries.length - 1].date));
+    const scheduleMap = await getScheduleMapForRange(employeeId, rangeStart, rangeEnd);
+
     return Promise.all(
       Array.from(yearlyData.values()).map(async (year) => {
         // Calcular días laborables esperados en este año (considerando inicio de contrato)
         const yearStart = startOfYear(new Date(year.year, 0, 1));
         const yearEnd = endOfYear(new Date(year.year, 11, 31));
-        const expectedDays = await calculateWorkableDays(employeeId, yearStart, yearEnd, contractStartDate);
+        const expectedDays = countWorkingDaysInRange(scheduleMap, yearStart, yearEnd, contractStartDate);
         const expectedHours = expectedDays * dailyHours;
 
         const actualHours = year.totalWorkedMinutes / 60;
@@ -1838,15 +1959,23 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
 
     const allTimeEntries = await prisma.timeEntry.findMany({
       where: timeEntriesWhere,
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            color: true,
-          },
-        },
+      select: {
+        id: true,
+        entryType: true,
+        timestamp: true,
+        location: true,
+        notes: true,
+        isManual: true,
+        isCancelled: true,
+        cancellationReason: true,
+        cancellationNotes: true,
+        projectId: true,
+        task: true,
+        latitude: true,
+        longitude: true,
+        accuracy: true,
+        isWithinAllowedArea: true,
+        requiresReview: true,
       },
       orderBy: {
         timestamp: "asc",
@@ -1964,14 +2093,6 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
                 cancellationReason: entry.cancellationReason,
                 cancellationNotes: entry.cancellationNotes,
                 projectId: entry.projectId,
-                project: entry.project
-                  ? {
-                      id: entry.project.id,
-                      name: entry.project.name,
-                      code: entry.project.code,
-                      color: entry.project.color,
-                    }
-                  : null,
                 task: entry.task ?? null,
                 // Campos GPS - Serializar Decimals a numbers para Next.js 15
                 latitude: entry.latitude ? Number(entry.latitude) : null,
@@ -2019,14 +2140,6 @@ export async function getEmployeeDailyDetail(employeeId: string, dateFrom?: Date
               notes: entry.notes,
               isManual: entry.isManual,
               projectId: entry.projectId,
-              project: entry.project
-                ? {
-                    id: entry.project.id,
-                    name: entry.project.name,
-                    code: entry.project.code,
-                    color: entry.project.color,
-                  }
-                : null,
               task: entry.task ?? null,
               // Campos GPS - Serializar Decimals a numbers para Next.js 15
               latitude: entry.latitude ? Number(entry.latitude) : null,

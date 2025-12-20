@@ -28,6 +28,7 @@ export type AlertFilters = {
   costCenterId?: string;
   departmentId?: string;
   teamId?: string;
+  search?: string;
 };
 
 export type AlertStats = {
@@ -38,6 +39,80 @@ export type AlertStats = {
   bySeverity: Array<{ severity: string; count: number }>;
   byType: Array<{ type: string; count: number }>;
 };
+
+type AlertSubscription = {
+  scope: "ORGANIZATION" | "DEPARTMENT" | "COST_CENTER" | "TEAM";
+  departmentId: string | null;
+  costCenterId: string | null;
+  teamId: string | null;
+  severityLevels: string[];
+  alertTypes: string[];
+};
+
+function buildMyAlertsWhere(orgId: string, subscriptions: AlertSubscription[], filters?: AlertFilters) {
+  const scopeFilters = subscriptions
+    .map((sub) => {
+      const clause: Record<string, unknown> = {};
+
+      if (sub.scope === "DEPARTMENT") {
+        if (!sub.departmentId) return null;
+        clause.departmentId = sub.departmentId;
+      } else if (sub.scope === "COST_CENTER") {
+        if (!sub.costCenterId) return null;
+        clause.costCenterId = sub.costCenterId;
+      } else if (sub.scope === "TEAM") {
+        if (!sub.teamId) return null;
+        clause.teamId = sub.teamId;
+      }
+
+      if (sub.severityLevels.length > 0) {
+        clause.severity = { in: sub.severityLevels };
+      }
+
+      if (sub.alertTypes.length > 0) {
+        clause.type = { in: sub.alertTypes };
+      }
+
+      return clause;
+    })
+    .filter((clause) => clause !== null);
+
+  const whereClause: Record<string, unknown> = {
+    orgId,
+    OR: scopeFilters,
+    ...(filters?.severity && { severity: filters.severity }),
+    ...(filters?.type && { type: filters.type }),
+    ...(filters?.status && { status: filters.status }),
+    ...(filters?.employeeId && { employeeId: filters.employeeId }),
+    ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
+    ...(filters?.departmentId && { departmentId: filters.departmentId }),
+    ...(filters?.teamId && { teamId: filters.teamId }),
+  };
+
+  const dateFilter: { gte?: Date; lte?: Date } = {};
+  if (filters?.dateFrom) {
+    dateFilter.gte = filters.dateFrom;
+  }
+  if (filters?.dateTo) {
+    dateFilter.lte = filters.dateTo;
+  }
+  if (Object.keys(dateFilter).length > 0) {
+    whereClause.date = dateFilter;
+  }
+
+  const searchValue = filters?.search?.trim();
+  if (searchValue) {
+    whereClause.employee = {
+      OR: [
+        { firstName: { contains: searchValue, mode: "insensitive" } },
+        { lastName: { contains: searchValue, mode: "insensitive" } },
+        { email: { contains: searchValue, mode: "insensitive" } },
+      ],
+    };
+  }
+
+  return whereClause;
+}
 
 // ============================================================================
 // ALERT QUERIES
@@ -85,56 +160,9 @@ export async function getMyAlerts(filters?: AlertFilters) {
       return []; // Sin suscripciones, no ve alertas
     }
 
-    // Construir query acumulativa (OR de todas las suscripciones)
-    const scopeFilters = subscriptions
-      .map((sub) => {
-        if (sub.scope === "ORGANIZATION") {
-          // Ve TODAS las alertas de la org
-          return { orgId: session.user.orgId };
-        }
-        if (sub.scope === "DEPARTMENT" && sub.departmentId) {
-          return {
-            orgId: session.user.orgId,
-            departmentId: sub.departmentId,
-          };
-        }
-        if (sub.scope === "COST_CENTER" && sub.costCenterId) {
-          return {
-            orgId: session.user.orgId,
-            costCenterId: sub.costCenterId,
-          };
-        }
-        if (sub.scope === "TEAM" && sub.teamId) {
-          return {
-            orgId: session.user.orgId,
-            teamId: sub.teamId,
-          };
-        }
-        return null;
-      })
-      .filter(Boolean) as Array<Record<string, unknown>>;
-
-    // Construir where clause
-    const whereClause: Record<string, unknown> = {
-      OR: scopeFilters,
-      ...(filters?.severity && { severity: filters.severity }),
-      ...(filters?.type && { type: filters.type }),
-      ...(filters?.status && { status: filters.status }),
-      ...(filters?.employeeId && { employeeId: filters.employeeId }),
-      ...(filters?.costCenterId && { costCenterId: filters.costCenterId }),
-      ...(filters?.departmentId && { departmentId: filters.departmentId }),
-      ...(filters?.teamId && { teamId: filters.teamId }),
-    };
-
-    const dateFilter: { gte?: Date; lte?: Date } = {};
-    if (filters?.dateFrom) {
-      dateFilter.gte = filters.dateFrom;
-    }
-    if (filters?.dateTo) {
-      dateFilter.lte = filters.dateTo;
-    }
-    if (Object.keys(dateFilter).length > 0) {
-      whereClause.date = dateFilter;
+    const whereClause = buildMyAlertsWhere(session.user.orgId, subscriptions, filters);
+    if (!whereClause.OR || (Array.isArray(whereClause.OR) && whereClause.OR.length === 0)) {
+      return [];
     }
 
     // Query con filtrado por severidad y tipo de alerta
@@ -172,30 +200,8 @@ export async function getMyAlerts(filters?: AlertFilters) {
       orderBy: [{ severity: "desc" }, { date: "desc" }, { createdAt: "desc" }],
     });
 
-    // Filtrar por severityLevels y alertTypes de las suscripciones
-    const filteredAlerts = alerts.filter((alert) => {
-      // Verificar que al menos una suscripción permite esta alerta
-      return subscriptions.some((sub) => {
-        // Filtrar por severidad si está configurada
-        if (sub.severityLevels.length > 0) {
-          if (!sub.severityLevels.includes(alert.severity)) {
-            return false;
-          }
-        }
-
-        // Filtrar por tipo si está configurado
-        if (sub.alertTypes.length > 0) {
-          if (!sub.alertTypes.includes(alert.type)) {
-            return false;
-          }
-        }
-
-        return true;
-      });
-    });
-
     // Serializar fechas
-    return filteredAlerts.map((alert) => ({
+    return alerts.map((alert) => ({
       ...alert,
       date: alert.date.toISOString(),
       createdAt: alert.createdAt.toISOString(),
@@ -204,6 +210,100 @@ export async function getMyAlerts(filters?: AlertFilters) {
     }));
   } catch (error) {
     console.error("Error al obtener alertas:", error);
+    throw error;
+  }
+}
+
+/**
+ * Obtiene alertas del usuario con paginación (según suscripciones).
+ */
+export async function getMyAlertsPage(filters?: AlertFilters, pageIndex = 0, pageSize = 10) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id || !session?.user?.orgId) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    const subscriptions = await prisma.alertSubscription.findMany({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+        isActive: true,
+        notifyInApp: true,
+      },
+      select: {
+        scope: true,
+        departmentId: true,
+        costCenterId: true,
+        teamId: true,
+        severityLevels: true,
+        alertTypes: true,
+      },
+    });
+
+    if (subscriptions.length === 0) {
+      return { alerts: [], total: 0 };
+    }
+
+    const whereClause = buildMyAlertsWhere(session.user.orgId, subscriptions, filters);
+    if (!whereClause.OR || (Array.isArray(whereClause.OR) && whereClause.OR.length === 0)) {
+      return { alerts: [], total: 0 };
+    }
+
+    const safePageIndex = Math.max(0, pageIndex);
+    const safePageSize = Math.max(1, pageSize);
+
+    const [alerts, total] = await Promise.all([
+      prisma.alert.findMany({
+        where: whereClause,
+        include: {
+          employee: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+            },
+          },
+          costCenter: {
+            select: {
+              name: true,
+            },
+          },
+          department: {
+            select: {
+              name: true,
+            },
+          },
+          team: {
+            select: {
+              name: true,
+            },
+          },
+          resolver: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: [{ severity: "desc" }, { date: "desc" }, { createdAt: "desc" }],
+        skip: safePageIndex * safePageSize,
+        take: safePageSize,
+      }),
+      prisma.alert.count({ where: whereClause }),
+    ]);
+
+    return {
+      alerts: alerts.map((alert) => ({
+        ...alert,
+        date: alert.date.toISOString(),
+        createdAt: alert.createdAt.toISOString(),
+        updatedAt: alert.updatedAt.toISOString(),
+        resolvedAt: alert.resolvedAt ? alert.resolvedAt.toISOString() : null,
+      })),
+      total,
+    };
+  } catch (error) {
+    console.error("Error al obtener alertas paginadas:", error);
     throw error;
   }
 }
@@ -218,44 +318,80 @@ export async function getMyAlertStats(filters?: AlertFilters): Promise<AlertStat
       throw new Error("Usuario no autenticado");
     }
 
-    // Reutilizar lógica de getMyAlerts para obtener alertas del usuario
-    const alerts = await getMyAlerts(filters);
-
-    // Calcular estadísticas
-    const total = alerts.length;
-    const active = alerts.filter((a) => a.status === "ACTIVE").length;
-    const resolved = alerts.filter((a) => a.status === "RESOLVED").length;
-    const dismissed = alerts.filter((a) => a.status === "DISMISSED").length;
-
-    // Agrupar por severidad
-    const severityCounts: Record<string, number> = {};
-    alerts.forEach((alert) => {
-      severityCounts[alert.severity] = (severityCounts[alert.severity] ?? 0) + 1;
+    const subscriptions = await prisma.alertSubscription.findMany({
+      where: {
+        userId: session.user.id,
+        orgId: session.user.orgId,
+        isActive: true,
+        notifyInApp: true,
+      },
+      select: {
+        scope: true,
+        departmentId: true,
+        costCenterId: true,
+        teamId: true,
+        severityLevels: true,
+        alertTypes: true,
+      },
     });
 
-    const bySeverity = Object.entries(severityCounts).map(([severity, count]) => ({
-      severity,
-      count,
-    }));
+    if (subscriptions.length === 0) {
+      return {
+        total: 0,
+        active: 0,
+        resolved: 0,
+        dismissed: 0,
+        bySeverity: [],
+        byType: [],
+      };
+    }
 
-    // Agrupar por tipo
-    const typeCounts: Record<string, number> = {};
-    alerts.forEach((alert) => {
-      typeCounts[alert.type] = (typeCounts[alert.type] ?? 0) + 1;
+    const whereClause = buildMyAlertsWhere(session.user.orgId, subscriptions, {
+      ...filters,
+      status: undefined,
     });
 
-    const byType = Object.entries(typeCounts).map(([type, count]) => ({
-      type,
-      count,
-    }));
+    if (!whereClause.OR || (Array.isArray(whereClause.OR) && whereClause.OR.length === 0)) {
+      return {
+        total: 0,
+        active: 0,
+        resolved: 0,
+        dismissed: 0,
+        bySeverity: [],
+        byType: [],
+      };
+    }
+
+    const [total, active, resolved, dismissed, bySeverity, byType] = await Promise.all([
+      prisma.alert.count({ where: whereClause }),
+      prisma.alert.count({ where: { ...whereClause, status: "ACTIVE" } }),
+      prisma.alert.count({ where: { ...whereClause, status: "RESOLVED" } }),
+      prisma.alert.count({ where: { ...whereClause, status: "DISMISSED" } }),
+      prisma.alert.groupBy({
+        by: ["severity"],
+        where: whereClause,
+        _count: true,
+      }),
+      prisma.alert.groupBy({
+        by: ["type"],
+        where: whereClause,
+        _count: true,
+      }),
+    ]);
 
     return {
       total,
       active,
       resolved,
       dismissed,
-      bySeverity,
-      byType,
+      bySeverity: bySeverity.map((item) => ({
+        severity: item.severity,
+        count: item._count,
+      })),
+      byType: byType.map((item) => ({
+        type: item.type,
+        count: item._count,
+      })),
     };
   } catch (error) {
     console.error("Error al obtener estadísticas de alertas:", error);

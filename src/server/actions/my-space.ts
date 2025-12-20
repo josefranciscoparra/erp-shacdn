@@ -1,16 +1,16 @@
 "use server";
 
-import { startOfMonth, endOfMonth, addMonths, isAfter, isBefore } from "date-fns";
+import { isAfter, isBefore, isSameDay } from "date-fns";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getEffectiveSchedule, getWeekSchedule } from "@/services/schedules/schedule-engine";
+import { getWeekSchedule } from "@/services/schedules/schedule-engine";
 
 import { getMyMonthEvents } from "./employee-calendars";
 import { getMyPtoBalance } from "./employee-pto";
 import { getAllMyNotifications } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
-import { getTodaySummary, getWeeklySummary } from "./time-tracking";
+import { getTodaySummaryLite, getWeeklySummaryLite } from "./time-tracking";
 
 export interface MySpaceDashboard {
   // Flag para identificar administradores sin empleado
@@ -106,18 +106,16 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
     });
 
     // 1. Obtener resumen de fichajes (hoy y semana)
-    const [todaySummary, weeklySummary] = await Promise.all([getTodaySummary(), getWeeklySummary()]);
-
-    // Calcular horas esperadas para HOY (compatible con FLEXIBLE, FIXED, SHIFTS)
     const today = new Date();
-    // Usar el motor de horarios v2 para obtener el horario efectivo real
-    const todaySchedule = await getEffectiveSchedule(employee.id, today);
-    const expectedDailyMinutes = todaySchedule.expectedMinutes;
+    const [todaySummary, weeklySummary, weekSchedule] = await Promise.all([
+      getTodaySummaryLite(),
+      getWeeklySummaryLite(),
+      getWeekSchedule(employee.id, today),
+    ]);
 
-    // Calcular horas esperadas para la SEMANA (suma de cada día laborable)
-    // Usar el motor de horarios v2 para obtener la semana completa
-    const weekSchedule = await getWeekSchedule(employee.id, today);
     const expectedWeeklyMinutes = weekSchedule.totalExpectedMinutes;
+    const todaySchedule = weekSchedule.days.find((day) => isSameDay(day.date, today));
+    const expectedDailyMinutes = todaySchedule ? todaySchedule.expectedMinutes : 0;
 
     // 2. Obtener balance de vacaciones
     let ptoBalance = null;
@@ -184,45 +182,34 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
 
     // Determinar estado actual del fichaje
     let clockStatus: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK" = "CLOCKED_OUT";
-    if (todaySummary) {
-      const lastEntry = todaySummary.timeEntries[todaySummary.timeEntries.length - 1];
-      if (lastEntry) {
-        switch (lastEntry.entryType) {
-          case "CLOCK_IN":
-          case "BREAK_END":
-            clockStatus = "CLOCKED_IN";
-            break;
-          case "BREAK_START":
-            clockStatus = "ON_BREAK";
-            break;
-          case "CLOCK_OUT":
-            clockStatus = "CLOCKED_OUT";
-            break;
-        }
+    if (todaySummary.lastEntryType) {
+      switch (todaySummary.lastEntryType) {
+        case "CLOCK_IN":
+        case "BREAK_END":
+        case "PROJECT_SWITCH":
+          clockStatus = "CLOCKED_IN";
+          break;
+        case "BREAK_START":
+          clockStatus = "ON_BREAK";
+          break;
+        case "CLOCK_OUT":
+        default:
+          clockStatus = "CLOCKED_OUT";
+          break;
       }
     }
 
     // Calcular tiempo en progreso (igual que en quick-clock-widget.tsx)
-    let todayWorkedMinutes = todaySummary?.totalWorkedMinutes ?? 0;
-    let weekWorkedMinutes = weeklySummary?.totalWorkedMinutes ?? 0;
+    let todayWorkedMinutes = todaySummary.totalWorkedMinutes;
+    let weekWorkedMinutes = weeklySummary.totalWorkedMinutes;
 
-    if (clockStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
+    if (clockStatus === "CLOCKED_IN" && todaySummary.lastEntryTime) {
       const now = new Date();
-      const entries = todaySummary.timeEntries;
-      // Buscar la última entrada de tipo CLOCK_IN o BREAK_END
-      const lastWorkStart = [...entries]
-        .reverse()
-        .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END");
-
-      if (lastWorkStart) {
-        const startTime = new Date(lastWorkStart.timestamp);
-        const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
-        const minutesFromStart = secondsFromStart / 60;
-        // Sumar los minutos en progreso al tiempo trabajado hoy
-        todayWorkedMinutes += minutesFromStart;
-        // También sumar al total semanal
-        weekWorkedMinutes += minutesFromStart;
-      }
+      const startTime = new Date(todaySummary.lastEntryTime);
+      const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
+      const minutesFromStart = secondsFromStart / 60;
+      todayWorkedMinutes += minutesFromStart;
+      weekWorkedMinutes += minutesFromStart;
     }
 
     return {
@@ -230,13 +217,13 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       timeTracking: {
         today: {
           workedMinutes: todayWorkedMinutes,
-          breakMinutes: todaySummary?.totalBreakMinutes ?? 0,
+          breakMinutes: todaySummary.totalBreakMinutes,
           expectedMinutes: expectedDailyMinutes,
           status: clockStatus,
         },
         week: {
           totalWorkedMinutes: weekWorkedMinutes,
-          totalBreakMinutes: weeklySummary?.totalBreakMinutes ?? 0,
+          totalBreakMinutes: weeklySummary.totalBreakMinutes,
           expectedMinutes: expectedWeeklyMinutes,
         },
       },
