@@ -1,4 +1,4 @@
-import PgBoss from "pg-boss";
+import { PgBoss } from "pg-boss";
 
 let bossInstance: PgBoss | null = null;
 let bossStartPromise: Promise<PgBoss> | null = null;

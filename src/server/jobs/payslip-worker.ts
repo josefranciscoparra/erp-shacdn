@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";

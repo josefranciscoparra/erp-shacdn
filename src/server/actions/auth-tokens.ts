@@ -26,7 +26,7 @@ function generateToken(): string {
 /**
  * Obtiene la URL base de la aplicación
  */
-export function getAppUrl(): string {
+export async function getAppUrl(): Promise<string> {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
@@ -86,7 +86,7 @@ export async function requestPasswordReset(email: string): Promise<ActionResult>
     });
 
     // Enviar email con link de reset
-    const resetLink = `${getAppUrl()}/auth/reset-password?token=${encodeURIComponent(token)}`;
+    const resetLink = `${await getAppUrl()}/auth/reset-password?token=${encodeURIComponent(token)}`;
     console.log("[requestPasswordReset] Enviando email a:", user.email, "con link:", resetLink);
 
     const emailResult = await sendResetPasswordEmail({
@@ -401,7 +401,7 @@ export async function resendInviteEmail(userId: string): Promise<ActionResult> {
     }
 
     // Enviar email
-    const inviteLink = `${getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
+    const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
 
     const emailResult = await sendAuthInviteEmail({
       to: {

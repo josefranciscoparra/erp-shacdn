@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 
 import { processEmployeeImportJob } from "@/server/jobs/employee-import-processor";
 import { EMPLOYEE_IMPORT_PROCESS_JOB, type EmployeeImportJobPayload } from "@/server/jobs/employee-import-queue";

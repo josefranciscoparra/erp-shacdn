@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
 
-import type PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 
 import { prisma } from "@/lib/prisma";
 import { getRecipientEmployees, resolveSecondSigner } from "@/lib/signatures/double-signature";

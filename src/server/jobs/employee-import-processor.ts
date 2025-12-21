@@ -35,7 +35,7 @@ async function sendImportInvitation(params: {
       return inviteToken.error ?? "No fue posible generar el token de invitación.";
     }
 
-    const inviteLink = `${getAppUrl()}/auth/accept-invite?token=${inviteToken.data.token}`;
+    const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${inviteToken.data.token}`;
     const emailResult = await sendAuthInviteEmail({
       to: { email, name: `${firstName} ${lastName}` },
       inviteLink,
