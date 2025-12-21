@@ -2,7 +2,6 @@
 
 import { type Prisma, TimeBankApprovalFlow } from "@prisma/client";
 
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasPermission } from "@/services/permissions/permissions";
 
@@ -39,14 +38,14 @@ export interface TimeBankFullSettings extends TimeBankBasicSettingsData {
 // ==================== FUNCIONES DE LECTURA ====================
 
 export async function getTimeBankApprovalSettings(): Promise<{ approvalFlow: TimeBankApprovalFlow }> {
-  const session = await auth();
+  const user = await getAuthenticatedUser();
 
-  if (!session?.user?.orgId) {
-    throw new Error("Usuario no autenticado o sin organización");
+  if (!hasPermission(user.role, "manage_organization")) {
+    throw new Error("No tienes permisos para ver la configuración de bolsa de horas");
   }
 
   const settings = await prisma.timeBankSettings.findUnique({
-    where: { orgId: session.user.orgId },
+    where: { orgId: user.orgId },
     select: {
       approvalFlow: true,
     },
@@ -93,20 +92,48 @@ export async function getTimeBankFullSettings(): Promise<TimeBankFullSettings> {
 // ==================== FUNCIONES DE ESCRITURA ====================
 
 export async function updateTimeBankApprovalSettings(approvalFlow: TimeBankApprovalFlow) {
-  const session = await auth();
+  const user = await getAuthenticatedUser();
 
-  if (!session?.user?.orgId) {
-    throw new Error("Usuario no autenticado o sin organización");
+  if (!hasPermission(user.role, "manage_organization")) {
+    throw new Error("No tienes permisos para modificar la configuración de bolsa de horas");
   }
 
+  const previousSettings = await prisma.timeBankSettings.findUnique({
+    where: { orgId: user.orgId },
+    select: {
+      approvalFlow: true,
+    },
+  });
+
   await prisma.timeBankSettings.upsert({
-    where: { orgId: session.user.orgId },
+    where: { orgId: user.orgId },
     update: {
       approvalFlow,
     },
     create: {
-      orgId: session.user.orgId,
+      orgId: user.orgId,
       approvalFlow,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      action: "TIME_BANK_APPROVAL_SETTINGS_UPDATED",
+      category: "SETTINGS",
+      entityId: user.orgId,
+      entityType: "TimeBankSettings",
+      entityData: {
+        previous: previousSettings ?? {
+          approvalFlow: DEFAULT_TIME_BANK_SETTINGS.approvalFlow,
+        },
+        new: { approvalFlow },
+      } as unknown as Prisma.InputJsonValue,
+      description: `Configuración de aprobación de bolsa de horas actualizada por ${user.name ?? user.email}`,
+      performedById: user.userId,
+      performedByEmail: user.email ?? "",
+      performedByName: user.name ?? "",
+      performedByRole: user.role,
+      orgId: user.orgId,
     },
   });
 

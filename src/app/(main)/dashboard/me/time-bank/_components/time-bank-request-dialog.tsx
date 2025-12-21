@@ -28,7 +28,8 @@ const requestSchema = z.object({
       invalid_type_error: "Debes introducir horas válidas",
     })
     .min(0.25, "Mínimo 15 minutos (0.25h)")
-    .max(24, "Máximo 24 horas"),
+    .max(24, "Máximo 24 horas")
+    .refine((value) => Math.round(value * 60) % 15 === 0, "Las horas deben ser múltiplos de 15 minutos"),
   reason: z
     .string()
     .max(500, "Máximo 500 caracteres")

@@ -2,6 +2,7 @@
 
 import {
   Prisma,
+  PrismaClient,
   TimeBankApprovalFlow,
   TimeBankMovementOrigin,
   TimeBankMovementStatus,
@@ -40,6 +41,11 @@ const DEFAULT_TIME_BANK_SETTINGS = {
   autoCloseMissingClockOut: true,
   allowCashConversion: false,
   approvalFlow: "MIRROR_PTO" as TimeBankApprovalFlow,
+} as const;
+
+const REQUEST_POLICY = {
+  minMinutes: 15,
+  stepMinutes: 15,
 } as const;
 
 type NormalizedTimeBankSettings = {
@@ -92,6 +98,99 @@ function normalizeSettings(orgId: string, settings?: TimeBankSettings | null): N
     allowCashConversion: settings?.allowCashConversion ?? DEFAULT_TIME_BANK_SETTINGS.allowCashConversion,
     approvalFlow: settings?.approvalFlow ?? DEFAULT_TIME_BANK_SETTINGS.approvalFlow,
   };
+}
+
+type PrismaClientLike = Prisma.TransactionClient | PrismaClient;
+
+async function getEmployeeBalanceMinutes(
+  client: PrismaClientLike,
+  orgId: string,
+  employeeId: string,
+  exclude?: { movementId?: string; requestId?: string },
+): Promise<number> {
+  const excludeFilters: Prisma.TimeBankMovementWhereInput[] = [];
+  if (exclude?.movementId) {
+    excludeFilters.push({ id: exclude.movementId });
+  }
+  if (exclude?.requestId) {
+    excludeFilters.push({ requestId: exclude.requestId });
+  }
+
+  const aggregate = await client.timeBankMovement.aggregate({
+    where: {
+      orgId,
+      employeeId,
+      ...(excludeFilters.length > 0 ? { NOT: excludeFilters } : {}),
+    },
+    _sum: { minutes: true },
+  });
+
+  // eslint-disable-next-line no-underscore-dangle
+  return aggregate._sum.minutes ?? 0;
+}
+
+function normalizeRequestedMinutes(rawMinutes: number): number {
+  if (!Number.isFinite(rawMinutes)) {
+    throw new Error("Los minutos solicitados deben ser un número válido");
+  }
+  if (!Number.isInteger(rawMinutes)) {
+    throw new Error("Los minutos solicitados deben ser enteros");
+  }
+  if (rawMinutes <= 0) {
+    throw new Error("Los minutos solicitados deben ser mayores que 0");
+  }
+  if (rawMinutes < REQUEST_POLICY.minMinutes) {
+    throw new Error(`El mínimo permitido es ${REQUEST_POLICY.minMinutes} minutos`);
+  }
+  if (rawMinutes % REQUEST_POLICY.stepMinutes !== 0) {
+    throw new Error(`Los minutos deben ser múltiplos de ${REQUEST_POLICY.stepMinutes}`);
+  }
+  return rawMinutes;
+}
+
+function formatMinutesForMessage(minutes: number): string {
+  const hours = minutes / 60;
+  return `${minutes} min (${hours.toFixed(1)}h)`;
+}
+
+function getMaxAllowedMinutesForRequest(
+  requestType: TimeBankRequestType,
+  balanceMinutes: number,
+  settings: NormalizedTimeBankSettings,
+): number {
+  if (requestType === "RECOVERY") {
+    return Math.max(0, balanceMinutes + settings.maxNegativeMinutes);
+  }
+
+  return Math.max(0, settings.maxPositiveMinutes - balanceMinutes);
+}
+
+function clampMovementMinutes(
+  minutes: number,
+  balanceMinutes: number,
+  settings: NormalizedTimeBankSettings,
+): { appliedMinutes: number; clamped: boolean } {
+  if (minutes > 0) {
+    const available = settings.maxPositiveMinutes - balanceMinutes;
+    if (available <= 0) {
+      return { appliedMinutes: 0, clamped: true };
+    }
+    if (minutes > available) {
+      return { appliedMinutes: available, clamped: true };
+    }
+  }
+
+  if (minutes < 0) {
+    const available = balanceMinutes + settings.maxNegativeMinutes;
+    if (available <= 0) {
+      return { appliedMinutes: 0, clamped: true };
+    }
+    if (Math.abs(minutes) > available) {
+      return { appliedMinutes: available * -1, clamped: true };
+    }
+  }
+
+  return { appliedMinutes: minutes, clamped: false };
 }
 
 export async function getTimeBankSettingsForOrg(orgId: string): Promise<NormalizedTimeBankSettings> {
@@ -205,20 +304,52 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
 
   const movementType = normalizedMinutes >= 0 ? TimeBankMovementType.EXTRA : TimeBankMovementType.DEFICIT;
   const dayDate = startOfDay(workday.date);
+  const balanceMinutes = await getEmployeeBalanceMinutes(
+    prisma,
+    workday.orgId,
+    workday.employeeId,
+    existingMovement ? { movementId: existingMovement.id } : undefined,
+  );
+  const { appliedMinutes, clamped } = clampMovementMinutes(normalizedMinutes, balanceMinutes, settings);
+
+  if (appliedMinutes === 0) {
+    if (existingMovement) {
+      await prisma.timeBankMovement.delete({
+        where: { id: existingMovement.id },
+      });
+    }
+
+    return null;
+  }
+
+  const movementMetadata = clamped
+    ? ({
+        clampedByLimit: true,
+        attemptedMinutes: normalizedMinutes,
+        appliedMinutes,
+        balanceBeforeMinutes: balanceMinutes,
+        maxPositiveMinutes: settings.maxPositiveMinutes,
+        maxNegativeMinutes: settings.maxNegativeMinutes,
+      } as unknown as Prisma.InputJsonValue)
+    : Prisma.JsonNull;
+  const movementDescription = clamped
+    ? "Diferencia diaria automática (recortada por límite)"
+    : "Diferencia diaria automática";
 
   if (existingMovement) {
-    if (existingMovement.minutes === normalizedMinutes) {
+    if (existingMovement.minutes === appliedMinutes) {
       return existingMovement;
     }
 
     return prisma.timeBankMovement.update({
       where: { id: existingMovement.id },
       data: {
-        minutes: normalizedMinutes,
+        minutes: appliedMinutes,
         date: dayDate,
         type: movementType,
         status: TimeBankMovementStatus.SETTLED,
-        description: "Ajuste automático según resumen diario",
+        description: movementDescription,
+        metadata: movementMetadata,
       },
     });
   }
@@ -229,12 +360,13 @@ export async function syncTimeBankForWorkday(workday: WorkdayForSync) {
       employeeId: workday.employeeId,
       workdayId: workday.id,
       date: dayDate,
-      minutes: normalizedMinutes,
+      minutes: appliedMinutes,
       type: movementType,
       origin: TimeBankMovementOrigin.AUTO_DAILY,
       status: TimeBankMovementStatus.SETTLED,
       requiresApproval: false,
-      description: "Diferencia diaria automática",
+      description: movementDescription,
+      metadata: movementMetadata,
     },
   });
 }
@@ -357,14 +489,6 @@ function normalizeRequestDate(date: Date): Date {
   return normalized;
 }
 
-function ensurePositiveMinutes(minutes: number): number {
-  const normalized = Math.round(Math.abs(minutes));
-  if (!Number.isFinite(normalized) || normalized <= 0) {
-    throw new Error("Los minutos solicitados deben ser mayores que 0");
-  }
-  return normalized;
-}
-
 function ensureReviewerRole(role: string) {
   if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER"].includes(role)) {
     throw new Error("No tienes permisos para revisar solicitudes de bolsa de horas");
@@ -473,13 +597,21 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
   });
 
   const normalizedDate = normalizeRequestDate(new Date(input.date));
-  const requestedMinutes = ensurePositiveMinutes(input.minutes);
+  const requestedMinutes = normalizeRequestedMinutes(input.minutes);
 
-  if (input.type === "RECOVERY") {
-    const summary = await getEmployeeTimeBankSummary(employeeId, orgId);
-    if (summary.totalMinutes < requestedMinutes) {
-      throw new Error("No tienes saldo suficiente en la bolsa de horas");
+  const settings = await getTimeBankSettingsForOrg(orgId);
+  const balanceMinutes = await getEmployeeBalanceMinutes(prisma, orgId, employeeId);
+  const maxAllowed = getMaxAllowedMinutesForRequest(input.type, balanceMinutes, settings);
+
+  if (maxAllowed <= 0) {
+    if (input.type === "RECOVERY") {
+      throw new Error("No tienes saldo disponible para recuperar horas");
     }
+    throw new Error("No puedes acumular más horas: ya alcanzaste el máximo permitido");
+  }
+
+  if (requestedMinutes > maxAllowed) {
+    throw new Error(`Supera el máximo permitido. Máximo solicitables: ${formatMinutesForMessage(maxAllowed)}`);
   }
 
   const pendingRequest = await prisma.timeBankRequest.findFirst({
@@ -502,6 +634,13 @@ export async function createTimeBankRequest(input: CreateTimeBankRequestInput) {
   const now = new Date();
 
   const requestWithEmployee = await prisma.$transaction(async (tx) => {
+    const txBalanceMinutes = await getEmployeeBalanceMinutes(tx, orgId, employeeId);
+    const txMaxAllowed = getMaxAllowedMinutesForRequest(input.type, txBalanceMinutes, settings);
+
+    if (requestedMinutes > txMaxAllowed) {
+      throw new Error(`Supera el máximo permitido. Máximo solicitables: ${formatMinutesForMessage(txMaxAllowed)}`);
+    }
+
     const created = await tx.timeBankRequest.create({
       data: {
         orgId,
@@ -826,6 +965,25 @@ export async function reviewTimeBankRequest(input: ReviewTimeBankRequestInput) {
     }
 
     return;
+  }
+
+  const settings = await getTimeBankSettingsForOrg(orgId);
+  const balanceMinutes = await getEmployeeBalanceMinutes(prisma, orgId, request.employeeId, {
+    requestId: request.id,
+  });
+  const maxAllowed = getMaxAllowedMinutesForRequest(request.type, balanceMinutes, settings);
+
+  if (maxAllowed <= 0) {
+    if (request.type === "RECOVERY") {
+      throw new Error("No tienes saldo disponible para aprobar esta recuperación");
+    }
+    throw new Error("No puedes aprobar más horas: el saldo alcanzó el máximo permitido");
+  }
+
+  if (request.requestedMinutes > maxAllowed) {
+    throw new Error(
+      `La solicitud supera el máximo permitido. Máximo aprobable: ${formatMinutesForMessage(maxAllowed)}`,
+    );
   }
 
   await prisma.$transaction(async (tx) => {

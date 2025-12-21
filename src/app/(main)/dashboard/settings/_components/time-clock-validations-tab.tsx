@@ -9,16 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { getTimeBankApprovalSettings, updateTimeBankApprovalSettings } from "@/server/actions/time-bank-settings";
 import {
   getOrganizationValidationConfig,
   updateOrganizationValidationConfig,
 } from "@/server/actions/time-clock-validations";
-
-type TimeBankApprovalFlowOption = "MIRROR_PTO" | "HR_ONLY";
 
 interface ValidationConfig {
   clockInToleranceMinutes: number;
@@ -41,7 +37,6 @@ interface ValidationConfig {
 export function TimeClockValidationsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [timeBankApprovalFlow, setTimeBankApprovalFlow] = useState<TimeBankApprovalFlowOption>("MIRROR_PTO");
   const [config, setConfig] = useState<ValidationConfig>({
     clockInToleranceMinutes: 15,
     clockOutToleranceMinutes: 15,
@@ -63,12 +58,8 @@ export function TimeClockValidationsTab() {
     const loadData = async () => {
       try {
         setIsLoading(true);
-        const [validationData, approvalSettings] = await Promise.all([
-          getOrganizationValidationConfig(),
-          getTimeBankApprovalSettings(),
-        ]);
+        const validationData = await getOrganizationValidationConfig();
         setConfig(validationData);
-        setTimeBankApprovalFlow(approvalSettings.approvalFlow);
       } catch (error) {
         console.error("Error loading validation config:", error);
         toast.error("Error al cargar la configuración");
@@ -83,10 +74,7 @@ export function TimeClockValidationsTab() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await Promise.all([
-        updateOrganizationValidationConfig(config),
-        updateTimeBankApprovalSettings(timeBankApprovalFlow),
-      ]);
+      await updateOrganizationValidationConfig(config);
       toast.success("Configuración actualizada correctamente");
     } catch (error) {
       console.error("Error updating validation config:", error);
@@ -373,36 +361,20 @@ export function TimeClockValidationsTab() {
             </div>
           </div>
 
-          <div className="space-y-4 border-t pt-4">
+          <div className="space-y-2 border-t pt-4">
             <div className="flex items-center gap-2">
               <ClockIcon className="h-5 w-5" />
               <div>
                 <h3 className="font-semibold">Bolsa de Horas</h3>
                 <p className="text-muted-foreground text-sm">
-                  Define quién revisa las solicitudes de recuperación o compensación de horas
+                  El flujo de aprobaciones se configura desde la pestaña &quot;Aprobaciones&quot;.
                 </p>
               </div>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="timeBankFlow">Flujo de aprobación</Label>
-              <Select
-                value={timeBankApprovalFlow}
-                onValueChange={(value: TimeBankApprovalFlowOption) => setTimeBankApprovalFlow(value)}
-                disabled={isSaving}
-              >
-                <SelectTrigger id="timeBankFlow">
-                  <SelectValue placeholder="Selecciona un flujo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MIRROR_PTO">Igual que vacaciones (manager → RRHH)</SelectItem>
-                  <SelectItem value="HR_ONLY">Siempre RRHH</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-muted-foreground text-xs">
-                Si eliges “Igual que vacaciones”, utilizaremos la misma jerarquía de aprobadores configurada en PTO.
-              </p>
-            </div>
+            <p className="text-muted-foreground text-xs">
+              Configura el workflow de TIME_BANK en Aprobaciones para definir responsables, jerarquías o listas de
+              aprobadores.
+            </p>
           </div>
 
           <div className="flex justify-end">

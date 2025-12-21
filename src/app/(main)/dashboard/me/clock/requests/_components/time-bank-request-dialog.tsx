@@ -35,7 +35,8 @@ const requestSchema = z.object({
       invalid_type_error: "Debes introducir minutos válidos",
     })
     .int("Los minutos deben ser enteros")
-    .positive("Los minutos deben ser positivos"),
+    .min(15, "Mínimo 15 minutos")
+    .refine((value) => value % 15 === 0, "Los minutos deben ser múltiplos de 15"),
   reason: z
     .string()
     .max(500, "Máximo 500 caracteres")

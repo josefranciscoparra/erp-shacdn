@@ -305,8 +305,8 @@ export function TimeBankTab() {
                 </li>
               </ul>
               <p className="mt-2">
-                <strong>Límites:</strong> Si el saldo alcanza el límite configurado, las nuevas horas se recortarán
-                automáticamente.
+                <strong>Límites:</strong> Si el saldo alcanza el límite configurado, los movimientos automáticos se
+                recortan y las nuevas solicitudes se bloquean.
               </p>
             </div>
           </div>
