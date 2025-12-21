@@ -278,6 +278,151 @@ function extractManualBreaks(
   return breaks;
 }
 
+type AutoCloseConfig = {
+  enabled: boolean;
+  thresholdPercent: number;
+};
+
+const DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT = 150;
+
+async function getAutoCloseMissingClockOutConfig(orgId: string): Promise<AutoCloseConfig> {
+  try {
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: {
+        autoCloseMissingClockOutEnabled: true,
+        autoCloseMissingClockOutThresholdPercent: true,
+      },
+    });
+
+    if (!org) {
+      return {
+        enabled: false,
+        thresholdPercent: DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT,
+      };
+    }
+
+    const thresholdPercent =
+      typeof org.autoCloseMissingClockOutThresholdPercent === "number"
+        ? org.autoCloseMissingClockOutThresholdPercent
+        : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
+
+    return {
+      enabled: org.autoCloseMissingClockOutEnabled === true,
+      thresholdPercent,
+    };
+  } catch (error) {
+    console.error("Error al obtener configuración de autocierre:", error);
+    return {
+      enabled: false,
+      thresholdPercent: DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT,
+    };
+  }
+}
+
+async function autoCloseOpenClockInIfNeeded(
+  employeeId: string,
+  orgId: string,
+  dailyHours: number,
+  openClockIn: { id: string; timestamp: Date },
+  now: Date,
+  autoCloseConfig: AutoCloseConfig,
+): Promise<{ clockOutId: string; clockOutTime: Date } | null> {
+  if (!autoCloseConfig.enabled) {
+    return null;
+  }
+
+  if (!Number.isFinite(dailyHours) || dailyHours <= 0) {
+    return null;
+  }
+
+  const thresholdPercent =
+    autoCloseConfig.thresholdPercent >= 100 ? autoCloseConfig.thresholdPercent : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
+  const thresholdMinutes = dailyHours * 60 * (thresholdPercent / 100);
+  const thresholdTime = new Date(openClockIn.timestamp.getTime() + thresholdMinutes * 60 * 1000);
+
+  if (now.getTime() < thresholdTime.getTime()) {
+    return null;
+  }
+
+  const clockOutEntry = await prisma.$transaction(
+    async (tx) => {
+      const existingClockOut = await tx.timeEntry.findFirst({
+        where: {
+          employeeId,
+          orgId,
+          entryType: "CLOCK_OUT",
+          isCancelled: false,
+          timestamp: {
+            gt: openClockIn.timestamp,
+          },
+        },
+        orderBy: {
+          timestamp: "asc",
+        },
+      });
+
+      if (existingClockOut) {
+        return null;
+      }
+
+      const lastEntry = await tx.timeEntry.findFirst({
+        where: {
+          employeeId,
+          orgId,
+          isCancelled: false,
+          timestamp: {
+            gte: openClockIn.timestamp,
+            lte: now,
+          },
+        },
+        orderBy: {
+          timestamp: "desc",
+        },
+      });
+
+      const closeTime =
+        lastEntry && lastEntry.timestamp.getTime() > thresholdTime.getTime() ? lastEntry.timestamp : thresholdTime;
+
+      if (lastEntry && lastEntry.entryType === "BREAK_START") {
+        await tx.timeEntry.create({
+          data: {
+            orgId,
+            employeeId,
+            entryType: "BREAK_END",
+            timestamp: closeTime,
+            isAutomatic: true,
+            notes: "Autocierre de pausa por fichaje abierto",
+          },
+        });
+      }
+
+      return tx.timeEntry.create({
+        data: {
+          orgId,
+          employeeId,
+          entryType: "CLOCK_OUT",
+          timestamp: closeTime,
+          isAutomatic: true,
+          notes: `Autocierre automático al superar ${thresholdPercent}% de jornada`,
+        },
+      });
+    },
+    { isolationLevel: "Serializable" },
+  );
+
+  if (!clockOutEntry) {
+    return null;
+  }
+
+  await updateWorkdaySummary(employeeId, orgId, clockOutEntry.timestamp);
+
+  return {
+    clockOutId: clockOutEntry.id,
+    clockOutTime: clockOutEntry.timestamp,
+  };
+}
+
 interface AutomaticBreakResult {
   created: number;
   skipped: number;
@@ -1911,6 +2056,7 @@ export async function detectIncompleteEntries() {
   try {
     const employee = await getAuthenticatedEmployee();
     const now = new Date();
+    const autoCloseConfig = await getAutoCloseMissingClockOutConfig(employee.orgId);
 
     // Buscar último CLOCK_IN sin CLOCK_OUT correspondiente (NO cancelado)
     const openClockIn = await prisma.timeEntry.findFirst({
@@ -1947,17 +2093,32 @@ export async function detectIncompleteEntries() {
       return null; // Ya tiene salida, no está abierto
     }
 
+    const autoCloseResult = await autoCloseOpenClockInIfNeeded(
+      employee.employeeId,
+      employee.orgId,
+      employee.dailyHours,
+      { id: openClockIn.id, timestamp: openClockIn.timestamp },
+      now,
+      autoCloseConfig,
+    );
+
+    if (autoCloseResult) {
+      return null;
+    }
+
     // Calcular duración
     const durationMinutes = Math.floor((now.getTime() - new Date(openClockIn.timestamp).getTime()) / (1000 * 60));
     const durationHours = durationMinutes / 60;
 
     // Calcular umbral y % de jornada
     const dailyHours = employee.dailyHours;
-    const thresholdHours = dailyHours * 1.5; // 150%
+    const thresholdPercent =
+      autoCloseConfig.thresholdPercent >= 100 ? autoCloseConfig.thresholdPercent : DEFAULT_AUTO_CLOSE_THRESHOLD_PERCENT;
+    const thresholdHours = (dailyHours * thresholdPercent) / 100;
     const percentageOfJourney = (durationHours / dailyHours) * 100;
     const isExcessive = durationHours > thresholdHours;
 
-    // Solo retornar si supera el 150% de la jornada
+    // Solo retornar si supera el % configurado de la jornada
     // Fichajes abiertos normales (del mismo día, dentro del rango) no deben generar aviso
     if (!isExcessive) {
       return null;

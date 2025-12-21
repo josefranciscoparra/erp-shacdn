@@ -15,6 +15,9 @@ interface ClockBootstrapResult {
   success: boolean;
   error?: string;
   currentStatus?: ClockStatus;
+  canClock?: boolean;
+  orgContextReason?: "OK" | "WRONG_ORG" | "NO_EMPLOYEE";
+  orgContextMessage?: string | null;
   todaySummary?: {
     id: string;
     date: Date;
@@ -113,11 +116,56 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
   try {
     const { userId, orgId, employee } = await getAuthenticatedUser();
 
+    const hasEmployee = Boolean(employee);
+    const isInOwnOrg = hasEmployee ? employee.orgId === orgId : false;
+    const canClock = Boolean(hasEmployee && isInOwnOrg);
+    const orgContextReason = !hasEmployee ? "NO_EMPLOYEE" : isInOwnOrg ? "OK" : "WRONG_ORG";
+    const orgContextMessage = !hasEmployee
+      ? "Este usuario no tiene una ficha de empleado."
+      : isInOwnOrg
+        ? null
+        : "Cambia a tu organización de empleado para fichar.";
+
     const today = new Date();
     const dayStart = startOfDay(today);
     const dayEnd = endOfDay(today);
     const scheduleDate = new Date(today);
     scheduleDate.setHours(12, 0, 0, 0);
+
+    if (!canClock) {
+      return {
+        success: true,
+        currentStatus: "CLOCKED_OUT",
+        canClock,
+        orgContextReason,
+        orgContextMessage,
+        todaySummary: {
+          id: "",
+          date: dayStart,
+          totalWorkedMinutes: 0,
+          totalBreakMinutes: 0,
+          status: "ABSENT",
+          timeEntries: [],
+        },
+        schedule: null,
+        scheduleSummary: {
+          expectedMinutes: null,
+          deviationMinutes: null,
+        },
+        hoursInfo: {
+          hoursToday: 0,
+          isWorkingDay: true,
+          hasActiveContract: false,
+        },
+        geolocationConfig: {
+          geolocationEnabled: false,
+          geolocationRequired: false,
+          geolocationMinAccuracy: null,
+          geolocationMaxRadius: null,
+        },
+        incompleteEntry: null,
+      };
+    }
 
     const hoursInfoPromise = getExpectedHoursForToday().catch((error) => {
       console.error("Error al obtener horas esperadas:", error);
@@ -138,47 +186,6 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
         console.error("Error al obtener configuración de geolocalización:", error);
         return null;
       });
-
-    if (!employee) {
-      const hoursInfo = await hoursInfoPromise;
-      const geolocationConfig = await geolocationConfigPromise;
-
-      return {
-        success: true,
-        currentStatus: "CLOCKED_OUT",
-        todaySummary: {
-          id: "",
-          date: dayStart,
-          totalWorkedMinutes: 0,
-          totalBreakMinutes: 0,
-          status: "ABSENT",
-          timeEntries: [],
-        },
-        schedule: null,
-        scheduleSummary: {
-          expectedMinutes: null,
-          deviationMinutes: null,
-        },
-        hoursInfo: hoursInfo
-          ? {
-              hoursToday: hoursInfo.hoursToday,
-              isWorkingDay: hoursInfo.isWorkingDay,
-              hasActiveContract: hoursInfo.hasActiveContract,
-            }
-          : {
-              hoursToday: 0,
-              isWorkingDay: true,
-              hasActiveContract: false,
-            },
-        geolocationConfig: geolocationConfig ?? {
-          geolocationEnabled: false,
-          geolocationRequired: false,
-          geolocationMinAccuracy: null,
-          geolocationMaxRadius: null,
-        },
-        incompleteEntry: null,
-      };
-    }
 
     const schedulePromise = getEffectiveSchedule(employee.id, scheduleDate).catch((error) => {
       console.warn("Error al obtener horario del día:", error);
@@ -286,9 +293,33 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
     const deviationMinutes =
       hasWorkdaySummary && expectedMinutes !== null ? todaySummary.totalWorkedMinutes - expectedMinutes : null;
 
+    if (schedule && summary) {
+      const dbExpectedMinutes = Number(summary.expectedMinutes ?? 0);
+      if (dbExpectedMinutes !== schedule.expectedMinutes) {
+        prisma.workdaySummary
+          .update({
+            where: {
+              orgId_employeeId_date: {
+                orgId,
+                employeeId: employee.id,
+                date: dayStart,
+              },
+            },
+            data: {
+              expectedMinutes: schedule.expectedMinutes,
+              deviationMinutes: deviationMinutes ?? summary.deviationMinutes,
+            },
+          })
+          .catch((err) => console.error("Error syncing expectedMinutes to DB:", err));
+      }
+    }
+
     return {
       success: true,
       currentStatus,
+      canClock,
+      orgContextReason,
+      orgContextMessage,
       todaySummary,
       schedule,
       scheduleSummary: {

@@ -53,6 +53,8 @@ model Organization {
   lateClockOutToleranceMinutes Int     @default(30) // Tolerancia para salida tardía (minutos después del horario)
   nonWorkdayClockInAllowed     Boolean @default(false) // Permitir fichar en días no laborables
   nonWorkdayClockInWarning     Boolean @default(true) // Mostrar warning al fichar en día no laboral
+  autoCloseMissingClockOutEnabled Boolean @default(false) // Cerrar automáticamente fichajes abiertos al superar un % de jornada
+  autoCloseMissingClockOutThresholdPercent Int @default(150) // % de jornada para autocierre (ej: 150 = 1.5x)
 
   // Configuración de Alertas de Fichajes (Sistema Avanzado)
   criticalLateArrivalMinutes    Int      @default(30) // Minutos de retraso para considerar alerta CRÍTICA (>15 warning, >30 crítico)

@@ -56,7 +56,10 @@ export function QuickClockWidget() {
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    // eslint-disable-next-line func-call-spacing
+    action: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  } | null>(null);
   const geolocation = useGeolocation();
 
   // Estado para fichajes incompletos
@@ -181,7 +184,7 @@ export function QuickClockWidget() {
 
       if (!hasConsent) {
         // Guardar la acción pendiente y mostrar dialog de consentimiento
-        setPendingAction(() => async () => await action());
+        setPendingAction({ action });
         setShowConsentDialog(true);
         return;
       }
@@ -253,7 +256,7 @@ export function QuickClockWidget() {
 
     // Ejecutar la acción pendiente
     if (pendingAction) {
-      await executeWithGeolocation(pendingAction);
+      await executeWithGeolocation(pendingAction.action);
       setPendingAction(null);
     }
   };

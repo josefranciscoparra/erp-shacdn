@@ -51,6 +51,8 @@ export function ClockIn() {
   const [scheduleExpectedMinutes, setScheduleExpectedMinutes] = useState<number | null>(null);
   const [todayDeviation, setTodayDeviation] = useState<number | null>(null);
   const [isScheduleLoading, setIsScheduleLoading] = useState(true);
+  const [canClock, setCanClock] = useState(true);
+  const [orgContextMessage, setOrgContextMessage] = useState<string | null>(null);
   const [chartSnapshot, setChartSnapshot] = useState<{
     workedMinutes: number;
     breakMinutes: number;
@@ -65,7 +67,17 @@ export function ClockIn() {
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const [pendingAction, setPendingAction] = useState<{
+    action:(
+      latitude?: number,
+      longitude?: number,
+      accuracy?: number,
+      projectId?: string,
+      task?: string,
+    ) => Promise<any>;
+    projectId?: string | null;
+    task?: string;
+  } | null>(null);
   const geolocation = useGeolocation();
 
   // Estados para proyecto
@@ -172,6 +184,8 @@ export function ClockIn() {
 
       const geoEnabled = result.geolocationConfig ? result.geolocationConfig.geolocationEnabled : false;
       setGeolocationEnabled(geoEnabled);
+      setCanClock(result.canClock !== false);
+      setOrgContextMessage(result.orgContextMessage ?? null);
 
       if (result.incompleteEntry) {
         setHasIncompleteEntry(true);
@@ -299,6 +313,10 @@ export function ClockIn() {
     projectId?: string | null,
     task?: string,
   ): Promise<T | undefined> => {
+    if (!canClock) {
+      return;
+    }
+
     // Si la org no tiene geolocalización habilitada, fichar sin GPS pero con proyecto
     if (!geolocationEnabled) {
       return await action(undefined, undefined, undefined, projectId ?? undefined, task);
@@ -310,7 +328,7 @@ export function ClockIn() {
 
       if (!hasConsent) {
         // Guardar la acción pendiente y mostrar dialog de consentimiento
-        setPendingAction(() => async () => await action(undefined, undefined, undefined, projectId ?? undefined, task));
+        setPendingAction({ action, projectId: projectId ?? null, task });
         setShowConsentDialog(true);
         return;
       }
@@ -654,18 +672,26 @@ export function ClockIn() {
       <GeolocationConsentDialog
         open={showConsentDialog}
         onOpenChange={setShowConsentDialog}
-        onConsent={async () => {
+        onConsentGiven={async () => {
           setShowConsentDialog(false);
           if (pendingAction) {
-            await executeWithGeolocation(pendingAction);
+            await executeWithGeolocation(pendingAction.action, pendingAction.projectId, pendingAction.task);
             setPendingAction(null);
           }
         }}
-        onDeny={() => {
+        onConsentDenied={() => {
           setShowConsentDialog(false);
           setPendingAction(null);
         }}
       />
+
+      {!canClock && orgContextMessage && (
+        <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
+          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertTitle className="text-orange-800 dark:text-orange-300">Acceso restringido</AlertTitle>
+          <AlertDescription className="text-orange-700 dark:text-orange-400">{orgContextMessage}</AlertDescription>
+        </Alert>
+      )}
 
       {error && (
         <Card className="border-destructive bg-destructive/10 p-4">
@@ -840,7 +866,7 @@ export function ClockIn() {
                     onSelectProject={handleManualProjectSelection}
                     task={projectTask}
                     onTaskChange={setProjectTask}
-                    disabled={isLoading || isClocking || isScheduleLoading}
+                    disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                   />
 
                   <TooltipProvider>
@@ -850,7 +876,7 @@ export function ClockIn() {
                           size="lg"
                           onClick={handleClockIn}
                           className="w-full disabled:opacity-70"
-                          disabled={isLoading || isClocking || isScheduleLoading}
+                          disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                         >
                           {isLoading || isClocking || isScheduleLoading ? (
                             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -889,7 +915,7 @@ export function ClockIn() {
                       "w-full disabled:opacity-70",
                       isExcessive && "border-2 border-orange-500 ring-2 ring-orange-200",
                     )}
-                    disabled={isLoading || isClocking || isScheduleLoading}
+                    disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                   >
                     {isLoading || isClocking || isScheduleLoading ? (
                       <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -904,7 +930,7 @@ export function ClockIn() {
                       onClick={handleBreak}
                       variant="outline"
                       className="flex-1 disabled:opacity-70"
-                      disabled={isLoading || isClocking || isScheduleLoading}
+                      disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                     >
                       {isLoading || isClocking || isScheduleLoading ? (
                         <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -1023,7 +1049,7 @@ export function ClockIn() {
       </div>
 
       {/* Información resumida diaria */}
-      <MinifiedDailyInfo schedule={todaySchedule} />
+      <MinifiedDailyInfo schedule={todaySchedule} isLoading={isScheduleLoading} />
 
       {/* Historial de fichajes del día */}
       <Card>

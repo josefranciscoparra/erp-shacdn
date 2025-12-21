@@ -13,9 +13,10 @@ import { type EffectiveSchedule } from "@/types/schedule";
 
 interface MinifiedDailyInfoProps {
   schedule: EffectiveSchedule | null;
+  isLoading?: boolean;
 }
 
-export function MinifiedDailyInfo({ schedule }: MinifiedDailyInfoProps) {
+export function MinifiedDailyInfo({ schedule, isLoading }: MinifiedDailyInfoProps) {
   // Store for TimeBank
   const { summary: timeBankSummary, loadSummary: loadTimeBankSummary } = useTimeBankStore();
 
@@ -26,7 +27,11 @@ export function MinifiedDailyInfo({ schedule }: MinifiedDailyInfoProps) {
 
   // Render helper for Schedule
   const renderScheduleInfo = () => {
-    if (!schedule) return <span className="text-muted-foreground">Cargando horario...</span>;
+    if (!schedule) {
+      return (
+        <span className="text-muted-foreground">{isLoading ? "Cargando horario..." : "Horario no disponible"}</span>
+      );
+    }
 
     if (schedule.source === "NO_ASSIGNMENT") {
       return (

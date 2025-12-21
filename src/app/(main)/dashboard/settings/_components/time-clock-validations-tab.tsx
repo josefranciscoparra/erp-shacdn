@@ -27,6 +27,8 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
+  autoCloseMissingClockOutEnabled: boolean;
+  autoCloseMissingClockOutThresholdPercent: number;
   // Nuevos campos de alertas
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
@@ -47,6 +49,8 @@ export function TimeClockValidationsTab() {
     lateClockOutToleranceMinutes: 30,
     nonWorkdayClockInAllowed: false,
     nonWorkdayClockInWarning: true,
+    autoCloseMissingClockOutEnabled: false,
+    autoCloseMissingClockOutThresholdPercent: 150,
     criticalLateArrivalMinutes: 30,
     criticalEarlyDepartureMinutes: 30,
     alertsEnabled: true,
@@ -222,6 +226,48 @@ export function TimeClockValidationsTab() {
                 checked={config.nonWorkdayClockInWarning}
                 onCheckedChange={(checked) => setConfig((prev) => ({ ...prev, nonWorkdayClockInWarning: checked }))}
               />
+            </div>
+
+            {/* Autocierre de fichajes abiertos */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="autoCloseMissingClockOut">Autocierre de fichajes abiertos</Label>
+                <p className="text-muted-foreground text-sm">
+                  Cierra automáticamente fichajes que superan el porcentaje configurado de la jornada (desactivado por
+                  defecto)
+                </p>
+              </div>
+              <Switch
+                id="autoCloseMissingClockOut"
+                checked={config.autoCloseMissingClockOutEnabled}
+                onCheckedChange={(checked) =>
+                  setConfig((prev) => ({ ...prev, autoCloseMissingClockOutEnabled: checked }))
+                }
+              />
+            </div>
+
+            <div className="space-y-2 rounded-lg border p-4">
+              <Label htmlFor="autoCloseMissingClockOutThreshold">Porcentaje de jornada para autocierre</Label>
+              <Input
+                id="autoCloseMissingClockOutThreshold"
+                type="number"
+                min="100"
+                max="500"
+                value={config.autoCloseMissingClockOutThresholdPercent}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setConfig((prev) => ({
+                    ...prev,
+                    autoCloseMissingClockOutThresholdPercent: Number.isNaN(value)
+                      ? prev.autoCloseMissingClockOutThresholdPercent
+                      : value,
+                  }));
+                }}
+                disabled={!config.autoCloseMissingClockOutEnabled}
+              />
+              <p className="text-muted-foreground text-xs">
+                Ejemplo: 150% = 1.5x la jornada diaria. Si la jornada es 8h, el autocierre se activa a partir de 12h.
+              </p>
             </div>
           </div>
 

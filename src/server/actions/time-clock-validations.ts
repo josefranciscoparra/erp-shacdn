@@ -10,6 +10,8 @@ interface ValidationConfig {
   lateClockOutToleranceMinutes: number;
   nonWorkdayClockInAllowed: boolean;
   nonWorkdayClockInWarning: boolean;
+  autoCloseMissingClockOutEnabled: boolean;
+  autoCloseMissingClockOutThresholdPercent: number;
   criticalLateArrivalMinutes: number;
   criticalEarlyDepartureMinutes: number;
   alertsEnabled: boolean;
@@ -38,6 +40,8 @@ export async function getOrganizationValidationConfig(): Promise<ValidationConfi
         lateClockOutToleranceMinutes: true,
         nonWorkdayClockInAllowed: true,
         nonWorkdayClockInWarning: true,
+        autoCloseMissingClockOutEnabled: true,
+        autoCloseMissingClockOutThresholdPercent: true,
         criticalLateArrivalMinutes: true,
         criticalEarlyDepartureMinutes: true,
         alertsEnabled: true,
@@ -76,10 +80,15 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
       config.clockOutToleranceMinutes < 0 ||
       config.earlyClockInToleranceMinutes < 0 ||
       config.lateClockOutToleranceMinutes < 0 ||
+      config.autoCloseMissingClockOutThresholdPercent < 0 ||
       config.criticalLateArrivalMinutes < 0 ||
       config.criticalEarlyDepartureMinutes < 0
     ) {
       throw new Error("Los valores de tolerancia deben ser números positivos");
+    }
+
+    if (config.autoCloseMissingClockOutThresholdPercent < 100) {
+      throw new Error("El porcentaje de autocierre debe ser igual o mayor a 100");
     }
 
     // Validar que los umbrales críticos sean mayores que las tolerancias
@@ -100,6 +109,8 @@ export async function updateOrganizationValidationConfig(config: ValidationConfi
         lateClockOutToleranceMinutes: config.lateClockOutToleranceMinutes,
         nonWorkdayClockInAllowed: config.nonWorkdayClockInAllowed,
         nonWorkdayClockInWarning: config.nonWorkdayClockInWarning,
+        autoCloseMissingClockOutEnabled: config.autoCloseMissingClockOutEnabled,
+        autoCloseMissingClockOutThresholdPercent: config.autoCloseMissingClockOutThresholdPercent,
         criticalLateArrivalMinutes: config.criticalLateArrivalMinutes,
         criticalEarlyDepartureMinutes: config.criticalEarlyDepartureMinutes,
         alertsEnabled: config.alertsEnabled,
