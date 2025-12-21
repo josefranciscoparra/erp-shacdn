@@ -16,6 +16,8 @@ export interface SignatureBatchActivatePayload {
 export async function enqueueSignatureBatchActivate(payload: SignatureBatchActivatePayload) {
   const boss = await getBoss();
 
+  await boss.createQueue(SIGNATURE_BATCH_ACTIVATE_JOB);
+
   await boss.send(SIGNATURE_BATCH_ACTIVATE_JOB, payload, {
     retryLimit: 2,
     retryDelay: 120,

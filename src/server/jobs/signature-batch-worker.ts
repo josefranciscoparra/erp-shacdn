@@ -15,6 +15,7 @@ export async function registerSignatureBatchWorker(boss: PgBoss) {
   await boss.createQueue(SIGNATURE_BATCH_ACTIVATE_JOB);
 
   await boss.work<SignatureBatchActivatePayload>(SIGNATURE_BATCH_ACTIVATE_JOB, async (job) => {
+    console.log(`[SignatureBatchWorker] Procesando lote ${job.data?.batchId}`);
     const payload = job.data;
     if (!payload) {
       throw new Error("Job sin payload para activación de firmas");
@@ -173,6 +174,7 @@ export async function registerSignatureBatchWorker(boss: PgBoss) {
           orgId: payload.orgId,
         },
       });
+      console.log(`[SignatureBatchWorker] Lote ${updatedBatch.id} activado`);
     } catch (error) {
       await prisma.auditLog.create({
         data: {

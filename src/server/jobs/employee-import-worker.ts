@@ -7,6 +7,7 @@ export async function registerEmployeeImportWorker(boss: PgBoss) {
   await boss.createQueue(EMPLOYEE_IMPORT_PROCESS_JOB);
 
   await boss.work<EmployeeImportJobPayload>(EMPLOYEE_IMPORT_PROCESS_JOB, async (job) => {
+    console.log(`[EmployeeImportWorker] Procesando job ${job.data?.jobId}`);
     const payload = job.data;
     if (!payload) {
       throw new Error("Job sin payload para importación de empleados");
@@ -21,5 +22,6 @@ export async function registerEmployeeImportWorker(boss: PgBoss) {
       performedBy: payload.performedBy,
       userAgent: payload.userAgent ?? undefined,
     });
+    console.log(`[EmployeeImportWorker] Job ${payload.jobId} completado`);
   });
 }

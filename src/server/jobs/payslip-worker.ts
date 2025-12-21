@@ -24,6 +24,7 @@ export async function registerPayslipWorker(boss: PgBoss) {
   await boss.createQueue(PAYSLIP_BATCH_PROCESS_JOB);
 
   await boss.work<PayslipBatchJobPayload>(PAYSLIP_BATCH_PROCESS_JOB, { teamSize: concurrency }, async (job) => {
+    console.log(`[PayslipWorker] Procesando lote ${job.data?.batchId}`);
     const payload = job.data;
     if (!payload) {
       throw new Error("Job sin payload para procesar nóminas");
@@ -57,5 +58,6 @@ export async function registerPayslipWorker(boss: PgBoss) {
     });
 
     await payslipService.processBatchAsync(payload.batchId, fileBuffer, employees);
+    console.log(`[PayslipWorker] Lote ${payload.batchId} procesado`);
   });
 }

@@ -10,6 +10,8 @@ export interface PayslipBatchJobPayload {
 export async function enqueuePayslipBatchJob(payload: PayslipBatchJobPayload) {
   const boss = await getBoss();
 
+  await boss.createQueue(PAYSLIP_BATCH_PROCESS_JOB);
+
   await boss.send(PAYSLIP_BATCH_PROCESS_JOB, payload, {
     retryLimit: 3,
     retryDelay: 60,

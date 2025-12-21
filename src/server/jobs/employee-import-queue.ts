@@ -17,6 +17,8 @@ export interface EmployeeImportJobPayload {
 export async function enqueueEmployeeImportJob(payload: EmployeeImportJobPayload) {
   const boss = await getBoss();
 
+  await boss.createQueue(EMPLOYEE_IMPORT_PROCESS_JOB);
+
   await boss.send(EMPLOYEE_IMPORT_PROCESS_JOB, payload, {
     retryLimit: 2,
     retryDelay: 120,
