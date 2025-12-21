@@ -21,6 +21,8 @@ async function downloadSourceBuffer(sourcePath: string): Promise<Buffer> {
 export async function registerPayslipWorker(boss: PgBoss) {
   const concurrency = resolveWorkerConcurrency();
 
+  await boss.createQueue(PAYSLIP_BATCH_PROCESS_JOB);
+
   await boss.work<PayslipBatchJobPayload>(PAYSLIP_BATCH_PROCESS_JOB, { teamSize: concurrency }, async (job) => {
     const payload = job.data;
     if (!payload) {

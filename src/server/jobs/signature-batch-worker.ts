@@ -12,6 +12,8 @@ function uniqueIds(ids: string[]) {
 }
 
 export async function registerSignatureBatchWorker(boss: PgBoss) {
+  await boss.createQueue(SIGNATURE_BATCH_ACTIVATE_JOB);
+
   await boss.work<SignatureBatchActivatePayload>(SIGNATURE_BATCH_ACTIVATE_JOB, async (job) => {
     const payload = job.data;
     if (!payload) {

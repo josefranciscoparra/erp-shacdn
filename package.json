@@ -6,7 +6,7 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx src/server/worker.ts",
+    "worker": "tsx --tsconfig tsconfig.json src/server/worker.ts",
     "lint": "next lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

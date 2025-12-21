@@ -4,6 +4,8 @@ import { processEmployeeImportJob } from "@/server/jobs/employee-import-processo
 import { EMPLOYEE_IMPORT_PROCESS_JOB, type EmployeeImportJobPayload } from "@/server/jobs/employee-import-queue";
 
 export async function registerEmployeeImportWorker(boss: PgBoss) {
+  await boss.createQueue(EMPLOYEE_IMPORT_PROCESS_JOB);
+
   await boss.work<EmployeeImportJobPayload>(EMPLOYEE_IMPORT_PROCESS_JOB, async (job) => {
     const payload = job.data;
     if (!payload) {
