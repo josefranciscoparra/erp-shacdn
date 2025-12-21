@@ -9,11 +9,49 @@ import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employe
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
-import { createInviteToken } from "@/server/actions/auth-tokens";
+import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
 import { requireEmployeeImportPermission } from "@/server/actions/employee-import/permissions";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 import { daysToMinutes } from "@/services/pto";
+
+async function sendImportInvitation(params: {
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  organizationName?: string | null;
+  performedBy: { name: string | null; email: string };
+}): Promise<string | null> {
+  const { userId, email, firstName, lastName, organizationName, performedBy } = params;
+
+  try {
+    const inviteToken = await createInviteToken(userId);
+    if (!inviteToken.success || !inviteToken.data) {
+      return inviteToken.error ?? "No fue posible generar el token de invitación.";
+    }
+
+    const inviteLink = `${getAppUrl()}/auth/accept-invite?token=${inviteToken.data.token}`;
+    const emailResult = await sendAuthInviteEmail({
+      to: { email, name: `${firstName} ${lastName}` },
+      inviteLink,
+      orgId: "", // Se establece internamente
+      userId,
+      companyName: organizationName ?? undefined,
+      inviterName: performedBy.name ?? performedBy.email ?? undefined,
+      expiresAt: inviteToken.data.expiresAt,
+    });
+
+    if (!emailResult.success) {
+      return emailResult.error ?? "No fue posible enviar la invitación.";
+    }
+
+    return null;
+  } catch (inviteError) {
+    console.error("Error enviando invitación de importación:", inviteError);
+    return inviteError instanceof Error ? inviteError.message : "Error desconocido al enviar invitación.";
+  }
+}
 
 async function createEmployeeFromRow(params: {
   data: EmployeeImportRowData;
@@ -232,25 +270,30 @@ async function processImportRow(params: {
     });
 
     if (options.sendInvites && data.email) {
-      try {
-        const inviteToken = await createInviteToken(creationResult.userId);
-        if (inviteToken.success && inviteToken.data) {
-          const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/auth/accept-invite?token=${inviteToken.data.token}`;
-          await sendAuthInviteEmail({
-            to: {
-              email: data.email,
-              name: `${data.firstName} ${data.lastName}`,
-            },
-            inviteLink,
-            orgId,
-            userId: creationResult.userId,
-            companyName: organizationName ?? undefined,
-            inviterName: performedBy.name ?? performedBy.email ?? undefined,
-            expiresAt: inviteToken.data.expiresAt,
-          });
-        }
-      } catch (inviteError) {
-        console.error("Error enviando invitación de importación:", inviteError);
+      const inviteWarning = await sendImportInvitation({
+        userId: creationResult.userId,
+        email: data.email,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        organizationName,
+        performedBy,
+      });
+
+      if (inviteWarning) {
+        const existingMessages = Array.isArray(row.messages) ? row.messages : [];
+        await prisma.employeeImportRow.update({
+          where: { id: row.id },
+          data: {
+            messages: [
+              ...existingMessages,
+              {
+                type: "WARNING",
+                field: "invite",
+                message: `Invitación no enviada: ${inviteWarning}`,
+              },
+            ],
+          },
+        });
       }
     }
 
