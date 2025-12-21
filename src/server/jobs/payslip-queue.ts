@@ -19,4 +19,5 @@ export async function enqueuePayslipBatchJob(payload: PayslipBatchJobPayload) {
     singletonKey: payload.batchId,
     expireInSeconds: 60 * 60,
   });
+  console.log(`[PayslipQueue] Job encolado para batch ${payload.batchId}`);
 }

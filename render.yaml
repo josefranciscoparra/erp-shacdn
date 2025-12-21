@@ -21,3 +21,31 @@ services:
         sync: false # Configura esto manualmente en Render Dashboard
       - key: NEXT_PUBLIC_ENFORCE_ORGANIZATION_EMAIL_DOMAINS
         value: false # Cambiar a "true" para activar validación de dominios de email
+
+  - type: worker
+    name: erp-shacdn-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: npm run worker
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Sincronizar con Dashboard
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      # Variables de Storage necesarias para que el worker descargue/procese archivos
+      # Asegúrate de añadirlas en el Dashboard de Render para este servicio también
+      - key: STORAGE_PROVIDER
+        sync: false
+      - key: LOCAL_STORAGE_PATH
+        sync: false

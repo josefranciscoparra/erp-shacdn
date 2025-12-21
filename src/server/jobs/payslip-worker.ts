@@ -23,41 +23,66 @@ export async function registerPayslipWorker(boss: PgBoss) {
 
   await boss.createQueue(PAYSLIP_BATCH_PROCESS_JOB);
 
-  await boss.work<PayslipBatchJobPayload>(PAYSLIP_BATCH_PROCESS_JOB, { teamSize: concurrency }, async (job) => {
-    console.log(`[PayslipWorker] Procesando lote ${job.data?.batchId}`);
-    const payload = job.data;
-    if (!payload) {
-      throw new Error("Job sin payload para procesar nóminas");
+  await boss.work<PayslipBatchJobPayload>(PAYSLIP_BATCH_PROCESS_JOB, { teamSize: concurrency }, async (jobOrJobs) => {
+    // pg-boss puede entregar un array de jobs o un único job dependiendo de la configuración/versión
+    const jobs = Array.isArray(jobOrJobs) ? jobOrJobs : [jobOrJobs];
+
+    for (const job of jobs) {
+      // El payload real está dentro de la propiedad .data del job
+      const payload = job.data || job;
+
+      console.log(`[PayslipWorker] Procesando job ${job.id} para batch ${payload?.batchId}`);
+
+      if (!payload?.batchId || !payload?.sourcePath) {
+        console.error(`[PayslipWorker] Job ${job.id} inválido. Payload recibido:`, JSON.stringify(payload));
+        // Si fallamos aquí, marcamos error en este job específico (si pg-boss lo permite lanzando error)
+        // Pero para no detener el worker, logueamos y continuamos con el siguiente.
+        continue;
+      }
+
+      try {
+        const batch = await prisma.payslipBatch.findUnique({
+          where: { id: payload.batchId },
+          select: { orgId: true, status: true },
+        });
+
+        if (!batch) {
+          console.error(`[PayslipWorker] Lote no encontrado: ${payload.batchId}`);
+          continue;
+        }
+
+        if (batch.status !== "PROCESSING") {
+          console.warn(`[PayslipWorker] Lote ${payload.batchId} ignorado con estado ${batch.status}`);
+          continue;
+        }
+
+        const fileBuffer = await downloadSourceBuffer(payload.sourcePath);
+
+        const employees = await prisma.employee.findMany({
+          where: { orgId: batch.orgId },
+          select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true, active: true },
+        });
+
+        await payslipService.processBatchAsync(payload.batchId, fileBuffer, employees);
+        console.log(`[PayslipWorker] Lote ${payload.batchId} procesado exitosamente`);
+      } catch (error) {
+        const retryCount = typeof (job as { retryCount?: number }).retryCount === "number" ? job.retryCount : 0;
+        const retryLimit = typeof (job as { retryLimit?: number }).retryLimit === "number" ? job.retryLimit : 0;
+        const hasRetriesLeft = retryLimit > 0 && retryCount < retryLimit;
+
+        console.error(
+          `[PayslipWorker] Error procesando job ${job.id} (Batch: ${payload.batchId}, intento ${
+            retryCount + 1
+          }/${retryLimit || 1}):`,
+          error,
+        );
+
+        if (!hasRetriesLeft) {
+          await payslipService.updateBatchStatus(payload.batchId, "ERROR");
+        }
+
+        throw error;
+      }
     }
-    if (!payload.batchId) {
-      throw new Error("Job sin batchId para procesar nóminas");
-    }
-    if (!payload.sourcePath) {
-      throw new Error("Job sin sourcePath para procesar nóminas");
-    }
-
-    const batch = await prisma.payslipBatch.findUnique({
-      where: { id: payload.batchId },
-      select: { orgId: true, status: true },
-    });
-
-    if (!batch) {
-      throw new Error(`Lote no encontrado: ${payload.batchId}`);
-    }
-
-    if (batch.status !== "PROCESSING") {
-      console.warn(`[PayslipWorker] Lote ${payload.batchId} ignorado con estado ${batch.status}`);
-      return;
-    }
-
-    const fileBuffer = await downloadSourceBuffer(payload.sourcePath);
-
-    const employees = await prisma.employee.findMany({
-      where: { orgId: batch.orgId },
-      select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true, active: true },
-    });
-
-    await payslipService.processBatchAsync(payload.batchId, fileBuffer, employees);
-    console.log(`[PayslipWorker] Lote ${payload.batchId} procesado`);
   });
 }

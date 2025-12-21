@@ -100,7 +100,9 @@ export async function POST(request: NextRequest) {
 
     // 3. Encolar procesamiento en background (pg-boss)
     try {
+      console.log(`[PayslipUpload] Encolando job para batch ${batch.id}`);
       await enqueuePayslipBatchJob({ batchId: batch.id, sourcePath: sourceUpload.path });
+      console.log(`[PayslipUpload] Job encolado correctamente para batch ${batch.id}`);
     } catch (enqueueError) {
       console.error("Error encolando procesamiento de nóminas:", enqueueError);
       await payslipService.updateBatchStatus(batch.id, "ERROR");

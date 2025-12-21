@@ -620,9 +620,9 @@ function RowsTable({
               </td>
               <td className="px-4 py-2">
                 <div className="flex flex-col gap-1 text-xs">
-                  {row.messages?.map((message) => (
+                  {row.messages?.map((message, idx) => (
                     <div
-                      key={message.message}
+                      key={`${idx}-${message.message}`}
                       className={cn(
                         "flex items-center gap-1 rounded border px-2 py-1",
                         message.type === "ERROR"
