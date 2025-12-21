@@ -117,6 +117,34 @@ function EmployeeImportWizard() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmResult, setConfirmResult] = useState<{ imported: number; failed: number } | null>(null);
 
+  const [jobStatus, setJobStatus] = useState<"PENDING" | "RUNNING" | "DONE" | "FAILED">("PENDING");
+
+  // Polling para verificar el estado del job
+  const checkJobStatus = useCallback(async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/employees/import/${jobId}`);
+      if (!response.ok) return;
+
+      const data = await response.json();
+      // La respuesta de la API envuelve los datos del job en la propiedad "job"
+      const jobData = data.job;
+
+      if (jobData.status === "DONE" || jobData.status === "FAILED") {
+        setJobStatus(jobData.status);
+        setConfirmResult({
+          imported: jobData.importedRows ?? 0,
+          failed: jobData.failedRows ?? 0,
+        });
+        setIsConfirming(false); // Detener el spinner del botón
+      } else {
+        // Si sigue en progreso, volver a consultar en 2 segundos
+        setTimeout(() => checkJobStatus(jobId), 2000);
+      }
+    } catch (error) {
+      console.error("Error checking job status:", error);
+    }
+  }, []);
+
   const handleTemplateDownload = useCallback((format: "xlsx" | "csv") => {
     const url = `/api/employees/import/template?format=${format}`;
     window.open(url, "_blank", "noopener");
@@ -199,13 +227,14 @@ function EmployeeImportWizard() {
         throw new Error(data.error ?? "No fue posible ejecutar la importación.");
       }
 
-      setConfirmResult(data);
+      // Iniciar polling
       setCurrentStep(3);
-      toast.success("Importación finalizada correctamente.");
+      setJobStatus("RUNNING");
+      checkJobStatus(job.jobId);
+      toast.success("Importación iniciada. Procesando en segundo plano...");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "No fue posible confirmar la importación.");
-    } finally {
       setIsConfirming(false);
+      toast.error(error instanceof Error ? error.message : "No fue posible confirmar la importación.");
     }
   };
 
@@ -213,9 +242,9 @@ function EmployeeImportWizard() {
     () => [
       { title: "Archivo y opciones", complete: currentStep > 1 },
       { title: "Revisión de filas", complete: currentStep > 2 },
-      { title: "Confirmación", complete: currentStep === 3 && !!confirmResult },
+      { title: "Confirmación", complete: currentStep === 3 && jobStatus === "DONE" },
     ],
-    [currentStep, confirmResult],
+    [currentStep, jobStatus],
   );
 
   return (
@@ -511,36 +540,50 @@ function EmployeeImportWizard() {
         </div>
       )}
 
-      {currentStep === 3 && confirmResult && (
+      {currentStep === 3 && (
         <Card>
           <CardHeader>
-            <CardTitle>Resumen de importación</CardTitle>
-            <CardDescription>Consulta los resultados y descarga el reporte de errores si es necesario.</CardDescription>
+            <CardTitle>{jobStatus === "RUNNING" ? "Procesando importación..." : "Resumen de importación"}</CardTitle>
+            <CardDescription>
+              {jobStatus === "RUNNING"
+                ? "Estamos creando los empleados y enviando invitaciones. Por favor espera."
+                : "Consulta los resultados y descarga el reporte de errores si es necesario."}
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <SummaryCard label="Empleados creados" value={confirmResult.imported} variant="success" />
-              <SummaryCard label="Filas con error" value={confirmResult.failed} variant="error" />
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button onClick={() => window.open(`/api/employees/import/${job?.jobId}/report`, "_blank")}>
-                Descargar reporte de errores
-              </Button>
-              <Button variant="outline" onClick={() => window.open("/dashboard/employees", "_blank")}>
-                Ir al listado de empleados
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setJob(null);
-                  setConfirmResult(null);
-                  setFile(null);
-                  setCurrentStep(1);
-                }}
-              >
-                Iniciar nueva importación
-              </Button>
-            </div>
+            {jobStatus === "RUNNING" ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Loader2 className="text-primary h-12 w-12 animate-spin" />
+                <p className="text-muted-foreground mt-4 text-sm">Esto puede tardar unos segundos...</p>
+              </div>
+            ) : confirmResult ? (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <SummaryCard label="Empleados creados" value={confirmResult.imported} variant="success" />
+                  <SummaryCard label="Filas con error" value={confirmResult.failed} variant="error" />
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Button onClick={() => window.open(`/api/employees/import/${job?.jobId}/report`, "_blank")}>
+                    Descargar reporte de errores
+                  </Button>
+                  <Button variant="outline" onClick={() => window.open("/dashboard/employees", "_blank")}>
+                    Ir al listado de empleados
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setJob(null);
+                      setConfirmResult(null);
+                      setFile(null);
+                      setCurrentStep(1);
+                      setJobStatus("PENDING");
+                    }}
+                  >
+                    Iniciar nueva importación
+                  </Button>
+                </div>
+              </>
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -575,8 +618,8 @@ function RowsTable({
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
-            <tr key={row.id} className="border-b last:border-b-0">
+          {rows.map((row, index) => (
+            <tr key={`${row.id}-${index}`} className="border-b last:border-b-0">
               {(() => {
                 const source = row.rawData ?? row.data ?? {};
                 const fullName = `${source.firstName ?? "—"} ${source.lastName ?? ""}`.trim();

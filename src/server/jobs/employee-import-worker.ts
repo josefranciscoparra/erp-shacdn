@@ -6,22 +6,32 @@ import { EMPLOYEE_IMPORT_PROCESS_JOB, type EmployeeImportJobPayload } from "@/se
 export async function registerEmployeeImportWorker(boss: PgBoss) {
   await boss.createQueue(EMPLOYEE_IMPORT_PROCESS_JOB);
 
-  await boss.work<EmployeeImportJobPayload>(EMPLOYEE_IMPORT_PROCESS_JOB, async (job) => {
-    console.log(`[EmployeeImportWorker] Procesando job ${job.data?.jobId}`);
-    const payload = job.data;
-    if (!payload) {
-      throw new Error("Job sin payload para importación de empleados");
-    }
-    if (!payload.jobId || !payload.orgId) {
-      throw new Error("Payload incompleto para importación de empleados");
-    }
+  await boss.work<EmployeeImportJobPayload>(EMPLOYEE_IMPORT_PROCESS_JOB, async (jobOrJobs) => {
+    // Manejo robusto de array vs objeto único (igual que en payslips)
+    const jobs = Array.isArray(jobOrJobs) ? jobOrJobs : [jobOrJobs];
 
-    await processEmployeeImportJob({
-      jobId: payload.jobId,
-      orgId: payload.orgId,
-      performedBy: payload.performedBy,
-      userAgent: payload.userAgent ?? undefined,
-    });
-    console.log(`[EmployeeImportWorker] Job ${payload.jobId} completado`);
+    for (const job of jobs) {
+      const payload = job.data || job;
+
+      console.log(`[EmployeeImportWorker] Procesando job ${job.id} (ImportID: ${payload?.jobId})`);
+
+      if (!payload?.jobId || !payload?.orgId) {
+        console.error(`[EmployeeImportWorker] Job ${job.id} inválido. Payload recibido:`, JSON.stringify(payload));
+        continue;
+      }
+
+      try {
+        await processEmployeeImportJob({
+          jobId: payload.jobId,
+          orgId: payload.orgId,
+          performedBy: payload.performedBy,
+          userAgent: payload.userAgent ?? undefined,
+        });
+        console.log(`[EmployeeImportWorker] Job ${job.id} completado exitosamente`);
+      } catch (error) {
+        console.error(`[EmployeeImportWorker] Error en job ${job.id}:`, error);
+        // Aquí podríamos marcar el job como fallido en DB si no lo hace el processor
+      }
+    }
   });
 }
