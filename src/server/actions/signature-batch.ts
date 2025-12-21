@@ -1,13 +1,9 @@
 "use server";
 
-import { randomBytes } from "crypto";
-
 import type { SignatureBatch, SignatureBatchStatus } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getRecipientEmployees, resolveSecondSigner } from "@/lib/signatures/double-signature";
-import { createSignaturePendingNotification } from "@/lib/signatures/notifications";
 import {
   activateBatchSchema,
   cancelBatchSchema,
@@ -21,6 +17,7 @@ import {
   type UpdateRequestSignersInput,
   validateDoubleSignature,
 } from "@/lib/validations/signature-batch";
+import { enqueueSignatureBatchActivate } from "@/server/jobs/signature-batch-queue";
 
 /**
  * Obtiene el usuario actual autenticado con su información completa
@@ -279,6 +276,10 @@ export async function activateBatchWithRecipients(
       return { success: false, error: "Solo HR/Admin pueden activar lotes" };
     }
 
+    if (!recipientEmployeeIds.length) {
+      return { success: false, error: "Debes seleccionar al menos un destinatario" };
+    }
+
     // 2. Obtener el lote y validar estado
     const batch = await prisma.signatureBatch.findFirst({
       where: {
@@ -295,127 +296,36 @@ export async function activateBatchWithRecipients(
       return { success: false, error: "Solo se pueden activar lotes en estado DRAFT" };
     }
 
-    // 3. Obtener el documento
-    const document = await prisma.signableDocument.findUnique({
-      where: { id: batch.documentId },
+    const uniqueRecipients = Array.from(new Set(recipientEmployeeIds));
+    const uniqueAdditionalSigners = Array.from(new Set(additionalSignerEmployeeIds ?? []));
+
+    await prisma.auditLog.create({
+      data: {
+        action: "SIGNATURE_BATCH_ACTIVATION_QUEUED",
+        category: "SIGNATURE",
+        entityId: batch.id,
+        entityType: "SignatureBatch",
+        description: `Activación de lote encolada (${uniqueRecipients.length} destinatarios).`,
+        performedById: user.id,
+        performedByEmail: user.email ?? "",
+        performedByName: user.name ?? user.email,
+        performedByRole: user.role,
+        orgId: user.orgId,
+      },
     });
 
-    if (!document) {
-      return { success: false, error: "Documento del lote no encontrado" };
-    }
-
-    // 4. Obtener empleados válidos
-    const recipients = await getRecipientEmployees(user.orgId, recipientEmployeeIds);
-
-    if (recipients.length === 0) {
-      return { success: false, error: "No hay empleados válidos para el lote" };
-    }
-
-    const uniqueAdditionalSignerIds = Array.from(new Set(additionalSignerEmployeeIds ?? []));
-    const additionalSigners = uniqueAdditionalSignerIds.length
-      ? await getRecipientEmployees(user.orgId, uniqueAdditionalSignerIds)
-      : [];
-
-    if (additionalSigners.length < uniqueAdditionalSignerIds.length) {
-      return { success: false, error: "Uno o más firmantes adicionales no son válidos" };
-    }
-
-    const additionalSignerMap = new Map(additionalSigners.map((signer) => [signer.id, signer]));
-
-    // 5. Crear SignatureRequests para cada empleado (en una transacción)
-    const updatedBatch = await prisma.$transaction(async (tx) => {
-      let pendingCount = 0;
-
-      for (const recipient of recipients) {
-        const signersData: Array<{
-          employeeId: string;
-          order: number;
-        }> = [];
-        const addedSignerIds = new Set<string>();
-
-        const pushSigner = (employeeId: string) => {
-          if (addedSignerIds.has(employeeId)) {
-            return;
-          }
-          addedSignerIds.add(employeeId);
-          signersData.push({
-            employeeId,
-            order: signersData.length + 1,
-          });
-        };
-
-        pushSigner(recipient.id);
-
-        let secondSignerMissing = false;
-
-        if (batch.requireDoubleSignature && batch.secondSignerRole) {
-          const secondSigner = await resolveSecondSigner(
-            recipient.id,
-            batch.secondSignerRole,
-            batch.secondSignerUserId ?? undefined,
-            user.orgId,
-            { fallbackUserId: user.id },
-          );
-
-          if (secondSigner.missing || !secondSigner.userId || !secondSigner.employeeId) {
-            secondSignerMissing = true;
-          } else {
-            pushSigner(secondSigner.employeeId);
-          }
-        }
-
-        for (const signerId of uniqueAdditionalSignerIds) {
-          const signer = additionalSignerMap.get(signerId);
-          if (!signer) {
-            continue;
-          }
-          pushSigner(signer.id);
-        }
-
-        const request = await tx.signatureRequest.create({
-          data: {
-            status: "PENDING",
-            policy: "SES",
-            expiresAt: batch.expiresAt,
-            orgId: user.orgId,
-            documentId: batch.documentId,
-            batchId: batch.id,
-            secondSignerMissing,
-            signers: {
-              create: signersData.map((signer) => ({
-                order: signer.order,
-                status: "PENDING",
-                employeeId: signer.employeeId,
-                signToken: randomBytes(32).toString("hex"),
-              })),
-            },
-          },
-        });
-
-        pendingCount++;
-
-        await createSignaturePendingNotification({
-          orgId: user.orgId,
-          userId: recipient.userId,
-          documentTitle: document.title,
-          requestId: request.id,
-          expiresAt: batch.expiresAt,
-        });
-      }
-
-      return await tx.signatureBatch.update({
-        where: { id: batch.id },
-        data: {
-          status: "ACTIVE",
-          totalRecipients: recipients.length,
-          pendingCount,
-          signedCount: 0,
-          rejectedCount: 0,
-        },
-      });
+    await enqueueSignatureBatchActivate({
+      batchId: batch.id,
+      orgId: user.orgId,
+      performedById: user.id,
+      performedByEmail: user.email ?? "",
+      performedByName: user.name,
+      performedByRole: user.role,
+      recipientEmployeeIds: uniqueRecipients,
+      additionalSignerEmployeeIds: uniqueAdditionalSigners,
     });
 
-    return { success: true, data: updatedBatch };
+    return { success: true, data: batch };
   } catch (error) {
     console.error("Error activando lote:", error);
     return { success: false, error: "Error interno al activar el lote" };

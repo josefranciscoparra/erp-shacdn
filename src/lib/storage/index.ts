@@ -199,6 +199,11 @@ export class DocumentStorageService {
     return await this.storageProvider.download(target.key!);
   }
 
+  // Descargar archivo a Buffer (para jobs/worker)
+  async downloadFileToBuffer(filePath: string): Promise<Buffer> {
+    return await this.downloadToBuffer(filePath);
+  }
+
   // Obtener URL firmada para acceso temporal
   async getDocumentUrl(filePath: string, expiresIn: number = 3600, responseContentDisposition?: string) {
     const target = this.resolveFileTarget(filePath);
@@ -240,6 +245,29 @@ export class DocumentStorageService {
 
     return await this.storageProvider.upload(buffer, path, {
       mimeType: "application/pdf",
+    });
+  }
+
+  /**
+   * Sube el archivo original del lote (ZIP o PDF multipágina)
+   * @param orgId ID de la organización
+   * @param batchId ID del lote
+   * @param fileName Nombre original del archivo
+   * @param content Contenido del archivo
+   * @param mimeType Tipo MIME detectado
+   */
+  async uploadPayslipBatchSourceFile(
+    orgId: string,
+    batchId: string,
+    fileName: string,
+    content: Buffer | Uint8Array,
+    mimeType: string,
+  ) {
+    const path = this.generatePayslipBatchSourcePath(orgId, batchId, fileName);
+    const buffer = content instanceof Buffer ? content : Buffer.from(content);
+
+    return await this.storageProvider.upload(buffer, path, {
+      mimeType,
     });
   }
 
@@ -380,6 +408,13 @@ export class DocumentStorageService {
     const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
 
     return `org-${orgId}/payslips/temp/${batchId}/${sanitizedName}`;
+  }
+
+  // Generar path para el archivo original del lote
+  private generatePayslipBatchSourcePath(orgId: string, batchId: string, fileName: string): string {
+    const sanitizedName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_").toLowerCase();
+
+    return `org-${orgId}/payslips/source/${batchId}/${sanitizedName}`;
   }
 }
 

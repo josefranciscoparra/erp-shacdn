@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
-import { prisma } from "@/lib/prisma";
+import { documentStorageService } from "@/lib/storage";
+import { enqueuePayslipBatchJob } from "@/server/jobs/payslip-queue";
 import { getOrgStorageQuota } from "@/server/storage/quota";
 import { payslipService } from "@/services/payslips/payslip.service";
 
@@ -75,6 +76,8 @@ export async function POST(request: NextRequest) {
     const fileBuffer = Buffer.from(await file.arrayBuffer());
     const isZip = normalizedMime.includes("zip") || normalizedExtension === ".zip";
     const originalFileType = isZip ? "ZIP" : "PDF_MULTIPAGE";
+    const fallbackMimeType = isZip ? "application/zip" : "application/pdf";
+    const sourceMimeType = normalizedMime ? normalizedMime : fallbackMimeType;
 
     // 1. Crear Batch en estado PROCESSING
     const batch = await payslipService.createBatch({
@@ -86,20 +89,23 @@ export async function POST(request: NextRequest) {
       year: yearStr ? parseInt(yearStr, 10) : null,
     });
 
-    // 2. Obtener empleados para matching (incluye activos e inactivos para detectar bloqueados)
-    const employees = await prisma.employee.findMany({
-      where: { orgId },
-      select: { id: true, firstName: true, lastName: true, nifNie: true, employeeNumber: true, active: true },
-    });
+    // 2. Subir archivo original a storage para que lo procese el worker
+    const sourceUpload = await documentStorageService.uploadPayslipBatchSourceFile(
+      orgId,
+      batch.id,
+      file.name,
+      fileBuffer,
+      sourceMimeType,
+    );
 
-    // 3. Disparar procesamiento asíncrono
-    // NOTA: En Vercel serverless, esto podría terminarse prematuramente si no se usa waitUntil o Colas.
-    // En un entorno VPS/Node funciona bien.
-    // Recomendación: Mover a una Cola (Bull/Inngest) si se escala.
-    const processingPromise = payslipService.processBatchAsync(batch.id, fileBuffer, employees);
-
-    // Si estamos en un entorno que soporta waitUntil (Cloudflare/Vercel Edge), usarlo para mayor robustez
-    (request as any).waitUntil?.(processingPromise);
+    // 3. Encolar procesamiento en background (pg-boss)
+    try {
+      await enqueuePayslipBatchJob({ batchId: batch.id, sourcePath: sourceUpload.path });
+    } catch (enqueueError) {
+      console.error("Error encolando procesamiento de nóminas:", enqueueError);
+      await payslipService.updateBatchStatus(batch.id, "ERROR");
+      return NextResponse.json({ error: "No se pudo encolar el procesamiento del lote." }, { status: 500 });
+    }
 
     return NextResponse.json(
       {
