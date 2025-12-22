@@ -78,7 +78,9 @@ async function createEmployeeFromRow(params: {
   }
 
   const userRole =
-    data.role && ["EMPLOYEE", "MANAGER", "HR_ADMIN", "ORG_ADMIN"].includes(data.role) ? data.role : "EMPLOYEE";
+    data.role && ["EMPLOYEE", "MANAGER", "HR_ADMIN", "HR_ASSISTANT", "ORG_ADMIN"].includes(data.role)
+      ? data.role
+      : "EMPLOYEE";
 
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await hash(temporaryPassword, 10);

@@ -34,6 +34,7 @@ const ROLE_DISPLAY_NAMES: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Org",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };
@@ -83,7 +84,7 @@ export function UserDetailsDialog({ user, open, onOpenChange, currentUserRole }:
                 <Shield className="text-muted-foreground mt-0.5 h-4 w-4" />
                 <div className="space-y-1">
                   <p className="text-muted-foreground text-xs">Rol</p>
-                  <Badge variant="outline">{ROLE_DISPLAY_NAMES[user.role]}</Badge>
+                  <Badge variant="outline">{ROLE_DISPLAY_NAMES[user.role] ?? user.role}</Badge>
                 </div>
               </div>
             </div>

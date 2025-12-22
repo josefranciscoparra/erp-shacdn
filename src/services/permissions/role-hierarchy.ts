@@ -5,9 +5,10 @@ import { Role } from "@prisma/client";
  * Valor mayor = más privilegios
  */
 export const ROLE_HIERARCHY: Record<Role, number> = {
-  SUPER_ADMIN: 5,
-  ORG_ADMIN: 4,
-  HR_ADMIN: 3,
+  SUPER_ADMIN: 6,
+  ORG_ADMIN: 5,
+  HR_ADMIN: 4,
+  HR_ASSISTANT: 3, // Asistente de RRHH (operativo sin datos sensibles)
   MANAGER: 2,
   EMPLOYEE: 1,
 };
@@ -24,6 +25,7 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
  */
 export const ALLOWED_RESPONSIBLE_ROLES = [
   "MANAGER",
+  "HR_ASSISTANT",
   "HR_ADMIN",
   "ORG_ADMIN",
   "SUPER_ADMIN",
@@ -39,6 +41,7 @@ export const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   SUPER_ADMIN: "Super Administrador",
   ORG_ADMIN: "Administrador de Organización",
   HR_ADMIN: "Administrador de RRHH",
+  HR_ASSISTANT: "Asistente de RRHH",
   MANAGER: "Manager/Supervisor",
   EMPLOYEE: "Empleado",
 };
@@ -50,6 +53,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   SUPER_ADMIN: "Acceso total al sistema (multi-organización)",
   ORG_ADMIN: "Administrador con acceso completo a su organización",
   HR_ADMIN: "Gestión de recursos humanos, empleados y nóminas",
+  HR_ASSISTANT: "Asistente de RRHH con acceso operativo (sin datos sensibles)",
   MANAGER: "Supervisor de equipo con permisos de aprobación",
   EMPLOYEE: "Empleado con acceso básico a su información",
 };
@@ -121,8 +125,8 @@ export function canViewRole(currentRole: Role, targetRole: Role): boolean {
     return true;
   }
 
-  // ORG_ADMIN y HR_ADMIN ven todos en su organización
-  if (currentRole === "ORG_ADMIN" || currentRole === "HR_ADMIN") {
+  // ORG_ADMIN, HR_ADMIN y HR_ASSISTANT ven todos en su organización
+  if (currentRole === "ORG_ADMIN" || currentRole === "HR_ADMIN" || currentRole === "HR_ASSISTANT") {
     return true;
   }
 
@@ -139,7 +143,7 @@ export function canViewRole(currentRole: Role, targetRole: Role): boolean {
  * Obtiene la lista de roles que el usuario actual puede crear
  */
 export function getCreatableRoles(currentRole: Role): Role[] {
-  const allRoles: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+  const allRoles: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
 
   return allRoles.filter((role) => canCreateRole(currentRole, role));
 }
@@ -148,7 +152,7 @@ export function getCreatableRoles(currentRole: Role): Role[] {
  * Obtiene la lista de roles a los que puede ascender/cambiar un usuario
  */
 export function getEditableRoles(currentRole: Role, targetUserCurrentRole: Role): Role[] {
-  const allRoles: Role[] = ["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+  const allRoles: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
 
   return allRoles.filter((newRole) => canEditRole(currentRole, targetUserCurrentRole, newRole));
 }
@@ -178,6 +182,8 @@ export function getRoleBadgeVariant(role: Role): "default" | "secondary" | "dest
       return "default"; // Azul
     case "HR_ADMIN":
       return "secondary"; // Púrpura/gris
+    case "HR_ASSISTANT":
+      return "secondary"; // Púrpura/gris (similar a HR_ADMIN)
     case "MANAGER":
       return "outline"; // Gris con borde
     case "EMPLOYEE":

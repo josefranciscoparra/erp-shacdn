@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
-import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE, PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
+import { safePermission } from "@/lib/auth-guard";
+import { ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES, MAX_FILE_SIZE } from "@/lib/payslip/config";
 import { documentStorageService } from "@/lib/storage";
 import { enqueuePayslipBatchJob } from "@/server/jobs/payslip-queue";
 import { getOrgStorageQuota } from "@/server/storage/quota";
@@ -17,23 +17,16 @@ export const maxDuration = 300; // 5 minutos para procesamiento largo
  */
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      const status = authz.code === "UNAUTHORIZED" ? 401 : 403;
+      return NextResponse.json({ error: authz.error }, { status });
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!orgId) {
-      return NextResponse.json({ error: "No se encontró una organización activa" }, { status: 400 });
-    }
-
-    if (!PAYSLIP_ADMIN_ROLES.includes(role as (typeof PAYSLIP_ADMIN_ROLES)[number])) {
-      return NextResponse.json({ error: "No tienes permisos para subir nóminas" }, { status: 403 });
-    }
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

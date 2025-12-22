@@ -25,7 +25,8 @@ export type Permission =
   | "view_own_profile" // Ver su propio perfil
   | "edit_own_profile" // Editar su propio perfil
   | "view_own_documents" // Ver sus propios documentos
-  | "view_payroll" // Ver nóminas
+  | "view_payroll" // Ver nóminas (RRHH)
+  | "view_own_payslips" // Ver sus propias nóminas
   | "manage_payroll" // Gestionar nóminas
   | "clock_in_out" // Fichar entrada/salida
   | "view_time_tracking" // Ver fichajes de todos los empleados
@@ -36,7 +37,15 @@ export type Permission =
   | "manage_users" // Gestionar usuarios del sistema
   | "view_all_users" // Ver todos los usuarios
   | "create_users" // Crear nuevos usuarios
-  | "change_roles"; // Cambiar roles de usuarios
+  | "change_roles" // Cambiar roles de usuarios
+  // Permisos de papelera (nuevos)
+  | "manage_trash" // Purgar definitivo de papelera
+  | "restore_trash" // Restaurar documentos eliminados
+  // Permisos de datos sensibles (nuevos)
+  | "view_sensitive_data" // Ver datos sensibles (salarios exactos, etc.)
+  | "manage_payslips" // Gestionar lotes de nóminas (subir/publicar/revocar)
+  // Permisos de validación de tiempo (nuevos)
+  | "validate_time_entries"; // Validar/corregir fichajes de empleados
 
 // Mapa de permisos por rol
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -63,6 +72,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "edit_own_profile",
     "view_own_documents",
     "view_payroll",
+    "view_own_payslips",
     "manage_payroll",
     "clock_in_out",
     "view_time_tracking",
@@ -72,6 +82,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    // Nuevos permisos
+    "manage_trash",
+    "restore_trash",
+    "view_sensitive_data",
+    "manage_payslips",
+    "validate_time_entries",
   ],
   ORG_ADMIN: [
     "view_employees",
@@ -96,6 +112,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "edit_own_profile",
     "view_own_documents",
     "view_payroll",
+    "view_own_payslips",
     "manage_payroll",
     "clock_in_out",
     "view_time_tracking",
@@ -105,6 +122,12 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    // Nuevos permisos
+    "manage_trash",
+    "restore_trash",
+    "view_sensitive_data",
+    "manage_payslips",
+    "validate_time_entries",
   ],
   HR_ADMIN: [
     "view_employees",
@@ -129,6 +152,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "edit_own_profile",
     "view_own_documents",
     "view_payroll",
+    "view_own_payslips",
     "manage_payroll",
     "clock_in_out",
     "view_time_tracking",
@@ -140,6 +164,38 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    // Nuevos permisos
+    "manage_trash",
+    "restore_trash",
+    "view_sensitive_data",
+    "manage_payslips",
+    "validate_time_entries",
+  ],
+  // Asistente de RRHH - Operativo SIN datos sensibles
+  HR_ASSISTANT: [
+    "view_employees",
+    "manage_employees",
+    "view_departments",
+    "view_cost_centers",
+    "view_teams",
+    "view_positions",
+    "view_contracts",
+    "view_documents",
+    "manage_documents",
+    "view_reports",
+    "view_own_profile",
+    "edit_own_profile",
+    "view_own_documents",
+    "view_payroll", // Ver nóminas pero NO gestionar
+    "view_own_payslips",
+    "clock_in_out",
+    "view_time_tracking",
+    "has_employee_profile",
+    "approve_requests",
+    "view_all_users",
+    "restore_trash", // Restaurar pero NO purgar
+    // SIN: manage_trash, manage_payslips, view_sensitive_data, manage_payroll
+    // SIN: manage_users, create_users, change_roles, manage_organization
   ],
   MANAGER: [
     "view_employees", // Pueden ver empleados de su equipo
@@ -157,11 +213,14 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking", // Ver fichajes de su equipo
     "has_employee_profile",
     "approve_requests",
+    "validate_time_entries", // Validar fichajes de su equipo
+    // TODO: En fase futura, estos permisos serán con scope TEAM/DEPARTMENT
   ],
   EMPLOYEE: [
     "view_own_profile", // Solo pueden ver su propio perfil
     "edit_own_profile", // Editar algunos campos de su perfil
     "view_own_documents", // Ver solo sus documentos
+    "view_own_payslips",
     "clock_in_out", // Todos los empleados pueden fichar
     "has_employee_profile",
   ],

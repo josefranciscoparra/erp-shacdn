@@ -36,12 +36,13 @@ const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Org",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };
 
 const changeRoleSchema = z.object({
-  role: z.enum(["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"], {
+  role: z.enum(["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"], {
     errorMap: () => ({ message: "Selecciona un rol válido" }),
   }),
 });

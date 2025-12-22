@@ -91,17 +91,17 @@ export default function UsersManagementPage() {
   };
 
   // Determinar roles permitidos basándose en el rol del usuario actual
-  // Solo ORG_ADMIN y HR_ADMIN (roles administrativos) para CREACIÓN
+  // Solo roles administrativos para CREACIÓN
   const getAllowedRoles = (): Role[] => {
     if (!userRole) return [];
 
     switch (userRole) {
       case "SUPER_ADMIN":
-        return ["ORG_ADMIN", "HR_ADMIN"];
+        return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
       case "ORG_ADMIN":
-        return ["HR_ADMIN"]; // Solo puede crear HR_ADMIN
+        return ["HR_ADMIN", "HR_ASSISTANT"]; // Solo puede crear RRHH
       case "HR_ADMIN":
-        return ["HR_ADMIN"]; // Puede crear otros HR_ADMIN
+        return ["HR_ADMIN", "HR_ASSISTANT"]; // Puede crear RRHH
       default:
         return [];
     }
@@ -113,11 +113,11 @@ export default function UsersManagementPage() {
 
     switch (userRole) {
       case "SUPER_ADMIN":
-        return ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+        return ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
       case "ORG_ADMIN":
-        return ["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"];
+        return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
       case "HR_ADMIN":
-        return ["HR_ADMIN", "MANAGER", "EMPLOYEE"]; // Ahora puede ascender a HR_ADMIN
+        return ["HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"]; // Ahora puede ascender a RRHH
       default:
         return [];
     }

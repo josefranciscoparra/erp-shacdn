@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
-import { PAYSLIP_ADMIN_ROLES } from "@/lib/payslip/config";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService, getStorageProvider } from "@/lib/storage";
 
@@ -11,18 +10,15 @@ import { documentStorageService, getStorageProvider } from "@/lib/storage";
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const session = await auth();
-
-    if (!session?.user) {
-      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    // Autorización: requiere view_payroll
+    const authz = await safePermission("view_payroll");
+    if (!authz.ok) {
+      const status = authz.code === "UNAUTHORIZED" ? 401 : 403;
+      return NextResponse.json({ error: authz.error }, { status });
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_ADMIN_ROLES.includes(role as (typeof PAYSLIP_ADMIN_ROLES)[number])) {
-      return NextResponse.json({ error: "No tienes permisos" }, { status: 403 });
-    }
 
     const { id } = await params;
 

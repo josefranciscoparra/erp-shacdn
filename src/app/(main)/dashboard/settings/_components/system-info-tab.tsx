@@ -32,6 +32,11 @@ const roleInfo: Record<
     description: "Gestión de recursos humanos",
     variant: "secondary",
   },
+  HR_ASSISTANT: {
+    label: "Asistente RRHH",
+    description: "Asistente de RRHH con acceso operativo (sin datos sensibles)",
+    variant: "secondary",
+  },
   MANAGER: {
     label: "Manager",
     description: "Supervisor de equipo, acceso limitado",
@@ -63,7 +68,9 @@ const permissionLabels: Record<string, string> = {
   edit_own_profile: "Editar perfil propio",
   view_own_documents: "Ver documentos propios",
   view_payroll: "Ver nóminas",
+  view_own_payslips: "Ver mis nóminas",
   manage_payroll: "Gestionar nóminas",
+  manage_payslips: "Gestionar lotes de nóminas",
 };
 
 export function SystemInfoTab() {

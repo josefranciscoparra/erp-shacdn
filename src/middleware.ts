@@ -8,6 +8,7 @@ const roleRoutes = {
   SUPER_ADMIN: ["/admin", "/dashboard", "/employees", "/settings"],
   ORG_ADMIN: ["/dashboard", "/employees", "/settings", "/admin/users"],
   HR_ADMIN: ["/dashboard", "/employees", "/timeclock", "/pto", "/admin/users"],
+  HR_ASSISTANT: ["/dashboard", "/employees", "/timeclock", "/pto", "/admin/users"],
   MANAGER: ["/dashboard", "/employees", "/timeclock", "/pto"],
   EMPLOYEE: ["/dashboard", "/timeclock", "/pto"],
 };

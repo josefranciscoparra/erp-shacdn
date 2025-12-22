@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { FileCategory, RetentionPolicy, type Prisma } from "@prisma/client";
 
-import { auth } from "@/lib/auth";
 import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
-import { PAYSLIP_ADMIN_ROLES, PAYSLIP_PUBLISH_ROLES, PAYSLIP_REVOKE_ROLES } from "@/lib/payslip/config";
+import { getSessionOrThrow, safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { registerStoredFile } from "@/lib/storage/storage-ledger";
@@ -109,9 +108,9 @@ export type PayslipEmployeeOption = {
 // HELPERS
 // ============================================
 
-async function isPayslipAdmin(role: string): Promise<boolean> {
-  return PAYSLIP_ADMIN_ROLES.includes(role as (typeof PAYSLIP_ADMIN_ROLES)[number]);
-}
+// La autorización ahora se gestiona mediante safePermission("manage_payslips")
+// Las constantes PAYSLIP_*_ROLES han sido eliminadas
+// @see /src/lib/auth-guard.ts
 
 // ============================================
 // SERVER ACTIONS: GESTIÓN DE LOTES
@@ -119,6 +118,7 @@ async function isPayslipAdmin(role: string): Promise<boolean> {
 
 /**
  * Obtiene la lista de lotes de nóminas para la organización
+ * Requiere permiso manage_payslips
  */
 export async function getPayslipBatches(
   options: {
@@ -129,17 +129,14 @@ export async function getPayslipBatches(
   } = {},
 ): Promise<{ success: boolean; batches?: PayslipBatchListItem[]; total?: number; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere view_payroll
+    const authz = await safePermission("view_payroll");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para ver lotes de nóminas" };
-    }
 
     const { status, year, page = 1, pageSize = 20 } = options;
     const skip = (page - 1) * pageSize;
@@ -222,17 +219,14 @@ export async function getBatchWithItems(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere view_payroll
+    const authz = await safePermission("view_payroll");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para ver este lote" };
-    }
 
     const { status, page = 1, pageSize = 50 } = options;
     const skip = (page - 1) * pageSize;
@@ -364,17 +358,14 @@ export async function getActiveEmployees(
   options: { includeInactive?: boolean; limit?: number } = {},
 ): Promise<{ success: boolean; employees?: PayslipEmployeeOption[]; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para ver empleados" };
-    }
 
     const includeInactive = options.includeInactive ?? true;
 
@@ -414,18 +405,15 @@ export async function assignPayslipItem(
   employeeId: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para asignar nóminas" };
-    }
 
     // Verificar que el item existe y pertenece a la organización
     const item = await prisma.payslipUploadItem.findFirst({
@@ -508,17 +496,14 @@ export async function assignPayslipItem(
  */
 export async function skipPayslipItem(itemId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para gestionar nóminas" };
-    }
 
     const item = await prisma.payslipUploadItem.findFirst({
       where: { id: itemId, orgId },
@@ -573,17 +558,14 @@ export async function updatePayslipBatchMeta(
   data: { month?: number | null; year?: number | null; label?: string | null },
 ): Promise<{ success: boolean; batch?: PayslipBatchListItem; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para editar este lote" };
-    }
 
     const batch = await prisma.payslipBatch.update({
       where: { id: batchId, orgId },
@@ -646,17 +628,14 @@ export async function updatePayslipBatchMeta(
  */
 export async function retryOcrItem(itemId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para gestionar nóminas" };
-    }
 
     const item = await prisma.payslipUploadItem.findFirst({
       where: { id: itemId, orgId },
@@ -716,10 +695,13 @@ export async function getMyPayslips(options: { year?: number; page?: number; pag
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere view_own_payslips
+    const authz = await safePermission("view_own_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
+
+    const { session } = authz;
 
     const { employeeId, activeOrgId } = await ensureEmployeeHasAccessToActiveOrg(session);
 
@@ -779,10 +761,13 @@ export async function getMyPayslips(options: { year?: number; page?: number; pag
  */
 export async function getMyPayslipYears(): Promise<{ success: boolean; years?: number[]; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere view_own_payslips
+    const authz = await safePermission("view_own_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
+
+    const { session } = authz;
 
     const { employeeId, activeOrgId } = await ensureEmployeeHasAccessToActiveOrg(session);
 
@@ -923,17 +908,14 @@ export async function searchEmployeesForPayslip(query: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos" };
-    }
 
     const employees = await prisma.employee.findMany({
       where: {
@@ -998,17 +980,14 @@ export async function getBatchPublishSummary(
   batchId: string,
 ): Promise<{ success: boolean; summary?: BatchPublishSummary; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_PUBLISH_ROLES.includes(role as (typeof PAYSLIP_PUBLISH_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para publicar nóminas" };
-    }
 
     const batch = await prisma.payslipBatch.findFirst({
       where: { id: batchId, orgId },
@@ -1048,18 +1027,15 @@ export async function getBatchPublishSummary(
  */
 export async function publishBatch(batchId: string): Promise<PublishResult> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_PUBLISH_ROLES.includes(role as (typeof PAYSLIP_PUBLISH_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para publicar nóminas" };
-    }
 
     const batch = await prisma.payslipBatch.findFirst({
       where: { id: batchId, orgId },
@@ -1224,18 +1200,15 @@ export async function publishBatch(batchId: string): Promise<PublishResult> {
 export async function publishItems(itemIds: string[]): Promise<PublishResult> {
   let selectionBatchIds: string[] = [];
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_PUBLISH_ROLES.includes(role as (typeof PAYSLIP_PUBLISH_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para publicar nóminas" };
-    }
 
     if (itemIds.length === 0) {
       return { success: false, error: "No se especificaron items para publicar" };
@@ -1432,18 +1405,15 @@ export async function revokePayslipItem(
   reason?: string,
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_REVOKE_ROLES.includes(role as (typeof PAYSLIP_REVOKE_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para revocar nóminas" };
-    }
 
     const item = await prisma.payslipUploadItem.findFirst({
       where: { id: itemId, orgId },
@@ -1520,18 +1490,15 @@ export async function revokeBatch(
   reason?: string,
 ): Promise<{ success: boolean; revokedCount?: number; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!PAYSLIP_REVOKE_ROLES.includes(role as (typeof PAYSLIP_REVOKE_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para revocar nóminas" };
-    }
 
     const batch = await prisma.payslipBatch.findFirst({
       where: { id: batchId, orgId },
@@ -1641,18 +1608,15 @@ export async function uploadSinglePayslip(input: {
   publishNow?: boolean;
 }): Promise<{ success: boolean; batchId?: string; documentId?: string; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_payslips
+    const authz = await safePermission("manage_payslips");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
+    const { session } = authz;
     const userId = session.user.id;
     const orgId = session.user.orgId;
-    const role = session.user.role;
-
-    if (!(await isPayslipAdmin(role))) {
-      return { success: false, error: "No tienes permisos para subir nóminas" };
-    }
 
     if (!input.month || input.month < 1 || input.month > 12 || !input.year || input.year < 1900) {
       return { success: false, error: "Mes o año inválidos" };

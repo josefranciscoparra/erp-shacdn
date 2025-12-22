@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { auth } from "@/lib/auth";
+import { safeAnyPermission, safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import {
@@ -11,9 +11,6 @@ import {
   restoreStoredFile,
   type PurgeStatus,
 } from "@/lib/storage/storage-ledger";
-
-// Roles que pueden ver y gestionar la papelera
-const TRASH_ADMIN_ROLES = ["SUPER_ADMIN", "ADMIN", "HR_ADMIN"] as const;
 
 export interface TrashDocument {
   id: string;
@@ -67,6 +64,7 @@ export interface GetTrashResult {
 
 /**
  * Obtiene los documentos en la papelera (soft deleted)
+ * Requiere permiso manage_trash O restore_trash (para HR_ASSISTANT que solo restaura)
  */
 export async function getTrashDocuments(options?: {
   page?: number;
@@ -74,16 +72,13 @@ export async function getTrashDocuments(options?: {
   search?: string;
 }): Promise<GetTrashResult> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: puede ver quien tenga manage_trash O restore_trash
+    const authz = await safeAnyPermission(["manage_trash", "restore_trash"]);
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
-    const role = session.user.role;
-    if (!TRASH_ADMIN_ROLES.includes(role as (typeof TRASH_ADMIN_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para ver la papelera" };
-    }
-
+    const { session } = authz;
     const orgId = session.user.orgId;
     const page = options?.page ?? 1;
     const limit = options?.limit ?? 20;
@@ -235,18 +230,17 @@ export async function getTrashDocuments(options?: {
 
 /**
  * Restaura un documento de la papelera
+ * Requiere permiso restore_trash (HR_ASSISTANT y superiores)
  */
 export async function restoreDocument(documentId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere restore_trash
+    const authz = await safePermission("restore_trash");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
-    const role = session.user.role;
-    if (!TRASH_ADMIN_ROLES.includes(role as (typeof TRASH_ADMIN_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para restaurar documentos" };
-    }
+    const { session } = authz;
 
     const document = await prisma.employeeDocument.findFirst({
       where: {
@@ -290,18 +284,17 @@ export async function restoreDocument(documentId: string): Promise<{ success: bo
 /**
  * Purga (elimina permanentemente) un documento
  * Solo funciona si la retención ha expirado y no hay legalHold
+ * Requiere permiso manage_trash (solo HR_ADMIN y superiores)
  */
 export async function purgeDocument(documentId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, error: "No autorizado" };
+    // Autorización: requiere manage_trash (solo admins)
+    const authz = await safePermission("manage_trash");
+    if (!authz.ok) {
+      return { success: false, error: authz.error };
     }
 
-    const role = session.user.role;
-    if (!TRASH_ADMIN_ROLES.includes(role as (typeof TRASH_ADMIN_ROLES)[number])) {
-      return { success: false, error: "No tienes permisos para purgar documentos" };
-    }
+    const { session } = authz;
 
     const document = await prisma.employeeDocument.findFirst({
       where: {
@@ -353,19 +346,17 @@ export async function purgeDocument(documentId: string): Promise<{ success: bool
 
 /**
  * Purga todos los documentos que pueden ser purgados
+ * Requiere permiso manage_trash (solo HR_ADMIN y superiores)
  */
 export async function purgeAllExpired(): Promise<{ success: boolean; purgedCount: number; error?: string }> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, purgedCount: 0, error: "No autorizado" };
+    // Autorización: requiere manage_trash (solo admins)
+    const authz = await safePermission("manage_trash");
+    if (!authz.ok) {
+      return { success: false, purgedCount: 0, error: authz.error };
     }
 
-    const role = session.user.role;
-    if (!TRASH_ADMIN_ROLES.includes(role as (typeof TRASH_ADMIN_ROLES)[number])) {
-      return { success: false, purgedCount: 0, error: "No tienes permisos para purgar documentos" };
-    }
-
+    const { session } = authz;
     const orgId = session.user.orgId;
 
     // Obtener todos los documentos en papelera

@@ -16,11 +16,16 @@ export const EMPLOYEE_IMPORT_COLUMNS: EmployeeImportColumn[] = [
   { key: "phone", label: "Teléfono" },
   { key: "mobile_phone", label: "Móvil" },
   { key: "start_date", label: "Fecha de inicio", required: true, hint: "YYYY-MM-DD" },
-  { key: "schedule_template_id", label: "Horario (scheduleTemplateId)", required: true, hint: "ID del horario existente" },
+  {
+    key: "schedule_template_id",
+    label: "Horario (scheduleTemplateId)",
+    required: true,
+    hint: "ID del horario existente",
+  },
   { key: "department_id", label: "Departamento" },
   { key: "cost_center_id", label: "Centro de coste" },
   { key: "manager_email", label: "Email manager", hint: "Opcional, debe existir en la org" },
-  { key: "role", label: "Rol de usuario", hint: "EMPLOYEE/ MANAGER / HR_ADMIN / ORG_ADMIN" },
+  { key: "role", label: "Rol de usuario", hint: "EMPLOYEE/ MANAGER / HR_ADMIN / HR_ASSISTANT / ORG_ADMIN" },
   { key: "contract_type", label: "Tipo de contrato", hint: "Ej. INDEFINIDO, TEMPORAL" },
   { key: "weekly_hours", label: "Horas semanales", hint: "Horas pactadas (40, 20...)" },
   { key: "notes", label: "Notas" },
@@ -96,7 +101,7 @@ export const EMPLOYEE_IMPORT_HEADER_MAP: Record<string, string> = {
   pto_used_minutes: "ptoUsedMinutes",
 };
 
-export const EMPLOYEE_IMPORT_ALLOWED_ROLES = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "ORG_ADMIN"] as const;
+export const EMPLOYEE_IMPORT_ALLOWED_ROLES = ["EMPLOYEE", "MANAGER", "HR_ADMIN", "HR_ASSISTANT", "ORG_ADMIN"] as const;
 
 export const EMPLOYEE_IMPORT_VACATION_MODES = ["BALANCE", "ANNUAL"] as const;
 

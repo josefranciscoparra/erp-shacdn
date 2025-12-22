@@ -12,7 +12,7 @@ export const createUserSchema = z.object({
     .min(3, "El nombre debe tener al menos 3 caracteres")
     .max(100, "El nombre no puede exceder 100 caracteres")
     .trim(),
-  role: z.enum(["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"], {
+  role: z.enum(["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"], {
     errorMap: () => ({ message: "Rol inválido" }),
   }),
   employeeId: z.string().optional(),
@@ -27,7 +27,7 @@ export type CreateUserInput = z.infer<typeof createUserSchema>;
  */
 export const updateUserRoleSchema = z.object({
   userId: z.string().min(1, "ID de usuario obligatorio"),
-  newRole: z.enum(["ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"], {
+  newRole: z.enum(["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"], {
     errorMap: () => ({ message: "Rol inválido" }),
   }),
 });
@@ -62,7 +62,7 @@ export const getUsersFiltersSchema = z.object({
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(10),
   status: z.enum(["active", "inactive", "with-temp-password", "all"]).optional(),
-  role: z.enum(["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER", "EMPLOYEE"]).optional(),
+  role: z.enum(["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"]).optional(),
   search: z.string().optional(),
 });
 
@@ -75,8 +75,8 @@ export const createUserAdminSchema = z
   .object({
     // Campos comunes (siempre requeridos)
     email: z.string().email("Email inválido").toLowerCase().trim(),
-    role: z.enum(["ORG_ADMIN", "HR_ADMIN"], {
-      errorMap: () => ({ message: "Rol inválido. Solo ORG_ADMIN o HR_ADMIN permitidos" }),
+    role: z.enum(["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"], {
+      errorMap: () => ({ message: "Rol inválido. Solo ORG_ADMIN, HR_ADMIN o HR_ASSISTANT permitidos" }),
     }),
 
     // Checkbox para determinar flujo

@@ -123,21 +123,12 @@ export function getMonthName(month: number): string {
 }
 
 // ============================================
-// ROLES CON ACCESO A GESTIÓN DE NÓMINAS
+// NOTA: ROLES DE NÓMINAS
 // ============================================
-
-/** Roles que pueden subir y gestionar lotes de nóminas */
-export const PAYSLIP_ADMIN_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_MANAGER"] as const;
-
-/** Roles que solo pueden ver sus propias nóminas */
-export const PAYSLIP_EMPLOYEE_ROLES = ["EMPLOYEE", "MANAGER"] as const;
-
-// ============================================
-// PERMISOS DE PUBLICACIÓN Y REVOCACIÓN
-// ============================================
-
-/** Roles que pueden publicar lotes de nóminas */
-export const PAYSLIP_PUBLISH_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "HR_MANAGER"] as const;
-
-/** Roles que pueden revocar nóminas publicadas (más restrictivo) */
-export const PAYSLIP_REVOKE_ROLES = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"] as const;
+// Las constantes de roles hardcodeadas han sido eliminadas.
+// La autorización ahora se gestiona mediante permisos centralizados:
+// - manage_payslips: Gestionar lotes de nóminas (subir/publicar/revocar)
+// - view_payroll: Ver nóminas (lectura)
+// - view_own_payslips: Ver sus propias nóminas (self-service)
+// @see /src/lib/auth-guard.ts para el guard de autorización
+// @see /src/services/permissions/permissions.ts para el mapeo de permisos por rol

@@ -33,6 +33,7 @@ const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Org",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };
@@ -140,7 +141,9 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
         <DialogHeader>
           <DialogTitle>Crear usuario administrativo</DialogTitle>
-          <DialogDescription>Completa la información para crear un usuario ORG_ADMIN o HR_ADMIN</DialogDescription>
+          <DialogDescription>
+            Completa la información para crear un usuario ORG_ADMIN, HR_ADMIN o HR_ASSISTANT
+          </DialogDescription>
         </DialogHeader>
 
         {tempPassword ? (

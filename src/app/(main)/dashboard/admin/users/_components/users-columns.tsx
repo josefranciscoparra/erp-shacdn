@@ -47,6 +47,7 @@ const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Org",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };
@@ -55,6 +56,7 @@ const ROLE_COLORS: Record<Role, string> = {
   SUPER_ADMIN: "bg-purple-500/10 text-purple-700 dark:text-purple-300",
   ORG_ADMIN: "bg-blue-500/10 text-blue-700 dark:text-blue-300",
   HR_ADMIN: "bg-green-500/10 text-green-700 dark:text-green-300",
+  HR_ASSISTANT: "bg-teal-500/10 text-teal-700 dark:text-teal-300",
   MANAGER: "bg-orange-500/10 text-orange-700 dark:text-orange-300",
   EMPLOYEE: "bg-gray-500/10 text-gray-700 dark:text-gray-300",
 };

@@ -143,6 +143,7 @@ export function useSidebarItems(): NavGroup[] {
           url: "/dashboard/me/payslips",
           icon: FileArchive,
           isNew: true,
+          permission: "view_own_payslips",
         },
         ...(documentsEnabled
           ? [
@@ -195,7 +196,7 @@ export function useSidebarItems(): NavGroup[] {
           title: "Nóminas",
           url: "/dashboard/payslips",
           icon: FileArchive,
-          permission: "manage_organization" as Permission,
+          permission: "view_payroll",
           isNew: true,
         },
         {

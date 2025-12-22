@@ -69,14 +69,14 @@ export default function PayslipsPage() {
 
   return (
     <PermissionGuard
-      permission="manage_organization"
+      permission="view_payroll"
       fallback={
         <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
           <SectionHeader title="Nóminas" subtitle="Gestión de subida masiva de nóminas" />
           <EmptyState
             icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
             title="Acceso denegado"
-            description="No tienes permisos para gestionar nóminas"
+            description="No tienes permisos para ver nóminas"
           />
         </div>
       }

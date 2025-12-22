@@ -34,6 +34,7 @@ const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   SUPER_ADMIN: "Super Admin",
   ORG_ADMIN: "Admin Org",
   HR_ADMIN: "Admin RRHH",
+  HR_ASSISTANT: "Asistente RRHH",
   MANAGER: "Manager",
   EMPLOYEE: "Empleado",
 };

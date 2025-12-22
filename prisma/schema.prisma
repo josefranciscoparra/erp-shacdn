@@ -399,6 +399,7 @@ enum Role {
   SUPER_ADMIN // Super administrador (multi-org)
   ORG_ADMIN // Administrador de organización
   HR_ADMIN // RRHH
+  HR_ASSISTANT // Asistente de RRHH (operativo sin datos sensibles)
   MANAGER // Manager/Supervisor
   EMPLOYEE // Empleado básico
 }
