@@ -2,6 +2,7 @@
 
 import { Settings, Globe } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -57,16 +58,30 @@ export function LayoutControls() {
                 <Globe className="mr-1 inline size-3" />
                 {t("language")}
               </Label>
-              <Select value={locale} onValueChange={(value: Locale) => setLocale(value)}>
+              <Select
+                value={locale}
+                onValueChange={(value) => {
+                  if (value === "ca" || value === "en") {
+                    toast.info("Próximamente");
+                    return;
+                  }
+                  if (value === "es") {
+                    setLocale(value as Locale);
+                  }
+                }}
+              >
                 <SelectTrigger size="sm" className="w-full text-xs">
                   <SelectValue placeholder={t("selectLanguage")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem className="text-xs" value="es">
-                    {t("spanish")}
+                    Español
+                  </SelectItem>
+                  <SelectItem className="text-xs" value="ca">
+                    Catalan
                   </SelectItem>
                   <SelectItem className="text-xs" value="en">
-                    {t("english")}
+                    Inglés
                   </SelectItem>
                 </SelectContent>
               </Select>
