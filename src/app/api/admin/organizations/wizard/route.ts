@@ -282,9 +282,17 @@ export async function POST(request: NextRequest) {
 
     await revalidatePath("/dashboard/admin/organizations");
 
+    // Convert BigInt fields to number/string for JSON serialization
+    const serializedOrganization = {
+      ...organization,
+      storageUsedBytes: Number(organization.storageUsedBytes),
+      storageLimitBytes: Number(organization.storageLimitBytes),
+      storageReservedBytes: Number(organization.storageReservedBytes),
+    };
+
     return NextResponse.json({
       success: true,
-      organization,
+      organization: serializedOrganization,
       ...catalogEntities,
       setupJobRecorded,
     });
