@@ -125,8 +125,15 @@ export default function OrganizationWizardPage() {
     if (!orgForm.name.trim()) {
       return "El nombre de la organización es obligatorio.";
     }
-    if (!orgForm.employeeNumberPrefix.trim()) {
+    const prefix = orgForm.employeeNumberPrefix.trim();
+    if (!prefix) {
       return "Necesitas un prefijo para numerar empleados automáticamente.";
+    }
+    if (prefix.length < 2) {
+      return "El prefijo debe tener al menos 2 caracteres.";
+    }
+    if (prefix.length > 6) {
+      return "El prefijo no puede tener más de 6 caracteres.";
     }
     if (Number.isNaN(orgForm.annualPtoDays) || orgForm.annualPtoDays < 0) {
       return "Indica los días de vacaciones que dais por defecto (puede ser 0).";
