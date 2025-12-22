@@ -75,6 +75,23 @@ export type SafePermissionResult = AuthSuccess | AuthFailure;
 // ERROR TIPADO
 // ============================================
 
+const PERMISSION_ERROR_MESSAGES: Partial<Record<Permission, string>> = {
+  manage_payslips: "No tienes permisos para gestionar nóminas.",
+  view_payroll: "No tienes permisos para ver las nóminas.",
+  view_own_payslips: "No tienes permisos para ver tus nóminas.",
+  manage_trash: "No tienes permisos para purgar la papelera.",
+  restore_trash: "No tienes permisos para restaurar documentos.",
+  view_sensitive_data: "No tienes permisos para ver datos sensibles.",
+  manage_users: "No tienes permisos para gestionar usuarios.",
+  manage_organization: "No tienes permisos para gestionar la organización.",
+  view_time_tracking: "No tienes permisos para ver los fichajes.",
+  manage_time_tracking: "No tienes permisos para gestionar los fichajes.",
+};
+
+function getPermissionErrorMessage(permission: Permission): string {
+  return PERMISSION_ERROR_MESSAGES[permission] ?? "No tienes permisos para realizar esta acción.";
+}
+
 /**
  * Error de autorización con código tipado
  */
@@ -201,7 +218,7 @@ export async function requirePermission(
   });
 
   if (!effective.has(permission)) {
-    throw new AuthError("FORBIDDEN", `Permiso requerido: ${permission}`);
+    throw new AuthError("FORBIDDEN", getPermissionErrorMessage(permission));
   }
 
   // TODO: Cuando se implementen overrides, detectar el source correcto
@@ -261,21 +278,27 @@ export async function safeAnyPermission(
   permissions: Permission[],
   options?: AuthorizeOptions,
 ): Promise<SafePermissionResult> {
-  let lastError: SafePermissionResult = {
-    ok: false,
-    code: "FORBIDDEN",
-    error: "Sin permisos suficientes",
-  };
+  let unauthorizedError: SafePermissionResult | null = null;
 
   for (const permission of permissions) {
     const result = await safePermission(permission, options);
     if (result.ok) {
       return result;
     }
-    lastError = result;
+    if (result.code === "UNAUTHORIZED" && !unauthorizedError) {
+      unauthorizedError = result;
+    }
   }
 
-  return lastError;
+  if (unauthorizedError) {
+    return unauthorizedError;
+  }
+
+  return {
+    ok: false,
+    code: "FORBIDDEN",
+    error: "No tienes permisos suficientes para realizar esta acción.",
+  };
 }
 
 /**

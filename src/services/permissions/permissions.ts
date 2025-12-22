@@ -78,6 +78,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
+    "approve_requests",
     "manage_users",
     "view_all_users",
     "create_users",
@@ -118,6 +119,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
+    "approve_requests",
     "manage_users",
     "view_all_users",
     "create_users",
@@ -158,7 +160,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_time_tracking",
     "manage_time_tracking",
     "export_time_tracking",
-    "has_employee_profile",
     "approve_requests",
     "manage_users",
     "view_all_users",
@@ -190,7 +191,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_payslips",
     "clock_in_out",
     "view_time_tracking",
-    "has_employee_profile",
     "approve_requests",
     "view_all_users",
     "restore_trash", // Restaurar pero NO purgar
@@ -211,7 +211,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents",
     "clock_in_out",
     "view_time_tracking", // Ver fichajes de su equipo
-    "has_employee_profile",
     "approve_requests",
     "validate_time_entries", // Validar fichajes de su equipo
     // TODO: En fase futura, estos permisos serán con scope TEAM/DEPARTMENT
@@ -222,7 +221,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_documents", // Ver solo sus documentos
     "view_own_payslips",
     "clock_in_out", // Todos los empleados pueden fichar
-    "has_employee_profile",
   ],
 };
 

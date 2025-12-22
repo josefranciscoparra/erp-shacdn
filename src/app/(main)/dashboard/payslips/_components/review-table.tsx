@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import { AUTO_READY_CONFIDENCE_THRESHOLD } from "@/lib/payslip/config";
 import {
   assignPayslipItem,
@@ -193,6 +194,8 @@ export function ReviewTable({
   const [isSkipping, setIsSkipping] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isPublishingSelection, setIsPublishingSelection] = useState(false);
+  const { hasPermission } = usePermissions();
+  const canManagePayslips = hasPermission("manage_payslips");
 
   useEffect(() => {
     setSelectedIds((prev) => {
@@ -216,7 +219,7 @@ export function ReviewTable({
     .filter((item) => selectedIds.has(item.id) && item.status === "READY")
     .map((item) => item.id);
   const selectedReadyCount = selectedReadyIds.length;
-  const hasSelection = selectedIds.size > 0;
+  const hasSelection = canManagePayslips && selectedIds.size > 0;
 
   // Manejo de selección
   const toggleSelectAll = () => {
@@ -400,7 +403,7 @@ export function ReviewTable({
                     selectedIds.size === items.filter((i) => SKIPPABLE_STATUSES.has(i.status)).length
                   }
                   onCheckedChange={toggleSelectAll}
-                  disabled={items.length === 0}
+                  disabled={!canManagePayslips || items.length === 0}
                 />
               </TableHead>
               <TableHead>Archivo / Página</TableHead>
@@ -445,7 +448,7 @@ export function ReviewTable({
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={() => toggleSelectRow(item.id)}
-                        disabled={!canSelect}
+                        disabled={!canManagePayslips || !canSelect}
                       />
                     </TableCell>
                     <TableCell>
@@ -489,7 +492,7 @@ export function ReviewTable({
                           <Eye className="text-muted-foreground h-4 w-4" />
                         </Button>
 
-                        {canAssign && (
+                        {canManagePayslips && canAssign && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -500,7 +503,7 @@ export function ReviewTable({
                             <UserPlus className="text-muted-foreground h-4 w-4" />
                           </Button>
                         )}
-                        {canSkip && (
+                        {canManagePayslips && canSkip && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -518,7 +521,7 @@ export function ReviewTable({
                         )}
 
                         {/* Botón revocar para items publicados */}
-                        {item.status === "PUBLISHED" && (
+                        {canManagePayslips && item.status === "PUBLISHED" && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -591,14 +594,16 @@ export function ReviewTable({
       )}
 
       {/* Dialog para seleccionar empleado */}
-      <EmployeeSelectorDialog
-        open={!!selectedItem}
-        onOpenChange={(open) => !open && setSelectedItem(null)}
-        onSelect={handleAssign}
-        isLoading={isAssigning}
-        detectedDni={selectedItem?.detectedDni ?? undefined}
-        detectedName={selectedItem?.detectedName ?? undefined}
-      />
+      {canManagePayslips && (
+        <EmployeeSelectorDialog
+          open={!!selectedItem}
+          onOpenChange={(open) => !open && setSelectedItem(null)}
+          onSelect={handleAssign}
+          isLoading={isAssigning}
+          detectedDni={selectedItem?.detectedDni ?? undefined}
+          detectedName={selectedItem?.detectedName ?? undefined}
+        />
+      )}
 
       {/* Dialog para preview */}
       <ItemPreviewDialog

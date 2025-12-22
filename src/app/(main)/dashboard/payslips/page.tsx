@@ -10,6 +10,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getPayslipBatches, type PayslipBatchListItem } from "@/server/actions/payslips";
 
 import { BatchList } from "./_components/batch-list";
@@ -20,6 +21,8 @@ export default function PayslipsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showSingleUploadDialog, setShowSingleUploadDialog] = useState(false);
+  const { hasPermission } = usePermissions();
+  const canManagePayslips = hasPermission("manage_payslips");
 
   useEffect(() => {
     loadBatches();
@@ -86,18 +89,20 @@ export default function PayslipsPage() {
           title="Nóminas"
           subtitle="Gestión de subida masiva de nóminas"
           action={
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowSingleUploadDialog(true)} className="h-9">
-                <UserPlus className="mr-2 h-4 w-4" />
-                <span className="hidden sm:inline">Subir individual</span>
-              </Button>
-              <Button size="sm" asChild className="h-9">
-                <Link href="/dashboard/payslips/upload">
-                  <Plus className="mr-2 h-4 w-4" />
-                  <span className="hidden sm:inline">Subir lote</span>
-                </Link>
-              </Button>
-            </div>
+            canManagePayslips ? (
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setShowSingleUploadDialog(true)} className="h-9">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  <span className="hidden sm:inline">Subir individual</span>
+                </Button>
+                <Button size="sm" asChild className="h-9">
+                  <Link href="/dashboard/payslips/upload">
+                    <Plus className="mr-2 h-4 w-4" />
+                    <span className="hidden sm:inline">Subir lote</span>
+                  </Link>
+                </Button>
+              </div>
+            ) : undefined
           }
         />
 
@@ -108,19 +113,21 @@ export default function PayslipsPage() {
             icon={<FileText className="mx-auto h-12 w-12" />}
             title="No hay lotes de nóminas"
             description="Sube tu primer lote de nóminas para comenzar"
-            actionLabel="Subir nóminas"
-            actionHref="/dashboard/payslips/upload"
+            actionLabel={canManagePayslips ? "Subir nóminas" : undefined}
+            actionHref={canManagePayslips ? "/dashboard/payslips/upload" : undefined}
           />
         )}
 
         {/* Diálogo de subida individual */}
-        <SinglePayslipUploadDialog
-          open={showSingleUploadDialog}
-          onOpenChange={setShowSingleUploadDialog}
-          onSuccess={() => {
-            loadBatches();
-          }}
-        />
+        {canManagePayslips && (
+          <SinglePayslipUploadDialog
+            open={showSingleUploadDialog}
+            onOpenChange={setShowSingleUploadDialog}
+            onSuccess={() => {
+              loadBatches();
+            }}
+          />
+        )}
       </div>
     </PermissionGuard>
   );

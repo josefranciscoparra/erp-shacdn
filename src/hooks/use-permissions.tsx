@@ -17,6 +17,9 @@ export function usePermissions() {
 
   return {
     hasPermission: (permission: Permission) => {
+      if (permission === "has_employee_profile") {
+        return !!session?.user.employeeId;
+      }
       if (!userRole) return false;
       return hasPermission(userRole, permission);
     },

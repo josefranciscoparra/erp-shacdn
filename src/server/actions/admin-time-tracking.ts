@@ -14,7 +14,7 @@ import {
   format,
 } from "date-fns";
 
-import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
 
@@ -38,34 +38,17 @@ export interface TimeTrackingFilters {
 
 // Helper para verificar permisos de administrador
 async function checkAdminPermissions() {
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    throw new Error("Usuario no autenticado");
+  const authz = await safePermission("view_time_tracking");
+  if (!authz.ok) {
+    throw new Error(authz.error);
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      id: true,
-      orgId: true,
-      role: true,
-    },
-  });
-
-  if (!user) {
-    throw new Error("Usuario no encontrado");
-  }
-
-  // Verificar que tenga permisos (admin, HR, o manager)
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER"].includes(user.role)) {
-    throw new Error("No tienes permisos para ver esta información");
-  }
+  const { session } = authz;
 
   return {
-    userId: user.id,
-    orgId: user.orgId,
-    role: user.role,
+    userId: session.user.id,
+    orgId: session.user.orgId,
+    role: session.user.role,
   };
 }
 

@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getBatchWithItems, type PayslipBatchListItem, type PayslipUploadItemDetail } from "@/server/actions/payslips";
 
 import { BatchSummary } from "../_components/batch-summary";
@@ -40,6 +41,8 @@ export default function PayslipBatchDetailPage({ params }: Props) {
   const [showPublishDialog, setShowPublishDialog] = useState(false);
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const { hasPermission } = usePermissions();
+  const canManagePayslips = hasPermission("manage_payslips");
 
   const loadData = useCallback(
     async (silent = false) => {
@@ -150,19 +153,24 @@ export default function PayslipBatchDetailPage({ params }: Props) {
                   Volver
                 </Link>
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => setShowEditDialog(true)} className="h-9">
-                <Pencil className="mr-2 h-4 w-4" />
-                Editar periodo
-              </Button>
-              {/* Botón Publicar - solo si hay items listos y no está completado/cancelado */}
-              {batch.readyCount > 0 && batch.status !== "COMPLETED" && batch.status !== "CANCELLED" && (
-                <Button size="sm" onClick={() => setShowPublishDialog(true)} className="h-9">
-                  <Send className="mr-2 h-4 w-4" />
-                  Publicar lote
+              {canManagePayslips && (
+                <Button variant="secondary" size="sm" onClick={() => setShowEditDialog(true)} className="h-9">
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar periodo
                 </Button>
               )}
+              {/* Botón Publicar - solo si hay items listos y no está completado/cancelado */}
+              {canManagePayslips &&
+                batch.readyCount > 0 &&
+                batch.status !== "COMPLETED" &&
+                batch.status !== "CANCELLED" && (
+                  <Button size="sm" onClick={() => setShowPublishDialog(true)} className="h-9">
+                    <Send className="mr-2 h-4 w-4" />
+                    Publicar lote
+                  </Button>
+                )}
               {/* Botón Revocar - solo si hay items publicados */}
-              {batch.publishedCount > 0 && (
+              {canManagePayslips && batch.publishedCount > 0 && (
                 <Button variant="destructive" size="sm" onClick={() => setShowRevokeDialog(true)} className="h-9">
                   <Undo2 className="mr-2 h-4 w-4" />
                   Revocar lote
@@ -217,34 +225,40 @@ export default function PayslipBatchDetailPage({ params }: Props) {
         />
 
         {/* Diálogos */}
-        <PublishDialog
-          open={showPublishDialog}
-          onOpenChange={setShowPublishDialog}
-          batch={batch}
-          onSuccess={() => {
-            setPollCount(0);
-            loadData();
-          }}
-        />
+        {canManagePayslips && (
+          <PublishDialog
+            open={showPublishDialog}
+            onOpenChange={setShowPublishDialog}
+            batch={batch}
+            onSuccess={() => {
+              setPollCount(0);
+              loadData();
+            }}
+          />
+        )}
 
-        <RevokeBatchDialog
-          open={showRevokeDialog}
-          onOpenChange={setShowRevokeDialog}
-          batch={batch}
-          onSuccess={() => {
-            setPollCount(0);
-            loadData();
-          }}
-        />
-        <EditBatchMetaDialog
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          batch={batch}
-          onSuccess={() => {
-            setPollCount(0);
-            loadData();
-          }}
-        />
+        {canManagePayslips && (
+          <RevokeBatchDialog
+            open={showRevokeDialog}
+            onOpenChange={setShowRevokeDialog}
+            batch={batch}
+            onSuccess={() => {
+              setPollCount(0);
+              loadData();
+            }}
+          />
+        )}
+        {canManagePayslips && (
+          <EditBatchMetaDialog
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+            batch={batch}
+            onSuccess={() => {
+              setPollCount(0);
+              loadData();
+            }}
+          />
+        )}
       </div>
     </PermissionGuard>
   );
