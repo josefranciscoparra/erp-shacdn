@@ -11,7 +11,8 @@ import { Role } from "@prisma/client";
 import { type Session } from "next-auth";
 
 import { auth } from "@/lib/auth";
-import { Permission, ROLE_PERMISSIONS } from "@/services/permissions/permissions";
+import { prisma } from "@/lib/prisma";
+import { isValidPermission, Permission, ROLE_PERMISSIONS } from "@/services/permissions/permissions";
 
 // ============================================
 // TIPOS
@@ -86,6 +87,7 @@ const PERMISSION_ERROR_MESSAGES: Partial<Record<Permission, string>> = {
   manage_organization: "No tienes permisos para gestionar la organización.",
   view_time_tracking: "No tienes permisos para ver los fichajes.",
   manage_time_tracking: "No tienes permisos para gestionar los fichajes.",
+  approve_requests: "No tienes permisos para revisar solicitudes.",
 };
 
 function getPermissionErrorMessage(permission: Permission): string {
@@ -142,19 +144,16 @@ export function computeRolePermissions(role: Role): Permission[] {
 /**
  * Calcula los permisos efectivos del usuario
  *
- * Actualmente retorna solo los permisos base del rol.
- * En el futuro, aplicará overrides por organización y usuario:
- * - orgRoleGrantPermissions / orgRoleRevokePermissions
- * - userGrantPermissions / userRevokePermissions
+ * Fórmula: effectivePermissions = roleBase + orgGrants - orgRevokes
  *
  * @param params.role - Rol del usuario
  * @param params.orgId - ID de organización activa
- * @param params.userId - ID del usuario
+ * @param params.userId - ID del usuario (reservado para v2: overrides por usuario)
  * @returns Set de permisos efectivos
  */
 export async function computeEffectivePermissions({
   role,
-  orgId: _orgId,
+  orgId,
   userId: _userId,
 }: {
   role: Role;
@@ -163,35 +162,32 @@ export async function computeEffectivePermissions({
 }): Promise<Set<Permission>> {
   const base = new Set(computeRolePermissions(role));
 
-  // TODO FUTURO: Cargar overrides desde BD cuando exista el modelo PermissionOverride
-  //
-  // Estructura esperada del modelo:
-  // model PermissionOverride {
-  //   id                String   @id @default(cuid())
-  //   orgId             String
-  //   role              Role?    // null = aplica a todos los roles
-  //   userId            String?  // null = aplica a todos los usuarios del rol
-  //   grantPermissions  String[] // permisos a añadir
-  //   revokePermissions String[] // permisos a quitar
-  //   @@unique([orgId, role, userId])
-  // }
-  //
-  // Implementación futura:
-  // const orgOverrides = await prisma.permissionOverride.findMany({
-  //   where: {
-  //     orgId,
-  //     OR: [
-  //       { role, userId: null },      // Override para rol específico
-  //       { role: null, userId: null }, // Override global de org
-  //       { userId },                   // Override para usuario específico
-  //     ],
-  //   },
-  // });
-  //
-  // orgOverrides.forEach((override) => {
-  //   override.grantPermissions.forEach((p) => base.add(p as Permission));
-  //   override.revokePermissions.forEach((p) => base.delete(p as Permission));
-  // });
+  // Cargar override para este rol en esta organización
+  const override = await prisma.orgRolePermissionOverride.findUnique({
+    where: {
+      orgId_role: { orgId, role },
+    },
+    select: {
+      grantPermissions: true,
+      revokePermissions: true,
+    },
+  });
+
+  if (override) {
+    // Añadir permisos concedidos (validando con isValidPermission)
+    override.grantPermissions.forEach((p) => {
+      if (isValidPermission(p)) {
+        base.add(p);
+      }
+    });
+
+    // Eliminar permisos revocados
+    override.revokePermissions.forEach((p) => {
+      if (isValidPermission(p)) {
+        base.delete(p);
+      }
+    });
+  }
 
   return base;
 }
@@ -211,6 +207,10 @@ export async function requirePermission(
   const session = await getSessionOrThrow();
   const { role, orgId, id: userId } = session.user;
 
+  // Obtener permisos base del rol (para detectar source)
+  const basePermissions = new Set(computeRolePermissions(role as Role));
+
+  // Obtener permisos efectivos (con overrides aplicados)
   const effective = await computeEffectivePermissions({
     role: role as Role,
     orgId,
@@ -221,8 +221,10 @@ export async function requirePermission(
     throw new AuthError("FORBIDDEN", getPermissionErrorMessage(permission));
   }
 
-  // TODO: Cuando se implementen overrides, detectar el source correcto
-  return { session, source: "ROLE" };
+  // Detectar origen del permiso
+  const source: AuthSource = basePermissions.has(permission) ? "ROLE" : "ORG_OVERRIDE";
+
+  return { session, source };
 }
 
 /**

@@ -3,6 +3,7 @@
 import {
   Prisma,
   PrismaClient,
+  Role,
   TimeBankApprovalFlow,
   TimeBankMovementOrigin,
   TimeBankMovementStatus,
@@ -18,6 +19,7 @@ import { endOfDay, startOfDay } from "date-fns";
 
 import { canUserApprove, resolveApproverUsers } from "@/lib/approvals/approval-engine";
 import { prisma } from "@/lib/prisma";
+import { hasPermission } from "@/services/permissions/permissions";
 
 import { createNotification } from "./notifications";
 import { getAuthenticatedEmployee, getAuthenticatedUser } from "./shared/get-authenticated-employee";
@@ -489,8 +491,8 @@ function normalizeRequestDate(date: Date): Date {
   return normalized;
 }
 
-function ensureReviewerRole(role: string) {
-  if (!["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN", "MANAGER"].includes(role)) {
+function ensureReviewerRole(role: Role) {
+  if (!hasPermission(role, "approve_requests")) {
     throw new Error("No tienes permisos para revisar solicitudes de bolsa de horas");
   }
 }
@@ -758,7 +760,8 @@ export interface TimeBankRequestWithEmployee extends TimeBankRequest {
 export async function getTimeBankRequestsForReview(
   status: TimeBankRequestStatus = "PENDING",
 ): Promise<TimeBankRequestWithEmployee[]> {
-  const { orgId, userId } = await getAuthenticatedUser();
+  const { orgId, userId, role } = await getAuthenticatedUser();
+  ensureReviewerRole(role);
 
   const requests = await prisma.timeBankRequest.findMany({
     where: {

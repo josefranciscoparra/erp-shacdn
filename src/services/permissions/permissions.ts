@@ -2,50 +2,105 @@ import { Role } from "@prisma/client";
 
 import { features } from "@/config/features";
 
-// Definir permisos del sistema
-export type Permission =
-  | "view_employees" // Ver listado de empleados
-  | "manage_employees" // Crear/editar/eliminar empleados
-  | "view_departments" // Ver departamentos
-  | "manage_departments" // Gestionar departamentos
-  | "view_cost_centers" // Ver centros de coste
-  | "manage_cost_centers" // Gestionar centros de coste
-  | "view_teams" // Ver equipos
-  | "manage_teams" // Gestionar equipos
-  | "view_projects" // Ver proyectos
-  | "manage_projects" // Gestionar proyectos
-  | "view_positions" // Ver puestos de trabajo
-  | "manage_positions" // Gestionar puestos de trabajo
-  | "view_contracts" // Ver contratos
-  | "manage_contracts" // Gestionar contratos
-  | "view_documents" // Ver documentos
-  | "manage_documents" // Gestionar documentos
-  | "view_reports" // Ver reportes
-  | "manage_organization" // Gestionar configuración de la organización
-  | "view_own_profile" // Ver su propio perfil
-  | "edit_own_profile" // Editar su propio perfil
-  | "view_own_documents" // Ver sus propios documentos
-  | "view_payroll" // Ver nóminas (RRHH)
-  | "view_own_payslips" // Ver sus propias nóminas
-  | "manage_payroll" // Gestionar nóminas
-  | "clock_in_out" // Fichar entrada/salida
-  | "view_time_tracking" // Ver fichajes de todos los empleados
-  | "manage_time_tracking" // Gestionar fichajes (admin)
-  | "export_time_tracking" // Exportar fichajes
-  | "has_employee_profile" // Indica que el usuario tiene perfil de empleado
-  | "approve_requests" // Aprobar solicitudes (PTO, etc.)
-  | "manage_users" // Gestionar usuarios del sistema
-  | "view_all_users" // Ver todos los usuarios
-  | "create_users" // Crear nuevos usuarios
-  | "change_roles" // Cambiar roles de usuarios
-  // Permisos de papelera (nuevos)
-  | "manage_trash" // Purgar definitivo de papelera
-  | "restore_trash" // Restaurar documentos eliminados
-  // Permisos de datos sensibles (nuevos)
-  | "view_sensitive_data" // Ver datos sensibles (salarios exactos, etc.)
-  | "manage_payslips" // Gestionar lotes de nóminas (subir/publicar/revocar)
-  // Permisos de validación de tiempo (nuevos)
-  | "validate_time_entries"; // Validar/corregir fichajes de empleados
+// ============================================
+// ÚNICA FUENTE DE VERDAD: ALL_PERMISSIONS
+// ============================================
+
+/**
+ * Array constante con todos los permisos del sistema.
+ * El tipo Permission se deriva de este array.
+ * Usar isValidPermission() para validar strings.
+ */
+export const ALL_PERMISSIONS = [
+  // Empleados
+  "view_employees",
+  "manage_employees",
+  // Departamentos
+  "view_departments",
+  "manage_departments",
+  // Centros de coste
+  "view_cost_centers",
+  "manage_cost_centers",
+  // Equipos
+  "view_teams",
+  "manage_teams",
+  // Proyectos
+  "view_projects",
+  "manage_projects",
+  // Puestos de trabajo
+  "view_positions",
+  "manage_positions",
+  // Contratos
+  "view_contracts",
+  "manage_contracts",
+  // Documentos
+  "view_documents",
+  "manage_documents",
+  // Reportes
+  "view_reports",
+  // Organización
+  "manage_organization",
+  // Perfil personal
+  "view_own_profile",
+  "edit_own_profile",
+  "view_own_documents",
+  // Nóminas
+  "view_payroll",
+  "view_own_payslips",
+  "manage_payroll",
+  // Fichajes
+  "clock_in_out",
+  "view_time_tracking",
+  "manage_time_tracking",
+  "export_time_tracking",
+  // Perfil de empleado
+  "has_employee_profile",
+  // Aprobaciones
+  "approve_requests",
+  // Gestión de usuarios
+  "manage_users",
+  "view_all_users",
+  "create_users",
+  "change_roles",
+  // Papelera
+  "manage_trash",
+  "restore_trash",
+  // Datos sensibles
+  "view_sensitive_data",
+  "manage_payslips",
+  // Validación de fichajes
+  "validate_time_entries",
+  // Overrides de permisos (Enterprise v1)
+  "manage_permission_overrides",
+] as const;
+
+/**
+ * Tipo Permission derivado del array ALL_PERMISSIONS.
+ * Garantiza que el tipo siempre está sincronizado con el array.
+ */
+export type Permission = (typeof ALL_PERMISSIONS)[number];
+
+/**
+ * Valida si un string es un permiso válido del sistema.
+ * Usar para validar permisos desde BD o input de usuario.
+ */
+export function isValidPermission(p: string): p is Permission {
+  return (ALL_PERMISSIONS as readonly string[]).includes(p);
+}
+
+/**
+ * Permisos sensibles que requieren warning especial en UI
+ * Usados en el panel de overrides de permisos
+ */
+export const SENSITIVE_PERMISSIONS: Permission[] = [
+  "view_sensitive_data",
+  "manage_payslips",
+  "manage_trash",
+  "manage_users",
+  "change_roles",
+  "manage_organization",
+  "manage_permission_overrides",
+];
 
 // Mapa de permisos por rol
 export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
@@ -89,6 +144,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_sensitive_data",
     "manage_payslips",
     "validate_time_entries",
+    // Overrides de permisos (Enterprise v1)
+    "manage_permission_overrides",
   ],
   ORG_ADMIN: [
     "view_employees",
@@ -130,6 +187,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_sensitive_data",
     "manage_payslips",
     "validate_time_entries",
+    // Overrides de permisos (Enterprise v1)
+    "manage_permission_overrides",
   ],
   HR_ADMIN: [
     "view_employees",
@@ -171,6 +230,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_sensitive_data",
     "manage_payslips",
     "validate_time_entries",
+    // Overrides de permisos (Enterprise v1)
+    "manage_permission_overrides",
   ],
   // Asistente de RRHH - Operativo SIN datos sensibles
   HR_ASSISTANT: [

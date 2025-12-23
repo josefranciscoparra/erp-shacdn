@@ -177,6 +177,9 @@ model Organization {
   // Sistema de reservas de storage
   storageReservations StorageReservation[]
 
+  // Overrides de permisos por rol (Enterprise v1)
+  rolePermissionOverrides OrgRolePermissionOverride[]
+
   @@map("organizations")
 }
 
@@ -207,6 +210,28 @@ model StorageReservation {
   @@index([orgId])
   @@index([expiresAt])
   @@map("storage_reservations")
+}
+
+/// Overrides de permisos por rol a nivel de organización (Enterprise v1)
+/// Permite añadir (grant) o quitar (revoke) permisos a un rol específico
+/// Fórmula: effectivePermissions = roleBase + grants - revokes
+model OrgRolePermissionOverride {
+  id                String   @id @default(cuid())
+  orgId             String
+  role              Role
+  grantPermissions  String[] @default([]) // Permisos a añadir al rol
+  revokePermissions String[] @default([]) // Permisos a quitar del rol
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  createdById       String? // Auditoría: quién creó (solo ID, sin relación)
+  updatedById       String? // Auditoría: quién actualizó (solo ID, sin relación)
+
+  // Relación a Organization (necesaria para cascade)
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, role])
+  @@index([orgId])
+  @@map("org_role_permission_overrides")
 }
 
 model User {

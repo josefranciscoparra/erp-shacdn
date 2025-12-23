@@ -354,7 +354,7 @@ export function useSidebarItems(): NavGroup[] {
             {
               title: "Bolsa de Horas",
               url: "/dashboard/time-tracking/time-bank",
-              permission: "view_time_tracking",
+              permission: "approve_requests",
               isNew: true,
             },
           ],

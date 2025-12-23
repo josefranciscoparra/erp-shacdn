@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { Role } from "@prisma/client";
 import { ShieldAlert } from "lucide-react";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -20,6 +21,7 @@ import { ChatTab } from "./_components/chat-tab";
 import { ExpensesTab } from "./_components/expenses-tab";
 import { GeolocationTab } from "./_components/geolocation-tab";
 import { OrganizationTab } from "./_components/organization-tab";
+import { PermissionOverridesTab } from "./_components/permission-overrides-tab";
 import { ShiftsTab } from "./_components/shifts-tab";
 import { StorageTab } from "./_components/storage-tab";
 import { SystemInfoTab } from "./_components/system-info-tab";
@@ -28,16 +30,22 @@ import { TimeClockValidationsTab } from "./_components/time-clock-validations-ta
 import { VacationsTab } from "./_components/vacations-tab";
 import { WhistleblowingTab } from "./_components/whistleblowing-tab";
 
+// Roles que pueden gestionar overrides de permisos (tienen manage_permission_overrides)
+const ROLES_WITH_PERMISSION_OVERRIDES: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<Role | null>(null);
 
   useEffect(() => {
     getCurrentUserRole().then((role) => {
-      setIsSuperAdmin(role === "SUPER_ADMIN");
+      setUserRole(role as Role);
     });
   }, []);
+
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
+  const canManagePermissionOverrides = userRole && ROLES_WITH_PERMISSION_OVERRIDES.includes(userRole);
 
   const tabs = useMemo(
     () => [
@@ -54,9 +62,10 @@ export default function SettingsPage() {
       { value: "expenses", label: "Gastos" },
       { value: "storage", label: "Storage" },
       { value: "system", label: "Sistema" },
+      ...(canManagePermissionOverrides ? [{ value: "permissions", label: "Permisos por Rol" }] : []),
       ...(isSuperAdmin ? [{ value: "admin", label: "Admin" }] : []),
     ],
-    [isSuperAdmin],
+    [isSuperAdmin, canManagePermissionOverrides],
   );
 
   const initialTab = useMemo(() => {
@@ -170,6 +179,12 @@ export default function SettingsPage() {
           <TabsContent value="system" className="mt-4 md:mt-6">
             <SystemInfoTab />
           </TabsContent>
+
+          {canManagePermissionOverrides && (
+            <TabsContent value="permissions" className="mt-4 md:mt-6">
+              <PermissionOverridesTab />
+            </TabsContent>
+          )}
 
           {isSuperAdmin && (
             <TabsContent value="admin" className="mt-4 md:mt-6">

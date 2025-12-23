@@ -1,0 +1,518 @@
+"use client";
+
+import { useEffect, useState, useTransition } from "react";
+
+import { Role } from "@prisma/client";
+import {
+  AlertTriangle,
+  Check,
+  ChevronDown,
+  Loader2,
+  Minus,
+  Plus,
+  RefreshCcw,
+  Save,
+  Search,
+  Shield,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  getOrgRoleOverrides,
+  type OverrideData,
+  resetOrgRoleOverride,
+  upsertOrgRoleOverride,
+} from "@/server/actions/permission-overrides";
+import { ALL_PERMISSIONS, type Permission, SENSITIVE_PERMISSIONS } from "@/services/permissions/permissions";
+
+// ============================================
+// CONSTANTES
+// ============================================
+
+const ROLE_INFO: Record<Role, { label: string; description: string }> = {
+  SUPER_ADMIN: { label: "Super Admin", description: "No editable" },
+  ORG_ADMIN: { label: "Admin Org", description: "Gestión completa de la organización" },
+  HR_ADMIN: { label: "Admin RRHH", description: "Gestión de recursos humanos" },
+  HR_ASSISTANT: { label: "Asistente RRHH", description: "Operativo sin datos sensibles" },
+  MANAGER: { label: "Manager", description: "Supervisor de equipo" },
+  EMPLOYEE: { label: "Empleado", description: "Acceso básico" },
+};
+
+const PERMISSION_LABELS: Record<string, string> = {
+  view_employees: "Ver empleados",
+  manage_employees: "Gestionar empleados",
+  view_departments: "Ver departamentos",
+  manage_departments: "Gestionar departamentos",
+  view_cost_centers: "Ver centros de coste",
+  manage_cost_centers: "Gestionar centros de coste",
+  view_teams: "Ver equipos",
+  manage_teams: "Gestionar equipos",
+  view_projects: "Ver proyectos",
+  manage_projects: "Gestionar proyectos",
+  view_positions: "Ver puestos",
+  manage_positions: "Gestionar puestos",
+  view_contracts: "Ver contratos",
+  manage_contracts: "Gestionar contratos",
+  view_documents: "Ver documentos",
+  manage_documents: "Gestionar documentos",
+  view_reports: "Ver reportes",
+  manage_organization: "Gestionar organización",
+  view_own_profile: "Ver perfil propio",
+  edit_own_profile: "Editar perfil propio",
+  view_own_documents: "Ver docs propios",
+  view_payroll: "Ver nóminas",
+  view_own_payslips: "Ver mis nóminas",
+  manage_payroll: "Gestionar nóminas",
+  clock_in_out: "Fichar",
+  view_time_tracking: "Ver fichajes",
+  manage_time_tracking: "Gestionar fichajes",
+  export_time_tracking: "Exportar fichajes",
+  has_employee_profile: "Perfil empleado",
+  approve_requests: "Aprobar solicitudes",
+  manage_users: "Gestionar usuarios",
+  view_all_users: "Ver usuarios",
+  create_users: "Crear usuarios",
+  change_roles: "Cambiar roles",
+  manage_trash: "Purgar papelera",
+  restore_trash: "Restaurar papelera",
+  view_sensitive_data: "Ver datos sensibles",
+  manage_payslips: "Gestionar lotes nóminas",
+  validate_time_entries: "Validar fichajes",
+  manage_permission_overrides: "Gestionar overrides",
+};
+
+const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
+  Empleados: ["view_employees", "manage_employees"],
+  Estructura: [
+    "view_departments",
+    "manage_departments",
+    "view_cost_centers",
+    "manage_cost_centers",
+    "view_teams",
+    "manage_teams",
+    "view_projects",
+    "manage_projects",
+    "view_positions",
+    "manage_positions",
+  ],
+  Contratos: ["view_contracts", "manage_contracts"],
+  Documentos: ["view_documents", "manage_documents", "view_own_documents", "manage_trash", "restore_trash"],
+  Nóminas: ["view_payroll", "view_own_payslips", "manage_payroll", "manage_payslips"],
+  Fichajes: [
+    "clock_in_out",
+    "view_time_tracking",
+    "manage_time_tracking",
+    "export_time_tracking",
+    "validate_time_entries",
+  ],
+  Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles"],
+  Sistema: ["manage_organization", "view_reports", "approve_requests", "manage_permission_overrides"],
+  "Perfil Personal": ["view_own_profile", "edit_own_profile", "has_employee_profile"],
+  "Datos Sensibles": ["view_sensitive_data"],
+};
+
+const EDITABLE_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
+
+// ============================================
+// COMPONENTE PRINCIPAL
+// ============================================
+
+export function PermissionOverridesTab() {
+  const [overrides, setOverrides] = useState<OverrideData[]>([]);
+  const [selectedRole, setSelectedRole] = useState<Role>("HR_ASSISTANT");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPending, startTransition] = useTransition();
+
+  // Estado local de edición (grants/revokes pendientes de guardar)
+  const [localGrants, setLocalGrants] = useState<Set<Permission>>(new Set());
+  const [localRevokes, setLocalRevokes] = useState<Set<Permission>>(new Set());
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    loadOverrides();
+  }, []);
+
+  // Sincronizar estado local cuando cambia el rol seleccionado
+  useEffect(() => {
+    const roleData = overrides.find((o) => o.role === selectedRole);
+    if (roleData) {
+      setLocalGrants(new Set(roleData.grantPermissions as Permission[]));
+      setLocalRevokes(new Set(roleData.revokePermissions as Permission[]));
+      setHasChanges(false);
+    }
+  }, [selectedRole, overrides]);
+
+  async function loadOverrides() {
+    setIsLoading(true);
+    const result = await getOrgRoleOverrides();
+    if (!result.success) {
+      toast.error(result.error);
+      setIsLoading(false);
+      return;
+    }
+    if (result.data) {
+      setOverrides(result.data);
+    }
+    setIsLoading(false);
+  }
+
+  // Datos del rol seleccionado
+  const currentOverride = overrides.find((o) => o.role === selectedRole);
+  const basePermissions = new Set(currentOverride?.basePermissions ?? []);
+
+  // Calcular permisos efectivos locales
+  const effectivePermissions = new Set(basePermissions);
+  localGrants.forEach((p) => effectivePermissions.add(p));
+  localRevokes.forEach((p) => effectivePermissions.delete(p));
+
+  // Filtrar permisos por búsqueda
+  const filteredPermissions = ALL_PERMISSIONS.filter((p) => {
+    const label = PERMISSION_LABELS[p] ?? p;
+    return (
+      label.toLowerCase().includes(searchQuery.toLowerCase()) || p.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
+
+  // Handlers
+  function toggleGrant(permission: Permission) {
+    const newGrants = new Set(localGrants);
+    const newRevokes = new Set(localRevokes);
+
+    if (newGrants.has(permission)) {
+      newGrants.delete(permission);
+    } else {
+      newGrants.add(permission);
+      newRevokes.delete(permission); // No puede estar en ambos
+    }
+
+    setLocalGrants(newGrants);
+    setLocalRevokes(newRevokes);
+    setHasChanges(true);
+  }
+
+  function toggleRevoke(permission: Permission) {
+    const newGrants = new Set(localGrants);
+    const newRevokes = new Set(localRevokes);
+
+    if (newRevokes.has(permission)) {
+      newRevokes.delete(permission);
+    } else {
+      newRevokes.add(permission);
+      newGrants.delete(permission); // No puede estar en ambos
+    }
+
+    setLocalGrants(newGrants);
+    setLocalRevokes(newRevokes);
+    setHasChanges(true);
+  }
+
+  function handleSave() {
+    startTransition(async () => {
+      const result = await upsertOrgRoleOverride(selectedRole, Array.from(localGrants), Array.from(localRevokes));
+
+      if (result.success) {
+        toast.success("Cambios guardados correctamente");
+        await loadOverrides();
+        setHasChanges(false);
+      } else {
+        toast.error(result.error ?? "Error al guardar");
+      }
+    });
+  }
+
+  function handleReset() {
+    startTransition(async () => {
+      const result = await resetOrgRoleOverride(selectedRole);
+
+      if (result.success) {
+        toast.success("Permisos restablecidos a valores base");
+        await loadOverrides();
+        setHasChanges(false);
+      } else {
+        toast.error(result.error ?? "Error al restablecer");
+      }
+    });
+  }
+
+  function handleDiscard() {
+    const roleData = overrides.find((o) => o.role === selectedRole);
+    if (roleData) {
+      setLocalGrants(new Set(roleData.grantPermissions as Permission[]));
+      setLocalRevokes(new Set(roleData.revokePermissions as Permission[]));
+      setHasChanges(false);
+    }
+  }
+
+  // Helpers de renderizado
+  function getPermissionStatus(permission: Permission): "base" | "granted" | "revoked" | "none" {
+    if (localRevokes.has(permission)) return "revoked";
+    if (localGrants.has(permission)) return "granted";
+    if (basePermissions.has(permission)) return "base";
+    return "none";
+  }
+
+  const hasSensitiveGrants = Array.from(localGrants).some((p) => SENSITIVE_PERMISSIONS.includes(p));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 md:gap-6">
+      {/* Header */}
+      <Card className="rounded-lg border p-6">
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            <div>
+              <h3 className="font-semibold">Overrides de permisos por rol</h3>
+              <p className="text-muted-foreground text-sm">
+                Personaliza los permisos de cada rol solo para esta organización
+              </p>
+            </div>
+          </div>
+
+          {/* Selector de rol */}
+          <Tabs value={selectedRole} onValueChange={(v) => setSelectedRole(v as Role)}>
+            <TabsList className="flex-wrap">
+              {EDITABLE_ROLES.map((role) => {
+                const roleOverride = overrides.find((o) => o.role === role);
+                const hasOverride = roleOverride?.hasOverride;
+                return (
+                  <TabsTrigger key={role} value={role} className="relative">
+                    {ROLE_INFO[role].label}
+                    {hasOverride && <span className="bg-primary ml-1.5 h-1.5 w-1.5 rounded-full" />}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            {EDITABLE_ROLES.map((role) => (
+              <TabsContent key={role} value={role} className="mt-4">
+                <p className="text-muted-foreground text-sm">{ROLE_INFO[role].description}</p>
+              </TabsContent>
+            ))}
+          </Tabs>
+        </div>
+      </Card>
+
+      {/* Warning de permisos sensibles */}
+      {hasSensitiveGrants && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Atención: permisos sensibles</AlertTitle>
+          <AlertDescription>
+            Estás otorgando permisos sensibles a este rol. Asegúrate de que es intencional.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Panel de edición */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Columna izquierda: Permisos disponibles */}
+        <Card className="rounded-lg border p-4">
+          <div className="mb-4 flex flex-col gap-3">
+            <h4 className="font-medium">Permisos disponibles</h4>
+            <div className="relative">
+              <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+              <Input
+                placeholder="Buscar permisos..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <ScrollArea className="h-[500px] pr-4">
+            <div className="space-y-4">
+              {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => {
+                const categoryPermissions = permissions.filter((p) => filteredPermissions.includes(p));
+                if (categoryPermissions.length === 0) return null;
+
+                return (
+                  <Collapsible key={category} defaultOpen>
+                    <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-sm font-medium">
+                      <ChevronDown className="h-4 w-4" />
+                      {category}
+                      <Badge variant="outline" className="ml-auto">
+                        {categoryPermissions.length}
+                      </Badge>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="mt-2 space-y-1">
+                      {categoryPermissions.map((permission) => {
+                        const status = getPermissionStatus(permission);
+                        const isSensitive = SENSITIVE_PERMISSIONS.includes(permission);
+
+                        return (
+                          <div
+                            key={permission}
+                            className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+                              status === "granted"
+                                ? "border-green-500/50 bg-green-500/10"
+                                : status === "revoked"
+                                  ? "border-red-500/50 bg-red-500/10"
+                                  : status === "base"
+                                    ? "bg-muted/50"
+                                    : ""
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              {status === "base" && <Check className="text-muted-foreground h-3.5 w-3.5" />}
+                              {status === "granted" && <Plus className="h-3.5 w-3.5 text-green-500" />}
+                              {status === "revoked" && <Minus className="h-3.5 w-3.5 text-red-500" />}
+                              {status === "none" && <X className="text-muted-foreground/30 h-3.5 w-3.5" />}
+                              <span className={status === "revoked" ? "line-through opacity-60" : ""}>
+                                {PERMISSION_LABELS[permission] ?? permission}
+                              </span>
+                              {isSensitive && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                variant={status === "granted" ? "default" : "ghost"}
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => toggleGrant(permission)}
+                                disabled={status === "base" && !localRevokes.has(permission)}
+                                title={status === "granted" ? "Quitar grant" : "Añadir permiso"}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant={status === "revoked" ? "destructive" : "ghost"}
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => toggleRevoke(permission)}
+                                disabled={status === "none" && !localGrants.has(permission)}
+                                title={status === "revoked" ? "Quitar revoke" : "Revocar permiso"}
+                              >
+                                <Minus className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        </Card>
+
+        {/* Columna derecha: Resumen */}
+        <div className="flex flex-col gap-4">
+          {/* Permisos añadidos */}
+          <Card className="rounded-lg border p-4">
+            <h4 className="mb-3 flex items-center gap-2 font-medium text-green-600">
+              <Plus className="h-4 w-4" />
+              Permisos añadidos ({localGrants.size})
+            </h4>
+            {localGrants.size === 0 ? (
+              <p className="text-muted-foreground text-sm">Ningún permiso añadido</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {Array.from(localGrants).map((p) => (
+                  <Badge
+                    key={p}
+                    variant="outline"
+                    className="cursor-pointer border-green-500/50 bg-green-500/10"
+                    onClick={() => toggleGrant(p)}
+                  >
+                    {PERMISSION_LABELS[p] ?? p}
+                    <X className="ml-1 h-3 w-3" />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Permisos revocados */}
+          <Card className="rounded-lg border p-4">
+            <h4 className="mb-3 flex items-center gap-2 font-medium text-red-600">
+              <Minus className="h-4 w-4" />
+              Permisos revocados ({localRevokes.size})
+            </h4>
+            {localRevokes.size === 0 ? (
+              <p className="text-muted-foreground text-sm">Ningún permiso revocado</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {Array.from(localRevokes).map((p) => (
+                  <Badge
+                    key={p}
+                    variant="outline"
+                    className="cursor-pointer border-red-500/50 bg-red-500/10"
+                    onClick={() => toggleRevoke(p)}
+                  >
+                    {PERMISSION_LABELS[p] ?? p}
+                    <X className="ml-1 h-3 w-3" />
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Permisos efectivos */}
+          <Card className="rounded-lg border p-4">
+            <h4 className="mb-3 font-medium">Permisos efectivos ({effectivePermissions.size})</h4>
+            <p className="text-muted-foreground mb-3 text-xs">
+              Base ({basePermissions.size}) + Añadidos ({localGrants.size}) - Revocados ({localRevokes.size})
+            </p>
+            <ScrollArea className="h-[200px]">
+              <div className="flex flex-wrap gap-1">
+                {Array.from(effectivePermissions)
+                  .sort()
+                  .map((p) => {
+                    const isGranted = localGrants.has(p as Permission);
+                    return (
+                      <Badge
+                        key={p}
+                        variant="secondary"
+                        className={isGranted ? "border-green-500/30 bg-green-500/10" : ""}
+                      >
+                        {PERMISSION_LABELS[p] ?? p}
+                      </Badge>
+                    );
+                  })}
+              </div>
+            </ScrollArea>
+          </Card>
+
+          {/* Acciones */}
+          <div className="flex gap-2">
+            <Button onClick={handleSave} disabled={!hasChanges || isPending} className="flex-1">
+              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Guardar cambios
+            </Button>
+            <Button variant="outline" onClick={handleDiscard} disabled={!hasChanges || isPending}>
+              Descartar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleReset}
+              disabled={isPending || (!currentOverride?.hasOverride && !hasChanges)}
+              title="Restablecer a permisos base"
+            >
+              <RefreshCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
