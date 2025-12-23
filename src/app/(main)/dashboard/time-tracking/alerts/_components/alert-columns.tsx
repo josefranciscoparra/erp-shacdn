@@ -43,6 +43,7 @@ export type AlertRow = {
   resolutionComment: string | null;
   incidents: Incident[] | null; // Array de incidencias detalladas
   teamId: string | null; // ID del equipo (para filtrado)
+  employeeId: string; // ID del empleado para navegar a sus fichajes
   employee: {
     firstName: string;
     lastName: string;

@@ -22,6 +22,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  Clock,
   Filter,
   Info,
   Network,
@@ -1167,7 +1168,13 @@ export default function AlertsPage() {
             </div>
           )}
 
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" asChild>
+              <Link href={`/dashboard/time-tracking/${selectedAlert?.employeeId}`}>
+                <Clock className="mr-2 h-4 w-4" />
+                Ver fichajes
+              </Link>
+            </Button>
             <Button onClick={() => setActionDialog(null)}>Cerrar</Button>
           </DialogFooter>
         </DialogContent>
