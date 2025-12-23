@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { format, differenceInMinutes } from "date-fns";
 import { es } from "date-fns/locale";
@@ -125,6 +125,21 @@ function formatMinutes(minutes: number): string {
 
 export function DayCard({ day }: DayCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [now, setNow] = useState(new Date());
+
+  // Actualizar el tiempo cada minuto para refrescar el contador en vivo
+  useEffect(() => {
+    // Solo activar el timer si es el día de hoy
+    const isToday = new Date().toDateString() === new Date(day.date).toDateString();
+    if (!isToday) return;
+
+    const interval = setInterval(() => {
+      setNow(new Date());
+    }, 60000); // Actualizar cada minuto
+
+    return () => clearInterval(interval);
+  }, [day.date]);
+
   const visibleEntries = day.timeEntries.filter((entry) => entry.entryType !== "PROJECT_SWITCH");
   const isJustifiedAbsence = !!day.holidayName;
   const showCompliance = day.expectedHours > 0;
@@ -133,6 +148,7 @@ export function DayCard({ day }: DayCardProps) {
   const workBlocks: { start: number; end: number; type: "work" | "break" }[] = [];
   let currentBlockStart: Date | null = null;
   let currentBlockType: "work" | "break" | null = null;
+  let additionalHours = 0;
 
   const getHourValue = (date: Date) => date.getHours() + date.getMinutes() / 60;
 
@@ -192,16 +208,26 @@ export function DayCard({ day }: DayCardProps) {
 
   // Si quedó un bloque abierto (en progreso)
   if (currentBlockStart) {
-    const now = new Date();
     // Solo cerrar si es el día de hoy
     if (now.getDate() === new Date(day.date).getDate()) {
+      const startVal = getHourValue(currentBlockStart);
+      const endVal = getHourValue(now);
+
       workBlocks.push({
-        start: getHourValue(currentBlockStart),
-        end: getHourValue(now),
+        start: startVal,
+        end: endVal,
         type: currentBlockType ?? "work",
       });
+
+      // Si es un bloque de trabajo, calcular el tiempo adicional
+      if ((currentBlockType ?? "work") === "work") {
+        const diffMs = now.getTime() - currentBlockStart.getTime();
+        additionalHours = diffMs / (1000 * 60 * 60);
+      }
     }
   }
+
+  const displayedActualHours = day.actualHours + additionalHours;
 
   // Determinar color del borde izquierdo
   let borderClass = statusColors.NON_WORKDAY;
@@ -330,15 +356,18 @@ export function DayCard({ day }: DayCardProps) {
           {/* Horas */}
           <div className="flex flex-col items-end gap-0.5">
             <div className="flex items-baseline gap-1">
-              <span className="text-sm font-bold tabular-nums">{day.actualHours.toFixed(1)}h</span>
+              <span className="text-sm font-bold tabular-nums">{displayedActualHours.toFixed(2)}h</span>
               <span className="text-muted-foreground text-[10px]">/ {day.expectedHours}h</span>
             </div>
             {showCompliance && (
               <div className="flex items-center gap-1">
                 <div className="bg-muted h-1.5 w-16 overflow-hidden rounded-full">
                   <div
-                    className={cn("h-full rounded-full", day.compliance >= 100 ? "bg-emerald-500" : "bg-amber-500")}
-                    style={{ width: `${Math.min(day.compliance, 100)}%` }}
+                    className={cn(
+                      "h-full rounded-full",
+                      (displayedActualHours / day.expectedHours) * 100 >= 100 ? "bg-emerald-500" : "bg-amber-500",
+                    )}
+                    style={{ width: `${Math.min((displayedActualHours / day.expectedHours) * 100, 100)}%` }}
                   />
                 </div>
               </div>
@@ -496,7 +525,7 @@ export function DayCard({ day }: DayCardProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-background rounded-md border p-3">
                   <span className="text-muted-foreground block text-xs">Total Trabajado</span>
-                  <span className="text-lg font-bold">{day.actualHours.toFixed(2)}h</span>
+                  <span className="text-lg font-bold">{displayedActualHours.toFixed(2)}h</span>
                 </div>
                 <div className="bg-background rounded-md border p-3">
                   <span className="text-muted-foreground block text-xs">Total Pausas</span>
