@@ -26,6 +26,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   getOrgRoleOverrides,
   type OverrideData,
@@ -47,48 +48,174 @@ const ROLE_INFO: Record<Role, { label: string; description: string }> = {
   EMPLOYEE: { label: "Empleado", description: "Acceso básico" },
 };
 
-const PERMISSION_LABELS: Record<string, string> = {
-  view_employees: "Ver empleados",
-  manage_employees: "Gestionar empleados",
-  view_departments: "Ver departamentos",
-  manage_departments: "Gestionar departamentos",
-  view_cost_centers: "Ver centros de coste",
-  manage_cost_centers: "Gestionar centros de coste",
-  view_teams: "Ver equipos",
-  manage_teams: "Gestionar equipos",
-  view_projects: "Ver proyectos",
-  manage_projects: "Gestionar proyectos",
-  view_positions: "Ver puestos",
-  manage_positions: "Gestionar puestos",
-  view_contracts: "Ver contratos",
-  manage_contracts: "Gestionar contratos",
-  view_documents: "Ver documentos",
-  manage_documents: "Gestionar documentos",
-  view_reports: "Ver reportes",
-  manage_organization: "Gestionar organización",
-  view_own_profile: "Ver perfil propio",
-  edit_own_profile: "Editar perfil propio",
-  view_own_documents: "Ver docs propios",
-  view_payroll: "Ver nóminas",
-  view_own_payslips: "Ver mis nóminas",
-  manage_payroll: "Gestionar nóminas",
-  clock_in_out: "Fichar",
-  view_time_tracking: "Ver fichajes",
-  manage_time_tracking: "Gestionar fichajes",
-  export_time_tracking: "Exportar fichajes",
-  has_employee_profile: "Perfil empleado",
-  approve_requests: "Aprobar solicitudes",
-  manage_users: "Gestionar usuarios",
-  view_all_users: "Ver usuarios",
-  create_users: "Crear usuarios",
-  change_roles: "Cambiar roles",
-  manage_trash: "Purgar papelera",
-  restore_trash: "Restaurar papelera",
-  view_sensitive_data: "Ver datos sensibles",
-  manage_payslips: "Gestionar lotes nóminas",
-  validate_time_entries: "Validar fichajes",
-  manage_permission_overrides: "Gestionar overrides",
+// Información completa de cada permiso: label, descripción y nombre técnico
+const PERMISSION_INFO: Record<string, { label: string; description: string }> = {
+  view_employees: {
+    label: "Ver empleados",
+    description: "Acceder al listado de empleados y sus datos básicos",
+  },
+  manage_employees: {
+    label: "Gestionar empleados",
+    description: "Crear, editar y archivar fichas de empleados",
+  },
+  view_departments: {
+    label: "Ver departamentos",
+    description: "Ver la estructura de departamentos de la organización",
+  },
+  manage_departments: {
+    label: "Gestionar departamentos",
+    description: "Crear, editar y eliminar departamentos",
+  },
+  view_cost_centers: {
+    label: "Ver centros de coste",
+    description: "Ver los centros de coste configurados",
+  },
+  manage_cost_centers: {
+    label: "Gestionar centros de coste",
+    description: "Crear, editar y eliminar centros de coste",
+  },
+  view_teams: {
+    label: "Ver equipos",
+    description: "Ver la estructura de equipos de trabajo",
+  },
+  manage_teams: {
+    label: "Gestionar equipos",
+    description: "Crear, editar y eliminar equipos de trabajo",
+  },
+  view_projects: {
+    label: "Ver proyectos",
+    description: "Ver los proyectos configurados para fichajes",
+  },
+  manage_projects: {
+    label: "Gestionar proyectos",
+    description: "Crear, editar y eliminar proyectos",
+  },
+  view_positions: {
+    label: "Ver puestos",
+    description: "Ver los puestos de trabajo definidos",
+  },
+  manage_positions: {
+    label: "Gestionar puestos",
+    description: "Crear, editar y eliminar puestos de trabajo",
+  },
+  view_contracts: {
+    label: "Ver contratos",
+    description: "Acceder a información contractual de empleados",
+  },
+  manage_contracts: {
+    label: "Gestionar contratos",
+    description: "Crear y modificar contratos de empleados",
+  },
+  view_documents: {
+    label: "Ver documentos",
+    description: "Acceder al gestor documental y firmas",
+  },
+  manage_documents: {
+    label: "Gestionar documentos",
+    description: "Subir documentos y crear solicitudes de firma",
+  },
+  view_reports: {
+    label: "Ver reportes",
+    description: "Acceder a reportes y estadísticas de la organización",
+  },
+  manage_organization: {
+    label: "Gestionar organización",
+    description: "Configurar ajustes generales de la organización",
+  },
+  view_own_profile: {
+    label: "Ver perfil propio",
+    description: "Ver mi propia ficha de empleado",
+  },
+  edit_own_profile: {
+    label: "Editar perfil propio",
+    description: "Modificar mis datos personales",
+  },
+  view_own_documents: {
+    label: "Ver mis documentos",
+    description: "Acceder a documentos y firmas asignados a mí",
+  },
+  view_payroll: {
+    label: "Ver nóminas (todos)",
+    description: "Ver información de nóminas de todos los empleados",
+  },
+  view_own_payslips: {
+    label: "Ver mis nóminas",
+    description: "Descargar mis propias nóminas",
+  },
+  manage_payroll: {
+    label: "Gestionar nóminas",
+    description: "Configurar períodos de nómina y exportar datos",
+  },
+  clock_in_out: {
+    label: "Fichar entrada/salida",
+    description: "Registrar mis propios fichajes de entrada y salida",
+  },
+  view_time_tracking: {
+    label: "Ver horarios y fichajes",
+    description: "Ver plantillas de horario, turnos y fichajes de empleados",
+  },
+  manage_time_tracking: {
+    label: "Gestionar horarios y turnos",
+    description: "Crear plantillas, asignar horarios, publicar turnos manuales",
+  },
+  export_time_tracking: {
+    label: "Exportar fichajes",
+    description: "Descargar reportes de fichajes en Excel/CSV",
+  },
+  has_employee_profile: {
+    label: "Tiene perfil empleado",
+    description: "Usuario vinculado a una ficha de empleado",
+  },
+  approve_requests: {
+    label: "Aprobar solicitudes",
+    description: "Aprobar vacaciones, ausencias y otras solicitudes",
+  },
+  manage_users: {
+    label: "Gestionar usuarios",
+    description: "Administrar cuentas de usuario del sistema",
+  },
+  view_all_users: {
+    label: "Ver usuarios",
+    description: "Ver el listado de usuarios del sistema",
+  },
+  create_users: {
+    label: "Crear usuarios",
+    description: "Crear nuevas cuentas de usuario",
+  },
+  change_roles: {
+    label: "Cambiar roles",
+    description: "Modificar el rol asignado a un usuario",
+  },
+  manage_trash: {
+    label: "Purgar papelera",
+    description: "Eliminar permanentemente elementos de la papelera",
+  },
+  restore_trash: {
+    label: "Restaurar papelera",
+    description: "Recuperar elementos eliminados de la papelera",
+  },
+  view_sensitive_data: {
+    label: "Ver datos sensibles",
+    description: "Acceder a salarios, IBAN y otros datos confidenciales",
+  },
+  manage_payslips: {
+    label: "Gestionar lotes de nóminas",
+    description: "Subir PDFs de nóminas y asignarlos a empleados",
+  },
+  validate_time_entries: {
+    label: "Validar fichajes",
+    description: "Aprobar o rechazar fichajes de empleados",
+  },
+  manage_permission_overrides: {
+    label: "Gestionar permisos",
+    description: "Modificar los overrides de permisos por rol",
+  },
 };
+
+// Helper para obtener el label (compatibilidad)
+const PERMISSION_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(PERMISSION_INFO).map(([key, value]) => [key, value.label]),
+);
 
 const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
   Empleados: ["view_employees", "manage_employees"],
@@ -107,7 +234,7 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
   Contratos: ["view_contracts", "manage_contracts"],
   Documentos: ["view_documents", "manage_documents", "view_own_documents", "manage_trash", "restore_trash"],
   Nóminas: ["view_payroll", "view_own_payslips", "manage_payroll", "manage_payslips"],
-  Fichajes: [
+  "Horarios y Fichajes": [
     "clock_in_out",
     "view_time_tracking",
     "manage_time_tracking",
@@ -273,7 +400,8 @@ export function PermissionOverridesTab() {
   }
 
   return (
-    <div className="flex flex-col gap-4 md:gap-6">
+    <TooltipProvider delayDuration={200}>
+      <div className="flex flex-col gap-4 md:gap-6">
       {/* Header */}
       <Card className="rounded-lg border p-6">
         <div className="flex flex-col gap-4">
@@ -358,6 +486,7 @@ export function PermissionOverridesTab() {
                       {categoryPermissions.map((permission) => {
                         const status = getPermissionStatus(permission);
                         const isSensitive = SENSITIVE_PERMISSIONS.includes(permission);
+                        const permInfo = PERMISSION_INFO[permission];
 
                         return (
                           <div
@@ -377,9 +506,21 @@ export function PermissionOverridesTab() {
                               {status === "granted" && <Plus className="h-3.5 w-3.5 text-green-500" />}
                               {status === "revoked" && <Minus className="h-3.5 w-3.5 text-red-500" />}
                               {status === "none" && <X className="text-muted-foreground/30 h-3.5 w-3.5" />}
-                              <span className={status === "revoked" ? "line-through opacity-60" : ""}>
-                                {PERMISSION_LABELS[permission] ?? permission}
-                              </span>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={`cursor-help border-b border-dotted border-current ${status === "revoked" ? "line-through opacity-60" : ""}`}
+                                  >
+                                    {permInfo?.label ?? permission}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <div className="space-y-1">
+                                    <p className="text-sm">{permInfo?.description ?? "Sin descripción"}</p>
+                                    <p className="text-muted-foreground font-mono text-xs">{permission}</p>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
                               {isSensitive && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
                             </div>
                             <div className="flex gap-1">
@@ -514,5 +655,6 @@ export function PermissionOverridesTab() {
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }

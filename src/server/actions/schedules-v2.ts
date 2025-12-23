@@ -21,6 +21,9 @@ import {
   differenceInMinutes,
 } from "date-fns";
 
+import { revalidatePath } from "next/cache";
+
+import { getActionError, requirePermission, safePermission } from "@/lib/auth-guard";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { minutesToHours } from "@/services/schedules";
@@ -480,7 +483,8 @@ export async function createScheduleTemplate(
   data: CreateScheduleTemplateInput,
 ): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     const template = await prisma.scheduleTemplate.create({
       data: {
@@ -493,10 +497,9 @@ export async function createScheduleTemplate(
 
     return { success: true, data: { id: template.id } };
   } catch (error) {
-    console.error("Error creating schedule template:", error);
     return {
       success: false,
-      error: "Error al crear plantilla de horario",
+      error: getActionError(error, "Error al crear plantilla de horario"),
     };
   }
 }
@@ -509,7 +512,8 @@ export async function updateScheduleTemplate(
   data: Partial<CreateScheduleTemplateInput>,
 ): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     await prisma.scheduleTemplate.update({
       where: { id, orgId },
@@ -522,10 +526,9 @@ export async function updateScheduleTemplate(
 
     return { success: true };
   } catch (error) {
-    console.error("Error updating schedule template:", error);
     return {
       success: false,
-      error: "Error al actualizar plantilla de horario",
+      error: getActionError(error, "Error al actualizar plantilla de horario"),
     };
   }
 }
@@ -535,7 +538,8 @@ export async function updateScheduleTemplate(
  */
 export async function deleteScheduleTemplate(id: string): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que no esté asignada a ningún empleado
     const assignmentsCount = await prisma.employeeScheduleAssignment.count({
@@ -558,10 +562,9 @@ export async function deleteScheduleTemplate(id: string): Promise<ActionResponse
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting schedule template:", error);
     return {
       success: false,
-      error: "Error al eliminar plantilla de horario",
+      error: getActionError(error, "Error al eliminar plantilla de horario"),
     };
   }
 }
@@ -571,7 +574,8 @@ export async function deleteScheduleTemplate(id: string): Promise<ActionResponse
  */
 export async function duplicateScheduleTemplate(id: string, newName: string): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Obtener plantilla original con toda su estructura
     const original = await prisma.scheduleTemplate.findUnique({
@@ -630,10 +634,9 @@ export async function duplicateScheduleTemplate(id: string, newName: string): Pr
 
     return { success: true, data: { id: duplicate.id } };
   } catch (error) {
-    console.error("Error duplicating schedule template:", error);
     return {
       success: false,
-      error: "Error al duplicar plantilla de horario",
+      error: getActionError(error, "Error al duplicar plantilla de horario"),
     };
   }
 }
@@ -786,7 +789,8 @@ export async function getScheduleTemplateById(id: string) {
  */
 export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que la plantilla existe y pertenece a la org
     const template = await prisma.scheduleTemplate.findUnique({
@@ -843,8 +847,7 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
 
     return { success: true, data: { id: period.id } };
   } catch (error) {
-    console.error("Error creating schedule period:", error);
-    return { success: false, error: "Error al crear período" };
+    return { success: false, error: getActionError(error, "Error al crear período") };
   }
 }
 
@@ -857,7 +860,8 @@ export async function updateSchedulePeriod(
   data: Partial<CreateSchedulePeriodInput>,
 ): Promise<ActionResponse> {
   try {
-    await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Obtener el período actual para conocer su plantilla y tipo actual
     const currentPeriod = await prisma.schedulePeriod.findUnique({
@@ -920,8 +924,7 @@ export async function updateSchedulePeriod(
 
     return { success: true };
   } catch (error) {
-    console.error("Error updating schedule period:", error);
-    return { success: false, error: "Error al actualizar período" };
+    return { success: false, error: getActionError(error, "Error al actualizar período") };
   }
 }
 
@@ -930,7 +933,8 @@ export async function updateSchedulePeriod(
  */
 export async function deleteSchedulePeriod(id: string): Promise<ActionResponse> {
   try {
-    await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     await prisma.schedulePeriod.delete({
       where: { id },
@@ -938,8 +942,7 @@ export async function deleteSchedulePeriod(id: string): Promise<ActionResponse> 
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting schedule period:", error);
-    return { success: false, error: "Error al eliminar período" };
+    return { success: false, error: getActionError(error, "Error al eliminar período") };
   }
 }
 
@@ -957,7 +960,8 @@ export async function updateWorkDayPattern(
   data: UpdateWorkDayPatternInput,
 ): Promise<ActionResponse> {
   try {
-    await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     const validationError = validateWorkDayTimeSlots(data.timeSlots ?? []);
     if (validationError) {
@@ -1011,8 +1015,7 @@ export async function updateWorkDayPattern(
 
     return { success: true };
   } catch (error) {
-    console.error("Error updating work day pattern:", error);
-    return { success: false, error: "Error al actualizar patrón del día" };
+    return { success: false, error: getActionError(error, "Error al actualizar patrón del día") };
   }
 }
 
@@ -1025,7 +1028,8 @@ export async function copyWorkDayPattern(
   targetDaysOfWeek: number[],
 ): Promise<ActionResponse> {
   try {
-    await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Obtener patrón fuente
     const sourcePattern = await prisma.workDayPattern.findFirst({
@@ -1060,8 +1064,7 @@ export async function copyWorkDayPattern(
 
     return { success: true };
   } catch (error) {
-    console.error("Error copying work day pattern:", error);
-    return { success: false, error: "Error al copiar patrón" };
+    return { success: false, error: getActionError(error, "Error al copiar patrón") };
   }
 }
 
@@ -1078,7 +1081,8 @@ export async function assignScheduleToEmployee(
   data: CreateEmployeeScheduleAssignmentInput,
 ): Promise<ActionResponse<{ id: string; closedPreviousAssignments?: number }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Validar que validTo >= validFrom si ambas están definidas
     if (data.validFrom && data.validTo && data.validTo < data.validFrom) {
@@ -1250,8 +1254,7 @@ export async function assignScheduleToEmployee(
       },
     };
   } catch (error) {
-    console.error("Error assigning schedule to employee:", error);
-    return { success: false, error: "Error al asignar horario" };
+    return { success: false, error: getActionError(error, "Error al asignar horario") };
   }
 }
 
@@ -1350,7 +1353,8 @@ export async function getEmployeeAssignmentHistory(employeeId: string) {
  */
 export async function endEmployeeAssignment(assignmentId: string, endDate: Date): Promise<ActionResponse> {
   try {
-    await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     await prisma.employeeScheduleAssignment.update({
       where: { id: assignmentId },
@@ -1362,8 +1366,7 @@ export async function endEmployeeAssignment(assignmentId: string, endDate: Date)
 
     return { success: true };
   } catch (error) {
-    console.error("Error ending employee assignment:", error);
-    return { success: false, error: "Error al finalizar asignación" };
+    return { success: false, error: getActionError(error, "Error al finalizar asignación") };
   }
 }
 
@@ -1372,7 +1375,8 @@ export async function endEmployeeAssignment(assignmentId: string, endDate: Date)
  */
 export async function getTemplateAssignedEmployees(templateId: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const now = new Date();
 
     const assignments = await prisma.employeeScheduleAssignment.findMany({
@@ -1446,7 +1450,8 @@ export async function getAvailableEmployeesForTemplate(
   templateId: string,
 ): Promise<AvailableEmployeesForTemplateResult> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const now = new Date();
 
     // Obtener IDs de empleados ya asignados A ESTA PLANTILLA
@@ -1588,7 +1593,8 @@ export async function getEmployeesForBulkAssignment(
   filters?: BulkAssignmentFilters,
 ): Promise<EmployeesForBulkAssignmentResult> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const now = new Date();
 
     // Obtener IDs de empleados ya asignados a esta plantilla
@@ -1742,7 +1748,8 @@ export async function bulkAssignScheduleToEmployees(
   validTo?: Date | null,
 ): Promise<ActionResponse<{ successCount: number; errorCount: number; errors: string[] }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Validar que la plantilla existe
     const template = await prisma.scheduleTemplate.findUnique({
@@ -1806,10 +1813,9 @@ export async function bulkAssignScheduleToEmployees(
       },
     };
   } catch (error) {
-    console.error("Error in bulk assignment:", error);
     return {
       success: false,
-      error: "Error al asignar horarios masivamente",
+      error: getActionError(error, "Error al asignar horarios masivamente"),
     };
   }
 }
@@ -1819,7 +1825,8 @@ export async function bulkAssignScheduleToEmployees(
  */
 export async function getDepartmentsForFilters() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const departments = await prisma.department.findMany({
       where: { orgId },
@@ -1853,7 +1860,8 @@ export async function getDepartmentsForFilters() {
  */
 export async function getCostCentersForFilters() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const costCenters = await prisma.costCenter.findMany({
       where: { orgId },
@@ -1971,7 +1979,8 @@ function validateTimeSlots(slots: Array<{ startTimeMinutes: number; endTimeMinut
  */
 export async function createExceptionDay(input: CreateExceptionDayInput): Promise<ActionResponse<void>> {
   try {
-    const { session, orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Validación XOR: solo uno de los targets puede estar activo
     const targets = [
@@ -2130,10 +2139,9 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
 
     return { success: true };
   } catch (error) {
-    console.error("Error creating exception day:", error);
     return {
       success: false,
-      error: "Error al crear la excepción de horario",
+      error: getActionError(error, "Error al crear la excepción de horario"),
     };
   }
 }
@@ -2145,7 +2153,8 @@ export async function updateExceptionDay(
   input: Omit<CreateExceptionDayInput, "employeeId" | "scheduleTemplateId"> & { id: string },
 ): Promise<ActionResponse<void>> {
   try {
-    const { session, orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que la excepción existe y pertenece a la org
     const exception = await prisma.exceptionDayOverride.findUnique({
@@ -2207,10 +2216,9 @@ export async function updateExceptionDay(
 
     return { success: true };
   } catch (error) {
-    console.error("Error updating exception day:", error);
     return {
       success: false,
-      error: "Error al actualizar la excepción de horario",
+      error: getActionError(error, "Error al actualizar la excepción de horario"),
     };
   }
 }
@@ -2220,7 +2228,8 @@ export async function updateExceptionDay(
  */
 export async function deleteExceptionDay(exceptionId: string): Promise<ActionResponse<void>> {
   try {
-    const { session, orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que la excepción existe y pertenece a la org
     const exception = await prisma.exceptionDayOverride.findUnique({
@@ -2253,10 +2262,9 @@ export async function deleteExceptionDay(exceptionId: string): Promise<ActionRes
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting exception day:", error);
     return {
       success: false,
-      error: "Error al eliminar la excepción de horario",
+      error: getActionError(error, "Error al eliminar la excepción de horario"),
     };
   }
 }
@@ -2266,7 +2274,8 @@ export async function deleteExceptionDay(exceptionId: string): Promise<ActionRes
  */
 export async function getExceptionDaysForTemplate(templateId: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que la plantilla existe y pertenece a la org
     const template = await prisma.scheduleTemplate.findUnique({
@@ -2309,7 +2318,8 @@ export async function getExceptionDaysForTemplate(templateId: string) {
  */
 export async function getExceptionDaysForEmployee(employeeId: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     // Verificar que el empleado existe y pertenece a la org
     const employee = await prisma.employee.findUnique({
@@ -2357,7 +2367,8 @@ export async function getExceptionDaysForEmployee(employeeId: string) {
  */
 export async function getAllGlobalExceptions() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const exceptions = await prisma.exceptionDayOverride.findMany({
       where: {
@@ -2403,7 +2414,8 @@ export async function getAllGlobalExceptions() {
  */
 export async function getDepartments() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const departments = await prisma.department.findMany({
       where: {
@@ -2429,7 +2441,8 @@ export async function getDepartments() {
  */
 export async function getCostCenters() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const costCenters = await prisma.costCenter.findMany({
       where: {
@@ -2458,7 +2471,8 @@ export async function createShiftRotationPattern(
   input: CreateShiftRotationPatternInput,
 ): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Validar que los templates de los steps no sean de tipo ROTATION (evita ciclos)
     if (input.steps && input.steps.length > 0) {
@@ -2496,8 +2510,7 @@ export async function createShiftRotationPattern(
 
     return { success: true, data: { id: pattern.id } };
   } catch (error) {
-    console.error("Error creating rotation pattern:", error);
-    return { success: false, error: "Error al crear patrón de rotación" };
+    return { success: false, error: getActionError(error, "Error al crear patrón de rotación") };
   }
 }
 
@@ -2506,7 +2519,8 @@ export async function updateShiftRotationPattern(
   input: Partial<CreateShiftRotationPatternInput>,
 ): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Check ownership
     const existing = await prisma.shiftRotationPattern.findUnique({
@@ -2558,14 +2572,14 @@ export async function updateShiftRotationPattern(
 
     return { success: true };
   } catch (error) {
-    console.error("Error updating rotation pattern:", error);
-    return { success: false, error: "Error al actualizar patrón de rotación" };
+    return { success: false, error: getActionError(error, "Error al actualizar patrón de rotación") };
   }
 }
 
 export async function deleteShiftRotationPattern(id: string): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     // Check usage in assignments
     const count = await prisma.employeeScheduleAssignment.count({
@@ -2579,14 +2593,14 @@ export async function deleteShiftRotationPattern(id: string): Promise<ActionResp
     });
     return { success: true };
   } catch (error) {
-    console.error("Error deleting rotation pattern:", error);
-    return { success: false, error: "Error al eliminar patrón de rotación" };
+    return { success: false, error: getActionError(error, "Error al eliminar patrón de rotación") };
   }
 }
 
 export async function getShiftRotationPatterns() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const now = new Date();
     return await prisma.shiftRotationPattern.findMany({
       where: { orgId },
@@ -2844,7 +2858,8 @@ export async function createManualShiftAssignment(
   input: CreateManualShiftAssignmentInput,
 ): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const normalizedDate = normalizeAssignmentDate(input.date);
     const { status, publishedAt } = resolveStatus(input.status);
 
@@ -2906,8 +2921,7 @@ export async function createManualShiftAssignment(
 
     return { success: true, data: { id: assignment.id }, validation: { conflicts: validationConflicts } };
   } catch (error) {
-    console.error("Error creating manual assignment:", error);
-    return { success: false, error: "Error al crear asignación manual" };
+    return { success: false, error: getActionError(error, "Error al crear asignación manual") };
   }
 }
 
@@ -2921,7 +2935,8 @@ export async function updateManualShiftAssignment(
   >,
 ): Promise<ActionResponse<{ id: string }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const existing = await prisma.manualShiftAssignment.findUnique({
       where: { id, orgId },
     });
@@ -2990,7 +3005,8 @@ export async function updateManualShiftAssignment(
 
 export async function getManualShiftAssignmentById(id: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     return await prisma.manualShiftAssignment.findUnique({
       where: { id, orgId },
       include: {
@@ -3006,7 +3022,8 @@ export async function getManualShiftAssignmentById(id: string) {
 
 export async function deleteManualShiftAssignment(employeeId: string, date: Date): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const normalizedDate = normalizeAssignmentDate(date);
 
     await prisma.manualShiftAssignment.deleteMany({
@@ -3019,14 +3036,14 @@ export async function deleteManualShiftAssignment(employeeId: string, date: Date
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting manual assignment:", error);
-    return { success: false, error: "Error al eliminar asignación manual" };
+    return { success: false, error: getActionError(error, "Error al eliminar asignación manual") };
   }
 }
 
 export async function deleteManualShiftAssignmentById(id: string): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     await prisma.manualShiftAssignment.delete({
       where: { id, orgId },
@@ -3034,8 +3051,7 @@ export async function deleteManualShiftAssignmentById(id: string): Promise<Actio
 
     return { success: true };
   } catch (error) {
-    console.error("Error deleting manual assignment by ID:", error);
-    return { success: false, error: "Error al eliminar asignación manual" };
+    return { success: false, error: getActionError(error, "Error al eliminar asignación manual") };
   }
 }
 
@@ -3046,7 +3062,8 @@ export async function getManualShiftAssignmentsForRange(
   filters?: Omit<ManualShiftFilters, "employeeIds">,
 ) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const start = getRangeBoundary(startDate);
     const end = getRangeBoundary(endDate, true);
 
@@ -3086,7 +3103,8 @@ export async function copyManualShiftAssignmentsFromWeek(
   filters?: Omit<ManualShiftFilters, "statuses"> & { shouldOverwrite?: boolean },
 ): Promise<ActionResponse<{ copied: number; skipped: number }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
     const sourceStart = getRangeBoundary(sourceWeekStart);
     const sourceEnd = getRangeBoundary(addDays(sourceWeekStart, 6), true);
@@ -3190,8 +3208,7 @@ export async function copyManualShiftAssignmentsFromWeek(
       ...(validationConflicts.length > 0 ? { validation: { conflicts: validationConflicts } } : {}),
     };
   } catch (error) {
-    console.error("Error copying manual assignments:", error);
-    return { success: false, error: "Error al copiar turnos" };
+    return { success: false, error: getActionError(error, "Error al copiar turnos") };
   }
 }
 
@@ -3201,7 +3218,8 @@ export async function copyManualShiftAssignmentsFromWeek(
  */
 export async function restoreManualShiftAssignments(shifts: any[]): Promise<ActionResponse> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     if (shifts.length === 0) return { success: true };
 
@@ -3251,8 +3269,7 @@ export async function restoreManualShiftAssignments(shifts: any[]): Promise<Acti
 
     return { success: true };
   } catch (error) {
-    console.error("Error restoring assignments:", error);
-    return { success: false, error: "Error al restaurar turnos" };
+    return { success: false, error: getActionError(error, "Error al restaurar turnos") };
   }
 }
 
@@ -3262,7 +3279,8 @@ export async function publishManualShiftAssignments(
   filters?: ManualShiftFilters,
 ): Promise<ActionResponse<{ published: number }>> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const start = getRangeBoundary(dateFrom);
     const end = getRangeBoundary(dateTo, true);
 
@@ -3313,14 +3331,14 @@ export async function publishManualShiftAssignments(
 
     return { success: true, data: { published: assignments.length } };
   } catch (error) {
-    console.error("Error publishing manual assignments:", error);
-    return { success: false, error: "Error al publicar turnos" };
+    return { success: false, error: getActionError(error, "Error al publicar turnos") };
   }
 }
 
 export async function deleteMultipleManualShiftAssignments(ids: string[]): Promise<number> {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const result = await prisma.manualShiftAssignment.deleteMany({
       where: { id: { in: ids }, orgId },
     });
@@ -3357,7 +3375,8 @@ interface ApplyManualShiftTemplateInput {
 
 export async function getManualShiftTemplates() {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     return await prisma.manualShiftTemplate.findMany({
       where: { orgId },
       orderBy: { name: "asc" },
@@ -3370,7 +3389,8 @@ export async function getManualShiftTemplates() {
 
 export async function createManualShiftTemplate(data: ManualShiftTemplateInput) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const template = await prisma.manualShiftTemplate.create({
       data: {
         orgId,
@@ -3392,7 +3412,8 @@ export async function createManualShiftTemplate(data: ManualShiftTemplateInput) 
 
 export async function updateManualShiftTemplate(id: string, data: Partial<ManualShiftTemplateInput>) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const template = await prisma.manualShiftTemplate.update({
       where: { id, orgId },
       data: {
@@ -3414,18 +3435,19 @@ export async function updateManualShiftTemplate(id: string, data: Partial<Manual
 
 export async function deleteManualShiftTemplate(id: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     await prisma.manualShiftTemplate.delete({ where: { id, orgId } });
     return { success: true };
   } catch (error) {
-    console.error("Error deleting manual shift template:", error);
-    return { success: false, error: "Error al eliminar plantilla" };
+    return { success: false, error: getActionError(error, "Error al eliminar plantilla") };
   }
 }
 
 export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateInput) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
     const { minRestMinutes } = await getOrgShiftValidationConfig(orgId);
     const template = await prisma.manualShiftTemplate.findUnique({
       where: { id: input.templateId, orgId },
@@ -3534,8 +3556,7 @@ export async function applyManualShiftTemplate(input: ApplyManualShiftTemplateIn
       conflicts: validationConflicts,
     };
   } catch (error) {
-    console.error("Error applying manual shift template:", error);
-    return { success: false, error: "Error al aplicar plantilla manual" };
+    return { success: false, error: getActionError(error, "Error al aplicar plantilla manual") };
   }
 }
 
@@ -3567,7 +3588,8 @@ function getShiftTypeWindow(shiftType: string, durationMinutes: number) {
 
 export async function getWorkZones(costCenterId?: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     const zones = await prisma.workZone.findMany({
       where: {
@@ -3586,7 +3608,8 @@ export async function getWorkZones(costCenterId?: string) {
 
 export async function createWorkZone(data: { name: string; costCenterId: string; requiredCoverage?: any }) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     const zone = await prisma.workZone.create({
       data: {
@@ -3613,7 +3636,8 @@ export async function updateWorkZone(
   },
 ) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     const zone = await prisma.workZone.update({
       where: { id, orgId },
@@ -3633,7 +3657,8 @@ export async function updateWorkZone(
 
 export async function deleteWorkZone(id: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("manage_time_tracking");
+    const orgId = session.user.orgId;
 
     await prisma.workZone.delete({
       where: { id, orgId },
@@ -3655,7 +3680,8 @@ export async function deleteWorkZone(id: string) {
  */
 export async function searchEmployees(term: string) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
 
     if (!term || term.length < 2) return [];
 
@@ -3713,7 +3739,8 @@ export async function getShiftEmployeesPaginated(
   },
 ) {
   try {
-    const { orgId } = await requireOrg();
+    const { session } = await requirePermission("view_time_tracking");
+    const orgId = session.user.orgId;
     const skip = (page - 1) * pageSize;
 
     const where: any = {

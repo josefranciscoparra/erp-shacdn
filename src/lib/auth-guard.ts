@@ -76,22 +76,10 @@ export type SafePermissionResult = AuthSuccess | AuthFailure;
 // ERROR TIPADO
 // ============================================
 
-const PERMISSION_ERROR_MESSAGES: Partial<Record<Permission, string>> = {
-  manage_payslips: "No tienes permisos para gestionar nóminas.",
-  view_payroll: "No tienes permisos para ver las nóminas.",
-  view_own_payslips: "No tienes permisos para ver tus nóminas.",
-  manage_trash: "No tienes permisos para purgar la papelera.",
-  restore_trash: "No tienes permisos para restaurar documentos.",
-  view_sensitive_data: "No tienes permisos para ver datos sensibles.",
-  manage_users: "No tienes permisos para gestionar usuarios.",
-  manage_organization: "No tienes permisos para gestionar la organización.",
-  view_time_tracking: "No tienes permisos para ver los fichajes.",
-  manage_time_tracking: "No tienes permisos para gestionar los fichajes.",
-  approve_requests: "No tienes permisos para revisar solicitudes.",
-};
-
-function getPermissionErrorMessage(permission: Permission): string {
-  return PERMISSION_ERROR_MESSAGES[permission] ?? "No tienes permisos para realizar esta acción.";
+// Mensaje genérico para todos los errores de permisos
+// Evita confusión con mensajes específicos que pueden no coincidir con la acción del usuario
+function getPermissionErrorMessage(_permission: Permission): string {
+  return "No tienes permisos para realizar esta acción.";
 }
 
 /**
@@ -338,4 +326,33 @@ export async function safeOrgAccess(requestedOrgId: string): Promise<SafePermiss
     }
     return { ok: false, code: "UNAUTHORIZED", error: "Error de autorización" };
   }
+}
+
+/**
+ * Helper para extraer mensaje de error en server actions
+ *
+ * Uso en catch de server actions:
+ * ```typescript
+ * } catch (error) {
+ *   return { success: false, error: getActionError(error, "Error al crear plantilla") };
+ * }
+ * ```
+ *
+ * @param error - Error capturado
+ * @param fallbackMessage - Mensaje por defecto si no es error de autorización
+ * @returns Mensaje de error apropiado
+ */
+export function getActionError(error: unknown, fallbackMessage: string): string {
+  if (error instanceof AuthError) {
+    return error.message;
+  }
+  console.error(fallbackMessage, error);
+  return fallbackMessage;
+}
+
+/**
+ * Verifica si un error es de autorización (para logging condicional)
+ */
+export function isAuthError(error: unknown): error is AuthError {
+  return error instanceof AuthError;
 }
