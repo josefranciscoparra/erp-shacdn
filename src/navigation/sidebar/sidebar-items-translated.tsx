@@ -329,8 +329,8 @@ export function useSidebarItems(): NavGroup[] {
               permission: "manage_users",
             },
             {
-              title: "Responsables de Alertas",
-              url: "/dashboard/time-tracking/alerts/responsibles",
+              title: "Matriz de Responsabilidades",
+              url: "/dashboard/organization/responsibles",
               permission: "manage_users",
             },
           ],

@@ -591,7 +591,7 @@ export default function AlertsPage() {
             </Button>
             {canManageUsers && (
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/time-tracking/alerts/responsibles">
+                <Link href="/dashboard/organization/responsibles">
                   <Settings2 className="mr-2 h-4 w-4" />
                   Responsables
                 </Link>
