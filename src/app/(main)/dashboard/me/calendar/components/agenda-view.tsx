@@ -6,8 +6,9 @@ import { addDays, format, isToday } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar } from "lucide-react";
 
+import { AgendaDaysToShow } from "../constants";
 import type { CalendarEvent } from "../types";
-import { AgendaDaysToShow, getAgendaEventsForDay } from "../utils";
+import { getAgendaEventsForDay } from "../utils";
 
 import { EventItem } from "./event-item";
 
