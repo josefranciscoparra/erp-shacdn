@@ -72,6 +72,8 @@ export function ChatTab() {
           toast.error("No tienes permisos para modificar esta configuración.");
         } else if (error.message === "NO_AUTH") {
           toast.error("No estás autenticado. Por favor, inicia sesión de nuevo.");
+        } else if (error.message === "MODULE_DISABLED") {
+          toast.error("El módulo de chat no está disponible para esta organización.");
         } else {
           toast.error(`Error al actualizar la configuración: ${error.message}`);
         }

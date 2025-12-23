@@ -61,7 +61,8 @@ export interface NavGroup {
 }
 
 export function useSidebarItems(): NavGroup[] {
-  const { hasPermission, isAuthenticated } = usePermissions();
+  const { hasPermission, isAuthenticated, userRole } = usePermissions();
+  const isSuperAdmin = userRole === "SUPER_ADMIN";
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
@@ -407,6 +408,16 @@ export function useSidebarItems(): NavGroup[] {
           icon: Settings,
           permission: "manage_organization",
         },
+        ...(isSuperAdmin
+          ? [
+              {
+                title: "Ajustes superadmin",
+                url: "/dashboard/settings/superadmin",
+                icon: UserCog,
+                permission: "manage_organization",
+              },
+            ]
+          : []),
       ],
     },
   ];

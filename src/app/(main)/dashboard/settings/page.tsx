@@ -1,8 +1,4 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-
-import { useRouter, useSearchParams } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { Role } from "@prisma/client";
 import { ShieldAlert } from "lucide-react";
@@ -10,80 +6,44 @@ import { ShieldAlert } from "lucide-react";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
+import { auth } from "@/lib/auth";
+import { getModuleAvailability } from "@/lib/organization-modules";
+import { prisma } from "@/lib/prisma";
 
-import { AbsenceTypesTab } from "./_components/absence-types-tab";
-import { AdminTab } from "./_components/admin-tab";
-import { ApprovalSettingsTab } from "./_components/approval-settings-tab";
-import { ChatTab } from "./_components/chat-tab";
-import { ExpensesTab } from "./_components/expenses-tab";
-import { GeolocationTab } from "./_components/geolocation-tab";
-import { OrganizationTab } from "./_components/organization-tab";
-import { PermissionOverridesTab } from "./_components/permission-overrides-tab";
-import { ShiftsTab } from "./_components/shifts-tab";
-import { StorageTab } from "./_components/storage-tab";
-import { SystemInfoTab } from "./_components/system-info-tab";
-import { TimeBankTab } from "./_components/time-bank-tab";
-import { TimeClockValidationsTab } from "./_components/time-clock-validations-tab";
-import { VacationsTab } from "./_components/vacations-tab";
-import { WhistleblowingTab } from "./_components/whistleblowing-tab";
+import { SettingsContainer } from "./_components/settings-container";
 
-// Roles que pueden gestionar overrides de permisos (tienen manage_permission_overrides)
-const ROLES_WITH_PERMISSION_OVERRIDES: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
+export default async function SettingsPage() {
+  const session = await auth();
 
-export default function SettingsPage() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  const [userRole, setUserRole] = useState<Role | null>(null);
+  if (!session?.user?.orgId) {
+    redirect("/auth/login");
+  }
 
-  useEffect(() => {
-    getCurrentUserRole().then((role) => {
-      setUserRole(role as Role);
-    });
-  }, []);
+  // Obtener configuración de la organización para feature flags
+  const organization = await prisma.organization.findUnique({
+    where: { id: session.user.orgId },
+    select: {
+      geolocationEnabled: true,
+      chatEnabled: true,
+      shiftsEnabled: true,
+      whistleblowingEnabled: true,
+      expenseMode: true,
+      features: true,
+    },
+  });
 
-  const isSuperAdmin = userRole === "SUPER_ADMIN";
-  const canManagePermissionOverrides = userRole && ROLES_WITH_PERMISSION_OVERRIDES.includes(userRole);
-
-  const tabs = useMemo(
-    () => [
-      { value: "organization", label: "Organización" },
-      { value: "absence-types", label: "Tipos de Ausencia" },
-      { value: "vacations", label: "Vacaciones" },
-      { value: "chat", label: "Chat" },
-      { value: "shifts", label: "Turnos" },
-      { value: "whistleblowing", label: "Denuncias" },
-      { value: "geolocation", label: "Geolocalización" },
-      { value: "validations", label: "Fichajes" },
-      { value: "approvals", label: "Aprobaciones" },
-      { value: "time-bank", label: "Bolsa Horas" },
-      { value: "expenses", label: "Gastos" },
-      { value: "storage", label: "Storage" },
-      { value: "system", label: "Sistema" },
-      ...(canManagePermissionOverrides ? [{ value: "permissions", label: "Permisos por Rol" }] : []),
-      ...(isSuperAdmin ? [{ value: "admin", label: "Admin" }] : []),
-    ],
-    [isSuperAdmin, canManagePermissionOverrides],
-  );
-
-  const initialTab = useMemo(() => {
-    const tabParam = searchParams.get("tab");
-    if (tabParam && tabs.some((tab) => tab.value === tabParam)) {
-      return tabParam;
-    }
-    return "organization";
-  }, [searchParams, tabs]);
-
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  const handleTabChange = (value: string) => {
-    setActiveTab(value);
-    const params = new URLSearchParams(Array.from(searchParams.entries()));
-    params.set("tab", value);
-    router.replace(`?${params.toString()}`);
-  };
+  if (!organization) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader title="Configuración" subtitle="Gestiona las preferencias de tu organización" />
+        <EmptyState
+          icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+          title="Organización no encontrada"
+          description="No se pudo cargar la configuración de la organización."
+        />
+      </div>
+    );
+  }
 
   return (
     <PermissionGuard
@@ -99,100 +59,17 @@ export default function SettingsPage() {
         </div>
       }
     >
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Configuración" subtitle="Gestiona las preferencias de tu organización" />
-
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <div className="flex items-center justify-between gap-4">
-            {/* Select para móvil */}
-            <Select value={activeTab} onValueChange={handleTabChange}>
-              <SelectTrigger className="w-full @4xl/main:hidden">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {tabs.map((tab) => (
-                  <SelectItem key={tab.value} value={tab.value}>
-                    {tab.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Tabs para desktop */}
-            <TabsList className="hidden @4xl/main:flex">
-              {tabs.map((tab) => (
-                <TabsTrigger key={tab.value} value={tab.value}>
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </div>
-
-          <TabsContent value="organization" className="mt-4 md:mt-6">
-            <OrganizationTab />
-          </TabsContent>
-
-          <TabsContent value="absence-types" className="mt-4 md:mt-6">
-            <AbsenceTypesTab />
-          </TabsContent>
-
-          <TabsContent value="vacations" className="mt-4 md:mt-6">
-            <VacationsTab />
-          </TabsContent>
-
-          <TabsContent value="chat" className="mt-4 md:mt-6">
-            <ChatTab />
-          </TabsContent>
-
-          <TabsContent value="shifts" className="mt-4 md:mt-6">
-            <ShiftsTab />
-          </TabsContent>
-
-          <TabsContent value="whistleblowing" className="mt-4 md:mt-6">
-            <WhistleblowingTab />
-          </TabsContent>
-
-          <TabsContent value="geolocation" className="mt-4 md:mt-6">
-            <GeolocationTab />
-          </TabsContent>
-
-          <TabsContent value="validations" className="mt-4 md:mt-6">
-            <TimeClockValidationsTab />
-          </TabsContent>
-
-          <TabsContent value="approvals" className="mt-4 md:mt-6">
-            <ApprovalSettingsTab />
-          </TabsContent>
-
-          <TabsContent value="time-bank" className="mt-4 md:mt-6">
-            <TimeBankTab />
-          </TabsContent>
-
-          <TabsContent value="expenses" className="mt-4 md:mt-6">
-            <ExpensesTab />
-          </TabsContent>
-
-          <TabsContent value="storage" className="mt-4 md:mt-6">
-            <StorageTab />
-          </TabsContent>
-
-          <TabsContent value="system" className="mt-4 md:mt-6">
-            <SystemInfoTab />
-          </TabsContent>
-
-          {canManagePermissionOverrides && (
-            <TabsContent value="permissions" className="mt-4 md:mt-6">
-              <PermissionOverridesTab />
-            </TabsContent>
-          )}
-
-          {isSuperAdmin && (
-            <TabsContent value="admin" className="mt-4 md:mt-6">
-              <AdminTab />
-            </TabsContent>
-          )}
-        </Tabs>
-      </div>
+      <SettingsContainer
+        userRole={session.user.role as Role}
+        orgSettings={{
+          geolocationEnabled: organization.geolocationEnabled,
+          chatEnabled: organization.chatEnabled,
+          shiftsEnabled: organization.shiftsEnabled,
+          whistleblowingEnabled: organization.whistleblowingEnabled,
+          expenseMode: organization.expenseMode,
+        }}
+        moduleAvailability={getModuleAvailability(organization.features)}
+      />
     </PermissionGuard>
   );
 }

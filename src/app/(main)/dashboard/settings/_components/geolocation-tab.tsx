@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-import Link from "next/link";
-
-import { MapPin, Satellite, ShieldCheck, TrendingUp } from "lucide-react";
+import { Satellite, ShieldCheck, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -59,7 +56,15 @@ export function GeolocationTab() {
       toast.success(newValue ? "Geolocalización activada" : "Geolocalización desactivada");
     } catch (error) {
       console.error("Error updating geolocation status:", error);
-      toast.error("Error al actualizar la configuración");
+      if (error instanceof Error) {
+        if (error.message === "MODULE_DISABLED") {
+          toast.error("La geolocalización no está disponible para esta organización.");
+        } else {
+          toast.error("Error al actualizar la configuración");
+        }
+      } else {
+        toast.error("Error al actualizar la configuración");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -177,28 +182,6 @@ export function GeolocationTab() {
                 <p className="text-muted-foreground text-xs">Empleados con permiso</p>
               </div>
             </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Card de Acciones */}
-      {enabled && (
-        <Card className="rounded-lg border p-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex items-center gap-2">
-              <MapPin className="h-5 w-5" />
-              <div>
-                <h3 className="font-semibold">Mapa de Fichajes</h3>
-                <p className="text-muted-foreground text-sm">Visualiza los fichajes en un mapa interactivo</p>
-              </div>
-            </div>
-
-            <Link href="/dashboard/me/clock?view=map">
-              <Button variant="outline" className="w-full @xl/main:w-auto">
-                <MapPin className="mr-2 h-4 w-4" />
-                Ver mapa de fichajes
-              </Button>
-            </Link>
           </div>
         </Card>
       )}

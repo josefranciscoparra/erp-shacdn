@@ -88,6 +88,8 @@ export function ShiftsTab() {
           toast.error("No tienes permisos para modificar esta configuración.");
         } else if (error.message === "NO_AUTH") {
           toast.error("No estás autenticado. Por favor, inicia sesión de nuevo.");
+        } else if (error.message === "MODULE_DISABLED") {
+          toast.error("El módulo de turnos no está disponible para esta organización.");
         } else {
           toast.error(`Error al actualizar la configuración: ${error.message}`);
         }
@@ -109,12 +111,16 @@ export function ShiftsTab() {
       toast.success("Configuración de descanso actualizada");
     } catch (error) {
       console.error("[ShiftsTab] Error updating rest config:", error);
-      if (error instanceof Error && (error.message === "NO_PERMISSION" || error.message === "NO_AUTH")) {
-        toast.error(
-          error.message === "NO_PERMISSION"
-            ? "No tienes permisos para modificar esta configuración."
-            : "No estás autenticado. Por favor, inicia sesión de nuevo.",
-        );
+      if (error instanceof Error) {
+        if (error.message === "NO_PERMISSION") {
+          toast.error("No tienes permisos para modificar esta configuración.");
+        } else if (error.message === "NO_AUTH") {
+          toast.error("No estás autenticado. Por favor, inicia sesión de nuevo.");
+        } else if (error.message === "MODULE_DISABLED") {
+          toast.error("El módulo de turnos no está disponible para esta organización.");
+        } else {
+          toast.error("No se pudo guardar la configuración de descanso");
+        }
       } else {
         toast.error("No se pudo guardar la configuración de descanso");
       }

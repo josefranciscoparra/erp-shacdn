@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { CONSENT_VERSION } from "@/lib/geolocation/consent";
 import { calculateDistance, findNearestCenter } from "@/lib/geolocation/haversine";
 import { validateGeolocationData } from "@/lib/geolocation/validators";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
@@ -351,6 +352,20 @@ export async function updateOrganizationGeolocationStatus(enabled: boolean) {
 
     if (!session?.user?.orgId) {
       throw new Error("Usuario no autenticado o sin organización");
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: { features: true },
+    });
+
+    if (!org) {
+      throw new Error("ORG_NOT_FOUND");
+    }
+
+    const availability = getModuleAvailability(org.features);
+    if (!availability.geolocation) {
+      throw new Error("MODULE_DISABLED");
     }
 
     const organization = await prisma.organization.update({

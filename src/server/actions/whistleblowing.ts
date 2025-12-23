@@ -15,6 +15,7 @@ import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { encryptJson, decryptJson } from "@/lib/encryption";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService, getStorageProvider } from "@/lib/storage";
 import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
@@ -1070,16 +1071,25 @@ export async function updateOrganizationWhistleblowingStatus(enabled: boolean): 
   // Si se está habilitando y no hay slug, generar uno
   const org = await prisma.organization.findUnique({
     where: { id: session.user.orgId },
-    select: { whistleblowingPublicSlug: true, name: true },
+    select: { whistleblowingPublicSlug: true, name: true, features: true },
   });
+
+  if (!org) {
+    throw new Error("ORG_NOT_FOUND");
+  }
+
+  const availability = getModuleAvailability(org.features);
+  if (!availability.whistleblowing) {
+    throw new Error("MODULE_DISABLED");
+  }
 
   const updateData: { whistleblowingEnabled: boolean; whistleblowingPublicSlug?: string } = {
     whistleblowingEnabled: enabled,
   };
 
   // Generar slug si no existe y se está habilitando
-  if (enabled && !org?.whistleblowingPublicSlug) {
-    const baseSlug = (org?.name ?? "org")
+  if (enabled && !org.whistleblowingPublicSlug) {
+    const baseSlug = org.name
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")

@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -69,6 +70,20 @@ export async function updateOrganizationShiftsStatus(enabled: boolean): Promise<
       throw new Error("NO_PERMISSION");
     }
 
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: { features: true },
+    });
+
+    if (!org) {
+      throw new Error("ORG_NOT_FOUND");
+    }
+
+    const availability = getModuleAvailability(org.features);
+    if (!availability.shifts) {
+      throw new Error("MODULE_DISABLED");
+    }
+
     await prisma.organization.update({
       where: { id: session.user.orgId },
       data: { shiftsEnabled: enabled },
@@ -93,6 +108,20 @@ export async function updateOrganizationShiftsConfig(input: { shiftMinRestHours:
     const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
     if (!allowedRoles.includes(session.user.role)) {
       throw new Error("NO_PERMISSION");
+    }
+
+    const org = await prisma.organization.findUnique({
+      where: { id: session.user.orgId },
+      select: { features: true },
+    });
+
+    if (!org) {
+      throw new Error("ORG_NOT_FOUND");
+    }
+
+    const availability = getModuleAvailability(org.features);
+    if (!availability.shifts) {
+      throw new Error("MODULE_DISABLED");
     }
 
     const hours = Number.isFinite(input.shiftMinRestHours) ? input.shiftMinRestHours : 0;

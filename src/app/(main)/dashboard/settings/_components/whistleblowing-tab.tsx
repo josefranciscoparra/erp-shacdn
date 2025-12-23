@@ -129,6 +129,8 @@ export function WhistleblowingTab() {
           toast.error("No tienes permisos para modificar esta configuracion.");
         } else if (error.message === "NO_AUTH") {
           toast.error("No estas autenticado. Por favor, inicia sesion de nuevo.");
+        } else if (error.message === "MODULE_DISABLED") {
+          toast.error("El canal de denuncias no está disponible para esta organización.");
         } else {
           toast.error(`Error al actualizar la configuracion: ${error.message}`);
         }
