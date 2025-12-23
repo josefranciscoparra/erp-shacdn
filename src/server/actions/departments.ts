@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getActionError, safeAnyPermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 export type DepartmentListItem = {
@@ -31,10 +31,12 @@ export async function getDepartments(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, error: "No autorizado" };
+    // Permisivo: cualquier rol de gestión puede ver departamentos
+    const authResult = await safeAnyPermission(["view_departments", "manage_organization", "view_time_tracking"]);
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
     }
+    const { session } = authResult;
 
     const departments = await prisma.department.findMany({
       where: {
@@ -75,7 +77,6 @@ export async function getDepartments(): Promise<{
 
     return { success: true, departments };
   } catch (error) {
-    console.error("Error al obtener departamentos:", error);
-    return { success: false, error: "Error al cargar departamentos" };
+    return { success: false, error: getActionError(error, "Error al cargar departamentos") };
   }
 }

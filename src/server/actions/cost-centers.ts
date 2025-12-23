@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/lib/auth";
+import { getActionError, safeAnyPermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -33,10 +33,12 @@ export async function getCostCenterById(id: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    // Permisivo: cualquier rol de gestión puede ver centros de coste
+    const authResult = await safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"]);
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
     }
+    const { session } = authResult;
 
     const costCenter = await prisma.costCenter.findFirst({
       where: {
@@ -74,10 +76,9 @@ export async function getCostCenterById(id: string): Promise<{
       costCenter: costCenter as CostCenterDetail,
     };
   } catch (error) {
-    console.error("Error al obtener centro de coste:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Error desconocido",
+      error: getActionError(error, "Error al obtener centro de coste"),
     };
   }
 }
@@ -101,10 +102,12 @@ export async function getCostCenters(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
+    // Permisivo: cualquier rol de gestión puede ver centros de coste
+    const authResult = await safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"]);
+    if (!authResult.ok) {
+      return { success: false, error: authResult.error };
     }
+    const { session } = authResult;
 
     const costCenters = await prisma.costCenter.findMany({
       where: {
@@ -127,10 +130,9 @@ export async function getCostCenters(): Promise<{
       costCenters,
     };
   } catch (error) {
-    console.error("Error al obtener centros de coste:", error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : "Error desconocido",
+      error: getActionError(error, "Error al obtener centros de coste"),
     };
   }
 }

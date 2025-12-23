@@ -118,16 +118,19 @@ El archivo sigue el principio: *"El empleado siempre puede gestionar sus propios
 
 ---
 
-## FASE 3: Selectores Departamentales
+## FASE 3: Selectores Departamentales - ✅ COMPLETADA
 
 Proteger la exposición de la estructura organizativa.
 
 ### 3.1 departments.ts
-- [ ] `getDepartments` → `safeAnyPermission(["view_departments", "manage_organization", "view_time_tracking"])` (Permisivo para que selectores funcionen en varias pantallas).
+- [x] `getDepartments` → `safeAnyPermission(["view_departments", "manage_organization", "view_time_tracking"])`
 
 ### 3.2 cost-centers.ts
-- [ ] `getCostCenters`
-- [ ] `getCostCenterById` → `safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"])`
+- [x] `getCostCenters` → `safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"])`
+- [x] `getCostCenterById` → `safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"])`
+
+### Nota
+Los permisos son permisivos para que selectores funcionen en varias pantallas (equipos, horarios, etc.).
 
 ---
 
