@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/use-permissions";
 
 import { Employee } from "../types";
 
@@ -26,6 +27,9 @@ interface EmployeeActionsProps {
 export function EmployeeActions({ employee }: EmployeeActionsProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const { hasPermission } = usePermissions();
+  const canManageEmployees = hasPermission("manage_employees");
+  const canViewContracts = hasPermission("view_contracts");
 
   const handleViewProfile = () => {
     router.push(`/dashboard/employees/${employee.id}`);
@@ -84,32 +88,40 @@ export function EmployeeActions({ employee }: EmployeeActionsProps) {
             Ver perfil
           </DropdownMenuItem>
 
-          <DropdownMenuItem onClick={handleEdit}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Editar
-          </DropdownMenuItem>
+          {canManageEmployees && (
+            <DropdownMenuItem onClick={handleEdit}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Editar
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuItem onClick={handleViewContracts}>
-            <FileText className="mr-2 h-4 w-4" />
-            Ver contratos
-          </DropdownMenuItem>
+          {canViewContracts && (
+            <DropdownMenuItem onClick={handleViewContracts}>
+              <FileText className="mr-2 h-4 w-4" />
+              Ver contratos
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
 
-          {employee.active ? (
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={handleDeactivate}
-              disabled={isLoading}
-            >
-              <AlertCircle className="mr-2 h-4 w-4" />
-              {isLoading ? "Dando de baja..." : "Dar de baja"}
-            </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem disabled>
-              <AlertCircle className="mr-2 h-4 w-4" />
-              Ya está inactivo
-            </DropdownMenuItem>
+          {canManageEmployees && (
+            <>
+              {employee.active ? (
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={handleDeactivate}
+                  disabled={isLoading}
+                >
+                  <AlertCircle className="mr-2 h-4 w-4" />
+                  {isLoading ? "Dando de baja..." : "Dar de baja"}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem disabled>
+                  <AlertCircle className="mr-2 h-4 w-4" />
+                  Ya está inactivo
+                </DropdownMenuItem>
+              )}
+            </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

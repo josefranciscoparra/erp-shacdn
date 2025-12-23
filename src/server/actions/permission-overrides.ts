@@ -13,7 +13,13 @@ import { revalidatePath } from "next/cache";
 
 import { Role } from "@prisma/client";
 
-import { AuthError, computeEffectivePermissions, getSessionOrThrow, requirePermission } from "@/lib/auth-guard";
+import {
+  AuthError,
+  clearEffectivePermissionsCache,
+  computeEffectivePermissions,
+  getSessionOrThrow,
+  requirePermission,
+} from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { isValidPermission, Permission, ROLE_PERMISSIONS } from "@/services/permissions/permissions";
 
@@ -221,6 +227,7 @@ export async function upsertOrgRoleOverride(
       });
     }
 
+    clearEffectivePermissionsCache(orgId);
     revalidatePath("/dashboard/settings");
     return { success: true };
   } catch (err) {
@@ -252,6 +259,7 @@ export async function resetOrgRoleOverride(role: Role): Promise<ActionResult> {
         // Ignorar si no existe
       });
 
+    clearEffectivePermissionsCache(orgId);
     revalidatePath("/dashboard/settings");
     return { success: true };
   } catch (err) {

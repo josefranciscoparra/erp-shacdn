@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -54,10 +55,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Verificar permisos
 
-    const privilegedRoles: Role[] = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
-    const hasPrivilegedRole = privilegedRoles.includes(session.user.role as Role);
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+    const canManageDocuments = effectivePermissions.has("manage_documents");
 
-    if (!hasPrivilegedRole) {
+    if (!canManageDocuments) {
       console.info("🔍 Verificando acceso a descarga de firma", {
         requestId: signatureRequest.id,
         sessionUser: {

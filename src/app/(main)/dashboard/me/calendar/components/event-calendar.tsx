@@ -27,22 +27,17 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-import {
-  addHoursToDate,
-  AgendaDaysToShow,
-  AgendaView,
-  CalendarDndProvider,
-  CalendarEvent,
-  CalendarView,
-  DayView,
-  EventDialog,
-  EventViewDialog,
-  EventGap,
-  EventHeight,
-  MonthView,
-  WeekCellsHeight,
-  WeekView,
-} from "./";
+import { AgendaDaysToShow, EventGap, EventHeight, WeekCellsHeight } from "../constants";
+import type { CalendarEvent, CalendarView } from "../types";
+import { addHoursToDate } from "../utils";
+
+import { AgendaView } from "./agenda-view";
+import { CalendarDndProvider } from "./calendar-dnd-context";
+import { DayView } from "./day-view";
+import { EventDialog } from "./event-dialog";
+import { EventViewDialog } from "./event-view-dialog";
+import { MonthView } from "./month-view";
+import { WeekView } from "./week-view";
 
 export interface EventCalendarProps {
   events?: CalendarEvent[];

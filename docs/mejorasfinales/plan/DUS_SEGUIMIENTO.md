@@ -9,17 +9,18 @@
 
 ## Estado de Mejoras
 
-| # | Mejora | Estado | Rama | Doc Técnico | Fecha Inicio | Fecha Fin |
-|---|--------|--------|------|-------------|--------------|-----------|
-| 1 | Liquidación + Fijos Discontinuos | ✅ Completada | `feature/mejora-01-liquidacion` | [IMPL_01](./IMPL_01_LIQUIDACION.md) | 2024-12-05 | 2025-12-05 |
-| 2 | Justificantes de Ausencias | 🟡 En Progreso | `feature/mejora-02-justificantes` | - | 2025-12-05 | - |
-| 3 | Subida Masiva de Nóminas | ⏳ Pendiente | - | - | - | - |
-| 4 | Proyectos en Fichajes | ⏳ Pendiente | - | - | - | - |
-| 5 | Bolsa de Horas | ⏳ Pendiente | - | - | - | - |
-| 6 | Pausas Automáticas | ⏳ Pendiente | - | - | - | - |
-| 7 | Firma Masiva y Doble Firma | ⏳ Pendiente | - | - | - | - |
+| #   | Mejora                           | Estado         | Rama                              | Doc Técnico                         | Fecha Inicio | Fecha Fin  |
+| --- | -------------------------------- | -------------- | --------------------------------- | ----------------------------------- | ------------ | ---------- |
+| 1   | Liquidación + Fijos Discontinuos | ✅ Completada  | `feature/mejora-01-liquidacion`   | [IMPL_01](./IMPL_01_LIQUIDACION.md) | 2024-12-05   | 2025-12-05 |
+| 2   | Justificantes de Ausencias       | 🟡 En Progreso | `feature/mejora-02-justificantes` | -                                   | 2025-12-05   | -          |
+| 3   | Subida Masiva de Nóminas         | ⏳ Pendiente   | -                                 | -                                   | -            | -          |
+| 4   | Proyectos en Fichajes            | ⏳ Pendiente   | -                                 | -                                   | -            | -          |
+| 5   | Bolsa de Horas                   | ⏳ Pendiente   | -                                 | -                                   | -            | -          |
+| 6   | Pausas Automáticas               | ⏳ Pendiente   | -                                 | -                                   | -            | -          |
+| 7   | Firma Masiva y Doble Firma       | ⏳ Pendiente   | -                                 | -                                   | -            | -          |
 
 **Leyenda:**
+
 - ⏳ Pendiente
 - 🟡 En Progreso
 - ✅ Completada
@@ -53,15 +54,15 @@ main
 
 ### Nomenclatura de Ramas
 
-| Mejora | Rama |
-|--------|------|
-| 1 | `feature/mejora-01-liquidacion` |
-| 2 | `feature/mejora-02-justificantes` |
-| 3 | `feature/mejora-03-nominas` |
-| 4 | `feature/mejora-04-proyectos` |
-| 5 | `feature/mejora-05-bolsa-horas` |
-| 6 | `feature/mejora-06-pausas-auto` |
-| 7 | `feature/mejora-07-firma-masiva` |
+| Mejora | Rama                              |
+| ------ | --------------------------------- |
+| 1      | `feature/mejora-01-liquidacion`   |
+| 2      | `feature/mejora-02-justificantes` |
+| 3      | `feature/mejora-03-nominas`       |
+| 4      | `feature/mejora-04-proyectos`     |
+| 5      | `feature/mejora-05-bolsa-horas`   |
+| 6      | `feature/mejora-06-pausas-auto`   |
+| 7      | `feature/mejora-07-firma-masiva`  |
 
 ---
 
@@ -91,11 +92,11 @@ Estamos implementando mejoras finales de TimeNow.
 
 ## Historial de Cambios
 
-| Fecha | Mejora | Cambio |
-|-------|--------|--------|
-| 2024-12-05 | 1 | Iniciada mejora de Liquidación + Fijos Discontinuos |
-| 2025-12-05 | 1 | ✅ COMPLETADA: Liquidación automática al finalizar contrato, contratos FIJO_DISCONTINUO con pause/resume, UI de liquidaciones, VacationService con Strategy pattern |
-| 2025-12-05 | 2 | Iniciada mejora de Justificantes de Ausencias |
+| Fecha      | Mejora | Cambio                                                                                                                                                              |
+| ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2024-12-05 | 1      | Iniciada mejora de Liquidación + Fijos Discontinuos                                                                                                                 |
+| 2025-12-05 | 1      | ✅ COMPLETADA: Liquidación automática al finalizar contrato, contratos FIJO_DISCONTINUO con pause/resume, UI de liquidaciones, VacationService con Strategy pattern |
+| 2025-12-05 | 2      | Iniciada mejora de Justificantes de Ausencias                                                                                                                       |
 
 ---
 

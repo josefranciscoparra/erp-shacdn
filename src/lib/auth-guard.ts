@@ -135,28 +135,33 @@ export function computeRolePermissions(role: Role): Permission[] {
   return ROLE_PERMISSIONS[role] ?? [];
 }
 
-/**
- * Calcula los permisos efectivos del usuario
- *
- * Fórmula: effectivePermissions = roleBase + orgGrants - orgRevokes
- *
- * @param params.role - Rol del usuario
- * @param params.orgId - ID de organización activa
- * @param params.userId - ID del usuario (reservado para v2: overrides por usuario)
- * @returns Set de permisos efectivos
- */
-export async function computeEffectivePermissions({
-  role,
-  orgId,
-  userId: _userId,
-}: {
-  role: Role;
-  orgId: string;
-  userId: string;
-}): Promise<Set<Permission>> {
+const DEFAULT_EFFECTIVE_PERMISSIONS_CACHE_MS = 10 * 1000;
+const rawEffectivePermissionsCacheMs = process.env.EFFECTIVE_PERMISSIONS_CACHE_MS;
+const parsedEffectivePermissionsCacheMs = rawEffectivePermissionsCacheMs
+  ? Number(rawEffectivePermissionsCacheMs)
+  : Number.NaN;
+const EFFECTIVE_PERMISSIONS_CACHE_MS =
+  Number.isFinite(parsedEffectivePermissionsCacheMs) && parsedEffectivePermissionsCacheMs >= 0
+    ? parsedEffectivePermissionsCacheMs
+    : DEFAULT_EFFECTIVE_PERMISSIONS_CACHE_MS;
+
+const MAX_EFFECTIVE_PERMISSIONS_CACHE_ENTRIES = 500;
+
+type EffectivePermissionsCacheEntry = {
+  permissions: Permission[];
+  expiresAt: number;
+};
+
+const effectivePermissionsCache = new Map<string, EffectivePermissionsCacheEntry>();
+
+function getEffectivePermissionsCacheKey(role: Role, orgId: string, userId: string): string {
+  return `${orgId}:${userId}:${role}`;
+}
+
+async function loadEffectivePermissions(role: Role, orgId: string): Promise<Permission[]> {
   const base = new Set(computeRolePermissions(role));
 
-  // Cargar override para este rol en esta organización
+  // Cargar override para este rol en esta organizacion
   const override = await prisma.orgRolePermissionOverride.findUnique({
     where: {
       orgId_role: { orgId, role },
@@ -168,7 +173,7 @@ export async function computeEffectivePermissions({
   });
 
   if (override) {
-    // Añadir permisos concedidos (validando con isValidPermission)
+    // Anadir permisos concedidos (validando con isValidPermission)
     override.grantPermissions.forEach((p) => {
       if (isValidPermission(p)) {
         base.add(p);
@@ -183,7 +188,78 @@ export async function computeEffectivePermissions({
     });
   }
 
-  return base;
+  return Array.from(base);
+}
+
+async function getCachedEffectivePermissions(role: Role, orgId: string, userId: string): Promise<Permission[]> {
+  if (EFFECTIVE_PERMISSIONS_CACHE_MS === 0) {
+    return await loadEffectivePermissions(role, orgId);
+  }
+
+  const now = Date.now();
+  const key = getEffectivePermissionsCacheKey(role, orgId, userId);
+  const cached = effectivePermissionsCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    return cached.permissions;
+  }
+
+  if (cached) {
+    effectivePermissionsCache.delete(key);
+  }
+
+  const permissions = await loadEffectivePermissions(role, orgId);
+
+  if (effectivePermissionsCache.size > MAX_EFFECTIVE_PERMISSIONS_CACHE_ENTRIES) {
+    effectivePermissionsCache.clear();
+  }
+
+  effectivePermissionsCache.set(key, {
+    permissions,
+    expiresAt: now + EFFECTIVE_PERMISSIONS_CACHE_MS,
+  });
+
+  return permissions;
+}
+
+export function clearEffectivePermissionsCache(orgId?: string, userId?: string): void {
+  if (!orgId && !userId) {
+    effectivePermissionsCache.clear();
+    return;
+  }
+
+  for (const key of effectivePermissionsCache.keys()) {
+    const [keyOrgId, keyUserId] = key.split(":", 3);
+    if (orgId && keyOrgId !== orgId) {
+      continue;
+    }
+    if (userId && keyUserId !== userId) {
+      continue;
+    }
+    effectivePermissionsCache.delete(key);
+  }
+}
+
+/**
+ * Calcula los permisos efectivos del usuario
+ *
+ * Fórmula: effectivePermissions = roleBase + orgGrants - orgRevokes
+ *
+ * @param params.role - Rol del usuario
+ * @param params.orgId - ID de organización activa
+ * @param params.userId - ID del usuario (reservado para v2: overrides por usuario)
+ * @returns Set de permisos efectivos
+ */
+export async function computeEffectivePermissions({
+  role,
+  orgId,
+  userId,
+}: {
+  role: Role;
+  orgId: string;
+  userId: string;
+}): Promise<Set<Permission>> {
+  const permissions = await getCachedEffectivePermissions(role, orgId, userId);
+  return new Set(permissions);
 }
 
 /**
@@ -306,39 +382,44 @@ export async function safeAnyPermission(
   permissions: Permission[],
   options?: AuthorizeOptions,
 ): Promise<SafePermissionResult> {
-  let unauthorizedError: SafePermissionResult | null = null;
+  try {
+    const session = await getSessionOrThrow();
+    const { role, orgId, id: userId } = session.user;
 
-  // Usar checkPermissionInternal para evitar logs duplicados en cada iteración
-  for (const permission of permissions) {
-    const result = await checkPermissionInternal(permission);
-    if (result.ok) {
-      // 🚨 AUDITORÍA: Si es un permiso sensible, registrar el acceso exitoso
-      if (SENSITIVE_PERMISSIONS.includes(permission)) {
-        await SecurityLogger.logSensitiveAccess(
-          "PERMISSION",
-          permission,
-          `Acceso autorizado a función protegida por '${permission}'`,
-        );
+    const basePermissions = new Set(computeRolePermissions(role as Role));
+    const effective = await computeEffectivePermissions({
+      role: role as Role,
+      orgId,
+      userId,
+    });
+
+    for (const permission of permissions) {
+      if (effective.has(permission)) {
+        if (SENSITIVE_PERMISSIONS.includes(permission)) {
+          await SecurityLogger.logSensitiveAccess(
+            "PERMISSION",
+            permission,
+            `Acceso autorizado a función protegida por '${permission}'`,
+          );
+        }
+        const source: AuthSource = basePermissions.has(permission) ? "ROLE" : "ORG_OVERRIDE";
+        return { ok: true, session, source };
       }
-      return result;
     }
-    if (result.code === "UNAUTHORIZED" && !unauthorizedError) {
-      unauthorizedError = result;
+
+    await SecurityLogger.logAccessDenied(permissions.join(" OR "), options?.resource?.type);
+
+    return {
+      ok: false,
+      code: "FORBIDDEN",
+      error: "No tienes permisos suficientes para realizar esta acción.",
+    };
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return { ok: false, code: err.code, error: err.message };
     }
+    return { ok: false, code: "UNAUTHORIZED", error: "Error de autorización" };
   }
-
-  if (unauthorizedError) {
-    return unauthorizedError;
-  }
-
-  // 🚨 AUDITORÍA: Registrar fallo de permisos múltiples (solo 1 log al final)
-  await SecurityLogger.logAccessDenied(permissions.join(" OR "), options?.resource?.type);
-
-  return {
-    ok: false,
-    code: "FORBIDDEN",
-    error: "No tienes permisos suficientes para realizar esta acción.",
-  };
 }
 
 /**

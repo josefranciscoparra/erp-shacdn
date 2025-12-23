@@ -1,6 +1,9 @@
 "use server";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
@@ -60,13 +63,17 @@ export async function updateOrganizationShiftsStatus(enabled: boolean): Promise<
   try {
     const session = await auth();
 
-    if (!session?.user?.orgId) {
+    if (!session?.user?.orgId || !session?.user?.id) {
       throw new Error("NO_AUTH");
     }
 
-    // Verificar permisos de administrador (SUPER_ADMIN, ORG_ADMIN o HR_ADMIN)
-    const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
-    if (!allowedRoles.includes(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_organization")) {
       throw new Error("NO_PERMISSION");
     }
 
@@ -101,12 +108,17 @@ export async function updateOrganizationShiftsConfig(input: { shiftMinRestHours:
   try {
     const session = await auth();
 
-    if (!session?.user?.orgId) {
+    if (!session?.user?.orgId || !session?.user?.id) {
       throw new Error("NO_AUTH");
     }
 
-    const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
-    if (!allowedRoles.includes(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_organization")) {
       throw new Error("NO_PERMISSION");
     }
 

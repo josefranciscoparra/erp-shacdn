@@ -68,6 +68,7 @@ interface UsersColumnsProps {
   onToggleActive: (user: UserRow) => void;
   onManageOrganizations?: (user: UserRow) => void;
   isSuperAdmin?: boolean;
+  canManage?: boolean;
 }
 
 export const createUsersColumns = ({
@@ -77,6 +78,7 @@ export const createUsersColumns = ({
   onToggleActive,
   onManageOrganizations,
   isSuperAdmin = false,
+  canManage = false,
 }: UsersColumnsProps): ColumnDef<UserRow>[] => [
   {
     accessorKey: "name",
@@ -165,21 +167,25 @@ export const createUsersColumns = ({
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => onViewDetails(user)}>Ver detalles</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
-            {isSuperAdmin && onManageOrganizations && (
-              <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
-                <Building2 className="mr-2 h-4 w-4" />
-                Gestionar organizaciones
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {user.active ? (
-              <DropdownMenuItem className="text-destructive" onClick={() => onToggleActive(user)}>
-                Desactivar usuario
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => onToggleActive(user)}>Activar usuario</DropdownMenuItem>
+            {canManage && (
+              <>
+                <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
+                {isSuperAdmin && onManageOrganizations && (
+                  <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
+                    <Building2 className="mr-2 h-4 w-4" />
+                    Gestionar organizaciones
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                {user.active ? (
+                  <DropdownMenuItem className="text-destructive" onClick={() => onToggleActive(user)}>
+                    Desactivar usuario
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => onToggleActive(user)}>Activar usuario</DropdownMenuItem>
+                )}
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

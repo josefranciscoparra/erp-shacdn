@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { ALLOWED_RESPONSIBLE_ROLES, type AllowedResponsibleRole } from "@/services/permissions";
 import { type Permission, type Scope, validateScopeOwnership } from "@/services/permissions/scope-helpers";
@@ -117,18 +118,15 @@ export async function assignResponsibility(data: AssignResponsibilityInput): Pro
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
-    }
-
-    // Validar que solo ADMIN puede asignar responsabilidades
-    if (session.user.role !== "ORG_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "HR_ADMIN") {
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
       return {
         success: false,
-        error: "No tienes permisos para asignar responsabilidades",
+        error: authz.code === "UNAUTHORIZED" ? "No autenticado" : "No tienes permisos para asignar responsabilidades",
       };
     }
+
+    const session = authz.session;
 
     // Validar que el usuario objetivo existe y pertenece a la organización
     const targetUser = await prisma.user.findFirst({
@@ -295,18 +293,15 @@ export async function removeResponsibility(responsibilityId: string): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
-    }
-
-    // Validar permisos
-    if (session.user.role !== "ORG_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "HR_ADMIN") {
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
       return {
         success: false,
-        error: "No tienes permisos para quitar responsabilidades",
+        error: authz.code === "UNAUTHORIZED" ? "No autenticado" : "No tienes permisos para quitar responsabilidades",
       };
     }
+
+    const session = authz.session;
 
     // Verificar que la responsabilidad existe y pertenece a la organización
     const responsibility = await prisma.areaResponsible.findFirst({
@@ -355,18 +350,16 @@ export async function updateResponsibility(
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
-    }
-
-    // Validar permisos
-    if (session.user.role !== "ORG_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "HR_ADMIN") {
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
       return {
         success: false,
-        error: "No tienes permisos para actualizar responsabilidades",
+        error:
+          authz.code === "UNAUTHORIZED" ? "No autenticado" : "No tienes permisos para actualizar responsabilidades",
       };
     }
+
+    const session = authz.session;
 
     // Verificar que la responsabilidad existe y pertenece a la organización
     const existing = await prisma.areaResponsible.findFirst({
@@ -522,11 +515,8 @@ export async function getUserResponsibilities(userId?: string): Promise<{
     const targetUserId = userId ?? session.user.id;
 
     if (targetUserId !== session.user.id) {
-      if (
-        session.user.role !== "ORG_ADMIN" &&
-        session.user.role !== "SUPER_ADMIN" &&
-        session.user.role !== "HR_ADMIN"
-      ) {
+      const authz = await safePermission("manage_organization");
+      if (!authz.ok) {
         return {
           success: false,
           error: "No tienes permisos para ver responsabilidades de otros usuarios",
@@ -592,18 +582,15 @@ export async function searchUsersForResponsibility(searchTerm: string): Promise<
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return { success: false, error: "No autenticado" };
-    }
-
-    // Solo ADMIN puede buscar usuarios
-    if (session.user.role !== "ORG_ADMIN" && session.user.role !== "SUPER_ADMIN" && session.user.role !== "HR_ADMIN") {
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
       return {
         success: false,
-        error: "No tienes permisos para buscar usuarios",
+        error: authz.code === "UNAUTHORIZED" ? "No autenticado" : "No tienes permisos para buscar usuarios",
       };
     }
+
+    const session = authz.session;
 
     // 🎯 FILTRO DE ROLES: Solo MANAGER y superiores pueden ser responsables
     // Usa la constante centralizada ALLOWED_RESPONSIBLE_ROLES de @/services/permissions

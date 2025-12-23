@@ -5,8 +5,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Loader2, Filter, ExternalLink } from "lucide-react";
+import { Loader2, Filter, ExternalLink, ShieldAlert } from "lucide-react";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -178,113 +180,130 @@ export default function ApprovalsPage() {
   }, [organizations]);
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <SectionHeader
-          title="Bandeja de Aprobaciones"
-          description="Revisa y gestiona las solicitudes pendientes de tu equipo."
-        />
-        <Button variant="outline" size="sm" asChild className="hidden shrink-0 gap-2 sm:flex">
-          <Link href="/dashboard/approvals/expenses">
-            <ExternalLink className="h-4 w-4" />
-            Gestión Avanzada Gastos
-          </Link>
-        </Button>
-      </div>
-
-      {/* Mostrar error si existe */}
-      {error && (
-        <Card className="border-destructive bg-destructive/10 p-4">
-          <p className="text-destructive text-sm font-medium">Error al cargar datos</p>
-          <p className="text-destructive/80 text-sm">{error}</p>
-        </Card>
-      )}
-
-      {/* KPIs (Solo mostrar en Pendientes para no confundir, o mostrar estadísticas diferentes) */}
-      {selectedTab === "pending" && <ApprovalsKpiCards items={items} loading={loading} />}
-
-      {/* Tabs y Filtros */}
-      <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")} className="w-full">
-        <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
-          {/* Selector Tabs (Pendientes / Historial) */}
-          <div className="flex items-center gap-3">
-            {/* Móvil */}
-            <Select value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")}>
-              <SelectTrigger className="w-[200px] @4xl/main:hidden">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pending">Pendientes</SelectItem>
-                <SelectItem value="history">Historial</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {/* Desktop */}
-            <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="pending">Pendientes</TabsTrigger>
-              <TabsTrigger value="history">Historial</TabsTrigger>
-            </TabsList>
-          </div>
-
-          {/* Filtro Tipo */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="flex items-center gap-2">
-              <Filter className="text-muted-foreground hidden h-4 w-4 sm:block" />
-              <Select value={filterType} onValueChange={setFilterType}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filtrar por tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  <SelectItem value="PTO">Ausencias</SelectItem>
-                  <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
-                  <SelectItem value="EXPENSE">Gastos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {organizationOptions.length > 1 && (
-              <Select value={selectedOrganization} onValueChange={setSelectedOrganization}>
-                <SelectTrigger className="w-[220px]">
-                  <SelectValue placeholder="Selecciona empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las organizaciones</SelectItem>
-                  {organizationOptions.map((org) => (
-                    <SelectItem key={org.value} value={org.value}>
-                      {org.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+    <PermissionGuard
+      permission="approve_requests"
+      fallback={
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Bandeja de Aprobaciones"
+            description="Revisa y gestiona las solicitudes pendientes de tu equipo."
+          />
+          <EmptyState
+            icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+            title="Acceso denegado"
+            description="No tienes permisos para ver esta sección"
+          />
+        </div>
+      }
+    >
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <SectionHeader
+            title="Bandeja de Aprobaciones"
+            description="Revisa y gestiona las solicitudes pendientes de tu equipo."
+          />
+          <Button variant="outline" size="sm" asChild className="hidden shrink-0 gap-2 sm:flex">
+            <Link href="/dashboard/approvals/expenses">
+              <ExternalLink className="h-4 w-4" />
+              Gestión Avanzada Gastos
+            </Link>
+          </Button>
         </div>
 
-        {/* Contenido Pendientes */}
-        <TabsContent value="pending" className="mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
-          )}
-        </TabsContent>
+        {/* Mostrar error si existe */}
+        {error && (
+          <Card className="border-destructive bg-destructive/10 p-4">
+            <p className="text-destructive text-sm font-medium">Error al cargar datos</p>
+            <p className="text-destructive/80 text-sm">{error}</p>
+          </Card>
+        )}
 
-        {/* Contenido Historial */}
-        <TabsContent value="history" className="mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
-          )}
-        </TabsContent>
-      </Tabs>
+        {/* KPIs (Solo mostrar en Pendientes para no confundir, o mostrar estadísticas diferentes) */}
+        {selectedTab === "pending" && <ApprovalsKpiCards items={items} loading={loading} />}
 
-      {/* Diálogo de Aprobación */}
-      <ApprovalDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={handleSuccess} />
-    </div>
+        {/* Tabs y Filtros */}
+        <Tabs value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")} className="w-full">
+          <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+            {/* Selector Tabs (Pendientes / Historial) */}
+            <div className="flex items-center gap-3">
+              {/* Móvil */}
+              <Select value={selectedTab} onValueChange={(v) => setSelectedTab(v as "pending" | "history")}>
+                <SelectTrigger className="w-[200px] @4xl/main:hidden">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pendientes</SelectItem>
+                  <SelectItem value="history">Historial</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {/* Desktop */}
+              <TabsList className="hidden @4xl/main:flex">
+                <TabsTrigger value="pending">Pendientes</TabsTrigger>
+                <TabsTrigger value="history">Historial</TabsTrigger>
+              </TabsList>
+            </div>
+
+            {/* Filtro Tipo */}
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="flex items-center gap-2">
+                <Filter className="text-muted-foreground hidden h-4 w-4 sm:block" />
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrar por tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    <SelectItem value="PTO">Ausencias</SelectItem>
+                    <SelectItem value="MANUAL_TIME_ENTRY">Fichajes</SelectItem>
+                    <SelectItem value="EXPENSE">Gastos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {organizationOptions.length > 1 && (
+                <Select value={selectedOrganization} onValueChange={setSelectedOrganization}>
+                  <SelectTrigger className="w-[220px]">
+                    <SelectValue placeholder="Selecciona empresa" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las organizaciones</SelectItem>
+                    {organizationOptions.map((org) => (
+                      <SelectItem key={org.value} value={org.value}>
+                        {org.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          </div>
+
+          {/* Contenido Pendientes */}
+          <TabsContent value="pending" className="mt-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
+            )}
+          </TabsContent>
+
+          {/* Contenido Historial */}
+          <TabsContent value="history" className="mt-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <ApprovalsTable items={items} filterType={filterType} onReview={handleReview} onSuccess={handleSuccess} />
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Diálogo de Aprobación */}
+        <ApprovalDialog item={selectedItem} open={dialogOpen} onOpenChange={setDialogOpen} onSuccess={handleSuccess} />
+      </div>
+    </PermissionGuard>
   );
 }

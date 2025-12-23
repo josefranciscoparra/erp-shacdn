@@ -2,8 +2,8 @@
 
 import { type Prisma, TimeBankApprovalFlow } from "@prisma/client";
 
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { hasPermission } from "@/services/permissions/permissions";
 
 import { getAuthenticatedUser } from "./shared/get-authenticated-employee";
 
@@ -20,6 +20,13 @@ const DEFAULT_TIME_BANK_SETTINGS = {
   excessGraceMinutes: 15, // Margen de exceso: si trabajo ≤15 min más, no acumula
   approvalFlow: "MIRROR_PTO" as TimeBankApprovalFlow,
 } as const;
+
+async function assertManageOrganization(message: string) {
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    throw new Error(message);
+  }
+}
 
 // ==================== TIPOS ====================
 
@@ -40,9 +47,7 @@ export interface TimeBankFullSettings extends TimeBankBasicSettingsData {
 export async function getTimeBankApprovalSettings(): Promise<{ approvalFlow: TimeBankApprovalFlow }> {
   const user = await getAuthenticatedUser();
 
-  if (!hasPermission(user.role, "manage_organization")) {
-    throw new Error("No tienes permisos para ver la configuración de bolsa de horas");
-  }
+  await assertManageOrganization("No tienes permisos para ver la configuración de bolsa de horas");
 
   const settings = await prisma.timeBankSettings.findUnique({
     where: { orgId: user.orgId },
@@ -63,9 +68,7 @@ export async function getTimeBankApprovalSettings(): Promise<{ approvalFlow: Tim
 export async function getTimeBankFullSettings(): Promise<TimeBankFullSettings> {
   const user = await getAuthenticatedUser();
 
-  if (!hasPermission(user.role, "manage_organization")) {
-    throw new Error("No tienes permisos para ver la configuración de bolsa de horas");
-  }
+  await assertManageOrganization("No tienes permisos para ver la configuración de bolsa de horas");
 
   const settings = await prisma.timeBankSettings.findUnique({
     where: { orgId: user.orgId },
@@ -94,9 +97,7 @@ export async function getTimeBankFullSettings(): Promise<TimeBankFullSettings> {
 export async function updateTimeBankApprovalSettings(approvalFlow: TimeBankApprovalFlow) {
   const user = await getAuthenticatedUser();
 
-  if (!hasPermission(user.role, "manage_organization")) {
-    throw new Error("No tienes permisos para modificar la configuración de bolsa de horas");
-  }
+  await assertManageOrganization("No tienes permisos para modificar la configuración de bolsa de horas");
 
   const previousSettings = await prisma.timeBankSettings.findUnique({
     where: { orgId: user.orgId },
@@ -149,9 +150,7 @@ export async function updateTimeBankBasicSettings(data: TimeBankBasicSettingsDat
   // 1. Validar permisos (ADMIN o RRHH)
   const user = await getAuthenticatedUser();
 
-  if (!hasPermission(user.role, "manage_organization")) {
-    throw new Error("No tienes permisos para modificar la configuración de bolsa de horas");
-  }
+  await assertManageOrganization("No tienes permisos para modificar la configuración de bolsa de horas");
 
   // 2. Validaciones de datos
   if (data.excessGraceMinutes < 0 || data.excessGraceMinutes > 60) {

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Role } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { hasPermission } from "@/services/permissions";
 
 export const runtime = "nodejs";
 
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -79,8 +81,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Solicitud no encontrada" }, { status: 404 });
     }
 
-    // Verificar permisos: HR/Admin puede ver todas, empleados solo las suyas
-    const isHROrAdmin = hasPermission(session.user.role, "manage_documents");
+    // Verificar permisos: manage_documents puede ver todas, empleados solo las suyas
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+    const isHROrAdmin = effectivePermissions.has("manage_documents");
 
     if (!isHROrAdmin) {
       // Verificar si el usuario es uno de los firmantes

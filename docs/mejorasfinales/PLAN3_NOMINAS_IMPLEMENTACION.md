@@ -16,11 +16,13 @@ Sistema para que RRHH pueda subir nóminas de forma masiva (ZIP con PDFs o PDF m
 ## Decisiones Acordadas
 
 ### 1. OCR
+
 - **Solución inicial:** Tesseract.js (local, sin coste)
 - **Arquitectura:** Desacoplada (`ocr-engine.ts` con interfaz clara) para poder sustituir por Azure/Google en el futuro
 - **Patrones:** Regex para DNI español y códigos internos en `config.ts`
 
 ### 2. Procesamiento
+
 - **Modo:** Background (no bloquea UI)
 - **Comportamiento:**
   - Al subir: crear `PayslipBatch` en estado `PROCESSING`
@@ -29,14 +31,17 @@ Sistema para que RRHH pueda subir nóminas de forma masiva (ZIP con PDFs o PDF m
 - **Razón:** Evitar timeouts con lotes grandes
 
 ### 3. Notificaciones
+
 - **In-app:** Obligatoria ("Ya tienes disponible tu nómina de {mes}/{año}")
 - **Email:** Opcional, configurable por organización
 
 ### 4. Límites
+
 - **Máximo:** 500 documentos por lote (configurable en `config.ts`)
 - **Validación:** Si ZIP excede límite → ERROR o procesar hasta límite
 
 ### 5. Navegación
+
 - **RRHH/Admin:**
   - `/dashboard/payslips` → Listado de lotes
   - `/dashboard/payslips/upload` → Subida masiva
@@ -45,6 +50,7 @@ Sistema para que RRHH pueda subir nóminas de forma masiva (ZIP con PDFs o PDF m
   - `/dashboard/me/payslips` → "Mis nóminas"
 
 ### 6. Matching (Detección automática)
+
 - **IMPORTANTE:** Los archivos PDF tienen el DNI en el nombre del archivo (ej: `12345678A_enero_2025.pdf`)
 - **Prioridad:**
   1. **DNI en nombre de archivo** (regex en fileName) → 90%+ de casos
@@ -55,6 +61,7 @@ Sistema para que RRHH pueda subir nóminas de forma masiva (ZIP con PDFs o PDF m
 - **Múltiples matches:** Marcar como `PENDING` (nunca auto-asignar)
 
 ### 7. Seguridad
+
 - **RRHH/Admin:** Gestión completa (subir, ver lotes, asignar)
 - **Empleados:** Solo ver sus propias nóminas
 - **APIs:** Validar permisos en preview/download
@@ -252,6 +259,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 ## Checkpoints de Implementación
 
 ### Checkpoint 1: Modelo de Datos ✅
+
 - [x] Añadir enums `PayslipBatchStatus`, `PayslipItemStatus` a Prisma
 - [x] Añadir modelo `PayslipBatch`
 - [x] Añadir modelo `PayslipUploadItem`
@@ -262,6 +270,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] **COMMIT**: `feat(payslips): add data model for bulk payslip upload`
 
 ### Checkpoint 2: Procesamiento de Archivos ✅
+
 - [x] Instalar dependencias: `jszip`, `pdf-lib`
 - [x] Crear `src/lib/payslip/zip-processor.ts`
 - [x] Crear `src/lib/payslip/pdf-splitter.ts`
@@ -269,6 +278,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [ ] **COMMIT**: `feat(payslips): add ZIP and PDF processing utilities`
 
 ### Checkpoint 3: OCR y Matching ✅
+
 - [x] Instalar dependencia: `tesseract.js`
 - [x] Crear `src/lib/payslip/ocr-engine.ts` (interfaz desacoplada)
 - [x] Implementar detección DNI español (regex)
@@ -278,6 +288,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [ ] **COMMIT**: `feat(payslips): add OCR engine and employee matching`
 
 ### Checkpoint 4: Server Actions y APIs ✅
+
 - [x] Crear `src/server/actions/payslips.ts`:
   - `getPayslipBatches()`
   - `getBatchWithItems()`
@@ -294,6 +305,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] **COMMIT**: `feat(payslips): add server actions and API routes`
 
 ### Checkpoint 5: UI Subida Masiva ✅
+
 - [x] Crear página `/dashboard/payslips/page.tsx` (listado)
 - [x] Crear página `/dashboard/payslips/upload/page.tsx`
 - [x] Crear componente `upload-zone.tsx` (drag & drop) - integrado en upload/page.tsx
@@ -304,6 +316,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] **COMMIT**: `feat(payslips): add bulk upload UI`
 
 ### Checkpoint 6: UI Revisión y Asignación ✅
+
 - [x] Crear página `/dashboard/payslips/[batchId]/page.tsx`
 - [x] Crear componente `review-table.tsx`
 - [x] Crear componente `item-preview-dialog.tsx` (modal preview PDF)
@@ -314,6 +327,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] **COMMIT**: `feat(payslips): add review and assignment UI`
 
 ### Checkpoint 7: Vista "Mis Nóminas" ✅
+
 - [x] Crear página `/dashboard/me/payslips/page.tsx`
 - [x] Crear componente `payslip-list.tsx` (incluye preview inline)
 - [x] Filtro por año
@@ -322,6 +336,7 @@ npm install jszip tesseract.js pdf-lib pdfjs-dist
 - [x] **COMMIT**: `feat(payslips): add employee payslips view`
 
 ### Checkpoint 8: Notificaciones y Finalización ✅
+
 - [x] Añadir tipo `PAYSLIP_AVAILABLE` a enum `PtoNotificationType`
 - [x] Crear notificación in-app al asignar nómina
 - [x] Mensaje: "Ya tienes disponible tu nómina de {mes}/{año}"
@@ -384,6 +399,7 @@ PayslipUploadItem:
 **Problema:** Al auto-asignar nóminas, el PDF permanecía en `/temp` y no se creaba el `EmployeeDocument`.
 
 **Solución implementada en `payslip.service.ts`:**
+
 - Mover PDF de `temp/` a path final (`org-X/employees/Y/payslips/`)
 - Crear `EmployeeDocument` con `storageUrl`, `fileSize`, `mimeType`
 - Enlazar `documentId` en el `PayslipUploadItem`
@@ -394,6 +410,7 @@ PayslipUploadItem:
 **Problema:** La asignación manual no gestionaba correctamente el storage.
 
 **Solución implementada en `payslips.ts` (server actions):**
+
 - Si archivo está en `temp/`, moverlo al path final del empleado
 - Crear `EmployeeDocument` con todos los campos requeridos
 - Enlazar `documentId` en el item
@@ -405,6 +422,7 @@ PayslipUploadItem:
 **Problema:** Las descargas y previews fallaban.
 
 **Solución:**
+
 - Descargas usan `/api/me/documents/[id]/download`
 - El endpoint lee `storageUrl` del `EmployeeDocument`
 - Validación de permisos: solo el empleado dueño puede descargar
@@ -414,6 +432,7 @@ PayslipUploadItem:
 **Problema:** En Vercel, el procesamiento background podía interrumpirse.
 
 **Solución en `/api/payslips/upload/route.ts`:**
+
 ```typescript
 const processingPromise = payslipService.processBatchAsync(...);
 (request as any).waitUntil?.(processingPromise);
@@ -426,6 +445,7 @@ const processingPromise = payslipService.processBatchAsync(...);
 ### 6. Notificaciones PAYSLIP_AVAILABLE ✅
 
 **Implementación completa:**
+
 - Icono verde (FileText) en página de notificaciones
 - Label "Nómina disponible"
 - Botón "Ir a Mis Nóminas" navegando a `/dashboard/me/payslips`
@@ -434,6 +454,7 @@ const processingPromise = payslipService.processBatchAsync(...);
 ### 7. Rediseño "Mis Nóminas" ✅
 
 **Cambio:** Página `/dashboard/me/payslips` rediseñada para coincidir con `/dashboard/me/pto`:
+
 - TanStack Table con paginación
 - `SectionHeader` consistente
 - `EmptyState` cuando no hay nóminas

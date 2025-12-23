@@ -1,15 +1,31 @@
 import Link from "next/link";
 
-import { ArrowRight, MoveRight } from "lucide-react";
+import { ArrowRight, MoveRight, ShieldAlert } from "lucide-react";
 
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { safePermission } from "@/lib/auth-guard";
 
 /**
  * Página de transición para redirigir a la nueva ubicación de gestión de responsables.
  * Mantenemos esta ruta para evitar enlaces rotos y educar al usuario sobre el cambio.
  */
-export default function AlertsResponsiblesRedirectPage() {
+export default async function AlertsResponsiblesRedirectPage() {
+  const authResult = await safePermission("manage_organization");
+  if (!authResult.ok) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader title="Matriz de Responsabilidades" />
+        <EmptyState
+          icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+          title="Acceso denegado"
+          description="No tienes permisos para ver esta sección"
+        />
+      </div>
+    );
+  }
   // Opción A: Redirección automática (descomentar si se prefiere)
   // redirect("/dashboard/organization/responsibles");
 

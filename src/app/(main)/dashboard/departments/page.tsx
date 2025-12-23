@@ -8,6 +8,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useDepartmentsStore } from "@/stores/departments-store";
 
 import { DepartmentDialog } from "./_components/department-dialog";
@@ -15,6 +16,8 @@ import { DepartmentsDataTable } from "./_components/departments-data-table";
 
 export default function DepartmentsPage() {
   const { departments, isLoading, error, fetchDepartments, deleteDepartment } = useDepartmentsStore();
+  const { hasPermission } = usePermissions();
+  const canManageDepartments = hasPermission("manage_departments");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState(null);
   const [costCenters, setCostCenters] = useState([]);
@@ -107,7 +110,7 @@ export default function DepartmentsPage() {
 
   return (
     <PermissionGuard
-      permission="view_departments"
+      permissions={["view_departments", "manage_departments"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Departamentos" subtitle="Gestiona los departamentos de tu organización" />
@@ -124,22 +127,33 @@ export default function DepartmentsPage() {
           title="Departamentos"
           subtitle="Gestiona los departamentos de tu organización"
           action={
-            <Button size="sm" onClick={() => setDialogOpen(true)}>
-              <Plus className="h-4 w-4" />
-              <span className="hidden sm:inline">Nuevo departamento</span>
-            </Button>
+            canManageDepartments ? (
+              <Button size="sm" onClick={() => setDialogOpen(true)}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nuevo departamento</span>
+              </Button>
+            ) : null
           }
         />
 
         {hasDepartments ? (
-          <DepartmentsDataTable data={departments} onEdit={handleEdit} onDelete={handleDelete} />
+          <DepartmentsDataTable
+            data={departments}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            canManage={canManageDepartments}
+          />
         ) : (
           <EmptyState
             icon={<Building2 className="mx-auto h-12 w-12" />}
             title="No hay departamentos registrados"
             description="Comienza agregando tu primer departamento al sistema"
-            actionLabel="Agregar primer departamento"
-            onAction={() => setDialogOpen(true)}
+            {...(canManageDepartments
+              ? {
+                  actionLabel: "Agregar primer departamento",
+                  onAction: () => setDialogOpen(true),
+                }
+              : {})}
           />
         )}
 

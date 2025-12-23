@@ -27,11 +27,13 @@ import {
   Info,
   Network,
   RefreshCw,
+  ShieldAlert,
   Settings2,
   Target,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable } from "@/components/data-table/data-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/data-table/data-table-view-options";
@@ -144,6 +146,16 @@ const ASSIGNMENT_SOURCE_LABELS: Record<string, string> = {
 };
 
 export default function AlertsPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Alertas" description="Supervisa alertas de fichajes y cumplimiento." />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const { hasPermission, userRole } = usePermissions();
   const canManageUsers = hasPermission("manage_users");
   const isAdminScope = userRole === "HR_ADMIN" || userRole === "ORG_ADMIN" || userRole === "SUPER_ADMIN";
@@ -575,610 +587,618 @@ export default function AlertsPage() {
   };
 
   return (
-    <div className="animate-in fade-in mx-auto flex max-w-screen-2xl flex-col gap-6 p-6 duration-500 md:p-8">
-      {/* Header con acciones */}
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <SectionHeader
-            title="Panel de Alertas"
-            description="Gestiona las incidencias de fichajes y control horario."
-          />
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/time-tracking/alerts/explorer">
-                <Network className="mr-2 h-4 w-4" />
-                Explorador
-              </Link>
-            </Button>
-            {canManageUsers && (
+    <PermissionGuard permissions={["view_time_tracking", "manage_time_tracking"]} fallback={permissionFallback}>
+      <div className="animate-in fade-in mx-auto flex max-w-screen-2xl flex-col gap-6 p-6 duration-500 md:p-8">
+        {/* Header con acciones */}
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <SectionHeader
+              title="Panel de Alertas"
+              description="Gestiona las incidencias de fichajes y control horario."
+            />
+            <div className="flex flex-wrap items-center gap-2">
               <Button variant="outline" size="sm" asChild>
-                <Link href="/dashboard/organization/responsibles">
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Responsables
+                <Link href="/dashboard/time-tracking/alerts/explorer">
+                  <Network className="mr-2 h-4 w-4" />
+                  Explorador
                 </Link>
               </Button>
-            )}
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
-            </Button>
-            <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-              Actualizar
-            </Button>
+              {canManageUsers && (
+                <Button variant="outline" size="sm" asChild>
+                  <Link href="/dashboard/organization/responsibles">
+                    <Settings2 className="mr-2 h-4 w-4" />
+                    Responsables
+                  </Link>
+                </Button>
+              )}
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/me/responsibilities">Mis suscripciones</Link>
+              </Button>
+              <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
+            </div>
           </div>
+
+          {/* Tabs superiores: Mis Alertas | Todas las Alertas */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                {/* Selector de modo */}
+                <Tabs
+                  value={scopeMode}
+                  onValueChange={(value: any) => setScopeMode(value)}
+                  className="w-full sm:w-auto"
+                >
+                  <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+                    <TabsTrigger value="mine" disabled={!hasSubscriptions}>
+                      Mis Alertas
+                      {!hasSubscriptions && (
+                        <Badge variant="outline" className="ml-2 h-5 text-xs">
+                          Sin suscripciones
+                        </Badge>
+                      )}
+                    </TabsTrigger>
+                    <TabsTrigger value="all">Todas las Alertas</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+
+                {/* Indicador de contexto activo (solo en modo "all") */}
+                {scopeMode === "all" && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Target className="text-primary h-4 w-4" />
+                    <span className="text-muted-foreground">Mostrando:</span>
+                    <Badge variant="secondary">{getContextLabel()}</Badge>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Tabs superiores: Mis Alertas | Todas las Alertas */}
+        {stats && (
+          <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
+            <span className="text-foreground font-medium">Resumen</span>
+            <span>
+              Activas <span className="text-foreground font-semibold">{stats.active}</span>
+            </span>
+            <span>·</span>
+            <span>
+              Resueltas <span className="text-foreground font-semibold">{stats.resolved}</span>
+            </span>
+            <span>·</span>
+            <span>
+              Descartadas <span className="text-foreground font-semibold">{stats.dismissed}</span>
+            </span>
+            <span>·</span>
+            <span>
+              Total <span className="text-foreground font-semibold">{stats.total}</span>
+            </span>
+          </div>
+        )}
+
+        {/* Filtros Globales Dinámicos */}
         <Card>
           <CardContent className="p-4">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              {/* Selector de modo */}
-              <Tabs value={scopeMode} onValueChange={(value: any) => setScopeMode(value)} className="w-full sm:w-auto">
-                <TabsList className="grid w-full grid-cols-2 sm:w-auto">
-                  <TabsTrigger value="mine" disabled={!hasSubscriptions}>
-                    Mis Alertas
-                    {!hasSubscriptions && (
-                      <Badge variant="outline" className="ml-2 h-5 text-xs">
-                        Sin suscripciones
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                  <TabsTrigger value="all">Todas las Alertas</TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <div className="flex flex-col gap-4">
+              <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
+                <Filter className="h-4 w-4" />
+                Filtrar por:
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant={quickFilter === "critical_today" ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={handleQuickCriticalToday}
+                >
+                  Críticas de hoy
+                </Button>
+                <Button
+                  variant={quickFilter === "today_yesterday" ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={handleQuickTodayAndYesterday}
+                >
+                  Hoy y ayer
+                </Button>
+                <Button
+                  variant={quickFilter === "yesterday" ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={handleQuickYesterday}
+                >
+                  Ayer
+                </Button>
+                <Button
+                  variant={quickFilter === "last_7_days" ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={handleQuickLast7Days}
+                >
+                  Últimos 7 días
+                </Button>
+                <Button
+                  variant={quickFilter === "history" ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={handleShowHistory}
+                >
+                  Histórico
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                  Limpiar filtros
+                </Button>
+              </div>
 
-              {/* Indicador de contexto activo (solo en modo "all") */}
-              {scopeMode === "all" && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Target className="text-primary h-4 w-4" />
-                  <span className="text-muted-foreground">Mostrando:</span>
-                  <Badge variant="secondary">{getContextLabel()}</Badge>
+              {/* Fila 1: Filtros principales */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {/* Filtro por Centro */}
+                <Select value={selectedCenter} onValueChange={setSelectedCenter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los centros" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los centros</SelectItem>
+                    {availableFilters.costCenters.map((center) => (
+                      <SelectItem key={center.id} value={center.id}>
+                        <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
+                          {center.name} {center.code ? `(${center.code})` : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro por Equipo */}
+                <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los equipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los equipos</SelectItem>
+                    {availableFilters.teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
+                          {team.name} {team.code ? `(${team.code})` : ""}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro por Severidad */}
+                <Select value={selectedSeverity} onValueChange={handleSeverityChange}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todas las severidades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las severidades</SelectItem>
+                    <SelectItem value="CRITICAL">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-red-500" />
+                        Críticas
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="WARNING">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                        Advertencias
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="INFO">
+                      <div className="flex items-center gap-2">
+                        <div className="h-2 w-2 rounded-full bg-blue-500" />
+                        Informativas
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Filtro por Tipo de Alerta */}
+                <Select value={selectedType} onValueChange={setSelectedType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Todos los tipos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    {ALERT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Fila 2: Búsqueda y fecha */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Búsqueda por empleado */}
+                <div className="relative">
+                  <Input
+                    placeholder="Buscar empleado..."
+                    className="w-full"
+                    value={employeeSearchInput}
+                    onChange={(event) => setEmployeeSearchInput(event.target.value)}
+                  />
                 </div>
-              )}
+
+                {/* Filtro por rango de fechas */}
+                <DateRangePicker
+                  date={dateRange}
+                  onDateChange={(newRange) => {
+                    setDateRange(newRange ?? { from: undefined, to: undefined });
+                    setQuickFilter("custom");
+                  }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
-      </div>
 
-      {stats && (
-        <div className="text-muted-foreground flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-foreground font-medium">Resumen</span>
-          <span>
-            Activas <span className="text-foreground font-semibold">{stats.active}</span>
-          </span>
-          <span>·</span>
-          <span>
-            Resueltas <span className="text-foreground font-semibold">{stats.resolved}</span>
-          </span>
-          <span>·</span>
-          <span>
-            Descartadas <span className="text-foreground font-semibold">{stats.dismissed}</span>
-          </span>
-          <span>·</span>
-          <span>
-            Total <span className="text-foreground font-semibold">{stats.total}</span>
-          </span>
-        </div>
-      )}
+        {/* Tabs con DataTable */}
+        <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="w-full">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList className="grid w-full grid-cols-3 sm:w-auto">
+              <TabsTrigger value="active">Activas</TabsTrigger>
+              <TabsTrigger value="resolved">Resueltas</TabsTrigger>
+              <TabsTrigger value="dismissed">Descartadas</TabsTrigger>
+            </TabsList>
 
-      {/* Filtros Globales Dinámicos */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4">
-            <div className="text-muted-foreground flex items-center gap-2 text-sm font-medium">
-              <Filter className="h-4 w-4" />
-              Filtrar por:
+            <div className="flex gap-2">
+              <DataTableViewOptions table={table} />
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant={quickFilter === "critical_today" ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleQuickCriticalToday}
-              >
-                Críticas de hoy
-              </Button>
-              <Button
-                variant={quickFilter === "today_yesterday" ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleQuickTodayAndYesterday}
-              >
-                Hoy y ayer
-              </Button>
-              <Button
-                variant={quickFilter === "yesterday" ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleQuickYesterday}
-              >
-                Ayer
-              </Button>
-              <Button
-                variant={quickFilter === "last_7_days" ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleQuickLast7Days}
-              >
-                Últimos 7 días
-              </Button>
-              <Button
-                variant={quickFilter === "history" ? "secondary" : "outline"}
-                size="sm"
-                onClick={handleShowHistory}
-              >
-                Histórico
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleResetFilters}>
-                Limpiar filtros
-              </Button>
-            </div>
+          </div>
 
-            {/* Fila 1: Filtros principales */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Filtro por Centro */}
-              <Select value={selectedCenter} onValueChange={setSelectedCenter}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Todos los centros" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los centros</SelectItem>
-                  {availableFilters.costCenters.map((center) => (
-                    <SelectItem key={center.id} value={center.id}>
-                      <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
-                        {center.name} {center.code ? `(${center.code})` : ""}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Filtro por Equipo */}
-              <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Todos los equipos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los equipos</SelectItem>
-                  {availableFilters.teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      <span className="block max-w-[200px] truncate md:max-w-[140px] lg:max-w-[180px]">
-                        {team.name} {team.code ? `(${team.code})` : ""}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {/* Filtro por Severidad */}
-              <Select value={selectedSeverity} onValueChange={handleSeverityChange}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Todas las severidades" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las severidades</SelectItem>
-                  <SelectItem value="CRITICAL">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-red-500" />
-                      Críticas
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="WARNING">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                      Advertencias
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="INFO">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-blue-500" />
-                      Informativas
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-
-              {/* Filtro por Tipo de Alerta */}
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Todos los tipos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los tipos</SelectItem>
-                  {ALERT_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Fila 2: Búsqueda y fecha */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {/* Búsqueda por empleado */}
-              <div className="relative">
-                <Input
-                  placeholder="Buscar empleado..."
-                  className="w-full"
-                  value={employeeSearchInput}
-                  onChange={(event) => setEmployeeSearchInput(event.target.value)}
+          <TabsContent value={activeTab} className="mt-0">
+            {loading ? (
+              <div className="bg-card flex h-64 items-center justify-center rounded-md border">
+                <div className="flex flex-col items-center gap-2">
+                  <RefreshCw className="text-primary h-8 w-8 animate-spin" />
+                  <p className="text-muted-foreground text-sm">Cargando alertas...</p>
+                </div>
+              </div>
+            ) : alerts.length === 0 ? (
+              <div className="bg-card rounded-md border p-8">
+                <EmptyState
+                  icon={<AlertCircle className="text-muted-foreground h-10 w-10" />}
+                  title="No hay alertas"
+                  description={`No se encontraron alertas ${
+                    activeTab === "active" ? "activas" : activeTab === "resolved" ? "resueltas" : "descartadas"
+                  } con los filtros actuales.`}
                 />
               </div>
-
-              {/* Filtro por rango de fechas */}
-              <DateRangePicker
-                date={dateRange}
-                onDateChange={(newRange) => {
-                  setDateRange(newRange ?? { from: undefined, to: undefined });
-                  setQuickFilter("custom");
-                }}
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs con DataTable */}
-      <Tabs value={activeTab} onValueChange={(value: any) => setActiveTab(value)} className="w-full">
-        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="grid w-full grid-cols-3 sm:w-auto">
-            <TabsTrigger value="active">Activas</TabsTrigger>
-            <TabsTrigger value="resolved">Resueltas</TabsTrigger>
-            <TabsTrigger value="dismissed">Descartadas</TabsTrigger>
-          </TabsList>
-
-          <div className="flex gap-2">
-            <DataTableViewOptions table={table} />
-          </div>
-        </div>
-
-        <TabsContent value={activeTab} className="mt-0">
-          {loading ? (
-            <div className="bg-card flex h-64 items-center justify-center rounded-md border">
-              <div className="flex flex-col items-center gap-2">
-                <RefreshCw className="text-primary h-8 w-8 animate-spin" />
-                <p className="text-muted-foreground text-sm">Cargando alertas...</p>
-              </div>
-            </div>
-          ) : alerts.length === 0 ? (
-            <div className="bg-card rounded-md border p-8">
-              <EmptyState
-                icon={<AlertCircle className="text-muted-foreground h-10 w-10" />}
-                title="No hay alertas"
-                description={`No se encontraron alertas ${
-                  activeTab === "active" ? "activas" : activeTab === "resolved" ? "resueltas" : "descartadas"
-                } con los filtros actuales.`}
-              />
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-card rounded-md border">
-                <DataTable table={table} columns={alertColumns} />
-              </div>
-              <DataTablePagination table={table} rowCount={totalRows} />
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Dialogs - Keeping functionality but cleaning up UI structure */}
-
-      {/* Dialog para resolver alerta */}
-      <Dialog open={actionDialog === "resolve"} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Resolver Alerta</DialogTitle>
-            <DialogDescription>
-              Justifica la resolución de esta incidencia. Esta acción quedará registrada.
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedAlert && (
-            <div className="space-y-4 py-2">
-              <div className="bg-muted space-y-2 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">{selectedAlert.title}</span>
-                  <Badge variant={selectedAlert.severity as any}>
-                    {SEVERITY_LABELS[selectedAlert.severity] ?? selectedAlert.severity}
-                  </Badge>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-card rounded-md border">
+                  <DataTable table={table} columns={alertColumns} />
                 </div>
-                <Separator />
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Empleado:</span>
-                    <p className="font-medium">
+                <DataTablePagination table={table} rowCount={totalRows} />
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Dialogs - Keeping functionality but cleaning up UI structure */}
+
+        {/* Dialog para resolver alerta */}
+        <Dialog open={actionDialog === "resolve"} onOpenChange={() => setActionDialog(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Resolver Alerta</DialogTitle>
+              <DialogDescription>
+                Justifica la resolución de esta incidencia. Esta acción quedará registrada.
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedAlert && (
+              <div className="space-y-4 py-2">
+                <div className="bg-muted space-y-2 rounded-lg p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold">{selectedAlert.title}</span>
+                    <Badge variant={selectedAlert.severity as any}>
+                      {SEVERITY_LABELS[selectedAlert.severity] ?? selectedAlert.severity}
+                    </Badge>
+                  </div>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Empleado:</span>
+                      <p className="font-medium">
+                        {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Fecha:</span>
+                      <p className="font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="comment">Comentario de resolución</Label>
+                  <Textarea
+                    id="comment"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Ej: El empleado ha justificado el retraso por transporte..."
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
+                Cancelar
+              </Button>
+              <Button onClick={handleResolve} disabled={processing || !comment.trim()}>
+                {processing ? "Procesando..." : "Marcar como Resuelta"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para descartar alerta */}
+        <Dialog open={actionDialog === "dismiss"} onOpenChange={() => setActionDialog(null)}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-destructive flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" />
+                Descartar Alerta
+              </DialogTitle>
+              <DialogDescription>Esta alerta será marcada como descartada/falso positivo.</DialogDescription>
+            </DialogHeader>
+
+            {selectedAlert && (
+              <div className="space-y-4 py-2">
+                <div className="bg-muted rounded-lg p-4">
+                  <p className="text-sm font-medium">{selectedAlert.title}</p>
+                  <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="comment-dismiss">Motivo del descarte (Opcional)</Label>
+                  <Textarea
+                    id="comment-dismiss"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Ej: Error del sistema, fichaje duplicado..."
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
+                Cancelar
+              </Button>
+              <Button variant="destructive" onClick={handleDismiss} disabled={processing}>
+                {processing ? "Descartando..." : "Descartar Alerta"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Dialog para ver detalles */}
+        <Dialog
+          open={actionDialog === "details"}
+          onOpenChange={(open) => {
+            if (!open) {
+              setActionDialog(null);
+              setAlertAssignments([]);
+              setAlertNotes([]);
+              setNoteDraft("");
+            }
+          }}
+        >
+          <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Detalle de Incidencia</DialogTitle>
+              <DialogDescription>Información completa de la alerta registrada.</DialogDescription>
+            </DialogHeader>
+
+            {selectedAlert && (
+              <div className="space-y-6">
+                {/* Header Card */}
+                <div className="bg-card flex items-start gap-4 rounded-lg border p-4">
+                  <div
+                    className={`shrink-0 rounded-full p-2 ${severityConfig[selectedAlert.severity as keyof typeof severityConfig]?.bg || "bg-gray-100"}`}
+                  >
+                    {(() => {
+                      const config = severityConfig[selectedAlert.severity as keyof typeof severityConfig];
+                      const Icon = config?.icon || Info;
+                      return <Icon className={`h-6 w-6 ${config?.color}`} />;
+                    })()}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold">{selectedAlert.title}</h3>
+                      <Badge variant="outline">
+                        {ALERT_TYPES.find((t) => t.value === selectedAlert.type)?.label ?? selectedAlert.type}
+                      </Badge>
+                    </div>
+                    <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
+                  </div>
+                </div>
+
+                {/* Meta Info Grid */}
+                <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground text-xs font-medium uppercase">Empleado</span>
+                    <p className="text-sm font-medium">
                       {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Fecha:</span>
-                    <p className="font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="comment">Comentario de resolución</Label>
-                <Textarea
-                  id="comment"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Ej: El empleado ha justificado el retraso por transporte..."
-                  className="min-h-[100px]"
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
-              Cancelar
-            </Button>
-            <Button onClick={handleResolve} disabled={processing || !comment.trim()}>
-              {processing ? "Procesando..." : "Marcar como Resuelta"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para descartar alerta */}
-      <Dialog open={actionDialog === "dismiss"} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-destructive flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Descartar Alerta
-            </DialogTitle>
-            <DialogDescription>Esta alerta será marcada como descartada/falso positivo.</DialogDescription>
-          </DialogHeader>
-
-          {selectedAlert && (
-            <div className="space-y-4 py-2">
-              <div className="bg-muted rounded-lg p-4">
-                <p className="text-sm font-medium">{selectedAlert.title}</p>
-                <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="comment-dismiss">Motivo del descarte (Opcional)</Label>
-                <Textarea
-                  id="comment-dismiss"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Ej: Error del sistema, fichaje duplicado..."
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setActionDialog(null)} disabled={processing}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleDismiss} disabled={processing}>
-              {processing ? "Descartando..." : "Descartar Alerta"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog para ver detalles */}
-      <Dialog
-        open={actionDialog === "details"}
-        onOpenChange={(open) => {
-          if (!open) {
-            setActionDialog(null);
-            setAlertAssignments([]);
-            setAlertNotes([]);
-            setNoteDraft("");
-          }
-        }}
-      >
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Detalle de Incidencia</DialogTitle>
-            <DialogDescription>Información completa de la alerta registrada.</DialogDescription>
-          </DialogHeader>
-
-          {selectedAlert && (
-            <div className="space-y-6">
-              {/* Header Card */}
-              <div className="bg-card flex items-start gap-4 rounded-lg border p-4">
-                <div
-                  className={`shrink-0 rounded-full p-2 ${severityConfig[selectedAlert.severity as keyof typeof severityConfig]?.bg || "bg-gray-100"}`}
-                >
-                  {(() => {
-                    const config = severityConfig[selectedAlert.severity as keyof typeof severityConfig];
-                    const Icon = config?.icon || Info;
-                    return <Icon className={`h-6 w-6 ${config?.color}`} />;
-                  })()}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold">{selectedAlert.title}</h3>
-                    <Badge variant="outline">
-                      {ALERT_TYPES.find((t) => t.value === selectedAlert.type)?.label ?? selectedAlert.type}
-                    </Badge>
-                  </div>
-                  <p className="text-muted-foreground mt-1 text-sm">{selectedAlert.description}</p>
-                </div>
-              </div>
-
-              {/* Meta Info Grid */}
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <span className="text-muted-foreground text-xs font-medium uppercase">Empleado</span>
-                  <p className="text-sm font-medium">
-                    {selectedAlert.employee.firstName} {selectedAlert.employee.lastName}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-muted-foreground text-xs font-medium uppercase">Centro</span>
-                  <p className="text-sm font-medium">{selectedAlert.costCenter?.name ?? "N/A"}</p>
-                </div>
-                <div className="space-y-1">
-                  <span className="text-muted-foreground text-xs font-medium uppercase">Fecha Incidencia</span>
-                  <p className="text-sm font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
-                </div>
-                {selectedAlert.deviationMinutes !== null && (
                   <div className="space-y-1">
-                    <span className="text-muted-foreground text-xs font-medium uppercase">Desviación Total</span>
-                    <p className="text-primary font-mono text-sm font-bold">
-                      {Math.floor(Math.abs(selectedAlert.deviationMinutes) / 60)}h{" "}
-                      {Math.abs(selectedAlert.deviationMinutes) % 60}min
-                    </p>
+                    <span className="text-muted-foreground text-xs font-medium uppercase">Centro</span>
+                    <p className="text-sm font-medium">{selectedAlert.costCenter?.name ?? "N/A"}</p>
                   </div>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Asignación</h4>
-                {assignmentsLoading ? (
-                  <p className="text-muted-foreground text-sm">Cargando responsables...</p>
-                ) : alertAssignments.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">Sin responsables asignados.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {alertAssignments.map((assignment) => (
-                      <div key={assignment.id} className="rounded-md border px-2 py-1">
-                        <p className="text-sm font-medium">{assignment.user.name ?? assignment.user.email}</p>
-                        <p className="text-muted-foreground text-xs">
-                          {ASSIGNMENT_SOURCE_LABELS[assignment.source] ?? assignment.source}
-                        </p>
-                      </div>
-                    ))}
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground text-xs font-medium uppercase">Fecha Incidencia</span>
+                    <p className="text-sm font-medium">{format(new Date(selectedAlert.date), "PPP", { locale: es })}</p>
                   </div>
-                )}
-              </div>
+                  {selectedAlert.deviationMinutes !== null && (
+                    <div className="space-y-1">
+                      <span className="text-muted-foreground text-xs font-medium uppercase">Desviación Total</span>
+                      <p className="text-primary font-mono text-sm font-bold">
+                        {Math.floor(Math.abs(selectedAlert.deviationMinutes) / 60)}h{" "}
+                        {Math.abs(selectedAlert.deviationMinutes) % 60}min
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-              <Separator />
+                <div className="space-y-2">
+                  <h4 className="text-sm font-semibold">Asignación</h4>
+                  {assignmentsLoading ? (
+                    <p className="text-muted-foreground text-sm">Cargando responsables...</p>
+                  ) : alertAssignments.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Sin responsables asignados.</p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {alertAssignments.map((assignment) => (
+                        <div key={assignment.id} className="rounded-md border px-2 py-1">
+                          <p className="text-sm font-medium">{assignment.user.name ?? assignment.user.email}</p>
+                          <p className="text-muted-foreground text-xs">
+                            {ASSIGNMENT_SOURCE_LABELS[assignment.source] ?? assignment.source}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              {/* Incidencias detalladas si es DAILY_SUMMARY */}
-              {selectedAlert.type === "DAILY_SUMMARY" &&
-                selectedAlert.incidents &&
-                selectedAlert.incidents.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="flex items-center gap-2 text-sm font-semibold">
-                      <AlertCircle className="h-4 w-4" />
-                      Desglose de Incidencias ({selectedAlert.incidents.length})
-                    </h4>
+                <Separator />
+
+                {/* Incidencias detalladas si es DAILY_SUMMARY */}
+                {selectedAlert.type === "DAILY_SUMMARY" &&
+                  selectedAlert.incidents &&
+                  selectedAlert.incidents.length > 0 && (
                     <div className="space-y-3">
-                      {selectedAlert.incidents.map((incident: any, index: number) => {
-                        const isLate = incident.type.includes("LATE_ARRIVAL");
-                        const isEarly = incident.type.includes("EARLY_DEPARTURE");
-                        const hours = Math.floor(Math.abs(incident.deviationMinutes ?? 0) / 60);
-                        const mins = Math.abs(incident.deviationMinutes ?? 0) % 60;
+                      <h4 className="flex items-center gap-2 text-sm font-semibold">
+                        <AlertCircle className="h-4 w-4" />
+                        Desglose de Incidencias ({selectedAlert.incidents.length})
+                      </h4>
+                      <div className="space-y-3">
+                        {selectedAlert.incidents.map((incident: any, index: number) => {
+                          const isLate = incident.type.includes("LATE_ARRIVAL");
+                          const isEarly = incident.type.includes("EARLY_DEPARTURE");
+                          const hours = Math.floor(Math.abs(incident.deviationMinutes ?? 0) / 60);
+                          const mins = Math.abs(incident.deviationMinutes ?? 0) % 60;
 
-                        return (
-                          <div key={index} className="bg-muted/30 flex items-start gap-3 rounded-lg border p-3">
-                            <div className="mt-1">
-                              <Badge
-                                variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
-                                className="h-5 px-1.5 text-[10px]"
-                              >
-                                {SEVERITY_LABELS[incident.severity] ?? incident.severity}
-                              </Badge>
-                            </div>
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm leading-none font-medium">
-                                  {isLate ? "Llegada Tarde" : isEarly ? "Salida Temprana" : "Incidencia"}
-                                </p>
-                                <span className="text-muted-foreground font-mono text-xs">
-                                  {format(new Date(incident.time), "HH:mm", { locale: es })}
-                                </span>
+                          return (
+                            <div key={index} className="bg-muted/30 flex items-start gap-3 rounded-lg border p-3">
+                              <div className="mt-1">
+                                <Badge
+                                  variant={incident.severity === "CRITICAL" ? "destructive" : "warning"}
+                                  className="h-5 px-1.5 text-[10px]"
+                                >
+                                  {SEVERITY_LABELS[incident.severity] ?? incident.severity}
+                                </Badge>
                               </div>
-                              {incident.deviationMinutes && (
-                                <p className="text-sm font-bold">
-                                  {isLate ? "Retraso: " : "Adelanto: "}
-                                  <span
-                                    className={
-                                      incident.severity === "CRITICAL" ? "text-destructive" : "text-yellow-600"
-                                    }
-                                  >
-                                    {hours > 0 ? `${hours}h ` : ""}
-                                    {mins}min
+                              <div className="flex-1 space-y-1">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm leading-none font-medium">
+                                    {isLate ? "Llegada Tarde" : isEarly ? "Salida Temprana" : "Incidencia"}
+                                  </p>
+                                  <span className="text-muted-foreground font-mono text-xs">
+                                    {format(new Date(incident.time), "HH:mm", { locale: es })}
                                   </span>
-                                </p>
-                              )}
-                              <p className="text-muted-foreground text-xs">{incident.description}</p>
+                                </div>
+                                {incident.deviationMinutes && (
+                                  <p className="text-sm font-bold">
+                                    {isLate ? "Retraso: " : "Adelanto: "}
+                                    <span
+                                      className={
+                                        incident.severity === "CRITICAL" ? "text-destructive" : "text-yellow-600"
+                                      }
+                                    >
+                                      {hours > 0 ? `${hours}h ` : ""}
+                                      {mins}min
+                                    </span>
+                                  </p>
+                                )}
+                                <p className="text-muted-foreground text-xs">{incident.description}</p>
+                              </div>
                             </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold">Notas internas</h4>
+                  <div className="space-y-2">
+                    <Textarea
+                      value={noteDraft}
+                      onChange={(event) => setNoteDraft(event.target.value)}
+                      placeholder="Añade una nota interna para RRHH..."
+                    />
+                    <div className="flex justify-end">
+                      <Button size="sm" onClick={handleAddNote} disabled={noteSaving}>
+                        {noteSaving ? "Guardando..." : "Guardar nota"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {notesLoading ? (
+                    <p className="text-muted-foreground text-sm">Cargando notas...</p>
+                  ) : alertNotes.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No hay notas aún.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {alertNotes.map((note) => (
+                        <div key={note.id} className="rounded-lg border p-3">
+                          <div className="text-muted-foreground flex items-center justify-between text-xs">
+                            <span>{note.user.name ?? note.user.email}</span>
+                            <span>{format(new Date(note.createdAt), "d MMM, HH:mm", { locale: es })}</span>
                           </div>
-                        );
-                      })}
+                          <p className="mt-2 text-sm">{note.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Información de resolución si existe */}
+                {selectedAlert.status !== "ACTIVE" && (
+                  <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-900/30 dark:bg-green-950/20">
+                    <div className="mb-2 flex items-center gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium">Resolución</span>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <p>
+                        <span className="text-muted-foreground">Estado:</span>{" "}
+                        {selectedAlert.status === "RESOLVED" ? "Resuelta" : "Descartada"}
+                      </p>
+                      {selectedAlert.resolvedAt && (
+                        <p>
+                          <span className="text-muted-foreground">Fecha:</span>{" "}
+                          {format(new Date(selectedAlert.resolvedAt), "PPP p", { locale: es })}
+                        </p>
+                      )}
+                      {selectedAlert.resolutionComment && (
+                        <p className="text-muted-foreground mt-2 italic">
+                          &quot;{selectedAlert.resolutionComment}&quot;
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}
-
-              <div className="space-y-3">
-                <h4 className="text-sm font-semibold">Notas internas</h4>
-                <div className="space-y-2">
-                  <Textarea
-                    value={noteDraft}
-                    onChange={(event) => setNoteDraft(event.target.value)}
-                    placeholder="Añade una nota interna para RRHH..."
-                  />
-                  <div className="flex justify-end">
-                    <Button size="sm" onClick={handleAddNote} disabled={noteSaving}>
-                      {noteSaving ? "Guardando..." : "Guardar nota"}
-                    </Button>
-                  </div>
-                </div>
-
-                {notesLoading ? (
-                  <p className="text-muted-foreground text-sm">Cargando notas...</p>
-                ) : alertNotes.length === 0 ? (
-                  <p className="text-muted-foreground text-sm">No hay notas aún.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {alertNotes.map((note) => (
-                      <div key={note.id} className="rounded-lg border p-3">
-                        <div className="text-muted-foreground flex items-center justify-between text-xs">
-                          <span>{note.user.name ?? note.user.email}</span>
-                          <span>{format(new Date(note.createdAt), "d MMM, HH:mm", { locale: es })}</span>
-                        </div>
-                        <p className="mt-2 text-sm">{note.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
+            )}
 
-              {/* Información de resolución si existe */}
-              {selectedAlert.status !== "ACTIVE" && (
-                <div className="rounded-lg border border-green-200 bg-green-50/50 p-4 dark:border-green-900/30 dark:bg-green-950/20">
-                  <div className="mb-2 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium">Resolución</span>
-                  </div>
-                  <div className="space-y-1 text-sm">
-                    <p>
-                      <span className="text-muted-foreground">Estado:</span>{" "}
-                      {selectedAlert.status === "RESOLVED" ? "Resuelta" : "Descartada"}
-                    </p>
-                    {selectedAlert.resolvedAt && (
-                      <p>
-                        <span className="text-muted-foreground">Fecha:</span>{" "}
-                        {format(new Date(selectedAlert.resolvedAt), "PPP p", { locale: es })}
-                      </p>
-                    )}
-                    {selectedAlert.resolutionComment && (
-                      <p className="text-muted-foreground mt-2 italic">&quot;{selectedAlert.resolutionComment}&quot;</p>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button variant="outline" asChild>
-              <Link href={`/dashboard/time-tracking/${selectedAlert?.employeeId}`}>
-                <Clock className="mr-2 h-4 w-4" />
-                Ver fichajes
-              </Link>
-            </Button>
-            <Button onClick={() => setActionDialog(null)}>Cerrar</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            <DialogFooter className="flex-col gap-2 sm:flex-row">
+              <Button variant="outline" asChild>
+                <Link href={`/dashboard/time-tracking/${selectedAlert?.employeeId}`}>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Ver fichajes
+                </Link>
+              </Button>
+              <Button onClick={() => setActionDialog(null)}>Cerrar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PermissionGuard>
   );
 }

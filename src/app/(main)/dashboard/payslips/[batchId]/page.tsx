@@ -129,7 +129,7 @@ export default function PayslipBatchDetailPage({ params }: Props) {
 
   return (
     <PermissionGuard
-      permission="view_payroll"
+      permissions={["view_payroll", "manage_payroll"]}
       fallback={
         <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
           <SectionHeader title="Detalle del Lote" subtitle="Acceso denegado" />

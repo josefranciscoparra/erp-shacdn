@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Plus, Briefcase, AlertCircle, FileText } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmployeeStatusBadge } from "@/components/employees/employee-status-select";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -14,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import { pauseContract, resumeContract } from "@/server/actions/contract-discontinuous";
 import { type Contract, useContractsStore } from "@/stores/contracts-store";
 
@@ -34,6 +36,8 @@ interface Employee {
 export default function EmployeeContractsPage() {
   const params = useParams();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
+  const canManageContracts = hasPermission("manage_contracts");
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -154,8 +158,9 @@ export default function EmployeeContractsPage() {
         onFinalize: handleFinalizeContract,
         onPause: handlePauseContract,
         onResume: handleResumeContract,
+        canManage: canManageContracts,
       }),
-    [handleEditContract, handleFinalizeContract, handlePauseContract, handleResumeContract],
+    [handleEditContract, handleFinalizeContract, handlePauseContract, handleResumeContract, canManageContracts],
   );
 
   const getFilteredContracts = () => {
@@ -211,149 +216,171 @@ export default function EmployeeContractsPage() {
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <SectionHeader
-        title="Contratos"
-        description={`Gestión de contratos laborales de ${fullName}`}
-        backButton={{
-          href: `/dashboard/employees/${params.id}`,
-          label: "Volver al empleado",
-        }}
-        badge={<EmployeeStatusBadge status={employee.employmentStatus} />}
-      />
-
-      {/* Tabs de contratos */}
-      <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-        <div className="flex items-center justify-between">
-          {/* Mobile Select */}
-          <div className="@4xl/main:hidden">
-            <Select value={currentTab} onValueChange={setCurrentTab}>
-              <SelectTrigger className="w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">
-                  Activos
-                  {activeContracts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {activeContracts.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="inactive">
-                  Finalizados
-                  {inactiveContracts.length > 0 && (
-                    <Badge variant="secondary" className="ml-2 text-xs">
-                      {inactiveContracts.length}
-                    </Badge>
-                  )}
-                </SelectItem>
-                <SelectItem value="all">
-                  Todos
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {total}
-                  </Badge>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Desktop Tabs */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="active" className="relative">
-              Contratos Activos
-              {activeContracts.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {activeContracts.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="inactive" className="relative">
-              Finalizados
-              {inactiveContracts.length > 0 && (
-                <Badge variant="secondary" className="ml-2 text-xs">
-                  {inactiveContracts.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="all" className="relative">
-              Todos
-              <Badge variant="secondary" className="ml-2 text-xs">
-                {total}
-              </Badge>
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Actions */}
-          <div className="flex gap-2">
-            <Button onClick={handleNewContract} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Nuevo Contrato
-            </Button>
-          </div>
+    <PermissionGuard
+      permissions={["view_contracts", "manage_contracts"]}
+      fallback={
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Contratos"
+            backButton={{
+              href: `/dashboard/employees/${params.id}`,
+              label: "Volver al empleado",
+            }}
+          />
+          <EmptyState
+            icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
+            title="Acceso denegado"
+            description="No tienes permisos para ver esta sección"
+          />
         </div>
+      }
+    >
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        {/* Header */}
+        <SectionHeader
+          title="Contratos"
+          description={`Gestión de contratos laborales de ${fullName}`}
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+          badge={<EmployeeStatusBadge status={employee.employmentStatus} />}
+        />
 
-        <TabsContent value="active">
-          {activeContracts.length === 0 ? (
-            <EmptyState
-              icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
-              title="No hay contratos activos"
-              description="Este empleado no tiene contratos activos en este momento"
-            />
-          ) : (
-            <ContractsDataTable columns={columns} data={activeContracts} isLoading={contractsLoading} />
-          )}
-        </TabsContent>
+        {/* Tabs de contratos */}
+        <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+          <div className="flex items-center justify-between">
+            {/* Mobile Select */}
+            <div className="@4xl/main:hidden">
+              <Select value={currentTab} onValueChange={setCurrentTab}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">
+                    Activos
+                    {activeContracts.length > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {activeContracts.length}
+                      </Badge>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="inactive">
+                    Finalizados
+                    {inactiveContracts.length > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {inactiveContracts.length}
+                      </Badge>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="all">
+                    Todos
+                    <Badge variant="secondary" className="ml-2 text-xs">
+                      {total}
+                    </Badge>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <TabsContent value="inactive">
-          {inactiveContracts.length === 0 ? (
-            <EmptyState
-              icon={<FileText className="text-muted-foreground mx-auto h-12 w-12" />}
-              title="No hay contratos finalizados"
-              description="Este empleado no tiene contratos en el historial"
-            />
-          ) : (
-            <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={contractsLoading} />
-          )}
-        </TabsContent>
+            {/* Desktop Tabs */}
+            <TabsList className="hidden @4xl/main:flex">
+              <TabsTrigger value="active" className="relative">
+                Contratos Activos
+                {activeContracts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {activeContracts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="inactive" className="relative">
+                Finalizados
+                {inactiveContracts.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-xs">
+                    {inactiveContracts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="all" className="relative">
+                Todos
+                <Badge variant="secondary" className="ml-2 text-xs">
+                  {total}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
 
-        <TabsContent value="all">
-          <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={contractsLoading} />
-        </TabsContent>
-      </Tabs>
+            {/* Actions */}
+            {canManageContracts && (
+              <div className="flex gap-2">
+                <Button onClick={handleNewContract} size="sm">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nuevo Contrato
+                </Button>
+              </div>
+            )}
+          </div>
 
-      {/* Finalize Contract Dialog */}
-      <FinalizeContractDialog
-        open={finalizeDialogOpen && Boolean(contractToFinalize)}
-        onOpenChange={(open) => {
-          setFinalizeDialogOpen(open);
-          if (!open) {
+          <TabsContent value="active">
+            {activeContracts.length === 0 ? (
+              <EmptyState
+                icon={<Briefcase className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay contratos activos"
+                description="Este empleado no tiene contratos activos en este momento"
+              />
+            ) : (
+              <ContractsDataTable columns={columns} data={activeContracts} isLoading={contractsLoading} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="inactive">
+            {inactiveContracts.length === 0 ? (
+              <EmptyState
+                icon={<FileText className="text-muted-foreground mx-auto h-12 w-12" />}
+                title="No hay contratos finalizados"
+                description="Este empleado no tiene contratos en el historial"
+              />
+            ) : (
+              <ContractsDataTable columns={columns} data={inactiveContracts} isLoading={contractsLoading} />
+            )}
+          </TabsContent>
+
+          <TabsContent value="all">
+            <ContractsDataTable columns={columns} data={getFilteredContracts()} isLoading={contractsLoading} />
+          </TabsContent>
+        </Tabs>
+
+        {/* Finalize Contract Dialog */}
+        <FinalizeContractDialog
+          open={finalizeDialogOpen && Boolean(contractToFinalize)}
+          onOpenChange={(open) => {
+            setFinalizeDialogOpen(open);
+            if (!open) {
+              setContractToFinalize(null);
+            }
+          }}
+          contract={contractToFinalize}
+          onSuccess={() => {
+            handleContractsRefresh();
             setContractToFinalize(null);
-          }
-        }}
-        contract={contractToFinalize}
-        onSuccess={() => {
-          handleContractsRefresh();
-          setContractToFinalize(null);
-        }}
-      />
+          }}
+        />
 
-      {/* Pause Contract Dialog */}
-      <PauseContractDialog
-        open={pauseDialogOpen && Boolean(contractToPause)}
-        onOpenChange={(open) => {
-          setPauseDialogOpen(open);
-          if (!open) {
+        {/* Pause Contract Dialog */}
+        <PauseContractDialog
+          open={pauseDialogOpen && Boolean(contractToPause)}
+          onOpenChange={(open) => {
+            setPauseDialogOpen(open);
+            if (!open) {
+              setContractToPause(null);
+            }
+          }}
+          contract={contractToPause}
+          onSuccess={() => {
+            handleContractsRefresh();
             setContractToPause(null);
-          }
-        }}
-        contract={contractToPause}
-        onSuccess={() => {
-          handleContractsRefresh();
-          setContractToPause(null);
-        }}
-      />
-    </div>
+          }}
+        />
+      </div>
+    </PermissionGuard>
   );
 }

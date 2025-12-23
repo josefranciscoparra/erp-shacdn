@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 
 import { useParams, useRouter } from "next/navigation";
 
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { ContractFormSimplified } from "@/components/contracts/contract-form-simplified";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
@@ -21,6 +22,16 @@ interface Employee {
 }
 
 export default function EditContractPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Editar contrato" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const params = useParams();
   const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -78,66 +89,72 @@ export default function EditContractPage() {
 
   if (isLoading) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Cargando..."
-          backButton={{
-            href: `/dashboard/employees/${params.id}/contracts`,
-            label: "Volver a contratos",
-          }}
-        />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+      <PermissionGuard permission="manage_contracts" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Cargando..."
+            backButton={{
+              href: `/dashboard/employees/${params.id}/contracts`,
+              label: "Volver a contratos",
+            }}
+          />
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+          </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   if (error || !employee || !contract) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Error"
-          backButton={{
-            href: `/dashboard/employees/${params.id}/contracts`,
-            label: "Volver a contratos",
-          }}
-        />
-        <EmptyState
-          icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
-          title="Error al cargar contrato"
-          description={error ?? "No se pudo cargar el contrato"}
-        />
-      </div>
+      <PermissionGuard permission="manage_contracts" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Error"
+            backButton={{
+              href: `/dashboard/employees/${params.id}/contracts`,
+              label: "Volver a contratos",
+            }}
+          />
+          <EmptyState
+            icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
+            title="Error al cargar contrato"
+            description={error ?? "No se pudo cargar el contrato"}
+          />
+        </div>
+      </PermissionGuard>
     );
   }
 
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Editar Contrato"
-        description={`Modificar contrato laboral de ${fullName}`}
-        backButton={{
-          href: `/dashboard/employees/${params.id}/contracts`,
-          label: "Volver a contratos",
-        }}
-        badge={
-          employee.employeeNumber ? (
-            <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
-          ) : undefined
-        }
-      />
+    <PermissionGuard permission="manage_contracts" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Editar Contrato"
+          description={`Modificar contrato laboral de ${fullName}`}
+          backButton={{
+            href: `/dashboard/employees/${params.id}/contracts`,
+            label: "Volver a contratos",
+          }}
+          badge={
+            employee.employeeNumber ? (
+              <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+            ) : undefined
+          }
+        />
 
-      <ContractFormSimplified
-        employeeId={params.id as string}
-        employeeName={fullName}
-        contract={contract}
-        onSubmit={handleSubmit}
-        onCancel={() => router.back()}
-        isSubmitting={isUpdating}
-      />
-    </div>
+        <ContractFormSimplified
+          employeeId={params.id as string}
+          employeeName={fullName}
+          contract={contract}
+          onSubmit={handleSubmit}
+          onCancel={() => router.back()}
+          isSubmitting={isUpdating}
+        />
+      </div>
+    </PermissionGuard>
   );
 }

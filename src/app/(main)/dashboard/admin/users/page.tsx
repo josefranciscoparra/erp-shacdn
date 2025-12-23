@@ -8,6 +8,7 @@ import { Loader2, ShieldAlert, UserCog } from "lucide-react";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { usePermissions } from "@/hooks/use-permissions";
 
 import { ChangeRoleDialog } from "./_components/change-role-dialog";
 import { CreateUserDialog } from "./_components/create-user-dialog";
@@ -18,6 +19,8 @@ import { type UserRow } from "./_components/users-columns";
 import { UsersDataTable } from "./_components/users-data-table";
 
 export default function UsersManagementPage() {
+  const { hasPermission } = usePermissions();
+  const canManageUsers = hasPermission("manage_users");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -152,7 +155,7 @@ export default function UsersManagementPage() {
 
   return (
     <PermissionGuard
-      permission="manage_users"
+      permissions={["manage_users", "view_all_users"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Usuarios y Roles" subtitle="Gestiona los usuarios y sus permisos en el sistema" />
@@ -176,6 +179,7 @@ export default function UsersManagementPage() {
             onResetPassword={handleResetPassword}
             onToggleActive={handleToggleActive}
             canCreateUsers={canCreateUsers}
+            canManageUsers={canManageUsers}
             isSuperAdmin={userRole === "SUPER_ADMIN"}
           />
         ) : (

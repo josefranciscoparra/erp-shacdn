@@ -7,6 +7,7 @@ import { Plus, Landmark, Loader2, ShieldAlert } from "lucide-react";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useCostCentersStore } from "@/stores/cost-centers-store";
 
 import { CostCenterDialog } from "./_components/cost-center-dialog";
@@ -14,6 +15,8 @@ import { CostCentersDataTable } from "./_components/cost-centers-data-table";
 
 export default function CostCentersPage() {
   const { costCenters, isLoading, error, fetchCostCenters, deleteCostCenter } = useCostCentersStore();
+  const { hasPermission } = usePermissions();
+  const canManageCostCenters = hasPermission("manage_cost_centers");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCostCenter, setEditingCostCenter] = useState(null);
 
@@ -79,7 +82,7 @@ export default function CostCentersPage() {
 
   return (
     <PermissionGuard
-      permission="view_cost_centers"
+      permissions={["view_cost_centers", "manage_cost_centers"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Centros de coste" subtitle="Gestiona los centros de coste de tu organización" />
@@ -100,14 +103,19 @@ export default function CostCentersPage() {
             onNewCostCenter={() => setDialogOpen(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canManage={canManageCostCenters}
           />
         ) : (
           <EmptyState
             icon={<Landmark className="mx-auto h-12 w-12" />}
             title="No hay centros de coste registrados"
             description="Comienza agregando tu primer centro de coste al sistema"
-            actionLabel="Agregar primer centro"
-            onAction={() => setDialogOpen(true)}
+            {...(canManageCostCenters
+              ? {
+                  actionLabel: "Agregar primer centro",
+                  onAction: () => setDialogOpen(true),
+                }
+              : {})}
           />
         )}
 

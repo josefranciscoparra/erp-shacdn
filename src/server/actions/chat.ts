@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { sseManager } from "@/lib/chat/sse-manager";
 import type { ConversationWithParticipants, MessageWithSender, PaginatedResponse } from "@/lib/chat/types";
 import { isChatEnabled, normalizeUserIds, sanitizeMessageBody, validateMessageSize } from "@/lib/chat/utils";
+import { safePermission } from "@/lib/auth-guard";
 import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
@@ -773,9 +774,8 @@ export async function updateOrganizationChatStatus(enabled: boolean): Promise<vo
       throw new Error("NO_AUTH");
     }
 
-    // Verificar permisos de administrador (SUPER_ADMIN, ORG_ADMIN o HR_ADMIN)
-    const allowedRoles = ["SUPER_ADMIN", "ORG_ADMIN", "HR_ADMIN"];
-    if (!allowedRoles.includes(session.user.role)) {
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
       throw new Error("NO_PERMISSION");
     }
 

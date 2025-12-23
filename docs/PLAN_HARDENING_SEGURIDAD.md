@@ -22,6 +22,7 @@ El backend confía solo en `requireOrg()` que verifica pertenencia a la organiza
 ## FASE 1: Horarios (schedules-v2.ts) - ✅ COMPLETADA
 
 ### Criterio aplicado:
+
 - **Escritura** (crear, modificar, borrar) → `manage_time_tracking`
 - **Lectura de gestión** (selectores de empleados para asignar) → `view_time_tracking`
 - **Lectura básica** (ver mi horario, catálogo de plantillas) → NO se toca (autoservicio)
@@ -101,20 +102,24 @@ El backend confía solo en `requireOrg()` que verifica pertenencia a la organiza
 Tras auditar las 18 funciones exportadas de `time-tracking.ts`, se concluye que **ya están correctamente protegidas**:
 
 ### 2.1 `recalculateWorkdaySummary`
+
 - **Estado:** ✅ Ya protegida
 - **Motivo:** Usa `getAuthenticatedEmployee()` → solo puede recalcular SU propio resumen (autoservicio)
 
 ### 2.2 `recalculateWorkdaySummaryForRetroactivePto`
+
 - **Estado:** ✅ Ya protegida indirectamente
 - **Motivo:** Es llamada SOLO desde `approvePtoRequest` (approver-pto.ts) que usa `canUserApprove()` del motor de aprobaciones
 
 ### 2.3 Resto de funciones (16)
+
 - `clockIn`, `clockOut`, `startBreak`, `endBreak` → Autoservicio (`getAuthenticatedEmployee()`)
 - `getTodaySummary`, `getWeeklySummary`, `getMonthlySummaries` → Autoservicio
 - `cancelOpenClockIn`, `changeProject`, `getCurrentProject` → Autoservicio
 
 ### Conclusión
-El archivo sigue el principio: *"El empleado siempre puede gestionar sus propios datos sin permisos especiales"*. No hay funciones expuestas que permitan manipular datos de otro empleado.
+
+El archivo sigue el principio: _"El empleado siempre puede gestionar sus propios datos sin permisos especiales"_. No hay funciones expuestas que permitan manipular datos de otro empleado.
 
 ---
 
@@ -123,13 +128,16 @@ El archivo sigue el principio: *"El empleado siempre puede gestionar sus propios
 Proteger la exposición de la estructura organizativa.
 
 ### 3.1 departments.ts
+
 - [x] `getDepartments` → `safeAnyPermission(["view_departments", "manage_organization", "view_time_tracking"])`
 
 ### 3.2 cost-centers.ts
+
 - [x] `getCostCenters` → `safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"])`
 - [x] `getCostCenterById` → `safeAnyPermission(["view_cost_centers", "manage_organization", "view_time_tracking"])`
 
 ### Nota
+
 Los permisos son permisivos para que selectores funcionen en varias pantallas (equipos, horarios, etc.).
 
 ---

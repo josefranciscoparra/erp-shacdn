@@ -79,7 +79,9 @@ export async function GET(request: NextRequest) {
   );
   hintRow.font = { italic: true, color: { argb: "FF666666" }, size: 10 };
 
-  employeesSheet.addRow(headers.map((key) => EMPLOYEE_IMPORT_SAMPLE_ROW[key as keyof typeof EMPLOYEE_IMPORT_SAMPLE_ROW]));
+  employeesSheet.addRow(
+    headers.map((key) => EMPLOYEE_IMPORT_SAMPLE_ROW[key as keyof typeof EMPLOYEE_IMPORT_SAMPLE_ROW]),
+  );
 
   employeesSheet.getRow(1).alignment = { vertical: "middle", wrapText: true };
   employeesSheet.getRow(2).alignment = { vertical: "top", wrapText: true };

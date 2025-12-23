@@ -112,10 +112,7 @@ const memberships = await prisma.userOrganization.findMany({
 });
 
 const accessibleOrgIds = memberships.map((m) => m.orgId);
-const activeOrgId =
-  memberships.find((m) => m.isDefault)?.orgId ??
-  accessibleOrgIds[0] ??
-  user.orgId; // fallback legacy
+const activeOrgId = memberships.find((m) => m.isDefault)?.orgId ?? accessibleOrgIds[0] ?? user.orgId; // fallback legacy
 
 token.activeOrgId = activeOrgId;
 token.accessibleOrgIds = accessibleOrgIds;
@@ -138,9 +135,7 @@ export async function getOrgContext() {
   const session = await auth();
   if (!session?.user) throw new Error("UNAUTHENTICATED");
 
-  const accessible = session.user.accessibleOrgIds?.length
-    ? session.user.accessibleOrgIds
-    : [session.user.orgId];
+  const accessible = session.user.accessibleOrgIds?.length ? session.user.accessibleOrgIds : [session.user.orgId];
 
   const active = session.user.activeOrgId ?? accessible[0];
 
@@ -232,9 +227,7 @@ export function OrgSwitcher() {
 ## 8. Multiempresa real futura: `resolveScope` + orquestadores
 
 ```ts
-type OrgScope =
-  | { type: "org"; orgIds: [string] }
-  | { type: "group"; orgIds: string[] };
+type OrgScope = { type: "org"; orgIds: [string] } | { type: "group"; orgIds: string[] };
 
 export async function resolveScope(kind: "org" | "group"): Promise<OrgScope> {
   const { activeOrgId, accessibleOrgIds } = await getOrgContext();

@@ -27,7 +27,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
   return (
     <PermissionGuard
-      permission="view_teams"
+      permissions={["view_teams", "manage_teams"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Detalle del Equipo" />

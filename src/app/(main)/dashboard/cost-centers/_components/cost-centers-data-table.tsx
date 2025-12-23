@@ -34,9 +34,16 @@ interface CostCentersDataTableProps {
   onNewCostCenter?: () => void;
   onEdit?: (costCenter: CostCenterData) => void;
   onDelete?: (costCenter: CostCenterData) => void;
+  canManage?: boolean;
 }
 
-export function CostCentersDataTable({ data, onNewCostCenter, onEdit, onDelete }: CostCentersDataTableProps) {
+export function CostCentersDataTable({
+  data,
+  onNewCostCenter,
+  onEdit,
+  onDelete,
+  canManage = false,
+}: CostCentersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -44,7 +51,10 @@ export function CostCentersDataTable({ data, onNewCostCenter, onEdit, onDelete }
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const columns = React.useMemo(() => createCostCentersColumns({ onEdit, onDelete }), [onEdit, onDelete]);
+  const columns = React.useMemo(
+    () => createCostCentersColumns({ onEdit, onDelete, canManage }),
+    [onEdit, onDelete, canManage],
+  );
 
   const filteredData = React.useMemo(() => {
     switch (activeTab) {
@@ -142,10 +152,12 @@ export function CostCentersDataTable({ data, onNewCostCenter, onEdit, onDelete }
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button size="sm" onClick={onNewCostCenter}>
-            <Plus />
-            <span className="hidden lg:inline">Nuevo centro</span>
-          </Button>
+          {canManage && (
+            <Button size="sm" onClick={onNewCostCenter}>
+              <Plus />
+              <span className="hidden lg:inline">Nuevo centro</span>
+            </Button>
+          )}
         </div>
       </div>
 

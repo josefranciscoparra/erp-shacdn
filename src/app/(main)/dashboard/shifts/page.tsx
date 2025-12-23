@@ -24,8 +24,10 @@
 
 import { useEffect, useState } from "react";
 
-import { FileText, Settings, LayoutDashboard, ShieldOff } from "lucide-react";
+import { FileText, Settings, LayoutDashboard, ShieldOff, ShieldAlert } from "lucide-react";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,6 +52,16 @@ import { ZonesTable } from "./_components/zones-table";
 import { useShiftsStore } from "./_store/shifts-store";
 
 export default function ShiftsPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-6">
+      <SectionHeader title="Gestión de Turnos" description="Planificación y control de turnos por equipos." />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const {
     shifts,
     isLoading,
@@ -79,154 +91,158 @@ export default function ShiftsPage() {
 
   if (!shiftsEnabled) {
     return (
-      <div className="@container/main flex flex-col gap-6">
-        <SectionHeader
-          title="Gestión de Turnos"
-          description="Este módulo está desactivado para tu organización. Actívalo en Configuración → Turnos."
-        />
+      <PermissionGuard permission="manage_organization" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-6">
+          <SectionHeader
+            title="Gestión de Turnos"
+            description="Este módulo está desactivado para tu organización. Actívalo en Configuración → Turnos."
+          />
 
-        <Card className="bg-muted/30 border-dashed">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldOff className="text-muted-foreground h-4 w-4" />
-              Módulo deshabilitado
-            </CardTitle>
-            <CardDescription>
-              Solo los administradores con permisos pueden habilitar el módulo y definir las reglas de descanso desde la
-              sección de Configuración.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-muted-foreground text-sm">
-              No verás cuadrantes ni podrás planificar turnos hasta que el módulo esté activo. Si eres administrador, ve
-              a Configuración → Turnos para activarlo.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="bg-muted/30 border-dashed">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ShieldOff className="text-muted-foreground h-4 w-4" />
+                Módulo deshabilitado
+              </CardTitle>
+              <CardDescription>
+                Solo los administradores con permisos pueden habilitar el módulo y definir las reglas de descanso desde
+                la sección de Configuración.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-muted-foreground text-sm">
+                No verás cuadrantes ni podrás planificar turnos hasta que el módulo esté activo. Si eres administrador,
+                ve a Configuración → Turnos para activarlo.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </PermissionGuard>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] flex-col gap-6">
-      {/* Tabs principales */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold tracking-tight">Gestión de Turnos</h1>
+    <PermissionGuard permission="manage_organization" fallback={permissionFallback}>
+      <div className="flex h-[calc(100vh-4rem)] flex-col gap-6">
+        {/* Tabs principales */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex h-full flex-col space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-4">
+              <h1 className="text-2xl font-bold tracking-tight">Gestión de Turnos</h1>
 
-            {/* TabsList para desktop */}
-            <TabsList className="hidden h-9 md:inline-flex">
-              <TabsTrigger value="calendar" className="text-xs">
-                Cuadrante
-              </TabsTrigger>
-              <TabsTrigger value="templates" className="text-xs">
-                <FileText className="mr-2 h-3.5 w-3.5" />
-                Plantillas
-              </TabsTrigger>
-              <TabsTrigger value="config" className="text-xs">
-                <Settings className="mr-2 h-3.5 w-3.5" />
-                Configuración
-              </TabsTrigger>
-              <TabsTrigger value="dashboard" className="text-xs">
-                <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
-                Dashboard
-              </TabsTrigger>
-            </TabsList>
-          </div>
+              {/* TabsList para desktop */}
+              <TabsList className="hidden h-9 md:inline-flex">
+                <TabsTrigger value="calendar" className="text-xs">
+                  Cuadrante
+                </TabsTrigger>
+                <TabsTrigger value="templates" className="text-xs">
+                  <FileText className="mr-2 h-3.5 w-3.5" />
+                  Plantillas
+                </TabsTrigger>
+                <TabsTrigger value="config" className="text-xs">
+                  <Settings className="mr-2 h-3.5 w-3.5" />
+                  Configuración
+                </TabsTrigger>
+                <TabsTrigger value="dashboard" className="text-xs">
+                  <LayoutDashboard className="mr-2 h-3.5 w-3.5" />
+                  Dashboard
+                </TabsTrigger>
+              </TabsList>
+            </div>
 
-          {/* Select para móvil */}
-          <div className="block w-[150px] md:hidden">
-            <Select value={activeTab} onValueChange={setActiveTab}>
-              <SelectTrigger className="h-8 w-full text-xs">
-                <SelectValue placeholder="Seleccionar vista" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="calendar">Cuadrante</SelectItem>
-                <SelectItem value="templates">Plantillas</SelectItem>
-                <SelectItem value="config">Configuración</SelectItem>
-                <SelectItem value="dashboard">Dashboard</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Tab: Cuadrante */}
-        <TabsContent value="calendar" className="flex min-h-0 flex-1 flex-col space-y-0 pb-4">
-          {/* Vista móvil: Aviso */}
-          <div className="mb-4 block md:hidden">
-            <MobileViewWarning
-              title="Cuadrante disponible solo en PC"
-              description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente."
-            />
-          </div>
-
-          {/* Vista desktop: Contenido completo */}
-          <div className="bg-background hidden min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-lg border shadow-sm md:flex">
-            {/* Nuevo Header Unificado */}
-            <ShiftsHeader />
-
-            {/* Área de calendario */}
-            <div className="bg-muted/5 relative flex-1 overflow-hidden">
-              {isLoading ? (
-                <div className="flex justify-center p-6">
-                  <EmptyStateLoading />
-                </div>
-              ) : shifts.length === 0 && !isLoading ? (
-                // Si no hay turnos, mostramos el EmptyState, pero el Header ya está visible para crear/filtrar
-                // Quizás queramos mostrar el grid vacío en lugar del EmptyState completo, para que puedan añadir.
-                // Vamos a mostrar el Grid directamente, el usuario puede añadir con el botón +
-                // Solo si no hay empleados mostramos empty state de empleados (manejado dentro del componente)
-                <div className="h-full w-full overflow-hidden p-4">
-                  {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
-                  {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
-                  {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
-                  {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
-                </div>
-              ) : (
-                <div className="h-full w-full overflow-hidden p-4">
-                  {/* Vistas de calendario */}
-                  {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
-
-                  {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
-
-                  {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
-
-                  {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
-                </div>
-              )}
+            {/* Select para móvil */}
+            <div className="block w-[150px] md:hidden">
+              <Select value={activeTab} onValueChange={setActiveTab}>
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue placeholder="Seleccionar vista" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="calendar">Cuadrante</SelectItem>
+                  <SelectItem value="templates">Plantillas</SelectItem>
+                  <SelectItem value="config">Configuración</SelectItem>
+                  <SelectItem value="dashboard">Dashboard</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
-        </TabsContent>
 
-        {/* Tab: Plantillas */}
-        <TabsContent value="templates" className="space-y-6">
-          <div className="hidden md:block">
-            <TemplatesTable />
-          </div>
-        </TabsContent>
+          {/* Tab: Cuadrante */}
+          <TabsContent value="calendar" className="flex min-h-0 flex-1 flex-col space-y-0 pb-4">
+            {/* Vista móvil: Aviso */}
+            <div className="mb-4 block md:hidden">
+              <MobileViewWarning
+                title="Cuadrante disponible solo en PC"
+                description="El cuadrante de turnos requiere una pantalla más grande para poder visualizar y editar los turnos correctamente."
+              />
+            </div>
 
-        {/* Tab: Configuración */}
-        <TabsContent value="config" className="space-y-6">
-          <div className="hidden md:block">
-            <ZonesTable />
-          </div>
-        </TabsContent>
+            {/* Vista desktop: Contenido completo */}
+            <div className="bg-background hidden min-h-0 flex-1 flex-col gap-0 overflow-hidden rounded-lg border shadow-sm md:flex">
+              {/* Nuevo Header Unificado */}
+              <ShiftsHeader />
 
-        {/* Tab: Dashboard */}
-        <TabsContent value="dashboard" className="space-y-6">
-          <ShiftsDashboard />
-        </TabsContent>
-      </Tabs>
+              {/* Área de calendario */}
+              <div className="bg-muted/5 relative flex-1 overflow-hidden">
+                {isLoading ? (
+                  <div className="flex justify-center p-6">
+                    <EmptyStateLoading />
+                  </div>
+                ) : shifts.length === 0 && !isLoading ? (
+                  // Si no hay turnos, mostramos el EmptyState, pero el Header ya está visible para crear/filtrar
+                  // Quizás queramos mostrar el grid vacío en lugar del EmptyState completo, para que puedan añadir.
+                  // Vamos a mostrar el Grid directamente, el usuario puede añadir con el botón +
+                  // Solo si no hay empleados mostramos empty state de empleados (manejado dentro del componente)
+                  <div className="h-full w-full overflow-hidden p-4">
+                    {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
+                    {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
+                    {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+                    {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
+                  </div>
+                ) : (
+                  <div className="h-full w-full overflow-hidden p-4">
+                    {/* Vistas de calendario */}
+                    {calendarView === "week" && calendarMode === "employee" && <CalendarWeekEmployee />}
 
-      {/* Modales */}
-      <ShiftDialog />
-      <TemplateDialog />
-      <TemplateApplyDialog />
-      <ZoneDialog />
+                    {calendarView === "month" && calendarMode === "employee" && <CalendarMonthEmployee />}
 
-      {/* Panel de conflictos */}
-      <ConflictsPanel />
-    </div>
+                    {calendarView === "week" && calendarMode === "area" && <CalendarWeekArea />}
+
+                    {calendarView === "month" && calendarMode === "area" && <CalendarMonthArea />}
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Tab: Plantillas */}
+          <TabsContent value="templates" className="space-y-6">
+            <div className="hidden md:block">
+              <TemplatesTable />
+            </div>
+          </TabsContent>
+
+          {/* Tab: Configuración */}
+          <TabsContent value="config" className="space-y-6">
+            <div className="hidden md:block">
+              <ZonesTable />
+            </div>
+          </TabsContent>
+
+          {/* Tab: Dashboard */}
+          <TabsContent value="dashboard" className="space-y-6">
+            <ShiftsDashboard />
+          </TabsContent>
+        </Tabs>
+
+        {/* Modales */}
+        <ShiftDialog />
+        <TemplateDialog />
+        <TemplateApplyDialog />
+        <ZoneDialog />
+
+        {/* Panel de conflictos */}
+        <ConflictsPanel />
+      </div>
+    </PermissionGuard>
   );
 }

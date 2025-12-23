@@ -1,16 +1,35 @@
 import Link from "next/link";
 
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, ShieldAlert } from "lucide-react";
 
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { ProceduresDataTable } from "@/components/procedures/procedures-data-table";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { safePermission } from "@/lib/auth-guard";
 import { getProcedures } from "@/server/actions/expense-procedures";
 
 import { ProceduresManagementStats } from "./_components/procedures-management-stats";
 
 export default async function ProceduresPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const authResult = await safePermission("approve_requests");
+  if (!authResult.ok) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Gestión de Expedientes"
+          description="Supervisión y autorización de expedientes de gasto de la organización."
+        />
+        <EmptyState
+          icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+          title="Acceso denegado"
+          description="No tienes permisos para ver esta sección"
+        />
+      </div>
+    );
+  }
+
   const { filter } = await searchParams;
   const showMineOnly = filter === "mine";
   const { procedures } = await getProcedures({ mine: showMineOnly });

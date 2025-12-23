@@ -2,10 +2,11 @@ import { randomBytes } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 
-import type { SecondSignerRole } from "@prisma/client";
+import { Role, type SecondSignerRole } from "@prisma/client";
 
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { resolveSecondSigner } from "@/lib/signatures/double-signature";
 import { createSignaturePendingNotification } from "@/lib/signatures/notifications";
@@ -45,9 +46,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    // Solo HR_ADMIN, ORG_ADMIN y SUPER_ADMIN pueden crear solicitudes
-    const allowedRoles = ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
-    if (!allowedRoles.includes(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_documents")) {
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 

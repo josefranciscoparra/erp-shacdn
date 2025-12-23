@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 
 import { auth } from "@/lib/auth";
+import { safeAnyPermission, safePermission } from "@/lib/auth-guard";
 import { CONSENT_VERSION } from "@/lib/geolocation/consent";
 import { calculateDistance, findNearestCenter } from "@/lib/geolocation/haversine";
 import { validateGeolocationData } from "@/lib/geolocation/validators";
@@ -252,7 +253,12 @@ export async function validateClockLocation(latitude: number, longitude: number,
  */
 export async function getEntriesRequiringReview(filters?: { startDate?: Date; endDate?: Date; employeeId?: string }) {
   try {
-    const { orgId } = await getAuthenticatedEmployee();
+    const authz = await safeAnyPermission(["validate_time_entries", "manage_time_tracking"]);
+    if (!authz.ok) {
+      throw new Error("NO_PERMISSION");
+    }
+
+    const { orgId } = authz.session.user;
 
     const timeEntries = await prisma.timeEntry.findMany({
       where: {
@@ -299,7 +305,12 @@ export async function getEntriesRequiringReview(filters?: { startDate?: Date; en
  */
 export async function approveGeolocationEntry(entryId: string) {
   try {
-    const { orgId } = await getAuthenticatedEmployee();
+    const authz = await safeAnyPermission(["validate_time_entries", "manage_time_tracking"]);
+    if (!authz.ok) {
+      throw new Error("NO_PERMISSION");
+    }
+
+    const { orgId } = authz.session.user;
 
     const entry = await prisma.timeEntry.update({
       where: {
@@ -323,7 +334,12 @@ export async function approveGeolocationEntry(entryId: string) {
  */
 export async function approveMultipleEntries(entryIds: string[]) {
   try {
-    const { orgId } = await getAuthenticatedEmployee();
+    const authz = await safeAnyPermission(["validate_time_entries", "manage_time_tracking"]);
+    if (!authz.ok) {
+      throw new Error("NO_PERMISSION");
+    }
+
+    const { orgId } = authz.session.user;
 
     await prisma.timeEntry.updateMany({
       where: {
@@ -348,11 +364,12 @@ export async function approveMultipleEntries(entryIds: string[]) {
  */
 export async function updateOrganizationGeolocationStatus(enabled: boolean) {
   try {
-    const session = await auth();
-
-    if (!session?.user?.orgId) {
-      throw new Error("Usuario no autenticado o sin organización");
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
+      throw new Error("NO_PERMISSION");
     }
+
+    const session = authz.session;
 
     const org = await prisma.organization.findUnique({
       where: { id: session.user.orgId },
@@ -390,11 +407,12 @@ export async function updateOrganizationGeolocationStatus(enabled: boolean) {
  */
 export async function getGeolocationStats() {
   try {
-    const session = await auth();
-
-    if (!session?.user?.orgId) {
-      throw new Error("Usuario no autenticado o sin organización");
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
+      throw new Error("NO_PERMISSION");
     }
+
+    const session = authz.session;
 
     const [totalEntries, entriesWithGPS, entriesRequiringReview, totalConsents] = await Promise.all([
       // Total de fichajes

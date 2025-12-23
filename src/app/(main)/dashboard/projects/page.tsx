@@ -10,6 +10,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   deleteProject,
   getProjectById,
@@ -24,6 +25,8 @@ import { EditProjectDialog } from "./_components/edit-project-dialog";
 import { createProjectsColumns } from "./_components/projects-columns";
 
 export default function ProjectsPage() {
+  const { hasPermission } = usePermissions();
+  const canManageProjects = hasPermission("manage_projects");
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,8 +110,9 @@ export default function ProjectsPage() {
         onEdit: handleEdit,
         onToggleStatus: handleToggleStatus,
         onDelete: handleDelete,
+        canManage: canManageProjects,
       }),
-    [handleEdit, handleToggleStatus, handleDelete],
+    [handleEdit, handleToggleStatus, handleDelete, canManageProjects],
   );
 
   const table = useReactTable({
@@ -149,7 +153,7 @@ export default function ProjectsPage() {
 
   return (
     <PermissionGuard
-      permission="view_projects"
+      permissions={["view_projects", "manage_projects"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Proyectos" subtitle="Gestiona los proyectos de tu organización" />
@@ -165,7 +169,7 @@ export default function ProjectsPage() {
         <SectionHeader
           title="Proyectos"
           subtitle="Gestiona los proyectos de tu organización"
-          action={<CreateProjectDialog onProjectCreated={loadProjects} />}
+          action={canManageProjects ? <CreateProjectDialog onProjectCreated={loadProjects} /> : null}
         />
 
         {hasProjects ? (

@@ -10,6 +10,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useOrganizationStore } from "@/stores/organization-store";
 
 import { PositionDialog } from "./_components/position-dialog";
@@ -17,6 +18,8 @@ import { PositionsDataTable } from "./_components/positions-data-table";
 
 export default function PositionsPage() {
   const { positions, isLoading, error, fetchPositions } = useOrganizationStore();
+  const { hasPermission } = usePermissions();
+  const canManagePositions = hasPermission("manage_positions");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingPosition, setEditingPosition] = useState(null);
 
@@ -81,7 +84,7 @@ export default function PositionsPage() {
 
   return (
     <PermissionGuard
-      permission="view_positions"
+      permissions={["view_positions", "manage_positions"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Puestos de trabajo" subtitle="Gestiona los puestos de trabajo de tu organización" />
@@ -98,12 +101,14 @@ export default function PositionsPage() {
           title="Puestos de trabajo"
           subtitle="Gestiona los puestos de trabajo de tu organización"
           action={
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard/position-levels">
-                <Layers className="h-4 w-4" />
-                <span className="hidden md:inline">Niveles</span>
-              </Link>
-            </Button>
+            canManagePositions ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/dashboard/position-levels">
+                  <Layers className="h-4 w-4" />
+                  <span className="hidden md:inline">Niveles</span>
+                </Link>
+              </Button>
+            ) : null
           }
         />
 
@@ -113,14 +118,19 @@ export default function PositionsPage() {
             onNewPosition={() => setDialogOpen(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canManage={canManagePositions}
           />
         ) : (
           <EmptyState
             icon={<BriefcaseBusiness className="mx-auto h-12 w-12" />}
             title="No hay puestos registrados"
             description="Comienza agregando tu primer puesto de trabajo al sistema"
-            actionLabel="Agregar primer puesto"
-            onAction={() => setDialogOpen(true)}
+            {...(canManagePositions
+              ? {
+                  actionLabel: "Agregar primer puesto",
+                  onAction: () => setDialogOpen(true),
+                }
+              : {})}
           />
         )}
 

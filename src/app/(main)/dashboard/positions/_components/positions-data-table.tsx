@@ -34,9 +34,16 @@ interface PositionsDataTableProps {
   onNewPosition?: () => void;
   onEdit?: (position: Position) => void;
   onDelete?: (position: Position) => void;
+  canManage?: boolean;
 }
 
-export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: PositionsDataTableProps) {
+export function PositionsDataTable({
+  data,
+  onNewPosition,
+  onEdit,
+  onDelete,
+  canManage = false,
+}: PositionsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -44,7 +51,10 @@ export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: Po
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const columns = React.useMemo(() => createPositionsColumns({ onEdit, onDelete }), [onEdit, onDelete]);
+  const columns = React.useMemo(
+    () => createPositionsColumns({ onEdit, onDelete, canManage }),
+    [onEdit, onDelete, canManage],
+  );
 
   const filteredData = React.useMemo(() => {
     switch (activeTab) {
@@ -147,10 +157,12 @@ export function PositionsDataTable({ data, onNewPosition, onEdit, onDelete }: Po
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button size="sm" onClick={onNewPosition}>
-            <Plus />
-            <span className="hidden lg:inline">Nuevo puesto</span>
-          </Button>
+          {canManage && (
+            <Button size="sm" onClick={onNewPosition}>
+              <Plus />
+              <span className="hidden lg:inline">Nuevo puesto</span>
+            </Button>
+          )}
         </div>
       </div>
 

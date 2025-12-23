@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 
 import { Role } from "@prisma/client";
-import { AlertCircle, ArrowLeft, Shield, ShieldCheck, ShieldQuestion } from "lucide-react";
+import { AlertCircle, ArrowLeft, Shield, ShieldAlert, ShieldCheck, ShieldQuestion } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +62,24 @@ export default async function AlertsExplorerPage() {
     userId: session.user.id,
   });
   const canManageTimeTracking = effectivePermissions.has("manage_time_tracking");
+  const canViewTimeTracking = canManageTimeTracking || effectivePermissions.has("view_time_tracking");
+
+  if (!canViewTimeTracking) {
+    return (
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader title="Explorador de Alertas" />
+        <Card>
+          <CardContent className="flex items-center gap-3 py-8">
+            <ShieldAlert className="text-destructive h-6 w-6" />
+            <div>
+              <p className="font-medium">Acceso restringido</p>
+              <p className="text-muted-foreground text-sm">No tienes permisos para ver alertas.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const hasOrgAccess = canManageTimeTracking || responsibilities.some((r) => r.scope === "ORGANIZATION");
 
   const [departments, costCenters, teams, subscriptions, orgStats, latestAlerts] = await Promise.all([

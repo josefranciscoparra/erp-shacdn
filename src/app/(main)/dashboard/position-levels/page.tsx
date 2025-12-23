@@ -7,6 +7,7 @@ import { Briefcase, Loader2, ShieldAlert } from "lucide-react";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useOrganizationStore, type PositionLevel } from "@/stores/organization-store";
 
 import { PositionLevelDialog } from "../positions/_components/position-level-dialog";
@@ -14,6 +15,8 @@ import { PositionLevelsDataTable } from "../positions/_components/position-level
 
 export default function PositionLevelsPage() {
   const { positionLevels, isLoading, error, fetchPositionLevels } = useOrganizationStore();
+  const { hasPermission } = usePermissions();
+  const canManagePositions = hasPermission("manage_positions");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLevel, setEditingLevel] = useState<PositionLevel | null>(null);
 
@@ -86,7 +89,7 @@ export default function PositionLevelsPage() {
 
   return (
     <PermissionGuard
-      permission="view_positions"
+      permission="manage_positions"
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader
@@ -113,14 +116,19 @@ export default function PositionLevelsPage() {
             onNewLevel={() => setDialogOpen(true)}
             onEdit={handleEdit}
             onDelete={handleDelete}
+            canManage={canManagePositions}
           />
         ) : (
           <EmptyState
             icon={<Briefcase className="mx-auto h-12 w-12" />}
             title="No hay niveles registrados"
             description="Comienza agregando tu primer nivel de puesto al sistema"
-            actionLabel="Agregar primer nivel"
-            onAction={() => setDialogOpen(true)}
+            {...(canManagePositions
+              ? {
+                  actionLabel: "Agregar primer nivel",
+                  onAction: () => setDialogOpen(true),
+                }
+              : {})}
           />
         )}
 

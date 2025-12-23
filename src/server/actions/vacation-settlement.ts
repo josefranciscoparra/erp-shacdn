@@ -17,9 +17,11 @@
 import { revalidatePath } from "next/cache";
 
 import type { Prisma } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { calculateSettlementBalance, type VacationCalculation } from "@/lib/vacation-calculator";
 
@@ -111,9 +113,13 @@ async function validatePermissions(): Promise<PermissionsResult> {
     };
   }
 
-  // Solo HR_ADMIN, ORG_ADMIN y SUPER_ADMIN pueden gestionar liquidaciones
-  const allowedRoles = ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
-  if (!allowedRoles.includes(user.role)) {
+  const effectivePermissions = await computeEffectivePermissions({
+    role: user.role as Role,
+    orgId: user.orgId,
+    userId: user.id,
+  });
+
+  if (!effectivePermissions.has("manage_payroll")) {
     return {
       valid: false,
       userId: user.id,

@@ -47,6 +47,7 @@ interface UsersDataTableProps {
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
   canCreateUsers: boolean;
+  canManageUsers: boolean;
   isSuperAdmin?: boolean;
 }
 
@@ -58,6 +59,7 @@ export function UsersDataTable({
   onResetPassword,
   onToggleActive,
   canCreateUsers,
+  canManageUsers,
   isSuperAdmin = false,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
@@ -82,8 +84,17 @@ export function UsersDataTable({
         onToggleActive,
         onManageOrganizations: isSuperAdmin ? handleManageOrganizations : undefined,
         isSuperAdmin,
+        canManage: canManageUsers,
       }),
-    [onViewDetails, onChangeRole, onResetPassword, onToggleActive, handleManageOrganizations, isSuperAdmin],
+    [
+      onViewDetails,
+      onChangeRole,
+      onResetPassword,
+      onToggleActive,
+      handleManageOrganizations,
+      isSuperAdmin,
+      canManageUsers,
+    ],
   );
 
   // Filtrar datos según la pestaña activa

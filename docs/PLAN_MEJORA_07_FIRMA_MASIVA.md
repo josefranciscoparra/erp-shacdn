@@ -5,6 +5,7 @@
 Sistema completo de firma masiva de documentos con soporte para doble firma secuencial (empleado + manager/HR).
 
 **Funcionalidades principales:**
+
 - Crear lotes de firma para múltiples destinatarios
 - Doble firma configurable (Manager, HR o usuario específico)
 - Recordatorios automáticos in-app
@@ -16,14 +17,14 @@ Sistema completo de firma masiva de documentos con soporte para doble firma secu
 
 ## Decisiones de Diseño
 
-| Aspecto | Decisión |
-|---------|----------|
-| **Segundo firmante** | Configurable: Manager, HR o usuario específico |
-| **Recordatorios** | Solo notificación in-app (sin emails) |
-| **Permisos creación** | Solo HR/Admin pueden crear lotes |
-| **Repositorio docs** | Mostrar en expediente SIN duplicar archivo (referencia) |
-| **Modo de firma** | Solo secuencial (no paralelo en esta versión) |
-| **Manager faltante** | Flag `secondSignerMissing` para corrección manual en UI |
+| Aspecto               | Decisión                                                |
+| --------------------- | ------------------------------------------------------- |
+| **Segundo firmante**  | Configurable: Manager, HR o usuario específico          |
+| **Recordatorios**     | Solo notificación in-app (sin emails)                   |
+| **Permisos creación** | Solo HR/Admin pueden crear lotes                        |
+| **Repositorio docs**  | Mostrar en expediente SIN duplicar archivo (referencia) |
+| **Modo de firma**     | Solo secuencial (no paralelo en esta versión)           |
+| **Manager faltante**  | Flag `secondSignerMissing` para corrección manual en UI |
 
 ---
 
@@ -89,16 +90,19 @@ model SignatureRequest {
 ### Reglas de Negocio
 
 **Ciclo de vida del lote:**
+
 - `DRAFT` → `ACTIVE`: Al confirmar y crear SignatureRequests
 - `ACTIVE` → `COMPLETED`: Todos firmaron o cierre manual
 - `ACTIVE` → `CANCELLED`: HR/Admin cancela
 - `ACTIVE` → `EXPIRED`: Cron detecta expiresAt alcanzado
 
 **Doble firma secuencial:**
+
 - Signer[0]: empleado (order = 1) → Notificación inmediata
 - Signer[1]: segundo firmante (order = 2) → Solo puede firmar cuando [0] complete
 
 **Resolución del segundo firmante:**
+
 - `MANAGER`: Buscar manager directo → Si no existe: `secondSignerMissing = true`
 - `HR`: Usuario con rol HR de la org
 - `SPECIFIC_USER`: Usar `secondSignerUserId` (validar misma org)
@@ -121,10 +125,12 @@ model SignatureRequest {
 ## TODOs por Fase
 
 ### Fase 0: Preparación
+
 - [x] Crear rama `feature/mejora-07-firma-masiva-doble-firma`
 - [x] Crear documento del plan `/docs/PLAN_MEJORA_07_FIRMA_MASIVA.md`
 
 ### Fase 1: Base de Datos
+
 - [x] Crear enum `SignatureBatchStatus`
 - [x] Crear enum `SecondSignerRole`
 - [x] Crear modelo `SignatureBatch`
@@ -134,6 +140,7 @@ model SignatureRequest {
 - [x] Sincronizar DB con `prisma db push`
 
 ### Fase 2: Server Actions
+
 - [x] Crear `/src/server/actions/signature-batch.ts`
 - [x] Crear `/src/lib/validations/signature-batch.ts`
 - [x] Crear `/src/lib/signatures/double-signature.ts`
@@ -146,6 +153,7 @@ model SignatureRequest {
 - [x] Implementar `resolveSecondSigner()`
 
 ### Fase 3: UI Creación de Lote
+
 - [x] Crear `/src/app/(main)/dashboard/signatures/_components/create-batch-dialog.tsx`
 - [x] Paso 1: Selección de documento
 - [x] Paso 2: Selección de destinatarios (Todos | Por Dpto | Manual)
@@ -155,6 +163,7 @@ model SignatureRequest {
 - [x] Contador "Se crearán X solicitudes"
 
 ### Fase 4: Dashboard de Lotes
+
 - [x] Crear `/src/app/(main)/dashboard/signatures/batches/page.tsx`
 - [x] Crear `/src/app/(main)/dashboard/signatures/batches/[id]/page.tsx`
 - [x] Crear `_components/batch-stats-cards.tsx`
@@ -168,6 +177,7 @@ model SignatureRequest {
 - [x] Botones: Cancelar, Reenviar recordatorios, Exportar
 
 ### Fase 5: Sistema de Recordatorios (TODO - Pospuesto)
+
 - [ ] Crear `/src/server/actions/signature-reminders.ts`
 - [ ] Crear `/src/app/api/cron/signature-reminders/route.ts`
 - [ ] Lógica de cron (solo lotes ACTIVE)
@@ -175,9 +185,10 @@ model SignatureRequest {
 - [ ] Control de duplicados (lastReminderAt)
 - [ ] Crear notificación SIGNATURE_REMINDER
 - [ ] Proteger endpoint con secret header
-> **Nota**: Esta fase se implementará en una iteración futura.
+  > **Nota**: Esta fase se implementará en una iteración futura.
 
 ### Fase 6: Vista de Auditoría
+
 - [x] Crear `/src/app/(main)/dashboard/signatures/[id]/audit/page.tsx`
 - [x] Crear `_components/audit-timeline.tsx`
 - [x] Timeline: creación, envíos, consentimientos, firmas, rechazos, recordatorios
@@ -186,6 +197,7 @@ model SignatureRequest {
 - [x] Enlace a PDF firmado
 
 ### Fase 7: Documentos en Expediente
+
 - [x] Crear `/src/server/actions/employee-signatures.ts`
 - [x] Implementar `getEmployeeSignedDocuments()`
 - [x] Crear componente `employee-signed-documents.tsx`
@@ -194,6 +206,7 @@ model SignatureRequest {
 - [x] Descarga directa sin duplicar archivo
 
 ### Fase 8: Permisos y Visibilidad
+
 - [x] Validar permisos HR/Admin en creación de lotes
 - [x] Validar permisos HR/Admin en vista de lotes
 - [x] Empleados solo ven sus SignatureRequest
@@ -230,13 +243,13 @@ model SignatureRequest {
 
 ## Historial de Cambios
 
-| Fecha | Cambio |
-|-------|--------|
-| 2024-12-08 | Creación del plan |
-| 2024-12-08 | Fase 1 completada: Schema de Prisma actualizado con SignatureBatch |
-| 2024-12-08 | Fase 2 completada: Server actions, validaciones y lógica de doble firma |
-| 2024-12-08 | Fase 3 completada: UI wizard de creación de lote (5 pasos) |
-| 2024-12-08 | Fase 4 completada: Dashboard de lotes (página lista, detalle, componentes) |
-| 2024-12-09 | Fase 6 completada: Vista de auditoría con timeline, evidencia y exportación JSON |
-| 2024-12-09 | Fase 7 completada: Documentos firmados en expediente del empleado |
+| Fecha      | Cambio                                                                                       |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| 2024-12-08 | Creación del plan                                                                            |
+| 2024-12-08 | Fase 1 completada: Schema de Prisma actualizado con SignatureBatch                           |
+| 2024-12-08 | Fase 2 completada: Server actions, validaciones y lógica de doble firma                      |
+| 2024-12-08 | Fase 3 completada: UI wizard de creación de lote (5 pasos)                                   |
+| 2024-12-08 | Fase 4 completada: Dashboard de lotes (página lista, detalle, componentes)                   |
+| 2024-12-09 | Fase 6 completada: Vista de auditoría con timeline, evidencia y exportación JSON             |
+| 2024-12-09 | Fase 7 completada: Documentos firmados en expediente del empleado                            |
 | 2024-12-09 | Fase 8 completada: Permisos y visibilidad (roles correctos HR_ADMIN, ORG_ADMIN, SUPER_ADMIN) |

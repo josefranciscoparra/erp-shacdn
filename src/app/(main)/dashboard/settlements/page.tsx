@@ -72,7 +72,7 @@ export default function SettlementsPage() {
 
   return (
     <PermissionGuard
-      permission="manage_organization"
+      permission="manage_payroll"
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Liquidaciones" subtitle="Gestiona las liquidaciones de vacaciones" />

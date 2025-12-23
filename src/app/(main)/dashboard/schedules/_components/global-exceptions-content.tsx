@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getAllGlobalExceptions, deleteExceptionDay } from "@/server/actions/schedules-v2";
 
 import { CreateGlobalExceptionDialog } from "./create-global-exception-dialog";
@@ -41,6 +42,8 @@ const exceptionTypeLabels: Record<
 };
 
 export function GlobalExceptionsContent() {
+  const { hasPermission } = usePermissions();
+  const canManageSchedules = hasPermission("manage_contracts");
   const [exceptions, setExceptions] = useState<Awaited<ReturnType<typeof getAllGlobalExceptions>>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -156,10 +159,12 @@ export function GlobalExceptionsContent() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nueva Excepción
-          </Button>
+          {canManageSchedules && (
+            <Button onClick={() => setCreateDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nueva Excepción
+            </Button>
+          )}
         </div>
       </div>
 
@@ -169,12 +174,15 @@ export function GlobalExceptionsContent() {
         <ExceptionsCalendar
           exceptions={exceptionsForCalendar}
           onExceptionClick={(exception) => {
+            if (!canManageSchedules) {
+              return;
+            }
             const fullException = exceptions.find((e) => e.id === exception.id);
             if (fullException) {
               handleEditClick(fullException);
             }
           }}
-          onCreateException={() => setCreateDialogOpen(true)}
+          onCreateException={canManageSchedules ? () => setCreateDialogOpen(true) : undefined}
         />
       ) : (
         /* Vista de tabla */
@@ -189,10 +197,12 @@ export function GlobalExceptionsContent() {
                   <br />
                   Crea excepciones globales, por departamento o por centro de costes.
                 </CardDescription>
-                <Button onClick={() => setCreateDialogOpen(true)} className="mt-4">
-                  <Plus className="mr-2 h-4 w-4" />
-                  Crear Primera Excepción
-                </Button>
+                {canManageSchedules && (
+                  <Button onClick={() => setCreateDialogOpen(true)} className="mt-4">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Crear Primera Excepción
+                  </Button>
+                )}
               </CardContent>
             </Card>
           ) : (
@@ -267,14 +277,16 @@ export function GlobalExceptionsContent() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="sm" onClick={() => handleEditClick(exception)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(exception.id)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          {canManageSchedules && (
+                            <div className="flex justify-end gap-2">
+                              <Button variant="ghost" size="sm" onClick={() => handleEditClick(exception)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(exception.id)}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -287,35 +299,41 @@ export function GlobalExceptionsContent() {
       )}
 
       {/* Dialog de creación */}
-      <CreateGlobalExceptionDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onSuccess={handleCreateSuccess}
-      />
+      {canManageSchedules && (
+        <CreateGlobalExceptionDialog
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onSuccess={handleCreateSuccess}
+        />
+      )}
 
       {/* Dialog de edición */}
-      <CreateGlobalExceptionDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSuccess={handleEditSuccess}
-        exceptionToEdit={exceptionToEdit}
-      />
+      {canManageSchedules && (
+        <CreateGlobalExceptionDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          onSuccess={handleEditSuccess}
+          exceptionToEdit={exceptionToEdit}
+        />
+      )}
 
       {/* Dialog de confirmación de eliminación */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar excepción?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción eliminará la excepción de horario. El registro se mantendrá en el historial para auditoría.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {canManageSchedules && (
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>¿Eliminar excepción?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta acción eliminará la excepción de horario. El registro se mantendrá en el historial para auditoría.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete}>Eliminar</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }

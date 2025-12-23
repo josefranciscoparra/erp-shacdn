@@ -67,14 +67,15 @@ export function ClockIn() {
   // Estados de geolocalización
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
+  type ClockAction = (
+    latitude?: number,
+    longitude?: number,
+    accuracy?: number,
+    projectId?: string,
+    task?: string,
+  ) => Promise<unknown>;
   const [pendingAction, setPendingAction] = useState<{
-    action:(
-      latitude?: number,
-      longitude?: number,
-      accuracy?: number,
-      projectId?: string,
-      task?: string,
-    ) => Promise<any>;
+    action: ClockAction;
     projectId?: string | null;
     task?: string;
   } | null>(null);

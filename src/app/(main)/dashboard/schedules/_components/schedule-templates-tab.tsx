@@ -2,17 +2,20 @@
 
 import { useEffect, useState } from "react";
 
-import { Calendar, Plus } from "lucide-react";
+import { Calendar } from "lucide-react";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { usePermissions } from "@/hooks/use-permissions";
 import { getScheduleTemplates } from "@/server/actions/schedules-v2";
 
 import { CreateTemplateDialog } from "./create-template-dialog";
 import { ScheduleTemplatesList } from "./schedules-templates-list";
 
 export function ScheduleTemplatesTab() {
+  const { hasPermission } = usePermissions();
+  const canManageSchedules = hasPermission("manage_contracts");
   const [templates, setTemplates] = useState<Awaited<ReturnType<typeof getScheduleTemplates>>>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -63,7 +66,7 @@ export function ScheduleTemplatesTab() {
         icon={<Calendar className="text-muted-foreground mx-auto h-12 w-12" />}
         title="No hay plantillas de horarios"
         description="Crea tu primera plantilla para empezar a gestionar los horarios de tu organización"
-        action={<CreateTemplateDialog />}
+        action={canManageSchedules ? <CreateTemplateDialog /> : undefined}
       />
     );
   }
@@ -74,7 +77,7 @@ export function ScheduleTemplatesTab() {
         <p className="text-muted-foreground text-sm">
           Gestionando <strong>{templates.length}</strong> plantillas activas
         </p>
-        <CreateTemplateDialog />
+        {canManageSchedules && <CreateTemplateDialog />}
       </div>
       <ScheduleTemplatesList templates={templates} />
     </div>

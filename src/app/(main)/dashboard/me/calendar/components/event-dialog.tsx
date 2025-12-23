@@ -25,8 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import { DefaultEndHour, DefaultStartHour, EndHour, StartHour } from "../constants";
-
-import type { CalendarEvent, EventColor } from "./";
+import type { CalendarEvent, EventColor } from "../types";
 
 interface EventDialogProps {
   event: CalendarEvent | null;

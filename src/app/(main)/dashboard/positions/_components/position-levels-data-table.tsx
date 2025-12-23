@@ -23,12 +23,22 @@ interface PositionLevelsDataTableProps {
   onNewLevel?: () => void;
   onEdit?: (level: PositionLevel) => void;
   onDelete?: (level: PositionLevel) => void;
+  canManage?: boolean;
 }
 
-export function PositionLevelsDataTable({ data, onNewLevel, onEdit, onDelete }: PositionLevelsDataTableProps) {
+export function PositionLevelsDataTable({
+  data,
+  onNewLevel,
+  onEdit,
+  onDelete,
+  canManage = false,
+}: PositionLevelsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
 
-  const columns = React.useMemo(() => createPositionLevelsColumns({ onEdit, onDelete }), [onEdit, onDelete]);
+  const columns = React.useMemo(
+    () => createPositionLevelsColumns({ onEdit, onDelete, canManage }),
+    [onEdit, onDelete, canManage],
+  );
 
   const filteredData = React.useMemo(() => {
     switch (activeTab) {
@@ -94,10 +104,12 @@ export function PositionLevelsDataTable({ data, onNewLevel, onEdit, onDelete }: 
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button variant="default" size="sm" onClick={onNewLevel}>
-            <Plus />
-            <span className="hidden lg:inline">Nuevo nivel</span>
-          </Button>
+          {canManage && (
+            <Button variant="default" size="sm" onClick={onNewLevel}>
+              <Plus />
+              <span className="hidden lg:inline">Nuevo nivel</span>
+            </Button>
+          )}
         </div>
       </div>
 

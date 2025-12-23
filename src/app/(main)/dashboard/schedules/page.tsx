@@ -13,7 +13,7 @@ import { ScheduleTemplatesTab } from "./_components/schedule-templates-tab";
 export default function SchedulesPage() {
   return (
     <PermissionGuard
-      permission="view_contracts"
+      permissions={["view_contracts", "manage_contracts"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Gestión de Horarios" subtitle="Sistema de Horarios V2.0" />

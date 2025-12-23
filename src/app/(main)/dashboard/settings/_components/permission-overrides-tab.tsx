@@ -402,259 +402,259 @@ export function PermissionOverridesTab() {
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <Card className="rounded-lg border p-6">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            <div>
-              <h3 className="font-semibold">Overrides de permisos por rol</h3>
-              <p className="text-muted-foreground text-sm">
-                Personaliza los permisos de cada rol solo para esta organización
-              </p>
+        {/* Header */}
+        <Card className="rounded-lg border p-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              <div>
+                <h3 className="font-semibold">Overrides de permisos por rol</h3>
+                <p className="text-muted-foreground text-sm">
+                  Personaliza los permisos de cada rol solo para esta organización
+                </p>
+              </div>
             </div>
+
+            {/* Selector de rol */}
+            <Tabs value={selectedRole} onValueChange={(v) => setSelectedRole(v as Role)}>
+              <TabsList className="flex-wrap">
+                {EDITABLE_ROLES.map((role) => {
+                  const roleOverride = overrides.find((o) => o.role === role);
+                  const hasOverride = roleOverride?.hasOverride;
+                  return (
+                    <TabsTrigger key={role} value={role} className="relative">
+                      {ROLE_INFO[role].label}
+                      {hasOverride && <span className="bg-primary ml-1.5 h-1.5 w-1.5 rounded-full" />}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+
+              {EDITABLE_ROLES.map((role) => (
+                <TabsContent key={role} value={role} className="mt-4">
+                  <p className="text-muted-foreground text-sm">{ROLE_INFO[role].description}</p>
+                </TabsContent>
+              ))}
+            </Tabs>
           </div>
-
-          {/* Selector de rol */}
-          <Tabs value={selectedRole} onValueChange={(v) => setSelectedRole(v as Role)}>
-            <TabsList className="flex-wrap">
-              {EDITABLE_ROLES.map((role) => {
-                const roleOverride = overrides.find((o) => o.role === role);
-                const hasOverride = roleOverride?.hasOverride;
-                return (
-                  <TabsTrigger key={role} value={role} className="relative">
-                    {ROLE_INFO[role].label}
-                    {hasOverride && <span className="bg-primary ml-1.5 h-1.5 w-1.5 rounded-full" />}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            {EDITABLE_ROLES.map((role) => (
-              <TabsContent key={role} value={role} className="mt-4">
-                <p className="text-muted-foreground text-sm">{ROLE_INFO[role].description}</p>
-              </TabsContent>
-            ))}
-          </Tabs>
-        </div>
-      </Card>
-
-      {/* Warning de permisos sensibles */}
-      {hasSensitiveGrants && (
-        <Alert variant="destructive">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertTitle>Atención: permisos sensibles</AlertTitle>
-          <AlertDescription>
-            Estás otorgando permisos sensibles a este rol. Asegúrate de que es intencional.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Panel de edición */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* Columna izquierda: Permisos disponibles */}
-        <Card className="rounded-lg border p-4">
-          <div className="mb-4 flex flex-col gap-3">
-            <h4 className="font-medium">Permisos disponibles</h4>
-            <div className="relative">
-              <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
-              <Input
-                placeholder="Buscar permisos..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-          </div>
-
-          <ScrollArea className="h-[500px] pr-4">
-            <div className="space-y-4">
-              {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => {
-                const categoryPermissions = permissions.filter((p) => filteredPermissions.includes(p));
-                if (categoryPermissions.length === 0) return null;
-
-                return (
-                  <Collapsible key={category} defaultOpen>
-                    <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-sm font-medium">
-                      <ChevronDown className="h-4 w-4" />
-                      {category}
-                      <Badge variant="outline" className="ml-auto">
-                        {categoryPermissions.length}
-                      </Badge>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="mt-2 space-y-1">
-                      {categoryPermissions.map((permission) => {
-                        const status = getPermissionStatus(permission);
-                        const isSensitive = SENSITIVE_PERMISSIONS.includes(permission);
-                        const permInfo = PERMISSION_INFO[permission];
-
-                        return (
-                          <div
-                            key={permission}
-                            className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
-                              status === "granted"
-                                ? "border-green-500/50 bg-green-500/10"
-                                : status === "revoked"
-                                  ? "border-red-500/50 bg-red-500/10"
-                                  : status === "base"
-                                    ? "bg-muted/50"
-                                    : ""
-                            }`}
-                          >
-                            <div className="flex items-center gap-2">
-                              {status === "base" && <Check className="text-muted-foreground h-3.5 w-3.5" />}
-                              {status === "granted" && <Plus className="h-3.5 w-3.5 text-green-500" />}
-                              {status === "revoked" && <Minus className="h-3.5 w-3.5 text-red-500" />}
-                              {status === "none" && <X className="text-muted-foreground/30 h-3.5 w-3.5" />}
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className={`cursor-help border-b border-dotted border-current ${status === "revoked" ? "line-through opacity-60" : ""}`}
-                                  >
-                                    {permInfo?.label ?? permission}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <div className="space-y-1">
-                                    <p className="text-sm">{permInfo?.description ?? "Sin descripción"}</p>
-                                    <p className="text-muted-foreground font-mono text-xs">{permission}</p>
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                              {isSensitive && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
-                            </div>
-                            <div className="flex gap-1">
-                              <Button
-                                variant={status === "granted" ? "default" : "ghost"}
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => toggleGrant(permission)}
-                                disabled={status === "base" && !localRevokes.has(permission)}
-                                title={status === "granted" ? "Quitar grant" : "Añadir permiso"}
-                              >
-                                <Plus className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant={status === "revoked" ? "destructive" : "ghost"}
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={() => toggleRevoke(permission)}
-                                disabled={status === "none" && !localGrants.has(permission)}
-                                title={status === "revoked" ? "Quitar revoke" : "Revocar permiso"}
-                              >
-                                <Minus className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </CollapsibleContent>
-                  </Collapsible>
-                );
-              })}
-            </div>
-          </ScrollArea>
         </Card>
 
-        {/* Columna derecha: Resumen */}
-        <div className="flex flex-col gap-4">
-          {/* Permisos añadidos */}
-          <Card className="rounded-lg border p-4">
-            <h4 className="mb-3 flex items-center gap-2 font-medium text-green-600">
-              <Plus className="h-4 w-4" />
-              Permisos añadidos ({localGrants.size})
-            </h4>
-            {localGrants.size === 0 ? (
-              <p className="text-muted-foreground text-sm">Ningún permiso añadido</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {Array.from(localGrants).map((p) => (
-                  <Badge
-                    key={p}
-                    variant="outline"
-                    className="cursor-pointer border-green-500/50 bg-green-500/10"
-                    onClick={() => toggleGrant(p)}
-                  >
-                    {PERMISSION_LABELS[p] ?? p}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </Card>
+        {/* Warning de permisos sensibles */}
+        {hasSensitiveGrants && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Atención: permisos sensibles</AlertTitle>
+            <AlertDescription>
+              Estás otorgando permisos sensibles a este rol. Asegúrate de que es intencional.
+            </AlertDescription>
+          </Alert>
+        )}
 
-          {/* Permisos revocados */}
+        {/* Panel de edición */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {/* Columna izquierda: Permisos disponibles */}
           <Card className="rounded-lg border p-4">
-            <h4 className="mb-3 flex items-center gap-2 font-medium text-red-600">
-              <Minus className="h-4 w-4" />
-              Permisos revocados ({localRevokes.size})
-            </h4>
-            {localRevokes.size === 0 ? (
-              <p className="text-muted-foreground text-sm">Ningún permiso revocado</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {Array.from(localRevokes).map((p) => (
-                  <Badge
-                    key={p}
-                    variant="outline"
-                    className="cursor-pointer border-red-500/50 bg-red-500/10"
-                    onClick={() => toggleRevoke(p)}
-                  >
-                    {PERMISSION_LABELS[p] ?? p}
-                    <X className="ml-1 h-3 w-3" />
-                  </Badge>
-                ))}
+            <div className="mb-4 flex flex-col gap-3">
+              <h4 className="font-medium">Permisos disponibles</h4>
+              <div className="relative">
+                <Search className="text-muted-foreground absolute top-2.5 left-2.5 h-4 w-4" />
+                <Input
+                  placeholder="Buscar permisos..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
               </div>
-            )}
-          </Card>
+            </div>
 
-          {/* Permisos efectivos */}
-          <Card className="rounded-lg border p-4">
-            <h4 className="mb-3 font-medium">Permisos efectivos ({effectivePermissions.size})</h4>
-            <p className="text-muted-foreground mb-3 text-xs">
-              Base ({basePermissions.size}) + Añadidos ({localGrants.size}) - Revocados ({localRevokes.size})
-            </p>
-            <ScrollArea className="h-[200px]">
-              <div className="flex flex-wrap gap-1">
-                {Array.from(effectivePermissions)
-                  .sort()
-                  .map((p) => {
-                    const isGranted = localGrants.has(p as Permission);
-                    return (
-                      <Badge
-                        key={p}
-                        variant="secondary"
-                        className={isGranted ? "border-green-500/30 bg-green-500/10" : ""}
-                      >
-                        {PERMISSION_LABELS[p] ?? p}
-                      </Badge>
-                    );
-                  })}
+            <ScrollArea className="h-[500px] pr-4">
+              <div className="space-y-4">
+                {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => {
+                  const categoryPermissions = permissions.filter((p) => filteredPermissions.includes(p));
+                  if (categoryPermissions.length === 0) return null;
+
+                  return (
+                    <Collapsible key={category} defaultOpen>
+                      <CollapsibleTrigger className="flex w-full items-center gap-2 py-1 text-sm font-medium">
+                        <ChevronDown className="h-4 w-4" />
+                        {category}
+                        <Badge variant="outline" className="ml-auto">
+                          {categoryPermissions.length}
+                        </Badge>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2 space-y-1">
+                        {categoryPermissions.map((permission) => {
+                          const status = getPermissionStatus(permission);
+                          const isSensitive = SENSITIVE_PERMISSIONS.includes(permission);
+                          const permInfo = PERMISSION_INFO[permission];
+
+                          return (
+                            <div
+                              key={permission}
+                              className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+                                status === "granted"
+                                  ? "border-green-500/50 bg-green-500/10"
+                                  : status === "revoked"
+                                    ? "border-red-500/50 bg-red-500/10"
+                                    : status === "base"
+                                      ? "bg-muted/50"
+                                      : ""
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                {status === "base" && <Check className="text-muted-foreground h-3.5 w-3.5" />}
+                                {status === "granted" && <Plus className="h-3.5 w-3.5 text-green-500" />}
+                                {status === "revoked" && <Minus className="h-3.5 w-3.5 text-red-500" />}
+                                {status === "none" && <X className="text-muted-foreground/30 h-3.5 w-3.5" />}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span
+                                      className={`cursor-help border-b border-dotted border-current ${status === "revoked" ? "line-through opacity-60" : ""}`}
+                                    >
+                                      {permInfo?.label ?? permission}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    <div className="space-y-1">
+                                      <p className="text-sm">{permInfo?.description ?? "Sin descripción"}</p>
+                                      <p className="text-muted-foreground font-mono text-xs">{permission}</p>
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                                {isSensitive && <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />}
+                              </div>
+                              <div className="flex gap-1">
+                                <Button
+                                  variant={status === "granted" ? "default" : "ghost"}
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => toggleGrant(permission)}
+                                  disabled={status === "base" && !localRevokes.has(permission)}
+                                  title={status === "granted" ? "Quitar grant" : "Añadir permiso"}
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  variant={status === "revoked" ? "destructive" : "ghost"}
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => toggleRevoke(permission)}
+                                  disabled={status === "none" && !localGrants.has(permission)}
+                                  title={status === "revoked" ? "Quitar revoke" : "Revocar permiso"}
+                                >
+                                  <Minus className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CollapsibleContent>
+                    </Collapsible>
+                  );
+                })}
               </div>
             </ScrollArea>
           </Card>
 
-          {/* Acciones */}
-          <div className="flex gap-2">
-            <Button onClick={handleSave} disabled={!hasChanges || isPending} className="flex-1">
-              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Guardar cambios
-            </Button>
-            <Button variant="outline" onClick={handleDiscard} disabled={!hasChanges || isPending}>
-              Descartar
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReset}
-              disabled={isPending || (!currentOverride?.hasOverride && !hasChanges)}
-              title="Restablecer a permisos base"
-            >
-              <RefreshCcw className="h-4 w-4" />
-            </Button>
+          {/* Columna derecha: Resumen */}
+          <div className="flex flex-col gap-4">
+            {/* Permisos añadidos */}
+            <Card className="rounded-lg border p-4">
+              <h4 className="mb-3 flex items-center gap-2 font-medium text-green-600">
+                <Plus className="h-4 w-4" />
+                Permisos añadidos ({localGrants.size})
+              </h4>
+              {localGrants.size === 0 ? (
+                <p className="text-muted-foreground text-sm">Ningún permiso añadido</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(localGrants).map((p) => (
+                    <Badge
+                      key={p}
+                      variant="outline"
+                      className="cursor-pointer border-green-500/50 bg-green-500/10"
+                      onClick={() => toggleGrant(p)}
+                    >
+                      {PERMISSION_LABELS[p] ?? p}
+                      <X className="ml-1 h-3 w-3" />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Permisos revocados */}
+            <Card className="rounded-lg border p-4">
+              <h4 className="mb-3 flex items-center gap-2 font-medium text-red-600">
+                <Minus className="h-4 w-4" />
+                Permisos revocados ({localRevokes.size})
+              </h4>
+              {localRevokes.size === 0 ? (
+                <p className="text-muted-foreground text-sm">Ningún permiso revocado</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {Array.from(localRevokes).map((p) => (
+                    <Badge
+                      key={p}
+                      variant="outline"
+                      className="cursor-pointer border-red-500/50 bg-red-500/10"
+                      onClick={() => toggleRevoke(p)}
+                    >
+                      {PERMISSION_LABELS[p] ?? p}
+                      <X className="ml-1 h-3 w-3" />
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </Card>
+
+            {/* Permisos efectivos */}
+            <Card className="rounded-lg border p-4">
+              <h4 className="mb-3 font-medium">Permisos efectivos ({effectivePermissions.size})</h4>
+              <p className="text-muted-foreground mb-3 text-xs">
+                Base ({basePermissions.size}) + Añadidos ({localGrants.size}) - Revocados ({localRevokes.size})
+              </p>
+              <ScrollArea className="h-[200px]">
+                <div className="flex flex-wrap gap-1">
+                  {Array.from(effectivePermissions)
+                    .sort()
+                    .map((p) => {
+                      const isGranted = localGrants.has(p as Permission);
+                      return (
+                        <Badge
+                          key={p}
+                          variant="secondary"
+                          className={isGranted ? "border-green-500/30 bg-green-500/10" : ""}
+                        >
+                          {PERMISSION_LABELS[p] ?? p}
+                        </Badge>
+                      );
+                    })}
+                </div>
+              </ScrollArea>
+            </Card>
+
+            {/* Acciones */}
+            <div className="flex gap-2">
+              <Button onClick={handleSave} disabled={!hasChanges || isPending} className="flex-1">
+                {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Guardar cambios
+              </Button>
+              <Button variant="outline" onClick={handleDiscard} disabled={!hasChanges || isPending}>
+                Descartar
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleReset}
+                disabled={isPending || (!currentOverride?.hasOverride && !hasChanges)}
+                title="Restablecer a permisos base"
+              >
+                <RefreshCcw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

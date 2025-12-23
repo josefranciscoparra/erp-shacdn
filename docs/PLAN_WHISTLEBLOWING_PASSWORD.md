@@ -6,6 +6,7 @@
 ## Resumen
 
 Implementar dos funcionalidades:
+
 1. **Canal de Denuncias** (Whistleblowing) - Conforme Ley 2/2023
 2. **Cambio de Contraseña Voluntario** - En Mi Perfil
 
@@ -15,23 +16,25 @@ Implementar dos funcionalidades:
 
 ## Decisiones de Diseño
 
-| Aspecto | Decisión |
-|---------|----------|
-| Anonimato | Ambos: empleados autenticados + portal público anónimo |
-| Gestores | Permiso configurable `MANAGE_WHISTLEBLOWING` asignable a cualquier usuario |
-| Prioridad | Denuncias primero, luego cambio de contraseña |
+| Aspecto   | Decisión                                                                   |
+| --------- | -------------------------------------------------------------------------- |
+| Anonimato | Ambos: empleados autenticados + portal público anónimo                     |
+| Gestores  | Permiso configurable `MANAGE_WHISTLEBLOWING` asignable a cualquier usuario |
+| Prioridad | Denuncias primero, luego cambio de contraseña                              |
 
 ---
 
 ## IMPORTANTE: Alcance MVP vs Fase 2
 
 ### MVP (Sprint 1-3)
+
 - 4 tablas: Category, Report, Document, Activity
 - 4 estados: SUBMITTED, IN_REVIEW, RESOLVED, CLOSED
 - Flujos básicos: crear, ver, filtrar, cambiar estado, adjuntar docs
 - Sin chat bidireccional, sin emails automáticos
 
 ### Fase 2 (Futuro)
+
 - WhistleblowingComment (tabla separada)
 - Estados adicionales: DRAFT, ASSIGNED, REFERRED
 - Notificaciones por email
@@ -225,10 +228,12 @@ model WhistleblowingActivity {
 ### Cifrado - Decisiones Explícitas
 
 **Cifrar con `encryptField()`/`decryptField()`:**
+
 - `involvedParties` (personas implicadas)
 - `reporterMetadata` (datos de contacto opcionales)
 
 **NO cifrar (para poder filtrar/indexar):**
+
 - `title`
 - `status`
 - `priority`
@@ -241,10 +246,12 @@ model WhistleblowingActivity {
 ### Reglas de Visualización
 
 **En UI de gestión (`/dashboard/whistleblowing`):**
+
 - Si `reporterType = ANONYMOUS` → NO mostrar datos identificativos aunque exista `reporterMetadata`
 - Mostrar solo `reporterDisplayLabel` ("Anónimo", "Empleado interno", etc.)
 
 **En portal de seguimiento (`/whistleblowing/[orgSlug]/track`):**
+
 - NUNCA mostrar: `assignedTo`, nombres de gestores, notas internas
 - Solo mostrar: estado + mensajes genéricos ("En estudio", "Resuelta", etc.)
 
@@ -265,6 +272,7 @@ whistleblowingManagerIds: String[]  // IDs de usuarios con permiso
 ```
 
 **Configuración en Settings**: Toggle en `/dashboard/settings` para:
+
 - Activar/desactivar canal de denuncias
 - Asignar gestores (multiselect de usuarios)
 - Configurar categorías
@@ -277,25 +285,26 @@ whistleblowingManagerIds: String[]  // IDs de usuarios con permiso
 
 ```typescript
 // === ACCIONES PÚBLICAS ===
-export async function createWhistleblowingReport(data)    // Empleado autenticado
-export async function createAnonymousReport(orgSlug, data) // Portal público
-export async function checkAnonymousReportStatus(trackingCode, accessCode)
-export async function getWhistleblowingCategories(orgId?)
-export async function uploadWhistleblowingDocument(reportId, formData)
+export async function createWhistleblowingReport(data); // Empleado autenticado
+export async function createAnonymousReport(orgSlug, data); // Portal público
+export async function checkAnonymousReportStatus(trackingCode, accessCode);
+export async function getWhistleblowingCategories(orgId?);
+export async function uploadWhistleblowingDocument(reportId, formData);
 
 // === ACCIONES DE GESTIÓN (requiere MANAGE_WHISTLEBLOWING) ===
-export async function getWhistleblowingReports(filters?)
-export async function getWhistleblowingReportDetail(reportId)
-export async function assignReportManager(reportId, managerId)
-export async function updateReportStatus(reportId, status)
-export async function updateReportPriority(reportId, priority)
-export async function resolveReport(reportId, resolutionType, resolution)
-export async function closeReport(reportId)
-export async function addInternalNote(reportId, content)  // Usa Activity con INTERNAL_NOTE
-export async function getWhistleblowingStats()
+export async function getWhistleblowingReports(filters?);
+export async function getWhistleblowingReportDetail(reportId);
+export async function assignReportManager(reportId, managerId);
+export async function updateReportStatus(reportId, status);
+export async function updateReportPriority(reportId, priority);
+export async function resolveReport(reportId, resolutionType, resolution);
+export async function closeReport(reportId);
+export async function addInternalNote(reportId, content); // Usa Activity con INTERNAL_NOTE
+export async function getWhistleblowingStats();
 ```
 
 **NO incluir en MVP:**
+
 - `addReportComment()` → Usar `addInternalNote()` con Activity
 - Chat bidireccional
 - Emails automáticos
@@ -331,6 +340,7 @@ src/app/(external)/whistleblowing/[orgSlug]/
 ```
 
 **Fase 2 (no MVP):**
+
 - `/categories/page.tsx` → Gestión de categorías (usar seed inicial)
 - `whistleblowing-stats-cards.tsx`
 
@@ -338,14 +348,14 @@ src/app/(external)/whistleblowing/[orgSlug]/
 
 ### MVP Tabla - Columnas
 
-| Columna | Campo |
-|---------|-------|
-| Código | `trackingCode` |
-| Fecha | `submittedAt` |
-| Categoría | `category.name` |
-| Tipo | `reporterType` (badge: Interno/Anónimo/Externo) |
-| Estado | `status` (badge coloreado) |
-| Prioridad | `priority` (badge) |
+| Columna   | Campo                                           |
+| --------- | ----------------------------------------------- |
+| Código    | `trackingCode`                                  |
+| Fecha     | `submittedAt`                                   |
+| Categoría | `category.name`                                 |
+| Tipo      | `reporterType` (badge: Interno/Anónimo/Externo) |
+| Estado    | `status` (badge coloreado)                      |
+| Prioridad | `priority` (badge)                              |
 
 **Fase 2:** Agregar "Gestor asignado" y "Última actividad"
 
@@ -370,6 +380,7 @@ src/app/(external)/whistleblowing/[orgSlug]/
 ### Fase 1.6: Componentes Reutilizables
 
 Reutilizar de PTO:
+
 - `DocumentUploadZone` → Para evidencias
 - `DocumentViewer` → Para ver documentos
 - DataTable pattern → Para tabla de denuncias
@@ -419,7 +430,7 @@ export function validatePassword(password: string, policy = DEFAULT_PASSWORD_POL
 export async function changePasswordVoluntary(
   currentPassword: string,
   newPassword: string,
-  invalidateOtherSessions: boolean = true  // Por defecto cierra otras sesiones
+  invalidateOtherSessions: boolean = true, // Por defecto cierra otras sesiones
 ): Promise<{ success: boolean; error?: string }> {
   // 1. Verificar autenticación
   // 2. Validar contraseña actual con bcrypt.compare()
@@ -435,6 +446,7 @@ export async function changePasswordVoluntary(
 ```
 
 **Invalidación de sesiones:**
+
 - Opción mínima: mantener sesión actual, cerrar las demás
 - Implementar eliminando registros de Session donde `userId = currentUser.id` AND `id != currentSession.id`
 
@@ -445,6 +457,7 @@ export async function changePasswordVoluntary(
 **Archivo nuevo**: `/src/app/(main)/dashboard/me/profile/_components/change-password-section.tsx`
 
 Características:
+
 - Card con título "Seguridad"
 - Campos: contraseña actual, nueva, confirmar
 - Toggle mostrar/ocultar contraseña (por campo)
@@ -465,36 +478,37 @@ Características:
 import { ChangePasswordSection } from "./change-password-section";
 
 // Agregar al final del render:
-<ChangePasswordSection />
+<ChangePasswordSection />;
 ```
 
 ---
 
 ## Archivos a Crear (MVP)
 
-| Ruta | Propósito |
-|------|-----------|
-| `/src/server/actions/whistleblowing.ts` | Server actions canal denuncias |
-| `/src/server/actions/change-password.ts` | Server action cambio contraseña |
-| `/src/lib/password-policy.ts` | Interfaz PasswordPolicy con defaults |
-| `/src/app/(main)/dashboard/whistleblowing/page.tsx` | Lista denuncias |
-| `/src/app/(main)/dashboard/whistleblowing/[id]/page.tsx` | Detalle denuncia |
-| `/src/app/(main)/dashboard/whistleblowing/new/page.tsx` | Nueva denuncia |
-| `/src/app/(main)/dashboard/whistleblowing/_components/*.tsx` | ~9 componentes MVP |
-| `/src/app/(external)/whistleblowing/[orgSlug]/page.tsx` | Portal público |
-| `/src/app/(external)/whistleblowing/[orgSlug]/new/page.tsx` | Form anónimo |
-| `/src/app/(external)/whistleblowing/[orgSlug]/track/page.tsx` | Seguimiento |
-| `/src/app/(main)/dashboard/me/profile/_components/change-password-section.tsx` | UI cambio pwd |
+| Ruta                                                                           | Propósito                            |
+| ------------------------------------------------------------------------------ | ------------------------------------ |
+| `/src/server/actions/whistleblowing.ts`                                        | Server actions canal denuncias       |
+| `/src/server/actions/change-password.ts`                                       | Server action cambio contraseña      |
+| `/src/lib/password-policy.ts`                                                  | Interfaz PasswordPolicy con defaults |
+| `/src/app/(main)/dashboard/whistleblowing/page.tsx`                            | Lista denuncias                      |
+| `/src/app/(main)/dashboard/whistleblowing/[id]/page.tsx`                       | Detalle denuncia                     |
+| `/src/app/(main)/dashboard/whistleblowing/new/page.tsx`                        | Nueva denuncia                       |
+| `/src/app/(main)/dashboard/whistleblowing/_components/*.tsx`                   | ~9 componentes MVP                   |
+| `/src/app/(external)/whistleblowing/[orgSlug]/page.tsx`                        | Portal público                       |
+| `/src/app/(external)/whistleblowing/[orgSlug]/new/page.tsx`                    | Form anónimo                         |
+| `/src/app/(external)/whistleblowing/[orgSlug]/track/page.tsx`                  | Seguimiento                          |
+| `/src/app/(main)/dashboard/me/profile/_components/change-password-section.tsx` | UI cambio pwd                        |
 
 ## Archivos a Modificar
 
-| Ruta | Cambio |
-|------|--------|
-| `/prisma/schema.prisma` | Agregar modelos whistleblowing (4 tablas) |
-| `/src/navigation/sidebar/sidebar-items.ts` | Agregar enlace sidebar |
-| `/src/app/(main)/dashboard/me/profile/_components/my-profile.tsx` | Agregar sección pwd |
+| Ruta                                                              | Cambio                                    |
+| ----------------------------------------------------------------- | ----------------------------------------- |
+| `/prisma/schema.prisma`                                           | Agregar modelos whistleblowing (4 tablas) |
+| `/src/navigation/sidebar/sidebar-items.ts`                        | Agregar enlace sidebar                    |
+| `/src/app/(main)/dashboard/me/profile/_components/my-profile.tsx` | Agregar sección pwd                       |
 
 **Fase 2 (no MVP):**
+
 - `/src/app/(main)/dashboard/settings/_components/*` → Tab configuración denuncias
 - `/src/app/(main)/dashboard/whistleblowing/categories/page.tsx` → Gestión categorías
 
@@ -503,29 +517,35 @@ import { ChangePasswordSection } from "./change-password-section";
 ## Orden de Implementación (MVP)
 
 ### Sprint 0: Documentación
+
 1. **Crear `/docs/PLAN_WHISTLEBLOWING_PASSWORD.md`** - Copia de este plan como referencia permanente ✅
 
 ### Sprint 1: Base de Datos
+
 1. Agregar enums y 4 modelos a schema.prisma
 2. Crear migración: `npx prisma migrate dev --name add_whistleblowing_system`
 3. Seed inicial con 3-4 categorías básicas
 
 ### Sprint 2: Server Actions Whistleblowing
+
 1. Actions públicas: `createWhistleblowingReport`, `createAnonymousReport`, `checkAnonymousReportStatus`
 2. Actions gestión: `getWhistleblowingReports`, `getWhistleblowingReportDetail`, `updateReportStatus`
 3. `addInternalNote` usando Activity con tipo INTERNAL_NOTE
 
 ### Sprint 3: UI Gestión Interna
+
 1. DataTable con 6 columnas MVP
 2. Vista detalle con timeline (Activity)
 3. Diálogos: asignar, resolver, cerrar
 
 ### Sprint 4: Portal Público + Formulario Empleado
+
 1. Formulario empleados autenticados (`/whistleblowing/new`)
 2. Portal público (`/whistleblowing/[orgSlug]`)
 3. Página de seguimiento anónimo
 
 ### Sprint 5: Cambio de Contraseña
+
 1. PasswordPolicy interface
 2. Server action con invalidación de sesiones
 3. Componente UI con indicador de fortaleza
@@ -568,12 +588,14 @@ IMPORTANTE: Céntrate en un MVP sencillo:
 ## Contexto Legal: Ley 2/2023
 
 ### Requisitos Principales
+
 - **Obligatorio para**: Empresas con 50+ empleados
 - **Accesibilidad**: Empleados, clientes, proveedores
 - **Confidencialidad**: Garantizada por ley
 - **Sanciones**: Hasta 1.000.000€ por incumplimiento
 
 ### Materias Cubiertas
+
 - Actos ilegales
 - Mala praxis
 - Violaciones regulatorias

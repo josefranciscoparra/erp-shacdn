@@ -32,12 +32,14 @@ export interface TeamsColumnsProps {
   onEdit?: (team: TeamListItem) => void;
   onToggleStatus?: (team: TeamListItem) => void;
   onDelete?: (team: TeamListItem) => void;
+  canManage?: boolean;
 }
 
 export function createTeamsColumns({
   onEdit,
   onToggleStatus,
   onDelete,
+  canManage = false,
 }: TeamsColumnsProps = {}): ColumnDef<TeamListItem>[] {
   return [
     {
@@ -136,40 +138,44 @@ export function createTeamsColumns({
                     Ver Detalle
                   </Link>
                 </DropdownMenuItem>
-                {onEdit && (
-                  <DropdownMenuItem onClick={() => onEdit(team)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {onToggleStatus && (
-                  <DropdownMenuItem onClick={() => onToggleStatus(team)}>
-                    {team.isActive ? (
-                      <>
-                        <ToggleLeft className="mr-2 h-4 w-4" />
-                        Desactivar
-                      </>
-                    ) : (
-                      <>
-                        <ToggleRight className="mr-2 h-4 w-4" />
-                        Activar
-                      </>
+                {canManage && (
+                  <>
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(team)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
                     )}
-                  </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {onToggleStatus && (
+                      <DropdownMenuItem onClick={() => onToggleStatus(team)}>
+                        {team.isActive ? (
+                          <>
+                            <ToggleLeft className="mr-2 h-4 w-4" />
+                            Desactivar
+                          </>
+                        ) : (
+                          <>
+                            <ToggleRight className="mr-2 h-4 w-4" />
+                            Activar
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
                 )}
-                {onDelete && (
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Eliminar
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                )}
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigator.clipboard.writeText(team.id)}>Copiar ID</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

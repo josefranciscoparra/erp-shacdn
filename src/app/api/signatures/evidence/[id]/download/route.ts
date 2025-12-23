@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { Role } from "@prisma/client";
+
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
-import { hasPermission } from "@/services/permissions";
 
 export const runtime = "nodejs";
 
@@ -18,7 +20,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   try {
     const session = await auth();
-    if (!session?.user?.orgId) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -62,8 +64,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
     }
 
-    // Verificar permisos (solo HR/Admin puede descargar evidencias)
-    const isHROrAdmin = hasPermission(session.user.role, "manage_documents");
+    // Verificar permisos (manage_documents puede descargar evidencias)
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+    const isHROrAdmin = effectivePermissions.has("manage_documents");
 
     if (!isHROrAdmin) {
       // Los empleados también pueden descargar sus propias evidencias

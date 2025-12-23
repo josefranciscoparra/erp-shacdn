@@ -2,7 +2,10 @@
 
 import { z } from "zod";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -46,6 +49,20 @@ async function getHRUserData() {
     throw new Error("Usuario no autenticado");
   }
 
+  if (!session.user.orgId) {
+    throw new Error("Usuario sin organización");
+  }
+
+  const effectivePermissions = await computeEffectivePermissions({
+    role: session.user.role as Role,
+    orgId: session.user.orgId,
+    userId: session.user.id,
+  });
+
+  if (!effectivePermissions.has("manage_payroll")) {
+    throw new Error("No tienes permisos para gestionar reembolsos");
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { id: true, orgId: true, role: true },
@@ -53,11 +70,6 @@ async function getHRUserData() {
 
   if (!user) {
     throw new Error("Usuario no encontrado");
-  }
-
-  // Solo HR_ADMIN y ORG_ADMIN pueden gestionar reembolsos
-  if (user.role !== "HR_ADMIN" && user.role !== "ORG_ADMIN") {
-    throw new Error("No tienes permisos para gestionar reembolsos");
   }
 
   return { session, user };

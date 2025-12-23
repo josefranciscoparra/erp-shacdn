@@ -6,11 +6,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Loader2, ShieldAlert } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
@@ -49,6 +52,16 @@ const colorPresets = [
 ];
 
 export default function EditCalendarPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Editar calendario" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const [isLoading, setIsLoading] = useState(false);
   const params = useParams();
   const router = useRouter();
@@ -145,85 +158,49 @@ export default function EditCalendarPage() {
 
   if (!selectedCalendar) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-          <span className="text-muted-foreground ml-2">Cargando calendario...</span>
+      <PermissionGuard permission="manage_organization" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+            <span className="text-muted-foreground ml-2">Cargando calendario...</span>
+          </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" asChild>
-          <Link href={`/dashboard/calendars/${id}`}>
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Editar calendario</h1>
-          <p className="text-muted-foreground text-sm">Modifica los datos del calendario</p>
+    <PermissionGuard permission="manage_organization" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" asChild>
+            <Link href={`/dashboard/calendars/${id}`}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+          </Button>
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Editar calendario</h1>
+            <p className="text-muted-foreground text-sm">Modifica los datos del calendario</p>
+          </div>
         </div>
-      </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Información básica</CardTitle>
-              <CardDescription>Datos principales del calendario</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Ej: Festivos Nacionales 2024"
-                        className="placeholder:text-muted-foreground/50 bg-white"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Descripción (opcional)</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Descripción del calendario"
-                        className="placeholder:text-muted-foreground/50 bg-white"
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid gap-4 @xl/main:grid-cols-2">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Información básica</CardTitle>
+                <CardDescription>Datos principales del calendario</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="year"
+                  name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Año</FormLabel>
+                      <FormLabel>Nombre</FormLabel>
                       <FormControl>
                         <Input
-                          type="number"
-                          placeholder="2024"
+                          placeholder="Ej: Festivos Nacionales 2024"
                           className="placeholder:text-muted-foreground/50 bg-white"
                           {...field}
                         />
@@ -235,118 +212,158 @@ export default function EditCalendarPage() {
 
                 <FormField
                   control={form.control}
-                  name="calendarType"
+                  name="description"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Tipo de calendario</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Selecciona el tipo" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {calendarTypeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <FormLabel>Descripción (opcional)</FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Descripción del calendario"
+                          className="placeholder:text-muted-foreground/50 bg-white"
+                          rows={3}
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-              </div>
 
-              <FormField
-                control={form.control}
-                name="costCenterId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Centro de Coste</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value ?? "__none__"}
-                      disabled={!requiresCostCenter}
-                    >
-                      <FormControl>
-                        <SelectTrigger className="bg-white" aria-disabled={!requiresCostCenter}>
-                          <SelectValue placeholder="Selecciona un centro" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="__none__">Sin centro asignado</SelectItem>
-                        {costCenters.map((center) => (
-                          <SelectItem key={center.id} value={center.id}>
-                            {center.name}
-                            {center.code ? ` (${center.code})` : ""}
-                          </SelectItem>
+                <div className="grid gap-4 @xl/main:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="year"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Año</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="2024"
+                            className="placeholder:text-muted-foreground/50 bg-white"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="calendarType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tipo de calendario</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="bg-white">
+                              <SelectValue placeholder="Selecciona el tipo" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {calendarTypeOptions.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="costCenterId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Centro de Coste</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value ?? "__none__"}
+                        disabled={!requiresCostCenter}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="bg-white" aria-disabled={!requiresCostCenter}>
+                            <SelectValue placeholder="Selecciona un centro" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__none__">Sin centro asignado</SelectItem>
+                          {costCenters.map((center) => (
+                            <SelectItem key={center.id} value={center.id}>
+                              {center.name}
+                              {center.code ? ` (${center.code})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {requiresCostCenter
+                          ? "Selecciona el centro que usará este calendario"
+                          : "Solo necesario para calendarios locales"}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Color de identificación</FormLabel>
+                      <div className="flex items-center gap-2">
+                        {colorPresets.map((preset) => (
+                          <button
+                            key={preset.value}
+                            type="button"
+                            className="ring-offset-background h-8 w-8 rounded-full transition-all hover:scale-110"
+                            style={{
+                              backgroundColor: preset.value,
+                              outline: field.value === preset.value ? "2px solid currentColor" : "none",
+                              outlineOffset: "2px",
+                            }}
+                            onClick={() => field.onChange(preset.value)}
+                            title={preset.name}
+                          />
                         ))}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      {requiresCostCenter
-                        ? "Selecciona el centro que usará este calendario"
-                        : "Solo necesario para calendarios locales"}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                        <FormControl>
+                          <Input type="color" className="h-8 w-16 cursor-pointer bg-white" {...field} />
+                        </FormControl>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+            </Card>
 
-              <FormField
-                control={form.control}
-                name="color"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Color de identificación</FormLabel>
-                    <div className="flex items-center gap-2">
-                      {colorPresets.map((preset) => (
-                        <button
-                          key={preset.value}
-                          type="button"
-                          className="ring-offset-background h-8 w-8 rounded-full transition-all hover:scale-110"
-                          style={{
-                            backgroundColor: preset.value,
-                            outline: field.value === preset.value ? "2px solid currentColor" : "none",
-                            outlineOffset: "2px",
-                          }}
-                          onClick={() => field.onChange(preset.value)}
-                          title={preset.name}
-                        />
-                      ))}
-                      <FormControl>
-                        <Input type="color" className="h-8 w-16 cursor-pointer bg-white" {...field} />
-                      </FormControl>
-                    </div>
-                    <FormMessage />
-                  </FormItem>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" type="button" asChild>
+                <Link href={`/dashboard/calendars/${id}`}>Cancelar</Link>
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Guardar cambios
+                  </>
                 )}
-              />
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" type="button" asChild>
-              <Link href={`/dashboard/calendars/${id}`}>Cancelar</Link>
-            </Button>
-            <Button type="submit" disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Guardando...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Guardar cambios
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
-      </Form>
-    </div>
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </div>
+    </PermissionGuard>
   );
 }

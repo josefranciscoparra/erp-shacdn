@@ -1,6 +1,7 @@
 # PLAN 3 – Subida Masiva de Nóminas
 
 ## 🎯 Objetivo
+
 Permitir que RRHH suba todas las nóminas mensuales de forma masiva: ya sea en un único PDF multipágina o un ZIP con PDFs individuales.
 
 ---
@@ -8,6 +9,7 @@ Permitir que RRHH suba todas las nóminas mensuales de forma masiva: ya sea en u
 ## 1. Subida de ZIP
 
 ### Requisitos
+
 - ZIP contiene PDFs individuales.
 - El sistema:
   - Lee cada PDF.
@@ -22,6 +24,7 @@ Permitir que RRHH suba todas las nóminas mensuales de forma masiva: ya sea en u
 ## 2. Subida de un PDF Multipágina
 
 ### Requisitos
+
 - Dividir por páginas.
 - Tareas:
   - OCR para detectar DNI / nombre / código.
@@ -31,6 +34,7 @@ Permitir que RRHH suba todas las nóminas mensuales de forma masiva: ya sea en u
 ---
 
 ## 3. Revisión Manual
+
 - Pantalla de revisión que muestre:
   - PDF dividido.
   - Página y empleado detectado.
@@ -40,6 +44,7 @@ Permitir que RRHH suba todas las nóminas mensuales de forma masiva: ya sea en u
 ---
 
 ## 4. Notificaciones y Registro
+
 - Cada empleado recibe notificación cuando su nómina es asignada.
 - Crear historial:
   - Fecha de subida.

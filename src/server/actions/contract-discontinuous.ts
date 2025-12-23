@@ -14,7 +14,10 @@
 
 import { revalidatePath } from "next/cache";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import {
   validateContractResume,
@@ -94,9 +97,13 @@ async function validatePermissions(): Promise<PermissionsResult> {
     };
   }
 
-  // Solo HR_ADMIN, ORG_ADMIN y SUPER_ADMIN pueden pausar/reanudar
-  const allowedRoles = ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
-  if (!allowedRoles.includes(user.role)) {
+  const effectivePermissions = await computeEffectivePermissions({
+    role: user.role as Role,
+    orgId: user.orgId,
+    userId: user.id,
+  });
+
+  if (!effectivePermissions.has("manage_contracts")) {
     return {
       valid: false,
       userId: user.id,

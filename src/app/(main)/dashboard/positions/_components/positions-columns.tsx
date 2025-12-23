@@ -20,9 +20,14 @@ import { Position } from "@/stores/organization-store";
 interface PositionsColumnsProps {
   onEdit?: (position: Position) => void;
   onDelete?: (position: Position) => void;
+  canManage?: boolean;
 }
 
-export const createPositionsColumns = ({ onEdit, onDelete }: PositionsColumnsProps = {}): ColumnDef<Position>[] => [
+export const createPositionsColumns = ({
+  onEdit,
+  onDelete,
+  canManage = false,
+}: PositionsColumnsProps = {}): ColumnDef<Position>[] => [
   {
     accessorKey: "title",
     header: "Título del Puesto",
@@ -83,38 +88,44 @@ export const createPositionsColumns = ({ onEdit, onDelete }: PositionsColumnsPro
       );
     },
   },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const position = row.original;
+  ...(canManage
+    ? [
+        {
+          id: "actions",
+          cell: ({ row }) => {
+            const position = row.original;
 
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menú</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(position.id)}>Copiar ID</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit?.(position)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar puesto
-            </DropdownMenuItem>
-            {position.active && (
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(position)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar puesto
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Abrir menú</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(position.id)}>
+                    Copiar ID
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit?.(position)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar puesto
+                  </DropdownMenuItem>
+                  {position.active && (
+                    <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(position)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar puesto
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          },
+        },
+      ]
+    : []),
 ];
 
 export const positionsColumns = createPositionsColumns();

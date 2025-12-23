@@ -10,6 +10,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTable } from "@/components/data-table/data-table";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { usePermissions } from "@/hooks/use-permissions";
 import {
   deleteTeam,
   getTeamById,
@@ -24,6 +25,8 @@ import { EditTeamDialog } from "./_components/edit-team-dialog";
 import { createTeamsColumns } from "./_components/teams-columns";
 
 export default function TeamsPage() {
+  const { hasPermission } = usePermissions();
+  const canManageTeams = hasPermission("manage_teams");
   const [teams, setTeams] = useState<TeamListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,8 +110,9 @@ export default function TeamsPage() {
         onEdit: handleEdit,
         onToggleStatus: handleToggleStatus,
         onDelete: handleDelete,
+        canManage: canManageTeams,
       }),
-    [handleEdit, handleToggleStatus, handleDelete],
+    [handleEdit, handleToggleStatus, handleDelete, canManageTeams],
   );
 
   const table = useReactTable({
@@ -149,7 +153,7 @@ export default function TeamsPage() {
 
   return (
     <PermissionGuard
-      permission="view_teams"
+      permissions={["view_teams", "manage_teams"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Equipos" subtitle="Gestiona los equipos de tu organización" />
@@ -165,7 +169,7 @@ export default function TeamsPage() {
         <SectionHeader
           title="Equipos"
           subtitle="Gestiona los equipos de tu organización"
-          action={<CreateTeamDialog onTeamCreated={loadTeams} />}
+          action={canManageTeams ? <CreateTeamDialog onTeamCreated={loadTeams} /> : null}
         />
 
         {hasTeams ? (

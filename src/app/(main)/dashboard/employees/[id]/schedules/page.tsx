@@ -19,9 +19,11 @@ import {
   RotateCcw,
   CheckCircle,
   Info,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -158,6 +160,16 @@ function getPeriodTypeConfig(periodType: string) {
 }
 
 export default function EmployeeSchedulesPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Horarios del empleado" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const params = useParams();
   const router = useRouter();
   const [employee, setEmployee] = useState<Employee | null>(null);
@@ -198,37 +210,41 @@ export default function EmployeeSchedulesPage() {
 
   if (isLoading) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Cargando horarios..."
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al empleado",
-          }}
-        />
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-pulse">Cargando horarios del empleado...</div>
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Cargando horarios..."
+            backButton={{
+              href: `/dashboard/employees/${params.id}`,
+              label: "Volver al empleado",
+            }}
+          />
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-pulse">Cargando horarios del empleado...</div>
+          </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   if (error || !employee) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Error"
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al empleado",
-          }}
-        />
-        <EmptyState
-          icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
-          title="Error al cargar horarios"
-          description={error ?? "No se pudieron cargar los horarios del empleado"}
-        />
-      </div>
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Error"
+            backButton={{
+              href: `/dashboard/employees/${params.id}`,
+              label: "Volver al empleado",
+            }}
+          />
+          <EmptyState
+            icon={<AlertCircle className="text-destructive mx-auto h-12 w-12" />}
+            title="Error al cargar horarios"
+            description={error ?? "No se pudieron cargar los horarios del empleado"}
+          />
+        </div>
+      </PermissionGuard>
     );
   }
 
@@ -238,133 +254,140 @@ export default function EmployeeSchedulesPage() {
   // Si no tiene asignación V2
   if (!assignment) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Horarios"
-          description={`Gestión de horarios laborales de ${fullName}`}
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al empleado",
-          }}
-          badge={
-            employee.employeeNumber && (
-              <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
-            )
-          }
-        />
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Horarios"
+            description={`Gestión de horarios laborales de ${fullName}`}
+            backButton={{
+              href: `/dashboard/employees/${params.id}`,
+              label: "Volver al empleado",
+            }}
+            badge={
+              employee.employeeNumber && (
+                <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+              )
+            }
+          />
 
-        <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-          <Info className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800 dark:text-amber-200">
-            Este empleado no tiene un horario asignado. Puedes asignarle una plantilla de horario existente.
-          </AlertDescription>
-        </Alert>
+          <Alert className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+            <Info className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800 dark:text-amber-200">
+              Este empleado no tiene un horario asignado. Puedes asignarle una plantilla de horario existente.
+            </AlertDescription>
+          </Alert>
 
-        <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <Clock className="mr-2 h-5 w-5" />
-              Sin Horario Asignado
-            </CardTitle>
-            <CardDescription>
-              Asigna una plantilla de horario para definir la jornada laboral de este empleado.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Asignar Horario
-              </Button>
-              <Button variant="outline" asChild>
-                <Link href="/dashboard/schedules" target="_blank">
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Ver Plantillas Disponibles
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+            <CardHeader>
+              <CardTitle className="flex items-center text-lg">
+                <Clock className="mr-2 h-5 w-5" />
+                Sin Horario Asignado
+              </CardTitle>
+              <CardDescription>
+                Asigna una plantilla de horario para definir la jornada laboral de este empleado.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Asignar Horario
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link href="/dashboard/schedules" target="_blank">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Ver Plantillas Disponibles
+                  </Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </PermissionGuard>
     );
   }
 
   // Si es tipo SHIFT (turnos), mostrar mensaje especial
   if (assignment.assignmentType === "SHIFT") {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Horarios"
-          description={`Gestión de horarios laborales de ${fullName}`}
-          backButton={{
-            href: `/dashboard/employees/${params.id}`,
-            label: "Volver al empleado",
-          }}
-          badge={
-            <div className="flex items-center gap-2">
-              {employee.employeeNumber && (
-                <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
-              )}
-              <Badge variant="outline" className="text-purple-600">
-                <RotateCcw className="mr-1 h-3 w-3" />
-                Turnos
-              </Badge>
-            </div>
-          }
-        />
-
-        <Card className="to-card rounded-lg border bg-gradient-to-t from-purple-50/50 shadow-xs dark:from-purple-950/20">
-          <CardHeader>
-            <CardTitle className="flex items-center text-lg">
-              <RotateCcw className="mr-2 h-5 w-5 text-purple-600" />
-              Empleado de Turnos
-            </CardTitle>
-            <CardDescription>
-              Los turnos de este empleado se gestionan desde el módulo de Gestión de Turnos.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 @4xl/main:grid-cols-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Tipo de asignación:</span>
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Horarios"
+            description={`Gestión de horarios laborales de ${fullName}`}
+            backButton={{
+              href: `/dashboard/employees/${params.id}`,
+              label: "Volver al empleado",
+            }}
+            badge={
+              <div className="flex items-center gap-2">
+                {employee.employeeNumber && (
+                  <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+                )}
                 <Badge variant="outline" className="text-purple-600">
-                  Turnos Variables
+                  <RotateCcw className="mr-1 h-3 w-3" />
+                  Turnos
                 </Badge>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground text-sm">Válido desde:</span>
-                <span className="font-semibold">
-                  {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
-                </span>
+            }
+          />
+
+          <Card className="to-card rounded-lg border bg-gradient-to-t from-purple-50/50 shadow-xs dark:from-purple-950/20">
+            <CardHeader>
+              <CardTitle className="flex items-center text-lg">
+                <RotateCcw className="mr-2 h-5 w-5 text-purple-600" />
+                Empleado de Turnos
+              </CardTitle>
+              <CardDescription>
+                Los turnos de este empleado se gestionan desde el módulo de Gestión de Turnos.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 @4xl/main:grid-cols-2">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground text-sm">Tipo de asignación:</span>
+                  <Badge variant="outline" className="text-purple-600">
+                    Turnos Variables
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground text-sm">Válido desde:</span>
+                  <span className="font-semibold">
+                    {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/30">
-              <Info className="h-4 w-4 text-purple-600" />
-              <AlertDescription className="text-purple-800 dark:text-purple-200">
-                Los turnos se asignan semanalmente desde{" "}
-                <Link href="/dashboard/shifts" className="font-medium underline">
-                  Gestión de Turnos
-                </Link>
-                . Allí podrás ver y modificar los turnos asignados a este empleado.
-              </AlertDescription>
-            </Alert>
+              <Alert className="border-purple-200 bg-purple-50 dark:bg-purple-950/30">
+                <Info className="h-4 w-4 text-purple-600" />
+                <AlertDescription className="text-purple-800 dark:text-purple-200">
+                  Los turnos se asignan semanalmente desde{" "}
+                  <Link href="/dashboard/shifts" className="font-medium underline">
+                    Gestión de Turnos
+                  </Link>
+                  . Allí podrás ver y modificar los turnos asignados a este empleado.
+                </AlertDescription>
+              </Alert>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button asChild>
-                <Link href="/dashboard/shifts">
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Ir a Gestión de Turnos
-                </Link>
-              </Button>
-              <Button variant="outline" onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}>
-                <Pencil className="mr-2 h-4 w-4" />
-                Cambiar Tipo de Horario
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Button asChild>
+                  <Link href="/dashboard/shifts">
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Ir a Gestión de Turnos
+                  </Link>
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Cambiar Tipo de Horario
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </PermissionGuard>
     );
   }
 
@@ -405,126 +428,130 @@ export default function EmployeeSchedulesPage() {
   const intensiveWeeklyHours = calculateWeeklyHours(intensivePeriod);
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Horarios"
-        description={`Gestión de horarios laborales de ${fullName}`}
-        backButton={{
-          href: `/dashboard/employees/${params.id}`,
-          label: "Volver al empleado",
-        }}
-        badge={
-          <div className="flex items-center gap-2">
-            {employee.employeeNumber && (
-              <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
-            )}
-            {assignmentTypeConfig && (
-              <Badge variant={assignmentTypeConfig.variant} className={assignmentTypeConfig.color}>
-                {assignmentTypeConfig.label}
-              </Badge>
-            )}
-          </div>
-        }
-      />
-
-      {/* Información de la asignación */}
-      <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
-        <CardHeader>
-          <div className="flex items-center justify-between">
+    <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Horarios"
+          description={`Gestión de horarios laborales de ${fullName}`}
+          backButton={{
+            href: `/dashboard/employees/${params.id}`,
+            label: "Volver al empleado",
+          }}
+          badge={
             <div className="flex items-center gap-2">
-              <CheckCircle className="text-primary h-5 w-5" />
-              <CardTitle className="text-lg">Plantilla Asignada</CardTitle>
+              {employee.employeeNumber && (
+                <span className="text-muted-foreground font-mono text-sm">{employee.employeeNumber}</span>
+              )}
+              {assignmentTypeConfig && (
+                <Badge variant={assignmentTypeConfig.variant} className={assignmentTypeConfig.color}>
+                  {assignmentTypeConfig.label}
+                </Badge>
+              )}
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Cambiar
-            </Button>
-          </div>
-          <CardDescription>{template.description ?? "Sin descripción"}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 @4xl/main:grid-cols-4">
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-xs">Plantilla</span>
-              <span className="font-semibold">{template.name}</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-xs">Horas semanales</span>
-              <span className="font-semibold">{template.weeklyHours ?? regularWeeklyHours.toFixed(1)}h</span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-xs">Válido desde</span>
-              <span className="font-semibold">
-                {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
-              </span>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-muted-foreground text-xs">Válido hasta</span>
-              <span className="font-semibold">
-                {assignment.validTo ? format(new Date(assignment.validTo), "dd/MM/yyyy", { locale: es }) : "Indefinido"}
-              </span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          }
+        />
 
-      {/* Tabs para períodos */}
-      <Tabs defaultValue="regular" className="w-full">
-        <TabsList>
-          <TabsTrigger value="regular">Horario Regular</TabsTrigger>
-          {intensivePeriod && <TabsTrigger value="intensive">Jornada Intensiva</TabsTrigger>}
+        {/* Información de la asignación */}
+        <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="text-primary h-5 w-5" />
+                <CardTitle className="text-lg">Plantilla Asignada</CardTitle>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => router.push(`/dashboard/employees/${params.id}/schedules/edit`)}
+              >
+                <Pencil className="mr-2 h-4 w-4" />
+                Cambiar
+              </Button>
+            </div>
+            <CardDescription>{template.description ?? "Sin descripción"}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 @4xl/main:grid-cols-4">
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Plantilla</span>
+                <span className="font-semibold">{template.name}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Horas semanales</span>
+                <span className="font-semibold">{template.weeklyHours ?? regularWeeklyHours.toFixed(1)}h</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Válido desde</span>
+                <span className="font-semibold">
+                  {format(new Date(assignment.validFrom), "dd/MM/yyyy", { locale: es })}
+                </span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Válido hasta</span>
+                <span className="font-semibold">
+                  {assignment.validTo
+                    ? format(new Date(assignment.validTo), "dd/MM/yyyy", { locale: es })
+                    : "Indefinido"}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabs para períodos */}
+        <Tabs defaultValue="regular" className="w-full">
+          <TabsList>
+            <TabsTrigger value="regular">Horario Regular</TabsTrigger>
+            {intensivePeriod && <TabsTrigger value="intensive">Jornada Intensiva</TabsTrigger>}
+            {template.periods
+              .filter((p) => p.periodType === "SPECIAL")
+              .map((period) => (
+                <TabsTrigger key={period.id} value={period.id}>
+                  {period.name}
+                </TabsTrigger>
+              ))}
+          </TabsList>
+
+          {/* Período Regular */}
+          <TabsContent value="regular" className="space-y-6">
+            {regularPeriod ? (
+              <PeriodCard period={regularPeriod} weeklyHours={regularWeeklyHours} />
+            ) : (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>No hay período regular configurado en esta plantilla.</AlertDescription>
+              </Alert>
+            )}
+          </TabsContent>
+
+          {/* Período Intensivo */}
+          {intensivePeriod && (
+            <TabsContent value="intensive" className="space-y-6">
+              <PeriodCard period={intensivePeriod} weeklyHours={intensiveWeeklyHours} isIntensive />
+            </TabsContent>
+          )}
+
+          {/* Períodos Especiales */}
           {template.periods
             .filter((p) => p.periodType === "SPECIAL")
             .map((period) => (
-              <TabsTrigger key={period.id} value={period.id}>
-                {period.name}
-              </TabsTrigger>
+              <TabsContent key={period.id} value={period.id} className="space-y-6">
+                <PeriodCard period={period} weeklyHours={calculateWeeklyHours(period)} isSpecial />
+              </TabsContent>
             ))}
-        </TabsList>
+        </Tabs>
 
-        {/* Período Regular */}
-        <TabsContent value="regular" className="space-y-6">
-          {regularPeriod ? (
-            <PeriodCard period={regularPeriod} weeklyHours={regularWeeklyHours} />
-          ) : (
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>No hay período regular configurado en esta plantilla.</AlertDescription>
-            </Alert>
-          )}
-        </TabsContent>
-
-        {/* Período Intensivo */}
-        {intensivePeriod && (
-          <TabsContent value="intensive" className="space-y-6">
-            <PeriodCard period={intensivePeriod} weeklyHours={intensiveWeeklyHours} isIntensive />
-          </TabsContent>
-        )}
-
-        {/* Períodos Especiales */}
-        {template.periods
-          .filter((p) => p.periodType === "SPECIAL")
-          .map((period) => (
-            <TabsContent key={period.id} value={period.id} className="space-y-6">
-              <PeriodCard period={period} weeklyHours={calculateWeeklyHours(period)} isSpecial />
-            </TabsContent>
-          ))}
-      </Tabs>
-
-      {/* Link a gestión de plantillas */}
-      <div className="text-center">
-        <p className="text-muted-foreground text-sm">
-          Para modificar los horarios de esta plantilla, ve a{" "}
-          <Link href={`/dashboard/schedules/${template.id}`} className="text-primary hover:underline">
-            Gestión de Plantillas
-          </Link>
-        </p>
+        {/* Link a gestión de plantillas */}
+        <div className="text-center">
+          <p className="text-muted-foreground text-sm">
+            Para modificar los horarios de esta plantilla, ve a{" "}
+            <Link href={`/dashboard/schedules/${template.id}`} className="text-primary hover:underline">
+              Gestión de Plantillas
+            </Link>
+          </p>
+        </div>
       </div>
-    </div>
+    </PermissionGuard>
   );
 }
 

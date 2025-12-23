@@ -11,6 +11,7 @@ import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useEmployeesStore } from "@/stores/employees-store";
 
 import { EmployeesDataTable } from "./_components/employees-data-table";
@@ -19,6 +20,8 @@ export default function EmployeesPage() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
   const { employees, isLoading, error, fetchEmployees } = useEmployeesStore();
+  const { hasPermission } = usePermissions();
+  const canManageEmployees = hasPermission("manage_employees");
 
   useEffect(() => {
     fetchEmployees();
@@ -51,7 +54,7 @@ export default function EmployeesPage() {
 
   return (
     <PermissionGuard
-      permission="view_employees"
+      permissions={["view_employees", "manage_employees"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Empleados" subtitle="Gestiona los empleados de tu organización" />
@@ -73,25 +76,31 @@ export default function EmployeesPage() {
             icon={<UserRound className="mx-auto h-12 w-12" />}
             title="No hay empleados registrados"
             description="Comienza agregando tu primer empleado al sistema"
-            actionHref="/dashboard/employees/new"
-            actionLabel="Agregar primer empleado"
+            {...(canManageEmployees
+              ? {
+                  actionHref: "/dashboard/employees/new",
+                  actionLabel: "Agregar primer empleado",
+                }
+              : {})}
           />
         )}
 
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/employees/new" className="flex items-center gap-2 text-muted-foreground">
-              <Plus className="h-4 w-4" />
-              Nuevo empleado
-            </Link>
-          </Button>
-          <Button variant="ghost" size="sm" asChild>
-            <Link href="/dashboard/employees/import" className="flex items-center gap-2 text-muted-foreground">
-              <FileDown className="h-4 w-4" />
-              Importar desde archivo
-            </Link>
-          </Button>
-        </div>
+        {canManageEmployees && (
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/employees/new" className="text-muted-foreground flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Nuevo empleado
+              </Link>
+            </Button>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/dashboard/employees/import" className="text-muted-foreground flex items-center gap-2">
+                <FileDown className="h-4 w-4" />
+                Importar desde archivo
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </PermissionGuard>
   );

@@ -60,7 +60,7 @@ export default function TimeTrackingPage() {
 
   return (
     <PermissionGuard
-      permission="view_time_tracking"
+      permissions={["view_time_tracking", "manage_time_tracking"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Control Horario" description="Gestión de fichajes y control de asistencia" />

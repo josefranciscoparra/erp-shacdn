@@ -72,7 +72,7 @@ export default function PayslipsPage() {
 
   return (
     <PermissionGuard
-      permission="view_payroll"
+      permissions={["view_payroll", "manage_payroll"]}
       fallback={
         <div className="@container/main mx-auto flex w-full max-w-[1600px] flex-col gap-8">
           <SectionHeader title="Nóminas" subtitle="Gestión de subida masiva de nóminas" />

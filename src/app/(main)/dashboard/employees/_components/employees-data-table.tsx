@@ -25,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
@@ -33,6 +34,8 @@ import { Employee } from "../types";
 import { employeesColumns } from "./employees-columns";
 
 export function EmployeesDataTable({ data, highlightId }: { data: Employee[]; highlightId: string | null }) {
+  const { hasPermission } = usePermissions();
+  const canManageEmployees = hasPermission("manage_employees");
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -189,12 +192,14 @@ export function EmployeesDataTable({ data, highlightId }: { data: Employee[]; hi
         </TabsList>
         <div className="flex items-center gap-2">
           <DataTableViewOptions table={table} />
-          <Button size="sm" asChild>
-            <Link href="/dashboard/employees/new">
-              <Plus />
-              <span className="hidden lg:inline">Nuevo empleado</span>
-            </Link>
-          </Button>
+          {canManageEmployees && (
+            <Button size="sm" asChild>
+              <Link href="/dashboard/employees/new">
+                <Plus />
+                <span className="hidden lg:inline">Nuevo empleado</span>
+              </Link>
+            </Button>
+          )}
         </div>
       </div>
 

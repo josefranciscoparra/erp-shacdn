@@ -234,7 +234,6 @@ export function useSidebarItems(): NavGroup[] {
     {
       id: 6,
       label: "Finanzas",
-      permission: "approve_requests", // Solo visible para managers/admin
       items: [
         {
           title: "Gestión de Gastos",
@@ -262,7 +261,7 @@ export function useSidebarItems(): NavGroup[] {
                   {
                     title: "Reembolsos",
                     url: "/dashboard/expenses/reimbursements",
-                    permission: "approve_requests",
+                    permission: "manage_payroll",
                   },
                 ]
               : []),
@@ -293,12 +292,12 @@ export function useSidebarItems(): NavGroup[] {
             {
               title: "Puestos",
               url: "/dashboard/positions",
-              permission: "manage_organization",
+              permission: "view_positions",
             },
             {
               title: "Centros de coste",
               url: "/dashboard/cost-centers",
-              permission: "manage_organization",
+              permission: "view_cost_centers",
             },
             {
               title: "Equipos",
@@ -322,17 +321,17 @@ export function useSidebarItems(): NavGroup[] {
           title: "Administración",
           url: "/dashboard/admin/users",
           icon: UserCog,
-          permission: "manage_users",
+          permission: "view_all_users",
           subItems: [
             {
               title: "Usuarios y Roles",
               url: "/dashboard/admin/users",
-              permission: "manage_users",
+              permission: "view_all_users",
             },
             {
               title: "Matriz de Responsabilidades",
               url: "/dashboard/organization/responsibles",
-              permission: "manage_users",
+              permission: "manage_organization",
             },
           ],
         },
@@ -364,7 +363,7 @@ export function useSidebarItems(): NavGroup[] {
           title: "Liquidaciones",
           url: "/dashboard/settlements",
           icon: Calculator,
-          permission: "manage_organization",
+          permission: "manage_payroll",
           isNew: true,
         },
         {

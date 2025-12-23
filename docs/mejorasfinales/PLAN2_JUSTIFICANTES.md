@@ -1,11 +1,13 @@
 # PLAN 2 – Justificantes de Ausencias
 
 ## 🎯 Objetivo
+
 Añadir aportación documental para justificar ausencias sin alterar el flujo de aprobación ya existente.
 
 ---
 
 ## Requisitos Funcionales
+
 - Permitir subir justificantes en:
   - PDF
   - JPG/PNG
@@ -24,6 +26,7 @@ Añadir aportación documental para justificar ausencias sin alterar el flujo de
 ---
 
 ## Integración
+
 - Respetar flujos existentes:
   - Solicitud → Revisión → Aprobación/Rechazo.
 - No cambiar roles actuales.

@@ -14,6 +14,8 @@ const SENSITIVE_ACCESS_THROTTLE_MS =
     ? parsedSensitiveThrottle
     : DEFAULT_SENSITIVE_THROTTLE_MS;
 
+const MAX_SENSITIVE_THROTTLE_ENTRIES = 2000;
+
 const sensitiveAccessThrottle = new Map<string, number>();
 
 export type AuditAction =
@@ -83,31 +85,41 @@ export class SecurityLogger {
           return;
         }
         sensitiveAccessThrottle.set(throttleKey, now);
+        if (sensitiveAccessThrottle.size > MAX_SENSITIVE_THROTTLE_ENTRIES) {
+          sensitiveAccessThrottle.clear();
+        }
       }
 
       const headersList = await headers();
       const ipAddress = headersList.get("x-forwarded-for") ?? "unknown";
       const userAgent = headersList.get("user-agent") ?? "unknown";
 
-      // Ejecutamos la escritura en background sin await explícito si se desea,
-      // pero en server actions es mejor await para asegurar que se guarde antes de cerrar lambda/proceso
-      await prisma.auditLog.create({
-        data: {
-          action: options.action,
-          category: options.category,
-          description: options.description,
-          entityId: options.entityId ?? "N/A",
-          entityType: options.entityType ?? "N/A",
-          entityData: options.entityData ? JSON.stringify(options.entityData) : undefined,
-          performedById: session.user.id ?? "system",
-          performedByName: session.user.name ?? "Unknown",
-          performedByEmail: session.user.email ?? "unknown@example.com",
-          performedByRole: session.user.role ?? "UNKNOWN",
-          orgId: orgId,
-          ipAddress: ipAddress,
-          userAgent: userAgent,
-        },
-      });
+      const logData = {
+        action: options.action,
+        category: options.category,
+        description: options.description,
+        entityId: options.entityId ?? "N/A",
+        entityType: options.entityType ?? "N/A",
+        entityData: options.entityData ? JSON.stringify(options.entityData) : undefined,
+        performedById: session.user.id ?? "system",
+        performedByName: session.user.name ?? "Unknown",
+        performedByEmail: session.user.email ?? "unknown@example.com",
+        performedByRole: session.user.role ?? "UNKNOWN",
+        orgId: orgId,
+        ipAddress: ipAddress,
+        userAgent: userAgent,
+      };
+
+      if (options.action === "SENSITIVE_DATA_ACCESS") {
+        void prisma.auditLog.create({ data: logData }).catch((error) => {
+          if (process.env.NODE_ENV === "development") {
+            console.error("[SecurityLogger] Error writing audit log:", error);
+          }
+        });
+        return;
+      }
+
+      await prisma.auditLog.create({ data: logData });
     } catch (error) {
       // Fallo silencioso del logger para no afectar la UX
       // En desarrollo mostramos el error

@@ -28,7 +28,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
       select: { rowIndex: true, status: true, errorReason: true, messages: true, rawData: true },
     });
 
-    const header = ["rowIndex", "status", "errorReason", "warnings", "email", "nifNie", "firstName", "lastName"].join(",");
+    const header = ["rowIndex", "status", "errorReason", "warnings", "email", "nifNie", "firstName", "lastName"].join(
+      ",",
+    );
     const csvRows = rows.map((row) => {
       const data = row.rawData as Record<string, unknown> | null;
       const warnings = (row.messages as { type: string; message: string }[])

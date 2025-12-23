@@ -9,6 +9,7 @@
 ## Resumen
 
 Este plan reorganiza la estructura del proyecto para:
+
 1. **Consolidar documentación** dispersa en 4 ubicaciones
 2. **Mover servicios** de `/lib/` a carpetas de dominio en `/services/`
 3. **Centralizar types** que están inline en stores
@@ -21,10 +22,13 @@ Este plan reorganiza la estructura del proyecto para:
 ## Fases
 
 ### Fase 0: Documentar el Plan ✅
+
 - [x] Crear este documento
 
 ### Fase 1: Consolidar Documentación ✅
+
 Mover toda la documentación a `/docs/`:
+
 - ✅ Crear subcarpetas: `general/`, `features/`, `legacy/`
 - ✅ Mover `.md` de raíz → `/docs/general/`
 - ✅ Mover `/doc/` (legacy) → `/docs/legacy/`
@@ -32,22 +36,25 @@ Mover toda la documentación a `/docs/`:
 - ✅ Mantener solo `README.md` y `CLAUDE.md` en raíz
 
 ### Fase 2: Mover Servicios ✅
+
 Reorganizar `/src/lib/` → `/src/services/{dominio}/`:
 
-| Archivo | Destino |
-|---------|---------|
-| `schedule-engine.ts` | `/services/schedules/` |
-| `schedule-helpers.ts` | `/services/schedules/` |
+| Archivo                       | Destino                    |
+| ----------------------------- | -------------------------- |
+| `schedule-engine.ts`          | `/services/schedules/`     |
+| `schedule-helpers.ts`         | `/services/schedules/`     |
 | `time-entry-state-machine.ts` | `/services/time-tracking/` |
-| `pto-helpers.ts` | `/services/pto/` |
-| `pto-helpers-client.ts` | `/services/pto/` |
-| `alert-engine.ts` | `/services/alerts/` |
-| `permissions.ts` | `/services/permissions/` |
-| `role-hierarchy.ts` | `/services/permissions/` |
-| `employee-numbering.ts` | `/services/employees/` |
+| `pto-helpers.ts`              | `/services/pto/`           |
+| `pto-helpers-client.ts`       | `/services/pto/`           |
+| `alert-engine.ts`             | `/services/alerts/`        |
+| `permissions.ts`              | `/services/permissions/`   |
+| `role-hierarchy.ts`           | `/services/permissions/`   |
+| `employee-numbering.ts`       | `/services/employees/`     |
 
 ### Fase 3: Centralizar Types ⏸️ POSPUESTO
+
 Extraer interfaces de stores a `/src/types/`:
+
 - `pto-store.tsx` → `/types/pto.ts`
 - `time-tracking-store.tsx` → `/types/time-tracking.ts`
 - `employees-store.ts` → `/types/employees.ts`
@@ -56,6 +63,7 @@ Extraer interfaces de stores a `/src/types/`:
 > refactoring extenso. Se abordará en una fase futura cuando sea necesario.
 
 ### Fase 4: Código Legacy ✅
+
 - ✅ Crear `/src/legacy/` con README explicativo
 - ✅ Mover `wizard-step-3-schedule.tsx` (V1) → `/legacy/schedules-v1/`
 - ✅ Mover `wizard-step-3-schedule.tsx.backup` → `/legacy/schedules-v1/`
@@ -120,13 +128,13 @@ docs/
 
 ## Progreso
 
-| Fase | Estado | Fecha |
-|------|--------|-------|
-| 0. Documentar Plan | ✅ Completado | 2025-12-03 |
-| 1. Consolidar Docs | ✅ Completado | 2025-12-03 |
-| 2. Mover Servicios | ✅ Completado | 2025-12-03 |
-| 3. Centralizar Types | ⏸️ Pospuesto | - |
-| 4. Código Legacy | ✅ Completado | 2025-12-03 |
+| Fase                 | Estado        | Fecha      |
+| -------------------- | ------------- | ---------- |
+| 0. Documentar Plan   | ✅ Completado | 2025-12-03 |
+| 1. Consolidar Docs   | ✅ Completado | 2025-12-03 |
+| 2. Mover Servicios   | ✅ Completado | 2025-12-03 |
+| 3. Centralizar Types | ⏸️ Pospuesto  | -          |
+| 4. Código Legacy     | ✅ Completado | 2025-12-03 |
 
 ---
 

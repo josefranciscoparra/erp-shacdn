@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 
-import { Search, Filter, Loader2, FileText } from "lucide-react";
+import { Search, Filter, Loader2, FileText, ShieldAlert } from "lucide-react";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
-import { documentKindLabels, type DocumentKind } from "@/lib/validations/document";
+import { type DocumentKind } from "@/lib/validations/document";
 import { useDocumentsStore, useGlobalDocumentsByKind, useGlobalDocumentStats } from "@/stores/documents-store";
 import { useEmployeesStore } from "@/stores/employees-store";
 
@@ -53,6 +55,16 @@ export default function GlobalDocumentsPage() {
   const { employees, fetchEmployees } = useEmployeesStore();
   const documentsByKind = useGlobalDocumentsByKind();
   const stats = useGlobalDocumentStats();
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Documentos" subtitle="Gestiona todos los documentos de tu organización" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
 
   // Cargar datos al montar
   useEffect(() => {
@@ -98,148 +110,152 @@ export default function GlobalDocumentsPage() {
 
   if (!documentsEnabled) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader
-          title="Documentos deshabilitados"
-          subtitle="Esta sección no está disponible en la configuración actual."
-        />
-        <Card className="bg-card rounded-lg border">
-          <CardContent className="p-6">
-            <p className="text-muted-foreground text-sm">
-              El módulo de documentos está desactivado. Puedes habilitarlo estableciendo la variable de entorno{" "}
-              <code className="bg-muted rounded px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <PermissionGuard permission="view_documents" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader
+            title="Documentos deshabilitados"
+            subtitle="Esta sección no está disponible en la configuración actual."
+          />
+          <Card className="bg-card rounded-lg border">
+            <CardContent className="p-6">
+              <p className="text-muted-foreground text-sm">
+                El módulo de documentos está desactivado. Puedes habilitarlo estableciendo la variable de entorno{" "}
+                <code className="bg-muted rounded px-1 py-0.5">NEXT_PUBLIC_FEATURE_DOCUMENTS_ENABLED=true</code>.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </PermissionGuard>
     );
   }
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      {/* Header */}
-      <SectionHeader title="Documentos" subtitle="Gestiona todos los documentos de tu organización" />
+    <PermissionGuard permission="view_documents" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        {/* Header */}
+        <SectionHeader title="Documentos" subtitle="Gestiona todos los documentos de tu organización" />
 
-      {/* Estadísticas */}
-      <DocumentStatsCards />
+        {/* Estadísticas */}
+        <DocumentStatsCards />
 
-      {/* Filtros avanzados */}
-      <Card className="bg-card rounded-lg border">
-        <CardContent className="p-4">
-          <div className="flex flex-col gap-4 @md/main:flex-row @md/main:items-center @md/main:justify-between">
-            <div className="flex flex-1 flex-col gap-4 @md/main:flex-row @md/main:items-center">
-              {/* Búsqueda */}
-              <div className="relative max-w-sm flex-1">
-                <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-                <Input
-                  placeholder="Buscar documentos o empleados..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="placeholder:text-muted-foreground/50 bg-white pl-9"
-                />
+        {/* Filtros avanzados */}
+        <Card className="bg-card rounded-lg border">
+          <CardContent className="p-4">
+            <div className="flex flex-col gap-4 @md/main:flex-row @md/main:items-center @md/main:justify-between">
+              <div className="flex flex-1 flex-col gap-4 @md/main:flex-row @md/main:items-center">
+                {/* Búsqueda */}
+                <div className="relative max-w-sm flex-1">
+                  <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+                  <Input
+                    placeholder="Buscar documentos o empleados..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    className="placeholder:text-muted-foreground/50 bg-white pl-9"
+                  />
+                </div>
+
+                {/* Filtro por empleado */}
+                <Select value={selectedEmployeeId ?? "all"} onValueChange={handleEmployeeFilter}>
+                  <SelectTrigger className="w-full @md/main:w-[250px]">
+                    <SelectValue placeholder="Filtrar por empleado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los empleados</SelectItem>
+                    {employees.map((emp) => (
+                      <SelectItem key={emp.id} value={emp.id}>
+                        {emp.firstName} {emp.lastName}
+                        {emp.employeeNumber && ` (#${emp.employeeNumber})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Filtro por empleado */}
-              <Select value={selectedEmployeeId ?? "all"} onValueChange={handleEmployeeFilter}>
-                <SelectTrigger className="w-full @md/main:w-[250px]">
-                  <SelectValue placeholder="Filtrar por empleado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los empleados</SelectItem>
-                  {employees.map((emp) => (
-                    <SelectItem key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName}
-                      {emp.employeeNumber && ` (#${emp.employeeNumber})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/* Botón limpiar filtros */}
+              {(globalFilters.search ?? globalFilters.employeeId ?? globalFilters.documentKind) && (
+                <Button variant="outline" size="sm" onClick={clearGlobalFilters} className="whitespace-nowrap">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Limpiar filtros
+                </Button>
+              )}
             </div>
+          </CardContent>
+        </Card>
 
-            {/* Botón limpiar filtros */}
-            {(globalFilters.search ?? globalFilters.employeeId ?? globalFilters.documentKind) && (
-              <Button variant="outline" size="sm" onClick={clearGlobalFilters} className="whitespace-nowrap">
-                <Filter className="mr-2 h-4 w-4" />
-                Limpiar filtros
-              </Button>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Tabs de documentos */}
-      <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="flex items-center justify-between">
-          {/* Selector móvil */}
-          <Select value={activeTab} onValueChange={handleTabChange}>
-            <SelectTrigger className="w-48 @4xl/main:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {documentTabs.map((tab) => (
-                <SelectItem key={tab.key} value={tab.key}>
-                  <div className="flex items-center gap-2">
-                    {tab.label}
-                    <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {/* Tabs desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            {documentTabs.map((tab) => (
-              <TabsTrigger key={tab.key} value={tab.key} className="gap-2">
-                {tab.label}
-                <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
-
-        {/* Contenido de tabs */}
-        {documentTabs.map((tab) => (
-          <TabsContent key={tab.key} value={tab.key}>
-            <Card className="bg-card rounded-lg border">
-              <CardContent className="p-0">
-                {isLoadingGlobal ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-                    <span className="text-muted-foreground ml-2">Cargando documentos...</span>
-                  </div>
-                ) : filteredDocuments.length > 0 ? (
-                  <>
-                    <GlobalDocumentsTable documents={filteredDocuments} />
-                    <div className="border-t">
-                      <SimplePagination
-                        currentPage={globalPagination.page}
-                        totalPages={globalPagination.totalPages}
-                        pageSize={globalPagination.limit}
-                        totalItems={globalPagination.total}
-                        onPageChange={setGlobalPage}
-                        onPageSizeChange={(size) => {
-                          useDocumentsStore.getState().setGlobalLimit(size);
-                        }}
-                      />
+        {/* Tabs de documentos */}
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <div className="flex items-center justify-between">
+            {/* Selector móvil */}
+            <Select value={activeTab} onValueChange={handleTabChange}>
+              <SelectTrigger className="w-48 @4xl/main:hidden">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {documentTabs.map((tab) => (
+                  <SelectItem key={tab.key} value={tab.key}>
+                    <div className="flex items-center gap-2">
+                      {tab.label}
+                      <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
                     </div>
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <FileText className="text-muted-foreground mb-4 h-12 w-12" />
-                    <h3 className="mb-2 text-lg font-medium">No hay documentos</h3>
-                    <p className="text-muted-foreground mb-4 max-w-sm">
-                      {tab.key === "all"
-                        ? "No se han subido documentos en tu organización"
-                        : `No hay documentos de tipo "${tab.label}" en tu organización`}
-                    </p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Tabs desktop */}
+            <TabsList className="hidden @4xl/main:flex">
+              {documentTabs.map((tab) => (
+                <TabsTrigger key={tab.key} value={tab.key} className="gap-2">
+                  {tab.label}
+                  <Badge variant="secondary">{getTabCount(tab.key)}</Badge>
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          {/* Contenido de tabs */}
+          {documentTabs.map((tab) => (
+            <TabsContent key={tab.key} value={tab.key}>
+              <Card className="bg-card rounded-lg border">
+                <CardContent className="p-0">
+                  {isLoadingGlobal ? (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+                      <span className="text-muted-foreground ml-2">Cargando documentos...</span>
+                    </div>
+                  ) : filteredDocuments.length > 0 ? (
+                    <>
+                      <GlobalDocumentsTable documents={filteredDocuments} />
+                      <div className="border-t">
+                        <SimplePagination
+                          currentPage={globalPagination.page}
+                          totalPages={globalPagination.totalPages}
+                          pageSize={globalPagination.limit}
+                          totalItems={globalPagination.total}
+                          onPageChange={setGlobalPage}
+                          onPageSizeChange={(size) => {
+                            useDocumentsStore.getState().setGlobalLimit(size);
+                          }}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <FileText className="text-muted-foreground mb-4 h-12 w-12" />
+                      <h3 className="mb-2 text-lg font-medium">No hay documentos</h3>
+                      <p className="text-muted-foreground mb-4 max-w-sm">
+                        {tab.key === "all"
+                          ? "No se han subido documentos en tu organización"
+                          : `No hay documentos de tipo "${tab.label}" en tu organización`}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+    </PermissionGuard>
   );
 }

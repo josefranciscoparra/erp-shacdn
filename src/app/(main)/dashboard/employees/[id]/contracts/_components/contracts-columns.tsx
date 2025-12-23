@@ -33,6 +33,7 @@ interface ContractsColumnActions {
   onFinalize?: (contract: Contract) => void;
   onPause?: (contract: Contract) => void;
   onResume?: (contract: Contract) => void;
+  canManage?: boolean;
 }
 
 export const getContractsColumns = (actions: ContractsColumnActions = {}): ColumnDef<Contract>[] => [
@@ -237,37 +238,41 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
                 Ver detalles
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handle(actions.onEdit)}>
-              <Edit className="mr-2 h-4 w-4" />
-              Editar contrato
-            </DropdownMenuItem>
-            {/* Opciones para Fijo Discontinuo */}
-            {contract.contractType === "FIJO_DISCONTINUO" && contract.active && (
+            {actions.canManage && (
               <>
                 <DropdownMenuSeparator />
-                {contract.discontinuousStatus === "PAUSED" ? (
-                  <DropdownMenuItem className="text-green-600" onClick={handle(actions.onResume)}>
-                    <Play className="mr-2 h-4 w-4" />
-                    Reanudar contrato
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem className="text-yellow-600" onClick={handle(actions.onPause)}>
-                    <Pause className="mr-2 h-4 w-4" />
-                    Pausar contrato
-                  </DropdownMenuItem>
+                <DropdownMenuItem onClick={handle(actions.onEdit)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Editar contrato
+                </DropdownMenuItem>
+                {/* Opciones para Fijo Discontinuo */}
+                {contract.contractType === "FIJO_DISCONTINUO" && contract.active && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {contract.discontinuousStatus === "PAUSED" ? (
+                      <DropdownMenuItem className="text-green-600" onClick={handle(actions.onResume)}>
+                        <Play className="mr-2 h-4 w-4" />
+                        Reanudar contrato
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem className="text-yellow-600" onClick={handle(actions.onPause)}>
+                        <Pause className="mr-2 h-4 w-4" />
+                        Pausar contrato
+                      </DropdownMenuItem>
+                    )}
+                  </>
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-destructive"
+                  disabled={!contract.active}
+                  onClick={handle(actions.onFinalize)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Finalizar contrato
+                </DropdownMenuItem>
               </>
             )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive"
-              disabled={!contract.active}
-              onClick={handle(actions.onFinalize)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Finalizar contrato
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       );

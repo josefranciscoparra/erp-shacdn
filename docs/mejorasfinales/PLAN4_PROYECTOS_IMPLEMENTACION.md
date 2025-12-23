@@ -6,15 +6,15 @@ Implementar un sistema de **proyectos** que permita asignar tiempo de trabajo a 
 
 ## Decisiones de Diseño
 
-| Aspecto | Decisión |
-|---------|----------|
-| Tipo de asignación | **OPEN** (todos) o **ASSIGNED** (empleados específicos) |
-| Momento de selección | **Al fichar entrada** - Selector de proyecto opcional |
-| Cambio de proyecto | **Durante la jornada** - Cierra tramo anterior + abre nuevo tramo |
-| Proyectos múltiples | **Sí** - Un empleado puede trabajar en varios proyectos el mismo día |
+| Aspecto              | Decisión                                                             |
+| -------------------- | -------------------------------------------------------------------- |
+| Tipo de asignación   | **OPEN** (todos) o **ASSIGNED** (empleados específicos)              |
+| Momento de selección | **Al fichar entrada** - Selector de proyecto opcional                |
+| Cambio de proyecto   | **Durante la jornada** - Cierra tramo anterior + abre nuevo tramo    |
+| Proyectos múltiples  | **Sí** - Un empleado puede trabajar en varios proyectos el mismo día |
 | Tareas/subcategorías | **Campo `task` libre** en TimeEntry (máx 255 chars), sin modelo Task |
-| Referencia de patrón | **Teams** - Estructura similar de CRUD y asignación |
-| projectId en pausas | **NO** - BREAK no lleva projectId, solo entradas de trabajo |
+| Referencia de patrón | **Teams** - Estructura similar de CRUD y asignación                  |
+| projectId en pausas  | **NO** - BREAK no lleva projectId, solo entradas de trabajo          |
 
 ---
 
@@ -109,6 +109,7 @@ npx prisma migrate dev --name add_projects_system
 ### 2.1 Crear `/src/server/actions/projects.ts`
 
 **Funciones CRUD:**
+
 - `getProjects()` - Listar proyectos de la org
 - `getProjectById(id)` - Obtener proyecto con asignaciones
 - `createProject(data)` - Crear proyecto
@@ -117,11 +118,13 @@ npx prisma migrate dev --name add_projects_system
 - `deleteProject(id)` - Eliminar (solo si no tiene timeEntries)
 
 **Funciones de asignación:**
+
 - `getProjectAssignments(projectId)` - Empleados asignados
 - `assignEmployeesToProject(projectId, employeeIds)` - Asignar empleados
 - `removeEmployeeFromProject(projectId, employeeId)` - Desasignar
 
 **Funciones para fichaje:**
+
 ```typescript
 async function getAvailableProjects(): Promise<Project[]> {
   // 1. Solo proyectos con isActive=true
@@ -140,11 +143,11 @@ async function getAvailableProjects(): Promise<Project[]> {
 async function validateProjectForEmployee(
   projectId: string,
   employeeId: string,
-  orgId: string
+  orgId: string,
 ): Promise<{ valid: boolean; error?: string }> {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { assignments: true }
+    include: { assignments: true },
   });
 
   if (!project) {
@@ -156,8 +159,8 @@ async function validateProjectForEmployee(
   if (project.orgId !== orgId) {
     return { valid: false, error: "Proyecto no pertenece a tu organización" };
   }
-  if (project.accessType === 'ASSIGNED') {
-    const isAssigned = project.assignments.some(a => a.employeeId === employeeId);
+  if (project.accessType === "ASSIGNED") {
+    const isAssigned = project.assignments.some((a) => a.employeeId === employeeId);
     if (!isAssigned) {
       return { valid: false, error: "No estás asignado a este proyecto" };
     }
@@ -169,13 +172,14 @@ async function validateProjectForEmployee(
 ### 2.3 Modificar `/src/server/actions/time-tracking.ts`
 
 **Modificar `clockIn()`:**
+
 ```typescript
 export async function clockIn(
   latitude?: number,
   longitude?: number,
   accuracy?: number,
-  projectId?: string,  // NUEVO
-  task?: string        // NUEVO (máx 255 chars)
+  projectId?: string, // NUEVO
+  task?: string, // NUEVO (máx 255 chars)
 ): Promise<ClockInResult> {
   // Validar proyecto si se proporciona
   if (projectId) {
@@ -189,14 +193,14 @@ export async function clockIn(
 ```
 
 **Nueva función `changeProject()`:**
+
 ```typescript
 export async function changeProject(
   newProjectId: string | null,
-  task?: string
+  task?: string,
 ): Promise<{ success: boolean; error?: string }> {
   // REGLA IMPORTANTE: El tiempo anterior queda imputado al proyecto anterior
   // y el tiempo posterior al nuevo proyecto
-
   // 1. Verificar que está fichado (CLOCKED_IN o ON_BREAK)
   // 2. Si está ON_BREAK, el cambio aplica al siguiente tramo de trabajo
   // 3. Validar el nuevo proyecto (si se proporciona)
@@ -204,7 +208,6 @@ export async function changeProject(
   //    - Este marca el inicio del nuevo tramo
   //    - El tramo anterior termina aquí
   // 5. NO sobrescribir projectId de entradas anteriores
-
   // Para informes: calcular tiempo por proyecto =
   //   tiempo entre CLOCK_IN con projectId X hasta siguiente cambio o CLOCK_OUT
 }
@@ -217,6 +220,7 @@ export async function changeProject(
 ### 3.1 Crear ruta `/dashboard/projects/` (Solo ADMIN/HR)
 
 **Estructura de archivos:**
+
 ```
 src/app/(main)/dashboard/projects/
 ├── page.tsx                           # Listado con DataTable + Tabs
@@ -231,10 +235,12 @@ src/app/(main)/dashboard/projects/
 ```
 
 **Permisos:**
+
 - `/dashboard/projects/**` → Solo roles ADMIN, HR
 - Los empleados NO acceden a esta pantalla, solo usan el selector en fichaje
 
 **Tabs del listado:**
+
 - Activos (default)
 - Inactivos
 - Todos
@@ -252,6 +258,7 @@ src/app/(main)/dashboard/projects/
 ### 3.2 Añadir a navegación
 
 Modificar `/src/navigation/sidebar-nav.tsx`:
+
 ```typescript
 {
   title: "Proyectos",
@@ -268,6 +275,7 @@ Modificar `/src/navigation/sidebar-nav.tsx`:
 ### 4.1 Modificar `/src/app/(main)/dashboard/me/clock/_components/clock-in.tsx`
 
 **Nuevo componente `ProjectSelector`:**
+
 ```tsx
 <ProjectSelector
   projects={availableProjects}
@@ -280,6 +288,7 @@ Modificar `/src/navigation/sidebar-nav.tsx`:
 ```
 
 **Comportamiento UX:**
+
 - Si no hay proyectos activos → no mostrar selector
 - Si hay **un solo proyecto** → preseleccionarlo automáticamente
 - Si hay **muchos proyectos** → añadir buscador dentro del selector
@@ -294,33 +303,37 @@ Modificar `/src/navigation/sidebar-nav.tsx`:
 **Ubicación:** Junto a los botones de pausa cuando está fichado
 
 ```tsx
-{(currentStatus === 'CLOCKED_IN' || currentStatus === 'ON_BREAK') && (
-  <ChangeProjectDialog
-    currentProject={currentProject}
-    availableProjects={availableProjects}
-    onChangeProject={handleChangeProject}
-  />
-)}
+{
+  (currentStatus === "CLOCKED_IN" || currentStatus === "ON_BREAK") && (
+    <ChangeProjectDialog
+      currentProject={currentProject}
+      availableProjects={availableProjects}
+      onChangeProject={handleChangeProject}
+    />
+  );
+}
 ```
 
 **Comportamiento:**
+
 - Si está ON_BREAK, mostrar aviso: "El cambio de proyecto aplicará cuando reanudes el trabajo"
 - Confirmar antes de cambiar
 
 ### 4.3 Modificar `TimeEntriesTimeline`
 
 Mostrar proyecto en cada entrada de trabajo:
+
 ```tsx
-{entry.entryType === 'CLOCK_IN' && entry.project && (
-  <Badge variant="outline" style={{ borderColor: entry.project.color }}>
-    {entry.project.name}
-  </Badge>
-)}
-{entry.task && (
-  <span className="text-xs text-muted-foreground">
-    {entry.task}
-  </span>
-)}
+{
+  entry.entryType === "CLOCK_IN" && entry.project && (
+    <Badge variant="outline" style={{ borderColor: entry.project.color }}>
+      {entry.project.name}
+    </Badge>
+  );
+}
+{
+  entry.task && <span className="text-muted-foreground text-xs">{entry.task}</span>;
+}
 ```
 
 **Nota:** NO mostrar proyecto en entradas BREAK
@@ -332,6 +345,7 @@ Mostrar proyecto en cada entrada de trabajo:
 ### 5.1 Crear `/dashboard/projects/[id]/reports/`
 
 **Métricas a mostrar:**
+
 - Horas totales del proyecto
 - Horas por empleado (tabla)
 - Horas por día/semana (gráfico)
@@ -356,7 +370,7 @@ Mostrar proyecto en cada entrada de trabajo:
 async function calculateProjectHours(
   projectId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
 ): Promise<{
   totalMinutes: number;
   byEmployee: { employeeId: string; minutes: number }[];
@@ -377,51 +391,51 @@ async function calculateProjectHours(
 
 ## Archivos a Crear/Modificar
 
-| # | Archivo | Acción | Descripción |
-|---|---------|--------|-------------|
-| 1 | `prisma/schema.prisma` | Modificar | Añadir Project, ProjectAssignment, modificar TimeEntry |
-| 2 | `src/server/actions/projects.ts` | Crear | Server actions de proyectos |
-| 3 | `src/server/actions/time-tracking.ts` | Modificar | Añadir projectId a clockIn, nueva changeProject(), validación |
-| 4 | `src/app/(main)/dashboard/projects/page.tsx` | Crear | Listado de proyectos (ADMIN/HR) |
-| 5 | `src/app/(main)/dashboard/projects/[id]/page.tsx` | Crear | Detalle de proyecto |
-| 6 | `src/app/(main)/dashboard/projects/_components/*.tsx` | Crear | Componentes del módulo |
-| 7 | `src/app/(main)/dashboard/me/clock/_components/clock-in.tsx` | Modificar | Añadir selector de proyecto |
-| 8 | `src/app/(main)/dashboard/me/clock/_components/project-selector.tsx` | Crear | Componente selector con búsqueda |
-| 9 | `src/app/(main)/dashboard/me/clock/_components/change-project-dialog.tsx` | Crear | Dialog cambiar proyecto |
-| 10 | `src/app/(main)/dashboard/me/clock/_components/time-entries-timeline.tsx` | Modificar | Mostrar proyecto en timeline |
-| 11 | `src/navigation/sidebar-nav.tsx` | Modificar | Añadir enlace a Proyectos (solo ADMIN/HR) |
+| #   | Archivo                                                                   | Acción    | Descripción                                                   |
+| --- | ------------------------------------------------------------------------- | --------- | ------------------------------------------------------------- |
+| 1   | `prisma/schema.prisma`                                                    | Modificar | Añadir Project, ProjectAssignment, modificar TimeEntry        |
+| 2   | `src/server/actions/projects.ts`                                          | Crear     | Server actions de proyectos                                   |
+| 3   | `src/server/actions/time-tracking.ts`                                     | Modificar | Añadir projectId a clockIn, nueva changeProject(), validación |
+| 4   | `src/app/(main)/dashboard/projects/page.tsx`                              | Crear     | Listado de proyectos (ADMIN/HR)                               |
+| 5   | `src/app/(main)/dashboard/projects/[id]/page.tsx`                         | Crear     | Detalle de proyecto                                           |
+| 6   | `src/app/(main)/dashboard/projects/_components/*.tsx`                     | Crear     | Componentes del módulo                                        |
+| 7   | `src/app/(main)/dashboard/me/clock/_components/clock-in.tsx`              | Modificar | Añadir selector de proyecto                                   |
+| 8   | `src/app/(main)/dashboard/me/clock/_components/project-selector.tsx`      | Crear     | Componente selector con búsqueda                              |
+| 9   | `src/app/(main)/dashboard/me/clock/_components/change-project-dialog.tsx` | Crear     | Dialog cambiar proyecto                                       |
+| 10  | `src/app/(main)/dashboard/me/clock/_components/time-entries-timeline.tsx` | Modificar | Mostrar proyecto en timeline                                  |
+| 11  | `src/navigation/sidebar-nav.tsx`                                          | Modificar | Añadir enlace a Proyectos (solo ADMIN/HR)                     |
 
 ---
 
 ## Orden de Implementación
 
-| Paso | Descripción | Archivos | Estado |
-|------|-------------|----------|--------|
-| 1 | Schema + Migración | `prisma/schema.prisma` | ✅ Completado |
-| 2 | Server Actions proyectos | `src/server/actions/projects.ts` | ✅ Completado |
-| 3 | UI Gestión proyectos | `/dashboard/projects/**` | ✅ Completado |
-| 4 | Navegación | `sidebar-nav.tsx` | ✅ Completado |
-| 5 | Validación centralizada | `time-tracking.ts` | ✅ Completado |
-| 6 | Modificar clockIn con project | `time-tracking.ts` | ✅ Completado |
-| 7 | UI Selector proyecto | `clock-in.tsx`, `project-selector.tsx` | ✅ Completado |
-| 8 | Función changeProject | `time-tracking.ts` | ✅ Completado |
-| 9 | UI Cambiar proyecto | `change-project-dialog.tsx` | ✅ Completado |
-| 10 | UI Timeline con proyecto | `time-entries-timeline.tsx` | ✅ Completado |
-| 11 | Informes básicos | `/dashboard/projects/[id]/reports/` | ✅ Completado |
-| 12 | Pruebas manuales | - | ✅ Completado |
+| Paso | Descripción                   | Archivos                               | Estado        |
+| ---- | ----------------------------- | -------------------------------------- | ------------- |
+| 1    | Schema + Migración            | `prisma/schema.prisma`                 | ✅ Completado |
+| 2    | Server Actions proyectos      | `src/server/actions/projects.ts`       | ✅ Completado |
+| 3    | UI Gestión proyectos          | `/dashboard/projects/**`               | ✅ Completado |
+| 4    | Navegación                    | `sidebar-nav.tsx`                      | ✅ Completado |
+| 5    | Validación centralizada       | `time-tracking.ts`                     | ✅ Completado |
+| 6    | Modificar clockIn con project | `time-tracking.ts`                     | ✅ Completado |
+| 7    | UI Selector proyecto          | `clock-in.tsx`, `project-selector.tsx` | ✅ Completado |
+| 8    | Función changeProject         | `time-tracking.ts`                     | ✅ Completado |
+| 9    | UI Cambiar proyecto           | `change-project-dialog.tsx`            | ✅ Completado |
+| 10   | UI Timeline con proyecto      | `time-entries-timeline.tsx`            | ✅ Completado |
+| 11   | Informes básicos              | `/dashboard/projects/[id]/reports/`    | ✅ Completado |
+| 12   | Pruebas manuales              | -                                      | ✅ Completado |
 
 ---
 
 ## Mejoras Adicionales Implementadas
 
-| Mejora | Descripción |
-|--------|-------------|
-| PROJECT_SWITCH | Nuevo tipo de entrada para cambios de proyecto durante jornada |
-| Permisos API | Protección de endpoints con validación de permisos |
-| Filtro automático | Marcadores automáticos filtrados de timeline/mapa |
-| Informes con fechas | Selector de rango de fechas con presets (7 días default) |
-| Enlaces empleados | Click en nombre de empleado en informes lleva a su perfil |
-| Hardening | Validaciones robustas en capa de server actions |
+| Mejora              | Descripción                                                    |
+| ------------------- | -------------------------------------------------------------- |
+| PROJECT_SWITCH      | Nuevo tipo de entrada para cambios de proyecto durante jornada |
+| Permisos API        | Protección de endpoints con validación de permisos             |
+| Filtro automático   | Marcadores automáticos filtrados de timeline/mapa              |
+| Informes con fechas | Selector de rango de fechas con presets (7 días default)       |
+| Enlaces empleados   | Click en nombre de empleado en informes lleva a su perfil      |
+| Hardening           | Validaciones robustas en capa de server actions                |
 
 ---
 

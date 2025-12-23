@@ -22,17 +22,14 @@ import { es } from "date-fns/locale";
 
 import { cn } from "@/lib/utils";
 
-import { EndHour, StartHour } from "../constants";
+import { EndHour, StartHour, WeekCellsHeight } from "../constants";
+import { useCurrentTimeIndicator } from "../hooks/use-current-time-indicator";
+import type { CalendarEvent } from "../types";
+import { isMultiDayEvent } from "../utils";
 
-import {
-  DraggableEvent,
-  DroppableCell,
-  EventItem,
-  isMultiDayEvent,
-  useCurrentTimeIndicator,
-  WeekCellsHeight,
-  type CalendarEvent,
-} from "./";
+import { DraggableEvent } from "./draggable-event";
+import { DroppableCell } from "./droppable-cell";
+import { EventItem } from "./event-item";
 
 interface WeekViewProps {
   currentDate: Date;

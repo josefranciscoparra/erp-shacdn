@@ -33,9 +33,10 @@ interface DepartmentsDataTableProps {
   data: DepartmentData[];
   onEdit?: (department: DepartmentData) => void;
   onDelete?: (department: DepartmentData) => void;
+  canManage?: boolean;
 }
 
-export function DepartmentsDataTable({ data, onEdit, onDelete }: DepartmentsDataTableProps) {
+export function DepartmentsDataTable({ data, onEdit, onDelete, canManage = false }: DepartmentsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -44,7 +45,10 @@ export function DepartmentsDataTable({ data, onEdit, onDelete }: DepartmentsData
   const [globalFilter, setGlobalFilter] = React.useState("");
 
   // Crear columnas con callbacks
-  const columns = React.useMemo(() => createDepartmentsColumns({ onEdit, onDelete }), [onEdit, onDelete]);
+  const columns = React.useMemo(
+    () => createDepartmentsColumns({ onEdit, onDelete, canManage }),
+    [onEdit, onDelete, canManage],
+  );
 
   // Filtrar datos según la pestaña activa
   const filteredData = React.useMemo(() => {

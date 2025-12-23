@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 
 import bcrypt from "bcryptjs";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { encrypt } from "@/lib/crypto";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -15,7 +18,6 @@ import {
 } from "@/lib/user-validation";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { formatEmployeeNumber } from "@/services/employees";
-import { canManageUsers } from "@/services/permissions";
 import { createUserSchema, createUserAdminSchema } from "@/validators/user";
 
 export const runtime = "nodejs";
@@ -23,12 +25,18 @@ export const runtime = "nodejs";
 export async function GET(request: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     // Verificar permisos de administrador
-    if (!["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"].includes(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_users")) {
       return NextResponse.json({ error: "Sin permisos de administrador" }, { status: 403 });
     }
 
@@ -146,12 +154,18 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
     // Verificar permisos de administrador
-    if (!canManageUsers(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_users")) {
       return NextResponse.json({ error: "Sin permisos de administrador" }, { status: 403 });
     }
 

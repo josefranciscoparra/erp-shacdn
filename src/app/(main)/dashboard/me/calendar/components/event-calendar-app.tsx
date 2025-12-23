@@ -9,9 +9,10 @@ import { toast } from "sonner";
 import { SectionHeader } from "@/components/hr/section-header";
 import { getMyCalendarEvents } from "@/server/actions/employee-calendars";
 
+import type { CalendarEvent } from "../types";
 import { mapServerEventsToCalendarEvents } from "../utils";
 
-import { EventCalendar, type CalendarEvent } from "./";
+import { EventCalendar } from "./event-calendar";
 
 export default function EventCalendarApp() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);

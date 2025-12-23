@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 
+import { Role } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { validateUserDeactivation } from "@/lib/user-validation";
-import { canManageUsers } from "@/services/permissions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,11 +16,17 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    if (!canManageUsers(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_users")) {
       return NextResponse.json({ error: "Sin permisos de administrador" }, { status: 403 });
     }
 
@@ -112,11 +120,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    if (!canManageUsers(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_users")) {
       return NextResponse.json({ error: "Sin permisos de administrador" }, { status: 403 });
     }
 
@@ -191,11 +205,17 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     const session = await auth();
-    if (!session?.user) {
+    if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    if (!canManageUsers(session.user.role)) {
+    const effectivePermissions = await computeEffectivePermissions({
+      role: session.user.role as Role,
+      orgId: session.user.orgId,
+      userId: session.user.id,
+    });
+
+    if (!effectivePermissions.has("manage_users")) {
       return NextResponse.json({ error: "Sin permisos de administrador" }, { status: 403 });
     }
 

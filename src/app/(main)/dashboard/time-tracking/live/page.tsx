@@ -87,7 +87,7 @@ export default function LiveMonitorPage() {
 
   return (
     <PermissionGuard
-      permission="view_time_tracking"
+      permissions={["view_time_tracking", "manage_time_tracking"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Monitor en Vivo" description="Estado actual de fichajes de empleados" />

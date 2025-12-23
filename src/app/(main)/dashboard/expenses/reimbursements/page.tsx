@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { CheckSquare, Loader2, PackageOpen } from "lucide-react";
+import { CheckSquare, Loader2, PackageOpen, ShieldAlert } from "lucide-react";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,16 @@ type Stats = {
 };
 
 export default function ReimbursementsPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Reembolsos" description="Gestión de reembolsos de gastos aprobados." />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const [currentTab, setCurrentTab] = useState("pending");
   const [pendingExpenses, setPendingExpenses] = useState<Expense[]>([]);
   const [historyExpenses, setHistoryExpenses] = useState<Expense[]>([]);
@@ -175,123 +186,127 @@ export default function ReimbursementsPage() {
 
   if (isLoading) {
     return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Reembolsos" description="Gestión de reembolsos de gastos aprobados." />
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
+      <PermissionGuard permission="manage_payroll" fallback={permissionFallback}>
+        <div className="@container/main flex flex-col gap-4 md:gap-6">
+          <SectionHeader title="Reembolsos" description="Gestión de reembolsos de gastos aprobados." />
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
         </div>
-      </div>
+      </PermissionGuard>
     );
   }
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader title="Reembolsos" description="Gestión de reembolsos de gastos aprobados." />
+    <PermissionGuard permission="manage_payroll" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader title="Reembolsos" description="Gestión de reembolsos de gastos aprobados." />
 
-      {/* Métricas */}
-      {stats && (
-        <ReimbursementMetrics
-          totalPendingAmount={stats.totalPendingAmount}
-          pendingCount={stats.pendingCount}
-          uniqueEmployees={stats.uniqueEmployees}
-          averageDaysWaiting={stats.averageDaysWaiting}
-        />
-      )}
+        {/* Métricas */}
+        {stats && (
+          <ReimbursementMetrics
+            totalPendingAmount={stats.totalPendingAmount}
+            pendingCount={stats.pendingCount}
+            uniqueEmployees={stats.uniqueEmployees}
+            averageDaysWaiting={stats.averageDaysWaiting}
+          />
+        )}
 
-      {/* Tabs */}
-      <Tabs value={currentTab} onValueChange={setCurrentTab}>
-        <div className="flex items-center justify-between">
-          {/* Select para móvil */}
-          <Select value={currentTab} onValueChange={setCurrentTab}>
-            <SelectTrigger className="w-[200px] @4xl/main:hidden">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">
-                Pendientes {stats && <Badge variant="secondary">{stats.pendingCount}</Badge>}
-              </SelectItem>
-              <SelectItem value="history">Procesados</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Tabs */}
+        <Tabs value={currentTab} onValueChange={setCurrentTab}>
+          <div className="flex items-center justify-between">
+            {/* Select para móvil */}
+            <Select value={currentTab} onValueChange={setCurrentTab}>
+              <SelectTrigger className="w-[200px] @4xl/main:hidden">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pending">
+                  Pendientes {stats && <Badge variant="secondary">{stats.pendingCount}</Badge>}
+                </SelectItem>
+                <SelectItem value="history">Procesados</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* Tabs para desktop */}
-          <TabsList className="hidden @4xl/main:flex">
-            <TabsTrigger value="pending">
-              Pendientes
-              {stats && stats.pendingCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {stats.pendingCount}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="history">Procesados</TabsTrigger>
-          </TabsList>
+            {/* Tabs para desktop */}
+            <TabsList className="hidden @4xl/main:flex">
+              <TabsTrigger value="pending">
+                Pendientes
+                {stats && stats.pendingCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {stats.pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="history">Procesados</TabsTrigger>
+            </TabsList>
 
-          {/* Botón reembolsar seleccionados */}
-          {currentTab === "pending" && selectedExpenseIds.size > 0 && (
-            <Button onClick={handleReimburseSelected}>
-              <CheckSquare className="mr-2 h-4 w-4" />
-              Reembolsar seleccionados ({selectedExpenseIds.size})
-            </Button>
-          )}
-        </div>
-
-        {/* Tab Pendientes */}
-        <TabsContent value="pending">
-          <div className="overflow-hidden rounded-lg border">
-            {groupedByEmployee.length === 0 ? (
-              <EmptyState
-                icon={<PackageOpen className="mx-auto h-12 w-12" />}
-                title="No hay gastos pendientes"
-                description="Todos los gastos aprobados han sido reembolsados."
-              />
-            ) : (
-              <div className="divide-y">
-                {groupedByEmployee.map(({ employee, expenses }) => (
-                  <EmployeeGroupRow
-                    key={employee.id}
-                    employee={employee}
-                    expenses={expenses}
-                    selectedExpenseIds={selectedExpenseIds}
-                    onToggleExpense={handleToggleExpense}
-                    onToggleAllEmployee={handleToggleAllEmployee}
-                    onReimburseEmployee={handleReimburseEmployee}
-                  />
-                ))}
-              </div>
+            {/* Botón reembolsar seleccionados */}
+            {currentTab === "pending" && selectedExpenseIds.size > 0 && (
+              <Button onClick={handleReimburseSelected}>
+                <CheckSquare className="mr-2 h-4 w-4" />
+                Reembolsar seleccionados ({selectedExpenseIds.size})
+              </Button>
             )}
           </div>
-        </TabsContent>
 
-        {/* Tab Procesados */}
-        <TabsContent value="history">
-          {historyExpenses.length === 0 ? (
+          {/* Tab Pendientes */}
+          <TabsContent value="pending">
             <div className="overflow-hidden rounded-lg border">
-              <EmptyState
-                icon={<PackageOpen className="mx-auto h-12 w-12" />}
-                title="No hay historial"
-                description="Aún no se han procesado reembolsos."
-              />
+              {groupedByEmployee.length === 0 ? (
+                <EmptyState
+                  icon={<PackageOpen className="mx-auto h-12 w-12" />}
+                  title="No hay gastos pendientes"
+                  description="Todos los gastos aprobados han sido reembolsados."
+                />
+              ) : (
+                <div className="divide-y">
+                  {groupedByEmployee.map(({ employee, expenses }) => (
+                    <EmployeeGroupRow
+                      key={employee.id}
+                      employee={employee}
+                      expenses={expenses}
+                      selectedExpenseIds={selectedExpenseIds}
+                      onToggleExpense={handleToggleExpense}
+                      onToggleAllEmployee={handleToggleAllEmployee}
+                      onReimburseEmployee={handleReimburseEmployee}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          ) : (
-            <ReimbursementHistoryTable
-              expenses={historyExpenses as never}
-              pagination={historyPagination}
-              onPageChange={setHistoryPage}
-            />
-          )}
-        </TabsContent>
-      </Tabs>
+          </TabsContent>
 
-      {/* Dialog de confirmación */}
-      <ReimbursementDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        expenseIds={Array.from(selectedExpenseIds)}
-        totalAmount={selectedTotal}
-        employeeCount={selectedEmployeeCount}
-        onSuccess={handleReimburseSuccess}
-      />
-    </div>
+          {/* Tab Procesados */}
+          <TabsContent value="history">
+            {historyExpenses.length === 0 ? (
+              <div className="overflow-hidden rounded-lg border">
+                <EmptyState
+                  icon={<PackageOpen className="mx-auto h-12 w-12" />}
+                  title="No hay historial"
+                  description="Aún no se han procesado reembolsos."
+                />
+              </div>
+            ) : (
+              <ReimbursementHistoryTable
+                expenses={historyExpenses as never}
+                pagination={historyPagination}
+                onPageChange={setHistoryPage}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Dialog de confirmación */}
+        <ReimbursementDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          expenseIds={Array.from(selectedExpenseIds)}
+          totalAmount={selectedTotal}
+          employeeCount={selectedEmployeeCount}
+          onSuccess={handleReimburseSuccess}
+        />
+      </div>
+    </PermissionGuard>
   );
 }

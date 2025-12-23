@@ -1,11 +1,12 @@
 "use server";
 
-import { ProjectAccessType, Role } from "@prisma/client";
+import { ProjectAccessType } from "@prisma/client";
 import { endOfDay } from "date-fns";
 
+import { safePermission } from "@/lib/auth-guard";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { hasPermission, type Permission } from "@/services/permissions";
+import { type Permission } from "@/services/permissions";
 
 /**
  * Server Actions para gestión de proyectos (Mejora 4)
@@ -80,13 +81,8 @@ type AuthorizedProjectContext = {
 async function requireProjectPermission(
   permission: Permission,
 ): Promise<{ ok: true; context: AuthorizedProjectContext } | { ok: false; error: string }> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "No autenticado" };
-  }
-
-  const role = session.user.role as Role;
-  if (!hasPermission(role, permission)) {
+  const authz = await safePermission(permission);
+  if (!authz.ok) {
     const actionLabel = permission === "view_projects" ? "ver" : "gestionar";
     return { ok: false, error: `No tienes permisos para ${actionLabel} proyectos` };
   }
@@ -94,8 +90,8 @@ async function requireProjectPermission(
   return {
     ok: true,
     context: {
-      session,
-      orgId: session.user.orgId,
+      session: authz.session,
+      orgId: authz.session.user.orgId,
     },
   };
 }

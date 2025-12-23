@@ -9,14 +9,23 @@ import { type Permission } from "@/services/permissions";
 
 interface PermissionGuardProps {
   children: ReactNode;
-  permission: Permission;
+  permission?: Permission;
+  permissions?: Permission[];
+  mode?: "any" | "all";
   fallback?: ReactNode;
   /** Mostrar loader mientras se cargan permisos (default: true) */
   showLoader?: boolean;
 }
 
-export function PermissionGuard({ children, permission, fallback = null, showLoader = true }: PermissionGuardProps) {
-  const { hasPermission, isAuthenticated, isLoadingPermissions } = usePermissions();
+export function PermissionGuard({
+  children,
+  permission,
+  permissions,
+  mode = "any",
+  fallback = null,
+  showLoader = true,
+}: PermissionGuardProps) {
+  const { hasAnyPermission, hasAllPermissions, isAuthenticated, isLoadingPermissions } = usePermissions();
 
   if (!isAuthenticated) {
     return fallback;
@@ -34,7 +43,10 @@ export function PermissionGuard({ children, permission, fallback = null, showLoa
     return null;
   }
 
-  if (!hasPermission(permission)) {
+  const permissionsToCheck = permission ? [permission] : (permissions ?? []);
+  const hasAccess = mode === "all" ? hasAllPermissions(permissionsToCheck) : hasAnyPermission(permissionsToCheck);
+
+  if (!hasAccess) {
     return fallback;
   }
 

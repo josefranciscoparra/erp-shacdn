@@ -20,11 +20,13 @@ import { PositionLevel } from "@/stores/organization-store";
 interface PositionLevelsColumnsProps {
   onEdit?: (level: PositionLevel) => void;
   onDelete?: (level: PositionLevel) => void;
+  canManage?: boolean;
 }
 
 export const createPositionLevelsColumns = ({
   onEdit,
   onDelete,
+  canManage = false,
 }: PositionLevelsColumnsProps = {}): ColumnDef<PositionLevel>[] => [
   {
     accessorKey: "order",
@@ -135,38 +137,42 @@ export const createPositionLevelsColumns = ({
       );
     },
   },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const level = row.original;
+  ...(canManage
+    ? [
+        {
+          id: "actions",
+          cell: ({ row }) => {
+            const level = row.original;
 
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menú</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(level.id)}>Copiar ID</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit?.(level)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar nivel
-            </DropdownMenuItem>
-            {level.active && (
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(level)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar nivel
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Abrir menú</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(level.id)}>Copiar ID</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit?.(level)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar nivel
+                  </DropdownMenuItem>
+                  {level.active && (
+                    <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(level)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar nivel
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          },
+        },
+      ]
+    : []),
 ];
 
 export const positionLevelsColumns = createPositionLevelsColumns();

@@ -7,7 +7,7 @@ import { Calendar, Clock, MapPin, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
-import type { CalendarEvent } from "./";
+import type { CalendarEvent } from "../types";
 
 interface EventViewDialogProps {
   event: CalendarEvent | null;

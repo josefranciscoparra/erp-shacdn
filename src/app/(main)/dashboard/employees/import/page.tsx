@@ -4,9 +4,12 @@ import { useCallback, useMemo, useState } from "react";
 
 import Link from "next/link";
 
-import { ArrowLeft, Loader2, ShieldCheck, Upload, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, ShieldAlert, ShieldCheck, Upload, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
+import { EmptyState } from "@/components/hr/empty-state";
+import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,63 +46,76 @@ interface JobInfo {
 }
 
 export default function EmployeeImportPage() {
-  return (
+  const permissionFallback = (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex justify-between">
-        <Button variant="ghost" size="sm" asChild>
-          <Link href="/dashboard/employees" className="text-muted-foreground flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Volver a empleados
-          </Link>
-        </Button>
-      </div>
-      <Card className="border-primary/30 bg-primary/5">
-        <CardHeader>
-          <CardTitle>Cómo usar el cargador paso a paso</CardTitle>
-          <CardDescription>
-            Esta es la “chuleta” para RRHH: cada fila del archivo crea a una persona nueva. Sigue estos pasos y evitarás
-            errores:
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ol className="text-muted-foreground list-decimal space-y-2 pl-4 text-sm">
-            <li>
-              Descarga la plantilla y copia los datos de tus empleados (nombre, email, NIF, etc.). Sin ella, el sistema
-              no entiende nada.
-            </li>
-            <li>
-              Rellena la columna <strong>schedule_template_id</strong> con el ID real del horario (aparece en la URL o
-              en “Copiar ID”). Si inventas el número, fallará.
-            </li>
-            <li>
-              Elige <strong>Modo saldo</strong> si solo conoces cuántos días tiene cada persona hoy. Usa{" "}
-              <strong>Modo anual</strong> si te han pasado los días totales y los usados.
-            </li>
-            <li>
-              Sube el archivo y mira la lista: si algo sale en rojo, corrige esa fila. Si todo sale verde, pulsa
-              “Confirmar importación”.
-            </li>
-            <li>
-              Después revisa en la tabla de empleados que aparezcan y, si activaste las invitaciones, se les enviará un
-              email automáticamente.
-            </li>
-          </ol>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Importación masiva de empleados</CardTitle>
-          <CardDescription>
-            Sube un archivo XLSX o CSV con los datos de empleados para validarlos antes de importarlos en tu
-            organización.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <EmployeeImportWizard />
-        </CardContent>
-      </Card>
+      <SectionHeader title="Importar empleados" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
     </div>
+  );
+
+  return (
+    <PermissionGuard permission="manage_employees" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div className="flex justify-between">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/dashboard/employees" className="text-muted-foreground flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Volver a empleados
+            </Link>
+          </Button>
+        </div>
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader>
+            <CardTitle>Cómo usar el cargador paso a paso</CardTitle>
+            <CardDescription>
+              Esta es la “chuleta” para RRHH: cada fila del archivo crea a una persona nueva. Sigue estos pasos y
+              evitarás errores:
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ol className="text-muted-foreground list-decimal space-y-2 pl-4 text-sm">
+              <li>
+                Descarga la plantilla y copia los datos de tus empleados (nombre, email, NIF, etc.). Sin ella, el
+                sistema no entiende nada.
+              </li>
+              <li>
+                Rellena la columna <strong>schedule_template_id</strong> con el ID real del horario (aparece en la URL o
+                en “Copiar ID”). Si inventas el número, fallará.
+              </li>
+              <li>
+                Elige <strong>Modo saldo</strong> si solo conoces cuántos días tiene cada persona hoy. Usa{" "}
+                <strong>Modo anual</strong> si te han pasado los días totales y los usados.
+              </li>
+              <li>
+                Sube el archivo y mira la lista: si algo sale en rojo, corrige esa fila. Si todo sale verde, pulsa
+                “Confirmar importación”.
+              </li>
+              <li>
+                Después revisa en la tabla de empleados que aparezcan y, si activaste las invitaciones, se les enviará
+                un email automáticamente.
+              </li>
+            </ol>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Importación masiva de empleados</CardTitle>
+            <CardDescription>
+              Sube un archivo XLSX o CSV con los datos de empleados para validarlos antes de importarlos en tu
+              organización.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EmployeeImportWizard />
+          </CardContent>
+        </Card>
+      </div>
+    </PermissionGuard>
   );
 }
 

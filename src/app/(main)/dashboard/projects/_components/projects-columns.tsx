@@ -32,12 +32,14 @@ export interface ProjectsColumnsProps {
   onEdit?: (project: ProjectListItem) => void;
   onToggleStatus?: (project: ProjectListItem) => void;
   onDelete?: (project: ProjectListItem) => void;
+  canManage?: boolean;
 }
 
 export function createProjectsColumns({
   onEdit,
   onToggleStatus,
   onDelete,
+  canManage = false,
 }: ProjectsColumnsProps = {}): ColumnDef<ProjectListItem>[] {
   return [
     {
@@ -153,40 +155,44 @@ export function createProjectsColumns({
                     Ver Detalle
                   </Link>
                 </DropdownMenuItem>
-                {onEdit && (
-                  <DropdownMenuItem onClick={() => onEdit(project)}>
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Editar
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                {onToggleStatus && (
-                  <DropdownMenuItem onClick={() => onToggleStatus(project)}>
-                    {project.isActive ? (
-                      <>
-                        <ToggleLeft className="mr-2 h-4 w-4" />
-                        Desactivar
-                      </>
-                    ) : (
-                      <>
-                        <ToggleRight className="mr-2 h-4 w-4" />
-                        Activar
-                      </>
+                {canManage && (
+                  <>
+                    {onEdit && (
+                      <DropdownMenuItem onClick={() => onEdit(project)}>
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Editar
+                      </DropdownMenuItem>
                     )}
-                  </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {onToggleStatus && (
+                      <DropdownMenuItem onClick={() => onToggleStatus(project)}>
+                        {project.isActive ? (
+                          <>
+                            <ToggleLeft className="mr-2 h-4 w-4" />
+                            Desactivar
+                          </>
+                        ) : (
+                          <>
+                            <ToggleRight className="mr-2 h-4 w-4" />
+                            Activar
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {onDelete && (
+                      <AlertDialogTrigger asChild>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={(e) => e.preventDefault()}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </DropdownMenuItem>
+                      </AlertDialogTrigger>
+                    )}
+                    <DropdownMenuSeparator />
+                  </>
                 )}
-                {onDelete && (
-                  <AlertDialogTrigger asChild>
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Eliminar
-                    </DropdownMenuItem>
-                  </AlertDialogTrigger>
-                )}
-                <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => navigator.clipboard.writeText(project.id)}>Copiar ID</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

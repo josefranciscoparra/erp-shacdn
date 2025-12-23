@@ -12,6 +12,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { usePermissions } from "@/hooks/use-permissions";
 import { type Contract, useContractsStore } from "@/stores/contracts-store";
 
 import { getContractsColumns } from "../employees/[id]/contracts/_components/contracts-columns";
@@ -21,6 +22,8 @@ import { ContractsDataTable } from "./_components/contracts-data-table";
 export default function ContractsPage() {
   const router = useRouter();
   const [currentTab, setCurrentTab] = useState("active");
+  const { hasPermission } = usePermissions();
+  const canManageContracts = hasPermission("manage_contracts");
 
   const { contracts, isLoading, status, total, fetchAllContracts, setStatus, reset } = useContractsStore();
 
@@ -63,11 +66,12 @@ export default function ContractsPage() {
 
   const columns = getContractsColumns({
     onEdit: handleEditContract,
+    canManage: canManageContracts,
   });
 
   return (
     <PermissionGuard
-      permission="view_contracts"
+      permissions={["view_contracts", "manage_contracts"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Contratos" subtitle="Gestión de contratos laborales" />

@@ -20,11 +20,13 @@ import { DepartmentData } from "@/stores/departments-store";
 interface DepartmentsColumnsProps {
   onEdit?: (department: DepartmentData) => void;
   onDelete?: (department: DepartmentData) => void;
+  canManage?: boolean;
 }
 
 export const createDepartmentsColumns = ({
   onEdit,
   onDelete,
+  canManage = false,
 }: DepartmentsColumnsProps = {}): ColumnDef<DepartmentData>[] => [
   {
     accessorKey: "name",
@@ -120,38 +122,44 @@ export const createDepartmentsColumns = ({
       );
     },
   },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const department = row.original;
+  ...(canManage
+    ? [
+        {
+          id: "actions",
+          cell: ({ row }) => {
+            const department = row.original;
 
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menú</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(department.id)}>Copiar ID</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => onEdit?.(department)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar departamento
-            </DropdownMenuItem>
-            {department.active && (
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(department)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar departamento
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      );
-    },
-  },
+            return (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Abrir menú</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                  <DropdownMenuItem onClick={() => navigator.clipboard.writeText(department.id)}>
+                    Copiar ID
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onEdit?.(department)}>
+                    <Pencil className="mr-2 h-4 w-4" />
+                    Editar departamento
+                  </DropdownMenuItem>
+                  {department.active && (
+                    <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(department)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Eliminar departamento
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            );
+          },
+        },
+      ]
+    : []),
 ];
 
 export const departmentsColumns = createDepartmentsColumns();

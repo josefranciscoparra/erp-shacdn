@@ -15,10 +15,12 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { Check, Clock, Eye, Loader2, Receipt, X, ArrowLeft } from "lucide-react";
+import { Check, Clock, Eye, Loader2, Receipt, X, ArrowLeft, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -115,6 +117,16 @@ const getCategoryBadgeVariant = (category: string) => {
 };
 
 export default function ExpenseApprovalsPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Aprobación de Gastos" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const [tabData, setTabData] = useState<Record<TabKey, ExpenseApproval[]>>({
     pending: [],
     approved: [],
@@ -470,325 +482,327 @@ export default function ExpenseApprovalsPage() {
   });
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div>
-        <Button variant="ghost" size="sm" asChild className="text-muted-foreground mb-2">
-          <Link href="/dashboard/approvals">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a Bandeja de Aprobaciones
-          </Link>
-        </Button>
-        <SectionHeader
-          title="Aprobación de Gastos"
-          description="Revisa y aprueba los gastos presentados por los empleados de tu organización."
-        />
-      </div>
+    <PermissionGuard permission="approve_requests" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <div>
+          <Button variant="ghost" size="sm" asChild className="text-muted-foreground mb-2">
+            <Link href="/dashboard/approvals">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Volver a Bandeja de Aprobaciones
+            </Link>
+          </Button>
+          <SectionHeader
+            title="Aprobación de Gastos"
+            description="Revisa y aprueba los gastos presentados por los empleados de tu organización."
+          />
+        </div>
 
-      <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
-        <TabsList className="justify-start overflow-x-auto">
-          <TabsTrigger value="pending" className="flex items-center gap-2">
-            Pendientes
-            <Badge variant="secondary">{tabData.pending.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="approved" className="flex items-center gap-2">
-            Aprobados
-            <Badge variant="secondary">{tabData.approved.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex items-center gap-2">
-            Rechazados
-            <Badge variant="secondary">{tabData.rejected.length}</Badge>
-          </TabsTrigger>
-        </TabsList>
+        <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
+          <TabsList className="justify-start overflow-x-auto">
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              Pendientes
+              <Badge variant="secondary">{tabData.pending.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="flex items-center gap-2">
+              Aprobados
+              <Badge variant="secondary">{tabData.approved.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="flex items-center gap-2">
+              Rechazados
+              <Badge variant="secondary">{tabData.rejected.length}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Tab Pendientes */}
-        <TabsContent value="pending" className="flex flex-col gap-4">
-          <Card className="from-primary/5 to-card flex items-center justify-between bg-gradient-to-t p-4 shadow-xs">
-            <div className="flex items-center gap-2">
-              <Clock className="text-muted-foreground h-5 w-5" />
-              <span className="font-medium">Gastos pendientes de aprobación</span>
-            </div>
-            <Badge variant="secondary" className="text-lg font-bold">
-              {tabData.pending.length}
-            </Badge>
-          </Card>
+          {/* Tab Pendientes */}
+          <TabsContent value="pending" className="flex flex-col gap-4">
+            <Card className="from-primary/5 to-card flex items-center justify-between bg-gradient-to-t p-4 shadow-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="text-muted-foreground h-5 w-5" />
+                <span className="font-medium">Gastos pendientes de aprobación</span>
+              </div>
+              <Badge variant="secondary" className="text-lg font-bold">
+                {tabData.pending.length}
+              </Badge>
+            </Card>
 
-          {tabLoading.pending ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.pending.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <Receipt className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay gastos pendientes</h3>
-                <p className="text-muted-foreground text-sm">Cuando recibas nuevos gastos aparecerán aquí.</p>
+            {tabLoading.pending ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
               </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {pendingTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {pendingTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+            ) : tabData.pending.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <Receipt className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay gastos pendientes</h3>
+                  <p className="text-muted-foreground text-sm">Cuando recibas nuevos gastos aparecerán aquí.</p>
+                </div>
               </div>
-              <DataTablePagination table={pendingTable} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Aprobados */}
-        <TabsContent value="approved" className="flex flex-col gap-4">
-          {tabLoading.approved ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.approved.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <Check className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay gastos aprobados</h3>
-                <p className="text-muted-foreground text-sm">Cuando apruebes gastos aparecerán en este listado.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {approvedTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {approvedTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <DataTablePagination table={approvedTable} />
-            </>
-          )}
-        </TabsContent>
-
-        {/* Tab Rechazados */}
-        <TabsContent value="rejected" className="flex flex-col gap-4">
-          {tabLoading.rejected ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.rejected.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <X className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay gastos rechazados</h3>
-                <p className="text-muted-foreground text-sm">Los gastos rechazados se mostrarán cuando existan.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {rejectedTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {rejectedTable.getRowModel().rows.map((row) => (
-                      <TableRow key={row.id}>
-                        {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <DataTablePagination table={rejectedTable} />
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Dialog de Aprobación/Rechazo */}
-      <Dialog
-        open={actionDialogOpen}
-        onOpenChange={(open) => {
-          setActionDialogOpen(open);
-          if (!open) {
-            setSelectedExpense(null);
-            setComments("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{actionType === "approve" ? "Aprobar gasto" : "Rechazar gasto"}</DialogTitle>
-            {selectedExpense && (
-              <DialogDescription>
-                {selectedExpense.employee.firstName} {selectedExpense.employee.lastName} -{" "}
-                {categoryLabels[selectedExpense.category]}
-              </DialogDescription>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {pendingTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {pendingTable.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <DataTablePagination table={pendingTable} />
+              </>
             )}
-          </DialogHeader>
+          </TabsContent>
 
-          {selectedExpense && (
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border p-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Fecha:</span>
-                    <p className="font-medium">{format(new Date(selectedExpense.date), "PP", { locale: es })}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Categoría:</span>
-                    <p className="font-medium">{categoryLabels[selectedExpense.category]}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Importe:</span>
-                    <p className="font-semibold text-green-600">
-                      {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(
-                        Number(selectedExpense.totalAmount),
-                      )}
-                    </p>
-                  </div>
-                  {selectedExpense.merchantName && (
+          {/* Tab Aprobados */}
+          <TabsContent value="approved" className="flex flex-col gap-4">
+            {tabLoading.approved ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : tabData.approved.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <Check className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay gastos aprobados</h3>
+                  <p className="text-muted-foreground text-sm">Cuando apruebes gastos aparecerán en este listado.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {approvedTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {approvedTable.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <DataTablePagination table={approvedTable} />
+              </>
+            )}
+          </TabsContent>
+
+          {/* Tab Rechazados */}
+          <TabsContent value="rejected" className="flex flex-col gap-4">
+            {tabLoading.rejected ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : tabData.rejected.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <X className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay gastos rechazados</h3>
+                  <p className="text-muted-foreground text-sm">Los gastos rechazados se mostrarán cuando existan.</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {rejectedTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {rejectedTable.getRowModel().rows.map((row) => (
+                        <TableRow key={row.id}>
+                          {row.getVisibleCells().map((cell) => (
+                            <TableCell key={cell.id}>
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <DataTablePagination table={rejectedTable} />
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Dialog de Aprobación/Rechazo */}
+        <Dialog
+          open={actionDialogOpen}
+          onOpenChange={(open) => {
+            setActionDialogOpen(open);
+            if (!open) {
+              setSelectedExpense(null);
+              setComments("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{actionType === "approve" ? "Aprobar gasto" : "Rechazar gasto"}</DialogTitle>
+              {selectedExpense && (
+                <DialogDescription>
+                  {selectedExpense.employee.firstName} {selectedExpense.employee.lastName} -{" "}
+                  {categoryLabels[selectedExpense.category]}
+                </DialogDescription>
+              )}
+            </DialogHeader>
+
+            {selectedExpense && (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-lg border p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-muted-foreground">Comercio:</span>
-                      <p className="font-medium">{selectedExpense.merchantName}</p>
+                      <span className="text-muted-foreground">Fecha:</span>
+                      <p className="font-medium">{format(new Date(selectedExpense.date), "PP", { locale: es })}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Categoría:</span>
+                      <p className="font-medium">{categoryLabels[selectedExpense.category]}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Importe:</span>
+                      <p className="font-semibold text-green-600">
+                        {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(
+                          Number(selectedExpense.totalAmount),
+                        )}
+                      </p>
+                    </div>
+                    {selectedExpense.merchantName && (
+                      <div>
+                        <span className="text-muted-foreground">Comercio:</span>
+                        <p className="font-medium">{selectedExpense.merchantName}</p>
+                      </div>
+                    )}
+                  </div>
+                  {selectedExpense.notes && (
+                    <div className="mt-4">
+                      <span className="text-muted-foreground text-sm">Notas:</span>
+                      <p className="mt-1 text-sm">{selectedExpense.notes}</p>
                     </div>
                   )}
                 </div>
-                {selectedExpense.notes && (
-                  <div className="mt-4">
-                    <span className="text-muted-foreground text-sm">Notas:</span>
-                    <p className="mt-1 text-sm">{selectedExpense.notes}</p>
-                  </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="comments">
+                    Comentarios {actionType === "reject" && <span className="text-destructive">*</span>}
+                  </Label>
+                  <Textarea
+                    id="comments"
+                    placeholder={
+                      actionType === "approve" ? "Comentarios opcionales..." : "Motivo del rechazo (obligatorio)"
+                    }
+                    rows={3}
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setActionDialogOpen(false);
+                  setSelectedExpense(null);
+                  setComments("");
+                }}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSubmitAction}
+                disabled={isSubmitting || (actionType === "reject" && !comments.trim())}
+                className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : actionType === "approve" ? (
+                  "Aprobar"
+                ) : (
+                  "Rechazar"
                 )}
-              </div>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="comments">
-                  Comentarios {actionType === "reject" && <span className="text-destructive">*</span>}
-                </Label>
-                <Textarea
-                  id="comments"
-                  placeholder={
-                    actionType === "approve" ? "Comentarios opcionales..." : "Motivo del rechazo (obligatorio)"
-                  }
-                  rows={3}
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setActionDialogOpen(false);
-                setSelectedExpense(null);
-                setComments("");
-              }}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSubmitAction}
-              disabled={isSubmitting || (actionType === "reject" && !comments.trim())}
-              className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Procesando...
-                </>
-              ) : actionType === "approve" ? (
-                "Aprobar"
-              ) : (
-                "Rechazar"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Sheet de Detalle de Gasto */}
-      {detailExpense && (
-        <ExpenseDetailSheet
-          expense={{
-            ...detailExpense,
-            employee: {
-              firstName: detailExpense.employee.firstName,
-              lastName: detailExpense.employee.lastName,
-              email: detailExpense.employee.email ?? "",
-              photoUrl: detailExpense.employee.user?.image ?? null,
-            },
-            approvals: detailExpense.approvals.map((approval) => ({
-              ...approval,
-              approver: {
-                name: approval.approver.name ?? "",
+        {/* Sheet de Detalle de Gasto */}
+        {detailExpense && (
+          <ExpenseDetailSheet
+            expense={{
+              ...detailExpense,
+              employee: {
+                firstName: detailExpense.employee.firstName,
+                lastName: detailExpense.employee.lastName,
+                email: detailExpense.employee.email ?? "",
+                photoUrl: detailExpense.employee.user?.image ?? null,
               },
-            })),
-          }}
-          open={detailSheetOpen}
-          onOpenChange={setDetailSheetOpen}
-          onApprove={handleDetailSheetApprove}
-          onReject={handleDetailSheetReject}
-        />
-      )}
-    </div>
+              approvals: detailExpense.approvals.map((approval) => ({
+                ...approval,
+                approver: {
+                  name: approval.approver.name ?? "",
+                },
+              })),
+            }}
+            open={detailSheetOpen}
+            onOpenChange={setDetailSheetOpen}
+            onApprove={handleDetailSheetApprove}
+            onReject={handleDetailSheetReject}
+          />
+        )}
+      </div>
+    </PermissionGuard>
   );
 }

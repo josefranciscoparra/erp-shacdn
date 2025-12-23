@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
 import { HierarchyType } from "@prisma/client";
-import { Download, Loader2, Network, Search } from "lucide-react";
+import { Download, Loader2, Network, Search, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,16 @@ interface OrganizationChartData {
 }
 
 export default function OrganizationChartPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Organigrama" description="Visualiza la estructura organizativa y jerárquica." />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const [data, setData] = useState<OrganizationChartData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,65 +134,71 @@ export default function OrganizationChartPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <div className="flex h-full items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      </PermissionGuard>
     );
   }
 
   if (error || !data) {
     return (
-      <EmptyState
-        icon={<Network className="mx-auto h-12 w-12" />}
-        title="Error al cargar el organigrama"
-        description={error ?? "No se pudo obtener la estructura organizacional"}
-        action={{
-          label: "Reintentar",
-          onClick: fetchOrganizationChart,
-        }}
-      />
+      <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+        <EmptyState
+          icon={<Network className="mx-auto h-12 w-12" />}
+          title="Error al cargar el organigrama"
+          description={error ?? "No se pudo obtener la estructura organizacional"}
+          action={{
+            label: "Reintentar",
+            onClick: fetchOrganizationChart,
+          }}
+        />
+      </PermissionGuard>
     );
   }
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Organigrama"
-        subtitle={`${getHierarchyLabel(data.hierarchyType)} • ${data.employees.length} empleado${data.employees.length !== 1 ? "s" : ""}`}
-      />
+    <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Organigrama"
+          subtitle={`${getHierarchyLabel(data.hierarchyType)} • ${data.employees.length} empleado${data.employees.length !== 1 ? "s" : ""}`}
+        />
 
-      {/* Barra de búsqueda */}
-      <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
-        <div className="relative flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <Input
-            placeholder="Buscar por nombre, puesto, departamento o email..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+        {/* Barra de búsqueda */}
+        <div className="flex flex-col gap-4 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+          <div className="relative flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Input
+              placeholder="Buscar por nombre, puesto, departamento o email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" />
+            Exportar
+          </Button>
         </div>
 
-        <Button variant="outline" size="sm" className="gap-2">
-          <Download className="h-4 w-4" />
-          Exportar
-        </Button>
+        {/* Organigrama según tipo de jerarquía */}
+        <div className="bg-card rounded-lg border p-6 shadow-xs">
+          {data.hierarchyType === HierarchyType.FLAT && (
+            <OrgChartFlat employees={data.employees} searchQuery={searchQuery} />
+          )}
+
+          {data.hierarchyType === HierarchyType.DEPARTMENTAL && (
+            <OrgChartDepartmental departments={data.departments} searchQuery={searchQuery} />
+          )}
+
+          {data.hierarchyType === HierarchyType.HIERARCHICAL && (
+            <OrgChartUnified rootNode={data.hierarchicalTree ?? null} searchQuery={searchQuery} />
+          )}
+        </div>
       </div>
-
-      {/* Organigrama según tipo de jerarquía */}
-      <div className="bg-card rounded-lg border p-6 shadow-xs">
-        {data.hierarchyType === HierarchyType.FLAT && (
-          <OrgChartFlat employees={data.employees} searchQuery={searchQuery} />
-        )}
-
-        {data.hierarchyType === HierarchyType.DEPARTMENTAL && (
-          <OrgChartDepartmental departments={data.departments} searchQuery={searchQuery} />
-        )}
-
-        {data.hierarchyType === HierarchyType.HIERARCHICAL && (
-          <OrgChartUnified rootNode={data.hierarchicalTree ?? null} searchQuery={searchQuery} />
-        )}
-      </div>
-    </div>
+    </PermissionGuard>
   );
 }

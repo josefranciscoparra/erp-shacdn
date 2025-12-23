@@ -2,7 +2,7 @@ import { isSameDay } from "date-fns";
 
 import type { CalendarEventData } from "@/server/actions/employee-calendars";
 
-import type { CalendarEvent, EventColor } from "./components";
+import type { CalendarEvent, EventColor } from "./types";
 
 /**
  * Get CSS classes for event colors (chips estilo Factorial/Linear)

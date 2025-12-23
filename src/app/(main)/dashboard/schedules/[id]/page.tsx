@@ -38,7 +38,7 @@ export default async function ScheduleTemplatePage({ params }: PageProps) {
 
   return (
     <PermissionGuard
-      permission="view_contracts"
+      permissions={["view_contracts", "manage_contracts"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Editar Plantilla de Horario" subtitle="Sistema de Horarios V2.0" />

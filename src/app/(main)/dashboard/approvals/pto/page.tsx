@@ -13,10 +13,12 @@ import {
 } from "@tanstack/react-table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { AlertTriangle, Check, Clock, Loader2, Paperclip, X } from "lucide-react";
+import { AlertTriangle, Check, Clock, Loader2, Paperclip, X, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
+import { PermissionGuard } from "@/components/auth/permission-guard";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
 import { DocumentViewer, type PtoDocument } from "@/components/pto";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +80,16 @@ interface ApproverPtoTotals {
 }
 
 export default function PtoApprovalsPage() {
+  const permissionFallback = (
+    <div className="@container/main flex flex-col gap-4 md:gap-6">
+      <SectionHeader title="Solicitudes de PTO" />
+      <EmptyState
+        icon={<ShieldAlert className="text-destructive mx-auto h-12 w-12" />}
+        title="Acceso denegado"
+        description="No tienes permisos para ver esta sección"
+      />
+    </div>
+  );
   const [tabData, setTabData] = useState<Record<TabKey, ApproverPtoRequest[]>>({
     pending: [],
     approved: [],
@@ -535,335 +547,344 @@ export default function PtoApprovalsPage() {
   const counts = totals;
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Solicitudes de PTO"
-        description="Revisa y gestiona las solicitudes de vacaciones y ausencias de tu equipo."
-      />
+    <PermissionGuard permission="approve_requests" fallback={permissionFallback}>
+      <div className="@container/main flex flex-col gap-4 md:gap-6">
+        <SectionHeader
+          title="Solicitudes de PTO"
+          description="Revisa y gestiona las solicitudes de vacaciones y ausencias de tu equipo."
+        />
 
-      <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
-        <TabsList className="justify-start overflow-x-auto">
-          <TabsTrigger value="pending" className="flex items-center gap-2">
-            Pendientes
-            <Badge variant="secondary">{counts.pending}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="approved" className="flex items-center gap-2">
-            Aprobadas
-            <Badge variant="secondary">{counts.approved}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="rejected" className="flex items-center gap-2">
-            Rechazadas
-            <Badge variant="secondary">{counts.rejected}</Badge>
-          </TabsTrigger>
-        </TabsList>
+        <Tabs value={selectedTab} onValueChange={handleTabChange} className="flex flex-col gap-4">
+          <TabsList className="justify-start overflow-x-auto">
+            <TabsTrigger value="pending" className="flex items-center gap-2">
+              Pendientes
+              <Badge variant="secondary">{counts.pending}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="flex items-center gap-2">
+              Aprobadas
+              <Badge variant="secondary">{counts.approved}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="flex items-center gap-2">
+              Rechazadas
+              <Badge variant="secondary">{counts.rejected}</Badge>
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="pending" className="flex flex-col gap-4">
-          <Card className="from-primary/5 to-card flex items-center justify-between bg-gradient-to-t p-4 shadow-xs">
-            <div className="flex items-center gap-2">
-              <Clock className="text-muted-foreground h-5 w-5" />
-              <span className="font-medium">Solicitudes pendientes de aprobación</span>
-            </div>
-            <Badge variant="secondary" className="text-lg font-bold">
-              {counts.pending}
-            </Badge>
-          </Card>
-
-          {tabLoading.pending ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.pending.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <Clock className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay solicitudes pendientes</h3>
-                <p className="text-muted-foreground text-sm">Cuando recibas nuevas solicitudes aparecerán aquí.</p>
+          <TabsContent value="pending" className="flex flex-col gap-4">
+            <Card className="from-primary/5 to-card flex items-center justify-between bg-gradient-to-t p-4 shadow-xs">
+              <div className="flex items-center gap-2">
+                <Clock className="text-muted-foreground h-5 w-5" />
+                <span className="font-medium">Solicitudes pendientes de aprobación</span>
               </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {pendingTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {pendingTable.getRowModel().rows.length ? (
-                      pendingTable.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={pendingColumns.length} className="h-24 text-center">
-                          No hay solicitudes pendientes
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+              <Badge variant="secondary" className="text-lg font-bold">
+                {counts.pending}
+              </Badge>
+            </Card>
+
+            {tabLoading.pending ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
               </div>
-
-              <DataTablePagination table={pendingTable} />
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="approved" className="flex flex-col gap-4">
-          {tabLoading.approved ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.approved.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <Check className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay solicitudes aprobadas</h3>
-                <p className="text-muted-foreground text-sm">Cuando apruebes solicitudes aparecerán en este listado.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {approvedTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {approvedTable.getRowModel().rows.length ? (
-                      approvedTable.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={approvedColumns.length} className="h-24 text-center">
-                          No hay solicitudes aprobadas
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <DataTablePagination table={approvedTable} />
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="rejected" className="flex flex-col gap-4">
-          {tabLoading.rejected ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
-            </div>
-          ) : tabData.rejected.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
-              <X className="text-muted-foreground h-12 w-12" />
-              <div>
-                <h3 className="font-semibold">No hay solicitudes rechazadas</h3>
-                <p className="text-muted-foreground text-sm">Las solicitudes rechazadas se mostrarán cuando existan.</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    {rejectedTable.getHeaderGroups().map((headerGroup) => (
-                      <TableRow key={headerGroup.id}>
-                        {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id}>
-                            {header.isPlaceholder
-                              ? null
-                              : flexRender(header.column.columnDef.header, header.getContext())}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableHeader>
-                  <TableBody>
-                    {rejectedTable.getRowModel().rows.length ? (
-                      rejectedTable.getRowModel().rows.map((row) => (
-                        <TableRow key={row.id}>
-                          {row.getVisibleCells().map((cell) => (
-                            <TableCell key={cell.id}>
-                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={rejectedColumns.length} className="h-24 text-center">
-                          No hay solicitudes rechazadas
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-
-              <DataTablePagination table={rejectedTable} />
-            </>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <Dialog
-        open={actionDialogOpen}
-        onOpenChange={(open) => {
-          setActionDialogOpen(open);
-          if (!open) {
-            setSelectedRequest(null);
-            setComments("");
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{actionType === "approve" ? "Aprobar solicitud" : "Rechazar solicitud"}</DialogTitle>
-            <DialogDescription>
-              {selectedRequest &&
-                `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName} - ${selectedRequest.absenceType.name}`}
-            </DialogDescription>
-          </DialogHeader>
-
-          {selectedRequest && (
-            <div className="flex flex-col gap-4">
-              <div className="rounded-lg border p-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Fecha inicio:</span>
-                    <p className="font-medium">{format(new Date(selectedRequest.startDate), "PP", { locale: es })}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Fecha fin:</span>
-                    <p className="font-medium">{format(new Date(selectedRequest.endDate), "PP", { locale: es })}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Días hábiles:</span>
-                    <p className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Solicitado:</span>
-                    <p className="font-medium">{format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}</p>
-                  </div>
+            ) : tabData.pending.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <Clock className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay solicitudes pendientes</h3>
+                  <p className="text-muted-foreground text-sm">Cuando recibas nuevas solicitudes aparecerán aquí.</p>
                 </div>
-                {selectedRequest.reason && (
-                  <div className="mt-4">
-                    <span className="text-muted-foreground text-sm">Motivo:</span>
-                    <p className="mt-1 text-sm">{selectedRequest.reason}</p>
-                  </div>
-                )}
               </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {pendingTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {pendingTable.getRowModel().rows.length ? (
+                        pendingTable.getRowModel().rows.map((row) => (
+                          <TableRow key={row.id}>
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={pendingColumns.length} className="h-24 text-center">
+                            No hay solicitudes pendientes
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
 
-              {/* Sección de justificantes */}
-              {((selectedRequest._count?.documents ?? 0) > 0 || selectedRequest.absenceType.requiresDocument) && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Paperclip className="h-4 w-4" />
-                    <span className="text-sm font-medium">Justificantes</span>
-                    {selectedRequest.absenceType.requiresDocument && (selectedRequest._count?.documents ?? 0) === 0 && (
-                      <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
-                        <AlertTriangle className="mr-1 h-3 w-3" />
-                        Obligatorio
-                      </Badge>
-                    )}
-                  </div>
+                <DataTablePagination table={pendingTable} />
+              </>
+            )}
+          </TabsContent>
 
-                  {isLoadingDocuments ? (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+          <TabsContent value="approved" className="flex flex-col gap-4">
+            {tabLoading.approved ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : tabData.approved.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <Check className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay solicitudes aprobadas</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Cuando apruebes solicitudes aparecerán en este listado.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {approvedTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {approvedTable.getRowModel().rows.length ? (
+                        approvedTable.getRowModel().rows.map((row) => (
+                          <TableRow key={row.id}>
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={approvedColumns.length} className="h-24 text-center">
+                            No hay solicitudes aprobadas
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <DataTablePagination table={approvedTable} />
+              </>
+            )}
+          </TabsContent>
+
+          <TabsContent value="rejected" className="flex flex-col gap-4">
+            {tabLoading.rejected ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              </div>
+            ) : tabData.rejected.length === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-12 text-center">
+                <X className="text-muted-foreground h-12 w-12" />
+                <div>
+                  <h3 className="font-semibold">No hay solicitudes rechazadas</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Las solicitudes rechazadas se mostrarán cuando existan.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-lg border">
+                  <Table>
+                    <TableHeader>
+                      {rejectedTable.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id}>
+                              {header.isPlaceholder
+                                ? null
+                                : flexRender(header.column.columnDef.header, header.getContext())}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+                      {rejectedTable.getRowModel().rows.length ? (
+                        rejectedTable.getRowModel().rows.map((row) => (
+                          <TableRow key={row.id}>
+                            {row.getVisibleCells().map((cell) => (
+                              <TableCell key={cell.id}>
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={rejectedColumns.length} className="h-24 text-center">
+                            No hay solicitudes rechazadas
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <DataTablePagination table={rejectedTable} />
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        <Dialog
+          open={actionDialogOpen}
+          onOpenChange={(open) => {
+            setActionDialogOpen(open);
+            if (!open) {
+              setSelectedRequest(null);
+              setComments("");
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{actionType === "approve" ? "Aprobar solicitud" : "Rechazar solicitud"}</DialogTitle>
+              <DialogDescription>
+                {selectedRequest &&
+                  `${selectedRequest.employee.firstName} ${selectedRequest.employee.lastName} - ${selectedRequest.absenceType.name}`}
+              </DialogDescription>
+            </DialogHeader>
+
+            {selectedRequest && (
+              <div className="flex flex-col gap-4">
+                <div className="rounded-lg border p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Fecha inicio:</span>
+                      <p className="font-medium">{format(new Date(selectedRequest.startDate), "PP", { locale: es })}</p>
                     </div>
-                  ) : documents.length > 0 ? (
-                    <DocumentViewer documents={documents} />
-                  ) : (
-                    <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
-                      No hay justificantes adjuntos
+                    <div>
+                      <span className="text-muted-foreground">Fecha fin:</span>
+                      <p className="font-medium">{format(new Date(selectedRequest.endDate), "PP", { locale: es })}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Días hábiles:</span>
+                      <p className="font-semibold">{formatWorkingDays(Number(selectedRequest.workingDays))}</p>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Solicitado:</span>
+                      <p className="font-medium">
+                        {format(new Date(selectedRequest.submittedAt), "PP", { locale: es })}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedRequest.reason && (
+                    <div className="mt-4">
+                      <span className="text-muted-foreground text-sm">Motivo:</span>
+                      <p className="mt-1 text-sm">{selectedRequest.reason}</p>
                     </div>
                   )}
                 </div>
-              )}
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="comments">
-                  Comentarios {actionType === "reject" && <span className="text-destructive">*</span>}
-                </Label>
-                <Textarea
-                  id="comments"
-                  placeholder={
-                    actionType === "approve" ? "Comentarios opcionales..." : "Motivo del rechazo (obligatorio)"
-                  }
-                  rows={3}
-                  value={comments}
-                  onChange={(e) => setComments(e.target.value)}
-                />
+                {/* Sección de justificantes */}
+                {((selectedRequest._count?.documents ?? 0) > 0 || selectedRequest.absenceType.requiresDocument) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="h-4 w-4" />
+                      <span className="text-sm font-medium">Justificantes</span>
+                      {selectedRequest.absenceType.requiresDocument &&
+                        (selectedRequest._count?.documents ?? 0) === 0 && (
+                          <Badge variant="outline" className="bg-amber-500/10 text-amber-700 dark:text-amber-400">
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            Obligatorio
+                          </Badge>
+                        )}
+                    </div>
+
+                    {isLoadingDocuments ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+                      </div>
+                    ) : documents.length > 0 ? (
+                      <DocumentViewer documents={documents} />
+                    ) : (
+                      <div className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm">
+                        No hay justificantes adjuntos
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="comments">
+                    Comentarios {actionType === "reject" && <span className="text-destructive">*</span>}
+                  </Label>
+                  <Textarea
+                    id="comments"
+                    placeholder={
+                      actionType === "approve" ? "Comentarios opcionales..." : "Motivo del rechazo (obligatorio)"
+                    }
+                    rows={3}
+                    value={comments}
+                    onChange={(e) => setComments(e.target.value)}
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setActionDialogOpen(false);
-                setSelectedRequest(null);
-                setComments("");
-              }}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              onClick={handleSubmitAction}
-              disabled={isSubmitting || (actionType === "reject" && !comments.trim())}
-              className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Procesando...
-                </>
-              ) : actionType === "approve" ? (
-                "Aprobar"
-              ) : (
-                "Rechazar"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setActionDialogOpen(false);
+                  setSelectedRequest(null);
+                  setComments("");
+                }}
+                disabled={isSubmitting}
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={handleSubmitAction}
+                disabled={isSubmitting || (actionType === "reject" && !comments.trim())}
+                className={actionType === "approve" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Procesando...
+                  </>
+                ) : actionType === "approve" ? (
+                  "Aprobar"
+                ) : (
+                  "Rechazar"
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </PermissionGuard>
   );
 }

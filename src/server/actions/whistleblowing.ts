@@ -14,6 +14,7 @@ import {
 import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { encryptJson, decryptJson } from "@/lib/encryption";
 import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
@@ -1024,10 +1025,12 @@ export type WhistleblowingConfig = {
  * Obtiene la configuración actual de whistleblowing para la organización
  */
 export async function getOrganizationWhistleblowingConfig(): Promise<WhistleblowingConfig> {
-  const session = await auth();
-  if (!session?.user?.orgId) {
-    throw new Error("NO_AUTH");
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    throw new Error(authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION");
   }
+
+  const session = authz.session;
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.orgId },
@@ -1053,20 +1056,12 @@ export async function getOrganizationWhistleblowingConfig(): Promise<Whistleblow
  * Activa o desactiva el canal de denuncias
  */
 export async function updateOrganizationWhistleblowingStatus(enabled: boolean): Promise<{ success: boolean }> {
-  const session = await auth();
-  if (!session?.user?.id || !session?.user?.orgId) {
-    throw new Error("NO_AUTH");
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    throw new Error(authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION");
   }
 
-  // Verificar permiso manage_organization
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!user || (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN")) {
-    throw new Error("NO_PERMISSION");
-  }
+  const session = authz.session;
 
   // Si se está habilitando y no hay slug, generar uno
   const org = await prisma.organization.findUnique({
@@ -1112,20 +1107,12 @@ export async function updateOrganizationWhistleblowingStatus(enabled: boolean): 
  * Actualiza el slug público del canal de denuncias
  */
 export async function updateWhistleblowingPublicSlug(slug: string): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !session?.user?.orgId) {
-    throw new Error("NO_AUTH");
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    throw new Error(authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION");
   }
 
-  // Verificar permiso
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!user || (user.role !== "ORG_ADMIN" && user.role !== "SUPER_ADMIN")) {
-    throw new Error("NO_PERMISSION");
-  }
+  const session = authz.session;
 
   // Validar formato del slug
   const cleanSlug = slug
@@ -1164,20 +1151,12 @@ export async function updateWhistleblowingPublicSlug(slug: string): Promise<{ su
  * Añade un gestor de whistleblowing
  */
 export async function addWhistleblowingManager(userId: string): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !session?.user?.orgId) {
-    return { success: false, error: "No autenticado" };
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    return { success: false, error: authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION" };
   }
 
-  // Verificar permiso
-  const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!currentUser || (currentUser.role !== "ORG_ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
-    return { success: false, error: "Sin permisos" };
-  }
+  const session = authz.session;
 
   // Verificar que el usuario existe y pertenece a la organización
   const targetUser = await prisma.user.findFirst({
@@ -1220,20 +1199,12 @@ export async function addWhistleblowingManager(userId: string): Promise<{ succes
  * Elimina un gestor de whistleblowing
  */
 export async function removeWhistleblowingManager(userId: string): Promise<{ success: boolean; error?: string }> {
-  const session = await auth();
-  if (!session?.user?.id || !session?.user?.orgId) {
-    return { success: false, error: "No autenticado" };
+  const authz = await safePermission("manage_organization");
+  if (!authz.ok) {
+    return { success: false, error: authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION" };
   }
 
-  // Verificar permiso
-  const currentUser = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-
-  if (!currentUser || (currentUser.role !== "ORG_ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
-    return { success: false, error: "Sin permisos" };
-  }
+  const session = authz.session;
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.orgId },
@@ -1274,10 +1245,12 @@ export async function getWhistleblowingManagers(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.orgId) {
-      return { success: false, managers: [], error: "No autenticado" };
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
+      return { success: false, managers: [], error: authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION" };
     }
+
+    const session = authz.session;
 
     const org = await prisma.organization.findUnique({
       where: { id: session.user.orgId },
@@ -1321,20 +1294,12 @@ export async function getAvailableWhistleblowingManagers(): Promise<{
   error?: string;
 }> {
   try {
-    const session = await auth();
-    if (!session?.user?.id || !session?.user?.orgId) {
-      return { success: false, users: [], error: "No autenticado" };
+    const authz = await safePermission("manage_organization");
+    if (!authz.ok) {
+      return { success: false, users: [], error: authz.code === "UNAUTHORIZED" ? "NO_AUTH" : "NO_PERMISSION" };
     }
 
-    // Verificar permiso
-    const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-
-    if (!currentUser || (currentUser.role !== "ORG_ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
-      return { success: false, users: [], error: "Sin permisos" };
-    }
+    const session = authz.session;
 
     const org = await prisma.organization.findUnique({
       where: { id: session.user.orgId },

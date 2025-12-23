@@ -1,6 +1,7 @@
 # PLAN 4 – Proyectos en Fichajes
 
 ## 🎯 Objetivo
+
 Mejorar el módulo de fichajes permitiendo asignar proyectos, abiertos o restringidos a determinadas personas.
 
 ---
@@ -8,6 +9,7 @@ Mejorar el módulo de fichajes permitiendo asignar proyectos, abiertos o restrin
 ## Requisitos
 
 ### Creación de Proyectos
+
 - Campos:
   - Nombre del proyecto.
   - Estado.
@@ -17,6 +19,7 @@ Mejorar el módulo de fichajes permitiendo asignar proyectos, abiertos o restrin
     - Proyecto asignado solo a X trabajadores.
 
 ### Asignación
+
 - Si el proyecto está asignado a personas:
   - Solo esos usuarios ven el proyecto en el selector de fichaje.
 - Si es abierto:
@@ -25,6 +28,7 @@ Mejorar el módulo de fichajes permitiendo asignar proyectos, abiertos o restrin
 ---
 
 ## Integración con Fichajes
+
 - En un fichaje debe poder seleccionarse:
   - Proyecto
   - (Opcional) Tarea o subcategoría si existe
@@ -32,6 +36,7 @@ Mejorar el módulo de fichajes permitiendo asignar proyectos, abiertos o restrin
 ---
 
 ## Informes
+
 - Horas por proyecto.
 - Horas por persona dentro del proyecto.
 - Vista semanal agrupada.

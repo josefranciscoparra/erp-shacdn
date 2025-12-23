@@ -22,11 +22,13 @@ import { CostCenterData } from "@/stores/cost-centers-store";
 interface CostCentersColumnsProps {
   onEdit?: (costCenter: CostCenterData) => void;
   onDelete?: (costCenter: CostCenterData) => void;
+  canManage?: boolean;
 }
 
 export const createCostCentersColumns = ({
   onEdit,
   onDelete,
+  canManage = false,
 }: CostCentersColumnsProps = {}): ColumnDef<CostCenterData>[] => [
   {
     accessorKey: "name",
@@ -125,15 +127,19 @@ export const createCostCentersColumns = ({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => navigator.clipboard.writeText(costCenter.id)}>Copiar ID</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onEdit?.(costCenter)}>
-              <Pencil className="mr-2 h-4 w-4" />
-              Editar centro de coste
-            </DropdownMenuItem>
-            {costCenter.active && (
-              <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(costCenter)}>
-                <Trash2 className="mr-2 h-4 w-4" />
-                Eliminar centro de coste
-              </DropdownMenuItem>
+            {canManage && (
+              <>
+                <DropdownMenuItem onClick={() => onEdit?.(costCenter)}>
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Editar centro de coste
+                </DropdownMenuItem>
+                {costCenter.active && (
+                  <DropdownMenuItem className="text-destructive" onClick={() => onDelete?.(costCenter)}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Eliminar centro de coste
+                  </DropdownMenuItem>
+                )}
+              </>
             )}
           </DropdownMenuContent>
         </DropdownMenu>

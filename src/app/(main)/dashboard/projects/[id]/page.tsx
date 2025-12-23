@@ -26,7 +26,7 @@ export default async function ProjectDetailPage({ params }: PageProps) {
 
   return (
     <PermissionGuard
-      permission="view_projects"
+      permissions={["view_projects", "manage_projects"]}
       fallback={
         <div className="@container/main flex flex-col gap-4 md:gap-6">
           <SectionHeader title="Detalle del Proyecto" />
