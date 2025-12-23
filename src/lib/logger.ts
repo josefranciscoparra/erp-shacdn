@@ -3,6 +3,19 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
+const rawSensitiveAccessFlag = process.env.AUDIT_LOG_SENSITIVE_ACCESS;
+const LOG_SENSITIVE_ACCESS =
+  rawSensitiveAccessFlag === undefined ? true : rawSensitiveAccessFlag.trim().toLowerCase() !== "false";
+
+const DEFAULT_SENSITIVE_THROTTLE_MS = 10 * 60 * 1000;
+const parsedSensitiveThrottle = Number(process.env.AUDIT_LOG_SENSITIVE_ACCESS_THROTTLE_MS);
+const SENSITIVE_ACCESS_THROTTLE_MS =
+  Number.isFinite(parsedSensitiveThrottle) && parsedSensitiveThrottle > 0
+    ? parsedSensitiveThrottle
+    : DEFAULT_SENSITIVE_THROTTLE_MS;
+
+const sensitiveAccessThrottle = new Map<string, number>();
+
 export type AuditAction =
   | "ACCESS_DENIED"
   | "LOGIN_FAILED"
@@ -56,6 +69,22 @@ export class SecurityLogger {
         return;
       }
 
+      if (options.action === "SENSITIVE_DATA_ACCESS") {
+        if (!LOG_SENSITIVE_ACCESS) {
+          return;
+        }
+
+        const userId = session.user.id ?? "system";
+        const entityId = options.entityId ?? "unknown";
+        const throttleKey = `${orgId}:${userId}:${entityId}`;
+        const now = Date.now();
+        const lastLoggedAt = sensitiveAccessThrottle.get(throttleKey);
+        if (lastLoggedAt !== undefined && now - lastLoggedAt < SENSITIVE_ACCESS_THROTTLE_MS) {
+          return;
+        }
+        sensitiveAccessThrottle.set(throttleKey, now);
+      }
+
       const headersList = await headers();
       const ipAddress = headersList.get("x-forwarded-for") ?? "unknown";
       const userAgent = headersList.get("user-agent") ?? "unknown";
@@ -106,6 +135,10 @@ export class SecurityLogger {
    * Registra acceso a datos sensibles
    */
   static async logSensitiveAccess(dataType: string, resourceId: string, description: string): Promise<void> {
+    if (!LOG_SENSITIVE_ACCESS) {
+      return;
+    }
+
     await this.log({
       action: "SENSITIVE_DATA_ACCESS",
       category: "SECURITY",
