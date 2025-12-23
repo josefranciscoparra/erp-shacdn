@@ -582,6 +582,33 @@ async function changeUserRole(userId: string, orgId: string, newRole: string, se
     },
   });
 
+  // Si el nuevo rol es HR_ASSISTANT, crear AreaResponsible con scope ORGANIZATION
+  // para que tenga visibilidad global por defecto (puede restringirse después)
+  if (newRole === "HR_ASSISTANT") {
+    const existingOrgScope = await prisma.areaResponsible.findFirst({
+      where: {
+        userId,
+        orgId,
+        scope: "ORGANIZATION",
+        isActive: true,
+      },
+    });
+
+    if (!existingOrgScope) {
+      await prisma.areaResponsible.create({
+        data: {
+          userId,
+          orgId,
+          scope: "ORGANIZATION",
+          canApproveRequests: true,
+          canViewReports: true,
+          receivesAlerts: true,
+          isActive: true,
+        },
+      });
+    }
+  }
+
   return NextResponse.json({
     message: "Rol actualizado exitosamente",
     user: {
