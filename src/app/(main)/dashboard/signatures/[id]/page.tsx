@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { Role } from "@prisma/client";
 import { ArrowLeft, FileText, History } from "lucide-react";
 
 import { SignatureStatusBadge, SignatureUrgencyBadge } from "@/components/signatures";
@@ -10,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 
 import { SignatureDocumentActions } from "./_components/document-actions";
@@ -60,12 +62,16 @@ export default async function SignatureRequestDetailPage({ params }: { params: P
     notFound();
   }
 
-  // Verificar permisos: HR/Admin pueden ver todas, empleados solo las suyas
-  const allowedRoles = ["HR_ADMIN", "ORG_ADMIN", "SUPER_ADMIN"];
-  const isHrOrAdmin = allowedRoles.includes(session.user.role);
+  // Verificar permisos usando el sistema de permisos efectivos (con overrides)
+  const effectivePermissions = await computeEffectivePermissions({
+    role: session.user.role as Role,
+    orgId: session.user.orgId,
+    userId: session.user.id,
+  });
+  const canManageDocuments = effectivePermissions.has("manage_documents");
   const isSignerOnRequest = request.signers.some((s) => s.employee.id === session.user.employeeId);
 
-  if (!isHrOrAdmin && !isSignerOnRequest) {
+  if (!canManageDocuments && !isSignerOnRequest) {
     notFound();
   }
 

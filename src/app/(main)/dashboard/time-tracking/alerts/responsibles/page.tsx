@@ -7,7 +7,7 @@ import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { SectionHeader } from "@/components/hr/section-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { getResponsiblesForArea } from "@/server/actions/area-responsibilities";
 import {
@@ -23,23 +23,10 @@ export const metadata = {
 };
 
 export default async function AlertResponsiblesPage() {
-  const session = await auth();
+  // Verificar permiso usando el sistema de permisos efectivos (con overrides)
+  const authResult = await safePermission("manage_time_tracking");
 
-  if (!session?.user?.orgId || !session?.user?.role) {
-    return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Responsables de Alertas" />
-        <Card>
-          <CardContent className="py-6">No autenticado.</CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const isAdmin =
-    session.user.role === "HR_ADMIN" || session.user.role === "ORG_ADMIN" || session.user.role === "SUPER_ADMIN";
-
-  if (!isAdmin) {
+  if (!authResult.ok) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
         <SectionHeader title="Responsables de Alertas" description="Gestiona quién recibe alertas por ámbito." />
@@ -48,13 +35,15 @@ export default async function AlertResponsiblesPage() {
             <ShieldAlert className="text-destructive h-6 w-6" />
             <div>
               <p className="font-medium">Acceso restringido</p>
-              <p className="text-muted-foreground text-sm">Solo HR/ORG/SUPER admin pueden gestionar responsables.</p>
+              <p className="text-muted-foreground text-sm">{authResult.error}</p>
             </div>
           </CardContent>
         </Card>
       </div>
     );
   }
+
+  const session = authResult.session;
 
   const org = await prisma.organization.findUnique({
     where: { id: session.user.orgId },

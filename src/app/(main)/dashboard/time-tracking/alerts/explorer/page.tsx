@@ -2,6 +2,7 @@ import { Suspense } from "react";
 
 import Link from "next/link";
 
+import { Role } from "@prisma/client";
 import { AlertCircle, ArrowLeft, Shield, ShieldCheck, ShieldQuestion } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { auth } from "@/lib/auth";
+import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { getAlertStats, getActiveAlerts } from "@/server/actions/alert-detection";
 import { getMySubscriptions } from "@/server/actions/alerts";
@@ -53,9 +55,14 @@ export default async function AlertsExplorerPage() {
     select: { scope: true },
   });
 
-  const isAdmin =
-    session.user.role === "HR_ADMIN" || session.user.role === "ORG_ADMIN" || session.user.role === "SUPER_ADMIN";
-  const hasOrgAccess = isAdmin || responsibilities.some((r) => r.scope === "ORGANIZATION");
+  // Verificar permiso usando el sistema de permisos efectivos (con overrides)
+  const effectivePermissions = await computeEffectivePermissions({
+    role: session.user.role as Role,
+    orgId: session.user.orgId,
+    userId: session.user.id,
+  });
+  const canManageTimeTracking = effectivePermissions.has("manage_time_tracking");
+  const hasOrgAccess = canManageTimeTracking || responsibilities.some((r) => r.scope === "ORGANIZATION");
 
   const [departments, costCenters, teams, subscriptions, orgStats, latestAlerts] = await Promise.all([
     getUserAccessibleDepartments(session.user.id, session.user.orgId),
