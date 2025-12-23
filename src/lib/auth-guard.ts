@@ -11,8 +11,14 @@ import { Role } from "@prisma/client";
 import { type Session } from "next-auth";
 
 import { auth } from "@/lib/auth";
+import { SecurityLogger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { isValidPermission, Permission, ROLE_PERMISSIONS } from "@/services/permissions/permissions";
+import {
+  isValidPermission,
+  Permission,
+  ROLE_PERMISSIONS,
+  SENSITIVE_PERMISSIONS,
+} from "@/services/permissions/permissions";
 
 // ============================================
 // TIPOS
@@ -206,7 +212,19 @@ export async function requirePermission(
   });
 
   if (!effective.has(permission)) {
+    // 🚨 AUDITORÍA: Registrar intento de acceso fallido
+    await SecurityLogger.logAccessDenied(permission, _options?.resource?.type);
+
     throw new AuthError("FORBIDDEN", getPermissionErrorMessage(permission));
+  }
+
+  // 🚨 AUDITORÍA: Si es un permiso sensible, registrar el acceso exitoso
+  if (SENSITIVE_PERMISSIONS.includes(permission)) {
+    await SecurityLogger.logSensitiveAccess(
+      "PERMISSION",
+      permission,
+      `Acceso autorizado a función protegida por '${permission}'`,
+    );
   }
 
   // Detectar origen del permiso
@@ -283,6 +301,9 @@ export async function safeAnyPermission(
   if (unauthorizedError) {
     return unauthorizedError;
   }
+
+  // 🚨 AUDITORÍA: Registrar fallo de permisos múltiples
+  await SecurityLogger.logAccessDenied(permissions.join(" OR "), options?.resource?.type);
 
   return {
     ok: false,
