@@ -1,158 +1,42 @@
-import { Suspense } from "react";
-
 import Link from "next/link";
 
-import { ArrowLeft, ShieldAlert } from "lucide-react";
+import { ArrowRight, MoveRight } from "lucide-react";
 
-import { SectionHeader } from "@/components/hr/section-header";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { safePermission } from "@/lib/auth-guard";
-import { prisma } from "@/lib/prisma";
-import { getResponsiblesForArea } from "@/server/actions/area-responsibilities";
-import {
-  getUserAccessibleCostCenters,
-  getUserAccessibleDepartments,
-  getUserAccessibleTeams,
-} from "@/services/permissions/scope-helpers";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-import { ResponsiblesManager } from "./_components/responsibles-manager";
-
-export const metadata = {
-  title: "Responsables de Alertas",
-};
-
-export default async function AlertResponsiblesPage() {
-  // Verificar permiso usando el sistema de permisos efectivos (con overrides)
-  const authResult = await safePermission("manage_time_tracking");
-
-  if (!authResult.ok) {
-    return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Responsables de Alertas" description="Gestiona quién recibe alertas por ámbito." />
-        <Card>
-          <CardContent className="flex items-center gap-3 py-8">
-            <ShieldAlert className="text-destructive h-6 w-6" />
-            <div>
-              <p className="font-medium">Acceso restringido</p>
-              <p className="text-muted-foreground text-sm">{authResult.error}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const session = authResult.session;
-
-  const org = await prisma.organization.findUnique({
-    where: { id: session.user.orgId },
-    select: { id: true, name: true },
-  });
-
-  if (!org) {
-    return (
-      <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Responsables de Alertas" />
-        <Card>
-          <CardContent className="py-6">Organización no encontrada.</CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const [departments, costCenters, teams] = await Promise.all([
-    getUserAccessibleDepartments(session.user.id, session.user.orgId),
-    getUserAccessibleCostCenters(session.user.id, session.user.orgId),
-    getUserAccessibleTeams(session.user.id, session.user.orgId),
-  ]);
-
-  // Obtener responsables actuales de toda la organización y agrupar por scope
-  const [allResponsibles, subscriptions] = await Promise.all([
-    prisma.areaResponsible.findMany({
-      where: { orgId: session.user.orgId, isActive: true },
-      include: {
-        user: { select: { id: true, name: true, email: true } },
-        department: { select: { id: true, name: true } },
-        costCenter: { select: { id: true, name: true, code: true } },
-        team: { select: { id: true, name: true, code: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.alertSubscription.findMany({
-      where: { orgId: session.user.orgId, isActive: true },
-      select: {
-        id: true,
-        userId: true,
-        scope: true,
-        departmentId: true,
-        costCenterId: true,
-        teamId: true,
-        severityLevels: true,
-        alertTypes: true,
-        notifyByEmail: true,
-      },
-    }),
-  ]);
-
-  const groupedResponsibles = {
-    organization: allResponsibles
-      .filter((r) => r.scope === "ORGANIZATION")
-      .map((r) => ({ ...r, responsibilityId: r.id })),
-    departments: allResponsibles.filter((r) => r.scope === "DEPARTMENT").map((r) => ({ ...r, responsibilityId: r.id })),
-    costCenters: allResponsibles
-      .filter((r) => r.scope === "COST_CENTER")
-      .map((r) => ({ ...r, responsibilityId: r.id })),
-    teams: allResponsibles.filter((r) => r.scope === "TEAM").map((r) => ({ ...r, responsibilityId: r.id })),
-  };
+/**
+ * Página de transición para redirigir a la nueva ubicación de gestión de responsables.
+ * Mantenemos esta ruta para evitar enlaces rotos y educar al usuario sobre el cambio.
+ */
+export default function AlertsResponsiblesRedirectPage() {
+  // Opción A: Redirección automática (descomentar si se prefiere)
+  // redirect("/dashboard/organization/responsibles");
 
   return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <div className="flex items-center justify-between">
-        <SectionHeader
-          title="Responsables de Alertas"
-          description="Gestiona qué usuarios están asignados a cada ámbito y sus suscripciones."
-        />
-        <Link href="/dashboard/time-tracking/alerts/explorer" className="text-primary text-sm hover:underline">
-          <ArrowLeft className="mr-1 inline h-4 w-4" />
-          Volver al Explorador
-        </Link>
-      </div>
-
-      <Suspense fallback={<LoadingState />}>
-        <ResponsiblesManager
-          org={org}
-          departments={departments}
-          costCenters={costCenters}
-          teams={teams}
-          responsibles={groupedResponsibles}
-          subscriptions={subscriptions}
-        />
-      </Suspense>
-    </div>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <Card className="lg:col-span-1">
+    <div className="flex h-[50vh] flex-col items-center justify-center p-4">
+      <Card className="max-w-md text-center">
         <CardHeader>
-          <CardTitle>Ámbitos</CardTitle>
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
+            <MoveRight className="h-6 w-6 text-blue-600" />
+          </div>
+          <CardTitle>Hemos movido esta sección</CardTitle>
+          <CardDescription>
+            La gestión de responsables y destinatarios de alertas ahora se encuentra centralizada en la configuración de
+            la Organización.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-10 w-5/6" />
-          <Skeleton className="h-10 w-4/6" />
-        </CardContent>
-      </Card>
-      <Card className="lg:col-span-2">
-        <CardHeader>
-          <CardTitle>Responsables</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-32 w-full" />
+        <CardContent className="flex flex-col gap-4">
+          <p className="text-muted-foreground text-sm">
+            Desde la nueva sección &quot;Matriz de Responsabilidades&quot; podrás definir quién gestiona cada
+            departamento y qué alertas recibe.
+          </p>
+          <Button asChild className="w-full">
+            <Link href="/dashboard/organization/responsibles">
+              Ir a Matriz de Responsabilidades
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

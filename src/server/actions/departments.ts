@@ -2,6 +2,7 @@
 
 import { getActionError, safeAnyPermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { getScopeFilter, getUserScope } from "@/services/scopes";
 
 export type DepartmentListItem = {
   id: string;
@@ -38,10 +39,20 @@ export async function getDepartments(): Promise<{
     }
     const { session } = authResult;
 
+    // Obtener alcance de visibilidad del usuario
+    const userScope = await getUserScope(session.user.id, session.user.orgId);
+
+    // Generar filtro de seguridad (solo ve departamentos asignados o de sus centros asignados)
+    const scopeFilter = getScopeFilter(userScope, {
+      department: "id", // El campo en Department es 'id'
+      costCenter: "costCenterId", // El campo en Department es 'costCenterId'
+    });
+
     const departments = await prisma.department.findMany({
       where: {
         orgId: session.user.orgId,
         active: true,
+        ...scopeFilter,
       },
       select: {
         id: true,

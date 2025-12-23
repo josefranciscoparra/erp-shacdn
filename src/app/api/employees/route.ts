@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
 import { generateSafeEmployeeNumber } from "@/services/employees";
+import { getUserScope } from "@/services/scopes";
 
 export const runtime = "nodejs";
 
@@ -22,9 +23,47 @@ export async function GET(request: NextRequest) {
 
     const orgId = session.user.orgId;
 
+    // 🔒 SEGURIDAD: Aplicar filtrado por scope
+    const userScope = await getUserScope(session.user.id, orgId);
+
+    // Construir condición de scope
+    const scopeCondition = userScope.isGlobal
+      ? {} // Ver todo
+      : {
+          OR: [
+            // 1. Ver empleados de mis equipos asignados
+            ...(userScope.teamIds.length > 0 ? [{ teamId: { in: userScope.teamIds } }] : []),
+            // 2. Ver empleados de mis departamentos o centros (a través de contrato activo)
+            {
+              employmentContracts: {
+                some: {
+                  active: true,
+                  OR: [
+                    ...(userScope.departmentIds.length > 0 ? [{ departmentId: { in: userScope.departmentIds } }] : []),
+                    ...(userScope.costCenterIds.length > 0 ? [{ costCenterId: { in: userScope.costCenterIds } }] : []),
+                    // Si no tiene scopes de depto/centro pero la query requiere al menos uno, esto asegura no romper
+                    // (aunque si teamIds también está vacío y isGlobal es false, no verá nada por la lógica general)
+                  ],
+                },
+              },
+            },
+          ],
+        };
+
+    // Si no tiene ningún scope asignado y no es global, bloquear acceso
+    if (
+      !userScope.isGlobal &&
+      userScope.teamIds.length === 0 &&
+      userScope.departmentIds.length === 0 &&
+      userScope.costCenterIds.length === 0
+    ) {
+      return NextResponse.json([]); // Array vacío
+    }
+
     const employees = await prisma.employee.findMany({
       where: {
         orgId,
+        ...scopeCondition,
       },
       include: {
         user: {
