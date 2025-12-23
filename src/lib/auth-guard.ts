@@ -187,6 +187,41 @@ export async function computeEffectivePermissions({
 }
 
 /**
+ * Verifica un permiso sin loguear (uso interno)
+ * @internal
+ */
+async function checkPermissionInternal(
+  permission: Permission,
+  options?: { session?: Session },
+): Promise<
+  { ok: true; session: Session; source: AuthSource } | { ok: false; code: "UNAUTHORIZED" | "FORBIDDEN"; error: string }
+> {
+  try {
+    const session = options?.session ?? (await getSessionOrThrow());
+    const { role, orgId, id: userId } = session.user;
+
+    const basePermissions = new Set(computeRolePermissions(role as Role));
+    const effective = await computeEffectivePermissions({
+      role: role as Role,
+      orgId,
+      userId,
+    });
+
+    if (!effective.has(permission)) {
+      return { ok: false, code: "FORBIDDEN", error: getPermissionErrorMessage(permission) };
+    }
+
+    const source: AuthSource = basePermissions.has(permission) ? "ROLE" : "ORG_OVERRIDE";
+    return { ok: true, session, source };
+  } catch (err) {
+    if (err instanceof AuthError) {
+      return { ok: false, code: err.code, error: err.message };
+    }
+    return { ok: false, code: "UNAUTHORIZED", error: "Error de autorización" };
+  }
+}
+
+/**
  * Requiere un permiso específico, lanza error si no lo tiene
  *
  * @param permission - Permiso requerido
@@ -198,24 +233,12 @@ export async function requirePermission(
   permission: Permission,
   _options?: AuthorizeOptions,
 ): Promise<{ session: Session; source: AuthSource }> {
-  const session = await getSessionOrThrow();
-  const { role, orgId, id: userId } = session.user;
+  const result = await checkPermissionInternal(permission);
 
-  // Obtener permisos base del rol (para detectar source)
-  const basePermissions = new Set(computeRolePermissions(role as Role));
-
-  // Obtener permisos efectivos (con overrides aplicados)
-  const effective = await computeEffectivePermissions({
-    role: role as Role,
-    orgId,
-    userId,
-  });
-
-  if (!effective.has(permission)) {
+  if (!result.ok) {
     // 🚨 AUDITORÍA: Registrar intento de acceso fallido
     await SecurityLogger.logAccessDenied(permission, _options?.resource?.type);
-
-    throw new AuthError("FORBIDDEN", getPermissionErrorMessage(permission));
+    throw new AuthError(result.code, result.error);
   }
 
   // 🚨 AUDITORÍA: Si es un permiso sensible, registrar el acceso exitoso
@@ -227,10 +250,7 @@ export async function requirePermission(
     );
   }
 
-  // Detectar origen del permiso
-  const source: AuthSource = basePermissions.has(permission) ? "ROLE" : "ORG_OVERRIDE";
-
-  return { session, source };
+  return { session: result.session, source: result.source };
 }
 
 /**
@@ -288,9 +308,18 @@ export async function safeAnyPermission(
 ): Promise<SafePermissionResult> {
   let unauthorizedError: SafePermissionResult | null = null;
 
+  // Usar checkPermissionInternal para evitar logs duplicados en cada iteración
   for (const permission of permissions) {
-    const result = await safePermission(permission, options);
+    const result = await checkPermissionInternal(permission);
     if (result.ok) {
+      // 🚨 AUDITORÍA: Si es un permiso sensible, registrar el acceso exitoso
+      if (SENSITIVE_PERMISSIONS.includes(permission)) {
+        await SecurityLogger.logSensitiveAccess(
+          "PERMISSION",
+          permission,
+          `Acceso autorizado a función protegida por '${permission}'`,
+        );
+      }
       return result;
     }
     if (result.code === "UNAUTHORIZED" && !unauthorizedError) {
@@ -302,7 +331,7 @@ export async function safeAnyPermission(
     return unauthorizedError;
   }
 
-  // 🚨 AUDITORÍA: Registrar fallo de permisos múltiples
+  // 🚨 AUDITORÍA: Registrar fallo de permisos múltiples (solo 1 log al final)
   await SecurityLogger.logAccessDenied(permissions.join(" OR "), options?.resource?.type);
 
   return {

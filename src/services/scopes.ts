@@ -123,7 +123,8 @@ export function getScopeFilter(
 
   // Si no tiene ninguna responsabilidad asignada, bloquear acceso (condición imposible)
   if (conditions.length === 0) {
-    return { id: "NEVER_MATCH_BLOCK_ACCESS" };
+    // Usamos AND con condiciones contradictorias para garantizar 0 resultados
+    return { AND: [{ id: { not: "" } }, { id: "" }] };
   }
 
   return { OR: conditions };

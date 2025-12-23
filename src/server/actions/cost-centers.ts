@@ -2,6 +2,7 @@
 
 import { getActionError, safeAnyPermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
+import { getScopeFilter, getUserScope } from "@/services/scopes";
 
 /**
  * Server Actions para gestión de centros de coste
@@ -40,10 +41,15 @@ export async function getCostCenterById(id: string): Promise<{
     }
     const { session } = authResult;
 
+    // Obtener alcance de visibilidad del usuario
+    const userScope = await getUserScope(session.user.id, session.user.orgId);
+    const scopeFilter = getScopeFilter(userScope, { costCenter: "id" });
+
     const costCenter = await prisma.costCenter.findFirst({
       where: {
         id,
-        orgId: session.user.orgId, // Multi-tenant security
+        orgId: session.user.orgId,
+        ...scopeFilter,
       },
       select: {
         id: true,
@@ -109,10 +115,15 @@ export async function getCostCenters(): Promise<{
     }
     const { session } = authResult;
 
+    // Obtener alcance de visibilidad del usuario
+    const userScope = await getUserScope(session.user.id, session.user.orgId);
+    const scopeFilter = getScopeFilter(userScope, { costCenter: "id" });
+
     const costCenters = await prisma.costCenter.findMany({
       where: {
         orgId: session.user.orgId,
         active: true,
+        ...scopeFilter,
       },
       select: {
         id: true,
