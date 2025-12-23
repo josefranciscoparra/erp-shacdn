@@ -94,28 +94,27 @@ El backend confía solo en `requireOrg()` que verifica pertenencia a la organiza
 
 ---
 
-## FASE 2: Time Tracking (time-tracking.ts) - LÓGICA HÍBRIDA
+## FASE 2: Time Tracking (time-tracking.ts) - ✅ COMPLETADA (Sin cambios necesarios)
 
-Aquí aplicamos la lógica condicional para no romper el autoservicio ni a los aprobadores.
+### Análisis realizado
+
+Tras auditar las 18 funciones exportadas de `time-tracking.ts`, se concluye que **ya están correctamente protegidas**:
 
 ### 2.1 `recalculateWorkdaySummary`
-**Riesgo:** Autoservicio vs Admin.
-**Estrategia:**
-```typescript
-if (targetEmployeeId === currentUser.employeeId) {
-  // Autoservicio: OK
-} else {
-  // Gestión: Requiere permiso
-  await requirePermission("manage_time_tracking");
-}
-```
+- **Estado:** ✅ Ya protegida
+- **Motivo:** Usa `getAuthenticatedEmployee()` → solo puede recalcular SU propio resumen (autoservicio)
 
 ### 2.2 `recalculateWorkdaySummaryForRetroactivePto`
-**Riesgo:** Aprobadores de vacaciones sin permiso de gestión de tiempo.
-**Estrategia:**
-```typescript
-await safeAnyPermission(["approve_requests", "manage_time_tracking"]);
-```
+- **Estado:** ✅ Ya protegida indirectamente
+- **Motivo:** Es llamada SOLO desde `approvePtoRequest` (approver-pto.ts) que usa `canUserApprove()` del motor de aprobaciones
+
+### 2.3 Resto de funciones (16)
+- `clockIn`, `clockOut`, `startBreak`, `endBreak` → Autoservicio (`getAuthenticatedEmployee()`)
+- `getTodaySummary`, `getWeeklySummary`, `getMonthlySummaries` → Autoservicio
+- `cancelOpenClockIn`, `changeProject`, `getCurrentProject` → Autoservicio
+
+### Conclusión
+El archivo sigue el principio: *"El empleado siempre puede gestionar sus propios datos sin permisos especiales"*. No hay funciones expuestas que permitan manipular datos de otro empleado.
 
 ---
 
