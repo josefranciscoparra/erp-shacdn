@@ -248,7 +248,6 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_own_profile",
     "edit_own_profile",
     "view_own_documents",
-    "view_payroll", // Ver nóminas pero NO gestionar
     "view_own_payslips",
     "clock_in_out",
     "view_time_tracking",

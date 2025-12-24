@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import bcrypt from "bcryptjs";
-
 import { Role } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
@@ -614,9 +613,14 @@ async function changeUserRole(userId: string, orgId: string, newRole: string, se
           userId,
           orgId,
           scope: "ORGANIZATION",
-          canApproveRequests: true,
-          canViewReports: true,
-          receivesAlerts: true,
+          permissions: [
+            "VIEW_ALERTS",
+            "RESOLVE_ALERTS",
+            "APPROVE_PTO_REQUESTS",
+            "APPROVE_EXPENSES",
+            "MANAGE_TIME_ENTRIES",
+            "VIEW_TIME_ENTRIES",
+          ],
           isActive: true,
         },
       });
