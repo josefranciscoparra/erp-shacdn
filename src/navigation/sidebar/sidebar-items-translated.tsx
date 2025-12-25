@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { features } from "@/config/features";
+import { useGroupUserManagement } from "@/hooks/use-group-user-management";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type Permission } from "@/services/permissions";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
@@ -62,7 +63,9 @@ export interface NavGroup {
 
 export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated, userRole } = usePermissions();
+  const { hasGroups: hasGroupUserAccess } = useGroupUserManagement();
   const isSuperAdmin = userRole === "SUPER_ADMIN";
+  const canManageOrgGroups = userRole === "SUPER_ADMIN";
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
@@ -328,6 +331,24 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/admin/users",
               permission: "view_all_users",
             },
+            ...(hasGroupUserAccess
+              ? [
+                  {
+                    title: "Usuarios por grupo",
+                    url: "/dashboard/admin/group-users",
+                    permission: "view_all_users",
+                  },
+                ]
+              : []),
+            ...(canManageOrgGroups
+              ? [
+                  {
+                    title: "Grupos de organizaciones",
+                    url: "/dashboard/admin/groups",
+                    permission: "manage_organization" as Permission,
+                  },
+                ]
+              : []),
             {
               title: "Matriz de Responsabilidades",
               url: "/dashboard/organization/responsibles",

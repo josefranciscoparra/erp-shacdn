@@ -6,6 +6,12 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { encrypt } from "@/lib/crypto";
+import {
+  canManageGroupUsers,
+  getGroupManagedOrganizationIds,
+  getGroupOrganizationIds,
+  listAccessibleGroupsForUser,
+} from "@/lib/organization-groups";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import {
@@ -43,12 +49,119 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") ?? "1");
     const limit = parseInt(searchParams.get("limit") ?? "10");
     const status = searchParams.get("status"); // active, inactive, with-temp-password, all
+    const groupId = searchParams.get("groupId");
     const skip = (page - 1) * limit;
 
     const orgId = session.user.orgId;
+    const role = session.user.role as Role;
+
+    let canManageUserOrganizations = effectivePermissions.has("manage_user_organizations");
+
+    if (!canManageUserOrganizations) {
+      // Sin permiso efectivo, ocultar gestión multi-org
+      canManageUserOrganizations = false;
+    } else if (session.user.role === "SUPER_ADMIN") {
+      canManageUserOrganizations = true;
+    } else {
+      const membership = await prisma.userOrganization.findFirst({
+        where: {
+          userId: session.user.id,
+          orgId,
+          isActive: true,
+        },
+        select: {
+          canManageUserOrganizations: true,
+        },
+      });
+
+      if (session.user.role === "ORG_ADMIN") {
+        canManageUserOrganizations = !!membership;
+      } else {
+        canManageUserOrganizations = membership?.canManageUserOrganizations ?? false;
+      }
+    }
+
+    const managedOrgIds = new Set<string>();
+
+    if (role === "SUPER_ADMIN") {
+      const orgs = await prisma.organization.findMany({
+        where: { active: true },
+        select: { id: true },
+      });
+      orgs.forEach((org) => managedOrgIds.add(org.id));
+    } else if (role === "ORG_ADMIN") {
+      const memberships = await prisma.userOrganization.findMany({
+        where: {
+          userId: session.user.id,
+          isActive: true,
+          organization: { active: true },
+        },
+        select: { orgId: true },
+      });
+
+      memberships.forEach((membership) => managedOrgIds.add(membership.orgId));
+    } else if (role === "HR_ADMIN") {
+      const memberships = await prisma.userOrganization.findMany({
+        where: {
+          userId: session.user.id,
+          isActive: true,
+          canManageUserOrganizations: true,
+          organization: { active: true },
+        },
+        select: { orgId: true },
+      });
+
+      memberships.forEach((membership) => managedOrgIds.add(membership.orgId));
+    }
+
+    if (managedOrgIds.size === 0 && orgId) {
+      managedOrgIds.add(orgId);
+    }
+
+    const groupManagedOrgIds = await getGroupManagedOrganizationIds(session.user.id);
+    groupManagedOrgIds.forEach((managedOrgId) => managedOrgIds.add(managedOrgId));
+
+    let filteredOrgIds = Array.from(managedOrgIds);
+
+    if (groupId) {
+      const hasAccessToGroup = role === "SUPER_ADMIN" ? true : await canManageGroupUsers(session.user.id, groupId);
+
+      if (!hasAccessToGroup) {
+        return NextResponse.json({ error: "Sin acceso al grupo seleccionado" }, { status: 403 });
+      }
+
+      const groupOrgIds = await getGroupOrganizationIds(groupId);
+      filteredOrgIds = filteredOrgIds.filter((id) => groupOrgIds.includes(id));
+    }
+
+    if (filteredOrgIds.length === 0) {
+      return NextResponse.json({
+        users: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        currentUserRole: role,
+        canManageUserOrganizations,
+        groups: await listAccessibleGroupsForUser(session.user.id, role),
+      });
+    }
 
     // Construir filtros
-    const where: any = { orgId };
+    const where: any = {
+      OR: [
+        {
+          userOrganizations: {
+            some: {
+              orgId: { in: filteredOrgIds },
+            },
+          },
+        },
+        {
+          orgId: { in: filteredOrgIds },
+        },
+      ],
+    };
 
     if (status === "active") {
       where.active = true;
@@ -136,13 +249,17 @@ export async function GET(request: NextRequest) {
       prisma.user.count({ where }),
     ]);
 
+    const groups = await listAccessibleGroupsForUser(session.user.id, role);
+
     return NextResponse.json({
       users,
       total,
       page,
       limit,
       totalPages: Math.ceil(total / limit),
-      currentUserRole: session.user.role,
+      currentUserRole: role,
+      canManageUserOrganizations,
+      groups,
     });
   } catch (error) {
     console.error("Error al obtener usuarios:", error);

@@ -172,6 +172,16 @@ const NavItemCollapsed = ({
 export function NavMain({ items }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
+  const normalizedPath = useMemo(() => {
+    if (path.startsWith("/g/")) {
+      const strippedPath = path.replace(/^\/g\/[^/]+/, "");
+      if (strippedPath.startsWith("/dashboard/admin/users")) {
+        return "/dashboard/admin/group-users";
+      }
+      return strippedPath;
+    }
+    return path;
+  }, [path]);
 
   // 1. Obtener todas las URLs registradas en el menú (items y subItems)
   const allUrls = useMemo(() => {
@@ -189,11 +199,11 @@ export function NavMain({ items }: NavMainProps) {
   const bestMatchUrl = useMemo(() => {
     // Filtrar URLs que coinciden con el inicio del path
     // Se usa startsWith con '/' para asegurar coincidencia de segmento completo, o coincidencia exacta
-    const matches = allUrls.filter((url) => path === url || path.startsWith(url + "/"));
+    const matches = allUrls.filter((url) => normalizedPath === url || normalizedPath.startsWith(url + "/"));
 
     // Ordenar por longitud descendente para obtener la más específica
     return matches.sort((a, b) => b.length - a.length)[0];
-  }, [allUrls, path]);
+  }, [allUrls, normalizedPath]);
 
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
     if (!bestMatchUrl) {
@@ -210,7 +220,7 @@ export function NavMain({ items }: NavMainProps) {
   };
 
   const isSubmenuOpen = (subItems?: NavMainItem["subItems"]) => {
-    return subItems?.some((sub) => path.startsWith(sub.url)) ?? false;
+    return subItems?.some((sub) => normalizedPath.startsWith(sub.url)) ?? false;
   };
 
   // Cerrar sidebar en móvil al hacer clic en un link

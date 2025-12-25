@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { type Role } from "@prisma/client";
 import { Loader2, ShieldAlert, UserCog } from "lucide-react";
@@ -18,13 +18,14 @@ import { UserDetailsDialog } from "./_components/user-details-dialog";
 import { type UserRow } from "./_components/users-columns";
 import { UsersDataTable } from "./_components/users-data-table";
 
-export default function UsersManagementPage() {
+export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   const { hasPermission } = usePermissions();
   const canManageUsers = hasPermission("manage_users");
   const [users, setUsers] = useState<UserRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<Role | null>(null);
+  const [canManageUserOrganizations, setCanManageUserOrganizations] = useState(false);
 
   // Estados para dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -36,12 +37,16 @@ export default function UsersManagementPage() {
   // Usuario seleccionado para acciones
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async (groupId?: string | null) => {
     try {
       setIsLoading(true);
       setError(null);
       // Fetch all users (limit=1000 to get all users, pagination is handled client-side by TanStack Table)
-      const response = await fetch("/api/admin/users?limit=1000");
+      const params = new URLSearchParams({ limit: "1000" });
+      if (groupId) {
+        params.set("groupId", groupId);
+      }
+      const response = await fetch(`/api/admin/users?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Error al cargar usuarios");
@@ -50,6 +55,7 @@ export default function UsersManagementPage() {
       const data = await response.json();
       setUsers(data.users ?? []);
       setUserRole(data.currentUserRole ?? null);
+      setCanManageUserOrganizations(data.canManageUserOrganizations ?? false);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
@@ -57,15 +63,15 @@ export default function UsersManagementPage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsers(groupId);
+  }, [fetchUsers, groupId]);
 
   const handleUserCreated = () => {
     setCreateDialogOpen(false);
-    fetchUsers();
+    fetchUsers(groupId);
   };
 
   // Handlers para acciones
@@ -90,7 +96,7 @@ export default function UsersManagementPage() {
   };
 
   const handleActionSuccess = () => {
-    fetchUsers();
+    fetchUsers(groupId);
   };
 
   // Determinar roles permitidos basándose en el rol del usuario actual
@@ -129,7 +135,15 @@ export default function UsersManagementPage() {
   if (isLoading) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Usuarios y Roles" subtitle="Gestiona los usuarios y sus permisos en el sistema" />
+        <SectionHeader
+          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          subtitle={
+            groupId
+              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              : "Gestiona los usuarios y sus permisos en el sistema"
+          }
+          backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}
+        />
         <div className="flex items-center justify-center py-12">
           <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
           <span className="text-muted-foreground ml-2">Cargando usuarios...</span>
@@ -141,7 +155,15 @@ export default function UsersManagementPage() {
   if (error) {
     return (
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Usuarios y Roles" subtitle="Gestiona los usuarios y sus permisos en el sistema" />
+        <SectionHeader
+          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          subtitle={
+            groupId
+              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              : "Gestiona los usuarios y sus permisos en el sistema"
+          }
+          backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}
+        />
         <div className="text-destructive flex items-center justify-center py-12">
           <span>Error al cargar usuarios: {error}</span>
         </div>
@@ -168,7 +190,15 @@ export default function UsersManagementPage() {
       }
     >
       <div className="@container/main flex flex-col gap-4 md:gap-6">
-        <SectionHeader title="Usuarios y Roles" subtitle="Gestiona los usuarios y sus permisos en el sistema" />
+        <SectionHeader
+          title={groupId ? "Usuarios por grupo" : "Usuarios y Roles"}
+          subtitle={
+            groupId
+              ? "Gestiona los usuarios y permisos dentro del grupo seleccionado"
+              : "Gestiona los usuarios y sus permisos en el sistema"
+          }
+          backButton={groupId ? { href: "/dashboard/admin/group-users", label: "Volver a grupos" } : undefined}
+        />
 
         {hasUsers ? (
           <UsersDataTable
@@ -180,7 +210,9 @@ export default function UsersManagementPage() {
             onToggleActive={handleToggleActive}
             canCreateUsers={canCreateUsers}
             canManageUsers={canManageUsers}
-            isSuperAdmin={userRole === "SUPER_ADMIN"}
+            canManageUserOrganizations={canManageUserOrganizations}
+            currentUserRole={userRole}
+            groupId={groupId}
           />
         ) : (
           <EmptyState

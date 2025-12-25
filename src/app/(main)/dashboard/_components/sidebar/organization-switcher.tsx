@@ -18,7 +18,6 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { switchActiveOrganization } from "@/server/actions/org-switcher";
 

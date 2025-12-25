@@ -186,6 +186,10 @@ const PERMISSION_INFO: Record<string, { label: string; description: string }> = 
     label: "Cambiar roles",
     description: "Modificar el rol asignado a un usuario",
   },
+  manage_user_organizations: {
+    label: "Gestionar organizaciones de usuario",
+    description: "Administrar membresías multiempresa de usuarios",
+  },
   manage_trash: {
     label: "Purgar papelera",
     description: "Eliminar permanentemente elementos de la papelera",
@@ -241,7 +245,7 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
     "export_time_tracking",
     "validate_time_entries",
   ],
-  Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles"],
+  Usuarios: ["manage_users", "view_all_users", "create_users", "change_roles", "manage_user_organizations"],
   Sistema: ["manage_organization", "view_reports", "approve_requests", "manage_permission_overrides"],
   "Perfil Personal": ["view_own_profile", "edit_own_profile", "has_employee_profile"],
   "Datos Sensibles": ["view_sensitive_data"],

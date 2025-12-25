@@ -7,16 +7,7 @@
 
 import Link from "next/link";
 
-import {
-  AlertTriangle,
-  ArrowRight,
-  CheckCircle2,
-  ChevronRight,
-  Layers,
-  LayoutDashboard,
-  Settings,
-  Sparkles,
-} from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, Layers, LayoutDashboard, Settings, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -95,7 +86,6 @@ export function OrganizationSetupDrawer({
 
   const hasPrefix = Boolean(organization.employeeNumberPrefix);
   const hasDomains = organization.allowedEmailDomains.length > 0;
-  const hasPto = organization.annualPtoDays > 0;
 
   const departmentCount = organization._count?.departments ?? 0;
   const costCenterCount = organization._count?.costCenters ?? 0;

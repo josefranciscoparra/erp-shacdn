@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 
-import { AlertTriangle, CheckCircle2, ChevronRight, Layers, LayoutDashboard, Settings, Sparkles } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronRight, Layers, Settings, Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

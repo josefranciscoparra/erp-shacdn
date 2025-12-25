@@ -48,7 +48,9 @@ interface UsersDataTableProps {
   onToggleActive: (user: UserRow) => void;
   canCreateUsers: boolean;
   canManageUsers: boolean;
-  isSuperAdmin?: boolean;
+  canManageUserOrganizations: boolean;
+  currentUserRole?: Role | null;
+  groupId?: string | null;
 }
 
 export function UsersDataTable({
@@ -60,7 +62,9 @@ export function UsersDataTable({
   onToggleActive,
   canCreateUsers,
   canManageUsers,
-  isSuperAdmin = false,
+  canManageUserOrganizations,
+  currentUserRole,
+  groupId,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -82,8 +86,8 @@ export function UsersDataTable({
         onChangeRole,
         onResetPassword,
         onToggleActive,
-        onManageOrganizations: isSuperAdmin ? handleManageOrganizations : undefined,
-        isSuperAdmin,
+        onManageOrganizations: canManageUserOrganizations ? handleManageOrganizations : undefined,
+        canManageOrganizations: canManageUserOrganizations,
         canManage: canManageUsers,
       }),
     [
@@ -92,7 +96,7 @@ export function UsersDataTable({
       onResetPassword,
       onToggleActive,
       handleManageOrganizations,
-      isSuperAdmin,
+      canManageUserOrganizations,
       canManageUsers,
     ],
   );
@@ -316,6 +320,8 @@ export function UsersDataTable({
           if (!open) setOrgsDialogUser(null);
         }}
         user={orgsDialogUser}
+        currentUserRole={currentUserRole}
+        groupId={groupId ?? undefined}
       />
     </Tabs>
   );

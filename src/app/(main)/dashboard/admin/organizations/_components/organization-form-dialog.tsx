@@ -4,19 +4,12 @@ import { useEffect, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { HierarchyType } from "@prisma/client";
-import { Building2, Globe, HardDrive, Settings2, X } from "lucide-react";
+import { Building2, Globe, HardDrive, X } from "lucide-react";
 import { useForm } from "react-hook-form";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";

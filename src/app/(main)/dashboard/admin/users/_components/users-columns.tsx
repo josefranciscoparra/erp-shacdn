@@ -67,7 +67,7 @@ interface UsersColumnsProps {
   onResetPassword: (user: UserRow) => void;
   onToggleActive: (user: UserRow) => void;
   onManageOrganizations?: (user: UserRow) => void;
-  isSuperAdmin?: boolean;
+  canManageOrganizations?: boolean;
   canManage?: boolean;
 }
 
@@ -77,7 +77,7 @@ export const createUsersColumns = ({
   onResetPassword,
   onToggleActive,
   onManageOrganizations,
-  isSuperAdmin = false,
+  canManageOrganizations = false,
   canManage = false,
 }: UsersColumnsProps): ColumnDef<UserRow>[] => [
   {
@@ -171,7 +171,7 @@ export const createUsersColumns = ({
               <>
                 <DropdownMenuItem onClick={() => onChangeRole(user)}>Cambiar rol</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => onResetPassword(user)}>Generar contraseña temporal</DropdownMenuItem>
-                {isSuperAdmin && onManageOrganizations && (
+                {canManageOrganizations && onManageOrganizations && (
                   <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
                     <Building2 className="mr-2 h-4 w-4" />
                     Gestionar organizaciones

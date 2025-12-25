@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, ChevronRight, Loader2, MoreHorizontal, Pencil, Sparkles, Users } from "lucide-react";
+import { Building2, Loader2, MoreHorizontal, Pencil, Sparkles } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { OrganizationItem } from "./types";

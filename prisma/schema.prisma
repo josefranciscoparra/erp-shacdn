@@ -18,7 +18,6 @@ model Organization {
   name      String
   vat       String?  @unique // NIF de empresa
   active    Boolean  @default(true)
-  groupId   String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -83,6 +82,7 @@ model Organization {
   // Relaciones
   users                   User[]
   userOrganizations       UserOrganization[]
+  organizationGroupMemberships OrganizationGroupOrganization[]
   employees               Employee[]
   costCenters             CostCenter[]
   departments             Department[]
@@ -168,9 +168,6 @@ model Organization {
   whistleblowingCategories WhistleblowingCategory[]
   whistleblowingReports    WhistleblowingReport[]
 
-  // Nuevas relaciones multiempresa
-  group OrganizationGroup? @relation(fields: [groupId], references: [id])
-
   // Importaciones masivas de empleados
   employeeImportJobs EmployeeImportJob[]
 
@@ -187,12 +184,58 @@ model OrganizationGroup {
   id          String   @id @default(cuid())
   name        String
   description String?
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  organizations Organization[]
+  organizations OrganizationGroupOrganization[]
+  members OrganizationGroupUser[]
 
   @@map("organization_groups")
+}
+
+enum OrganizationGroupOrganizationStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+}
+
+model OrganizationGroupOrganization {
+  id             String   @id @default(cuid())
+  groupId        String
+  organizationId String
+  status         OrganizationGroupOrganizationStatus @default(PENDING)
+  requestedById  String?
+  approvedById   String?
+  approvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  group        OrganizationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, organizationId])
+  @@index([groupId])
+  @@index([organizationId])
+  @@map("organization_group_organizations")
+}
+
+model OrganizationGroupUser {
+  id        String   @id @default(cuid())
+  groupId   String
+  userId    String
+  role      Role     @default(EMPLOYEE)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group OrganizationGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("organization_group_users")
 }
 
 // Sistema de reservas de storage para uploads atómicos
@@ -256,6 +299,7 @@ model User {
   orgId             String
   organization      Organization       @relation(fields: [orgId], references: [id], onDelete: Cascade)
   userOrganizations UserOrganization[]
+  organizationGroupMemberships OrganizationGroupUser[]
 
   // Relaciones
   sessions                  Session[]
@@ -352,6 +396,7 @@ model UserOrganization {
   role      Role    @default(EMPLOYEE)
   isDefault Boolean @default(false)
   isActive  Boolean @default(true)
+  canManageUserOrganizations Boolean @default(false)
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)

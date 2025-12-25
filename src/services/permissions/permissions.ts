@@ -62,6 +62,7 @@ export const ALL_PERMISSIONS = [
   "view_all_users",
   "create_users",
   "change_roles",
+  "manage_user_organizations",
   // Papelera
   "manage_trash",
   "restore_trash",
@@ -98,6 +99,7 @@ export const SENSITIVE_PERMISSIONS: Permission[] = [
   "manage_trash",
   "manage_users",
   "change_roles",
+  "manage_user_organizations",
   "manage_organization",
   "manage_permission_overrides",
 ];
@@ -138,6 +140,8 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    "manage_user_organizations",
+    "manage_user_organizations",
     // Nuevos permisos
     "manage_trash",
     "restore_trash",
@@ -181,6 +185,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    "manage_user_organizations",
     // Nuevos permisos
     "manage_trash",
     "restore_trash",
@@ -224,6 +229,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "view_all_users",
     "create_users",
     "change_roles",
+    "manage_user_organizations",
     // Nuevos permisos
     "manage_trash",
     "restore_trash",
