@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Link from "next/link";
 
@@ -31,22 +31,21 @@ export function QuickClockWidget() {
   const activeOrgId = session?.user?.orgId ?? null;
   const canClock = hasEmployeeProfile() && Boolean(employeeOrgId && activeOrgId && employeeOrgId === activeOrgId);
 
-  const {
-    currentStatus,
-    todaySummary,
-    liveWorkedMinutes,
-    isClocking,
-    isLoading,
-    clockIn,
-    clockOut,
-    startBreak,
-    endBreak,
-    setLiveWorkedMinutes,
-    loadInitialData,
-  } = useTimeTrackingStore();
+  const currentStatus = useTimeTrackingStore((state) => state.currentStatus);
+  const todaySummary = useTimeTrackingStore((state) => state.todaySummary);
+  const liveWorkedMinutes = useTimeTrackingStore((state) => state.liveWorkedMinutes);
+  const isClocking = useTimeTrackingStore((state) => state.isClocking);
+  const isLoading = useTimeTrackingStore((state) => state.isLoading);
+  const clockIn = useTimeTrackingStore((state) => state.clockIn);
+  const clockOut = useTimeTrackingStore((state) => state.clockOut);
+  const startBreak = useTimeTrackingStore((state) => state.startBreak);
+  const endBreak = useTimeTrackingStore((state) => state.endBreak);
+  const setLiveWorkedMinutes = useTimeTrackingStore((state) => state.setLiveWorkedMinutes);
+  const loadInitialData = useTimeTrackingStore((state) => state.loadInitialData);
 
   // Ref para evitar cargas duplicadas
   const hasLoadedRef = useRef(false);
+  const lastMinuteRef = useRef<number | null>(null);
 
   const [isInitialMount, setIsInitialMount] = useState(true);
   const [shouldRenderSkeleton, setShouldRenderSkeleton] = useState(
@@ -151,27 +150,49 @@ export function QuickClockWidget() {
     }
   }, [isInitialMount]);
 
-  // Actualizar contador en vivo cada segundo
+  // Actualizar contador en vivo solo cuando cambia el minuto visible
   useEffect(() => {
     const updateLiveMinutes = () => {
-      if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
+      if (currentStatus === "CLOCKED_IN" && todaySummary && todaySummary.timeEntries.length > 0) {
         const now = new Date();
         const entries = todaySummary.timeEntries;
-        const lastWorkStart = [...entries]
-          .reverse()
-          .find((e) => e.entryType === "CLOCK_IN" || e.entryType === "BREAK_END" || e.entryType === "PROJECT_SWITCH");
+        let lastWorkStart: (typeof entries)[number] | null = null;
+
+        for (let index = entries.length - 1; index >= 0; index -= 1) {
+          const entry = entries[index];
+          if (
+            entry.entryType === "CLOCK_IN" ||
+            entry.entryType === "BREAK_END" ||
+            entry.entryType === "PROJECT_SWITCH"
+          ) {
+            lastWorkStart = entry;
+            break;
+          }
+        }
 
         if (lastWorkStart) {
           const startTime = new Date(lastWorkStart.timestamp);
           const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
           const minutesFromStart = secondsFromStart / 60;
-          const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
-          setLiveWorkedMinutes(baseMinutes + minutesFromStart);
+          const baseMinutes = todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0;
+          const nextMinutes = baseMinutes + minutesFromStart;
+          const displayMinutes = Math.floor(Math.max(0, Math.round(nextMinutes * 60)) / 60);
+
+          if (lastMinuteRef.current !== displayMinutes) {
+            lastMinuteRef.current = displayMinutes;
+            setLiveWorkedMinutes(nextMinutes);
+          }
           return;
         }
       }
 
-      setLiveWorkedMinutes(todaySummary?.totalWorkedMinutes ?? 0);
+      const fallbackMinutes = todaySummary ? Number(todaySummary.totalWorkedMinutes) : 0;
+      const displayMinutes = Math.floor(Math.max(0, Math.round(fallbackMinutes * 60)) / 60);
+
+      if (lastMinuteRef.current !== displayMinutes) {
+        lastMinuteRef.current = displayMinutes;
+        setLiveWorkedMinutes(fallbackMinutes);
+      }
     };
 
     updateLiveMinutes();
