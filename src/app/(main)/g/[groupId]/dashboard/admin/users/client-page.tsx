@@ -7,7 +7,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DirectoryUserRow, GroupAdminRow } from "@/server/actions/group-users";
 
-import { GlobalDirectoryTable } from "./_components/global-directory-table";
+import { GroupOrganizationUsersTable } from "./_components/global-directory-table";
 import { GroupAdminsTable } from "./_components/group-admins-table";
 
 interface GroupUsersClientPageProps {
@@ -29,7 +29,7 @@ export function GroupUsersClientPage({
     <div className="@container/main flex flex-col gap-4 md:gap-6">
       <SectionHeader
         title="Gestión de Usuarios del Grupo"
-        subtitle="Administra los permisos del grupo y el acceso global a las organizaciones"
+        subtitle="Administra los permisos del grupo y los accesos por empresa"
         backButton={{ href: "/dashboard/admin/group-users", label: "Volver a grupos" }}
       />
 
@@ -39,9 +39,9 @@ export function GroupUsersClientPage({
             <Users className="h-4 w-4" />
             Administradores
           </TabsTrigger>
-          <TabsTrigger value="directory" className="flex items-center gap-2">
+          <TabsTrigger value="organizations" className="flex items-center gap-2">
             <Building2 className="h-4 w-4" />
-            Directorio Global
+            Accesos por empresa
           </TabsTrigger>
         </TabsList>
 
@@ -49,8 +49,8 @@ export function GroupUsersClientPage({
           <GroupAdminsTable data={initialAdmins} groupId={groupId} currentUserRole={currentUserRole} />
         </TabsContent>
 
-        <TabsContent value="directory" className="mt-6">
-          <GlobalDirectoryTable
+        <TabsContent value="organizations" className="mt-6">
+          <GroupOrganizationUsersTable
             data={initialDirectory}
             groupId={groupId}
             organizations={organizations}

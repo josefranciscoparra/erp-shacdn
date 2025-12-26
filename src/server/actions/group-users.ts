@@ -76,13 +76,21 @@ export async function getGroupAdmins(groupId: string): Promise<{
     const context = await getGroupContext(groupId);
 
     const members = await prisma.organizationGroupUser.findMany({
-      where: { groupId },
+      where: {
+        groupId,
+        user: {
+          role: {
+            not: "SUPER_ADMIN",
+          },
+        },
+      },
       include: {
         user: {
           select: {
             name: true,
             email: true,
             image: true,
+            role: true,
           },
         },
       },
@@ -128,11 +136,14 @@ export async function addGroupAdmin(data: { groupId: string; email: string; role
 
     const user = await prisma.user.findUnique({
       where: { email: data.email },
-      select: { id: true },
+      select: { id: true, role: true },
     });
 
     if (!user) {
       return { success: false, error: "Usuario no encontrado con ese email" };
+    }
+    if (user.role === "SUPER_ADMIN") {
+      return { success: false, error: "No puedes asignar un Super Admin a un grupo" };
     }
 
     // Verificar si ya existe
@@ -283,6 +294,11 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
     const userOrgs = await prisma.userOrganization.findMany({
       where: {
         orgId: { in: orgIds },
+        user: {
+          role: {
+            not: "SUPER_ADMIN",
+          },
+        },
       },
       include: {
         user: {
