@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePathname } from "next/navigation";
 
@@ -22,24 +22,33 @@ export function NotificationBell() {
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const canLoadNotifications = Boolean(session?.user && !isSuperAdmin);
 
-  // Cargar al montar el componente
+  // Ref para evitar dobles cargas
+  const hasLoadedRef = useRef(false);
+  const lastPathnameRef = useRef(pathname);
+
+  // Cargar al montar el componente (solo una vez)
   useEffect(() => {
-    if (!canLoadNotifications) {
+    if (!canLoadNotifications || hasLoadedRef.current) {
       return;
     }
 
+    hasLoadedRef.current = true;
     loadNotifications();
     loadUnreadCount();
   }, [canLoadNotifications, loadNotifications, loadUnreadCount]);
 
-  // Recargar al cambiar de ruta
+  // Recargar al cambiar de ruta (solo si realmente cambió)
   useEffect(() => {
     if (!canLoadNotifications) {
       return;
     }
 
-    loadUnreadCount();
-    loadNotifications();
+    // Solo recargar si el pathname realmente cambió
+    if (lastPathnameRef.current !== pathname) {
+      lastPathnameRef.current = pathname;
+      loadUnreadCount();
+      loadNotifications();
+    }
   }, [canLoadNotifications, loadUnreadCount, loadNotifications, pathname]);
 
   // Recargar al hacer foco en la ventana

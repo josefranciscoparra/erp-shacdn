@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
 import { Role } from "@prisma/client";
 import { Loader2 } from "lucide-react";
@@ -40,23 +40,47 @@ export function ManageAccessDialog({
   const [isPending, startTransition] = useTransition();
   const [selections, setSelections] = useState<Record<string, { selected: boolean; role: Role }>>({});
 
-  // Inicializar estado cuando se abre el modal
-  useEffect(() => {
-    if (user && open) {
-      const initialSelections: Record<string, { selected: boolean; role: Role }> = {};
+  // Ref para tracking de inicialización - usamos ID del usuario como key
+  const lastInitializedUserIdRef = useRef<string | null>(null);
 
-      // Precargar datos actuales
-      organizations.forEach((org) => {
-        const existingOrg = user.organizations.find((uo) => uo.orgId === org.id);
-        if (existingOrg) {
-          initialSelections[org.id] = { selected: true, role: existingOrg.role };
-        } else {
-          initialSelections[org.id] = { selected: false, role: "EMPLOYEE" };
-        }
-      });
+  // Calcular selecciones iniciales con useMemo (sin causar re-render)
+  const initialSelections = useMemo(() => {
+    if (!user) return {};
+
+    const result: Record<string, { selected: boolean; role: Role }> = {};
+    organizations.forEach((org) => {
+      const existingOrg = user.organizations.find((uo) => uo.orgId === org.id);
+      if (existingOrg) {
+        result[org.id] = { selected: true, role: existingOrg.role };
+      } else {
+        result[org.id] = { selected: false, role: "EMPLOYEE" };
+      }
+    });
+    return result;
+  }, [user, organizations]);
+
+  // Inicializar estado SOLO cuando cambia el usuario (no en cada render)
+  // Deliberadamente usamos user?.userId (primitivo) en lugar de user (objeto)
+  // para evitar re-ejecuciones cuando el padre pasa nuevas referencias
+  useEffect(() => {
+    if (!open || !user) {
+      return;
+    }
+
+    // Solo inicializar si es un usuario diferente
+    if (lastInitializedUserIdRef.current !== user.userId) {
+      lastInitializedUserIdRef.current = user.userId;
       setSelections(initialSelections);
     }
-  }, [user, open, organizations]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, user?.userId, initialSelections]);
+
+  // Limpiar ref cuando se cierra (para re-inicializar si se abre de nuevo con el mismo usuario)
+  useEffect(() => {
+    if (!open) {
+      lastInitializedUserIdRef.current = null;
+    }
+  }, [open]);
 
   const handleToggle = (orgId: string, checked: boolean) => {
     setSelections((prev) => ({

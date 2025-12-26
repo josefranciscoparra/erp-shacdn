@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import Link from "next/link";
 
@@ -44,6 +44,10 @@ export function QuickClockWidget() {
     setLiveWorkedMinutes,
     loadInitialData,
   } = useTimeTrackingStore();
+
+  // Ref para evitar cargas duplicadas
+  const hasLoadedRef = useRef(false);
+
   const [isInitialMount, setIsInitialMount] = useState(true);
   const [shouldRenderSkeleton, setShouldRenderSkeleton] = useState(
     () => isLoading || isInitialMount || (todaySummary === null && canClock),
@@ -73,9 +77,16 @@ export function QuickClockWidget() {
     clockInId: string;
   } | null>(null);
 
-  // Cargar estado inicial y configuración de geolocalización
+  // Cargar estado inicial y configuración de geolocalización (solo una vez)
   useEffect(() => {
+    // Evitar múltiples cargas
+    if (hasLoadedRef.current) {
+      return;
+    }
+
     const load = async () => {
+      hasLoadedRef.current = true;
+
       try {
         // Verificar contexto de organización (multi-empresa)
         setContextLoading(true);
