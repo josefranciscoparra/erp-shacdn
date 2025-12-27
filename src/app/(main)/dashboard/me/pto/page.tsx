@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { HelpCircle, Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -103,10 +104,38 @@ export default function PtoPage() {
 
             {/* Tabs para desktop */}
             <TabsList className="hidden @4xl/main:flex">
-              <TabsTrigger value="all">Todas</TabsTrigger>
-              <TabsTrigger value="pending">Pendientes</TabsTrigger>
-              <TabsTrigger value="approved">Aprobadas</TabsTrigger>
-              <TabsTrigger value="rejected">Rechazadas</TabsTrigger>
+              <TabsTrigger value="all" className="gap-1.5">
+                Todas
+                {allCount > 0 && (
+                  <Badge variant="secondary" className="size-5 justify-center rounded-full p-0 text-[10px]">
+                    {allCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="gap-1.5">
+                Pendientes
+                {pendingCount > 0 && (
+                  <Badge className="size-5 justify-center rounded-full bg-amber-500 p-0 text-[10px] text-white hover:bg-amber-500">
+                    {pendingCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="approved" className="gap-1.5">
+                Aprobadas
+                {approvedCount > 0 && (
+                  <Badge className="size-5 justify-center rounded-full bg-emerald-500 p-0 text-[10px] text-white hover:bg-emerald-500">
+                    {approvedCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="rejected" className="gap-1.5">
+                Rechazadas
+                {rejectedCount > 0 && (
+                  <Badge variant="secondary" className="size-5 justify-center rounded-full p-0 text-[10px]">
+                    {rejectedCount}
+                  </Badge>
+                )}
+              </TabsTrigger>
             </TabsList>
           </div>
 

@@ -93,27 +93,34 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {/* Card 1: Estado de solicitudes */}
-      <Card className="gap-2">
+      <Card className="group gap-2 transition-all duration-200 hover:shadow-md">
         <CardHeader>
           <CardTitle className="font-display text-xl">Estado de solicitudes</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2">
-            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+          <div className="flex items-center gap-3">
+            <div
+              className={`flex size-12 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                pendingRequests.length > 0
+                  ? "border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-400"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-400"
+              }`}
+            >
               <FileCheck className="size-5" />
             </div>
             <p className="text-muted-foreground text-sm">
               {pendingRequests.length > 0 ? (
                 <>
                   Tienes{" "}
-                  <span className="text-orange-600">
+                  <span className="font-medium text-amber-600 dark:text-amber-400">
                     {pendingRequests.length}{" "}
                     {pendingRequests.length === 1 ? "solicitud pendiente" : "solicitudes pendientes"}
                   </span>
                 </>
               ) : (
                 <>
-                  Todas las solicitudes <span className="text-green-600">procesadas</span>
+                  Todas las solicitudes{" "}
+                  <span className="font-medium text-emerald-600 dark:text-emerald-400">procesadas</span>
                 </>
               )}
             </p>
@@ -122,7 +129,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
       </Card>
 
       {/* Card 2: Próximas vacaciones */}
-      <Card className="gap-2">
+      <Card className="group gap-2 transition-all duration-200 hover:shadow-md">
         <CardHeader>
           <CardTitle className="font-display text-xl">
             {nextVacation ? "Próximas vacaciones" : "Sin vacaciones programadas"}
@@ -130,8 +137,8 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
         </CardHeader>
         <CardContent>
           {nextVacation ? (
-            <div className="flex items-center gap-2">
-              <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+            <div className="flex items-center gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center rounded-full border border-sky-200 bg-sky-50 text-sky-600 transition-colors dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-400">
                 <Calendar className="size-5" />
               </div>
               <div className="flex-1">
@@ -173,7 +180,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
                 <Calendar className="size-5" />
               </div>
@@ -184,7 +191,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
       </Card>
 
       {/* Card 3: Balance disponible */}
-      <Card>
+      <Card className="group from-primary/5 to-card bg-gradient-to-br transition-all duration-200 hover:shadow-md">
         <CardHeader>
           <CardDescription>Vacaciones</CardDescription>
           <div className="flex flex-col gap-2">
@@ -204,7 +211,7 @@ export function PtoBalanceCards({ error }: PtoBalanceCardsProps) {
           </div>
           <CardAction>
             <div className="flex gap-4">
-              <div className="bg-muted flex size-12 items-center justify-center rounded-full border">
+              <div className="bg-primary/10 text-primary border-primary/20 flex size-12 items-center justify-center rounded-full border">
                 <CalendarDays className="size-5" />
               </div>
             </div>

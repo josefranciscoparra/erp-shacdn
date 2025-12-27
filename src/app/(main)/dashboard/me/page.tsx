@@ -10,7 +10,6 @@ import {
   Clock,
   CalendarDays,
   FileText,
-  Timer,
   UserCog,
   Building2,
   Loader2,
@@ -25,14 +24,13 @@ import {
   Sparkles,
   TrendingUp,
   Palmtree,
-  ArrowUpRight,
+  Timer,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { getMySpaceDashboard, type MySpaceDashboard } from "@/server/actions/my-space";
 import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
@@ -126,34 +124,33 @@ function HeroSection({
   const StatusIcon = statusConfig.icon;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border bg-gradient-to-br from-slate-50 via-white to-slate-50/50 p-6 md:p-8 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-800/50">
-      {/* Decorative elements */}
-      <div className="from-primary/5 to-primary/10 pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-gradient-to-br blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-32 -left-32 h-80 w-80 rounded-full bg-gradient-to-tr from-blue-500/5 to-purple-500/5 blur-3xl" />
+    <div className="relative overflow-hidden rounded-xl border bg-gradient-to-br from-slate-50 via-white to-slate-50/50 p-4 md:p-5 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-800/50">
+      {/* Decorative element */}
+      <div className="from-primary/5 to-primary/10 pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-gradient-to-br blur-3xl" />
 
-      <div className="relative flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+      <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* Profile info */}
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-4">
           <div className="relative">
-            <Avatar className="size-20 ring-4 ring-white/80 md:size-24 dark:ring-slate-800/80">
+            <Avatar className="size-14 ring-2 ring-white/80 md:size-16 dark:ring-slate-800/80">
               {profile.photoUrl ? <AvatarImage src={profile.photoUrl} alt={profile.name} /> : null}
-              <AvatarFallback className="from-primary/80 to-primary bg-gradient-to-br text-xl font-semibold text-white md:text-2xl">
+              <AvatarFallback className="from-primary/80 to-primary bg-gradient-to-br text-base font-semibold text-white">
                 {getInitials(profile.name)}
               </AvatarFallback>
             </Avatar>
             {/* Status indicator */}
             <div
-              className={`absolute -right-1 -bottom-1 flex size-7 items-center justify-center rounded-full ${statusConfig.bg} ring-4 ring-white dark:ring-slate-900`}
+              className={`absolute -right-0.5 -bottom-0.5 flex size-5 items-center justify-center rounded-full ${statusConfig.bg} ring-2 ring-white dark:ring-slate-900`}
             >
-              <span className={`size-2.5 animate-pulse rounded-full ${statusConfig.pulse}`} />
+              <span className={`size-2 animate-pulse rounded-full ${statusConfig.pulse}`} />
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <p className="text-muted-foreground text-sm font-medium">{getGreeting()}</p>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{profile.name}</h1>
+          <div className="space-y-0.5">
+            <p className="text-muted-foreground text-xs font-medium">{getGreeting()}</p>
+            <h1 className="text-lg font-bold tracking-tight md:text-xl">{profile.name}</h1>
             {(profile.position ?? profile.department) && (
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-xs">
                 {profile.position}
                 {profile.position && profile.department ? " · " : ""}
                 {profile.department}
@@ -162,24 +159,19 @@ function HeroSection({
           </div>
         </div>
 
-        {/* Status card */}
-        <div className={`flex items-center gap-4 rounded-xl ${statusConfig.bg} px-5 py-4 ring-1 ${statusConfig.ring}`}>
-          <div className={`rounded-lg ${statusConfig.bg} p-2.5`}>
-            <StatusIcon className={`size-5 ${statusConfig.color}`} />
+        {/* Status badge */}
+        <Link
+          href="/dashboard/me/clock"
+          className={`flex items-center gap-2 rounded-lg ${statusConfig.bg} px-3 py-2 ring-1 ${statusConfig.ring} transition-all hover:opacity-80`}
+        >
+          <StatusIcon className={`size-4 ${statusConfig.color}`} />
+          <div className="text-sm">
+            <span className={`font-medium ${statusConfig.color}`}>{statusConfig.label}</span>
+            <span className="text-muted-foreground ml-1.5 text-xs">
+              · {formatMinutesToTime(timeTracking.today.workedMinutes)}
+            </span>
           </div>
-          <div>
-            <p className={`text-sm font-semibold ${statusConfig.color}`}>{statusConfig.label}</p>
-            <p className="text-muted-foreground text-xs">
-              Hoy: {formatMinutesToTime(timeTracking.today.workedMinutes)}
-            </p>
-          </div>
-          <Button asChild size="sm" variant="secondary" className="ml-2">
-            <Link href="/dashboard/me/clock">
-              <Timer className="mr-1.5 size-3.5" />
-              Fichar
-            </Link>
-          </Button>
-        </div>
+        </Link>
       </div>
     </div>
   );
@@ -203,116 +195,71 @@ function MetricsSection({ data }: { data: MySpaceDashboard }) {
       : 0;
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {/* Today's progress */}
-      <Card className="group hover:shadow-primary/5 relative overflow-hidden transition-all duration-300 hover:shadow-lg">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Hoy</CardTitle>
-            <div className="rounded-lg bg-blue-500/10 p-2">
-              <Clock className="size-4 text-blue-600 dark:text-blue-400" />
-            </div>
-          </div>
+      <Card className="group gap-2 transition-all duration-200 hover:shadow-md">
+        <CardHeader>
+          <CardTitle className="font-display text-xl">Progreso de hoy</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold tracking-tight tabular-nums">
-              {formatMinutesToTime(timeTracking.today.workedMinutes)}
-            </span>
-            <span className="text-muted-foreground text-sm">
-              / {formatMinutesToTime(timeTracking.today.expectedMinutes)}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <Progress
-              value={todayProgress}
-              className="h-2"
-              indicatorClassName={todayProgress >= 100 ? "bg-emerald-500" : "bg-blue-500"}
-            />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Progreso diario</span>
-              <span
-                className={`font-medium ${todayProgress >= 100 ? "text-emerald-600 dark:text-emerald-400" : "text-blue-600 dark:text-blue-400"}`}
-              >
-                {todayProgress}%
-              </span>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <Clock className="size-5" />
             </div>
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-semibold">
+                {formatMinutesToTime(timeTracking.today.workedMinutes)}
+              </span>{" "}
+              de {formatMinutesToTime(timeTracking.today.expectedMinutes)} ·{" "}
+              {todayProgress >= 100 ? (
+                <span className="text-emerald-600 dark:text-emerald-400">Completado</span>
+              ) : (
+                <span>{todayProgress}%</span>
+              )}
+            </p>
           </div>
         </CardContent>
       </Card>
 
       {/* Week's progress */}
-      <Card className="group hover:shadow-primary/5 relative overflow-hidden transition-all duration-300 hover:shadow-lg">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-violet-500/5 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Esta semana</CardTitle>
-            <div className="rounded-lg bg-violet-500/10 p-2">
-              <TrendingUp className="size-4 text-violet-600 dark:text-violet-400" />
-            </div>
-          </div>
+      <Card className="group gap-2 transition-all duration-200 hover:shadow-md">
+        <CardHeader>
+          <CardTitle className="font-display text-xl">Esta semana</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-bold tracking-tight tabular-nums">
-              {formatMinutesToTime(timeTracking.week.totalWorkedMinutes)}
-            </span>
-            <span className="text-muted-foreground text-sm">
-              / {formatMinutesToTime(timeTracking.week.expectedMinutes)}
-            </span>
-          </div>
-          <div className="space-y-2">
-            <Progress
-              value={weekProgress}
-              className="h-2"
-              indicatorClassName={weekProgress >= 100 ? "bg-emerald-500" : "bg-violet-500"}
-            />
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">Progreso semanal</span>
-              <span
-                className={`font-medium ${weekProgress >= 100 ? "text-emerald-600 dark:text-emerald-400" : "text-violet-600 dark:text-violet-400"}`}
-              >
-                {weekProgress}%
-              </span>
+        <CardContent>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <TrendingUp className="size-5" />
             </div>
+            <p className="text-muted-foreground text-sm">
+              <span className="text-foreground font-semibold">
+                {formatMinutesToTime(timeTracking.week.totalWorkedMinutes)}
+              </span>{" "}
+              de {formatMinutesToTime(timeTracking.week.expectedMinutes)} · {weekProgress}%
+            </p>
           </div>
         </CardContent>
       </Card>
 
       {/* PTO Balance */}
-      <Card className="group hover:shadow-primary/5 relative overflow-hidden transition-all duration-300 hover:shadow-lg sm:col-span-2 lg:col-span-1">
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-amber-500/5 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-muted-foreground text-sm font-medium">Vacaciones</CardTitle>
-            <div className="rounded-lg bg-amber-500/10 p-2">
-              <Palmtree className="size-4 text-amber-600 dark:text-amber-400" />
-            </div>
-          </div>
+      <Card className="group gap-2 transition-all duration-200 hover:shadow-md md:col-span-2 xl:col-span-1">
+        <CardHeader>
+          <CardTitle className="font-display text-xl">Vacaciones</CardTitle>
         </CardHeader>
         <CardContent>
-          {pto ? (
-            <div className="space-y-3">
-              <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold tracking-tight tabular-nums">{Math.round(pto.daysAvailable)}</span>
-                <span className="text-muted-foreground text-sm">días disponibles</span>
-              </div>
-              <div className="text-muted-foreground flex gap-4 text-xs">
-                <span>
-                  <span className="text-foreground font-medium">{pto.daysUsed}</span> usados
-                </span>
-                <span>
-                  <span className="text-foreground font-medium">{pto.daysPending}</span> pendientes
-                </span>
-              </div>
+          <div className="flex items-center gap-2">
+            <div className="bg-muted flex size-12 shrink-0 items-center justify-center rounded-full border">
+              <Palmtree className="size-5" />
             </div>
-          ) : (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <span className="text-2xl">—</span>
-              <span>Sin contrato activo</span>
-            </div>
-          )}
+            {pto ? (
+              <p className="text-muted-foreground text-sm">
+                <span className="text-foreground font-semibold">{Math.round(pto.daysAvailable)} días</span> disponibles
+                · {pto.daysUsed} usados · {pto.daysPending} pendientes
+              </p>
+            ) : (
+              <p className="text-muted-foreground text-sm">Sin contrato activo</p>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -371,18 +318,15 @@ function QuickActions() {
           <Link
             key={action.href}
             href={action.href}
-            className={`group relative flex flex-col gap-3 overflow-hidden rounded-xl border bg-gradient-to-br ${action.gradient} hover:shadow-primary/5 p-4 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg`}
+            className={`group relative flex flex-col gap-2 overflow-hidden rounded-lg border bg-gradient-to-br ${action.gradient} p-3 transition-all duration-200 hover:shadow-md`}
           >
-            <div
-              className={`w-fit rounded-lg ${action.iconBg} p-2.5 transition-transform duration-300 group-hover:scale-110`}
-            >
-              <Icon className={`size-5 ${action.iconColor}`} />
+            <div className={`w-fit rounded-lg ${action.iconBg} p-2`}>
+              <Icon className={`size-4 ${action.iconColor}`} />
             </div>
-            <div className="space-y-0.5">
-              <p className="font-semibold">{action.label}</p>
+            <div>
+              <p className="text-sm font-semibold">{action.label}</p>
               <p className="text-muted-foreground text-xs">{action.description}</p>
             </div>
-            <ArrowUpRight className="text-muted-foreground/30 group-hover:text-muted-foreground absolute top-3 right-3 size-4 transition-all duration-300" />
           </Link>
         );
       })}
