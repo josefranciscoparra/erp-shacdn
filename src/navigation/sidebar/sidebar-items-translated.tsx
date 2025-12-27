@@ -66,7 +66,6 @@ export function useSidebarItems(): NavGroup[] {
   const { hasPermission, isAuthenticated, userRole } = usePermissions();
   const { hasGroups: hasGroupUserAccess } = useGroupUserManagement();
   const isSuperAdmin = userRole === "SUPER_ADMIN";
-  const canManageOrgGroups = userRole === "SUPER_ADMIN";
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
@@ -338,15 +337,6 @@ export function useSidebarItems(): NavGroup[] {
                     title: "Usuarios por grupo",
                     url: "/dashboard/admin/group-users",
                     permission: "view_all_users",
-                  },
-                ]
-              : []),
-            ...(canManageOrgGroups
-              ? [
-                  {
-                    title: "Grupos de organizaciones",
-                    url: "/dashboard/admin/groups",
-                    permission: "manage_organization" as Permission,
                   },
                 ]
               : []),

@@ -2,16 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 import { Role } from "@prisma/client";
-import { Building2, CirclePlus, Loader2, Sparkles } from "lucide-react";
+import { Building2, CirclePlus, Folders, Loader2, Sparkles } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { listOrganizationGroups } from "@/server/actions/organization-groups";
+
+import { CreateGroupDialog } from "../groups/_components/create-group-dialog";
+import { GroupsDataTable } from "../groups/_components/groups-data-table";
+import { ManageGroupDialog } from "../groups/_components/manage-group-dialog";
+import type { OrganizationGroupRow } from "../groups/_components/types";
 
 import { OrganizationFormDialog, type OrganizationFormValues } from "./_components/organization-form-dialog";
 import { OrganizationSetupDialog } from "./_components/organization-setup-dialog";
@@ -51,6 +61,13 @@ async function requestOrganizationAction<TResponse>(
 export default function OrganizationsManagementPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Tab state - read from URL param if present
+  const initialTab = searchParams.get("tab") === "groups" ? "groups" : "organizations";
+  const [activeMainTab, setActiveMainTab] = useState<"organizations" | "groups">(initialTab);
+
+  // Organizations state
   const [organizations, setOrganizations] = useState<OrganizationItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +78,14 @@ export default function OrganizationsManagementPage() {
   const [setupDrawerOpen, setSetupDrawerOpen] = useState(false);
   const [setupOrganization, setSetupOrganization] = useState<OrganizationItem | null>(null);
   const [isSeedingBasics, setIsSeedingBasics] = useState(false);
+
+  // Groups state
+  const [groups, setGroups] = useState<OrganizationGroupRow[]>([]);
+  const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
+  const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
+  const [manageGroupDialogOpen, setManageGroupDialogOpen] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState<OrganizationGroupRow | null>(null);
 
   const userRole = session?.user.role as Role | undefined;
   const isSuperAdmin = userRole === "SUPER_ADMIN";
@@ -98,13 +123,33 @@ export default function OrganizationsManagementPage() {
     [],
   );
 
+  const fetchGroups = useCallback(async () => {
+    if (!isSuperAdmin) return;
+    setIsLoadingGroups(true);
+    setGroupsError(null);
+    try {
+      const result = await listOrganizationGroups();
+      if (!result.success || !result.groups) {
+        setGroupsError(result.error ?? "No se pudieron cargar los grupos");
+        return;
+      }
+      setGroups(result.groups);
+    } catch (err) {
+      setGroupsError(err instanceof Error ? err.message : "No se pudieron cargar los grupos");
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  }, [isSuperAdmin]);
+
   useEffect(() => {
     if (status === "authenticated" && isSuperAdmin) {
       void fetchOrganizations();
+      void fetchGroups();
     }
-  }, [status, isSuperAdmin, fetchOrganizations]);
+  }, [status, isSuperAdmin, fetchOrganizations, fetchGroups]);
 
   const organizationCount = useMemo(() => organizations.length, [organizations]);
+  const groupsCount = useMemo(() => groups.length, [groups]);
 
   const handleOpenCreate = () => {
     setDialogMode("create");
@@ -222,6 +267,11 @@ export default function OrganizationsManagementPage() {
     }
   };
 
+  const handleManageGroup = (group: OrganizationGroupRow) => {
+    setSelectedGroup(group);
+    setManageGroupDialogOpen(true);
+  };
+
   if (status === "loading") {
     return (
       <div className="flex h-full items-center justify-center">
@@ -242,47 +292,129 @@ export default function OrganizationsManagementPage() {
 
   return (
     <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Organizaciones"
-        subtitle={
-          organizationCount === 0
-            ? "Aún no hay organizaciones registradas"
-            : `${organizationCount} organización${organizationCount !== 1 ? "es" : ""} registradas`
-        }
-        action={
+      <SectionHeader title="Administración" subtitle="Gestiona organizaciones y grupos de tu plataforma" />
+
+      <Tabs
+        value={activeMainTab}
+        onValueChange={(value) => setActiveMainTab(value as "organizations" | "groups")}
+        className="w-full"
+      >
+        {/* Mobile: Select | Desktop: TabsList */}
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="main-view-selector" className="sr-only">
+            Vista principal
+          </Label>
+          <Select
+            value={activeMainTab}
+            onValueChange={(value) => setActiveMainTab(value as "organizations" | "groups")}
+          >
+            <SelectTrigger className="flex w-fit @xl/main:hidden" size="sm" id="main-view-selector">
+              <SelectValue placeholder="Seleccionar vista" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="organizations">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Organizaciones ({organizationCount})
+                </div>
+              </SelectItem>
+              <SelectItem value="groups">
+                <div className="flex items-center gap-2">
+                  <Folders className="h-4 w-4" />
+                  Grupos ({groupsCount})
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @xl/main:flex">
+            <TabsTrigger value="organizations" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Organizaciones
+              <Badge variant="secondary">{organizationCount}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="groups" className="gap-2">
+              <Folders className="h-4 w-4" />
+              Grupos
+              <Badge variant="secondary">{groupsCount}</Badge>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Action buttons */}
           <div className="flex flex-wrap gap-2">
-            <Button onClick={handleOpenCreate} className="gap-2">
-              <CirclePlus className="h-4 w-4" />
-              Nueva organización
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="gap-2"
-              onClick={() => router.push("/dashboard/admin/organizations/wizard")}
-            >
-              <Sparkles className="h-4 w-4" />
-              Organización guiada
-            </Button>
+            {activeMainTab === "organizations" ? (
+              <>
+                <Button onClick={handleOpenCreate} size="sm" className="gap-2">
+                  <CirclePlus className="h-4 w-4" />
+                  <span className="hidden sm:inline">Nueva organización</span>
+                  <span className="sm:hidden">Nueva</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => router.push("/dashboard/admin/organizations/wizard")}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span className="hidden sm:inline">Organización guiada</span>
+                  <span className="sm:hidden">Guiada</span>
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setCreateGroupDialogOpen(true)} size="sm" className="gap-2">
+                <CirclePlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Nuevo grupo</span>
+                <span className="sm:hidden">Nuevo</span>
+              </Button>
+            )}
           </div>
-        }
-      />
+        </div>
 
-      <StatsCards organizations={organizations} />
+        {/* Organizations Tab Content */}
+        <TabsContent value="organizations" className="mt-6 space-y-6">
+          <StatsCards organizations={organizations} />
 
-      <div className="overflow-hidden rounded-lg border shadow-xs">
-        <OrganizationsTable
-          organizations={organizations}
-          isLoading={isLoading}
-          error={error}
-          onRetry={() => {
-            void fetchOrganizations();
-          }}
-          onEdit={handleOpenEdit}
-          onSetup={handleOpenSetup}
-        />
-      </div>
+          <div className="overflow-hidden rounded-lg border shadow-xs">
+            <OrganizationsTable
+              organizations={organizations}
+              isLoading={isLoading}
+              error={error}
+              onRetry={() => {
+                void fetchOrganizations();
+              }}
+              onEdit={handleOpenEdit}
+              onSetup={handleOpenSetup}
+            />
+          </div>
+        </TabsContent>
 
+        {/* Groups Tab Content */}
+        <TabsContent value="groups" className="mt-6 space-y-6">
+          {isLoadingGroups ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="text-muted-foreground h-8 w-8 animate-spin" />
+              <span className="text-muted-foreground ml-2">Cargando grupos...</span>
+            </div>
+          ) : groupsError ? (
+            <div className="text-destructive flex items-center justify-center py-12">
+              <span>Error al cargar grupos: {groupsError}</span>
+            </div>
+          ) : groups.length > 0 ? (
+            <GroupsDataTable data={groups} onManageGroup={handleManageGroup} />
+          ) : (
+            <EmptyState
+              icon={<Folders className="text-muted-foreground/40 mx-auto h-12 w-12" />}
+              title="Sin grupos todavía"
+              description="Los grupos te permiten agrupar varias organizaciones para gestión centralizada."
+              actionLabel="Crear grupo"
+              onAction={() => setCreateGroupDialogOpen(true)}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Organization Dialogs */}
       <OrganizationFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -314,6 +446,22 @@ export default function OrganizationsManagementPage() {
         organization={setupOrganization}
         onSeedBasics={handleSeedBasics}
         isSeeding={isSeedingBasics}
+      />
+
+      {/* Group Dialogs */}
+      <CreateGroupDialog open={createGroupDialogOpen} onOpenChange={setCreateGroupDialogOpen} onCreated={fetchGroups} />
+
+      <ManageGroupDialog
+        open={manageGroupDialogOpen}
+        onOpenChange={(open) => {
+          setManageGroupDialogOpen(open);
+          if (!open) {
+            setSelectedGroup(null);
+          }
+        }}
+        group={selectedGroup}
+        currentUserRole={userRole || null}
+        onUpdated={fetchGroups}
       />
     </div>
   );

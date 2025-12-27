@@ -319,20 +319,20 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-4xl">
+      <DialogContent className="flex max-h-[85vh] w-full max-w-4xl flex-col">
         <DialogHeader>
           <DialogTitle>Gestionar grupo</DialogTitle>
           <DialogDescription>Administra la estructura y los permisos del grupo.</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={setTab} className="w-full">
+        <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 w-full flex-1 flex-col">
           <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="details">Detalles</TabsTrigger>
             <TabsTrigger value="organizations">Organizaciones</TabsTrigger>
             <TabsTrigger value="members">Miembros</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details" className="space-y-4">
+          <TabsContent value="details" className="min-h-0 flex-1 space-y-4 overflow-y-auto">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="group-name">Nombre</Label>
@@ -372,7 +372,7 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
             </div>
           </TabsContent>
 
-          <TabsContent value="organizations" className="space-y-4">
+          <TabsContent value="organizations" className="min-h-0 flex-1 space-y-4 overflow-y-auto">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
               <div className="space-y-2">
                 <Label>Agregar organización</Label>
@@ -451,7 +451,7 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
             </div>
           </TabsContent>
 
-          <TabsContent value="members" className="space-y-4">
+          <TabsContent value="members" className="min-h-0 flex-1 space-y-4 overflow-y-auto">
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
               <div className="space-y-2">
                 <Label>Usuario</Label>
