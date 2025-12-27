@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { Loader2 } from "lucide-react";
+import { HelpCircle, Loader2 } from "lucide-react";
 
 import { SectionHeader } from "@/components/hr/section-header";
 import { Card } from "@/components/ui/card";
@@ -110,20 +110,33 @@ export default function PtoPage() {
             </TabsList>
           </div>
 
-          {/* Filtro de año */}
-          <Select value={selectedYear} onValueChange={setSelectedYear}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filtrar por año" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los años</SelectItem>
-              {availableYears.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            {/* Filtro de año */}
+            <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Filtrar por año" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los años</SelectItem>
+                {availableYears.map((year) => (
+                  <SelectItem key={year} value={year.toString()}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Link de ayuda */}
+            <a
+              href="https://www.notion.so/Ausencias-db75b559250e45698403f537ae19112c?pvs=21"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+              title="Ver guía de ausencias"
+            >
+              <HelpCircle className="h-4 w-4" />
+            </a>
+          </div>
         </div>
 
         {/* Contenido de tabs */}

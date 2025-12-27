@@ -24,6 +24,7 @@ import {
   FileArchive,
   Shield,
   TriangleAlert,
+  HelpCircle,
   type LucideIcon,
 } from "lucide-react";
 
@@ -438,6 +439,12 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
+        {
+          title: "Centro de Ayuda",
+          url: "https://timenow.notion.site/2d6e46a7af0f80faae3bfd60e00ba3e6?v=2d6e46a7af0f803c8779000c0afc6bfa",
+          icon: HelpCircle,
+          newTab: true,
+        },
       ],
     },
   ];

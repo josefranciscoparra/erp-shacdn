@@ -6,7 +6,19 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { LogIn, LogOut, Coffee, AlertTriangle, List, Map, Loader2, Clock, ArrowRight, Info } from "lucide-react";
+import {
+  LogIn,
+  LogOut,
+  Coffee,
+  AlertTriangle,
+  List,
+  Map,
+  Loader2,
+  Clock,
+  ArrowRight,
+  Info,
+  HelpCircle,
+} from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
 
@@ -1055,7 +1067,18 @@ export function ClockIn() {
       {/* Historial de fichajes del día */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle>Fichajes de hoy</CardTitle>
+          <div className="flex items-center gap-2">
+            <CardTitle>Fichajes de hoy</CardTitle>
+            <a
+              href="https://www.notion.so/Fichajes-9d46b3bc551e436aa7bb30e79b2ec331?pvs=21"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">¿Cómo funciona?</span>
+            </a>
+          </div>
 
           {/* Toggle Vista Lista/Mapa - solo si hay fichajes con GPS */}
           {entriesWithGPS > 0 && !isLoading && (
