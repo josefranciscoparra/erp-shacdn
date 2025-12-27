@@ -18,18 +18,22 @@ import {
   ArrowRight,
   Info,
   HelpCircle,
+  Play,
+  Pause,
+  Timer,
+  Sparkles,
 } from "lucide-react";
 import { Label, Pie, PieChart } from "recharts";
 import { toast } from "sonner";
 
 import { GeolocationConsentDialog } from "@/components/geolocation/geolocation-consent-dialog";
-import { SectionHeader } from "@/components/hr/section-header";
 import { ExcessiveTimeDialog } from "@/components/time-tracking/excessive-time-dialog";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { ChartConfig, ChartContainer } from "@/components/ui/chart";
+import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { cn } from "@/lib/utils";
@@ -46,14 +50,95 @@ import { ProjectSelector } from "./project-selector";
 import { TimeEntriesMap } from "./time-entries-map-wrapper";
 import { TimeEntriesTimeline } from "./time-entries-timeline";
 
+// ============================================================================
+// TYPES
+// ============================================================================
+
 type ClockBootstrapResult = Awaited<ReturnType<typeof getClockBootstrap>>;
 type ClockBootstrapReady = ClockBootstrapResult & {
   todaySummary: NonNullable<ClockBootstrapResult["todaySummary"]>;
   currentStatus: NonNullable<ClockBootstrapResult["currentStatus"]>;
 };
 
+type ClockAction = (
+  latitude?: number,
+  longitude?: number,
+  accuracy?: number,
+  projectId?: string,
+  task?: string,
+) => Promise<unknown>;
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 const isBootstrapReady = (result: ClockBootstrapResult): result is ClockBootstrapReady =>
   Boolean(result.success && result.todaySummary && result.currentStatus);
+
+function getStatusConfig(status: "CLOCKED_OUT" | "CLOCKED_IN" | "ON_BREAK") {
+  switch (status) {
+    case "CLOCKED_IN":
+      return {
+        label: "Trabajando",
+        shortLabel: "Activo",
+        icon: Play,
+        color: "text-emerald-600 dark:text-emerald-400",
+        bg: "bg-emerald-500/10",
+        border: "border-emerald-500/20",
+        ring: "ring-emerald-500/20",
+        pulse: "bg-emerald-500",
+        gradient: "from-emerald-500/10 to-teal-500/10",
+      };
+    case "ON_BREAK":
+      return {
+        label: "En pausa",
+        shortLabel: "Pausa",
+        icon: Coffee,
+        color: "text-amber-600 dark:text-amber-400",
+        bg: "bg-amber-500/10",
+        border: "border-amber-500/20",
+        ring: "ring-amber-500/20",
+        pulse: "bg-amber-500",
+        gradient: "from-amber-500/10 to-orange-500/10",
+      };
+    default:
+      return {
+        label: "Fuera de servicio",
+        shortLabel: "Fuera",
+        icon: Pause,
+        color: "text-slate-500 dark:text-slate-400",
+        bg: "bg-slate-500/10",
+        border: "border-slate-500/20",
+        ring: "ring-slate-500/20",
+        pulse: "bg-slate-400",
+        gradient: "from-slate-500/10 to-gray-500/10",
+      };
+  }
+}
+
+function formatTimeWithSeconds(totalMinutes: number) {
+  const totalSeconds = Math.max(0, Math.round(totalMinutes * 60));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return {
+    hours: hours.toString().padStart(2, "0"),
+    minutes: minutes.toString().padStart(2, "0"),
+    seconds: seconds.toString().padStart(2, "0"),
+  };
+}
+
+function formatMinutesToDisplay(minutes: number) {
+  const totalSeconds = Math.max(0, Math.round(minutes * 60));
+  const hours = Math.floor(totalSeconds / 3600);
+  const mins = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  return `${hours}h ${mins}m ${secs}s`;
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 export function ClockIn() {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -70,22 +155,12 @@ export function ClockIn() {
     breakMinutes: number;
     updatedAt: Date;
   } | null>(null);
-  const latestChartValuesRef = useRef({
-    workedMinutes: 0,
-    breakMinutes: 0,
-  });
+  const latestChartValuesRef = useRef({ workedMinutes: 0, breakMinutes: 0 });
   const isMountedRef = useRef(true);
 
-  // Estados de geolocalización
+  // Geolocation states
   const [geolocationEnabled, setGeolocationEnabled] = useState(false);
   const [showConsentDialog, setShowConsentDialog] = useState(false);
-  type ClockAction = (
-    latitude?: number,
-    longitude?: number,
-    accuracy?: number,
-    projectId?: string,
-    task?: string,
-  ) => Promise<unknown>;
   const [pendingAction, setPendingAction] = useState<{
     action: ClockAction;
     projectId?: string | null;
@@ -93,11 +168,11 @@ export function ClockIn() {
   } | null>(null);
   const geolocation = useGeolocation();
 
-  // Estados para proyecto
+  // Project states
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [projectTask, setProjectTask] = useState("");
 
-  // Estado para fichajes incompletos
+  // Incomplete entry states
   const [hasIncompleteEntry, setHasIncompleteEntry] = useState(false);
   const [isExcessive, setIsExcessive] = useState(false);
   const [showExcessiveDialog, setShowExcessiveDialog] = useState(false);
@@ -139,16 +214,13 @@ export function ClockIn() {
     hydrateFromBootstrap,
   } = useTimeTrackingStore();
 
-  // Actualizar hora y contador en vivo cada segundo
+  // Update time and live counter every second
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentTime(new Date());
 
-      // Calcular tiempo trabajado en vivo si está trabajando
       if (currentStatus === "CLOCKED_IN" && todaySummary?.timeEntries) {
         const now = new Date();
-
-        // Buscar el último CLOCK_IN o BREAK_END (inicio de la sesión actual)
         const entries = todaySummary.timeEntries;
         const lastWorkStart = [...entries]
           .reverse()
@@ -156,15 +228,9 @@ export function ClockIn() {
 
         if (lastWorkStart) {
           const startTime = new Date(lastWorkStart.timestamp);
-
-          // Calcular segundos exactos desde el inicio de esta sesión
           const secondsFromStart = (now.getTime() - startTime.getTime()) / 1000;
           const minutesFromStart = secondsFromStart / 60;
-
-          // El base es el tiempo acumulado (que NO incluye la sesión actual)
-          // Convertir a Number porque viene como Decimal de Prisma
           const baseMinutes = Number(todaySummary.totalWorkedMinutes || 0);
-
           setLiveWorkedMinutes(baseMinutes + minutesFromStart);
         }
       } else {
@@ -218,16 +284,7 @@ export function ClockIn() {
         setIncompleteEntryInfo(null);
       }
     },
-    [
-      hydrateFromBootstrap,
-      setGeolocationEnabled,
-      setHasIncompleteEntry,
-      setIncompleteEntryInfo,
-      setIsExcessive,
-      setScheduleExpectedMinutes,
-      setTodayDeviation,
-      setTodaySchedule,
-    ],
+    [hydrateFromBootstrap],
   );
 
   const loadBootstrap = useCallback(async () => {
@@ -245,18 +302,17 @@ export function ClockIn() {
       }
 
       applyBootstrapResult(result);
-    } catch (error) {
-      console.error("Error al cargar bootstrap de fichaje:", error);
-      setError(error instanceof Error ? error.message : "Error al cargar fichaje");
+    } catch (err) {
+      console.error("Error al cargar bootstrap de fichaje:", err);
+      setError(err instanceof Error ? err.message : "Error al cargar fichaje");
     } finally {
       if (isMountedRef.current) {
         setLoading(false);
         setIsScheduleLoading(false);
       }
     }
-  }, [applyBootstrapResult, setError, setIsScheduleLoading, setLoading]);
+  }, [applyBootstrapResult, setError, setLoading]);
 
-  // Cargar estado inicial, horario y configuración en una sola llamada
   useEffect(() => {
     loadBootstrap();
   }, [loadBootstrap]);
@@ -288,18 +344,11 @@ export function ClockIn() {
   }, [restartChartAnimation]);
 
   useEffect(() => {
-    if (isLoading || isScheduleLoading) {
-      return;
-    }
+    if (isLoading || isScheduleLoading) return;
 
-    const handleFocus = () => {
-      updateChartSnapshot();
-    };
-
+    const handleFocus = () => updateChartSnapshot();
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        updateChartSnapshot();
-      }
+      if (document.visibilityState === "visible") updateChartSnapshot();
     };
 
     window.addEventListener("focus", handleFocus);
@@ -312,13 +361,9 @@ export function ClockIn() {
     };
   }, [isLoading, isScheduleLoading, updateChartSnapshot]);
 
-  // Helper para ejecutar fichaje con geolocalización y proyecto
   const handleManualProjectSelection = useCallback((projectId: string | null) => {
     setSelectedProjectId(projectId);
-
-    if (!projectId) {
-      setProjectTask("");
-    }
+    if (!projectId) setProjectTask("");
   }, []);
 
   const executeWithGeolocation = async <T,>(
@@ -326,38 +371,28 @@ export function ClockIn() {
     projectId?: string | null,
     task?: string,
   ): Promise<T | undefined> => {
-    if (!canClock) {
-      return;
-    }
+    if (!canClock) return;
 
-    // Si la org no tiene geolocalización habilitada, fichar sin GPS pero con proyecto
     if (!geolocationEnabled) {
       return await action(undefined, undefined, undefined, projectId ?? undefined, task);
     }
 
-    // Verificar consentimiento
     try {
       const { hasConsent } = await checkGeolocationConsent();
 
       if (!hasConsent) {
-        // Guardar la acción pendiente y mostrar dialog de consentimiento
         setPendingAction({ action, projectId: projectId ?? null, task });
         setShowConsentDialog(true);
         return;
       }
 
-      // Capturar ubicación
       const locationData = await geolocation.getCurrentPosition();
 
       if (!locationData) {
-        // Error al capturar GPS, pero permitir fichar sin ubicación
         console.warn("Ubicación no disponible:", geolocation.error);
-
-        // Mostrar mensaje específico para Safari en localhost
         if (geolocation.error?.includes("denegado") || geolocation.error?.includes("PERMISSION_DENIED")) {
           toast.warning("GPS no disponible", {
-            description:
-              "Safari en localhost no permite geolocalización. Fichaje registrado sin GPS. Para usar GPS, prueba en Chrome o en HTTPS.",
+            description: "Safari en localhost no permite geolocalización. Fichaje registrado sin GPS.",
             duration: 6000,
           });
         } else {
@@ -366,20 +401,16 @@ export function ClockIn() {
             duration: 5000,
           });
         }
-
         return await action(undefined, undefined, undefined, projectId ?? undefined, task);
       }
 
-      // Verificar precisión GPS
       if (locationData.accuracy > 100) {
-        console.warn(`Precisión GPS baja: ${Math.round(locationData.accuracy)}m`);
         toast.info("Precisión GPS baja", {
-          description: `La precisión es de ${Math.round(locationData.accuracy)}m. Se recomienda estar al aire libre.`,
+          description: `La precisión es de ${Math.round(locationData.accuracy)}m.`,
           duration: 4000,
         });
       }
 
-      // Fichar con geolocalización - pasar parámetros individuales + proyecto
       return await action(
         locationData.latitude,
         locationData.longitude,
@@ -387,8 +418,8 @@ export function ClockIn() {
         projectId ?? undefined,
         task,
       );
-    } catch (error) {
-      console.error("Error en proceso de geolocalización:", error);
+    } catch (err) {
+      console.error("Error en proceso de geolocalización:", err);
       toast.error("Error al capturar GPS", {
         description: "Se guardará el fichaje sin ubicación GPS.",
         duration: 5000,
@@ -400,51 +431,33 @@ export function ClockIn() {
   const handleClockIn = async () => {
     try {
       const result = await executeWithGeolocation(clockInAction, selectedProjectId, projectTask || undefined);
-
-      console.log("📊 [FRONTEND] Resultado de clockIn:", result);
-
-      // Limpiar selección de proyecto después de fichar
       setSelectedProjectId(null);
       setProjectTask("");
 
-      // Si hay alertas, mostrarlas al usuario
       if (result?.alerts && result.alerts.length > 0) {
-        console.log("🚨 [FRONTEND] Mostrando alertas:", result.alerts);
-        result.alerts.forEach((alert: any) => {
-          // Determinar el tipo de toast según la severidad
+        result.alerts.forEach((alert: { severity: string; title: string; description: string }) => {
           const toastFn =
             alert.severity === "CRITICAL" ? toast.error : alert.severity === "WARNING" ? toast.warning : toast.info;
-
-          toastFn(alert.title, {
-            description: alert.description,
-            duration: 8000,
-          });
+          toastFn(alert.title, { description: alert.description, duration: 8000 });
         });
-      } else {
-        console.log("ℹ️ [FRONTEND] No se detectaron alertas o result no tiene alerts:", result);
       }
-    } catch (error) {
-      console.error("❌ [FRONTEND] Error en handleClockIn:", error);
+    } catch (err) {
+      console.error("Error en handleClockIn:", err);
     }
   };
 
   const handleClockOut = async () => {
-    // Si hay fichaje excesivo, mostrar modal de confirmación
     if (isExcessive && incompleteEntryInfo) {
       setShowExcessiveDialog(true);
       return;
     }
-
-    // Fichaje normal
     await executeWithGeolocation(clockOutAction);
   };
 
-  // Handler cuando usuario confirma cerrar fichaje excesivo
   const handleConfirmCloseExcessive = async () => {
     if (!incompleteEntryInfo) return;
 
     try {
-      // Llamar clockOut con parámetros de cancelación
       const geoData =
         geolocationEnabled && geolocation.location
           ? {
@@ -454,44 +467,35 @@ export function ClockIn() {
             }
           : {};
 
-      await clockOut(
-        geoData.latitude,
-        geoData.longitude,
-        geoData.accuracy,
-        true, // cancelAsClosed
-        {
-          reason: "EXCESSIVE_DURATION",
-          originalDurationHours: incompleteEntryInfo.durationHours,
-          clockInId: incompleteEntryInfo.clockInId,
-          notes: `Fichaje cancelado por larga duración (${incompleteEntryInfo.percentageOfJourney.toFixed(0)}% de jornada)`,
-        },
-      );
+      await clockOut(geoData.latitude, geoData.longitude, geoData.accuracy, true, {
+        reason: "EXCESSIVE_DURATION",
+        originalDurationHours: incompleteEntryInfo.durationHours,
+        clockInId: incompleteEntryInfo.clockInId,
+        notes: `Fichaje cancelado por larga duración (${incompleteEntryInfo.percentageOfJourney.toFixed(0)}% de jornada)`,
+      });
 
       toast.success("Fichaje cerrado y cancelado correctamente");
       setShowExcessiveDialog(false);
-      await loadBootstrap(); // Recargar datos
-    } catch (error) {
-      console.error("Error al cerrar fichaje excesivo:", error);
+      await loadBootstrap();
+    } catch (err) {
+      console.error("Error al cerrar fichaje excesivo:", err);
       toast.error("Error al cerrar fichaje");
     }
   };
 
-  // Handler cuando usuario decide regularizar
   const handleGoToRegularize = () => {
     setShowExcessiveDialog(false);
     router.push("/dashboard/me/clock/requests");
   };
 
-  // Handler para descartar notificación de fichaje incompleto
-  const handleDismissIncompleteEntry = async (e: React.MouseEvent) => {
+  const handleDismissIncompleteEntry = async () => {
     if (!incompleteEntryInfo?.clockInId) return;
-
     try {
       await dismissNotification("INCOMPLETE_ENTRY", incompleteEntryInfo.clockInId);
       setHasIncompleteEntry(false);
       setIncompleteEntryInfo(null);
-    } catch (error) {
-      console.error("Error al descartar notificación:", error);
+    } catch (err) {
+      console.error("Error al descartar notificación:", err);
     }
   };
 
@@ -503,94 +507,36 @@ export function ClockIn() {
     }
   };
 
-  const getStatusBadge = () => {
-    switch (currentStatus) {
-      case "CLOCKED_IN":
-        return <Badge className="bg-green-500">Trabajando</Badge>;
-      case "ON_BREAK":
-        return <Badge className="bg-yellow-500">En pausa</Badge>;
-      case "CLOCKED_OUT":
-        return <Badge variant="secondary">Fuera de servicio</Badge>;
-    }
-  };
-
-  // Formatear minutos a horas/minutos/segundos para resúmenes
-  const formatMinutes = (minutes: number) => {
-    const totalSeconds = Math.max(0, Math.round(minutes * 60));
-    const hours = Math.floor(totalSeconds / 3600);
-    const mins = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
-    return `${hours}h ${mins}m ${secs}s`;
-  };
-
-  // Formatear tiempo con segundos para contador en vivo
-  const formatTimeWithSeconds = (totalMinutes: number) => {
-    const totalSeconds = Math.max(0, Math.round(totalMinutes * 60)); // Redondear para evitar pérdidas por flotantes
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return {
-      hours: hours.toString().padStart(2, "0"),
-      minutes: minutes.toString().padStart(2, "0"),
-      seconds: seconds.toString().padStart(2, "0"),
-    };
-  };
-
-  // Calcular tiempo restante usando Schedule V2.0
-  // Si no hay horario cargado aún, usar 0 (se actualizará cuando cargue)
+  // Calculations
   const effectiveExpectedMinutes = scheduleExpectedMinutes ?? 0;
-
   const remainingMinutes = Math.max(0, effectiveExpectedMinutes - liveWorkedMinutes);
-
-  // Estado completado:
-  // - Si se esperaban horas (>0) y se cumplieron -> Completado
-  // - Si NO se esperaban horas (0) y se trabajó -> "Trabajando en ausencia" (no es completado estándar)
   const scheduleIsWorkingDay = todaySchedule?.isWorkingDay;
   const uiIsWorkingDay = scheduleIsWorkingDay ?? isWorkingDay;
-
   const isCompleted = effectiveExpectedMinutes > 0 && liveWorkedMinutes >= effectiveExpectedMinutes;
-  const isWorkingOnAbsence = effectiveExpectedMinutes === 0 && liveWorkedMinutes > 0;
-
   const workedTime = formatTimeWithSeconds(liveWorkedMinutes);
   const remainingTime = formatTimeWithSeconds(remainingMinutes);
-
-  // Contar fichajes con GPS
+  const progressPercentage =
+    effectiveExpectedMinutes > 0 ? Math.min(Math.round((liveWorkedMinutes / effectiveExpectedMinutes) * 100), 100) : 0;
   const entriesWithGPS = todaySummary?.timeEntries?.filter((e) => e.latitude && e.longitude).length ?? 0;
 
-  // Configuración del gráfico de progreso - usar snapshot estático para evitar parpadeos
+  // Chart configuration
   const chartWorkedMinutes = chartSnapshot?.workedMinutes ?? liveWorkedMinutes;
   const chartBreakMinutes = chartSnapshot?.breakMinutes ?? todaySummary?.totalBreakMinutes ?? 0;
-  // Usar effectiveExpectedMinutes que ya considera Schedule V2.0
   const chartTotalMinutes = effectiveExpectedMinutes;
   const chartRemainingMinutes = Math.max(0, chartTotalMinutes - chartWorkedMinutes);
-  // Permitir porcentajes > 100% cuando trabajas más horas de las esperadas
   const chartProgressPercentage =
     chartTotalMinutes > 0 ? Math.round((chartWorkedMinutes / chartTotalMinutes) * 100) : 0;
 
   const chartConfig = {
-    worked: {
-      label: "Trabajado",
-      color: "var(--chart-1)",
-    },
-    breaks: {
-      label: "Pausas",
-      color: "var(--chart-2)",
-    },
-    remaining: {
-      label: "Restante",
-      color: "#e5e7eb",
-    },
+    worked: { label: "Trabajado", color: "var(--chart-1)" },
+    breaks: { label: "Pausas", color: "var(--chart-2)" },
+    remaining: { label: "Restante", color: "#e5e7eb" },
   } satisfies ChartConfig;
 
-  // En días no laborables, mostrar solo lo trabajado + un mínimo para que se vea el círculo
-  // Si trabajas más de lo esperado (chartWorkedMinutes > chartTotalMinutes), mostrar solo worked
   const chartData =
     chartTotalMinutes > 0
       ? chartWorkedMinutes > chartTotalMinutes
-        ? [
-            // Si excede el 100%, mostrar todo como "worked" (círculo completo)
-            { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
-          ]
+        ? [{ name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" }]
         : [
             { name: "worked", value: chartWorkedMinutes, fill: "var(--color-worked)" },
             { name: "breaks", value: chartBreakMinutes, fill: "var(--color-breaks)" },
@@ -600,33 +546,31 @@ export function ClockIn() {
           { name: "worked", value: chartWorkedMinutes > 0 ? chartWorkedMinutes : 0, fill: "var(--color-worked)" },
           { name: "remaining", value: chartWorkedMinutes > 0 ? 0 : 1, fill: "var(--color-remaining)" },
         ];
-  const chartLastUpdatedAt = chartSnapshot?.updatedAt ?? currentTime;
 
-  // Controlar animación inicial: Solo animar la primera vez que se carga el gráfico
   const [hasAnimated, setHasAnimated] = useState(false);
   useEffect(() => {
     if (!hasAnimated && chartWorkedMinutes > 0) {
-      // Pequeño timeout para asegurar que se monte antes de marcar animado
       const timer = setTimeout(() => setHasAnimated(true), 1000);
       return () => clearTimeout(timer);
     }
   }, [hasAnimated, chartWorkedMinutes]);
 
-  // Memoizar el gráfico para evitar re-renders innecesarios - solo actualizar cada minuto
+  const statusConfig = getStatusConfig(currentStatus);
+
   const memoizedChart = useMemo(
     () => (
-      <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[270px]">
+      <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[200px]">
         <PieChart key="progress-chart">
           <Pie
             data={chartData}
             dataKey="value"
             nameKey="name"
-            innerRadius={60}
-            strokeWidth={5}
+            innerRadius={50}
+            outerRadius={70}
+            strokeWidth={4}
             animationBegin={0}
             animationDuration={800}
             animationEasing="ease-out"
-            // Solo animar si NO se ha animado previamente O si se fuerza explícitamente
             isAnimationActive={!hasAnimated || shouldAnimateChart}
           >
             <Label
@@ -636,15 +580,15 @@ export function ClockIn() {
                     <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
                       <tspan
                         x={viewBox.cx}
-                        y={(viewBox.cy ?? 0) - 8}
-                        className="fill-foreground text-3xl font-bold tracking-tight"
+                        y={(viewBox.cy ?? 0) - 6}
+                        className="fill-foreground text-2xl font-bold tracking-tight"
                       >
                         {chartProgressPercentage}%
                       </tspan>
                       <tspan
                         x={viewBox.cx}
-                        y={(viewBox.cy ?? 0) + 20}
-                        className="fill-muted-foreground text-sm font-medium tracking-wide uppercase"
+                        y={(viewBox.cy ?? 0) + 14}
+                        className="fill-muted-foreground text-[10px] font-medium tracking-wide uppercase"
                       >
                         {chartTotalMinutes > 0 ? "Completado" : "Extra"}
                       </tspan>
@@ -657,31 +601,42 @@ export function ClockIn() {
         </PieChart>
       </ChartContainer>
     ),
-    // Solo actualizar cuando cambian los minutos (redondeados), o cuando se activa la animación
-    [Math.floor(chartWorkedMinutes), chartBreakMinutes, chartProgressPercentage, chartTotalMinutes, shouldAnimateChart],
+    [
+      Math.floor(chartWorkedMinutes),
+      chartBreakMinutes,
+      chartProgressPercentage,
+      chartTotalMinutes,
+      shouldAnimateChart,
+      hasAnimated,
+    ],
   );
 
-  return (
-    <div className="@container/main flex flex-col gap-4 md:gap-6">
-      <SectionHeader
-        title="Registrar tu jornada"
-        description="Gestiona tus fichajes y revisa tu progreso diario de forma sencilla."
-        action={
-          <Link href="/dashboard/me/clock/requests">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 hover:text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-400 dark:hover:bg-orange-950/50"
-            >
-              <Clock className="h-3.5 w-3.5" />
-              <span>¿Olvidaste fichar?</span>
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
-        }
-      />
+  // ============================================================================
+  // RENDER
+  // ============================================================================
 
-      {/* Diálogo de consentimiento de geolocalización */}
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold tracking-tight">Fichaje</h1>
+          <p className="text-muted-foreground text-sm">Gestiona tu jornada laboral</p>
+        </div>
+        <Link href="/dashboard/me/clock/requests">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-orange-200 bg-orange-50/50 text-orange-700 hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-400"
+          >
+            <Clock className="size-3.5" />
+            <span>¿Olvidaste fichar?</span>
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </Link>
+      </div>
+
+      {/* Geolocation consent dialog */}
       <GeolocationConsentDialog
         open={showConsentDialog}
         onOpenChange={setShowConsentDialog}
@@ -698,9 +653,10 @@ export function ClockIn() {
         }}
       />
 
+      {/* Alerts */}
       {!canClock && orgContextMessage && (
         <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
-          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertTriangle className="size-4 text-orange-600 dark:text-orange-400" />
           <AlertTitle className="text-orange-800 dark:text-orange-300">Acceso restringido</AlertTitle>
           <AlertDescription className="text-orange-700 dark:text-orange-400">{orgContextMessage}</AlertDescription>
         </Alert>
@@ -712,28 +668,25 @@ export function ClockIn() {
         </Card>
       )}
 
-      {/* Advertencia de fichaje incompleto */}
       {hasIncompleteEntry && incompleteEntryInfo && (
         <Alert className="border-orange-500 bg-orange-50 dark:border-orange-600 dark:bg-orange-950/30">
-          <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-          <AlertTitle className="text-orange-800 dark:text-orange-300">Fichaje Pendiente de Resolver</AlertTitle>
+          <AlertTriangle className="size-4 text-orange-600 dark:text-orange-400" />
+          <AlertTitle className="text-orange-800 dark:text-orange-300">Fichaje Pendiente</AlertTitle>
           <AlertDescription className="text-orange-700 dark:text-orange-400">
             <div className="flex flex-col gap-2">
               <p>
-                Tienes una entrada sin cerrar desde el{" "}
-                <strong>{new Date(incompleteEntryInfo.lastEntryTime).toLocaleString("es-ES")}</strong> (
-                {Math.floor(incompleteEntryInfo.durationMinutes / 60)}h{" "}
-                {Math.floor(incompleteEntryInfo.durationMinutes % 60)}min abierto).
+                Entrada sin cerrar desde el{" "}
+                <strong>{new Date(incompleteEntryInfo.lastEntryTime).toLocaleString("es-ES")}</strong>
               </p>
               <Link href="/dashboard/me/clock/requests" onClick={handleDismissIncompleteEntry}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-2 border-orange-300 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/50 dark:text-orange-300 dark:hover:bg-orange-900"
+                  className="gap-2 border-orange-300 bg-orange-100 text-orange-800 hover:bg-orange-200 dark:border-orange-700 dark:bg-orange-900/50 dark:text-orange-300"
                 >
-                  <Clock className="h-3.5 w-3.5" />
-                  Crear solicitud para resolver
-                  <ArrowRight className="h-3.5 w-3.5" />
+                  <Clock className="size-3.5" />
+                  Resolver
+                  <ArrowRight className="size-3.5" />
                 </Button>
               </Link>
             </div>
@@ -742,363 +695,324 @@ export function ClockIn() {
       )}
 
       {!hasActiveContract && (
-        <Card className="border-yellow-500 bg-yellow-500/10 p-4">
+        <Card className="border-amber-500/50 bg-amber-500/5 p-4">
           <div className="flex items-start gap-3">
-            <div className="flex size-5 items-center justify-center rounded-full bg-yellow-500/20">
-              <span className="text-xs font-bold text-yellow-700">!</span>
+            <div className="rounded-full bg-amber-500/10 p-1.5">
+              <AlertTriangle className="size-4 text-amber-600" />
             </div>
-            <div className="flex-1 space-y-1">
-              <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Sin contrato activo</p>
-              <p className="text-xs text-yellow-700 dark:text-yellow-300">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">Sin contrato activo</p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
                 Usando horario asignado:{" "}
-                <span className="font-semibold">
-                  {(effectiveExpectedMinutes / 60).toFixed(1)}h diarias (
-                  {((effectiveExpectedMinutes / 60) * 5).toFixed(1)}h semanales)
-                </span>
-                . Contacta con RRHH para configurar tu contrato laboral.
+                <span className="font-semibold">{(effectiveExpectedMinutes / 60).toFixed(1)}h diarias</span>
               </p>
             </div>
           </div>
         </Card>
       )}
 
-      <div className="grid gap-4 md:gap-6 @xl/main:grid-cols-2">
-        {/* Card principal de fichaje */}
-        <Card className="@container/card flex flex-col items-center justify-center gap-6 p-8 md:p-12">
-          <div className="flex w-full flex-col items-center gap-6">
-            {/* Estado y fecha */}
-            <div className="flex flex-col items-center gap-2">
-              {getStatusBadge()}
-              <p className="text-muted-foreground text-xs">
-                {currentTime.toLocaleDateString("es-ES", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
+      {/* Main Grid */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Clock Card - Hero */}
+        <Card
+          className={cn(
+            "relative overflow-hidden border-2 transition-all duration-300",
+            statusConfig.border,
+            `bg-gradient-to-br ${statusConfig.gradient}`,
+          )}
+        >
+          {/* Decorative elements */}
+          <div className="from-primary/5 to-primary/10 pointer-events-none absolute -top-20 -right-20 size-40 rounded-full bg-gradient-to-br blur-3xl" />
+
+          <CardContent className="relative space-y-6 p-6 md:p-8">
+            {/* Status badge */}
+            <div className="flex items-center justify-between">
+              <div className={cn("flex items-center gap-2 rounded-full px-3 py-1.5", statusConfig.bg)}>
+                <span className={cn("size-2 animate-pulse rounded-full", statusConfig.pulse)} />
+                <span className={cn("text-sm font-semibold", statusConfig.color)}>{statusConfig.label}</span>
+              </div>
+              <p className="text-muted-foreground text-sm">
+                {currentTime.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "short" })}
               </p>
             </div>
 
-            {/* Tiempo trabajado */}
-            <div className="flex flex-col items-center gap-2">
-              <span className="text-muted-foreground text-sm font-medium">Tiempo trabajado</span>
+            {/* Time display */}
+            <div className="space-y-2 text-center">
+              <p className="text-muted-foreground text-sm font-medium">Tiempo trabajado</p>
               {isLoading || isScheduleLoading ? (
-                <div className="flex items-center gap-1 tabular-nums">
-                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
-                  <div className="bg-muted relative h-[60px] w-[80px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.2s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
-                  <span className="text-muted-foreground/30 text-2xl font-bold">:</span>
-                  <div className="bg-muted relative h-[48px] w-[70px] overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.4s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  </div>
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="text-primary size-8 animate-spin" />
                 </div>
               ) : (
-                <div className="flex items-center gap-1 tabular-nums">
-                  <span className="font-display text-5xl font-bold">{workedTime.hours}</span>
-                  <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="font-display text-5xl font-bold">{workedTime.minutes}</span>
-                  <span className="text-muted-foreground text-2xl font-bold">:</span>
-                  <span className="text-muted-foreground font-display text-3xl font-bold">{workedTime.seconds}</span>
+                <div className="flex items-center justify-center gap-1 font-mono">
+                  <span className="text-5xl font-bold tracking-tight tabular-nums md:text-6xl">{workedTime.hours}</span>
+                  <span className="text-muted-foreground text-3xl font-bold">:</span>
+                  <span className="text-5xl font-bold tracking-tight tabular-nums md:text-6xl">
+                    {workedTime.minutes}
+                  </span>
+                  <span className="text-muted-foreground text-3xl font-bold">:</span>
+                  <span className="text-muted-foreground text-3xl font-bold tabular-nums">{workedTime.seconds}</span>
                 </div>
               )}
             </div>
 
-            {/* Tiempo restante o completado */}
-            <div className="flex w-full flex-col items-center gap-1">
-              {isLoading || isScheduleLoading ? (
-                <div className="bg-muted relative h-[40px] w-[200px] overflow-hidden rounded-lg">
-                  <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite_0.6s] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                </div>
-              ) : todaySchedule?.source === "ABSENCE" ? (
-                <Alert className="w-full border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30">
-                  <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  <AlertTitle className="font-semibold text-orange-800 dark:text-orange-300">
-                    Ausencia Registrada: {todaySchedule.absence?.type ?? "Ausencia"}
-                  </AlertTitle>
-                  <AlertDescription className="text-xs text-orange-700 dark:text-orange-400">
-                    {todaySchedule.absence?.reason ? `Motivo: ${todaySchedule.absence.reason}. ` : ""}
-                    Estás fichando en un día marcado como ausencia.
-                  </AlertDescription>
-                </Alert>
-              ) : !uiIsWorkingDay ? (
-                <Alert className="border-muted-foreground/20 bg-muted/40 w-full">
-                  <Info className="text-muted-foreground h-4 w-4" />
-                  <AlertTitle className="font-semibold">Día no laborable según tu contrato.</AlertTitle>
-                  <AlertDescription className="text-muted-foreground">
-                    Los fichajes de hoy se registrarán como tiempo extra en la bolsa de horas.
-                  </AlertDescription>
-                </Alert>
-              ) : isCompleted ? (
-                <div className="flex items-center gap-2 rounded-lg bg-green-500/10 px-4 py-2">
-                  <span className="text-sm font-semibold text-green-600 dark:text-green-400">
-                    ¡Jornada completada! 🎉
-                  </span>
-                </div>
-              ) : isWorkingOnAbsence ? (
-                <div className="flex items-center gap-2 rounded-lg bg-blue-500/10 px-4 py-2">
-                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                    Actividad registrada en día libre
-                  </span>
-                </div>
-              ) : (
-                <div>
-                  <span className="text-muted-foreground text-xs">Tiempo restante</span>
-                  <div className="flex items-center gap-1 tabular-nums">
-                    <span className="text-muted-foreground font-display text-2xl font-semibold">
-                      {remainingTime.hours}
-                    </span>
-                    <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground font-display text-2xl font-semibold">
-                      {remainingTime.minutes}
-                    </span>
-                    <span className="text-muted-foreground text-lg">:</span>
-                    <span className="text-muted-foreground/70 font-display text-xl">{remainingTime.seconds}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex w-full flex-col gap-3">
-            <AnimatePresence mode="wait" initial={false}>
-              {currentStatus === "CLOCKED_OUT" ? (
-                <motion.div
-                  key="clocked-out"
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="flex w-full flex-col gap-4"
-                >
-                  {/* Selector de proyecto */}
-                  <ProjectSelector
-                    selectedProjectId={selectedProjectId}
-                    onSelectProject={handleManualProjectSelection}
-                    task={projectTask}
-                    onTaskChange={setProjectTask}
-                    disabled={!canClock || isLoading || isClocking || isScheduleLoading}
-                  />
-
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          size="lg"
-                          onClick={handleClockIn}
-                          className="w-full disabled:opacity-70"
-                          disabled={!canClock || isLoading || isClocking || isScheduleLoading}
-                        >
-                          {isLoading || isClocking || isScheduleLoading ? (
-                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          ) : (
-                            <LogIn className="mr-2 h-5 w-5" />
-                          )}
-                          Fichar Entrada
-                        </Button>
-                      </TooltipTrigger>
-                      {!uiIsWorkingDay && (
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-sm">
-                            Día no laborable.
-                            <br />
-                            Se registrará como tiempo extra.
-                          </p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="clocked-in"
-                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                  className="flex w-full flex-col gap-3"
-                >
-                  <Button
-                    size="lg"
-                    onClick={handleClockOut}
-                    variant="destructive"
-                    className={cn(
-                      "w-full disabled:opacity-70",
-                      isExcessive && "border-2 border-orange-500 ring-2 ring-orange-200",
-                    )}
-                    disabled={!canClock || isLoading || isClocking || isScheduleLoading}
-                  >
-                    {isLoading || isClocking || isScheduleLoading ? (
-                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            {/* Progress bar */}
+            {effectiveExpectedMinutes > 0 && !isLoading && !isScheduleLoading && (
+              <div className="space-y-2">
+                <Progress
+                  value={progressPercentage}
+                  className="h-2"
+                  indicatorClassName={isCompleted ? "bg-emerald-500" : "bg-primary"}
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {isCompleted ? (
+                      <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                        <Sparkles className="size-3" />
+                        Jornada completada
+                      </span>
                     ) : (
-                      <LogOut className="mr-2 h-5 w-5" />
+                      `Restante: ${remainingTime.hours}h ${remainingTime.minutes}m`
                     )}
-                    Fichar Salida
-                  </Button>
-                  <div className="flex w-full gap-2">
+                  </span>
+                  <span
+                    className={cn(
+                      "font-medium",
+                      isCompleted ? "text-emerald-600 dark:text-emerald-400" : "text-primary",
+                    )}
+                  >
+                    {progressPercentage}%
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Status alerts */}
+            {!isLoading && !isScheduleLoading && (
+              <>
+                {todaySchedule?.source === "ABSENCE" && (
+                  <Alert className="border-orange-200 bg-orange-50/50 dark:border-orange-900 dark:bg-orange-950/30">
+                    <AlertTriangle className="size-4 text-orange-600 dark:text-orange-400" />
+                    <AlertTitle className="text-sm font-semibold text-orange-800 dark:text-orange-300">
+                      Ausencia: {todaySchedule.absence?.type ?? "Registrada"}
+                    </AlertTitle>
+                  </Alert>
+                )}
+                {!uiIsWorkingDay && todaySchedule?.source !== "ABSENCE" && (
+                  <Alert className="border-muted bg-muted/50">
+                    <Info className="text-muted-foreground size-4" />
+                    <AlertTitle className="text-sm font-medium">Día no laborable</AlertTitle>
+                    <AlertDescription className="text-muted-foreground text-xs">
+                      Los fichajes se registran como tiempo extra.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </>
+            )}
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              <AnimatePresence mode="wait" initial={false}>
+                {currentStatus === "CLOCKED_OUT" ? (
+                  <motion.div
+                    key="clocked-out"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
+                  >
+                    <ProjectSelector
+                      selectedProjectId={selectedProjectId}
+                      onSelectProject={handleManualProjectSelection}
+                      task={projectTask}
+                      onTaskChange={setProjectTask}
+                      disabled={!canClock || isLoading || isClocking || isScheduleLoading}
+                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="lg"
+                            onClick={handleClockIn}
+                            className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                            disabled={!canClock || isLoading || isClocking || isScheduleLoading}
+                          >
+                            {isLoading || isClocking || isScheduleLoading ? (
+                              <Loader2 className="size-5 animate-spin" />
+                            ) : (
+                              <LogIn className="size-5" />
+                            )}
+                            Fichar Entrada
+                          </Button>
+                        </TooltipTrigger>
+                        {!uiIsWorkingDay && (
+                          <TooltipContent>Día no laborable - se registrará como extra</TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="clocked-in"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.2 }}
+                    className="space-y-3"
+                  >
+                    <Button
+                      size="lg"
+                      onClick={handleClockOut}
+                      variant="destructive"
+                      className={cn("w-full gap-2", isExcessive && "ring-2 ring-orange-500")}
+                      disabled={!canClock || isLoading || isClocking || isScheduleLoading}
+                    >
+                      {isLoading || isClocking || isScheduleLoading ? (
+                        <Loader2 className="size-5 animate-spin" />
+                      ) : (
+                        <LogOut className="size-5" />
+                      )}
+                      Fichar Salida
+                    </Button>
                     <Button
                       size="lg"
                       onClick={handleBreak}
                       variant="outline"
-                      className="flex-1 disabled:opacity-70"
+                      className={cn(
+                        "w-full gap-2",
+                        currentStatus === "ON_BREAK" &&
+                          "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950/30",
+                      )}
                       disabled={!canClock || isLoading || isClocking || isScheduleLoading}
                     >
                       {isLoading || isClocking || isScheduleLoading ? (
-                        <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                        <Loader2 className="size-5 animate-spin" />
                       ) : (
-                        <Coffee className="mr-2 h-5 w-5" />
+                        <Coffee className="size-5" />
                       )}
                       {currentStatus === "ON_BREAK" ? "Volver del descanso" : "Iniciar descanso"}
                     </Button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </CardContent>
         </Card>
 
-        {/* Card de resumen del día */}
-        <Card className="relative h-full">
-          <CardContent className="relative space-y-2 pb-0">
-            {todayDeviation !== null && todayDeviation !== 0 && (
-              <div className="absolute top-0 right-0 z-10">
+        {/* Summary Card */}
+        <Card className="relative">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base font-semibold">Resumen del día</CardTitle>
+              {todayDeviation !== null && todayDeviation !== 0 && (
                 <Badge
                   variant="outline"
                   className={cn(
-                    "bg-background/80 h-5 border px-1.5 text-[10px] font-medium backdrop-blur-sm",
+                    "text-xs font-medium",
                     todayDeviation > 0
-                      ? "border-green-200 text-green-700 dark:border-green-900 dark:text-green-400"
+                      ? "border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-400"
                       : "border-red-200 text-red-700 dark:border-red-900 dark:text-red-400",
                   )}
                 >
                   {todayDeviation > 0 ? "+" : ""}
                   {formatDuration(Math.round(Math.abs(todayDeviation)))}
                 </Badge>
-              </div>
-            )}
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
             {isLoading || isScheduleLoading ? (
-              <div className="bg-muted relative mx-auto aspect-square max-h-[270px] overflow-hidden rounded-lg">
-                <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              <div className="flex h-[200px] items-center justify-center">
+                <Loader2 className="text-muted-foreground size-8 animate-spin" />
               </div>
             ) : (
               <>
                 {memoizedChart}
-                <p className="text-muted-foreground text-center text-xs">
-                  Actualizado a las{" "}
-                  {chartLastUpdatedAt.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}
-                </p>
+
+                {/* Stats grid */}
+                <div className="grid grid-cols-3 gap-4 pt-4">
+                  <div className="space-y-1 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <div className="size-2 rounded-full bg-emerald-500" />
+                      <span className="text-muted-foreground text-xs">Entrada</span>
+                    </div>
+                    <p className="font-mono text-sm font-semibold">
+                      {todaySummary?.clockIn
+                        ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <div className="size-2 rounded-full bg-amber-500" />
+                      <span className="text-muted-foreground text-xs">Pausas</span>
+                    </div>
+                    <p className="font-mono text-sm font-semibold">
+                      {todaySummary ? formatMinutesToDisplay(todaySummary.totalBreakMinutes) : "0h 0m"}
+                    </p>
+                  </div>
+                  <div className="space-y-1 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <div className="size-2 rounded-full bg-red-500" />
+                      <span className="text-muted-foreground text-xs">Salida</span>
+                    </div>
+                    <p className="font-mono text-sm font-semibold">
+                      {todaySummary?.clockOut
+                        ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "--:--"}
+                    </p>
+                  </div>
+                </div>
               </>
             )}
           </CardContent>
-          <CardFooter className="flex-col items-start justify-start gap-4 border-t pt-6 md:justify-between lg:gap-0">
-            {isLoading || isScheduleLoading ? (
-              <div className="w-full space-y-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex w-full items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="bg-muted relative size-2 overflow-hidden rounded-full">
-                        <div className="absolute inset-0 animate-[shimmer_1.5s_infinite] bg-white/20" />
-                      </div>
-                      <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
-                        <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                      </div>
-                    </div>
-                    <div className="bg-muted relative h-3 w-12 overflow-hidden rounded">
-                      <div className="absolute inset-0 -translate-x-full animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="w-full space-y-3">
-                {/* Entrada */}
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-emerald-500" />
-                    Entrada
-                  </span>
-                  <span className="font-mono font-medium">
-                    {todaySummary?.clockIn
-                      ? new Date(todaySummary.clockIn).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "--:--"}
-                  </span>
-                </div>
-
-                {/* Pausas */}
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-amber-500" />
-                    Pausas
-                  </span>
-                  <span className="font-mono font-medium">
-                    {todaySummary ? formatMinutes(todaySummary.totalBreakMinutes) : "0h 0m"}
-                  </span>
-                </div>
-
-                {/* Salida */}
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground flex items-center gap-2">
-                    <div className="size-2 rounded-full bg-red-500" />
-                    Salida
-                  </span>
-                  <span className="font-mono font-medium">
-                    {todaySummary?.clockOut
-                      ? new Date(todaySummary.clockOut).toLocaleTimeString("es-ES", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "--:--"}
-                  </span>
-                </div>
-              </div>
-            )}
-          </CardFooter>
         </Card>
       </div>
 
-      {/* Información resumida diaria */}
+      {/* Daily info bar */}
       <MinifiedDailyInfo schedule={todaySchedule} isLoading={isScheduleLoading} />
 
-      {/* Historial de fichajes del día */}
+      {/* Today's entries */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <div className="flex items-center gap-2">
-            <CardTitle>Fichajes de hoy</CardTitle>
+        <CardHeader className="flex-row items-center justify-between">
+          <div className="flex items-center gap-3">
+            <CardTitle className="text-base">Fichajes de hoy</CardTitle>
             <a
-              href="https://www.notion.so/Fichajes-9d46b3bc551e436aa7bb30e79b2ec331?pvs=21"
+              href="https://www.notion.so/Fichajes-9d46b3bc551e436aa7bb30e79b2ec331"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
             >
-              <HelpCircle className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">¿Cómo funciona?</span>
+              <HelpCircle className="size-3.5" />
+              <span className="hidden sm:inline">Ayuda</span>
             </a>
           </div>
 
-          {/* Toggle Vista Lista/Mapa - solo si hay fichajes con GPS */}
           {entriesWithGPS > 0 && !isLoading && (
             <div className="flex items-center gap-1 rounded-lg border p-1">
               <Button
                 size="sm"
                 variant={viewMode === "list" ? "default" : "ghost"}
                 onClick={() => setViewMode("list")}
-                className="h-8 px-3"
+                className="h-7 gap-1.5 px-2.5 text-xs"
               >
-                <List className="mr-1.5 h-4 w-4" />
+                <List className="size-3.5" />
                 Lista
               </Button>
               <Button
                 size="sm"
                 variant={viewMode === "map" ? "default" : "ghost"}
                 onClick={() => setViewMode("map")}
-                className="h-8 px-3"
+                className="h-7 gap-1.5 px-2.5 text-xs"
               >
-                <Map className="mr-1.5 h-4 w-4" />
+                <Map className="size-3.5" />
                 Mapa
               </Button>
             </div>
@@ -1106,28 +1020,13 @@ export function ClockIn() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {[1, 2].map((i) => (
-                <div key={i} className="flex items-center gap-3 rounded-lg border p-3">
-                  <div className="bg-muted relative size-4 overflow-hidden rounded">
-                    <div
-                      className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                      style={{ animation: `shimmer 1.5s infinite ${i * 0.15}s` }}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <div className="bg-muted relative h-4 w-24 overflow-hidden rounded">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.05}s` }}
-                      />
-                    </div>
-                    <div className="bg-muted relative h-3 w-16 overflow-hidden rounded">
-                      <div
-                        className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent"
-                        style={{ animation: `shimmer 1.5s infinite ${i * 0.15 + 0.1}s` }}
-                      />
-                    </div>
+                <div key={i} className="bg-muted/50 flex items-center gap-3 rounded-lg p-3">
+                  <div className="bg-muted size-10 animate-pulse rounded-full" />
+                  <div className="flex-1 space-y-2">
+                    <div className="bg-muted h-4 w-24 animate-pulse rounded" />
+                    <div className="bg-muted h-3 w-16 animate-pulse rounded" />
                   </div>
                 </div>
               ))}
@@ -1139,12 +1038,18 @@ export function ClockIn() {
               <TimeEntriesTimeline entries={todaySummary.timeEntries} />
             )
           ) : (
-            <p className="text-muted-foreground text-sm">Aún no has registrado fichajes hoy.</p>
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="bg-muted mb-3 rounded-full p-3">
+                <Timer className="text-muted-foreground size-6" />
+              </div>
+              <p className="text-sm font-medium">Sin fichajes hoy</p>
+              <p className="text-muted-foreground mt-1 text-xs">Pulsa &quot;Fichar Entrada&quot; para comenzar</p>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Modal de fichaje excesivo */}
+      {/* Excessive time dialog */}
       {isExcessive && incompleteEntryInfo && (
         <ExcessiveTimeDialog
           open={showExcessiveDialog}
