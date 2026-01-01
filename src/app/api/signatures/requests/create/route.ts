@@ -4,12 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { Role, type SecondSignerRole } from "@prisma/client";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { resolveSecondSigner } from "@/lib/signatures/double-signature";
 import { createSignaturePendingNotification } from "@/lib/signatures/notifications";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 
 export const runtime = "nodejs";
 
@@ -36,14 +36,16 @@ const uniqueValues = (values: string[]): string[] => {
  * Crea una nueva SignatureRequest con resolución de empleados
  */
 export async function POST(request: NextRequest) {
-  if (!features.signatures) {
-    return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId || !session?.user?.id) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const signaturesAvailable = await isModuleAvailableForOrg(orgId, "signatures");
+    if (!signaturesAvailable) {
+      return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 403 });
     }
 
     const effectivePermissions = await computeEffectivePermissions({

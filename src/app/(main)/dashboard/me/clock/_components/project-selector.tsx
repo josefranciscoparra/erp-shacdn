@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { getAvailableProjects } from "@/server/actions/projects";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 interface Project {
   id: string;
@@ -36,11 +37,17 @@ export function ProjectSelector({
   onTaskChange,
   disabled = false,
 }: ProjectSelectorProps) {
+  const projectsAvailable = useOrganizationFeaturesStore((state) => state.features.moduleAvailability.projects);
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadProjects = useCallback(async () => {
+    if (!projectsAvailable) {
+      setProjects([]);
+      setIsLoading(false);
+      return;
+    }
     try {
       const result = await getAvailableProjects();
       if (result.success && result.projects) {
@@ -59,8 +66,8 @@ export function ProjectSelector({
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
-  // Si no hay proyectos, no mostrar nada
-  if (!isLoading && projects.length === 0) {
+  // Si el módulo no está disponible o no hay proyectos, no mostrar nada
+  if (!projectsAvailable || (!isLoading && projects.length === 0)) {
     return null;
   }
 

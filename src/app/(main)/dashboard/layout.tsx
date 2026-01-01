@@ -10,6 +10,7 @@ import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget"
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 import type { SidebarVariant, SidebarCollapsible } from "@/types/preferences/layout";
 
@@ -35,6 +36,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
       shiftsEnabled: true,
       expenseMode: true,
       whistleblowingEnabled: true,
+      features: true,
     },
   });
 
@@ -43,6 +45,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
     shiftsEnabled: org?.shiftsEnabled ?? false,
     expenseMode: org?.expenseMode ?? "PRIVATE",
     whistleblowingEnabled: org?.whistleblowingEnabled ?? false,
+    moduleAvailability: getModuleAvailability(org?.features),
   };
 
   const cookieStore = await cookies();

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { z } from "zod";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { EmployeeOrgGuardError, ensureEmployeeHasAccessToActiveOrg } from "@/lib/auth/ensure-employee-active-org";
 import { prisma } from "@/lib/prisma";
@@ -10,6 +9,7 @@ import { documentStorageService } from "@/lib/storage";
 import { getFileCategoryForDocumentKind, getRetentionPolicyForDocumentKind } from "@/lib/storage/retention-policies";
 import { markStoredFileAsDeleted, registerStoredFile } from "@/lib/storage/storage-ledger";
 import { documentKindSchema } from "@/lib/validations/document";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 import {
   cancelReservation,
   commitReservation,
@@ -37,22 +37,11 @@ const uploadFormSchema = z.object({
   description: z.string().optional(),
 });
 
-const ensureDocumentsEnabled = () => {
-  if (!features.documents) {
-    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
-  }
-
-  return null;
-};
-
 /**
  * GET /api/me/documents
  * Obtiene los documentos del empleado autenticado
  */
 export async function GET(request: NextRequest) {
-  const disabledResponse = ensureDocumentsEnabled();
-  if (disabledResponse) return disabledResponse;
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
@@ -60,6 +49,12 @@ export async function GET(request: NextRequest) {
     }
 
     await ensureEmployeeHasAccessToActiveOrg(session);
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
+    }
 
     // Obtener parámetros de consulta
     const searchParams = request.nextUrl.searchParams;
@@ -142,9 +137,6 @@ export async function GET(request: NextRequest) {
  * Permite al empleado subir documentos de tipos permitidos
  */
 export async function POST(request: NextRequest) {
-  const disabledResponse = ensureDocumentsEnabled();
-  if (disabledResponse) return disabledResponse;
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
@@ -152,6 +144,12 @@ export async function POST(request: NextRequest) {
     }
 
     await ensureEmployeeHasAccessToActiveOrg(session);
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
+    }
 
     // Obtener form data
     const formData = await request.formData();

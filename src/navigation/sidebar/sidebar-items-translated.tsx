@@ -69,11 +69,19 @@ export function useSidebarItems(): NavGroup[] {
   const chatEnabled = useOrganizationFeaturesStore((state) => state.features.chatEnabled);
   const shiftsEnabled = useOrganizationFeaturesStore((state) => state.features.shiftsEnabled);
   const expenseMode = useOrganizationFeaturesStore((state) => state.features.expenseMode);
+  const whistleblowingEnabled = useOrganizationFeaturesStore((state) => state.features.whistleblowingEnabled);
+  const moduleAvailability = useOrganizationFeaturesStore((state) => state.features.moduleAvailability);
   const showProcedures = expenseMode === "PUBLIC" || expenseMode === "MIXED";
   const showExpenses = expenseMode === "PRIVATE" || expenseMode === "MIXED";
 
-  const documentsEnabled = features.documents;
-  const signaturesEnabled = features.signatures;
+  const documentsEnabled = features.documents && moduleAvailability.documents;
+  const signaturesEnabled = features.signatures && moduleAvailability.signatures;
+  const expensesEnabled = moduleAvailability.expenses;
+  const payrollEnabled = moduleAvailability.payroll;
+  const projectsEnabled = moduleAvailability.projects;
+  const chatAvailable = moduleAvailability.chat && chatEnabled;
+  const shiftsAvailable = moduleAvailability.shifts && shiftsEnabled;
+  const whistleblowingAvailable = moduleAvailability.whistleblowing && whistleblowingEnabled;
 
   const allItems = [
     {
@@ -114,7 +122,7 @@ export function useSidebarItems(): NavGroup[] {
           icon: Calendar,
         },
         // PÚBLICO: Mis Expedientes (Para el empleado)
-        ...(showProcedures
+        ...(expensesEnabled && showProcedures
           ? [
               {
                 title: "Expedientes de Gasto",
@@ -124,7 +132,7 @@ export function useSidebarItems(): NavGroup[] {
             ]
           : []),
         // PRIVADO/MIXTO: Mis Gastos
-        ...(showExpenses
+        ...(expensesEnabled && showExpenses
           ? [
               {
                 title: "Mis Gastos",
@@ -133,7 +141,7 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
-        ...(chatEnabled
+        ...(chatAvailable
           ? [
               {
                 title: "Chat",
@@ -142,13 +150,17 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
-        {
-          title: "Mis Nóminas",
-          url: "/dashboard/me/payslips",
-          icon: FileArchive,
-          isNew: true,
-          permission: "view_own_payslips",
-        },
+        ...(payrollEnabled
+          ? [
+              {
+                title: "Mis Nóminas",
+                url: "/dashboard/me/payslips",
+                icon: FileArchive,
+                isNew: true,
+                permission: "view_own_payslips",
+              },
+            ]
+          : []),
         ...(documentsEnabled
           ? [
               {
@@ -196,13 +208,17 @@ export function useSidebarItems(): NavGroup[] {
               },
             ]
           : []),
-        {
-          title: "Nóminas",
-          url: "/dashboard/payslips",
-          icon: FileArchive,
-          permission: "view_payroll",
-          isNew: true,
-        },
+        ...(payrollEnabled
+          ? [
+              {
+                title: "Nóminas",
+                url: "/dashboard/payslips",
+                icon: FileArchive,
+                permission: "view_payroll",
+                isNew: true,
+              },
+            ]
+          : []),
         {
           title: "Aprobaciones",
           url: "/dashboard/approvals",
@@ -238,43 +254,47 @@ export function useSidebarItems(): NavGroup[] {
       id: 6,
       label: "Finanzas",
       items: [
-        {
-          title: "Gestión de Gastos",
-          url: "/dashboard/expenses",
-          icon: Banknote,
-          permission: "approve_requests",
-          subItems: [
-            // PÚBLICO: Gestión de Expedientes (RRHH/Managers)
-            ...(showProcedures
-              ? [
+        ...(expensesEnabled
+          ? [
+              {
+                title: "Gestión de Gastos",
+                url: "/dashboard/expenses",
+                icon: Banknote,
+                permission: "approve_requests",
+                subItems: [
+                  // PÚBLICO: Gestión de Expedientes (RRHH/Managers)
+                  ...(showProcedures
+                    ? [
+                        {
+                          title: "Expedientes",
+                          url: "/dashboard/procedures", // Reutilizamos la vista, filtrada por permisos
+                          permission: "approve_requests",
+                        },
+                      ]
+                    : []),
+                  ...(showExpenses
+                    ? [
+                        {
+                          title: "Control de Gastos",
+                          url: "/dashboard/expenses",
+                          permission: "approve_requests",
+                        },
+                        {
+                          title: "Reembolsos",
+                          url: "/dashboard/expenses/reimbursements",
+                          permission: "manage_payroll",
+                        },
+                      ]
+                    : []),
                   {
-                    title: "Expedientes",
-                    url: "/dashboard/procedures", // Reutilizamos la vista, filtrada por permisos
-                    permission: "approve_requests",
+                    title: "Políticas",
+                    url: "/dashboard/expenses/policies",
+                    permission: "manage_organization",
                   },
-                ]
-              : []),
-            ...(showExpenses
-              ? [
-                  {
-                    title: "Control de Gastos",
-                    url: "/dashboard/expenses",
-                    permission: "approve_requests",
-                  },
-                  {
-                    title: "Reembolsos",
-                    url: "/dashboard/expenses/reimbursements",
-                    permission: "manage_payroll",
-                  },
-                ]
-              : []),
-            {
-              title: "Políticas",
-              url: "/dashboard/expenses/policies",
-              permission: "manage_organization",
-            },
-          ],
-        },
+                ],
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -307,11 +327,15 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/teams",
               permission: "view_teams",
             },
-            {
-              title: "Proyectos",
-              url: "/dashboard/projects",
-              permission: "view_projects",
-            },
+            ...(projectsEnabled
+              ? [
+                  {
+                    title: "Proyectos",
+                    url: "/dashboard/projects",
+                    permission: "view_projects",
+                  },
+                ]
+              : []),
           ],
         },
         {
@@ -371,20 +395,28 @@ export function useSidebarItems(): NavGroup[] {
             },
           ],
         },
-        {
-          title: "Liquidaciones",
-          url: "/dashboard/settlements",
-          icon: Calculator,
-          permission: "manage_payroll",
-          isNew: true,
-        },
-        {
-          title: "Canal de Denuncias",
-          url: "/dashboard/whistleblowing",
-          icon: Shield,
-          permission: "manage_organization" as Permission,
-          isNew: true,
-        },
+        ...(payrollEnabled
+          ? [
+              {
+                title: "Liquidaciones",
+                url: "/dashboard/settlements",
+                icon: Calculator,
+                permission: "manage_payroll",
+                isNew: true,
+              },
+            ]
+          : []),
+        ...(whistleblowingAvailable
+          ? [
+              {
+                title: "Canal de Denuncias",
+                url: "/dashboard/whistleblowing",
+                icon: Shield,
+                permission: "manage_organization" as Permission,
+                isNew: true,
+              },
+            ]
+          : []),
         {
           title: "Gestión de Horarios",
           url: "/dashboard/schedules",
@@ -396,7 +428,7 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/schedules",
               permission: "view_contracts",
             },
-            ...(shiftsEnabled
+            ...(shiftsAvailable
               ? [
                   {
                     title: "Cuadrante de Turnos",

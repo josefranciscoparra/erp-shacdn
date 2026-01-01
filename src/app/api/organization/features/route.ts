@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -26,6 +27,7 @@ export async function GET() {
         chatEnabled: true,
         shiftsEnabled: true,
         whistleblowingEnabled: true,
+        features: true,
         // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
       },
     });
@@ -38,6 +40,7 @@ export async function GET() {
       chatEnabled: org.chatEnabled,
       shiftsEnabled: org.shiftsEnabled,
       whistleblowingEnabled: org.whistleblowingEnabled,
+      moduleAvailability: getModuleAvailability(org.features),
       // Futuros módulos aquí
     });
   } catch (error) {

@@ -3,8 +3,9 @@
 import { ProjectAccessType } from "@prisma/client";
 import { endOfDay } from "date-fns";
 
-import { safePermission } from "@/lib/auth-guard";
 import { auth } from "@/lib/auth";
+import { safePermission } from "@/lib/auth-guard";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 import { type Permission } from "@/services/permissions";
 
@@ -698,6 +699,16 @@ export async function getAvailableProjects(): Promise<{
     const session = await auth();
     if (!session?.user?.id) {
       return { success: false, error: "No autenticado" };
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { features: true },
+    });
+    const availability = getModuleAvailability(org?.features);
+    if (!availability.projects) {
+      return { success: false, error: "Módulo de proyectos no disponible" };
     }
 
     // Obtener el employeeId del usuario actual

@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -34,6 +35,17 @@ export async function getEmployeeSignedDocuments(
     const session = await auth();
     if (!session?.user?.orgId) {
       return { success: false, error: "No autorizado" };
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const org = await prisma.organization.findUnique({
+      where: { id: orgId },
+      select: { features: true },
+    });
+    const availability = getModuleAvailability(org?.features);
+
+    if (!availability.signatures) {
+      return { success: false, error: "Módulo de firmas no disponible" };
     }
 
     // Verificar que el empleado pertenece a la organización

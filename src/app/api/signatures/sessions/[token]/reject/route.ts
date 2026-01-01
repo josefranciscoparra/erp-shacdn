@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addRejectionEvent, buildSignatureEvidence, createInitialTimeline } from "@/lib/signatures/evidence-builder";
@@ -8,6 +7,7 @@ import { createSignatureRejectedNotification, notifyDocumentRejected } from "@/l
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { rejectSignatureSchema } from "@/lib/validations/signature";
 import { updateBatchStats } from "@/server/actions/signature-batch";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 
 export const runtime = "nodejs";
 
@@ -16,14 +16,16 @@ export const runtime = "nodejs";
  * Rechaza la firma de un documento
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ token: string }> }) {
-  if (!features.signatures) {
-    return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const signaturesAvailable = await isModuleAvailableForOrg(orgId, "signatures");
+    if (!signaturesAvailable) {
+      return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 403 });
     }
 
     const { token } = await params;

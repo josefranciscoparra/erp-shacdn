@@ -1,6 +1,6 @@
 "use server";
 
-import { features } from "@/config/features";
+import { getModuleAvailability } from "@/lib/organization-modules";
 import { prisma } from "@/lib/prisma";
 import type { DocumentKind } from "@/lib/validations/document";
 
@@ -57,7 +57,13 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
 
   const { documentKind, search, page = 1, limit = 50 } = filters;
 
-  if (!features.documents) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { features: true },
+  });
+  const availability = getModuleAvailability(org?.features);
+
+  if (!availability.documents) {
     return {
       documents: [],
       pagination: {
@@ -169,7 +175,13 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
 export async function getMyDocumentsStats() {
   const { employeeId, orgId } = await getAuthenticatedEmployee();
 
-  if (!features.documents) {
+  const org = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { features: true },
+  });
+  const availability = getModuleAvailability(org?.features);
+
+  if (!availability.documents) {
     return {
       total: 0,
       byKind: {},

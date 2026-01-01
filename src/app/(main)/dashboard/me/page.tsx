@@ -33,6 +33,8 @@ export default function MySpacePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const whistleblowingEnabled = useOrganizationFeaturesStore((state) => state.features.whistleblowingEnabled);
+  const moduleAvailability = useOrganizationFeaturesStore((state) => state.features.moduleAvailability);
+  const whistleblowingAvailable = moduleAvailability.whistleblowing && whistleblowingEnabled;
 
   useEffect(() => {
     loadDashboard();
@@ -269,7 +271,7 @@ export default function MySpacePage() {
       </div>
 
       {/* Footer discreto - Canal de Denuncias */}
-      {whistleblowingEnabled && (
+      {whistleblowingAvailable && (
         <div className="mt-8 pt-6 transition-all delay-500 duration-500">
           <Link
             href="/dashboard/me/whistleblowing"

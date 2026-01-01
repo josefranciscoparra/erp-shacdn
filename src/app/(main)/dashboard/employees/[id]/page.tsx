@@ -52,6 +52,7 @@ import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
 import { getEmployeeCurrentAssignment } from "@/server/actions/schedules-v2";
 import { getEmployeeSettlements, type SettlementListItem } from "@/server/actions/vacation-settlement";
 import { useDocumentsStore, useDocumentsByKind, useDocumentStats } from "@/stores/documents-store";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 import { EmployeeExpenseApprover } from "./_components/employee-expense-approver";
 import { EmployeePtoRequestsTable } from "./_components/employee-pto-requests-table";
@@ -177,7 +178,8 @@ export default function EmployeeProfilePage() {
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const documentsEnabled = features.documents;
+  const documentsAvailable = useOrganizationFeaturesStore((state) => state.features.moduleAvailability.documents);
+  const documentsEnabled = features.documents && documentsAvailable;
 
   // Estado para PTO
   const [ptoBalance, setPtoBalance] = useState<any>(null);

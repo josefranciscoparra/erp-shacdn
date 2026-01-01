@@ -52,14 +52,12 @@ export async function updateOrganizationModuleAvailability(
     features: Record<string, unknown>;
     chatEnabled?: boolean;
     shiftsEnabled?: boolean;
-    geolocationEnabled?: boolean;
     whistleblowingEnabled?: boolean;
   } = { features: nextFeatures };
 
   if (!available) {
     if (moduleKey === "chat") data.chatEnabled = false;
     if (moduleKey === "shifts") data.shiftsEnabled = false;
-    if (moduleKey === "geolocation") data.geolocationEnabled = false;
     if (moduleKey === "whistleblowing") data.whistleblowingEnabled = false;
   }
 

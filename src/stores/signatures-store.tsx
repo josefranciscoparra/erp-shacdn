@@ -5,6 +5,7 @@ import { create } from "zustand";
 
 import { features } from "@/config/features";
 import { downloadFileFromApi } from "@/lib/client/file-download";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 // ==================== TIPOS ====================
 
@@ -214,7 +215,8 @@ type SignaturesStore = SignaturesState & SignaturesActions;
 // ==================== HELPERS ====================
 
 const ensureSignaturesEnabled = (): boolean => {
-  if (features.signatures) {
+  const isAvailable = useOrganizationFeaturesStore.getState().features.moduleAvailability.signatures;
+  if (features.signatures && isAvailable) {
     return true;
   }
 

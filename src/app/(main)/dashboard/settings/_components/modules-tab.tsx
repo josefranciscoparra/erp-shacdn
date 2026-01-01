@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import { Clock, MapPin, Megaphone, MessageSquare, type LucideIcon } from "lucide-react";
+import {
+  Clock,
+  FileSignature,
+  FileText,
+  FileArchive,
+  Megaphone,
+  MessageSquare,
+  Receipt,
+  FolderKanban,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +35,7 @@ type ModuleItem = {
   title: string;
   description: string;
   icon: LucideIcon;
-  enabledKey: keyof ModuleEnabledState;
+  enabledKey?: keyof ModuleEnabledState;
 };
 
 const MODULE_ITEMS: ModuleItem[] = [
@@ -44,18 +54,41 @@ const MODULE_ITEMS: ModuleItem[] = [
     enabledKey: "shiftsEnabled",
   },
   {
-    key: "geolocation",
-    title: "Geolocalizacion",
-    description: "Captura GPS en fichajes y validaciones por ubicacion.",
-    icon: MapPin,
-    enabledKey: "geolocationEnabled",
-  },
-  {
     key: "whistleblowing",
     title: "Canal Etico",
     description: "Canal de denuncias con gestores y portal publico.",
     icon: Megaphone,
     enabledKey: "whistleblowingEnabled",
+  },
+  {
+    key: "documents",
+    title: "Documentos",
+    description: "Gestión documental para empleados y RRHH.",
+    icon: FileText,
+  },
+  {
+    key: "signatures",
+    title: "Firmas",
+    description: "Solicitudes y flujo de firma electrónica.",
+    icon: FileSignature,
+  },
+  {
+    key: "expenses",
+    title: "Gastos",
+    description: "Gestión de gastos y expedientes.",
+    icon: Receipt,
+  },
+  {
+    key: "payroll",
+    title: "Nóminas",
+    description: "Portal y gestión de nóminas.",
+    icon: FileArchive,
+  },
+  {
+    key: "projects",
+    title: "Proyectos",
+    description: "Imputación de tiempo por proyecto.",
+    icon: FolderKanban,
   },
 ];
 
@@ -128,7 +161,7 @@ export function ModulesTab({ initialAvailability, initialEnabled }: ModulesTabPr
 
       {MODULE_ITEMS.map((module) => {
         const isAvailable = availability[module.key];
-        const isEnabled = enabledState[module.enabledKey];
+        const isEnabled = module.enabledKey ? enabledState[module.enabledKey] : isAvailable;
         const Icon = module.icon;
         const isPending = isSaving && pendingModule === module.key;
 
@@ -148,9 +181,15 @@ export function ModulesTab({ initialAvailability, initialEnabled }: ModulesTabPr
                       </Badge>
                     </div>
                     <p className="text-muted-foreground text-sm">{module.description}</p>
-                    <p className="text-muted-foreground text-xs">
-                      Estado operativo: {isEnabled ? "Activo" : "Inactivo"}
-                    </p>
+                    {module.enabledKey ? (
+                      <p className="text-muted-foreground text-xs">
+                        Estado operativo: {isEnabled ? "Activo" : "Inactivo"}
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground text-xs">
+                        Estado operativo: {isAvailable ? "Activo" : "Oculto"}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <Switch

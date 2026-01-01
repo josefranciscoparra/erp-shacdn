@@ -1,21 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
-  if (!features.documents) {
-    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
     }
 
     const { id: employeeId, docId } = await params;
@@ -83,14 +85,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function HEAD(request: NextRequest, { params }: { params: Promise<{ id: string; docId: string }> }) {
-  if (!features.documents) {
-    return new NextResponse(null, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return new NextResponse(null, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return new NextResponse(null, { status: 403 });
     }
 
     const { id: employeeId, docId } = await params;

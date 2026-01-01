@@ -24,6 +24,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils";
 import { getAvailableProjects } from "@/server/actions/projects";
 import { changeProject as changeProjectAction, getCurrentProject } from "@/server/actions/time-tracking";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 interface Project {
   id: string;
@@ -51,6 +52,7 @@ export function ChangeProjectDialog({
   disabled = false,
   onProjectChanged,
 }: ChangeProjectDialogProps) {
+  const projectsAvailable = useOrganizationFeaturesStore((state) => state.features.moduleAvailability.projects);
   const [open, setOpen] = useState(false);
   const [popoverOpen, setPopoverOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -63,6 +65,12 @@ export function ChangeProjectDialog({
   const [task, setTask] = useState("");
 
   const loadData = useCallback(async () => {
+    if (!projectsAvailable) {
+      setProjects([]);
+      setCurrentProject(null);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const [projectsResult, currentProjectResult] = await Promise.all([getAvailableProjects(), getCurrentProject()]);
@@ -121,8 +129,8 @@ export function ChangeProjectDialog({
     }
   };
 
-  // Si no hay proyectos disponibles, no mostrar el botón
-  if (!isLoading && projects.length === 0) {
+  // Si el módulo no está disponible o no hay proyectos disponibles, no mostrar el botón
+  if (!projectsAvailable || (!isLoading && projects.length === 0)) {
     return null;
   }
 

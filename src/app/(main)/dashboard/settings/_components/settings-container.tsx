@@ -167,7 +167,7 @@ export function SettingsContainer({
         label: "Geolocalización",
         value: "geolocation",
         icon: <MapPin className="h-4 w-4" />,
-        show: availability.geolocation, // Solo si módulo disponible
+        show: true, // Core siempre disponible
       },
       {
         label: "Fichajes",
@@ -188,7 +188,7 @@ export function SettingsContainer({
         label: "Gastos",
         value: "expenses",
         icon: <Receipt className="h-4 w-4" />,
-        show: true, // Siempre visible (ExpenseMode por defecto es PRIVATE)
+        show: availability.expenses,
       },
       {
         label: "Canal Ético",

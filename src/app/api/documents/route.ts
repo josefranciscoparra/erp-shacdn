@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentFiltersSchema } from "@/lib/validations/document";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 import { expireReservations } from "@/server/storage/quota";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest) {
-  if (!features.documents) {
-    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
     }
 
     // Obtener parámetros de consulta

@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { Role } from "@prisma/client";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { signatureStorageService } from "@/lib/signatures/storage";
 import { resolveSignatureStoragePath } from "@/lib/signatures/storage-utils";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 
 export const runtime = "nodejs";
 
@@ -16,14 +16,16 @@ export const runtime = "nodejs";
  * Descarga el documento firmado
  */
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!features.signatures) {
-    return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.id || !session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const signaturesAvailable = await isModuleAvailableForOrg(orgId, "signatures");
+    if (!signaturesAvailable) {
+      return NextResponse.json({ error: "El módulo de firmas está deshabilitado" }, { status: 403 });
     }
 
     const { id } = await params;

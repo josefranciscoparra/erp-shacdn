@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { features } from "@/config/features";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { documentStorageService } from "@/lib/storage";
 import { finalizeStoredFileDeletion, markStoredFileAsDeleted } from "@/lib/storage/storage-ledger";
 import { documentFiltersSchema } from "@/lib/validations/document";
+import { isModuleAvailableForOrg } from "@/server/guards/module-availability";
 
 export const runtime = "nodejs";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!features.documents) {
-    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
     }
 
     const { id: employeeId } = await params;
@@ -118,14 +120,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!features.documents) {
-    return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 503 });
-  }
-
   try {
     const session = await auth();
     if (!session?.user?.orgId) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
+    const orgId = session.user.activeOrgId ?? session.user.orgId;
+    const documentsAvailable = await isModuleAvailableForOrg(orgId, "documents");
+    if (!documentsAvailable) {
+      return NextResponse.json({ error: "El módulo de documentos está deshabilitado" }, { status: 403 });
     }
 
     const { id: employeeId } = await params;

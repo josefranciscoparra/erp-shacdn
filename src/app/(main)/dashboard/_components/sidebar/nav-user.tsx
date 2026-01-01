@@ -38,6 +38,8 @@ export function NavUser({
   const { unreadCount, loadUnreadCount } = useNotificationsStore();
   const { resetStore } = useTimeTrackingStore();
   const whistleblowingEnabled = useOrganizationFeaturesStore((state) => state.features.whistleblowingEnabled);
+  const moduleAvailability = useOrganizationFeaturesStore((state) => state.features.moduleAvailability);
+  const whistleblowingAvailable = moduleAvailability.whistleblowing && whistleblowingEnabled;
 
   // Cargar contador de notificaciones al montar
   useEffect(() => {
@@ -108,7 +110,7 @@ export function NavUser({
                   )}
                 </Link>
               </DropdownMenuItem>
-              {whistleblowingEnabled && (
+              {whistleblowingAvailable && (
                 <DropdownMenuItem asChild>
                   <Link href="/dashboard/me/whistleblowing">
                     <Shield />

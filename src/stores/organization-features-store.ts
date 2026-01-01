@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { DEFAULT_MODULE_AVAILABILITY, type ModuleAvailability } from "@/lib/organization-modules";
+
 /**
  * Store para features/módulos habilitados de la organización
  *
@@ -14,6 +16,7 @@ export interface OrganizationFeatures {
   shiftsEnabled: boolean;
   expenseMode: "PRIVATE" | "PUBLIC" | "MIXED";
   whistleblowingEnabled: boolean;
+  moduleAvailability: ModuleAvailability;
   // Futuros módulos aquí (ej: documentsEnabled, signaturesEnabled, etc.)
 }
 
@@ -37,6 +40,7 @@ const initialFeatures: OrganizationFeatures = {
   shiftsEnabled: false,
   expenseMode: "PRIVATE",
   whistleblowingEnabled: false,
+  moduleAvailability: DEFAULT_MODULE_AVAILABILITY,
 };
 
 export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()((set, get) => ({
@@ -75,6 +79,7 @@ export const useOrganizationFeaturesStore = create<OrganizationFeaturesState>()(
           shiftsEnabled: data.shiftsEnabled ?? false,
           expenseMode: data.expenseMode ?? "PRIVATE",
           whistleblowingEnabled: data.whistleblowingEnabled ?? false,
+          moduleAvailability: data.moduleAvailability ?? DEFAULT_MODULE_AVAILABILITY,
         },
         isLoaded: true,
         isLoading: false,

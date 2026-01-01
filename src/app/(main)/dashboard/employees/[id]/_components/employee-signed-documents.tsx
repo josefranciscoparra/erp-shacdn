@@ -14,17 +14,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { type EmployeeSignedDocument, getEmployeeSignedDocuments } from "@/server/actions/employee-signatures";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 interface EmployeeSignedDocumentsProps {
   employeeId: string;
 }
 
 export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsProps) {
+  const signaturesAvailable = useOrganizationFeaturesStore((state) => state.features.moduleAvailability.signatures);
   const [documents, setDocuments] = useState<EmployeeSignedDocument[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!signaturesAvailable) {
+      setIsLoading(false);
+      setDocuments([]);
+      setError(null);
+      return;
+    }
     async function loadDocuments() {
       setIsLoading(true);
       setError(null);
@@ -41,7 +49,11 @@ export function EmployeeSignedDocuments({ employeeId }: EmployeeSignedDocumentsP
     }
 
     loadDocuments();
-  }, [employeeId]);
+  }, [employeeId, signaturesAvailable]);
+
+  if (!signaturesAvailable) {
+    return null;
+  }
 
   if (isLoading) {
     return (

@@ -5,6 +5,7 @@ import { create } from "zustand";
 
 import { features } from "@/config/features";
 import type { DocumentKind } from "@/lib/validations/document";
+import { useOrganizationFeaturesStore } from "@/stores/organization-features-store";
 
 // Tipos para el store
 export interface EmployeeDocument {
@@ -102,10 +103,9 @@ interface DocumentsActions {
 
 type DocumentsStore = DocumentsState & DocumentsActions;
 
-const DOCUMENTS_ENABLED = features.documents;
-
 const ensureDocumentsEnabled = (): boolean => {
-  if (DOCUMENTS_ENABLED) {
+  const isAvailable = useOrganizationFeaturesStore.getState().features.moduleAvailability.documents;
+  if (features.documents && isAvailable) {
     return true;
   }
 
