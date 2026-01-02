@@ -84,6 +84,16 @@ const MAIN_TABS = [
 
 type MainTabValue = (typeof MAIN_TABS)[number]["value"];
 
+// Mapeo de roles a español
+const ROLE_LABELS: Record<string, string> = {
+  EMPLOYEE: "Empleado",
+  MANAGER: "Responsable",
+  HR_ASSISTANT: "Asistente RRHH",
+  HR_ADMIN: "Admin RRHH",
+  ORG_ADMIN: "Admin Organización",
+  SUPER_ADMIN: "Super Admin",
+};
+
 interface Employee {
   id: string;
   employeeNumber: string | null;
@@ -603,7 +613,7 @@ export default function EmployeeProfilePage() {
         {/* Tabs Content */}
         <Tabs value={activeMainTab} onValueChange={handleMainTabChange} className="w-full">
           {/* Tabs desktop */}
-          <TabsList className={`mb-6 hidden w-full md:grid ${documentsEnabled ? "grid-cols-7" : "grid-cols-6"}`}>
+          <TabsList className={`mb-6 hidden w-full md:grid ${documentsEnabled ? "grid-cols-8" : "grid-cols-7"}`}>
             {availableMainTabs.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value}>
                 {tab.label}
@@ -954,11 +964,11 @@ export default function EmployeeProfilePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                  {/* Resultado del reenvío */}
-                  {inviteResendResult && (
-                    <div
-                      className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
-                        inviteResendResult.success
+                    {/* Resultado del reenvío */}
+                    {inviteResendResult && (
+                      <div
+                        className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
+                          inviteResendResult.success
                             ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
                             : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                         }`}
@@ -1029,7 +1039,7 @@ export default function EmployeeProfilePage() {
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">Rol:</span>
-                      <Badge variant="outline">{employee.user.role}</Badge>
+                      <Badge variant="outline">{ROLE_LABELS[employee.user.role] ?? employee.user.role}</Badge>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">Estado:</span>
