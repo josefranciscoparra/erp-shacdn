@@ -2,8 +2,6 @@
 
 import { useTransition } from "react";
 
-import { useRouter } from "next/navigation";
-
 import { ArrowRight, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -16,15 +14,15 @@ interface SwitchToEmployeeOrgButtonProps {
 
 export function SwitchToEmployeeOrgButton({ employeeOrgId, employeeOrgName }: SwitchToEmployeeOrgButtonProps) {
   const [isPending, startTransition] = useTransition();
-  const router = useRouter();
 
   const handleSwitch = () => {
     startTransition(async () => {
       try {
         await switchActiveOrganization(employeeOrgId);
-        router.refresh();
       } catch {
-        router.refresh();
+        // Ignorar el error y recargar para asegurar el contexto correcto.
+      } finally {
+        window.location.reload();
       }
     });
   };
