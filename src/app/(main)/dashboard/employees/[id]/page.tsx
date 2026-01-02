@@ -130,6 +130,15 @@ interface Employee {
       };
     }>;
   } | null;
+  inviteStatus?: "PENDING" | "SENT" | "FAILED";
+  inviteLastAttemptAt?: string | null;
+  inviteHistory?: Array<{
+    id: string;
+    createdAt: string;
+    status: string;
+    errorMessage?: string | null;
+    subject?: string | null;
+  }>;
   team: {
     id: string;
     name: string;
@@ -465,12 +474,29 @@ export default function EmployeeProfilePage() {
     });
   };
 
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString("es-ES", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("es-ES", {
       style: "currency",
       currency: "EUR",
     }).format(amount);
   };
+
+  const inviteStatus = employee.inviteStatus ?? "PENDING";
+  const inviteStatusLabel = inviteStatus === "SENT" ? "Enviada" : inviteStatus === "FAILED" ? "Fallida" : "Pendiente";
+  const inviteStatusVariant =
+    inviteStatus === "SENT" ? "success" : inviteStatus === "FAILED" ? "destructive" : "warning";
+  const inviteLastAttemptAt = employee.inviteLastAttemptAt ? formatDateTime(employee.inviteLastAttemptAt) : "—";
+  const inviteHistory = employee.inviteHistory ?? [];
 
   return (
     <PermissionGuard permissions={["view_employees", "manage_employees"]} fallback={permissionFallback}>
@@ -928,11 +954,11 @@ export default function EmployeeProfilePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {/* Resultado del reenvío */}
-                    {inviteResendResult && (
-                      <div
-                        className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
-                          inviteResendResult.success
+                  {/* Resultado del reenvío */}
+                  {inviteResendResult && (
+                    <div
+                      className={`flex items-center gap-2 rounded-lg p-3 text-sm ${
+                        inviteResendResult.success
                             ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
                             : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
                         }`}
@@ -945,6 +971,57 @@ export default function EmployeeProfilePage() {
                         {inviteResendResult.message}
                       </div>
                     )}
+
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Mail className="text-muted-foreground h-4 w-4" />
+                        <span className="text-muted-foreground text-sm">Invitación:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={inviteStatusVariant}>{inviteStatusLabel}</Badge>
+                        <span className="text-muted-foreground text-xs">Último intento: {inviteLastAttemptAt}</span>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              Historial
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent>
+                            <DialogHeader>
+                              <DialogTitle>Historial de invitaciones</DialogTitle>
+                            </DialogHeader>
+                            {inviteHistory.length ? (
+                              <div className="max-h-[320px] space-y-2 overflow-auto">
+                                {inviteHistory.map((log) => (
+                                  <div
+                                    key={log.id}
+                                    className="flex flex-col gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant={log.status === "SUCCESS" ? "success" : "destructive"}>
+                                        {log.status === "SUCCESS" ? "Enviada" : "Fallida"}
+                                      </Badge>
+                                      <span className="text-muted-foreground text-xs">
+                                        {formatDateTime(log.createdAt)}
+                                      </span>
+                                    </div>
+                                    <span className="text-muted-foreground text-xs">
+                                      {log.errorMessage ?? log.subject ?? "Sin detalles"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <EmptyState
+                                icon={<Mail className="text-muted-foreground mx-auto h-10 w-10" />}
+                                title="Sin historial"
+                                description="Aún no se ha enviado ninguna invitación."
+                              />
+                            )}
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
 
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground text-sm">Email:</span>

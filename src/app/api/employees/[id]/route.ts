@@ -144,6 +144,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ message: "Empleado no encontrado" }, { status: 404 });
     }
 
+    const inviteHistory = employee.user?.id
+      ? await prisma.emailLog.findMany({
+          where: {
+            userId: employee.user.id,
+            templateId: "AUTH_INVITE",
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 10,
+          select: {
+            id: true,
+            createdAt: true,
+            status: true,
+            errorMessage: true,
+            subject: true,
+          },
+        })
+      : [];
+
+    const lastInvite = inviteHistory.length ? inviteHistory[0] : null;
+    const inviteStatus = lastInvite ? (lastInvite.status === "SUCCESS" ? "SENT" : "FAILED") : "PENDING";
+
     // Transformar las fechas para el cliente y descifrar el IBAN
     const employeeData = {
       ...employee,
@@ -162,6 +185,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         updatedAt: contract.updatedAt.toISOString(),
         grossSalary: contract.grossSalary ? Number(contract.grossSalary) : null,
         weeklyHours: Number(contract.weeklyHours),
+      })),
+      inviteStatus,
+      inviteLastAttemptAt: lastInvite ? lastInvite.createdAt.toISOString() : null,
+      inviteHistory: inviteHistory.map((log) => ({
+        id: log.id,
+        createdAt: log.createdAt.toISOString(),
+        status: log.status,
+        errorMessage: log.errorMessage ?? null,
+        subject: log.subject,
       })),
     };
 

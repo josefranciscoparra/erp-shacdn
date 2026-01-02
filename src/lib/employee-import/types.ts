@@ -38,8 +38,10 @@ export interface ParsedEmployeeImportRow {
   raw: Record<string, string | undefined>;
 }
 
+export type RowMessageType = "ERROR" | "WARNING" | "SUCCESS";
+
 export interface RowMessage {
-  type: "ERROR" | "WARNING";
+  type: RowMessageType;
   field?: string;
   message: string;
 }

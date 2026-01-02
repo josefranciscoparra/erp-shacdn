@@ -71,7 +71,7 @@ export function LayoutControls() {
                 }}
               >
                 <SelectTrigger size="sm" className="w-full text-xs">
-                  <SelectValue placeholder={t("selectLanguage")} />
+                  <SelectValue placeholder="Selecciona idioma" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem className="text-xs" value="es">

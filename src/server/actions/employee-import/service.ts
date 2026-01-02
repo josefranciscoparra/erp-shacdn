@@ -1,12 +1,12 @@
 "use server";
 
-import type { EmployeeImportRowStatus, EmployeeImportJobStatus } from "@prisma/client";
 import { createHash } from "crypto";
 
-import { prisma } from "@/lib/prisma";
-import { getStorageProvider } from "@/lib/storage";
+import type { EmployeeImportRowStatus, EmployeeImportJobStatus } from "@prisma/client";
 
 import type { EmployeeImportOptions, RowValidationResult } from "@/lib/employee-import/types";
+import { prisma } from "@/lib/prisma";
+import { getStorageProvider } from "@/lib/storage";
 
 interface PersistJobParams {
   orgId: string;
@@ -101,7 +101,7 @@ export async function recalculateJobCounters(jobId: string) {
 
   const map = new Map<EmployeeImportRowStatus, number>();
   counters.forEach((counter) => {
-    map.set(counter.status as EmployeeImportRowStatus, counter._count);
+    map.set(counter.status, counter._count);
   });
 
   await prisma.employeeImportJob.update({

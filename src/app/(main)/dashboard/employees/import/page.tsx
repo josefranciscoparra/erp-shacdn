@@ -10,9 +10,21 @@ import { toast } from "sonner";
 import { PermissionGuard } from "@/components/auth/permission-guard";
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -25,7 +37,7 @@ interface ImportRow {
   id: string;
   rowIndex: number;
   status: "READY" | "ERROR" | "SKIPPED" | "IMPORTED" | "FAILED";
-  messages: { type: "ERROR" | "WARNING"; message: string }[];
+  messages: { type: "ERROR" | "WARNING" | "SUCCESS"; message: string }[];
   rawData?: Record<string, any> | null;
   data?: Record<string, any> | null;
   errorReason?: string | null;
@@ -43,6 +55,25 @@ interface JobInfo {
   summary: ImportSummary;
   rows: ImportRow[];
   options: any;
+}
+
+interface InviteSummary {
+  totalEligible: number;
+  pending: number;
+  sent: number;
+  failed: number;
+  notApplicable: number;
+}
+
+interface InviteRow {
+  id: string;
+  rowIndex: number;
+  status: "READY" | "ERROR" | "SKIPPED" | "IMPORTED" | "FAILED";
+  fullName: string;
+  email: string | null;
+  inviteStatus: "PENDING" | "SENT" | "FAILED" | "NOT_APPLICABLE";
+  inviteMessage?: string | null;
+  errorReason?: string | null;
 }
 
 export default function EmployeeImportPage() {
@@ -94,9 +125,9 @@ export default function EmployeeImportPage() {
                 Sube el archivo y mira la lista: si algo sale en rojo, corrige esa fila. Si todo sale verde, pulsa
                 “Confirmar importación”.
               </li>
+              <li>Después revisa la lista creada y envía las invitaciones desde el panel de “Invitaciones”.</li>
               <li>
-                Después revisa en la tabla de empleados que aparezcan y, si activaste las invitaciones, se les enviará
-                un email automáticamente.
+                Si quieres probar sin dar de alta a nadie, usa “Simular importación” en la revisión. No guarda datos.
               </li>
             </ol>
           </CardContent>
@@ -125,41 +156,198 @@ function EmployeeImportWizard() {
   const [file, setFile] = useState<File | null>(null);
   const [options, setOptions] = useState({
     vacationMode: "BALANCE",
-    sendInvites: true,
+    sendInvites: false,
     departmentPolicy: "REQUIRE_EXISTING",
     managerPolicy: "ALLOW_MISSING_WARNING",
   });
+  const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(new Set());
   const [isUploading, setIsUploading] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const [confirmResult, setConfirmResult] = useState<{ imported: number; failed: number } | null>(null);
 
   const [jobStatus, setJobStatus] = useState<"PENDING" | "RUNNING" | "DONE" | "FAILED">("PENDING");
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [inviteSummary, setInviteSummary] = useState<InviteSummary | null>(null);
+  const [inviteRows, setInviteRows] = useState<InviteRow[]>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  const [isSendingInvites, setIsSendingInvites] = useState(false);
 
-  // Polling para verificar el estado del job
-  const checkJobStatus = useCallback(async (jobId: string) => {
+  const loadInviteData = useCallback(async (jobId: string) => {
     try {
-      const response = await fetch(`/api/employees/import/${jobId}`);
-      if (!response.ok) return;
-
+      setIsLoadingInvites(true);
+      const response = await fetch(`/api/employees/import/${jobId}/invites`);
       const data = await response.json();
-      // La respuesta de la API envuelve los datos del job en la propiedad "job"
-      const jobData = data.job;
-
-      if (jobData.status === "DONE" || jobData.status === "FAILED") {
-        setJobStatus(jobData.status);
-        setConfirmResult({
-          imported: jobData.importedRows ?? 0,
-          failed: jobData.failedRows ?? 0,
-        });
-        setIsConfirming(false); // Detener el spinner del botón
-      } else {
-        // Si sigue en progreso, volver a consultar en 2 segundos
-        setTimeout(() => checkJobStatus(jobId), 2000);
+      if (!response.ok) {
+        throw new Error(data.error ?? "No fue posible cargar las invitaciones.");
       }
+      setInviteSummary(data.summary ?? null);
+      setInviteRows(data.rows ?? []);
+      return (data.summary ?? null) as InviteSummary | null;
     } catch (error) {
-      console.error("Error checking job status:", error);
+      toast.error(error instanceof Error ? error.message : "No fue posible cargar las invitaciones.");
+      return null;
+    } finally {
+      setIsLoadingInvites(false);
     }
   }, []);
+
+  const refreshJobData = useCallback(async (jobId: string) => {
+    try {
+      const response = await fetch(`/api/employees/import/${jobId}?page=1&pageSize=50`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "No fue posible recargar la importación.");
+      }
+
+      const jobData = data.job;
+      const summary = {
+        total: jobData?.totalRows ?? 0,
+        ready: jobData?.readyRows ?? 0,
+        error: jobData?.errorRows ?? 0,
+        warning: jobData?.warningRows ?? 0,
+      };
+
+      setJob((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          summary,
+          rows: data.rows ?? prev.rows,
+          options: jobData?.options ?? prev.options,
+        };
+      });
+
+      return jobData;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible recargar la importación.");
+      return null;
+    }
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedRowIds(new Set());
+  }, []);
+
+  const toggleRowSelection = useCallback((rowId: string, checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(rowId);
+      } else {
+        next.delete(rowId);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleAllSelection = useCallback((rowIds: string[], checked: boolean) => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        rowIds.forEach((id) => next.add(id));
+      } else {
+        rowIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  }, []);
+
+  const shouldStopInvitePolling = useCallback((summary: InviteSummary | null, mode: "PENDING" | "FAILED" | "ALL") => {
+    if (!summary) return false;
+    if (mode === "FAILED") {
+      return summary.failed === 0;
+    }
+    if (mode === "ALL") {
+      return summary.pending === 0 && summary.failed === 0;
+    }
+    return summary.pending === 0;
+  }, []);
+
+  const pollInviteStatus = useCallback(
+    async (jobId: string, mode: "PENDING" | "FAILED" | "ALL", attempt = 0) => {
+      const maxAttempts = 12;
+      if (attempt >= maxAttempts) {
+        setIsSendingInvites(false);
+        return;
+      }
+
+      setTimeout(async () => {
+        const summary = await loadInviteData(jobId);
+        if (shouldStopInvitePolling(summary, mode)) {
+          setIsSendingInvites(false);
+          return;
+        }
+        await pollInviteStatus(jobId, mode, attempt + 1);
+      }, 2000);
+    },
+    [loadInviteData, shouldStopInvitePolling],
+  );
+
+  const pollSimulationStatus = useCallback(
+    async (jobId: string, attempt = 0) => {
+      const maxAttempts = 20;
+      if (attempt >= maxAttempts) {
+        setIsSimulating(false);
+        return;
+      }
+
+      setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/employees/import/${jobId}`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error ?? "No fue posible validar la simulación.");
+          }
+          const jobData = data.job;
+          if (jobData.status === "RUNNING") {
+            await pollSimulationStatus(jobId, attempt + 1);
+            return;
+          }
+          await refreshJobData(jobId);
+          setIsSimulating(false);
+          toast.success("Simulación completada.");
+        } catch (error) {
+          setIsSimulating(false);
+          toast.error(error instanceof Error ? error.message : "No fue posible validar la simulación.");
+        }
+      }, 2000);
+    },
+    [refreshJobData],
+  );
+
+  // Polling para verificar el estado del job
+  const checkJobStatus = useCallback(
+    async (jobId: string) => {
+      try {
+        const response = await fetch(`/api/employees/import/${jobId}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        // La respuesta de la API envuelve los datos del job en la propiedad "job"
+        const jobData = data.job;
+
+        if (jobData.status === "DONE" || jobData.status === "FAILED") {
+          setJobStatus(jobData.status);
+          setConfirmResult({
+            imported: jobData.importedRows ?? 0,
+            failed: jobData.failedRows ?? 0,
+          });
+          setIsConfirming(false); // Detener el spinner del botón
+          if (jobData.status === "DONE") {
+            await loadInviteData(jobId);
+          }
+        } else {
+          // Si sigue en progreso, volver a consultar en 2 segundos
+          setTimeout(() => checkJobStatus(jobId), 2000);
+        }
+      } catch (error) {
+        console.error("Error checking job status:", error);
+      }
+    },
+    [loadInviteData],
+  );
 
   const handleTemplateDownload = useCallback((format: "xlsx" | "csv") => {
     const url = `/api/employees/import/template?format=${format}`;
@@ -190,6 +378,7 @@ function EmployeeImportWizard() {
 
       setJob(data);
       setCurrentStep(2);
+      setSelectedRowIds(new Set());
       toast.success("Archivo validado. Revisa las filas antes de confirmar.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No fue posible validar el archivo.");
@@ -225,8 +414,50 @@ function EmployeeImportWizard() {
           ),
         };
       });
+      setSelectedRowIds((prev) => {
+        if (!prev.has(row.id)) return prev;
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo actualizar la fila.");
+    }
+  };
+
+  const handleBulkUpdate = async (status: "SKIPPED" | "READY") => {
+    if (!job) return;
+
+    const selectedRows = job.rows.filter((row) => selectedRowIds.has(row.id));
+    const rowIds =
+      status === "SKIPPED"
+        ? selectedRows.filter((row) => row.status === "READY").map((row) => row.id)
+        : selectedRows.filter((row) => row.status === "SKIPPED").map((row) => row.id);
+
+    if (!rowIds.length) {
+      toast.error("No hay filas seleccionadas para esta acción.");
+      return;
+    }
+
+    try {
+      setIsBulkUpdating(true);
+      const response = await fetch(`/api/employees/import/${job.jobId}/rows/batch`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rowIds, status }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "No se pudieron actualizar las filas.");
+      }
+
+      await refreshJobData(job.jobId);
+      clearSelection();
+      toast.success("Filas actualizadas correctamente.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudieron actualizar las filas.");
+    } finally {
+      setIsBulkUpdating(false);
     }
   };
 
@@ -246,6 +477,8 @@ function EmployeeImportWizard() {
       // Iniciar polling
       setCurrentStep(3);
       setJobStatus("RUNNING");
+      setInviteSummary(null);
+      setInviteRows([]);
       checkJobStatus(job.jobId);
       toast.success("Importación iniciada. Procesando en segundo plano...");
     } catch (error) {
@@ -253,6 +486,83 @@ function EmployeeImportWizard() {
       toast.error(error instanceof Error ? error.message : "No fue posible confirmar la importación.");
     }
   };
+
+  const handleRollback = async () => {
+    if (!job) return;
+
+    try {
+      setIsRollingBack(true);
+      const response = await fetch(`/api/employees/import/${job.jobId}/rollback`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "No fue posible revertir la importación.");
+      }
+
+      await refreshJobData(job.jobId);
+      setCurrentStep(2);
+      setJobStatus("PENDING");
+      setConfirmResult(null);
+      setInviteSummary(null);
+      setInviteRows([]);
+      setSelectedRowIds(new Set());
+      toast.success("Importación revertida correctamente.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No fue posible revertir la importación.");
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
+
+  const handleSimulate = async () => {
+    if (!job) return;
+
+    try {
+      setIsSimulating(true);
+      const response = await fetch(`/api/employees/import/${job.jobId}/simulate`, {
+        method: "POST",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "No fue posible simular la importación.");
+      }
+
+      toast.success("Simulación en cola. Revisando resultados...");
+      await pollSimulationStatus(job.jobId);
+    } catch (error) {
+      setIsSimulating(false);
+      toast.error(error instanceof Error ? error.message : "No fue posible simular la importación.");
+    }
+  };
+
+  const handleSendInvites = async (mode: "PENDING" | "FAILED" | "ALL") => {
+    if (!job) return;
+
+    try {
+      setIsSendingInvites(true);
+      const response = await fetch(`/api/employees/import/${job.jobId}/invites`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error ?? "No fue posible enviar las invitaciones.");
+      }
+
+      toast.success("Invitaciones en cola. Actualizando estado...");
+      await pollInviteStatus(job.jobId, mode);
+    } catch (error) {
+      setIsSendingInvites(false);
+      toast.error(error instanceof Error ? error.message : "No fue posible enviar las invitaciones.");
+    }
+  };
+
+  const handleRefreshInvites = useCallback(() => {
+    if (!job) return;
+    void loadInviteData(job.jobId);
+  }, [job, loadInviteData]);
 
   const steps = useMemo(
     () => [
@@ -262,6 +572,14 @@ function EmployeeImportWizard() {
     ],
     [currentStep, jobStatus],
   );
+
+  const selectedRows = useMemo(() => {
+    if (!job) return [];
+    return job.rows.filter((row) => selectedRowIds.has(row.id));
+  }, [job, selectedRowIds]);
+
+  const selectedReadyCount = selectedRows.filter((row) => row.status === "READY").length;
+  const selectedSkippedCount = selectedRows.filter((row) => row.status === "SKIPPED").length;
 
   return (
     <div className="flex flex-col gap-6">
@@ -347,7 +665,7 @@ function EmployeeImportWizard() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2">
-                  <Label>Enviar invitaciones automáticamente</Label>
+                  <Label>Enviar invitaciones automáticamente (opcional)</Label>
                   <RadioGroup
                     value={options.sendInvites ? "true" : "false"}
                     onValueChange={(value) => setOptions((prev) => ({ ...prev, sendInvites: value === "true" }))}
@@ -357,7 +675,7 @@ function EmployeeImportWizard() {
                       htmlFor="invites-yes"
                       className={cn(
                         "flex items-center gap-2 rounded-md border p-3 text-sm",
-                        options.sendInvites === "true" && "border-primary",
+                        options.sendInvites && "border-primary",
                       )}
                     >
                       <RadioGroupItem id="invites-yes" value="true" />
@@ -367,13 +685,16 @@ function EmployeeImportWizard() {
                       htmlFor="invites-no"
                       className={cn(
                         "flex items-center gap-2 rounded-md border p-3 text-sm",
-                        options.sendInvites === "false" && "border-primary",
+                        !options.sendInvites && "border-primary",
                       )}
                     >
                       <RadioGroupItem id="invites-no" value="false" />
                       No, las enviaré después
                     </Label>
                   </RadioGroup>
+                  <p className="text-muted-foreground text-xs">
+                    Recomendado: revisa el listado final y envía invitaciones desde el panel de invitaciones.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <Button
@@ -382,6 +703,10 @@ function EmployeeImportWizard() {
                       setFile(null);
                       setJob(null);
                       setConfirmResult(null);
+                      setInviteSummary(null);
+                      setInviteRows([]);
+                      setIsSimulating(false);
+                      setSelectedRowIds(new Set());
                       setCurrentStep(1);
                     }}
                   >
@@ -501,7 +826,7 @@ function EmployeeImportWizard() {
               <div>
                 <CardTitle>Vista previa de filas</CardTitle>
                 <CardDescription>
-                  Solo se muestran las primeras 50 filas. Podrás descargar el detalle completo tras confirmar.
+                  Solo se muestran las primeras 50 filas. Puedes simular antes de confirmar para no dar altas reales.
                 </CardDescription>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -519,7 +844,17 @@ function EmployeeImportWizard() {
                 >
                   Descargar reporte
                 </Button>
-                <Button onClick={handleConfirm} disabled={isConfirming}>
+                <Button variant="outline" onClick={handleSimulate} disabled={isSimulating || isConfirming}>
+                  {isSimulating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Simulando...
+                    </>
+                  ) : (
+                    "Simular importación"
+                  )}
+                </Button>
+                <Button onClick={handleConfirm} disabled={isConfirming || isSimulating}>
                   {isConfirming ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -535,6 +870,32 @@ function EmployeeImportWizard() {
               </div>
             </CardHeader>
             <CardContent>
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-4">
+                <p className="text-muted-foreground text-xs">
+                  Seleccionadas: <span className="text-foreground font-medium">{selectedRowIds.size}</span>
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleBulkUpdate("SKIPPED")}
+                    disabled={isBulkUpdating || selectedReadyCount === 0}
+                  >
+                    Omitir seleccionadas
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleBulkUpdate("READY")}
+                    disabled={isBulkUpdating || selectedSkippedCount === 0}
+                  >
+                    Reactivar seleccionadas
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={clearSelection} disabled={selectedRowIds.size === 0}>
+                    Limpiar selección
+                  </Button>
+                </div>
+              </div>
               <Tabs defaultValue="all" className="flex flex-col gap-4">
                 <TabsList className="w-fit">
                   <TabsTrigger value="all">Todas</TabsTrigger>
@@ -542,13 +903,31 @@ function EmployeeImportWizard() {
                   <TabsTrigger value="error">Errores</TabsTrigger>
                 </TabsList>
                 <TabsContent value="all">
-                  <RowsTable rows={job.rows} onSkipToggle={handleSkipToggle} />
+                  <RowsTable
+                    rows={job.rows}
+                    onSkipToggle={handleSkipToggle}
+                    selectedRowIds={selectedRowIds}
+                    onSelectRow={toggleRowSelection}
+                    onSelectAll={toggleAllSelection}
+                  />
                 </TabsContent>
                 <TabsContent value="ready">
-                  <RowsTable rows={job.rows.filter((row) => row.status === "READY")} onSkipToggle={handleSkipToggle} />
+                  <RowsTable
+                    rows={job.rows.filter((row) => row.status === "READY")}
+                    onSkipToggle={handleSkipToggle}
+                    selectedRowIds={selectedRowIds}
+                    onSelectRow={toggleRowSelection}
+                    onSelectAll={toggleAllSelection}
+                  />
                 </TabsContent>
                 <TabsContent value="error">
-                  <RowsTable rows={job.rows.filter((row) => row.status === "ERROR")} onSkipToggle={handleSkipToggle} />
+                  <RowsTable
+                    rows={job.rows.filter((row) => row.status === "ERROR")}
+                    onSkipToggle={handleSkipToggle}
+                    selectedRowIds={selectedRowIds}
+                    onSelectRow={toggleRowSelection}
+                    onSelectAll={toggleAllSelection}
+                  />
                 </TabsContent>
               </Tabs>
             </CardContent>
@@ -557,51 +936,143 @@ function EmployeeImportWizard() {
       )}
 
       {currentStep === 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{jobStatus === "RUNNING" ? "Procesando importación..." : "Resumen de importación"}</CardTitle>
-            <CardDescription>
-              {jobStatus === "RUNNING"
-                ? "Estamos creando los empleados y enviando invitaciones. Por favor espera."
-                : "Consulta los resultados y descarga el reporte de errores si es necesario."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {jobStatus === "RUNNING" ? (
-              <div className="flex flex-col items-center justify-center py-8">
-                <Loader2 className="text-primary h-12 w-12 animate-spin" />
-                <p className="text-muted-foreground mt-4 text-sm">Esto puede tardar unos segundos...</p>
-              </div>
-            ) : confirmResult ? (
-              <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <SummaryCard label="Empleados creados" value={confirmResult.imported} variant="success" />
-                  <SummaryCard label="Filas con error" value={confirmResult.failed} variant="error" />
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>{jobStatus === "RUNNING" ? "Procesando importación..." : "Resumen de importación"}</CardTitle>
+              <CardDescription>
+                {jobStatus === "RUNNING"
+                  ? "Estamos creando los empleados. Por favor espera."
+                  : "Consulta los resultados y gestiona las invitaciones cuando quieras."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              {jobStatus === "RUNNING" ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="text-primary h-12 w-12 animate-spin" />
+                  <p className="text-muted-foreground mt-4 text-sm">Esto puede tardar unos segundos...</p>
                 </div>
-                <div className="flex flex-wrap gap-3">
-                  <Button onClick={() => window.open(`/api/employees/import/${job?.jobId}/report`, "_blank")}>
-                    Descargar reporte de errores
-                  </Button>
-                  <Button variant="outline" onClick={() => window.open("/dashboard/employees", "_blank")}>
-                    Ir al listado de empleados
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => {
-                      setJob(null);
-                      setConfirmResult(null);
-                      setFile(null);
-                      setCurrentStep(1);
-                      setJobStatus("PENDING");
-                    }}
-                  >
-                    Iniciar nueva importación
-                  </Button>
-                </div>
-              </>
-            ) : null}
-          </CardContent>
-        </Card>
+              ) : confirmResult ? (
+                <>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <SummaryCard label="Empleados creados" value={confirmResult.imported} variant="success" />
+                    <SummaryCard label="Filas con error" value={confirmResult.failed} variant="error" />
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <Button onClick={() => window.open(`/api/employees/import/${job?.jobId}/report`, "_blank")}>
+                      Descargar reporte de errores
+                    </Button>
+                    <Button variant="outline" onClick={() => window.open("/dashboard/employees", "_blank")}>
+                      Ir al listado de empleados
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" disabled={isRollingBack}>
+                          {isRollingBack ? "Revirtiendo..." : "Revertir importación"}
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>¿Revertir esta importación?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Se eliminarán los empleados creados por este lote y la importación volverá al estado de
+                            revisión. Solo es posible si no hay actividad (fichajes, ausencias, gastos, documentos,
+                            etc.).
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90 text-white"
+                            onClick={handleRollback}
+                          >
+                            Sí, revertir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setJob(null);
+                        setConfirmResult(null);
+                        setFile(null);
+                        setCurrentStep(1);
+                        setJobStatus("PENDING");
+                        setInviteSummary(null);
+                        setInviteRows([]);
+                        setIsSimulating(false);
+                        setSelectedRowIds(new Set());
+                      }}
+                    >
+                      Iniciar nueva importación
+                    </Button>
+                  </div>
+                </>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          {jobStatus === "DONE" && job && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Invitaciones a empleados</CardTitle>
+                <CardDescription>
+                  Revisa quién quedó listo tras la importación y envía las invitaciones cuando lo decidas.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                {isLoadingInvites ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Cargando invitaciones...
+                  </div>
+                ) : inviteSummary ? (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-4">
+                      <SummaryCard label="Pendientes" value={inviteSummary.pending} variant="warning" />
+                      <SummaryCard label="Enviadas" value={inviteSummary.sent} variant="success" />
+                      <SummaryCard label="Fallidas" value={inviteSummary.failed} variant="error" />
+                      <SummaryCard label="No aplica" value={inviteSummary.notApplicable} />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button
+                        onClick={() => handleSendInvites("PENDING")}
+                        disabled={isSendingInvites || inviteSummary.pending === 0}
+                      >
+                        {isSendingInvites ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Enviando...
+                          </>
+                        ) : (
+                          "Enviar pendientes"
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSendInvites("FAILED")}
+                        disabled={isSendingInvites || inviteSummary.failed === 0}
+                      >
+                        Reintentar fallidas
+                      </Button>
+                      <Button variant="ghost" onClick={handleRefreshInvites} disabled={isSendingInvites}>
+                        Actualizar estado
+                      </Button>
+                    </div>
+                    <InviteRowsTable rows={inviteRows} />
+                  </>
+                ) : (
+                  <EmptyState
+                    icon={<ShieldAlert className="text-muted-foreground mx-auto h-12 w-12" />}
+                    title="Sin datos de invitaciones"
+                    description="No se han cargado aún las invitaciones para este lote."
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
     </div>
   );
@@ -610,19 +1081,39 @@ function EmployeeImportWizard() {
 function RowsTable({
   rows,
   onSkipToggle,
+  selectedRowIds,
+  onSelectRow,
+  onSelectAll,
 }: {
   rows: ImportRow[];
   onSkipToggle: (row: ImportRow, status: "SKIPPED" | "READY") => void;
+  selectedRowIds: Set<string>;
+  onSelectRow: (rowId: string, checked: boolean) => void;
+  onSelectAll: (rowIds: string[], checked: boolean) => void;
 }) {
   if (!rows.length) {
     return <p className="text-muted-foreground text-sm">No hay filas para mostrar.</p>;
   }
+
+  const selectableRowIds = rows
+    .filter((row) => row.status === "READY" || row.status === "SKIPPED")
+    .map((row) => row.id);
+  const selectedCount = selectableRowIds.filter((id) => selectedRowIds.has(id)).length;
+  const allSelected = selectableRowIds.length > 0 && selectedCount === selectableRowIds.length;
+  const someSelected = selectedCount > 0 && selectedCount < selectableRowIds.length;
 
   return (
     <ScrollArea className="h-[420px] rounded-md border">
       <table className="w-full text-sm">
         <thead className="bg-muted/40 text-left">
           <tr>
+            <th className="px-4 py-2 font-medium">
+              <Checkbox
+                checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                onCheckedChange={(value) => onSelectAll(selectableRowIds, value === true)}
+                aria-label="Seleccionar todas las filas"
+              />
+            </th>
             <th className="px-4 py-2 font-medium">#</th>
             <th className="px-4 py-2 font-medium">Nombre</th>
             <th className="px-4 py-2 font-medium">Email</th>
@@ -636,9 +1127,18 @@ function RowsTable({
         <tbody>
           {rows.map((row, index) => (
             <tr key={`${row.id}-${index}`} className="border-b last:border-b-0">
+              <td className="px-4 py-2">
+                <Checkbox
+                  checked={selectedRowIds.has(row.id)}
+                  disabled={!(row.status === "READY" || row.status === "SKIPPED")}
+                  onCheckedChange={(value) => onSelectRow(row.id, value === true)}
+                  aria-label={`Seleccionar fila ${row.rowIndex}`}
+                />
+              </td>
               {(() => {
                 const source = row.rawData ?? row.data ?? {};
-                const fullName = `${source.firstName ?? "—"} ${source.lastName ?? ""}`.trim();
+                const fullName =
+                  `${source.firstName ?? source.first_name ?? "—"} ${source.lastName ?? source.last_name ?? ""} ${source.secondLastName ?? source.second_last_name ?? ""}`.trim();
                 const email = source.email ?? "—";
                 const scheduleId = source.scheduleTemplateId ?? "—";
                 const balanceDays = source.ptoBalanceDays ?? source.pto_balance_days;
@@ -684,12 +1184,18 @@ function RowsTable({
                       key={`${idx}-${message.message}`}
                       className={cn(
                         "flex items-center gap-1 rounded border px-2 py-1",
-                        message.type === "ERROR"
-                          ? "border-destructive/30 text-destructive"
-                          : "border-amber-400/40 text-amber-500",
+                        message.type === "ERROR" && "border-destructive/30 text-destructive",
+                        message.type === "WARNING" && "border-amber-400/40 text-amber-500",
+                        message.type === "SUCCESS" && "border-emerald-400/40 text-emerald-600",
                       )}
                     >
-                      {message.type === "ERROR" ? <XCircle className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
+                      {message.type === "ERROR" ? (
+                        <XCircle className="h-3 w-3" />
+                      ) : message.type === "WARNING" ? (
+                        <ShieldAlert className="h-3 w-3" />
+                      ) : (
+                        <ShieldCheck className="h-3 w-3" />
+                      )}
                       {message.message}
                     </div>
                   ))}
@@ -714,6 +1220,76 @@ function RowsTable({
               </td>
             </tr>
           ))}
+        </tbody>
+      </table>
+    </ScrollArea>
+  );
+}
+
+function InviteRowsTable({ rows }: { rows: InviteRow[] }) {
+  if (!rows.length) {
+    return <p className="text-muted-foreground text-sm">No hay filas para mostrar.</p>;
+  }
+
+  return (
+    <ScrollArea className="h-[420px] rounded-md border">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/40 text-left">
+          <tr>
+            <th className="px-4 py-2 font-medium">#</th>
+            <th className="px-4 py-2 font-medium">Nombre</th>
+            <th className="px-4 py-2 font-medium">Email</th>
+            <th className="px-4 py-2 font-medium">Importación</th>
+            <th className="px-4 py-2 font-medium">Invitación</th>
+            <th className="px-4 py-2 font-medium">Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => {
+            const inviteLabel =
+              row.inviteStatus === "SENT"
+                ? "Enviada"
+                : row.inviteStatus === "FAILED"
+                  ? "Fallida"
+                  : row.inviteStatus === "NOT_APPLICABLE"
+                    ? "No aplica"
+                    : "Pendiente";
+
+            const inviteVariant =
+              row.inviteStatus === "SENT"
+                ? "success"
+                : row.inviteStatus === "FAILED"
+                  ? "destructive"
+                  : row.inviteStatus === "NOT_APPLICABLE"
+                    ? "secondary"
+                    : "warning";
+
+            const importVariant =
+              row.status === "IMPORTED"
+                ? "success"
+                : row.status === "FAILED" || row.status === "ERROR"
+                  ? "destructive"
+                  : row.status === "SKIPPED"
+                    ? "secondary"
+                    : "warning";
+
+            return (
+              <tr key={row.id} className="border-b last:border-b-0">
+                <td className="px-4 py-2">{row.rowIndex}</td>
+                <td className="px-4 py-2 font-medium">{row.fullName}</td>
+                <td className="px-4 py-2">{row.email ?? "—"}</td>
+                <td className="px-4 py-2">
+                  <Badge variant={importVariant}>{row.status}</Badge>
+                </td>
+                <td className="px-4 py-2">
+                  <Badge variant={inviteVariant}>{inviteLabel}</Badge>
+                </td>
+                <td className="text-muted-foreground px-4 py-2 text-xs">
+                  {row.inviteMessage ?? row.errorReason ?? "—"}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </ScrollArea>

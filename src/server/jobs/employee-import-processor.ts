@@ -1,13 +1,13 @@
-import type { EmployeeImportRow } from "@prisma/client";
+import type { EmployeeImportRow, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
-import { sendAuthInviteEmail } from "@/lib/email/email-service";
-import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
+import { upsertInviteMessage } from "@/lib/employee-import/invite-utils";
+import type { EmployeeImportOptions, EmployeeImportRowData, RowMessage } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
-import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
+import { sendEmployeeImportInvite } from "@/server/actions/employee-import/invite-service";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 import { daysToMinutes } from "@/services/pto";
@@ -19,45 +19,10 @@ interface ImportPerformedBy {
   role: string;
 }
 
-async function sendImportInvitation(params: {
-  userId: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-  organizationName?: string | null;
-  performedBy: { name: string | null; email: string };
-}): Promise<string | null> {
-  const { userId, email, firstName, lastName, organizationName, performedBy } = params;
+type PrismaClientLike = Prisma.TransactionClient | typeof prisma;
 
-  try {
-    const inviteToken = await createInviteToken(userId);
-    if (!inviteToken.success || !inviteToken.data) {
-      return inviteToken.error ?? "No fue posible generar el token de invitación.";
-    }
-
-    const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${inviteToken.data.token}`;
-    const emailResult = await sendAuthInviteEmail({
-      to: { email, name: `${firstName} ${lastName}` },
-      inviteLink,
-      orgId: "", // Se establece internamente
-      userId,
-      companyName: organizationName ?? undefined,
-      inviterName: performedBy.name ?? performedBy.email ?? undefined,
-      expiresAt: inviteToken.data.expiresAt,
-    });
-
-    if (!emailResult.success) {
-      return emailResult.error ?? "No fue posible enviar la invitación.";
-    }
-
-    return null;
-  } catch (inviteError) {
-    console.error("Error enviando invitación de importación:", inviteError);
-    return inviteError instanceof Error ? inviteError.message : "Error desconocido al enviar invitación.";
-  }
-}
-
-async function createEmployeeFromRow(params: {
+async function createEmployeeRecords(params: {
+  db: PrismaClientLike;
   data: EmployeeImportRowData;
   options: EmployeeImportOptions;
   orgId: string;
@@ -65,7 +30,7 @@ async function createEmployeeFromRow(params: {
   allowedEmailDomains: string[];
   performedById: string;
 }) {
-  const { data, options, orgId, orgPrefix, allowedEmailDomains, performedById } = params;
+  const { db, data, options, orgId, orgPrefix, allowedEmailDomains, performedById } = params;
 
   const startDate = new Date(data.startDate);
   if (Number.isNaN(startDate.getTime())) {
@@ -88,148 +53,166 @@ async function createEmployeeFromRow(params: {
   const contractType = data.contractType ?? "INDEFINIDO";
   const weeklyHours = data.weeklyHours ?? 40;
 
-  const result = await prisma.$transaction(async (tx) => {
-    const user = await tx.user.create({
-      data: {
-        email: data.email,
-        password: hashedPassword,
-        name: `${data.firstName} ${data.lastName}`,
-        role: userRole as any,
-        orgId,
-        mustChangePassword: true,
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-      },
-    });
+  const user = await db.user.create({
+    data: {
+      email: data.email,
+      password: hashedPassword,
+      name: `${data.firstName} ${data.lastName}`,
+      role: userRole as any,
+      orgId,
+      mustChangePassword: true,
+    },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+    },
+  });
 
-    await tx.temporaryPassword.create({
-      data: {
-        userId: user.id,
-        orgId,
-        password: temporaryPassword,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        reason: "Importación masiva",
-        createdById: performedById,
-      },
-    });
+  await db.temporaryPassword.create({
+    data: {
+      userId: user.id,
+      orgId,
+      password: temporaryPassword,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      reason: "Importación masiva",
+      createdById: performedById,
+    },
+  });
 
-    const numberResult = await generateSafeEmployeeNumber(tx, orgId, orgPrefix);
+  const numberResult = await generateSafeEmployeeNumber(db, orgId, orgPrefix);
 
-    const employee = await tx.employee.create({
-      data: {
-        employeeNumber: numberResult.employeeNumber,
-        requiresEmployeeNumberReview: numberResult.requiresReview,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        secondLastName: data.secondLastName,
-        nifNie: data.nifNie,
-        email: data.email,
-        phone: data.phone,
-        mobilePhone: data.mobilePhone,
-        employmentStatus: "ACTIVE",
-        notes: data.notes,
-        orgId,
-        userId: user.id,
-      },
-      select: { id: true },
-    });
+  const employee = await db.employee.create({
+    data: {
+      employeeNumber: numberResult.employeeNumber,
+      requiresEmployeeNumberReview: numberResult.requiresReview,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      secondLastName: data.secondLastName,
+      nifNie: data.nifNie,
+      email: data.email,
+      phone: data.phone,
+      mobilePhone: data.mobilePhone,
+      employmentStatus: "ACTIVE",
+      notes: data.notes,
+      orgId,
+      userId: user.id,
+    },
+    select: { id: true },
+  });
 
-    const manager = data.managerEmail
-      ? await tx.employee.findFirst({
-          where: { orgId, email: data.managerEmail },
-          select: { id: true },
-        })
-      : null;
+  const manager = data.managerEmail
+    ? await db.employee.findFirst({
+        where: { orgId, email: data.managerEmail },
+        select: { id: true },
+      })
+    : null;
 
-    const contract = await tx.employmentContract.create({
-      data: {
-        employeeId: employee.id,
-        orgId,
-        contractType,
-        startDate,
-        weeklyHours: new Decimal(weeklyHours),
-        workingDaysPerWeek: new Decimal(5),
-        active: true,
-        departmentId: data.departmentId ?? null,
-        costCenterId: data.costCenterId ?? null,
-        managerId: manager?.id ?? null,
-        workScheduleType: "FIXED",
-      },
-      select: { id: true },
-    });
+  const contract = await db.employmentContract.create({
+    data: {
+      employeeId: employee.id,
+      orgId,
+      contractType,
+      startDate,
+      weeklyHours: new Decimal(weeklyHours),
+      workingDaysPerWeek: new Decimal(5),
+      active: true,
+      departmentId: data.departmentId ?? null,
+      costCenterId: data.costCenterId ?? null,
+      managerId: manager?.id ?? null,
+      workScheduleType: "FIXED",
+    },
+    select: { id: true },
+  });
 
-    await tx.employeeScheduleAssignment.create({
-      data: {
-        employeeId: employee.id,
-        scheduleTemplateId: data.scheduleTemplateId,
-        assignmentType: "FIXED",
-        validFrom: startDate,
-        isActive: true,
-      },
-    });
+  await db.employeeScheduleAssignment.create({
+    data: {
+      employeeId: employee.id,
+      scheduleTemplateId: data.scheduleTemplateId,
+      assignmentType: "FIXED",
+      validFrom: startDate,
+      isActive: true,
+    },
+  });
 
-    const currentYear = new Date().getFullYear();
-    const allowanceDays = options.vacationMode === "ANNUAL" ? (data.ptoAnnualDays ?? 0) : (data.ptoBalanceDays ?? 0);
-    const usedDays = options.vacationMode === "ANNUAL" ? (data.ptoUsedDays ?? 0) : 0;
-    const availableDays = options.vacationMode === "ANNUAL" ? Math.max(allowanceDays - usedDays, 0) : allowanceDays;
+  const currentYear = new Date().getFullYear();
+  const allowanceDays = options.vacationMode === "ANNUAL" ? (data.ptoAnnualDays ?? 0) : (data.ptoBalanceDays ?? 0);
+  const usedDays = options.vacationMode === "ANNUAL" ? (data.ptoUsedDays ?? 0) : 0;
+  const availableDays = options.vacationMode === "ANNUAL" ? Math.max(allowanceDays - usedDays, 0) : allowanceDays;
 
-    const allowanceMinutes =
-      data.ptoAnnualMinutes ??
-      (options.vacationMode === "ANNUAL"
-        ? daysToMinutes(allowanceDays, workdayMinutes)
-        : daysToMinutes(allowanceDays, workdayMinutes));
-    const usedMinutes =
-      data.ptoUsedMinutes ?? (options.vacationMode === "ANNUAL" ? daysToMinutes(usedDays, workdayMinutes) : 0);
-    const balanceMinutes =
-      data.ptoBalanceMinutes ??
-      (options.vacationMode === "ANNUAL"
-        ? daysToMinutes(availableDays, workdayMinutes)
-        : daysToMinutes(allowanceDays, workdayMinutes));
+  const allowanceMinutes =
+    data.ptoAnnualMinutes ??
+    (options.vacationMode === "ANNUAL"
+      ? daysToMinutes(allowanceDays, workdayMinutes)
+      : daysToMinutes(allowanceDays, workdayMinutes));
+  const usedMinutes =
+    data.ptoUsedMinutes ?? (options.vacationMode === "ANNUAL" ? daysToMinutes(usedDays, workdayMinutes) : 0);
+  const balanceMinutes =
+    data.ptoBalanceMinutes ??
+    (options.vacationMode === "ANNUAL"
+      ? daysToMinutes(availableDays, workdayMinutes)
+      : daysToMinutes(allowanceDays, workdayMinutes));
 
-    await tx.ptoBalance.upsert({
-      where: {
-        orgId_employeeId_year_balanceType: {
-          orgId,
-          employeeId: employee.id,
-          year: currentYear,
-          balanceType: "VACATION",
-        },
-      },
-      create: {
+  await db.ptoBalance.upsert({
+    where: {
+      orgId_employeeId_year_balanceType: {
         orgId,
         employeeId: employee.id,
         year: currentYear,
         balanceType: "VACATION",
-        annualAllowance: new Decimal(allowanceDays),
-        daysUsed: new Decimal(usedDays),
-        daysPending: new Decimal(0),
-        daysAvailable: new Decimal(availableDays),
-        annualAllowanceMinutes: allowanceMinutes,
-        minutesUsed: usedMinutes,
-        minutesPending: 0,
-        minutesAvailable: balanceMinutes,
-        workdayMinutesSnapshot: workdayMinutes,
-        contractStartDate: startDate,
       },
-      update: {
-        annualAllowance: new Decimal(allowanceDays),
-        daysUsed: new Decimal(usedDays),
-        daysAvailable: new Decimal(availableDays),
-        annualAllowanceMinutes: allowanceMinutes,
-        minutesUsed: usedMinutes,
-        minutesAvailable: balanceMinutes,
-      },
-    });
-
-    return {
+    },
+    create: {
+      orgId,
       employeeId: employee.id,
-      contractId: contract.id,
-      userId: user.id,
-      temporaryPassword,
-    };
+      year: currentYear,
+      balanceType: "VACATION",
+      annualAllowance: new Decimal(allowanceDays),
+      daysUsed: new Decimal(usedDays),
+      daysPending: new Decimal(0),
+      daysAvailable: new Decimal(availableDays),
+      annualAllowanceMinutes: allowanceMinutes,
+      minutesUsed: usedMinutes,
+      minutesPending: 0,
+      minutesAvailable: balanceMinutes,
+      workdayMinutesSnapshot: workdayMinutes,
+      contractStartDate: startDate,
+    },
+    update: {
+      annualAllowance: new Decimal(allowanceDays),
+      daysUsed: new Decimal(usedDays),
+      daysAvailable: new Decimal(availableDays),
+      annualAllowanceMinutes: allowanceMinutes,
+      minutesUsed: usedMinutes,
+      minutesAvailable: balanceMinutes,
+    },
+  });
+
+  return {
+    employeeId: employee.id,
+    contractId: contract.id,
+    userId: user.id,
+    temporaryPassword,
+  };
+}
+
+export async function createEmployeeFromRow(params: {
+  data: EmployeeImportRowData;
+  options: EmployeeImportOptions;
+  orgId: string;
+  orgPrefix: string;
+  allowedEmailDomains: string[];
+  performedById: string;
+  db?: PrismaClientLike;
+}) {
+  const { db, ...rest } = params;
+
+  if (db) {
+    return createEmployeeRecords({ db, ...rest });
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    return createEmployeeRecords({ db: tx, ...rest });
   });
 
   return result;
@@ -276,31 +259,31 @@ async function processImportRow(params: {
     });
 
     if (options.sendInvites && data.email) {
-      const inviteWarning = await sendImportInvitation({
+      const inviteResult = await sendEmployeeImportInvite({
         userId: creationResult.userId,
         email: data.email,
         firstName: data.firstName,
         lastName: data.lastName,
+        orgId,
         organizationName,
-        performedBy,
+        performedBy: { name: performedBy.name, email: performedBy.email },
       });
 
-      if (inviteWarning) {
-        const existingMessages = Array.isArray(row.messages) ? row.messages : [];
-        await prisma.employeeImportRow.update({
-          where: { id: row.id },
-          data: {
-            messages: [
-              ...existingMessages,
-              {
-                type: "WARNING",
-                field: "invite",
-                message: `Invitación no enviada: ${inviteWarning}`,
-              },
-            ],
-          },
-        });
-      }
+      const existingMessages = Array.isArray(row.messages) ? (row.messages as RowMessage[]) : [];
+      const inviteMessages = upsertInviteMessage({
+        messages: existingMessages,
+        type: inviteResult.success ? "SUCCESS" : "WARNING",
+        message: inviteResult.success
+          ? "Invitación enviada correctamente."
+          : `Invitación no enviada: ${inviteResult.error ?? "Error desconocido."}`,
+      });
+
+      await prisma.employeeImportRow.update({
+        where: { id: row.id },
+        data: {
+          messages: inviteMessages,
+        },
+      });
     }
 
     await prisma.auditLog.create({
@@ -391,7 +374,7 @@ export async function processEmployeeImportJob(params: {
   const allowedDomains = organization?.allowedEmailDomains ?? [];
   const options = (job.options as EmployeeImportOptions) ?? {
     vacationMode: "BALANCE",
-    sendInvites: true,
+    sendInvites: false,
     departmentPolicy: "REQUIRE_EXISTING",
     managerPolicy: "ALLOW_MISSING_WARNING",
   };

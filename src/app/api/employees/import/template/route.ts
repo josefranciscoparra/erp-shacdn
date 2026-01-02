@@ -3,12 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import {
   EMPLOYEE_IMPORT_COLUMNS,
   EMPLOYEE_IMPORT_SAMPLE_ROW,
   EMPLOYEE_IMPORT_ALLOWED_ROLES,
 } from "@/lib/employee-import/constants";
+import { prisma } from "@/lib/prisma";
 
 function toCsvValue(value: unknown) {
   return `"${String(value ?? "").replace(/"/g, '""')}"`;
