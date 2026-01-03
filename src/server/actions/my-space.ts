@@ -8,7 +8,7 @@ import { getWeekSchedule } from "@/services/schedules/schedule-engine";
 
 import { getMyMonthEvents } from "./employee-calendars";
 import { getMyPtoBalance } from "./employee-pto";
-import { getAllMyNotifications } from "./notifications";
+import { getMyNotificationsLite } from "./notifications";
 import { getAuthenticatedEmployee } from "./shared/get-authenticated-employee";
 import { getTodaySummaryLite, getWeeklySummaryLite } from "./time-tracking";
 
@@ -159,8 +159,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
       }));
 
     // 4. Obtener notificaciones recientes
-    const notificationsResult = await getAllMyNotifications(1, 5);
-    const recentNotifications = notificationsResult.notifications.map((notif) => ({
+    const notifications = await getMyNotificationsLite(5);
+    const recentNotifications = notifications.map((notif) => ({
       id: notif.id,
       type: notif.type,
       message: notif.message,
@@ -237,8 +237,8 @@ export async function getMySpaceDashboard(): Promise<MySpaceDashboard> {
 
     if (error instanceof Error && error.message === "Usuario no tiene un empleado asociado" && isAdminRole) {
       // Es un administrador sin empleado - comportamiento esperado
-      const notificationsResult = await getAllMyNotifications(1, 5);
-      const recentNotifications = notificationsResult.notifications.map((notif) => ({
+      const notifications = await getMyNotificationsLite(5);
+      const recentNotifications = notifications.map((notif) => ({
         id: notif.id,
         type: notif.type,
         message: notif.message,

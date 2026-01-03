@@ -107,6 +107,17 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
       },
       include: {
         timeEntries: {
+          select: {
+            id: true,
+            entryType: true,
+            timestamp: true,
+            location: true,
+            notes: true,
+            ipAddress: true,
+            isManual: true,
+            manualRequestId: true,
+            createdAt: true,
+          },
           orderBy: {
             timestamp: "asc",
           },
@@ -130,6 +141,9 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
           lte: monthEnd,
         },
       },
+      select: {
+        date: true,
+      },
     });
 
     const pendingRequestMap = new Set(pendingRequests.map((r) => format(r.date, "yyyy-MM-dd")));
@@ -144,6 +158,17 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
           lte: monthEnd,
         },
         isCancelled: false,
+      },
+      select: {
+        id: true,
+        entryType: true,
+        timestamp: true,
+        location: true,
+        notes: true,
+        ipAddress: true,
+        isManual: true,
+        manualRequestId: true,
+        createdAt: true,
       },
       orderBy: {
         timestamp: "asc",

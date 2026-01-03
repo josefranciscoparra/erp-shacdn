@@ -99,7 +99,13 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
   }
 
   // Obtener documentos con paginación
-  const [documents, totalCount, allDocuments] = await Promise.all([
+  const statsWhere = {
+    employeeId,
+    orgId,
+    deletedAt: null,
+  };
+
+  const [documents, totalCount, statsByKindRows] = await Promise.all([
     prisma.employeeDocument.findMany({
       where: whereClause,
       include: {
@@ -116,27 +122,28 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
       take: limit,
     }),
     prisma.employeeDocument.count({ where: whereClause }),
-    // Obtener todos los documentos para estadísticas (solo activos)
-    prisma.employeeDocument.findMany({
-      where: {
-        employeeId,
-        orgId,
-        deletedAt: null,
-      },
-      select: {
-        kind: true,
+    prisma.employeeDocument.groupBy({
+      by: ["kind"],
+      where: statsWhere,
+      _count: {
+        _all: true,
       },
     }),
   ]);
 
   // Calcular estadísticas
-  const statsByKind = allDocuments.reduce(
-    (acc, doc) => {
-      acc[doc.kind] = (acc[doc.kind] || 0) + 1;
+  const statsByKind = statsByKindRows.reduce(
+    (acc, row) => {
+      const countObj = row["_count"] as { _all: number };
+      acc[row.kind] = countObj["_all"];
       return acc;
     },
     {} as Record<string, number>,
   );
+  const statsTotal = statsByKindRows.reduce((acc, row) => {
+    const countObj = row["_count"] as { _all: number };
+    return acc + countObj["_all"];
+  }, 0);
 
   // Transformar documentos
   const transformedDocuments: MyDocument[] = documents.map((doc) => ({
@@ -163,7 +170,7 @@ export async function getMyDocuments(filters: MyDocumentsFilters = {}): Promise<
       totalPages: Math.ceil(totalCount / limit),
     },
     stats: {
-      total: allDocuments.length,
+      total: statsTotal,
       byKind: statsByKind,
     },
   };

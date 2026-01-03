@@ -42,7 +42,7 @@ export function TimeCalendarView() {
         description: `Trabajadas: ${(result.totalWorkedMinutes / 60).toFixed(1)}h | Pausas: ${(result.totalBreakMinutes / 60).toFixed(1)}h`,
       });
 
-      // Recargar los datos del mes para reflejar el cambio
+      // Recargar en segundo plano (optimista)
       await loadMonthlyData(selectedYear, selectedMonth);
       await refreshTimeBank();
     } catch (error) {

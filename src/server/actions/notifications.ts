@@ -152,6 +152,52 @@ export async function getMyNotifications(limit: number = 10) {
 }
 
 /**
+ * Obtiene notificaciones recientes sin cargas extra (dashboard).
+ */
+export async function getMyNotificationsLite(limit: number = 5) {
+  try {
+    const session = await auth();
+
+    if (!session?.user?.id) {
+      throw new Error("Usuario no autenticado");
+    }
+
+    if (session.user.role === "SUPER_ADMIN") {
+      return [];
+    }
+
+    const orgIds = await getAccessibleOrgIds(session.user.id, session.user.orgId);
+
+    if (orgIds.length === 0) {
+      return [];
+    }
+
+    return await prisma.ptoNotification.findMany({
+      where: {
+        userId: session.user.id,
+        orgId: { in: orgIds },
+      },
+      select: {
+        id: true,
+        type: true,
+        message: true,
+        isRead: true,
+        createdAt: true,
+        ptoRequestId: true,
+        manualTimeEntryRequestId: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: limit,
+    });
+  } catch (error) {
+    console.error("Error al obtener notificaciones recientes:", error);
+    throw error;
+  }
+}
+
+/**
  * Obtiene todas las notificaciones del usuario con paginación
  */
 export async function getAllMyNotifications(page: number = 1, pageSize: number = 20, unreadOnly: boolean = false) {
