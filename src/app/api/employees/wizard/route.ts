@@ -4,9 +4,11 @@ import { hash } from "bcryptjs";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { CONTRACT_TYPES } from "@/lib/contracts/contract-types";
 import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
+import { validateEmailDomain } from "@/lib/validations/email-domain";
 import { createInviteToken } from "@/server/actions/auth-tokens";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 
@@ -41,7 +43,7 @@ const wizardSchema = z.object({
   }),
   // Datos del contrato (solo campos del modelo EmploymentContract)
   contract: z.object({
-    contractType: z.string().min(1),
+    contractType: z.enum(CONTRACT_TYPES),
     startDate: z.string(),
     endDate: z.string().optional().nullable(),
     grossSalary: z.number().optional().nullable(),
@@ -80,6 +82,22 @@ export async function POST(request: Request) {
 
     const data = wizardSchema.parse(body);
     console.log("✅ [WIZARD API] Datos validados:", JSON.stringify(data, null, 2));
+
+    if (data.employee.email) {
+      const organization = await prisma.organization.findUnique({
+        where: { id: currentUser.orgId },
+        select: { allowedEmailDomains: true },
+      });
+
+      if (!organization) {
+        return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+      }
+
+      const emailValidation = validateEmailDomain(data.employee.email, organization.allowedEmailDomains);
+      if (!emailValidation.valid) {
+        return NextResponse.json({ error: emailValidation.error ?? "Email inválido" }, { status: 400 });
+      }
+    }
 
     // TRANSACCIÓN ATÓMICA: Todo o nada
     const result = await prisma.$transaction(async (tx) => {

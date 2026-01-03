@@ -9,11 +9,18 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
+
+type FieldStatus = "idle" | "checking" | "valid" | "invalid";
+type CriticalField = "email" | "nifNie";
+type ValidationResult = {
+  hasIssues: boolean;
+  hadServerError: boolean;
+};
 
 interface WizardStep1EmployeeProps {
   onSubmit: (data: CreateEmployeeInput) => Promise<void>;
@@ -29,6 +36,15 @@ export function WizardStep1Employee({
   initialData,
 }: WizardStep1EmployeeProps) {
   const [showMoreFields, setShowMoreFields] = useState(false);
+  const [fieldStatus, setFieldStatus] = useState<{ email: FieldStatus; nifNie: FieldStatus }>({
+    email: "idle",
+    nifNie: "idle",
+  });
+
+  const lastCheckedRef = useRef<{ email?: string; nifNie?: string }>({});
+  const lastValueRef = useRef<{ email: string; nifNie: string }>({ email: "", nifNie: "" });
+  const requestIdRef = useRef(0);
+  const latestRequestRef = useRef<{ email: number; nifNie: number }>({ email: 0, nifNie: 0 });
 
   // Ref para hacer scroll a los campos adicionales
   const moreFieldsRef = useRef<HTMLDivElement>(null);
@@ -58,6 +74,41 @@ export function WizardStep1Employee({
       notes: "",
     },
   });
+
+  const emailValue = form.watch("email");
+  const nifNieValue = form.watch("nifNie");
+
+  useEffect(() => {
+    const trimmedEmail = emailValue.trim();
+    if (trimmedEmail !== lastValueRef.current.email) {
+      lastValueRef.current.email = trimmedEmail;
+      latestRequestRef.current.email = 0;
+      if (trimmedEmail === "") {
+        lastCheckedRef.current.email = undefined;
+      }
+      setFieldStatus((prev) => (prev.email === "idle" ? prev : { ...prev, email: "idle" }));
+      const currentError = form.getFieldState("email").error;
+      if (currentError?.type === "validate") {
+        form.clearErrors("email");
+      }
+    }
+  }, [emailValue, form]);
+
+  useEffect(() => {
+    const trimmedNif = nifNieValue.trim();
+    if (trimmedNif !== lastValueRef.current.nifNie) {
+      lastValueRef.current.nifNie = trimmedNif;
+      latestRequestRef.current.nifNie = 0;
+      if (trimmedNif === "") {
+        lastCheckedRef.current.nifNie = undefined;
+      }
+      setFieldStatus((prev) => (prev.nifNie === "idle" ? prev : { ...prev, nifNie: "idle" }));
+      const currentError = form.getFieldState("nifNie").error;
+      if (currentError?.type === "validate") {
+        form.clearErrors("nifNie");
+      }
+    }
+  }, [nifNieValue, form]);
 
   // Auto-focus en el primer campo
   useEffect(() => {
@@ -103,7 +154,160 @@ export function WizardStep1Employee({
     }
   }, [showMoreFields]);
 
+  const validateCriticalFields = async (
+    fields: CriticalField[],
+    options?: { force?: boolean },
+  ): Promise<ValidationResult> => {
+    const force = options ? options.force === true : false;
+    const values = form.getValues();
+    const requestPayload: { email?: string; nifNie?: string } = {};
+    const fieldsToCheck: CriticalField[] = [];
+
+    if (fields.includes("email")) {
+      const trimmedEmail = values.email.trim();
+      if (trimmedEmail !== "" && (force || trimmedEmail !== lastCheckedRef.current.email)) {
+        requestPayload.email = trimmedEmail;
+        fieldsToCheck.push("email");
+      }
+    }
+
+    if (fields.includes("nifNie")) {
+      const trimmedNif = values.nifNie.trim();
+      if (trimmedNif !== "" && (force || trimmedNif !== lastCheckedRef.current.nifNie)) {
+        requestPayload.nifNie = trimmedNif;
+        fieldsToCheck.push("nifNie");
+      }
+    }
+
+    if (fieldsToCheck.length === 0) {
+      return { hasIssues: false, hadServerError: false };
+    }
+
+    setFieldStatus((prev) => {
+      const next = { ...prev };
+      fieldsToCheck.forEach((field) => {
+        next[field] = "checking";
+      });
+      return next;
+    });
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    fieldsToCheck.forEach((field) => {
+      latestRequestRef.current[field] = requestId;
+    });
+
+    try {
+      const response = await fetch("/api/employees/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(requestPayload),
+      });
+
+      const responsePayload = await response.json();
+      if (!response.ok) {
+        throw new Error("VALIDATION_FAILED");
+      }
+
+      const issuesList = Array.isArray(responsePayload?.issues) ? responsePayload.issues : [];
+      const issuesByField = new Map<CriticalField, string>();
+
+      issuesList.forEach((issue: any) => {
+        if (issue && (issue.field === "email" || issue.field === "nifNie") && typeof issue.message === "string") {
+          issuesByField.set(issue.field, issue.message);
+        }
+      });
+
+      fieldsToCheck.forEach((field) => {
+        if (latestRequestRef.current[field] === requestId) {
+          form.clearErrors(field);
+        }
+      });
+
+      fieldsToCheck.forEach((field) => {
+        if (latestRequestRef.current[field] === requestId) {
+          const issueMessage = issuesByField.get(field);
+          if (issueMessage) {
+            form.setError(field, { type: "validate", message: issueMessage });
+          }
+        }
+      });
+
+      setFieldStatus((prev) => {
+        const next = { ...prev };
+        fieldsToCheck.forEach((field) => {
+          if (latestRequestRef.current[field] === requestId) {
+            next[field] = issuesByField.has(field) ? "invalid" : "valid";
+          }
+        });
+        return next;
+      });
+
+      fieldsToCheck.forEach((field) => {
+        if (latestRequestRef.current[field] === requestId) {
+          if (field === "email") {
+            lastCheckedRef.current.email = requestPayload.email;
+          } else {
+            lastCheckedRef.current.nifNie = requestPayload.nifNie;
+          }
+        }
+      });
+
+      const hasIssues = fieldsToCheck.some(
+        (field) => latestRequestRef.current[field] === requestId && issuesByField.has(field),
+      );
+      return { hasIssues, hadServerError: false };
+    } catch {
+      setFieldStatus((prev) => {
+        const next = { ...prev };
+        fieldsToCheck.forEach((field) => {
+          if (latestRequestRef.current[field] === requestId) {
+            next[field] = "idle";
+          }
+        });
+        return next;
+      });
+
+      return { hasIssues: false, hadServerError: true };
+    }
+  };
+
+  const handleEmailBlur = async () => {
+    const isValid = await form.trigger("email");
+    if (!isValid) {
+      setFieldStatus((prev) => (prev.email === "idle" ? prev : { ...prev, email: "idle" }));
+      return;
+    }
+
+    await validateCriticalFields(["email"], { force: true });
+  };
+
+  const handleNifNieBlur = async () => {
+    const isValid = await form.trigger("nifNie");
+    if (!isValid) {
+      setFieldStatus((prev) => (prev.nifNie === "idle" ? prev : { ...prev, nifNie: "idle" }));
+      return;
+    }
+
+    await validateCriticalFields(["nifNie"], { force: true });
+  };
+
   const handleSubmit = async (data: CreateEmployeeInput) => {
+    const validation = await validateCriticalFields(["email", "nifNie"], { force: true });
+    if (validation.hasIssues) {
+      toast.error("Revisa los campos marcados", {
+        description: "Hay datos que ya existen en el sistema.",
+      });
+      return;
+    }
+
+    if (validation.hadServerError) {
+      toast.warning("No se pudo validar la disponibilidad", {
+        description: "Se comprobará de nuevo al finalizar el wizard.",
+      });
+    }
+
     await onSubmit(data);
   };
 
@@ -204,9 +408,20 @@ export function WizardStep1Employee({
                           placeholder="12345678Z"
                           className={cn("pl-9", getInputClasses(fieldState))}
                           autoComplete="off"
+                          onBlur={() => {
+                            field.onBlur();
+                            void handleNifNieBlur();
+                          }}
                         />
                       </div>
                     </FormControl>
+                    {!fieldState.error && fieldStatus.nifNie === "checking" && (
+                      <FormDescription className="text-xs">Comprobando NIF/NIE...</FormDescription>
+                    )}
+                    {!fieldState.error && fieldStatus.nifNie === "valid" && (
+                      <FormDescription className="text-xs text-emerald-600">NIF/NIE disponible</FormDescription>
+                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />
@@ -229,9 +444,20 @@ export function WizardStep1Employee({
                           placeholder="juan.garcia@empresa.com"
                           className={cn("pl-9", getInputClasses(fieldState))}
                           autoComplete="email"
+                          onBlur={() => {
+                            field.onBlur();
+                            void handleEmailBlur();
+                          }}
                         />
                       </div>
                     </FormControl>
+                    {!fieldState.error && fieldStatus.email === "checking" && (
+                      <FormDescription className="text-xs">Comprobando email...</FormDescription>
+                    )}
+                    {!fieldState.error && fieldStatus.email === "valid" && (
+                      <FormDescription className="text-xs text-emerald-600">Email disponible</FormDescription>
+                    )}
+                    <FormMessage />
                   </FormItem>
                 )}
               />

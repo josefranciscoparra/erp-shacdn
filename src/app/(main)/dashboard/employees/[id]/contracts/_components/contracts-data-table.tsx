@@ -22,22 +22,13 @@ import { DataTableViewOptions } from "@/components/data-table/data-table-view-op
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CONTRACT_TYPE_OPTIONS } from "@/lib/contracts/contract-types";
 
 interface ContractsDataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   isLoading?: boolean;
 }
-
-const contractTypeOptions = [
-  { label: "Indefinido", value: "INDEFINIDO" },
-  { label: "Temporal", value: "TEMPORAL" },
-  { label: "Prácticas", value: "PRACTICAS" },
-  { label: "Formación", value: "FORMACION" },
-  { label: "Obra o Servicio", value: "OBRA_SERVICIO" },
-  { label: "Eventual", value: "EVENTUAL" },
-  { label: "Interinidad", value: "INTERINIDAD" },
-];
 
 const statusOptions = [
   { label: "Activo", value: "active" },
@@ -111,7 +102,7 @@ export function ContractsDataTable<TData, TValue>({
               <DataTableFacetedFilter
                 column={table.getColumn("contractType")}
                 title="Tipo de Contrato"
-                options={contractTypeOptions}
+                options={CONTRACT_TYPE_OPTIONS}
               />
             )}
             {table.getColumn("active") && (

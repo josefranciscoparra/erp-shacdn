@@ -2,6 +2,7 @@ import type { EmployeeImportRow, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
+import { DEFAULT_CONTRACT_TYPE } from "@/lib/contracts/contract-types";
 import { upsertInviteMessage } from "@/lib/employee-import/invite-utils";
 import type { EmployeeImportOptions, EmployeeImportRowData, RowMessage } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
@@ -50,7 +51,7 @@ async function createEmployeeRecords(params: {
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await hash(temporaryPassword, 10);
   const workdayMinutes = 480;
-  const contractType = data.contractType ?? "INDEFINIDO";
+  const contractType = data.contractType ?? DEFAULT_CONTRACT_TYPE;
   const weeklyHours = data.weeklyHours ?? 40;
 
   const user = await db.user.create({

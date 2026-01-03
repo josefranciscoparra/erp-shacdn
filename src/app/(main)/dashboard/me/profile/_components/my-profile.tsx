@@ -11,6 +11,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { getContractTypeLabel } from "@/lib/contracts/contract-types";
 import { updateProfilePhoto, type ProfileData } from "@/server/actions/profile";
 
 import { AppearanceSettings } from "./appearance-settings";
@@ -52,16 +53,8 @@ export function MyProfile({ initialData }: MyProfileProps) {
 
   const department = initialData.activeContract?.department?.name ?? "Sin departamento";
 
-  const contractTypeLabels: Record<string, string> = {
-    INDEFINIDO: "Indefinido",
-    TEMPORAL: "Temporal",
-    PRACTICAS: "Prácticas",
-    FORMACION: "Formación",
-    OBRA_SERVICIO: "Obra o servicio",
-  };
-
   const contractType = initialData.activeContract
-    ? contractTypeLabels[initialData.activeContract.contractType] || initialData.activeContract.contractType
+    ? getContractTypeLabel(initialData.activeContract.contractType)
     : "Sin contrato";
 
   const weeklyHours = initialData.activeContract ? `${initialData.activeContract.weeklyHours}h/semana` : "No definido";

@@ -12,6 +12,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
+import { DEFAULT_CONTRACT_TYPE } from "@/lib/contracts/contract-types";
 import { cn } from "@/lib/utils";
 import { getTeams, type TeamListItem } from "@/server/actions/teams";
 import { type CreateContractData } from "@/stores/contracts-store";
@@ -64,7 +65,7 @@ export function WizardStep2Contract({
     if (skipContract) {
       // Si está marcado, crear contrato básico automático (SOLO datos contractuales)
       const defaultContract: CreateContractData = {
-        contractType: "INDEFINIDO",
+        contractType: DEFAULT_CONTRACT_TYPE,
         startDate: new Date().toISOString().split("T")[0],
         endDate: null,
         grossSalary: null,
@@ -85,7 +86,7 @@ export function WizardStep2Contract({
     if (skipContract) {
       // Crear contrato básico automático (SOLO datos contractuales)
       const defaultContract: CreateContractData = {
-        contractType: "INDEFINIDO",
+        contractType: DEFAULT_CONTRACT_TYPE,
         startDate: new Date().toISOString().split("T")[0],
         endDate: null,
         grossSalary: null,

@@ -17,17 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { getContractTypeLabel } from "@/lib/contracts/contract-types";
 import { Contract } from "@/stores/contracts-store";
-
-const CONTRACT_TYPES = {
-  INDEFINIDO: "Indefinido",
-  TEMPORAL: "Temporal",
-  PRACTICAS: "Prácticas",
-  FORMACION: "Formación",
-  OBRA_SERVICIO: "Obra o Servicio",
-  EVENTUAL: "Eventual",
-  INTERINIDAD: "Interinidad",
-} as const;
 
 export const contractsColumns: ColumnDef<Contract>[] = [
   {
@@ -80,7 +71,7 @@ export const contractsColumns: ColumnDef<Contract>[] = [
     header: ({ column }) => <DataTableColumnHeader column={column} title="Tipo de Contrato" />,
     cell: ({ row }) => {
       const type = row.getValue("contractType");
-      const typeLabel = CONTRACT_TYPES[type] ?? type;
+      const typeLabel = getContractTypeLabel(type as string);
 
       const getTypeVariant = (type: string) => {
         switch (type) {
@@ -89,6 +80,8 @@ export const contractsColumns: ColumnDef<Contract>[] = [
           case "TEMPORAL":
             return "secondary";
           case "PRACTICAS":
+            return "outline";
+          case "FIJO_DISCONTINUO":
             return "outline";
           default:
             return "secondary";

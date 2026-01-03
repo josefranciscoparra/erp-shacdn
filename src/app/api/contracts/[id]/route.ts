@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { auth } from "@/lib/auth";
+import { CONTRACT_TYPES } from "@/lib/contracts/contract-types";
 import { prisma } from "@/lib/prisma";
 import { autoCreateSettlement } from "@/server/actions/vacation-settlement";
 
@@ -22,18 +23,7 @@ const isValidDayForMonth = (mmdd: string): boolean => {
 // No se usa para tipar la updateData final que va a Prisma
 const updateContractSchema = z
   .object({
-    contractType: z
-      .enum([
-        "INDEFINIDO",
-        "TEMPORAL",
-        "PRACTICAS",
-        "FORMACION",
-        "OBRA_SERVICIO",
-        "EVENTUAL",
-        "INTERINIDAD",
-        "FIJO_DISCONTINUO",
-      ])
-      .optional(),
+    contractType: z.enum(CONTRACT_TYPES).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional().nullable(),
     weeklyHours: z.number().min(1).max(60).optional(),

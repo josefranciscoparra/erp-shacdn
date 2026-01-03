@@ -13,6 +13,8 @@
  * - Devengado = 23 × (184/365) = 11.6 días
  */
 
+import { getContractTypeLabel } from "@/lib/contracts/contract-types";
+
 import type { AccruedResult, ContractInfo, VacationDisplayInfo } from "../types";
 import { daysToMinutes } from "../utils/conversion-utils";
 import { daysBetween, daysInYear, endOfYear } from "../utils/date-utils";
@@ -82,24 +84,8 @@ export class StandardVacationStrategy extends VacationStrategy {
   getDisplayInfo(contract: ContractInfo): VacationDisplayInfo {
     return {
       label: this.getDisplayLabel(),
-      sublabel: `Contrato ${this.getContractTypeLabel(contract.contractType)}`,
+      sublabel: `Contrato ${getContractTypeLabel(contract.contractType)}`,
       showFrozenIndicator: false,
     };
-  }
-
-  /**
-   * Convierte el tipo de contrato a etiqueta legible
-   */
-  private getContractTypeLabel(contractType: string): string {
-    const labels: Record<string, string> = {
-      INDEFINIDO: "Indefinido",
-      TEMPORAL: "Temporal",
-      PRACTICAS: "Prácticas",
-      FORMACION: "Formación",
-      OBRA_SERVICIO: "Obra o Servicio",
-      EVENTUAL: "Eventual",
-      INTERINIDAD: "Interinidad",
-    };
-    return labels[contractType] ?? contractType;
   }
 }

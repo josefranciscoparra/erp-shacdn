@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CONTRACT_TYPE_OPTIONS, getContractTypeLabel } from "@/lib/contracts/contract-types";
 import { Contract } from "@/stores/contracts-store";
 
 interface ContractsDataTableProps<TData, TValue> {
@@ -55,30 +56,10 @@ interface ContractsDataTableProps<TData, TValue> {
   isLoading?: boolean;
 }
 
-const contractTypeOptions = [
-  { label: "Indefinido", value: "INDEFINIDO" },
-  { label: "Temporal", value: "TEMPORAL" },
-  { label: "Prácticas", value: "PRACTICAS" },
-  { label: "Formación", value: "FORMACION" },
-  { label: "Obra o Servicio", value: "OBRA_SERVICIO" },
-  { label: "Eventual", value: "EVENTUAL" },
-  { label: "Interinidad", value: "INTERINIDAD" },
-];
-
 const statusOptions = [
   { label: "Activo", value: "active" },
   { label: "Finalizado", value: "inactive" },
 ];
-
-const CONTRACT_TYPES_LABELS: Record<string, string> = {
-  INDEFINIDO: "Indefinido",
-  TEMPORAL: "Temporal",
-  PRACTICAS: "Prácticas",
-  FORMACION: "Formación",
-  OBRA_SERVICIO: "Obra o Servicio",
-  EVENTUAL: "Eventual",
-  INTERINIDAD: "Interinidad",
-};
 
 export function ContractsDataTable<TData, TValue>({
   columns,
@@ -180,7 +161,7 @@ export function ContractsDataTable<TData, TValue>({
               <DataTableFacetedFilter
                 column={table.getColumn("contractType")}
                 title="Tipo de Contrato"
-                options={contractTypeOptions}
+                options={CONTRACT_TYPE_OPTIONS}
               />
             )}
             {table.getColumn("active") && (
@@ -260,9 +241,7 @@ export function ContractsDataTable<TData, TValue>({
                     </span>
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    <Badge variant="outline">
-                      {CONTRACT_TYPES_LABELS[contract.contractType] ?? contract.contractType}
-                    </Badge>
+                    <Badge variant="outline">{getContractTypeLabel(contract.contractType)}</Badge>
                     <Badge variant="secondary" className="font-mono">
                       {contract.weeklyHours}h/sem
                     </Badge>

@@ -14,32 +14,31 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CONTRACT_TYPE_LABELS, CONTRACT_TYPES, DEFAULT_CONTRACT_TYPE } from "@/lib/contracts/contract-types";
 import { type CreateContractData, type Contract } from "@/stores/contracts-store";
 
-const contractSchema = z.object({
-  contractType: z.enum(
-    [
-      "INDEFINIDO",
-      "TEMPORAL",
-      "PRACTICAS",
-      "FORMACION",
-      "OBRA_SERVICIO",
-      "EVENTUAL",
-      "INTERINIDAD",
-      "FIJO_DISCONTINUO",
-    ],
-    {
+const contractSchema = z
+  .object({
+    contractType: z.enum(CONTRACT_TYPES, {
       required_error: "Selecciona un tipo de contrato",
+    }),
+    startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
+    endDate: z.string().optional(),
+    grossSalary: z.coerce.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
+    positionId: z.string().optional(),
+    departmentId: z.string().optional(),
+    costCenterId: z.string().optional(),
+    managerId: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      if (!data.endDate) {
+        return true;
+      }
+      return data.endDate >= data.startDate;
     },
-  ),
-  startDate: z.string().min(1, "La fecha de inicio es obligatoria"),
-  endDate: z.string().optional(),
-  grossSalary: z.coerce.number().min(0, "El salario debe ser mayor o igual a 0").optional().nullable(),
-  positionId: z.string().optional(),
-  departmentId: z.string().optional(),
-  costCenterId: z.string().optional(),
-  managerId: z.string().optional(),
-});
+    { message: "La fecha de fin no puede ser anterior a la de inicio.", path: ["endDate"] },
+  );
 
 type ContractFormData = z.infer<typeof contractSchema>;
 
@@ -74,17 +73,6 @@ interface CostCenter {
   address: string | null;
   timezone: string;
 }
-
-const CONTRACT_TYPES = {
-  INDEFINIDO: "Indefinido",
-  TEMPORAL: "Temporal",
-  PRACTICAS: "Prácticas",
-  FORMACION: "Formación",
-  OBRA_SERVICIO: "Obra o Servicio",
-  EVENTUAL: "Eventual",
-  INTERINIDAD: "Interinidad",
-  FIJO_DISCONTINUO: "Fijo Discontinuo",
-} as const;
 
 interface ContractFormSimplifiedProps {
   employeeId?: string;
@@ -127,7 +115,7 @@ export function ContractFormSimplified({
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      contractType: "INDEFINIDO",
+      contractType: DEFAULT_CONTRACT_TYPE,
       startDate: "",
       endDate: "",
       grossSalary: undefined,
@@ -295,9 +283,9 @@ export function ContractFormSimplified({
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {Object.entries(CONTRACT_TYPES).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>
-                              {label}
+                          {CONTRACT_TYPES.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {CONTRACT_TYPE_LABELS[type]}
                             </SelectItem>
                           ))}
                         </SelectContent>
