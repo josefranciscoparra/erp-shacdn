@@ -239,6 +239,10 @@ function getExpectedHoursFromContract(
     return { hoursExpected: 0, isWorkingDay: false, hasActiveContract: false };
   }
 
+  if (contract.contractType === "FIJO_DISCONTINUO" && contract.discontinuousStatus === "PAUSED") {
+    return { hoursExpected: 0, isWorkingDay: false, hasActiveContract: true };
+  }
+
   if (isHoliday) {
     return { hoursExpected: 0, isWorkingDay: false, hasActiveContract: true };
   }

@@ -98,7 +98,7 @@ async function validatePermissions(): Promise<PermissionsResult> {
   }
 
   const effectivePermissions = await computeEffectivePermissions({
-    role: user.role as Role,
+    role: user.role,
     orgId: user.orgId,
     userId: user.id,
   });
@@ -169,6 +169,27 @@ export async function pauseContract(contractId: string, reason?: string): Promis
     // Validar estado actual
     if (contract.discontinuousStatus === "PAUSED") {
       return { success: false, error: "El contrato ya está pausado" };
+    }
+
+    const lastEntry = await prisma.timeEntry.findFirst({
+      where: {
+        employeeId: contract.employeeId,
+        orgId: contract.orgId,
+        isCancelled: false,
+      },
+      select: {
+        entryType: true,
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
+
+    if (lastEntry && lastEntry.entryType !== "CLOCK_OUT") {
+      return {
+        success: false,
+        error: "No puedes pausar un contrato con un fichaje abierto. Cierra el fichaje antes de pausar.",
+      };
     }
 
     const now = new Date();

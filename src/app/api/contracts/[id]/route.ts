@@ -168,6 +168,21 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (data.managerId !== undefined) updateData.managerId = normalizeId(data.managerId);
     if (data.active !== undefined) updateData.active = data.active;
 
+    const isSwitchingToDiscontinuous =
+      data.contractType === "FIJO_DISCONTINUO" && existingContract.discontinuousStatus == null;
+    const isSwitchingAwayFromDiscontinuous =
+      data.contractType != null &&
+      data.contractType !== "FIJO_DISCONTINUO" &&
+      existingContract.discontinuousStatus != null;
+
+    if (isSwitchingToDiscontinuous) {
+      updateData.discontinuousStatus = "ACTIVE";
+    }
+
+    if (isSwitchingAwayFromDiscontinuous) {
+      updateData.discontinuousStatus = null;
+    }
+
     // Validar fechas lógicas
     if (updateData.startDate && updateData.endDate && updateData.endDate <= updateData.startDate) {
       return NextResponse.json({ error: "La fecha de fin debe ser posterior a la fecha de inicio" }, { status: 400 });

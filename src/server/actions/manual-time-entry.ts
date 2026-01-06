@@ -3,6 +3,7 @@
 import { startOfDay, endOfDay, isPast, isFuture, isToday } from "date-fns";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
+import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -58,6 +59,11 @@ export async function createManualTimeEntryRequest(input: CreateManualTimeEntryR
 
     if (normalizedClockIn >= normalizedClockOut) {
       throw new Error("La hora de entrada debe ser anterior a la hora de salida");
+    }
+
+    const isPausedForRange = await isEmployeePausedDuringRange(employee.id, dayStart, dayEnd, orgId);
+    if (isPausedForRange) {
+      throw new Error("Tu contrato fijo discontinuo está pausado en la fecha solicitada.");
     }
 
     // Verificar que no exista ya un fichaje automático ese día

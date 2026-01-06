@@ -204,6 +204,9 @@ export async function POST(request: Request) {
         weeklyHours: data.contract.weeklyHours ?? 40,
         workingDaysPerWeek: data.contract.workingDaysPerWeek ?? 5,
         workScheduleType: (data.contract.scheduleType as any) ?? "FIXED",
+        ...(data.contract.contractType === "FIJO_DISCONTINUO" && {
+          discontinuousStatus: "ACTIVE",
+        }),
       };
       console.log("📋 [WIZARD API] Payload contrato:", JSON.stringify(contractPayload, null, 2));
 

@@ -122,6 +122,9 @@ async function createEmployeeRecords(params: {
       costCenterId: data.costCenterId ?? null,
       managerId: manager?.id ?? null,
       workScheduleType: "FIXED",
+      ...(contractType === "FIJO_DISCONTINUO" && {
+        discontinuousStatus: "ACTIVE",
+      }),
     },
     select: { id: true },
   });

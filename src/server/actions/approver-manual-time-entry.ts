@@ -4,6 +4,7 @@ import { startOfDay, endOfDay } from "date-fns";
 
 import { canUserApprove } from "@/lib/approvals/approval-engine";
 import { auth } from "@/lib/auth";
+import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 
 import { createNotification } from "./notifications";
@@ -206,6 +207,16 @@ export async function approveManualTimeEntryRequest(input: ApproveManualTimeEntr
 
     if (request.status !== "PENDING") {
       throw new Error("Solo puedes aprobar solicitudes pendientes");
+    }
+
+    const isPausedForRange = await isEmployeePausedDuringRange(
+      request.employeeId,
+      request.date,
+      request.date,
+      user.orgId,
+    );
+    if (isPausedForRange) {
+      throw new Error("El contrato fijo discontinuo del empleado está pausado en esa fecha.");
     }
 
     // Verificar nuevamente que no existan fichajes automáticos para ese día

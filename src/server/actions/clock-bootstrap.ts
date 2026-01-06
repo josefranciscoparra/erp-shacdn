@@ -2,6 +2,7 @@
 
 import { endOfDay, startOfDay } from "date-fns";
 
+import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule } from "@/services/schedules/schedule-engine";
 import type { EffectiveSchedule } from "@/types/schedule";
@@ -16,7 +17,7 @@ interface ClockBootstrapResult {
   error?: string;
   currentStatus?: ClockStatus;
   canClock?: boolean;
-  orgContextReason?: "OK" | "WRONG_ORG" | "NO_EMPLOYEE";
+  orgContextReason?: "OK" | "WRONG_ORG" | "NO_EMPLOYEE" | "CONTRACT_PAUSED";
   orgContextMessage?: string | null;
   todaySummary?: {
     id: string;
@@ -118,7 +119,7 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
 
     const hasEmployee = Boolean(employee);
     const isInOwnOrg = hasEmployee ? employee.orgId === orgId : false;
-    const canClock = Boolean(hasEmployee && isInOwnOrg);
+    const canClockByOrg = Boolean(hasEmployee && isInOwnOrg);
     const orgContextReason = !hasEmployee ? "NO_EMPLOYEE" : isInOwnOrg ? "OK" : "WRONG_ORG";
     const orgContextMessage = !hasEmployee
       ? "Este usuario no tiene una ficha de empleado."
@@ -132,11 +133,11 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
     const scheduleDate = new Date(today);
     scheduleDate.setHours(12, 0, 0, 0);
 
-    if (!canClock) {
+    if (!canClockByOrg) {
       return {
         success: true,
         currentStatus: "CLOCKED_OUT",
-        canClock,
+        canClock: canClockByOrg,
         orgContextReason,
         orgContextMessage,
         todaySummary: {
@@ -165,6 +166,17 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
         },
         incompleteEntry: null,
       };
+    }
+
+    let canClock = canClockByOrg;
+    let clockContextReason: ClockBootstrapResult["orgContextReason"] = orgContextReason;
+    let clockContextMessage = orgContextMessage;
+
+    const isPaused = await isEmployeePausedNow(employee.id, orgId);
+    if (isPaused) {
+      canClock = false;
+      clockContextReason = "CONTRACT_PAUSED";
+      clockContextMessage = "Tu contrato fijo discontinuo está pausado.";
     }
 
     const hoursInfoPromise = getExpectedHoursForToday().catch((error) => {
@@ -318,8 +330,8 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
       success: true,
       currentStatus,
       canClock,
-      orgContextReason,
-      orgContextMessage,
+      orgContextReason: clockContextReason,
+      orgContextMessage: clockContextMessage,
       todaySummary,
       schedule,
       scheduleSummary: {

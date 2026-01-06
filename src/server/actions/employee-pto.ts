@@ -3,6 +3,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
+import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 import { calculatePtoBalanceByType } from "@/lib/pto/balance-service";
 import { DEFAULT_PTO_BALANCE_TYPE, type PtoBalanceType } from "@/lib/pto/balance-types";
@@ -471,6 +472,11 @@ export async function createPtoRequest(data: {
 
     if (!absenceType || !absenceType.active) {
       throw new Error("Tipo de ausencia no válido");
+    }
+
+    const isPausedForRange = await isEmployeePausedDuringRange(employeeId, data.startDate, data.endDate, orgId);
+    if (isPausedForRange) {
+      throw new Error("Tu contrato fijo discontinuo está pausado en las fechas solicitadas.");
     }
 
     const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);

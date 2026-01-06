@@ -2,6 +2,7 @@
 
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from "date-fns";
 
+import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
 import { getEffectiveSchedule, validateTimeEntry } from "@/services/schedules/schedule-engine";
@@ -39,6 +40,13 @@ function serializeTimeEntry(entry: any) {
       : null,
     task: entry.task ?? null,
   };
+}
+
+async function assertEmployeeNotPaused(employeeId: string, orgId: string) {
+  const isPaused = await isEmployeePausedNow(employeeId, orgId);
+  if (isPaused) {
+    throw new Error("Tu contrato fijo discontinuo está pausado. No puedes fichar.");
+  }
 }
 
 function isActiveWorkEntryType(entryType?: string | null) {
@@ -901,6 +909,8 @@ export async function clockIn(
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
+    await assertEmployeeNotPaused(employeeId, orgId);
+
     // Validar proyecto si se proporciona
     if (projectId) {
       const { validateProjectForEmployee } = await import("./projects");
@@ -1016,6 +1026,8 @@ export async function clockOut(
 ) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
+
+    await assertEmployeeNotPaused(employeeId, orgId);
 
     // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
@@ -1189,6 +1201,8 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
 
+    await assertEmployeeNotPaused(employeeId, orgId);
+
     // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
 
@@ -1265,6 +1279,8 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
 export async function endBreak(latitude?: number, longitude?: number, accuracy?: number) {
   try {
     const { employeeId, orgId, dailyHours } = await getAuthenticatedEmployee();
+
+    await assertEmployeeNotPaused(employeeId, orgId);
 
     // Procesar datos de geolocalización ANTES de la transacción
     const geoData = await processGeolocationData(orgId, latitude, longitude, accuracy);
@@ -1597,6 +1613,11 @@ export async function getExpectedHoursForToday() {
     // Si no hay contrato, retornar valores por defecto
     if (!contract) {
       return { hoursToday: 8, isWorkingDay: true, hasActiveContract: false };
+    }
+
+    const isPaused = await isEmployeePausedNow(employee.id, orgId);
+    if (isPaused) {
+      return { hoursToday: 0, isWorkingDay: false, hasActiveContract: true };
     }
 
     // Obtener día de la semana actual (0 = domingo, 1 = lunes, ..., 6 = sábado)
@@ -2607,6 +2628,11 @@ export async function changeProject(
 ): Promise<{ success: boolean; error?: string; entry?: any }> {
   try {
     const { employeeId, orgId } = await getAuthenticatedEmployee();
+
+    const isPaused = await isEmployeePausedNow(employeeId, orgId);
+    if (isPaused) {
+      return { success: false, error: "Tu contrato fijo discontinuo está pausado. No puedes cambiar de proyecto." };
+    }
 
     const now = new Date();
     const dayStart = startOfDay(now);

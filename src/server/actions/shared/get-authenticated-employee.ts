@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
 import { getCurrentOrgId } from "@/lib/context/org";
+import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 
 export interface GetAuthenticatedEmployeeOptions {
@@ -90,7 +91,7 @@ export async function getAuthenticatedUser() {
  */
 export interface EmployeeOrgContextResult {
   canClock: boolean;
-  reason: "OK" | "WRONG_ORG" | "NO_EMPLOYEE" | null;
+  reason: "OK" | "WRONG_ORG" | "NO_EMPLOYEE" | "CONTRACT_PAUSED" | null;
   employeeOrgId: string | null;
   activeOrgId: string | null;
   message?: string | null;
@@ -109,12 +110,33 @@ export async function checkEmployeeOrgContext(): Promise<EmployeeOrgContextResul
     // employee.orgId es la org real del empleado
     const isInOwnOrg = employee.orgId === orgId;
 
+    if (!isInOwnOrg) {
+      return {
+        canClock: false,
+        reason: "WRONG_ORG",
+        employeeOrgId: employee.orgId,
+        activeOrgId: orgId,
+        message: "Cambia a tu organización de empleado para fichar.",
+      };
+    }
+
+    const isPaused = await isEmployeePausedNow(employee.id, orgId);
+    if (isPaused) {
+      return {
+        canClock: false,
+        reason: "CONTRACT_PAUSED",
+        employeeOrgId: employee.orgId,
+        activeOrgId: orgId,
+        message: "Tu contrato fijo discontinuo está pausado.",
+      };
+    }
+
     return {
-      canClock: isInOwnOrg,
-      reason: isInOwnOrg ? "OK" : "WRONG_ORG",
+      canClock: true,
+      reason: "OK",
       employeeOrgId: employee.orgId,
       activeOrgId: orgId,
-      message: isInOwnOrg ? null : "Cambia a tu organización de empleado para fichar.",
+      message: null,
     };
   } catch (error) {
     if ((error as Error & { code?: string }).code === "WRONG_ORG") {

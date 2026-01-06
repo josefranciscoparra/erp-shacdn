@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 import { ensureAlertAssignments } from "@/services/alerts/alert-assignments";
 import {
@@ -122,6 +123,16 @@ export async function detectAlertsForTimeEntry(timeEntryId: string): Promise<Det
 
     if (!timeEntry) {
       throw new Error("Fichaje no encontrado");
+    }
+
+    const isPausedForEntry = await isEmployeePausedDuringRange(
+      timeEntry.employeeId,
+      timeEntry.timestamp,
+      timeEntry.timestamp,
+      timeEntry.orgId,
+    );
+    if (isPausedForEntry) {
+      return [];
     }
 
     // Obtener horario efectivo del día
@@ -313,6 +324,11 @@ export async function detectAlertsForDate(employeeId: string, date: Date): Promi
     const config = await getOrganizationValidationConfig();
 
     if (!config.alertsEnabled) {
+      return [];
+    }
+
+    const isPausedForDate = await isEmployeePausedDuringRange(employeeId, date, date, session.user.orgId);
+    if (isPausedForDate) {
       return [];
     }
 
