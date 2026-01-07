@@ -289,33 +289,52 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
       };
     }
 
-    // 2. Buscar usuarios que tengan AL MENOS una relación con estas organizaciones
-    // Optimización: Buscamos en UserOrganization filtrando por orgIds
-    const userOrgs = await prisma.userOrganization.findMany({
-      where: {
-        orgId: { in: orgIds },
-        user: {
+    // 2. Buscar usuarios con relación multi-org y usuarios base de cada organización
+    const [userOrgs, baseUsers] = await Promise.all([
+      prisma.userOrganization.findMany({
+        where: {
+          orgId: { in: orgIds },
+          user: {
+            role: {
+              not: "SUPER_ADMIN",
+            },
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              image: true,
+              active: true,
+            },
+          },
+        },
+      }),
+      prisma.user.findMany({
+        where: {
+          orgId: { in: orgIds },
           role: {
             not: "SUPER_ADMIN",
           },
         },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-            active: true,
-          },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          active: true,
+          role: true,
+          orgId: true,
         },
-      },
-    });
+      }),
+    ]);
 
     // 3. Agrupar por Usuario
     // Un usuario puede aparecer varias veces en userOrgs (una por cada empresa)
     const usersMap = new Map<string, DirectoryUserRow>();
+    const membershipIndex = new Map<string, Set<string>>();
 
     for (const uo of userOrgs) {
       if (!usersMap.has(uo.userId)) {
@@ -335,6 +354,39 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
         orgName: orgMap.get(uo.orgId) ?? "Desconocida",
         role: uo.role,
         isActive: uo.isActive,
+      });
+
+      if (!membershipIndex.has(uo.userId)) {
+        membershipIndex.set(uo.userId, new Set());
+      }
+      membershipIndex.get(uo.userId)?.add(uo.orgId);
+    }
+
+    for (const user of baseUsers) {
+      const existingOrgs = membershipIndex.get(user.id);
+      const hasMembership = existingOrgs?.has(user.orgId) ?? false;
+
+      if (!usersMap.has(user.id)) {
+        usersMap.set(user.id, {
+          userId: user.id,
+          name: user.name,
+          email: user.email,
+          image: user.image,
+          baseStatus: user.active,
+          organizations: [],
+        });
+      }
+
+      if (hasMembership) {
+        continue;
+      }
+
+      const userEntry = usersMap.get(user.id)!;
+      userEntry.organizations.push({
+        orgId: user.orgId,
+        orgName: orgMap.get(user.orgId) ?? "Desconocida",
+        role: user.role,
+        isActive: user.active,
       });
     }
 

@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { Role } from "@prisma/client";
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable, getPaginationRowModel } from "@tanstack/react-table";
-import { Crown, Loader2, MoreHorizontal, Plus, ShieldCheck, Trash2, UserCog } from "lucide-react";
+import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, useReactTable } from "@tanstack/react-table";
+import { Check, Crown, Loader2, MoreHorizontal, Plus, ShieldCheck, Trash2, UserCog } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import { z } from "zod";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -36,13 +37,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { addGroupAdmin, type GroupAdminRow, removeGroupAdmin, updateGroupAdmin } from "@/server/actions/group-users";
+import {
+  addGroupAdmin,
+  type DirectoryUserRow,
+  type GroupAdminRow,
+  removeGroupAdmin,
+  updateGroupAdmin,
+} from "@/server/actions/group-users";
 import { ROLE_DISPLAY_NAMES } from "@/services/permissions/role-hierarchy";
 
 interface GroupAdminsTableProps {
   data: GroupAdminRow[];
   groupId: string;
   currentUserRole: Role;
+  availableUsers: DirectoryUserRow[];
 }
 
 // Roles permitidos para asignar a nivel de grupo
@@ -165,10 +173,12 @@ function StatusBadge({ isActive }: { isActive: boolean }) {
   );
 }
 
-export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdminsTableProps) {
+export function GroupAdminsTable({ data, groupId, currentUserRole, availableUsers }: GroupAdminsTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const formSchema = z.object({
     email: z.string().email("Email inválido"),
@@ -183,18 +193,53 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
     },
   });
 
+  const resetDialogState = () => {
+    form.reset();
+    setSearchTerm("");
+    setSelectedUserId(null);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setAddDialogOpen(open);
+    resetDialogState();
+  };
+
+  const candidateUsers = useMemo(() => {
+    const adminIds = new Set(data.map((admin) => admin.userId));
+    return availableUsers.filter((user) => !adminIds.has(user.userId));
+  }, [availableUsers, data]);
+
+  const filteredCandidates = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    if (query.length < 2) return [];
+
+    return candidateUsers.filter(
+      (user) => user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query),
+    );
+  }, [candidateUsers, searchTerm]);
+
+  const selectedUser = useMemo(
+    () => (selectedUserId ? (candidateUsers.find((user) => user.userId === selectedUserId) ?? null) : null),
+    [candidateUsers, selectedUserId],
+  );
+
   const handleAddAdmin = (values: z.infer<typeof formSchema>) => {
+    const selectedEmail = values.email.trim();
+    if (!selectedEmail) {
+      toast.error("Selecciona un usuario para añadir");
+      return;
+    }
+
     startTransition(async () => {
       const result = await addGroupAdmin({
         groupId,
-        email: values.email,
+        email: selectedEmail,
         role: values.role as Role,
       });
 
       if (result.success) {
         toast.success("Administrador añadido correctamente");
-        setAddDialogOpen(false);
-        form.reset();
+        handleDialogOpenChange(false);
         router.refresh();
       } else {
         toast.error(result.error ?? "Error al añadir administrador");
@@ -343,14 +388,14 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
         </div>
 
         {(currentUserRole === "ORG_ADMIN" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "HR_ADMIN") && (
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <Dialog open={addDialogOpen} onOpenChange={handleDialogOpenChange}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Añadir
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-[560px]">
               <DialogHeader>
                 <DialogTitle>Añadir administrador</DialogTitle>
                 <DialogDescription>Invita a un usuario existente para que gestione este grupo.</DialogDescription>
@@ -362,10 +407,66 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email del usuario</FormLabel>
+                        <FormLabel>Usuario</FormLabel>
                         <FormControl>
-                          <Input placeholder="usuario@ejemplo.com" {...field} />
+                          <Input type="hidden" {...field} />
                         </FormControl>
+                        <Command shouldFilter={false} className="rounded-lg border shadow-md">
+                          <CommandInput
+                            placeholder="Buscar usuario..."
+                            value={searchTerm}
+                            onValueChange={(value) => {
+                              setSearchTerm(value);
+                              if (selectedUserId) {
+                                setSelectedUserId(null);
+                                form.setValue("email", "");
+                              }
+                            }}
+                          />
+                          <CommandList className="max-h-[240px]">
+                            <CommandEmpty>
+                              {searchTerm.trim().length < 2
+                                ? "Escribe 2 letras para buscar..."
+                                : "No se encontraron usuarios."}
+                            </CommandEmpty>
+                            {filteredCandidates.length > 0 && (
+                              <CommandGroup heading="Usuarios encontrados">
+                                {filteredCandidates.map((user) => (
+                                  <CommandItem
+                                    key={user.userId}
+                                    value={`${user.name} ${user.email}`}
+                                    onSelect={() => {
+                                      setSelectedUserId(user.userId);
+                                      setSearchTerm(user.name);
+                                      field.onChange(user.email);
+                                      form.clearErrors("email");
+                                    }}
+                                    className="flex cursor-pointer items-center justify-between"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarImage src={user.image ?? ""} />
+                                        <AvatarFallback className="text-[10px]">
+                                          {user.name.substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium">{user.name}</span>
+                                        <span className="text-muted-foreground text-xs">{user.email}</span>
+                                      </div>
+                                    </div>
+                                    {selectedUser?.userId === user.userId && <Check className="text-primary h-4 w-4" />}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
+                          </CommandList>
+                        </Command>
+                        {selectedUser && (
+                          <p className="text-muted-foreground text-xs">
+                            Seleccionado: {selectedUser.name} · {selectedUser.email}
+                          </p>
+                        )}
                         <FormMessage />
                       </FormItem>
                     )}

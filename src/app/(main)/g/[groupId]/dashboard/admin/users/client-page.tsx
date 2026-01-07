@@ -161,7 +161,12 @@ export function GroupUsersClientPage({
 
         {/* Tab Content */}
         <TabsContent value="admins" className="mt-6">
-          <GroupAdminsTable data={initialAdmins} groupId={groupId} currentUserRole={currentUserRole} />
+          <GroupAdminsTable
+            data={initialAdmins}
+            groupId={groupId}
+            currentUserRole={currentUserRole}
+            availableUsers={initialDirectory}
+          />
         </TabsContent>
 
         <TabsContent value="organizations" className="mt-6">
