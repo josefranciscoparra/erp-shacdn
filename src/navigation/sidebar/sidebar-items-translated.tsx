@@ -8,6 +8,7 @@ import {
   Calendar,
   Settings,
   FolderOpen,
+  Folders,
   Clock,
   CalendarDays,
   Timer,
@@ -355,15 +356,6 @@ export function useSidebarItems(): NavGroup[] {
               url: "/dashboard/admin/users",
               permission: "view_all_users",
             },
-            ...(hasGroupUserAccess
-              ? [
-                  {
-                    title: "Usuarios por grupo",
-                    url: "/dashboard/admin/group-users",
-                    permission: "view_all_users",
-                  },
-                ]
-              : []),
             {
               title: "Matriz de Responsabilidades",
               url: "/dashboard/organization/responsibles",
@@ -441,8 +433,35 @@ export function useSidebarItems(): NavGroup[] {
         },
       ],
     },
+    ...(hasGroupUserAccess || isSuperAdmin
+      ? [
+          {
+            id: 7,
+            label: "Grupo",
+            permission: "manage_user_organizations",
+            items: [
+              {
+                title: "Usuarios por grupo",
+                url: "/dashboard/admin/group-users",
+                icon: Users,
+                permission: "manage_user_organizations",
+              },
+              ...(isSuperAdmin
+                ? [
+                    {
+                      title: "Gestión de grupos",
+                      url: "/dashboard/admin/organizations?tab=groups",
+                      icon: Folders,
+                      permission: "manage_organization",
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ]
+      : []),
     {
-      id: 5,
+      id: 8,
       label: "Configuración",
       items: [
         {

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -53,6 +54,8 @@ interface UsersDataTableProps {
   availableOrganizations?: Array<{ id: string; name: string }>;
   selectedOrgId?: string | null;
   onOrgChange?: (orgId: string) => void;
+  primaryOnly?: boolean;
+  onPrimaryOnlyChange?: (value: boolean) => void;
   groupId?: string | null;
 }
 
@@ -70,6 +73,8 @@ export function UsersDataTable({
   availableOrganizations = [],
   selectedOrgId,
   onOrgChange,
+  primaryOnly = false,
+  onPrimaryOnlyChange,
   groupId,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
@@ -182,6 +187,7 @@ export function UsersDataTable({
 
   const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
   const showOrgSelector = currentUserRole === "SUPER_ADMIN" && availableOrganizations.length > 0;
+  const showPrimaryOnlyToggle = !!onPrimaryOnlyChange;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-6">
@@ -261,6 +267,19 @@ export function UsersDataTable({
               <div className="flex gap-2">
                 {table.getColumn("role") && roleOptions.length > 0 && (
                   <DataTableFacetedFilter column={table.getColumn("role")} title="Rol" options={roleOptions} />
+                )}
+                {showPrimaryOnlyToggle && (
+                  <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+                    <Switch
+                      id="primary-only"
+                      checked={primaryOnly}
+                      onCheckedChange={onPrimaryOnlyChange}
+                      className="data-[state=checked]:bg-primary"
+                    />
+                    <Label htmlFor="primary-only" className="text-xs font-medium">
+                      Solo organización principal
+                    </Label>
+                  </div>
                 )}
                 {isFiltered && (
                   <Button

@@ -358,7 +358,7 @@ export function UserOrganizationsDialog({
                   {employeeOrgName ? (
                     <div className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
                       Empleado de <span className="text-foreground font-medium">{employeeOrgName}</span>. La
-                      organización por defecto debe coincidir con la organización del empleado.
+                      organización principal debe coincidir con la organización del empleado.
                     </div>
                   ) : null}
                   {canGrantManageFlag && bulkManageTargets.length > 0 && (
@@ -389,7 +389,7 @@ export function UserOrganizationsDialog({
                         <TableRow>
                           <TableHead className="min-w-[200px] whitespace-nowrap">Organización</TableHead>
                           <TableHead className="w-[180px] whitespace-nowrap">Rol</TableHead>
-                          <TableHead className="w-[80px] text-center whitespace-nowrap">Default</TableHead>
+                          <TableHead className="w-[80px] text-center whitespace-nowrap">Principal</TableHead>
                           <TableHead className="w-[100px] text-center whitespace-nowrap">Multi-org</TableHead>
                           <TableHead className="w-[80px] text-center whitespace-nowrap">Activa</TableHead>
                           <TableHead className="w-[80px] text-right whitespace-nowrap">Acciones</TableHead>
@@ -462,7 +462,7 @@ export function UserOrganizationsDialog({
                                         </div>
                                       </TooltipTrigger>
                                       <TooltipContent>
-                                        <p>Organización por defecto</p>
+                                        <p>Organización principal</p>
                                       </TooltipContent>
                                     </Tooltip>
                                   </TooltipProvider>
@@ -487,8 +487,8 @@ export function UserOrganizationsDialog({
                                       <TooltipContent>
                                         <p>
                                           {isDefaultLocked
-                                            ? "La organización por defecto debe ser la del empleado"
-                                            : "Marcar como default"}
+                                            ? "La organización principal debe ser la del empleado"
+                                            : "Marcar como principal"}
                                         </p>
                                       </TooltipContent>
                                     </Tooltip>
@@ -553,7 +553,7 @@ export function UserOrganizationsDialog({
                                     <TooltipContent>
                                       <p>
                                         {membership.isDefault
-                                          ? "No se puede desactivar la default"
+                                          ? "No se puede desactivar la principal"
                                           : membership.isActive
                                             ? "Desactivar"
                                             : "Activar"}
@@ -589,7 +589,7 @@ export function UserOrganizationsDialog({
                                     <TooltipContent>
                                       <p>
                                         {membership.isDefault
-                                          ? "No se puede eliminar la default"
+                                          ? "No se puede eliminar la principal"
                                           : memberships.length <= 1
                                             ? "Debe tener al menos una organización"
                                             : "Eliminar"}
@@ -699,7 +699,7 @@ export function UserOrganizationsDialog({
                       disabled={selectedOrgIds.length !== 1 || !canSetDefaultForSelectedOrg}
                     />
                     <label htmlFor="is-default" className="text-sm">
-                      Marcar como organización por defecto
+                      Marcar como organización principal
                     </label>
                     {hasEmployeeOrg && selectedOrgIds.length === 1 && !canSetDefaultForSelectedOrg ? (
                       <span className="text-muted-foreground text-xs">

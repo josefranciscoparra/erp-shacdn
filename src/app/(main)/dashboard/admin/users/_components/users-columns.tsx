@@ -162,11 +162,12 @@ export const createUsersColumns = ({
     id: "organizations",
     header: "Orgs",
     cell: ({ row }) => {
-      const count = row.original._count?.userOrganizations ?? 1;
+      const count = row.original._count?.userOrganizations ?? 0;
+      const displayCount = count > 0 ? count : 1;
       return (
         <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300">
           <Building2 className="mr-1 h-3 w-3" />
-          {count}
+          {displayCount}
         </Badge>
       );
     },

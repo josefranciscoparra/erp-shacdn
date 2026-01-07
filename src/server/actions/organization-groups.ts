@@ -364,7 +364,14 @@ export async function listOrganizationGroupMembers(groupId: string): Promise<{
     await getGroupAdminContext(groupId);
 
     const members = await prisma.organizationGroupUser.findMany({
-      where: { groupId },
+      where: {
+        groupId,
+        user: {
+          role: {
+            not: "SUPER_ADMIN",
+          },
+        },
+      },
       include: {
         user: {
           select: {
@@ -421,6 +428,9 @@ export async function listAvailableGroupUsers(groupId: string): Promise<{
       where: {
         active: true,
         id: { notIn: existingIds },
+        role: {
+          not: "SUPER_ADMIN",
+        },
       },
       select: {
         id: true,
@@ -452,6 +462,38 @@ export async function addOrganizationGroupMember(data: { groupId: string; userId
         success: false,
         error: `No puedes asignar el rol ${ROLE_DISPLAY_NAMES[data.role]}`,
       };
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: data.userId },
+      select: {
+        id: true,
+        role: true,
+      },
+    });
+
+    if (!targetUser) {
+      return { success: false, error: "Usuario no encontrado" };
+    }
+
+    if (targetUser.role === "SUPER_ADMIN") {
+      return { success: false, error: "No puedes asignar un SUPER_ADMIN a un grupo" };
+    }
+
+    if (data.role === "HR_ADMIN") {
+      const existingHrAdmin = await prisma.organizationGroupUser.findFirst({
+        where: {
+          userId: data.userId,
+          role: "HR_ADMIN",
+          isActive: true,
+          groupId: { not: data.groupId },
+        },
+        select: { id: true },
+      });
+
+      if (existingHrAdmin) {
+        return { success: false, error: "Este usuario ya es HR Admin global de otro grupo" };
+      }
     }
 
     await prisma.organizationGroupUser.create({
@@ -499,6 +541,31 @@ export async function updateOrganizationGroupMember(data: {
         success: false,
         error: `No puedes asignar el rol ${ROLE_DISPLAY_NAMES[data.role]}`,
       };
+    }
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: membership.userId },
+      select: { role: true },
+    });
+
+    if (targetUser?.role === "SUPER_ADMIN") {
+      return { success: false, error: "No puedes gestionar miembros SUPER_ADMIN en grupos" };
+    }
+
+    if (data.role === "HR_ADMIN") {
+      const existingHrAdmin = await prisma.organizationGroupUser.findFirst({
+        where: {
+          userId: membership.userId,
+          role: "HR_ADMIN",
+          isActive: true,
+          groupId: { not: membership.groupId },
+        },
+        select: { id: true },
+      });
+
+      if (existingHrAdmin) {
+        return { success: false, error: "Este usuario ya es HR Admin global de otro grupo" };
+      }
     }
 
     await prisma.organizationGroupUser.update({

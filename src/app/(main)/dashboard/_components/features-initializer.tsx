@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { useOrganizationFeaturesStore, type OrganizationFeatures } from "@/stores/organization-features-store";
 
@@ -12,7 +12,7 @@ interface FeaturesInitializerProps {
  * Componente que inicializa los features de la organización
  *
  * Este componente recibe los features desde el servidor (cero delay)
- * y los carga SÍNCRÓNAMENTE en el store antes del primer render.
+ * y los carga en el store al montar el componente.
  *
  * También se sincroniza cuando los props cambian (ej: después de router.refresh())
  *
@@ -21,18 +21,13 @@ interface FeaturesInitializerProps {
 export function FeaturesInitializer({ initialFeatures }: FeaturesInitializerProps) {
   const initialized = useRef(false);
 
-  // Inicialización síncrona (se ejecuta ANTES del primer render)
-  if (!initialized.current) {
-    useOrganizationFeaturesStore.getState().setFeatures(initialFeatures);
-    initialized.current = true;
-  }
-
-  // Sincronizar cuando los props cambien (después de router.refresh())
+  // Inicializar y sincronizar cuando los props cambien (después de router.refresh())
   useEffect(() => {
-    // Solo sincronizar si ya estamos inicializados (evita doble ejecución en el primer render)
-    if (initialized.current) {
-      useOrganizationFeaturesStore.getState().setFeatures(initialFeatures);
+    if (!initialized.current) {
+      initialized.current = true;
     }
+
+    useOrganizationFeaturesStore.getState().setFeatures(initialFeatures);
   }, [initialFeatures]);
 
   return null;

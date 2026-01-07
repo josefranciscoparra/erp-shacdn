@@ -107,6 +107,33 @@ export async function getGroupManagedOrganizationIds(userId: string): Promise<st
   return Array.from(new Set(orgIds));
 }
 
+export async function getOrganizationGroupScope(orgId: string): Promise<{
+  groupId: string;
+  organizationIds: string[];
+} | null> {
+  const membership = await prisma.organizationGroupOrganization.findFirst({
+    where: {
+      organizationId: orgId,
+      status: "ACTIVE",
+      group: { isActive: true },
+    },
+    select: {
+      groupId: true,
+    },
+  });
+
+  if (!membership) {
+    return null;
+  }
+
+  const organizationIds = await getGroupOrganizationIds(membership.groupId);
+
+  return {
+    groupId: membership.groupId,
+    organizationIds,
+  };
+}
+
 export async function canManageGroupUsers(userId: string, groupId: string): Promise<boolean> {
   const membership = await prisma.organizationGroupUser.findFirst({
     where: {

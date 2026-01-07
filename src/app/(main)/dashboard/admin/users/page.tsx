@@ -28,6 +28,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   const [canManageUserOrganizations, setCanManageUserOrganizations] = useState(false);
   const [availableOrganizations, setAvailableOrganizations] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
+  const [primaryOnly, setPrimaryOnly] = useState(true);
 
   // Estados para dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -50,6 +51,9 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
       }
       if (userRole === "SUPER_ADMIN" && selectedOrgId) {
         params.set("orgId", selectedOrgId);
+      }
+      if (primaryOnly) {
+        params.set("primaryOnly", "true");
       }
       const response = await fetch(`/api/admin/users?${params.toString()}`);
 
@@ -80,7 +84,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, [groupId, selectedOrgId, userRole]);
+  }, [groupId, primaryOnly, selectedOrgId, userRole]);
 
   useEffect(() => {
     fetchUsers();
@@ -232,6 +236,8 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
             availableOrganizations={availableOrganizations}
             selectedOrgId={selectedOrgId}
             onOrgChange={setSelectedOrgId}
+            primaryOnly={primaryOnly}
+            onPrimaryOnlyChange={setPrimaryOnly}
             groupId={groupId}
           />
         ) : (

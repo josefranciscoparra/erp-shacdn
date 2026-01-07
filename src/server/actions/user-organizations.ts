@@ -6,11 +6,7 @@ import type { Role } from "@prisma/client";
 
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
-import {
-  canManageGroupUsers,
-  getGroupManagedOrganizationIds,
-  getGroupOrganizationIds,
-} from "@/lib/organization-groups";
+import { canManageGroupUsers, getOrganizationGroupScope, getGroupOrganizationIds } from "@/lib/organization-groups";
 import { prisma } from "@/lib/prisma";
 import { canCreateRole, canEditRole, ROLE_DISPLAY_NAMES } from "@/services/permissions/role-hierarchy";
 
@@ -72,35 +68,6 @@ async function getOrgManagementScope(groupId?: string | null): Promise<OrgManage
     throw new Error("FORBIDDEN: Solo HR Admin u Org Admin pueden gestionar organizaciones");
   }
 
-  const manageableOrgIds = new Set<string>();
-
-  if (session.user.orgId) {
-    manageableOrgIds.add(session.user.orgId);
-  }
-
-  const memberships = await prisma.userOrganization.findMany({
-    where: {
-      userId: session.user.id,
-      isActive: true,
-      organization: { active: true },
-    },
-    select: {
-      orgId: true,
-      canManageUserOrganizations: true,
-    },
-  });
-
-  memberships.forEach((membership) => {
-    if (role === "ORG_ADMIN" || membership.canManageUserOrganizations) {
-      manageableOrgIds.add(membership.orgId);
-    }
-  });
-
-  const groupManagedOrgIds = await getGroupManagedOrganizationIds(session.user.id);
-  groupManagedOrgIds.forEach((orgId) => manageableOrgIds.add(orgId));
-
-  let finalOrgIds = Array.from(manageableOrgIds);
-
   if (groupId) {
     const hasAccessToGroup = await canManageGroupUsers(session.user.id, groupId);
 
@@ -109,8 +76,38 @@ async function getOrgManagementScope(groupId?: string | null): Promise<OrgManage
     }
 
     const groupOrgIds = await getGroupOrganizationIds(groupId);
-    finalOrgIds = finalOrgIds.filter((orgId) => groupOrgIds.includes(orgId));
+    return { role, isSuperAdmin: false, manageableOrgIds: groupOrgIds };
   }
+
+  const activeOrgId = session.user.activeOrgId ?? session.user.orgId;
+
+  if (!activeOrgId) {
+    throw new Error("FORBIDDEN: No hay organización activa");
+  }
+
+  const groupScope = await getOrganizationGroupScope(activeOrgId);
+  const groupOrgIds = groupScope?.organizationIds ?? [activeOrgId];
+
+  let canManageGroupScope = false;
+
+  if (role === "ORG_ADMIN") {
+    canManageGroupScope = true;
+  } else {
+    const membership = await prisma.userOrganization.findFirst({
+      where: {
+        userId: session.user.id,
+        orgId: activeOrgId,
+        isActive: true,
+      },
+      select: {
+        canManageUserOrganizations: true,
+      },
+    });
+
+    canManageGroupScope = membership?.canManageUserOrganizations ?? false;
+  }
+
+  const finalOrgIds = canManageGroupScope ? groupOrgIds : [activeOrgId];
 
   if (finalOrgIds.length === 0) {
     throw new Error("FORBIDDEN: No tienes permisos para gestionar organizaciones");
@@ -138,6 +135,8 @@ export async function listUserOrganizations(
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
+        orgId: true,
+        role: true,
         employee: {
           select: {
             orgId: true,
@@ -150,6 +149,51 @@ export async function listUserOrganizations(
         },
       },
     });
+
+    const baseOrgId = user?.employee?.orgId ?? user?.orgId ?? null;
+    const userRole = user?.role ?? null;
+
+    if (
+      baseOrgId &&
+      userRole &&
+      userRole !== "SUPER_ADMIN" &&
+      (scope.isSuperAdmin || scope.manageableOrgIds.includes(baseOrgId))
+    ) {
+      const existingBase = await prisma.userOrganization.findUnique({
+        where: {
+          userId_orgId: {
+            userId,
+            orgId: baseOrgId,
+          },
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!existingBase) {
+        const existingDefault = await prisma.userOrganization.findFirst({
+          where: {
+            userId,
+            isDefault: true,
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        await prisma.userOrganization.create({
+          data: {
+            userId,
+            orgId: baseOrgId,
+            role: userRole,
+            isDefault: !existingDefault,
+            isActive: true,
+            canManageUserOrganizations: false,
+          },
+        });
+      }
+    }
 
     const memberships = await prisma.userOrganization.findMany({
       where: scope.isSuperAdmin ? { userId } : { userId, orgId: { in: scope.manageableOrgIds } },
@@ -203,6 +247,20 @@ export async function getAvailableOrganizations(
   try {
     const scope = await getOrgManagementScope(groupId);
 
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        orgId: true,
+        employee: {
+          select: {
+            orgId: true,
+          },
+        },
+      },
+    });
+
+    const baseOrgId = user?.employee?.orgId ?? user?.orgId ?? null;
+
     // Obtener orgIds ya asignados
     const existingMemberships = await prisma.userOrganization.findMany({
       where: scope.isSuperAdmin ? { userId } : { userId, orgId: { in: scope.manageableOrgIds } },
@@ -210,12 +268,13 @@ export async function getAvailableOrganizations(
     });
 
     const assignedOrgIds = existingMemberships.map((m) => m.orgId);
+    const blockedOrgIds = baseOrgId ? Array.from(new Set([...assignedOrgIds, baseOrgId])) : assignedOrgIds;
 
     // Obtener organizaciones activas no asignadas
     const organizations = await prisma.organization.findMany({
       where: {
         active: true,
-        id: scope.isSuperAdmin ? { notIn: assignedOrgIds } : { in: scope.manageableOrgIds, notIn: assignedOrgIds },
+        id: scope.isSuperAdmin ? { notIn: blockedOrgIds } : { in: scope.manageableOrgIds, notIn: blockedOrgIds },
       },
       select: {
         id: true,

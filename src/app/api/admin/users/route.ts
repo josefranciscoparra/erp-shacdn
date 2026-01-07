@@ -11,6 +11,7 @@ import {
   getGroupManagedOrganizationIds,
   getGroupOrganizationIds,
   listAccessibleGroupsForUser,
+  getOrganizationGroupScope,
 } from "@/lib/organization-groups";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
     const groupId = searchParams.get("groupId");
     const rawRequestedOrgId = searchParams.get("orgId");
     const requestedOrgId = rawRequestedOrgId?.trim() ?? null;
+    const primaryOnly = searchParams.get("primaryOnly") === "true";
     const skip = (page - 1) * limit;
 
     const orgId = session.user.orgId;
@@ -73,7 +75,7 @@ export async function GET(request: NextRequest) {
       const membership = await prisma.userOrganization.findFirst({
         where: {
           userId: session.user.id,
-          orgId,
+          orgId: activeOrgId,
           isActive: true,
         },
         select: {
@@ -136,6 +138,17 @@ export async function GET(request: NextRequest) {
 
     let filteredOrgIds = Array.from(managedOrgIds);
 
+    if (role !== "SUPER_ADMIN" && activeOrgId) {
+      const groupScope = await getOrganizationGroupScope(activeOrgId);
+      const groupOrgIds = groupScope?.organizationIds ?? [activeOrgId];
+
+      if (role === "HR_ADMIN" && !canManageUserOrganizations) {
+        filteredOrgIds = filteredOrgIds.filter((id) => id === activeOrgId);
+      } else if (role === "ORG_ADMIN" || role === "HR_ADMIN") {
+        filteredOrgIds = filteredOrgIds.filter((id) => groupOrgIds.includes(id));
+      }
+    }
+
     if (requestedOrgId && requestedOrgId !== "all" && !managedOrgIds.has(requestedOrgId)) {
       return NextResponse.json({ error: "Sin acceso a la organización seleccionada" }, { status: 403 });
     }
@@ -197,21 +210,37 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const primaryOrgIdFilter =
+      role === "SUPER_ADMIN" && requestedOrgId !== "all" && requestedOrgId ? requestedOrgId : activeOrgId;
+
+    if (primaryOnly && groupId && groupOrgIds && primaryOrgIdFilter && !groupOrgIds.includes(primaryOrgIdFilter)) {
+      return NextResponse.json({ error: "Sin acceso a la organización seleccionada" }, { status: 403 });
+    }
+
     // Construir filtros
     const where: any = {
-      OR: [
+      role: {
+        not: "SUPER_ADMIN",
+      },
+    };
+
+    if (primaryOnly && primaryOrgIdFilter) {
+      where.orgId = primaryOrgIdFilter;
+    } else {
+      where.OR = [
         {
           userOrganizations: {
             some: {
               orgId: { in: filteredOrgIds },
+              isActive: true,
             },
           },
         },
         {
           orgId: { in: filteredOrgIds },
         },
-      ],
-    };
+      ];
+    }
 
     if (status === "active") {
       where.active = true;

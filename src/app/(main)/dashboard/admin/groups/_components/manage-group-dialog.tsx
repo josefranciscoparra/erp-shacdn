@@ -3,14 +3,16 @@
 import * as React from "react";
 
 import { type Role } from "@prisma/client";
-import { Check, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -82,6 +84,8 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
   const [selectedOrgId, setSelectedOrgId] = React.useState("");
   const [selectedUserId, setSelectedUserId] = React.useState("");
   const [selectedUserRole, setSelectedUserRole] = React.useState<Role>("HR_ADMIN");
+  const [userSearch, setUserSearch] = React.useState("");
+  const [userSelectOpen, setUserSelectOpen] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
 
   const isSuperAdmin = currentUserRole === "SUPER_ADMIN";
@@ -313,13 +317,24 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
     return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER"] as Role[];
   }, [currentUserRole]);
 
+  const selectedUser = React.useMemo(
+    () => availableUsers.find((user) => user.id === selectedUserId) ?? null,
+    [availableUsers, selectedUserId],
+  );
+
+  const filteredUsers = React.useMemo(() => {
+    const query = userSearch.trim().toLowerCase();
+    if (query.length < 2) return [];
+    return availableUsers.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(query));
+  }, [availableUsers, userSearch]);
+
   if (!group) {
     return null;
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-full max-w-4xl flex-col">
+      <DialogContent className="flex max-h-[90vh] w-full max-w-5xl flex-col">
         <DialogHeader>
           <DialogTitle>Gestionar grupo</DialogTitle>
           <DialogDescription>Administra la estructura y los permisos del grupo.</DialogDescription>
@@ -455,18 +470,51 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
             <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
               <div className="space-y-2">
                 <Label>Usuario</Label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un usuario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableUsers.map((user) => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} · {user.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={userSelectOpen} onOpenChange={setUserSelectOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" role="combobox" className="w-full justify-between">
+                      {selectedUser ? (
+                        <span className="truncate">{`${selectedUser.name} · ${selectedUser.email}`}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Selecciona un usuario</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[520px] p-0">
+                    <Command>
+                      <CommandInput placeholder="Buscar usuario..." value={userSearch} onValueChange={setUserSearch} />
+                      <CommandList>
+                        {userSearch.trim().length < 2 ? (
+                          <CommandEmpty>Escribe al menos 2 letras para buscar.</CommandEmpty>
+                        ) : filteredUsers.length === 0 ? (
+                          <CommandEmpty>No se encontraron usuarios.</CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {filteredUsers.map((user) => (
+                              <CommandItem
+                                key={user.id}
+                                value={`${user.name} ${user.email}`}
+                                onSelect={() => {
+                                  setSelectedUserId(user.id);
+                                  setUserSelectOpen(false);
+                                  setUserSearch("");
+                                }}
+                              >
+                                <Check
+                                  className={
+                                    selectedUserId === user.id ? "mr-2 h-4 w-4 opacity-100" : "mr-2 h-4 w-4 opacity-0"
+                                  }
+                                />
+                                <span className="truncate">{`${user.name} · ${user.email}`}</span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>Rol global del grupo</Label>
