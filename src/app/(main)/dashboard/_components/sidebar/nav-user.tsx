@@ -121,11 +121,7 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <a
-                href="https://timenow.notion.site/2d6e46a7af0f80faae3bfd60e00ba3e6?v=2d6e46a7af0f803c8779000c0afc6bfa"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
+              <a href="/guia-usuario.html" target="_blank" rel="noopener noreferrer">
                 <HelpCircle />
                 Centro de Ayuda
               </a>

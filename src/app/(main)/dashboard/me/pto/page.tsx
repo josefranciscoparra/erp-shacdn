@@ -128,7 +128,7 @@ export default function PtoPage() {
 
             {/* Link de ayuda */}
             <a
-              href="https://www.notion.so/Ausencias-db75b559250e45698403f537ae19112c?pvs=21"
+              href="/guia-usuario.html#vacaciones"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"

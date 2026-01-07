@@ -1070,7 +1070,7 @@ export function ClockIn() {
           <div className="flex items-center gap-2">
             <CardTitle>Fichajes de hoy</CardTitle>
             <a
-              href="https://www.notion.so/Fichajes-9d46b3bc551e436aa7bb30e79b2ec331?pvs=21"
+              href="/guia-usuario.html#fichajes"
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
