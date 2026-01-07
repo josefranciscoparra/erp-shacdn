@@ -37,6 +37,14 @@ R2_PUBLIC_URL=
 STORAGE_PROVIDER=r2
 ```
 
+### ✉️ Email (Resend)
+
+```
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
+EMAIL_FROM=no-reply@mail.timenow.cloud
+EMPLOYEE_INVITE_MIN_DELAY_MS=2000  # minimo 2000ms entre invitaciones de importacion
+```
+
 ### 🚀 Otras
 
 ```

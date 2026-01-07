@@ -5,11 +5,31 @@ import { sendEmployeeImportInvite } from "@/server/actions/employee-import/invit
 
 export type EmployeeImportInviteMode = "PENDING" | "FAILED" | "ALL";
 
+const DEFAULT_INVITE_DELAY_MS = 2000;
+
 interface InvitePerformedBy {
   id: string;
   email: string;
   name: string | null;
   role: string;
+}
+
+function resolveInviteDelayMs() {
+  const rawDelay = process.env.EMPLOYEE_INVITE_MIN_DELAY_MS;
+  if (!rawDelay) {
+    return DEFAULT_INVITE_DELAY_MS;
+  }
+
+  const parsed = Number.parseInt(rawDelay, 10);
+  if (!Number.isFinite(parsed) || parsed < DEFAULT_INVITE_DELAY_MS) {
+    return DEFAULT_INVITE_DELAY_MS;
+  }
+
+  return parsed;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function shouldSendInvite(inviteStatus: InviteStatus, mode: EmployeeImportInviteMode) {
@@ -37,8 +57,6 @@ export async function processEmployeeImportInvites(params: {
     throw new Error("Importación no encontrada.");
   }
 
-  const autoInviteEnabled = Boolean((job.options as { sendInvites?: boolean } | null)?.sendInvites);
-
   const organization = await prisma.organization.findUnique({
     where: { id: orgId },
     select: { name: true },
@@ -57,6 +75,7 @@ export async function processEmployeeImportInvites(params: {
     };
   }
 
+  const inviteDelayMs = resolveInviteDelayMs();
   let sent = 0;
   let failed = 0;
   let skipped = 0;
@@ -67,7 +86,6 @@ export async function processEmployeeImportInvites(params: {
       rowStatus: row.status,
       createdUserId: row.createdUserId,
       messages,
-      autoInviteEnabled,
     });
 
     if (!shouldSendInvite(inviteStatus, mode)) {
@@ -122,6 +140,10 @@ export async function processEmployeeImportInvites(params: {
       sent += 1;
     } else {
       failed += 1;
+    }
+
+    if (inviteDelayMs > 0) {
+      await sleep(inviteDelayMs);
     }
   }
 

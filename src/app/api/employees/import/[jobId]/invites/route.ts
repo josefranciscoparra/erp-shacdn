@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
-import type { RowMessage } from "@/lib/employee-import/types";
 import { getInviteMessage, resolveInviteStatus } from "@/lib/employee-import/invite-utils";
+import type { RowMessage } from "@/lib/employee-import/types";
+import { prisma } from "@/lib/prisma";
 import { requireEmployeeImportPermission } from "@/server/actions/employee-import/permissions";
-import { enqueueEmployeeImportInviteJob } from "@/server/jobs/employee-import-invite-queue";
 import type { EmployeeImportInviteMode } from "@/server/jobs/employee-import-invite-processor";
+import { enqueueEmployeeImportInviteJob } from "@/server/jobs/employee-import-invite-queue";
 
 function normalizeMode(mode?: string | null): EmployeeImportInviteMode {
   if (mode === "ALL" || mode === "FAILED" || mode === "PENDING") {
@@ -27,8 +27,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
     if (!job) {
       return NextResponse.json({ error: "Importación no encontrada." }, { status: 404 });
     }
-
-    const autoInviteEnabled = Boolean((job.options as { sendInvites?: boolean } | null)?.sendInvites);
 
     const rows = await prisma.employeeImportRow.findMany({
       where: { jobId },
@@ -55,7 +53,6 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
         rowStatus: row.status,
         createdUserId: row.createdUserId,
         messages,
-        autoInviteEnabled,
       });
       const fullName = `${firstName} ${lastName}`.trim();
 
@@ -66,7 +63,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ job
         fullName: fullName.length ? fullName : "—",
         email,
         inviteStatus,
-        inviteMessage: inviteMessage?.message || null,
+        inviteMessage: inviteMessage?.message ?? null,
         errorReason: row.errorReason ?? null,
       };
     });
@@ -121,8 +118,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
     const body = await request.json().catch(() => ({}));
     const mode = normalizeMode(typeof body?.mode === "string" ? body.mode : null);
 
-    const autoInviteEnabled = Boolean((job.options as { sendInvites?: boolean } | null)?.sendInvites);
-
     const rows = await prisma.employeeImportRow.findMany({
       where: { jobId, status: "IMPORTED" },
       select: { id: true, status: true, messages: true, createdUserId: true },
@@ -134,7 +129,6 @@ export async function POST(request: NextRequest, context: { params: Promise<{ jo
         rowStatus: row.status,
         createdUserId: row.createdUserId,
         messages,
-        autoInviteEnabled,
       });
 
       if (mode === "ALL") return inviteStatus !== "SENT";

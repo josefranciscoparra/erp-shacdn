@@ -3,13 +3,12 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
 import { DEFAULT_CONTRACT_TYPE } from "@/lib/contracts/contract-types";
-import { upsertInviteMessage } from "@/lib/employee-import/invite-utils";
-import type { EmployeeImportOptions, EmployeeImportRowData, RowMessage } from "@/lib/employee-import/types";
+import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
-import { sendEmployeeImportInvite } from "@/server/actions/employee-import/invite-service";
 import { recalculateJobCounters } from "@/server/actions/employee-import/service";
+import { enqueueEmployeeImportInviteJob } from "@/server/jobs/employee-import-invite-queue";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 import { daysToMinutes } from "@/services/pto";
 
@@ -228,7 +227,6 @@ async function processImportRow(params: {
   orgId: string;
   prefix: string;
   allowedDomains: string[];
-  organizationName?: string | null;
   performedBy: {
     id: string;
     email: string;
@@ -236,7 +234,7 @@ async function processImportRow(params: {
     name: string | null;
   };
 }) {
-  const { row, options, orgId, prefix, allowedDomains, performedBy, organizationName } = params;
+  const { row, options, orgId, prefix, allowedDomains, performedBy } = params;
   const data = row.rawData as EmployeeImportRowData | undefined;
   if (!data) {
     throw new Error("Fila sin datos normalizados.");
@@ -261,34 +259,6 @@ async function processImportRow(params: {
         errorReason: null,
       },
     });
-
-    if (options.sendInvites && data.email) {
-      const inviteResult = await sendEmployeeImportInvite({
-        userId: creationResult.userId,
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        orgId,
-        organizationName,
-        performedBy: { name: performedBy.name, email: performedBy.email },
-      });
-
-      const existingMessages = Array.isArray(row.messages) ? (row.messages as RowMessage[]) : [];
-      const inviteMessages = upsertInviteMessage({
-        messages: existingMessages,
-        type: inviteResult.success ? "SUCCESS" : "WARNING",
-        message: inviteResult.success
-          ? "Invitación enviada correctamente."
-          : `Invitación no enviada: ${inviteResult.error ?? "Error desconocido."}`,
-      });
-
-      await prisma.employeeImportRow.update({
-        where: { id: row.id },
-        data: {
-          messages: inviteMessages,
-        },
-      });
-    }
 
     await prisma.auditLog.create({
       data: {
@@ -371,7 +341,7 @@ export async function processEmployeeImportJob(params: {
 
   const organization = await prisma.organization.findUnique({
     where: { id: orgId },
-    select: { employeeNumberPrefix: true, allowedEmailDomains: true, name: true },
+    select: { employeeNumberPrefix: true, allowedEmailDomains: true },
   });
 
   const prefix = organization?.employeeNumberPrefix ?? "EMP";
@@ -393,7 +363,6 @@ export async function processEmployeeImportJob(params: {
       orgId,
       prefix,
       allowedDomains,
-      organizationName: organization?.name ?? undefined,
       performedBy,
     });
 
@@ -429,4 +398,18 @@ export async function processEmployeeImportJob(params: {
       userAgent: userAgent ?? undefined,
     },
   });
+
+  if (options.sendInvites && successes > 0) {
+    try {
+      await enqueueEmployeeImportInviteJob({
+        jobId,
+        orgId,
+        mode: "PENDING",
+        performedBy,
+        userAgent: userAgent ?? undefined,
+      });
+    } catch (error) {
+      console.error("[EmployeeImport] Error encolando invitaciones:", error);
+    }
+  }
 }

@@ -19,16 +19,15 @@ export function resolveInviteStatus(params: {
   rowStatus?: string | null;
   createdUserId?: string | null;
   messages?: RowMessage[] | null;
-  autoInviteEnabled?: boolean;
 }): InviteStatus {
-  const { rowStatus, createdUserId, messages, autoInviteEnabled } = params;
+  const { rowStatus, createdUserId, messages } = params;
   if (rowStatus !== "IMPORTED" || !createdUserId) {
     return "NOT_APPLICABLE";
   }
 
   const inviteMessage = getInviteMessage(messages);
   if (!inviteMessage) {
-    return autoInviteEnabled ? "SENT" : "PENDING";
+    return "PENDING";
   }
 
   if (inviteMessage.type === "SUCCESS") {
