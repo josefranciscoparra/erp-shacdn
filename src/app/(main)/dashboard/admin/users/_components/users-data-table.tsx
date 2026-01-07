@@ -50,6 +50,9 @@ interface UsersDataTableProps {
   canManageUsers: boolean;
   canManageUserOrganizations: boolean;
   currentUserRole?: Role | null;
+  availableOrganizations?: Array<{ id: string; name: string }>;
+  selectedOrgId?: string | null;
+  onOrgChange?: (orgId: string) => void;
   groupId?: string | null;
 }
 
@@ -64,6 +67,9 @@ export function UsersDataTable({
   canManageUsers,
   canManageUserOrganizations,
   currentUserRole,
+  availableOrganizations = [],
+  selectedOrgId,
+  onOrgChange,
   groupId,
 }: UsersDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
@@ -73,6 +79,14 @@ export function UsersDataTable({
   const [rowSelection, setRowSelection] = React.useState({});
   const [globalFilter, setGlobalFilter] = React.useState("");
   const [orgsDialogUser, setOrgsDialogUser] = React.useState<UserRow | null>(null);
+
+  const selectedOrganization = React.useMemo(() => {
+    if (availableOrganizations.length === 0) return null;
+    if (!selectedOrgId || selectedOrgId === "all") return null;
+    return availableOrganizations.find((org) => org.id === selectedOrgId) ?? null;
+  }, [availableOrganizations, selectedOrgId]);
+
+  const selectedOrganizationName = selectedOrganization?.name ?? undefined;
 
   const handleManageOrganizations = React.useCallback((user: UserRow) => {
     setOrgsDialogUser(user);
@@ -89,6 +103,7 @@ export function UsersDataTable({
         onManageOrganizations: canManageUserOrganizations ? handleManageOrganizations : undefined,
         canManageOrganizations: canManageUserOrganizations,
         canManage: canManageUsers,
+        selectedOrganizationName,
       }),
     [
       onViewDetails,
@@ -98,6 +113,7 @@ export function UsersDataTable({
       handleManageOrganizations,
       canManageUserOrganizations,
       canManageUsers,
+      selectedOrganizationName,
     ],
   );
 
@@ -165,6 +181,7 @@ export function UsersDataTable({
   }, [data]);
 
   const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;
+  const showOrgSelector = currentUserRole === "SUPER_ADMIN" && availableOrganizations.length > 0;
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-col justify-start gap-6">
@@ -198,6 +215,21 @@ export function UsersDataTable({
           </TabsTrigger>
         </TabsList>
         <div className="flex items-center gap-2">
+          {showOrgSelector && onOrgChange && (
+            <Select value={selectedOrgId ?? ""} onValueChange={onOrgChange}>
+              <SelectTrigger className="w-[220px]" size="sm">
+                <SelectValue placeholder="Selecciona organización" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las organizaciones</SelectItem>
+                {availableOrganizations.map((org) => (
+                  <SelectItem key={org.id} value={org.id}>
+                    {org.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <DataTableViewOptions table={table} />
           {canCreateUsers && (
             <Button size="sm" onClick={onCreateUser}>

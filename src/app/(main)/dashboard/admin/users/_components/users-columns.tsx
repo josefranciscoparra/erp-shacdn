@@ -23,6 +23,11 @@ export interface UserRow {
   active: boolean;
   mustChangePassword: boolean;
   createdAt: Date;
+  orgId?: string;
+  organization?: {
+    id: string;
+    name: string | null;
+  } | null;
   _count?: {
     temporaryPasswords: number;
     userOrganizations: number;
@@ -69,6 +74,7 @@ interface UsersColumnsProps {
   onManageOrganizations?: (user: UserRow) => void;
   canManageOrganizations?: boolean;
   canManage?: boolean;
+  selectedOrganizationName?: string;
 }
 
 export const createUsersColumns = ({
@@ -79,6 +85,7 @@ export const createUsersColumns = ({
   onManageOrganizations,
   canManageOrganizations = false,
   canManage = false,
+  selectedOrganizationName,
 }: UsersColumnsProps): ColumnDef<UserRow>[] => [
   {
     accessorKey: "name",
@@ -101,6 +108,20 @@ export const createUsersColumns = ({
     header: "Email",
     cell: ({ row }) => {
       return <span className="text-muted-foreground text-sm">{row.getValue("email")}</span>;
+    },
+  },
+  {
+    id: "organization",
+    header: "Organización",
+    cell: ({ row }) => {
+      const organizationName =
+        selectedOrganizationName ?? row.original.organization?.name ?? row.original.orgId ?? "Organización";
+      return (
+        <Badge variant="outline" className="bg-blue-500/10 text-blue-700 dark:text-blue-300">
+          <Building2 className="mr-1 h-3 w-3" />
+          {organizationName}
+        </Badge>
+      );
     },
   },
   {

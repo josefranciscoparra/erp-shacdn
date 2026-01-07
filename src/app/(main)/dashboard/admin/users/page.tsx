@@ -26,6 +26,8 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<Role | null>(null);
   const [canManageUserOrganizations, setCanManageUserOrganizations] = useState(false);
+  const [availableOrganizations, setAvailableOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState<string | null>(null);
 
   // Estados para dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -37,7 +39,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   // Usuario seleccionado para acciones
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
 
-  const fetchUsers = useCallback(async (groupId?: string | null) => {
+  const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
@@ -46,6 +48,9 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
       if (groupId) {
         params.set("groupId", groupId);
       }
+      if (userRole === "SUPER_ADMIN" && selectedOrgId) {
+        params.set("orgId", selectedOrgId);
+      }
       const response = await fetch(`/api/admin/users?${params.toString()}`);
 
       if (!response.ok) {
@@ -53,9 +58,21 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
       }
 
       const data = await response.json();
+      const nextRole = data.currentUserRole ?? null;
+      const nextOrganizations = data.availableOrganizations ?? [];
+
       setUsers(data.users ?? []);
-      setUserRole(data.currentUserRole ?? null);
+      setUserRole(nextRole);
       setCanManageUserOrganizations(data.canManageUserOrganizations ?? false);
+      setAvailableOrganizations(nextOrganizations);
+
+      if (nextRole === "SUPER_ADMIN" && !selectedOrgId) {
+        let defaultOrgId = data.activeOrgId ?? null;
+        defaultOrgId ??= nextOrganizations[0]?.id ?? null;
+        if (defaultOrgId) {
+          setSelectedOrgId(defaultOrgId);
+        }
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Error desconocido";
       setError(errorMessage);
@@ -63,15 +80,15 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [groupId, selectedOrgId, userRole]);
 
   useEffect(() => {
-    fetchUsers(groupId);
-  }, [fetchUsers, groupId]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleUserCreated = () => {
     setCreateDialogOpen(false);
-    fetchUsers(groupId);
+    fetchUsers();
   };
 
   // Handlers para acciones
@@ -96,7 +113,7 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
   };
 
   const handleActionSuccess = () => {
-    fetchUsers(groupId);
+    fetchUsers();
   };
 
   // Determinar roles permitidos basándose en el rol del usuario actual
@@ -212,6 +229,9 @@ export default function UsersManagementPage({ groupId }: { groupId?: string }) {
             canManageUsers={canManageUsers}
             canManageUserOrganizations={canManageUserOrganizations}
             currentUserRole={userRole}
+            availableOrganizations={availableOrganizations}
+            selectedOrgId={selectedOrgId}
+            onOrgChange={setSelectedOrgId}
             groupId={groupId}
           />
         ) : (

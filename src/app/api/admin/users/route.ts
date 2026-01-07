@@ -50,10 +50,17 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") ?? "10");
     const status = searchParams.get("status"); // active, inactive, with-temp-password, all
     const groupId = searchParams.get("groupId");
+    const rawRequestedOrgId = searchParams.get("orgId");
+    const requestedOrgId = rawRequestedOrgId?.trim() ?? null;
     const skip = (page - 1) * limit;
 
     const orgId = session.user.orgId;
     const role = session.user.role as Role;
+    const activeOrgId = session.user.activeOrgId ?? orgId;
+
+    if (requestedOrgId === "all" && role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Sin permisos para ver todas las organizaciones" }, { status: 403 });
+    }
 
     let canManageUserOrganizations = effectivePermissions.has("manage_user_organizations");
 
@@ -82,13 +89,19 @@ export async function GET(request: NextRequest) {
     }
 
     const managedOrgIds = new Set<string>();
+    let availableOrganizations: Array<{ id: string; name: string }> = [];
 
     if (role === "SUPER_ADMIN") {
       const orgs = await prisma.organization.findMany({
         where: { active: true },
-        select: { id: true },
+        select: { id: true, name: true },
+        orderBy: { name: "asc" },
       });
       orgs.forEach((org) => managedOrgIds.add(org.id));
+      availableOrganizations = orgs.map((org) => ({
+        id: org.id,
+        name: org.name ?? "Organización",
+      }));
     } else if (role === "ORG_ADMIN") {
       const memberships = await prisma.userOrganization.findMany({
         where: {
@@ -123,6 +136,21 @@ export async function GET(request: NextRequest) {
 
     let filteredOrgIds = Array.from(managedOrgIds);
 
+    if (requestedOrgId && requestedOrgId !== "all" && !managedOrgIds.has(requestedOrgId)) {
+      return NextResponse.json({ error: "Sin acceso a la organización seleccionada" }, { status: 403 });
+    }
+
+    if (role === "SUPER_ADMIN") {
+      if (requestedOrgId !== "all") {
+        const targetOrgId = requestedOrgId ?? activeOrgId ?? orgId;
+        filteredOrgIds = targetOrgId ? [targetOrgId] : [];
+      }
+    } else if (requestedOrgId && requestedOrgId !== "all") {
+      filteredOrgIds = [requestedOrgId];
+    }
+
+    let groupOrgIds: string[] | null = null;
+
     if (groupId) {
       const hasAccessToGroup = role === "SUPER_ADMIN" ? true : await canManageGroupUsers(session.user.id, groupId);
 
@@ -130,8 +158,28 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Sin acceso al grupo seleccionado" }, { status: 403 });
       }
 
-      const groupOrgIds = await getGroupOrganizationIds(groupId);
+      groupOrgIds = await getGroupOrganizationIds(groupId);
       filteredOrgIds = filteredOrgIds.filter((id) => groupOrgIds.includes(id));
+    }
+
+    if (availableOrganizations.length === 0) {
+      const availableOrgIds = groupOrgIds
+        ? Array.from(managedOrgIds).filter((id) => groupOrgIds.includes(id))
+        : Array.from(managedOrgIds);
+
+      if (availableOrgIds.length > 0) {
+        const orgs = await prisma.organization.findMany({
+          where: { id: { in: availableOrgIds }, active: true },
+          select: { id: true, name: true },
+          orderBy: { name: "asc" },
+        });
+        availableOrganizations = orgs.map((org) => ({
+          id: org.id,
+          name: org.name ?? "Organización",
+        }));
+      }
+    } else if (groupOrgIds) {
+      availableOrganizations = availableOrganizations.filter((org) => groupOrgIds.includes(org.id));
     }
 
     if (filteredOrgIds.length === 0) {
@@ -143,6 +191,8 @@ export async function GET(request: NextRequest) {
         totalPages: 0,
         currentUserRole: role,
         canManageUserOrganizations,
+        activeOrgId,
+        availableOrganizations,
         groups: await listAccessibleGroupsForUser(session.user.id, role),
       });
     }
@@ -183,6 +233,12 @@ export async function GET(request: NextRequest) {
       prisma.user.findMany({
         where,
         include: {
+          organization: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
           employee: {
             select: {
               id: true,
@@ -259,6 +315,8 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
       currentUserRole: role,
       canManageUserOrganizations,
+      activeOrgId,
+      availableOrganizations,
       groups,
     });
   } catch (error) {
