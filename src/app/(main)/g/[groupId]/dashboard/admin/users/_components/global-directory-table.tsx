@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { type Role } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import { ColumnDef, flexRender, getCoreRowModel, getPaginationRowModel, useReactTable } from "@tanstack/react-table";
-import { Search, Settings2 } from "lucide-react";
+import { Building2, Crown, Search, Settings2, ShieldCheck, UserCog, Users } from "lucide-react";
 
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -37,6 +37,53 @@ type OrgUserRow = {
 };
 
 const HR_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
+
+// Colores hex sólidos para Safari - mismos que /dashboard/admin/users
+const ROLE_BADGE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  ORG_ADMIN: { bg: "#dbeafe", text: "#1d4ed8", icon: <Crown className="h-3 w-3" /> }, // blue
+  HR_ADMIN: { bg: "#dcfce7", text: "#15803d", icon: <ShieldCheck className="h-3 w-3" /> }, // green
+  HR_ASSISTANT: { bg: "#ccfbf1", text: "#0f766e", icon: <UserCog className="h-3 w-3" /> }, // teal
+  MANAGER: { bg: "#ffedd5", text: "#c2410c", icon: <Users className="h-3 w-3" /> }, // orange
+  EMPLOYEE: { bg: "#f3f4f6", text: "#374151", icon: <Users className="h-3 w-3" /> }, // gray
+};
+
+const ROLE_BADGE_STYLES_DARK: Record<string, { bg: string; text: string }> = {
+  ORG_ADMIN: { bg: "#1e3a5f", text: "#93c5fd" },
+  HR_ADMIN: { bg: "#14532d", text: "#86efac" },
+  HR_ASSISTANT: { bg: "#134e4a", text: "#5eead4" },
+  MANAGER: { bg: "#7c2d12", text: "#fdba74" },
+  EMPLOYEE: { bg: "#374151", text: "#9ca3af" },
+};
+
+function RoleBadgeCompact({ role }: { role: Role }) {
+  const lightStyles = ROLE_BADGE_STYLES[role];
+  const darkStyles = ROLE_BADGE_STYLES_DARK[role];
+
+  if (!lightStyles) {
+    return <Badge variant="outline">{ROLE_DISPLAY_NAMES[role]}</Badge>;
+  }
+
+  return (
+    <>
+      {/* Light mode */}
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium dark:hidden"
+        style={{ backgroundColor: lightStyles.bg, color: lightStyles.text }}
+      >
+        {lightStyles.icon}
+        {ROLE_DISPLAY_NAMES[role]}
+      </span>
+      {/* Dark mode */}
+      <span
+        className="hidden items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium dark:inline-flex"
+        style={{ backgroundColor: darkStyles.bg, color: darkStyles.text }}
+      >
+        {lightStyles.icon}
+        {ROLE_DISPLAY_NAMES[role]}
+      </span>
+    </>
+  );
+}
 
 export function GroupOrganizationUsersTable({
   data,
@@ -133,9 +180,9 @@ export function GroupOrganizationUsersTable({
           const user = row.original;
           return (
             <div className="flex items-center gap-3">
-              <Avatar>
+              <Avatar className="h-9 w-9">
                 <AvatarImage src={user.image ?? ""} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarFallback className="text-sm">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col">
                 <span className="font-medium">{user.name}</span>
@@ -148,18 +195,14 @@ export function GroupOrganizationUsersTable({
       {
         accessorKey: "role",
         header: "Rol en la empresa",
-        cell: ({ row }) => (
-          <Badge variant="outline" className="bg-background">
-            {ROLE_DISPLAY_NAMES[row.original.role]}
-          </Badge>
-        ),
+        cell: ({ row }) => <RoleBadgeCompact role={row.original.role} />,
       },
       {
         id: "actions",
         cell: ({ row }) => (
-          <Button variant="ghost" size="sm" onClick={() => handleManageAccess(row.original.userId)}>
+          <Button variant="outline" size="sm" onClick={() => handleManageAccess(row.original.userId)}>
             <Settings2 className="mr-2 h-4 w-4" />
-            Gestionar accesos
+            Gestionar
           </Button>
         ),
       },
@@ -176,20 +219,44 @@ export function GroupOrganizationUsersTable({
 
   if (organizations.length === 0) {
     return (
-      <div className="text-muted-foreground rounded-lg border p-6 text-center">
-        No hay organizaciones activas en este grupo.
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed py-12">
+        <Building2 className="text-muted-foreground/40 h-10 w-10" />
+        <p className="text-muted-foreground text-sm">No hay organizaciones activas en este grupo</p>
       </div>
     );
   }
 
   const emptyMessage = showEmployees
-    ? "No hay usuarios asignados a esta empresa."
-    : "No hay roles de RRHH asignados en esta empresa.";
+    ? "No hay usuarios asignados a esta empresa"
+    : "No hay roles de RRHH asignados en esta empresa";
 
   return (
     <div className="space-y-4">
-      <Tabs value={activeOrgId} onValueChange={setActiveOrgId} className="w-full">
-        <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center @4xl/main:justify-between">
+      {/* Header con tabs de empresas y switch */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-base font-medium">Accesos por empresa</h3>
+            <p className="text-muted-foreground text-sm">Usuarios con acceso a las empresas del grupo</p>
+          </div>
+
+          {/* Switch con estilos Safari-safe */}
+          <div className="flex items-center gap-3">
+            <Switch
+              id="show-employees"
+              checked={showEmployees}
+              onCheckedChange={setShowEmployees}
+              className="wizard-switch"
+            />
+            <Label htmlFor="show-employees" className="cursor-pointer text-sm">
+              Incluir empleados
+            </Label>
+          </div>
+        </div>
+
+        {/* Tabs de empresas */}
+        <Tabs value={activeOrgId} onValueChange={setActiveOrgId} className="w-full">
+          {/* Mobile: Select */}
           <div className="@4xl/main:hidden">
             <Select value={activeOrgId} onValueChange={setActiveOrgId}>
               <SelectTrigger>
@@ -198,21 +265,30 @@ export function GroupOrganizationUsersTable({
               <SelectContent>
                 {organizations.map((org) => (
                   <SelectItem key={org.id} value={org.id}>
-                    {org.name}
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4" />
+                      {org.name}
+                      <Badge variant="secondary" className="ml-1">
+                        {orgCounts.get(org.id) ?? 0}
+                      </Badge>
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
+
+          {/* Desktop: Tabs con scroll horizontal */}
           <div className="hidden w-full overflow-x-auto @4xl/main:block">
-            <TabsList className="flex w-full min-w-max flex-nowrap justify-start gap-2 bg-transparent p-0">
+            <TabsList className="inline-flex h-auto w-auto gap-1 bg-transparent p-0">
               {organizations.map((org) => (
                 <TabsTrigger
                   key={org.id}
                   value={org.id}
-                  className="bg-background data-[state=active]:border-primary/40 border data-[state=active]:shadow-sm"
+                  className="bg-muted/50 data-[state=active]:bg-background data-[state=active]:border-primary/30 rounded-md border px-3 py-1.5 data-[state=active]:shadow-sm"
                 >
-                  <span className="max-w-[220px] truncate">{org.name}</span>
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span className="max-w-[180px] truncate">{org.name}</span>
                   <Badge variant="secondary" className="ml-2">
                     {orgCounts.get(org.id) ?? 0}
                   </Badge>
@@ -220,34 +296,28 @@ export function GroupOrganizationUsersTable({
               ))}
             </TabsList>
           </div>
-          <div className="flex items-center gap-2">
-            <Switch id="show-employees" checked={showEmployees} onCheckedChange={setShowEmployees} />
-            <Label htmlFor="show-employees" className="text-sm">
-              Mostrar empleados
-            </Label>
-          </div>
-        </div>
-      </Tabs>
-
-      <div className="flex flex-col gap-3 @4xl/main:flex-row @4xl/main:items-center">
-        <div className="relative max-w-sm flex-1">
-          <Search className="text-muted-foreground absolute top-2.5 left-2 h-4 w-4" />
-          <Input
-            placeholder="Buscar por nombre o email..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            className="pl-8"
-          />
-        </div>
+        </Tabs>
       </div>
 
-      <div className="rounded-md border">
+      {/* Buscador */}
+      <div className="relative max-w-sm">
+        <Search className="text-muted-foreground absolute top-2.5 left-3 h-4 w-4" />
+        <Input
+          placeholder="Buscar por nombre o email..."
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="pl-9"
+        />
+      </div>
+
+      {/* Tabla */}
+      <div className="overflow-hidden rounded-lg border shadow-xs">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="bg-muted/50">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -266,7 +336,10 @@ export function GroupOrganizationUsersTable({
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  {emptyMessage}
+                  <div className="flex flex-col items-center gap-2">
+                    <Users className="text-muted-foreground/40 h-8 w-8" />
+                    <p className="text-muted-foreground text-sm">{emptyMessage}</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}

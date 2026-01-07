@@ -5,9 +5,9 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Role } from "@prisma/client";
+import type { Role } from "@prisma/client";
 import { ColumnDef, flexRender, getCoreRowModel, useReactTable, getPaginationRowModel } from "@tanstack/react-table";
-import { Loader2, MoreHorizontal, Plus, Trash2 } from "lucide-react";
+import { Crown, Loader2, MoreHorizontal, Plus, ShieldCheck, Trash2, UserCog } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -36,24 +36,140 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { addGroupAdmin, GroupAdminRow, removeGroupAdmin, updateGroupAdmin } from "@/server/actions/group-users";
+import { addGroupAdmin, type GroupAdminRow, removeGroupAdmin, updateGroupAdmin } from "@/server/actions/group-users";
 import { ROLE_DISPLAY_NAMES } from "@/services/permissions/role-hierarchy";
 
 interface GroupAdminsTableProps {
   data: GroupAdminRow[];
   groupId: string;
-  currentUserRole: Role; // Para permisos de UI
+  currentUserRole: Role;
 }
 
 // Roles permitidos para asignar a nivel de grupo
 const ALLOWED_GROUP_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
+
+// Colores hex sólidos para Safari - mismos que /dashboard/admin/users
+const ROLE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
+  ORG_ADMIN: { bg: "#dbeafe", text: "#1d4ed8", icon: <Crown className="h-3 w-3" /> }, // blue
+  HR_ADMIN: { bg: "#dcfce7", text: "#15803d", icon: <ShieldCheck className="h-3 w-3" /> }, // green
+  HR_ASSISTANT: { bg: "#ccfbf1", text: "#0f766e", icon: <UserCog className="h-3 w-3" /> }, // teal
+};
+
+const ROLE_STYLES_DARK: Record<string, { bg: string; text: string }> = {
+  ORG_ADMIN: { bg: "#1e3a5f", text: "#93c5fd" },
+  HR_ADMIN: { bg: "#14532d", text: "#86efac" },
+  HR_ASSISTANT: { bg: "#134e4a", text: "#5eead4" },
+};
+
+function RoleBadge({ role }: { role: Role }) {
+  const lightStyles = ROLE_STYLES[role];
+  const darkStyles = ROLE_STYLES_DARK[role];
+
+  if (!lightStyles) {
+    return <Badge variant="outline">{ROLE_DISPLAY_NAMES[role]}</Badge>;
+  }
+
+  return (
+    <>
+      {/* Light mode */}
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium dark:hidden"
+        style={{ backgroundColor: lightStyles.bg, color: lightStyles.text }}
+      >
+        {lightStyles.icon}
+        {ROLE_DISPLAY_NAMES[role]}
+      </span>
+      {/* Dark mode */}
+      <span
+        className="hidden items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium dark:inline-flex"
+        style={{ backgroundColor: darkStyles.bg, color: darkStyles.text }}
+      >
+        {lightStyles.icon}
+        {ROLE_DISPLAY_NAMES[role]}
+      </span>
+    </>
+  );
+}
+
+function StatusBadge({ isActive }: { isActive: boolean }) {
+  if (isActive) {
+    return (
+      <>
+        {/* Light mode */}
+        <span
+          className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium dark:hidden"
+          style={{
+            backgroundColor: "#dcfce7", // green-100
+            color: "#166534", // green-800
+            border: "1px solid #86efac", // green-300
+          }}
+        >
+          <span
+            style={{
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: "#22c55e", // green-500
+            }}
+          />
+          Activo
+        </span>
+        {/* Dark mode */}
+        <span
+          className="hidden items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium dark:inline-flex"
+          style={{
+            backgroundColor: "#14532d", // green-900
+            color: "#86efac", // green-300
+            border: "1px solid #166534", // green-800
+          }}
+        >
+          <span
+            style={{
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              backgroundColor: "#22c55e", // green-500
+            }}
+          />
+          Activo
+        </span>
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Light mode */}
+      <span
+        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium dark:hidden"
+        style={{
+          backgroundColor: "#f3f4f6", // gray-100
+          color: "#4b5563", // gray-600
+          border: "1px solid #d1d5db", // gray-300
+        }}
+      >
+        Inactivo
+      </span>
+      {/* Dark mode */}
+      <span
+        className="hidden items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium dark:inline-flex"
+        style={{
+          backgroundColor: "#374151", // gray-700
+          color: "#9ca3af", // gray-400
+          border: "1px solid #4b5563", // gray-600
+        }}
+      >
+        Inactivo
+      </span>
+    </>
+  );
+}
 
 export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdminsTableProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
-  // Form schema for adding admin
   const formSchema = z.object({
     email: z.string().email("Email inválido"),
     role: z.enum(["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"] as [string, ...string[]]),
@@ -120,9 +236,9 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
         const user = row.original;
         return (
           <div className="flex items-center gap-3">
-            <Avatar>
+            <Avatar className="h-9 w-9">
               <AvatarImage src={user.image ?? ""} />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-sm">{user.name.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
               <span className="font-medium">{user.name}</span>
@@ -138,14 +254,13 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
       cell: ({ row }) => {
         const user = row.original;
 
-        // Si el usuario actual es HR_ADMIN, no puede editar ORG_ADMINs
         const canEdit =
           currentUserRole === "ORG_ADMIN" ||
           currentUserRole === "SUPER_ADMIN" ||
           (currentUserRole === "HR_ADMIN" && user.role !== "ORG_ADMIN");
 
         if (!canEdit) {
-          return <Badge variant="outline">{ROLE_DISPLAY_NAMES[user.role]}</Badge>;
+          return <RoleBadge role={user.role} />;
         }
 
         return (
@@ -154,18 +269,16 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
             defaultValue={user.role}
             onValueChange={(val) => handleUpdateRole(user.id, val as Role)}
           >
-            <SelectTrigger className="h-8 w-[180px]">
+            <SelectTrigger className="h-8 w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {ALLOWED_GROUP_ROLES.map((role) => (
-                <SelectItem
-                  key={role}
-                  value={role}
-                  // HR_ADMIN no puede ascender a ORG_ADMIN
-                  disabled={currentUserRole === "HR_ADMIN" && role === "ORG_ADMIN"}
-                >
-                  {ROLE_DISPLAY_NAMES[role]}
+                <SelectItem key={role} value={role} disabled={currentUserRole === "HR_ADMIN" && role === "ORG_ADMIN"}>
+                  <div className="flex items-center gap-2">
+                    {ROLE_STYLES[role]?.icon}
+                    {ROLE_DISPLAY_NAMES[role]}
+                  </div>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -176,11 +289,7 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
     {
       id: "status",
       header: "Estado",
-      cell: ({ row }) => (
-        <Badge variant={row.original.isActive ? "default" : "secondary"}>
-          {row.original.isActive ? "Activo" : "Inactivo"}
-        </Badge>
-      ),
+      cell: ({ row }) => <StatusBadge isActive={row.original.isActive} />,
     },
     {
       id: "actions",
@@ -204,7 +313,10 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-red-600 focus:text-red-600" onClick={() => handleRemove(user.id)}>
+              <DropdownMenuItem
+                className="text-red-600 focus:bg-red-50 focus:text-red-600 dark:focus:bg-red-950"
+                onClick={() => handleRemove(user.id)}
+              >
                 <Trash2 className="mr-2 h-4 w-4" />
                 Revocar acceso
               </DropdownMenuItem>
@@ -225,19 +337,22 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Administradores del Grupo</h3>
+        <div>
+          <h3 className="text-base font-medium">Administradores del grupo</h3>
+          <p className="text-muted-foreground text-sm">Usuarios con permisos de gestión en este grupo</p>
+        </div>
 
         {(currentUserRole === "ORG_ADMIN" || currentUserRole === "SUPER_ADMIN" || currentUserRole === "HR_ADMIN") && (
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button>
+              <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
-                Añadir Administrador
+                Añadir
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Añadir Administrador al Grupo</DialogTitle>
+                <DialogTitle>Añadir administrador</DialogTitle>
                 <DialogDescription>Invita a un usuario existente para que gestione este grupo.</DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -260,7 +375,7 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
                     name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Rol de Grupo</FormLabel>
+                        <FormLabel>Rol de grupo</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -269,10 +384,23 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
                           </FormControl>
                           <SelectContent>
                             <SelectItem value="ORG_ADMIN" disabled={currentUserRole === "HR_ADMIN"}>
-                              Admin de Organización (Grupo)
+                              <div className="flex items-center gap-2">
+                                <Crown className="h-3 w-3" />
+                                Admin de Organización
+                              </div>
                             </SelectItem>
-                            <SelectItem value="HR_ADMIN">Admin de RRHH (Grupo)</SelectItem>
-                            <SelectItem value="HR_ASSISTANT">Asistente RRHH (Grupo)</SelectItem>
+                            <SelectItem value="HR_ADMIN">
+                              <div className="flex items-center gap-2">
+                                <ShieldCheck className="h-3 w-3" />
+                                Admin de RRHH
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="HR_ASSISTANT">
+                              <div className="flex items-center gap-2">
+                                <UserCog className="h-3 w-3" />
+                                Asistente RRHH
+                              </div>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         <FormMessage />
@@ -292,13 +420,13 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
         )}
       </div>
 
-      <div className="rounded-md border">
+      <div className="overflow-hidden rounded-lg border shadow-xs">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
+                  <TableHead key={header.id} className="bg-muted/50">
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}
                   </TableHead>
                 ))}
@@ -317,7 +445,10 @@ export function GroupAdminsTable({ data, groupId, currentUserRole }: GroupAdmins
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No hay administradores definidos.
+                  <div className="flex flex-col items-center gap-2">
+                    <UserCog className="text-muted-foreground/40 h-8 w-8" />
+                    <p className="text-muted-foreground text-sm">No hay administradores definidos</p>
+                  </div>
                 </TableCell>
               </TableRow>
             )}
