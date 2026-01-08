@@ -91,7 +91,7 @@ export default function EditEmployeeSchedulePage() {
   const [error, setError] = useState<string | null>(null);
 
   // Form state
-  const [scheduleType, setScheduleType] = useState<"FIXED" | "SHIFT" | null>(null);
+  const [scheduleType, setScheduleType] = useState<"FIXED" | "SHIFT" | "FLEXIBLE" | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [validFrom, setValidFrom] = useState<Date>(new Date());
 
@@ -113,14 +113,13 @@ export default function EditEmployeeSchedulePage() {
         const assignmentData = await getEmployeeCurrentAssignment(params.id as string);
         if (assignmentData) {
           setCurrentAssignment(assignmentData as CurrentAssignment);
-          setScheduleType(assignmentData.assignmentType as "FIXED" | "SHIFT");
+          setScheduleType(assignmentData.assignmentType as "FIXED" | "SHIFT" | "FLEXIBLE");
           setSelectedTemplateId(assignmentData.scheduleTemplateId);
         }
 
-        // Fetch available templates (only FIXED type)
+        // Fetch available templates (FIXED y FLEXIBLE)
         const templatesData = await getScheduleTemplates({ isActive: true });
-        const fixedTemplates = templatesData.filter((t: ScheduleTemplate) => t.templateType === "FIXED");
-        setTemplates(fixedTemplates);
+        setTemplates(templatesData);
       } catch (err: unknown) {
         const errorMessage = err instanceof Error ? err.message : "Error desconocido";
         setError(errorMessage);
@@ -158,7 +157,8 @@ export default function EditEmployeeSchedulePage() {
       const result = await assignScheduleToEmployee({
         employeeId: params.id as string,
         assignmentType: scheduleType,
-        scheduleTemplateId: scheduleType === "FIXED" ? (selectedTemplateId ?? undefined) : undefined,
+        scheduleTemplateId:
+          scheduleType === "FIXED" || scheduleType === "FLEXIBLE" ? (selectedTemplateId ?? undefined) : undefined,
         validFrom,
       });
 
@@ -219,6 +219,10 @@ export default function EditEmployeeSchedulePage() {
     );
   }
 
+  const fixedTemplates = templates.filter((template) => template.templateType === "FIXED");
+  const flexibleTemplates = templates.filter((template) => template.templateType === "FLEXIBLE");
+  const activeTemplates = scheduleType === "FLEXIBLE" ? flexibleTemplates : fixedTemplates;
+
   const fullName = `${employee.firstName} ${employee.lastName}${employee.secondLastName ? ` ${employee.secondLastName}` : ""}`;
 
   return (
@@ -265,12 +269,13 @@ export default function EditEmployeeSchedulePage() {
             <RadioGroup
               value={scheduleType ?? ""}
               onValueChange={(value) => {
-                setScheduleType(value as "FIXED" | "SHIFT");
-                if (value === "SHIFT") {
+                const nextType = value as "FIXED" | "SHIFT" | "FLEXIBLE";
+                setScheduleType(nextType);
+                if (nextType !== scheduleType) {
                   setSelectedTemplateId(null);
                 }
               }}
-              className="grid grid-cols-2 gap-4"
+              className="grid grid-cols-1 gap-4 @md/main:grid-cols-3"
             >
               {/* Fixed schedule option */}
               <div
@@ -308,21 +313,52 @@ export default function EditEmployeeSchedulePage() {
                 </div>
                 <RadioGroupItem value="SHIFT" className="sr-only" />
               </div>
+
+              {/* Flexible option */}
+              <div
+                className={cn(
+                  "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 p-6 transition-all",
+                  scheduleType === "FLEXIBLE" ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40",
+                )}
+                onClick={() => {
+                  setScheduleType("FLEXIBLE");
+                  setSelectedTemplateId(null);
+                }}
+              >
+                <Clock
+                  className={cn("h-8 w-8", scheduleType === "FLEXIBLE" ? "text-primary" : "text-muted-foreground")}
+                />
+                <div className="text-center">
+                  <Label className="cursor-pointer text-base font-semibold">Flexible total</Label>
+                  <p className="text-muted-foreground mt-1 text-xs">Objetivo semanal sin franjas</p>
+                </div>
+                <RadioGroupItem value="FLEXIBLE" className="sr-only" />
+              </div>
             </RadioGroup>
           </CardContent>
         </Card>
 
-        {/* Template selection for FIXED */}
-        {scheduleType === "FIXED" && (
+        {/* Template selection for FIXED/FLEXIBLE */}
+        {(scheduleType === "FIXED" || scheduleType === "FLEXIBLE") && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Plantilla de Horario</CardTitle>
-              <CardDescription>Selecciona una plantilla de horario semanal</CardDescription>
+              <CardTitle className="text-lg">
+                {scheduleType === "FLEXIBLE" ? "Plantilla Flexible Total" : "Plantilla de Horario"}
+              </CardTitle>
+              <CardDescription>
+                {scheduleType === "FLEXIBLE"
+                  ? "Selecciona una plantilla flexible con objetivo semanal"
+                  : "Selecciona una plantilla de horario semanal"}
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              {templates.length === 0 ? (
+              {activeTemplates.length === 0 ? (
                 <div className="py-8 text-center">
-                  <p className="text-muted-foreground text-sm">No hay plantillas de horario fijo disponibles.</p>
+                  <p className="text-muted-foreground text-sm">
+                    {scheduleType === "FLEXIBLE"
+                      ? "No hay plantillas flexibles disponibles."
+                      : "No hay plantillas de horario fijo disponibles."}
+                  </p>
                   <Button variant="outline" size="sm" className="mt-4" asChild>
                     <Link href="/dashboard/schedules" target="_blank">
                       <ExternalLink className="mr-2 h-4 w-4" />
@@ -336,7 +372,7 @@ export default function EditEmployeeSchedulePage() {
                   onValueChange={setSelectedTemplateId}
                   className="space-y-3"
                 >
-                  {templates.map((template) => (
+                  {activeTemplates.map((template) => (
                     <div
                       key={template.id}
                       className={cn(
@@ -426,7 +462,11 @@ export default function EditEmployeeSchedulePage() {
           </Button>
           <Button
             onClick={handleSave}
-            disabled={!scheduleType || (scheduleType === "FIXED" && !selectedTemplateId) || isSaving}
+            disabled={
+              !scheduleType ||
+              ((scheduleType === "FIXED" || scheduleType === "FLEXIBLE") && !selectedTemplateId) ||
+              isSaving
+            }
           >
             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
             Guardar Cambios

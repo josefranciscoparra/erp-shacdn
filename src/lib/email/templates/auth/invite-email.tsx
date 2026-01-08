@@ -73,6 +73,20 @@ export function InviteEmail({
 
         <EmailButton href={inviteUrl} label="Crear mi cuenta" />
 
+        <table width="100%" cellPadding="0" cellSpacing="0" style={styles.guideContainer}>
+          <tr>
+            <td align="center">
+              <div style={styles.guideBadge}>
+                <span style={styles.guideIcon}>📚</span>
+                <span style={styles.guideQuestion}>¿Necesitas ayuda para empezar?</span>
+              </div>
+              <a href="https://app.timenow.cloud/guia-usuario.html" style={styles.guideLink}>
+                Consulta nuestra guía de primeros pasos →
+              </a>
+            </td>
+          </tr>
+        </table>
+
         {formattedExpiration && <Text style={styles.expirationText}>Este enlace expira el {formattedExpiration}.</Text>}
 
         <EmailHelpSection supportEmail={supportEmail} />
@@ -87,6 +101,33 @@ const styles = {
   logo: {
     margin: "0 auto 24px",
     display: "block",
+  },
+  guideContainer: {
+    margin: "28px 0 0",
+    padding: "20px",
+    backgroundColor: "#F8FAFC",
+    borderRadius: "8px",
+    border: "1px solid #E2E8F0",
+  },
+  guideBadge: {
+    display: "block",
+    marginBottom: "8px",
+  },
+  guideIcon: {
+    fontSize: "18px",
+    marginRight: "6px",
+  },
+  guideQuestion: {
+    fontSize: "14px",
+    color: "#64748B",
+    fontWeight: "500" as const,
+  },
+  guideLink: {
+    display: "inline-block",
+    fontSize: "14px",
+    fontWeight: "600" as const,
+    color: "#2563EB",
+    textDecoration: "none",
   },
   expirationText: {
     margin: "16px 0 0",

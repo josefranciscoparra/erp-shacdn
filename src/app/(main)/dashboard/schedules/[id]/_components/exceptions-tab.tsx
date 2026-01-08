@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 
+import type { ScheduleTemplateType } from "@prisma/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Calendar, Plus, Trash2, Edit, List, CalendarDays } from "lucide-react";
@@ -31,6 +32,7 @@ import { CreateExceptionDialog } from "./create-exception-dialog";
 interface ExceptionsTabProps {
   templateId: string;
   templateName: string;
+  templateType?: ScheduleTemplateType;
 }
 
 // Mapeo de tipos de excepción a español
@@ -46,7 +48,8 @@ const exceptionTypeLabels: Record<
   CUSTOM: { label: "Personalizado", color: "default" },
 };
 
-export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) {
+export function ExceptionsTab({ templateId, templateName, templateType }: ExceptionsTabProps) {
+  const isFlexible = templateType === "FLEXIBLE";
   const [exceptions, setExceptions] = useState<Awaited<ReturnType<typeof getExceptionDaysForTemplate>>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -145,7 +148,9 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
         <div>
           <h3 className="text-lg font-medium">Excepciones de Horario</h3>
           <p className="text-muted-foreground text-sm">
-            Gestiona días especiales, festivos y horarios excepcionales para esta plantilla
+            {isFlexible
+              ? "Define objetivos semanales excepcionales para semanas específicas"
+              : "Gestiona días especiales, festivos y horarios excepcionales para esta plantilla"}
           </p>
         </div>
         <div className="flex gap-2">
@@ -237,7 +242,13 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">{exception.reason ?? "-"}</TableCell>
                         <TableCell>
-                          {exception.overrideSlots.length === 0 ? (
+                          {isFlexible ? (
+                            <span className="text-sm">
+                              {exception.weeklyHours
+                                ? `${Number(exception.weeklyHours).toFixed(1)}h/semana`
+                                : "Sin objetivo"}
+                            </span>
+                          ) : exception.overrideSlots.length === 0 ? (
                             <span className="text-muted-foreground text-sm">Sin horario (día completo)</span>
                           ) : (
                             <span className="text-sm">
@@ -280,6 +291,7 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
         onOpenChange={setCreateDialogOpen}
         templateId={templateId}
         templateName={templateName}
+        templateType={templateType}
         onSuccess={handleCreateSuccess}
       />
 
@@ -289,6 +301,7 @@ export function ExceptionsTab({ templateId, templateName }: ExceptionsTabProps) 
         onOpenChange={setEditDialogOpen}
         templateId={templateId}
         templateName={templateName}
+        templateType={templateType}
         onSuccess={handleEditSuccess}
         exceptionToEdit={exceptionToEdit}
       />

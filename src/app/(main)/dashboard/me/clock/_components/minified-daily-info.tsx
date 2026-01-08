@@ -56,6 +56,21 @@ export function MinifiedDailyInfo({ schedule, isLoading }: MinifiedDailyInfoProp
       );
     }
 
+    if (schedule.scheduleMode === "FLEX_TOTAL") {
+      return (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="text-xs">
+            Flexible total
+          </Badge>
+          {schedule.weeklyTargetMinutes ? (
+            <span className="text-muted-foreground text-xs">
+              {formatDuration(schedule.weeklyTargetMinutes)} / semana
+            </span>
+          ) : null}
+        </div>
+      );
+    }
+
     if (!schedule.isWorkingDay) {
       return (
         <Badge variant="secondary" className="text-xs">

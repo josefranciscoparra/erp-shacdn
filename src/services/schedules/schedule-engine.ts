@@ -222,6 +222,7 @@ export async function getEffectiveScheduleForRange(
           costCenterId: true,
           weeklyHours: true,
           workingDaysPerWeek: true,
+          workScheduleType: true,
         },
       },
     },
@@ -234,6 +235,7 @@ export async function getEffectiveScheduleForRange(
   const contract = employee.employmentContracts[0];
   const departmentId = contract?.departmentId;
   const costCenterId = contract?.costCenterId;
+  const contractIsFlexTotal = contract?.workScheduleType === "FLEXIBLE";
 
   // 3. Obtener datos en lote (Bulk Fetching)
   const [absences, manualAssignments, assignments, exceptions] = await Promise.all([
@@ -301,6 +303,7 @@ export async function getEffectiveScheduleForRange(
     // Exceptions (Fetch potentially relevant ones)
     prisma.exceptionDayOverride.findMany({
       where: {
+        orgId: employee.orgId,
         deletedAt: null,
         OR: [
           // Rango de fechas
@@ -309,10 +312,72 @@ export async function getEffectiveScheduleForRange(
           { isRecurring: true },
         ],
         // Scope: empleado, plantilla, departamento, centro o global
-        OR: [{ employeeId }, { departmentId }, { costCenterId }, { isGlobal: true, orgId: employee.orgId }],
+        OR: [
+          { employeeId },
+          { scheduleTemplateId: { not: null } },
+          { departmentId },
+          { costCenterId },
+          { isGlobal: true },
+        ],
       },
     }),
   ]);
+
+  const flexWeeklyExceptionCache = new Map<string, any | null>();
+
+  function isRecurringExceptionInWeek(exceptionDate: Date, weekStart: Date): boolean {
+    for (let i = 0; i < 7; i += 1) {
+      const day = addDays(weekStart, i);
+      if (day.getMonth() === exceptionDate.getMonth() && day.getDate() === exceptionDate.getDate()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function getFlexWeeklyExceptionForDate(date: Date, templateId?: string | null) {
+    const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+    const cacheKey = `${weekStart.toISOString()}_${templateId ?? "none"}`;
+    const cached = flexWeeklyExceptionCache.get(cacheKey);
+    if (cached !== undefined) return cached;
+
+    const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+
+    const validExceptions = exceptions.filter((exception) => {
+      if (exception.weeklyHours === null || exception.weeklyHours === undefined) return false;
+
+      // Check if exception matches any scope (employee, template, department, cost center, or global)
+      const matchesEmployee = Boolean(exception.employeeId && exception.employeeId === employeeId);
+      const matchesTemplate = Boolean(templateId && exception.scheduleTemplateId === templateId);
+      const matchesDepartment = Boolean(departmentId && exception.departmentId === departmentId);
+      const matchesCostCenter = Boolean(costCenterId && exception.costCenterId === costCenterId);
+      const matchesScope =
+        matchesEmployee || matchesTemplate || matchesDepartment || matchesCostCenter || exception.isGlobal;
+
+      if (!matchesScope) return false;
+
+      if (exception.isRecurring) {
+        return isRecurringExceptionInWeek(new Date(exception.date), weekStart);
+      }
+
+      const exceptionStart = new Date(exception.date);
+      exceptionStart.setHours(0, 0, 0, 0);
+      const exceptionEnd = exception.endDate ? new Date(exception.endDate) : new Date(exception.date);
+      exceptionEnd.setHours(23, 59, 59, 999);
+
+      return exceptionStart <= weekEnd && exceptionEnd >= weekStart;
+    });
+
+    const prioritized =
+      validExceptions.find((e) => e.employeeId === employeeId) ??
+      validExceptions.find((e) => templateId && e.scheduleTemplateId === templateId) ??
+      validExceptions.find((e) => departmentId && e.departmentId === departmentId) ??
+      validExceptions.find((e) => costCenterId && e.costCenterId === costCenterId) ??
+      validExceptions.find((e) => e.isGlobal);
+
+    flexWeeklyExceptionCache.set(cacheKey, prioritized ?? null);
+    return prioritized ?? null;
+  }
 
   // 4. Iterar sobre cada día del rango
   const schedules: EffectiveSchedule[] = [];
@@ -344,38 +409,7 @@ export async function getEffectiveScheduleForRange(
       }
     }
 
-    // 4.2 Buscar asignación manual para este día
-    const manualAssignment = manualAssignments.find((m) => {
-      const mDate = new Date(m.date);
-      mDate.setHours(0, 0, 0, 0);
-      return mDate.getTime() === currentDayStart.getTime();
-    });
-
-    if (manualAssignment) {
-      if (absenceData && !absenceData.isPartial) {
-        schedules.push({
-          date: new Date(currentDate),
-          isWorkingDay: false,
-          expectedMinutes: 0,
-          timeSlots: [],
-          source: "ABSENCE",
-          absence: absenceData,
-        });
-        currentDate.setDate(currentDate.getDate() + 1);
-        continue;
-      }
-
-      const schedule = await buildScheduleFromManual(manualAssignment, new Date(currentDate));
-      if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
-        schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absenceData.durationMinutes);
-        schedule.absence = absenceData;
-      }
-      schedules.push(schedule);
-      currentDate.setDate(currentDate.getDate() + 1);
-      continue;
-    }
-
-    // 4.3 Buscar asignación activa (template o rotación)
+    // 4.2 Buscar asignación activa (template o rotación)
     const assignment = assignments.find((a) => {
       const vFrom = new Date(a.validFrom);
       vFrom.setHours(0, 0, 0, 0);
@@ -392,6 +426,79 @@ export async function getEffectiveScheduleForRange(
       const rotationStep = calculateRotationStep(assignment.rotationPattern, assignment.rotationStartDate, currentDate);
       template = rotationStep.scheduleTemplate;
       templateId = template?.id;
+    }
+
+    const isFlexTotal =
+      assignment?.assignmentType === "FLEXIBLE" ||
+      template?.templateType === "FLEXIBLE" ||
+      (!assignment && contractIsFlexTotal);
+
+    if (absenceData && !absenceData.isPartial) {
+      schedules.push({
+        date: new Date(currentDate),
+        isWorkingDay: false,
+        expectedMinutes: 0,
+        timeSlots: [],
+        source: "ABSENCE",
+        absence: absenceData,
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    if (isFlexTotal) {
+      const flexWeeklyException = getFlexWeeklyExceptionForDate(currentDate, templateId);
+      const applicablePeriods = template?.periods.filter((period: any) => {
+        const pStart = period.validFrom;
+        const pEnd = period.validTo;
+        if (pStart && currentDate < pStart) return false;
+        if (pEnd && currentDate > pEnd) return false;
+        return true;
+      });
+      const priorityOrder: any = { SPECIAL: 3, INTENSIVE: 2, REGULAR: 1 };
+      applicablePeriods?.sort(
+        (a: any, b: any) => (priorityOrder[b.periodType] ?? 0) - (priorityOrder[a.periodType] ?? 0),
+      );
+      const flexPeriod = applicablePeriods ? applicablePeriods[0] : null;
+      const exceptionWeeklyHours = flexWeeklyException?.weeklyHours ? Number(flexWeeklyException.weeklyHours) : null;
+      const periodWeeklyHours = flexPeriod?.weeklyHours ? Number(flexPeriod.weeklyHours) : null;
+      const templateWeeklyHours = template?.weeklyHours ? Number(template.weeklyHours) : null;
+      const weeklyHours = exceptionWeeklyHours ?? periodWeeklyHours ?? templateWeeklyHours ?? 0;
+      const weeklyTargetMinutes = Math.round(weeklyHours * 60);
+
+      schedules.push({
+        date: new Date(currentDate),
+        isWorkingDay: true,
+        expectedMinutes: 0,
+        timeSlots: [],
+        source: flexWeeklyException ? "EXCEPTION" : assignment ? "TEMPLATE" : "CONTRACT",
+        scheduleMode: "FLEX_TOTAL",
+        weeklyTargetMinutes,
+        periodName: flexPeriod?.name ?? flexPeriod?.periodType,
+        exceptionType: flexWeeklyException?.exceptionType,
+        exceptionReason: flexWeeklyException?.reason ?? undefined,
+        ...(absenceData && absenceData.isPartial ? { absence: absenceData } : {}),
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
+    }
+
+    // 4.3 Buscar asignación manual para este día
+    const manualAssignment = manualAssignments.find((m) => {
+      const mDate = new Date(m.date);
+      mDate.setHours(0, 0, 0, 0);
+      return mDate.getTime() === currentDayStart.getTime();
+    });
+
+    if (manualAssignment) {
+      const schedule = await buildScheduleFromManual(manualAssignment, new Date(currentDate));
+      if (absenceData && absenceData.isPartial && absenceData.durationMinutes) {
+        schedule.expectedMinutes = Math.max(0, schedule.expectedMinutes - absenceData.durationMinutes);
+        schedule.absence = absenceData;
+      }
+      schedules.push(schedule);
+      currentDate.setDate(currentDate.getDate() + 1);
+      continue;
     }
 
     // 4.4 Buscar excepción para este día
@@ -450,20 +557,6 @@ export async function getEffectiveScheduleForRange(
         schedule.absence = absenceData;
       }
       schedules.push(schedule);
-      currentDate.setDate(currentDate.getDate() + 1);
-      continue;
-    }
-
-    // 4.5 Ausencia de día completo (si no hay manual/excepción)
-    if (absenceData && !absenceData.isPartial) {
-      schedules.push({
-        date: new Date(currentDate),
-        isWorkingDay: false,
-        expectedMinutes: 0,
-        timeSlots: [],
-        source: "ABSENCE",
-        absence: absenceData,
-      });
       currentDate.setDate(currentDate.getDate() + 1);
       continue;
     }
@@ -589,7 +682,82 @@ export async function getEffectiveSchedule(
     };
   }
 
-  // 2. PRIORIDAD CRÍTICA: Asignación Manual (Rostering / Planificación Semanal)
+  // 2. PRIORIDAD MEDIA: Obtener asignación activa del empleado
+  const assignment = await getActiveAssignment(employeeId, date);
+  scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
+    hasAssignment: !!assignment,
+    assignmentType: assignment?.assignmentType,
+  });
+
+  // 2.1 Resolver plantilla si hay asignación (para detectar FLEX_TOTAL temprano)
+  let template: ScheduleTemplate | null = null;
+
+  if (assignment) {
+    if (assignment.assignmentType === "ROTATION") {
+      // ROTACIONES: Calcular qué step de la rotación toca en esta fecha
+      if (!assignment.rotationPattern || !assignment.rotationStartDate) {
+        throw new Error(`Assignment ${assignment.id} is ROTATION but missing rotationPattern or rotationStartDate`);
+      }
+
+      const rotationStep = calculateRotationStep(assignment.rotationPattern, assignment.rotationStartDate, date);
+
+      template = rotationStep.scheduleTemplate as typeof template;
+    } else {
+      // FIXED, SHIFT, FLEXIBLE: Usar la plantilla asignada directamente
+      if (!assignment.scheduleTemplate) {
+        throw new Error(`Assignment ${assignment.id} is ${assignment.assignmentType} but missing scheduleTemplate`);
+      }
+
+      template = assignment.scheduleTemplate;
+    }
+  }
+
+  const isFlexTotal = assignment?.assignmentType === "FLEXIBLE" || template?.templateType === "FLEXIBLE";
+
+  if (isFlexTotal) {
+    const flexWeeklyException = await getFlexWeeklyExceptionForWeek(employeeId, date, template?.id);
+    const flexPeriod = template ? await getActivePeriod(template, date) : null;
+    const exceptionWeeklyHours = flexWeeklyException?.weeklyHours ? Number(flexWeeklyException.weeklyHours) : null;
+    const periodWeeklyHours = flexPeriod?.weeklyHours ? Number(flexPeriod.weeklyHours) : null;
+    const templateWeeklyHours = template?.weeklyHours ? Number(template.weeklyHours) : null;
+    const weeklyHours = exceptionWeeklyHours ?? periodWeeklyHours ?? templateWeeklyHours ?? 0;
+    const weeklyTargetMinutes = Math.round(weeklyHours * 60);
+    return {
+      date,
+      isWorkingDay: true,
+      expectedMinutes: 0,
+      timeSlots: [],
+      source: flexWeeklyException ? "EXCEPTION" : "TEMPLATE",
+      scheduleMode: "FLEX_TOTAL",
+      weeklyTargetMinutes,
+      periodName: flexPeriod?.name ?? flexPeriod?.periodType,
+      exceptionType: flexWeeklyException?.exceptionType,
+      exceptionReason: flexWeeklyException?.reason ?? undefined,
+      ...(absence && absence.isPartial
+        ? {
+            absence: {
+              type: absence.type,
+              reason: absence.reason,
+              isPartial: true,
+              startTime: absence.startTime,
+              endTime: absence.endTime,
+              durationMinutes: absence.durationMinutes,
+            },
+          }
+        : {}),
+    };
+  }
+
+  let contractFallback: EffectiveSchedule | null = null;
+  if (!assignment) {
+    scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Sin asignación explícita, consultando contrato...");
+    contractFallback = await getContractBasedSchedule(employeeId, date);
+    if (contractFallback.scheduleMode === "FLEX_TOTAL") {
+      return contractFallback;
+    }
+  }
+
+  // 3. PRIORIDAD CRÍTICA: Asignación Manual (Rostering / Planificación Semanal)
   // Sobrescribe excepciones, rotaciones y horarios fijos.
   const manualAssignment = await getManualAssignmentForDate(employeeId, date, options);
   if (manualAssignment) {
@@ -611,7 +779,7 @@ export async function getEffectiveSchedule(
     return schedule;
   }
 
-  // 3. PRIORIDAD ALTA: Buscar excepciones de día (días específicos con horario especial)
+  // 4. PRIORIDAD ALTA: Buscar excepciones de día (días específicos con horario especial)
   const exception = await getExceptionForDate(employeeId, date);
   if (exception) {
     const schedule = buildScheduleFromException(exception, date);
@@ -631,38 +799,8 @@ export async function getEffectiveSchedule(
     return schedule;
   }
 
-  // 4. PRIORIDAD MEDIA: Obtener asignación activa del empleado
-  const assignment = await getActiveAssignment(employeeId, date);
-  scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Assignment obtenido:", {
-    hasAssignment: !!assignment,
-    assignmentType: assignment?.assignmentType,
-  });
-
   if (!assignment) {
-    // 4b. FALLBACK CONTRATO: Si no hay asignación explícita, mirar el tipo de horario en el contrato
-    scheduleLog("🔍 [GET_EFFECTIVE_SCHEDULE] Sin asignación explícita, consultando contrato...");
-    return await getContractBasedSchedule(employeeId, date);
-  }
-
-  // 4. RESOLUCIÓN DE PLANTILLA: Obtener la plantilla correcta según el tipo
-  let template: ScheduleTemplate;
-
-  if (assignment.assignmentType === "ROTATION") {
-    // ROTACIONES: Calcular qué step de la rotación toca en esta fecha
-    if (!assignment.rotationPattern || !assignment.rotationStartDate) {
-      throw new Error(`Assignment ${assignment.id} is ROTATION but missing rotationPattern or rotationStartDate`);
-    }
-
-    const rotationStep = calculateRotationStep(assignment.rotationPattern, assignment.rotationStartDate, date);
-
-    template = rotationStep.scheduleTemplate as typeof template;
-  } else {
-    // FIXED, SHIFT, FLEXIBLE: Usar la plantilla asignada directamente
-    if (!assignment.scheduleTemplate) {
-      throw new Error(`Assignment ${assignment.id} is ${assignment.assignmentType} but missing scheduleTemplate`);
-    }
-
-    template = assignment.scheduleTemplate;
+    return contractFallback ?? (await getContractBasedSchedule(employeeId, date));
   }
 
   // 5. BUSCAR PERÍODO ACTIVO: SPECIAL > INTENSIVE > REGULAR (por fechas)
@@ -968,6 +1106,95 @@ async function getExceptionForDate(employeeId: string, date: Date) {
     validExceptions.find((e) => e.scheduleTemplateId === scheduleTemplateId) ??
     validExceptions.find((e) => e.departmentId === employee.departmentId) ??
     validExceptions.find((e) => e.costCenterId === employee.costCenterId) ??
+    validExceptions.find((e) => e.isGlobal);
+
+  return prioritized ?? null;
+}
+
+/**
+ * Busca una excepción semanal (FLEX_TOTAL) que aplique a la semana de una fecha.
+ * Solo considera excepciones con weeklyHours definidas.
+ */
+async function getFlexWeeklyExceptionForWeek(employeeId: string, date: Date, scheduleTemplateId?: string | null) {
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: {
+      orgId: true,
+      employmentContracts: {
+        where: { active: true },
+        select: {
+          departmentId: true,
+          costCenterId: true,
+        },
+        take: 1,
+        orderBy: { startDate: "desc" },
+      },
+    },
+  });
+
+  if (!employee) return null;
+
+  const activeContract = employee.employmentContracts[0];
+  const departmentId = activeContract?.departmentId ?? null;
+  const costCenterId = activeContract?.costCenterId ?? null;
+
+  const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(date, { weekStartsOn: 1 });
+
+  const exceptions = await prisma.exceptionDayOverride.findMany({
+    where: {
+      orgId: employee.orgId,
+      deletedAt: null,
+      weeklyHours: { not: null },
+      OR: [
+        { date: { gte: weekStart, lte: weekEnd } },
+        {
+          AND: [{ date: { lte: weekEnd } }, { OR: [{ endDate: null }, { endDate: { gte: weekStart } }] }],
+        },
+        { isRecurring: true },
+      ],
+      AND: [
+        {
+          OR: [
+            { employeeId },
+            ...(scheduleTemplateId ? [{ scheduleTemplateId }] : []),
+            ...(departmentId ? [{ departmentId }] : []),
+            ...(costCenterId ? [{ costCenterId }] : []),
+            { isGlobal: true },
+          ],
+        },
+      ],
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (exceptions.length === 0) return null;
+
+  const validExceptions = exceptions.filter((exception) => {
+    if (exception.isRecurring) {
+      for (let i = 0; i < 7; i += 1) {
+        const day = addDays(weekStart, i);
+        if (day.getMonth() === exception.date.getMonth() && day.getDate() === exception.date.getDate()) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    const exceptionStart = new Date(exception.date);
+    exceptionStart.setHours(0, 0, 0, 0);
+    const exceptionEnd = exception.endDate ? new Date(exception.endDate) : new Date(exception.date);
+    exceptionEnd.setHours(23, 59, 59, 999);
+    return exceptionStart <= weekEnd && exceptionEnd >= weekStart;
+  });
+
+  if (validExceptions.length === 0) return null;
+
+  const prioritized =
+    validExceptions.find((e) => e.employeeId === employeeId) ??
+    validExceptions.find((e) => scheduleTemplateId && e.scheduleTemplateId === scheduleTemplateId) ??
+    validExceptions.find((e) => departmentId && e.departmentId === departmentId) ??
+    validExceptions.find((e) => costCenterId && e.costCenterId === costCenterId) ??
     validExceptions.find((e) => e.isGlobal);
 
   return prioritized ?? null;
@@ -1357,6 +1584,14 @@ export async function validateTimeEntry(
 
   const schedule = await getEffectiveSchedule(employeeId, timestamp);
 
+  if (schedule.scheduleMode === "FLEX_TOTAL") {
+    return {
+      isValid: true,
+      warnings: [],
+      errors: [],
+    };
+  }
+
   if (!schedule.isWorkingDay) {
     // Verificar configuración de fichajes en días no laborables
     if (!orgConfig.nonWorkdayClockInAllowed) {
@@ -1685,34 +1920,15 @@ async function getContractBasedSchedule(employeeId: string, date: Date): Promise
 
   // Si es FLEXIBLE, devolver promedio sin slots fijos
   if (contract.workScheduleType === "FLEXIBLE") {
-    const weeklyHours = Number(contract.weeklyHours ?? 40);
-    const daysPerWeek = Number(contract.workingDaysPerWeek ?? 5);
-    const dailyMinutes = (weeklyHours / daysPerWeek) * 60;
-
-    // Asumimos laborable L-V por defecto para flexible si no hay más datos
-    const dayOfWeek = date.getDay();
-    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-
-    if (isWeekend) {
-      return { date, isWorkingDay: false, expectedMinutes: 0, timeSlots: [], source: "CONTRACT" };
-    }
-
     return {
       date,
       isWorkingDay: true,
-      expectedMinutes: dailyMinutes,
-      timeSlots: [
-        {
-          startMinutes: 540, // 09:00
-          endMinutes: 540 + dailyMinutes,
-          slotType: "WORK",
-          presenceType: "FLEXIBLE",
-          isMandatory: false,
-          description: "Horario Flexible",
-        },
-      ],
+      expectedMinutes: 0,
+      timeSlots: [],
       source: "CONTRACT",
-      periodName: "Flexible",
+      periodName: "Flexible total",
+      scheduleMode: "FLEX_TOTAL",
+      weeklyTargetMinutes: 0,
     };
   }
 

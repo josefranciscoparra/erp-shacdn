@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from "react";
 
+import type { ScheduleTemplateType } from "@prisma/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarIcon, Clock } from "lucide-react";
+import { CalendarIcon, Clock, Info } from "lucide-react";
 import { toast } from "sonner";
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -37,6 +39,7 @@ interface CreateExceptionDialogProps {
   onOpenChange: (open: boolean) => void;
   templateId: string;
   templateName: string;
+  templateType?: ScheduleTemplateType;
   onSuccess: () => void;
   exceptionToEdit?: Awaited<ReturnType<typeof getExceptionDaysForTemplate>>[0] | null;
 }
@@ -56,11 +59,13 @@ export function CreateExceptionDialog({
   onOpenChange,
   templateId,
   templateName,
+  templateType,
   onSuccess,
   exceptionToEdit,
 }: CreateExceptionDialogProps) {
   const isEditMode = !!exceptionToEdit;
   const [isLoading, setIsLoading] = useState(false);
+  const isFlexible = templateType === "FLEXIBLE";
 
   // Información básica
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -68,6 +73,7 @@ export function CreateExceptionDialog({
   const [exceptionType, setExceptionType] = useState<ExceptionTypeEnum>("HOLIDAY");
   const [reason, setReason] = useState("");
   const [isRecurring, setIsRecurring] = useState(false);
+  const [weeklyHours, setWeeklyHours] = useState("");
 
   // Time slots (opcional)
   const [hasCustomSchedule, setHasCustomSchedule] = useState(false);
@@ -88,6 +94,7 @@ export function CreateExceptionDialog({
       setExceptionType(exceptionToEdit.exceptionType);
       setReason(exceptionToEdit.reason ?? "");
       setIsRecurring(exceptionToEdit.isRecurring);
+      setWeeklyHours(exceptionToEdit.weeklyHours ? String(exceptionToEdit.weeklyHours) : "");
 
       // Cargar time slots si existen
       if (exceptionToEdit.overrideSlots && exceptionToEdit.overrideSlots.length > 0) {
@@ -125,6 +132,7 @@ export function CreateExceptionDialog({
     setIsRecurring(false);
     setHasCustomSchedule(false);
     setTimeSlots([]);
+    setWeeklyHours("");
   }
 
   function handleClose() {
@@ -138,24 +146,34 @@ export function CreateExceptionDialog({
       return;
     }
 
+    if (isFlexible) {
+      const weeklyHoursNumber = weeklyHours ? Number(weeklyHours) : 0;
+      if (!weeklyHours || Number.isNaN(weeklyHoursNumber) || weeklyHoursNumber <= 0) {
+        toast.error("Debes indicar las horas semanales para la excepción flexible");
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
       // Convertir time slots de HH:mm a minutos
-      const timeSlotsInMinutes = hasCustomSchedule
-        ? timeSlots.map((slot) => {
-            const [startHours, startMinutes] = slot.startTime.split(":").map(Number);
-            const [endHours, endMinutes] = slot.endTime.split(":").map(Number);
+      const timeSlotsInMinutes =
+        !isFlexible && hasCustomSchedule
+          ? timeSlots.map((slot) => {
+              const [startHours, startMinutes] = slot.startTime.split(":").map(Number);
+              const [endHours, endMinutes] = slot.endTime.split(":").map(Number);
 
-            return {
-              startTimeMinutes: (startHours ?? 0) * 60 + (startMinutes ?? 0),
-              endTimeMinutes: (endHours ?? 0) * 60 + (endMinutes ?? 0),
-              slotType: slot.slotType,
-              presenceType: slot.presenceType,
-            };
-          })
-        : [];
+              return {
+                startTimeMinutes: (startHours ?? 0) * 60 + (startMinutes ?? 0),
+                endTimeMinutes: (endHours ?? 0) * 60 + (endMinutes ?? 0),
+                slotType: slot.slotType,
+                presenceType: slot.presenceType,
+              };
+            })
+          : [];
 
+      const weeklyHoursValue = isFlexible ? Number(weeklyHours) : undefined;
       const result =
         isEditMode && exceptionToEdit
           ? await updateExceptionDay({
@@ -166,6 +184,7 @@ export function CreateExceptionDialog({
               exceptionType,
               reason: reason.trim() || undefined,
               isRecurring,
+              weeklyHours: weeklyHoursValue,
               timeSlots: timeSlotsInMinutes.length > 0 ? timeSlotsInMinutes : undefined,
             })
           : await createExceptionDay({
@@ -175,6 +194,7 @@ export function CreateExceptionDialog({
               exceptionType,
               reason: reason.trim() || undefined,
               isRecurring,
+              weeklyHours: weeklyHoursValue,
               timeSlots: timeSlotsInMinutes.length > 0 ? timeSlotsInMinutes : undefined,
             });
 
@@ -338,70 +358,105 @@ export function CreateExceptionDialog({
           <div className="space-y-4 border-t pt-4">
             <h3 className="text-sm font-semibold">Configuración de Horario</h3>
 
-            {/* Toggle de horario personalizado */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="customSchedule"
-                checked={hasCustomSchedule}
-                onCheckedChange={(checked) => {
-                  setHasCustomSchedule(checked === true);
-                  if (!checked) {
-                    setTimeSlots([]);
-                  }
-                }}
-              />
-              <label
-                htmlFor="customSchedule"
-                className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Configurar horario específico
-              </label>
-            </div>
+            {isFlexible ? (
+              <div className="space-y-4">
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>Excepción semanal flexible</AlertTitle>
+                  <AlertDescription>
+                    Esta excepción ajusta el objetivo semanal de la semana que contiene la fecha seleccionada. No crea
+                    franjas ni genera alertas de horario.
+                  </AlertDescription>
+                </Alert>
 
-            {hasCustomSchedule ? (
-              <>
-                <p className="text-muted-foreground text-sm">Define las franjas horarias para este día excepcional</p>
-
-                {/* Lista de time slots */}
                 <div className="space-y-2">
-                  {timeSlots.map((slot, index) => (
-                    <div key={index} className="flex items-center gap-2 rounded-lg border p-3">
-                      <Input
-                        type="time"
-                        value={slot.startTime}
-                        onChange={(e) => updateTimeSlot(index, "startTime", e.target.value)}
-                        className="w-28"
-                      />
-                      <span>-</span>
-                      <Input
-                        type="time"
-                        value={slot.endTime}
-                        onChange={(e) => updateTimeSlot(index, "endTime", e.target.value)}
-                        className="w-28"
-                      />
-                      <Select value={slot.slotType} onValueChange={(value) => updateTimeSlot(index, "slotType", value)}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="WORK">Trabajo</SelectItem>
-                          <SelectItem value="BREAK">Pausa</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeTimeSlot(index)}>
-                        Eliminar
-                      </Button>
-                    </div>
-                  ))}
+                  <Label>Horas semanales</Label>
+                  <Input
+                    type="number"
+                    step="0.25"
+                    min="1"
+                    placeholder="Ej: 30"
+                    value={weeklyHours}
+                    onChange={(event) => setWeeklyHours(event.target.value)}
+                  />
+                  <p className="text-muted-foreground text-xs">
+                    Define el nuevo objetivo semanal para esa semana (ej: 30h en lugar de 40h).
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Toggle de horario personalizado */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="customSchedule"
+                    checked={hasCustomSchedule}
+                    onCheckedChange={(checked) => {
+                      setHasCustomSchedule(checked === true);
+                      if (!checked) {
+                        setTimeSlots([]);
+                      }
+                    }}
+                  />
+                  <label
+                    htmlFor="customSchedule"
+                    className="text-sm leading-none font-medium peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Configurar horario específico
+                  </label>
                 </div>
 
-                <Button type="button" variant="outline" size="sm" onClick={addTimeSlot} className="w-full">
-                  <Clock className="mr-2 h-4 w-4" />
-                  Añadir Franja Horaria
-                </Button>
+                {hasCustomSchedule ? (
+                  <>
+                    <p className="text-muted-foreground text-sm">
+                      Define las franjas horarias para este día excepcional
+                    </p>
+
+                    {/* Lista de time slots */}
+                    <div className="space-y-2">
+                      {timeSlots.map((slot, index) => (
+                        <div key={index} className="flex items-center gap-2 rounded-lg border p-3">
+                          <Input
+                            type="time"
+                            value={slot.startTime}
+                            onChange={(e) => updateTimeSlot(index, "startTime", e.target.value)}
+                            className="w-28"
+                          />
+                          <span>-</span>
+                          <Input
+                            type="time"
+                            value={slot.endTime}
+                            onChange={(e) => updateTimeSlot(index, "endTime", e.target.value)}
+                            className="w-28"
+                          />
+                          <Select
+                            value={slot.slotType}
+                            onValueChange={(value) => updateTimeSlot(index, "slotType", value)}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="WORK">Trabajo</SelectItem>
+                              <SelectItem value="BREAK">Pausa</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => removeTimeSlot(index)}>
+                            Eliminar
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button type="button" variant="outline" size="sm" onClick={addTimeSlot} className="w-full">
+                      <Clock className="mr-2 h-4 w-4" />
+                      Añadir Franja Horaria
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">Este día no tendrá horario (día completo sin trabajo)</p>
+                )}
               </>
-            ) : (
-              <p className="text-muted-foreground text-sm">Este día no tendrá horario (día completo sin trabajo)</p>
             )}
           </div>
         </div>

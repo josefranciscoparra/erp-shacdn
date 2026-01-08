@@ -301,11 +301,18 @@ export async function getClockBootstrap(): Promise<ClockBootstrapResult> {
     }
 
     const hasWorkdaySummary = Boolean(todaySummary.id);
-    const expectedMinutes = schedule ? schedule.expectedMinutes : summary ? Number(summary.expectedMinutes ?? 0) : null;
+    const isFlexTotal = schedule?.scheduleMode === "FLEX_TOTAL";
+    const expectedMinutes = isFlexTotal
+      ? null
+      : schedule
+        ? schedule.expectedMinutes
+        : summary
+          ? Number(summary.expectedMinutes ?? 0)
+          : null;
     const deviationMinutes =
       hasWorkdaySummary && expectedMinutes !== null ? todaySummary.totalWorkedMinutes - expectedMinutes : null;
 
-    if (schedule && summary) {
+    if (schedule && summary && !isFlexTotal) {
       const dbExpectedMinutes = Number(summary.expectedMinutes ?? 0);
       if (dbExpectedMinutes !== schedule.expectedMinutes) {
         prisma.workdaySummary

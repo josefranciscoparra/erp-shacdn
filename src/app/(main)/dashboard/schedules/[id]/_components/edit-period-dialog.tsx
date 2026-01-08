@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useRouter } from "next/navigation";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { SchedulePeriod, SchedulePeriodType } from "@prisma/client";
+import type { SchedulePeriod, SchedulePeriodType, ScheduleTemplateType } from "@prisma/client";
 import { Pencil } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -26,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateSchedulePeriod } from "@/server/actions/schedules-v2";
 
-const formSchema = z
+const baseSchema = z
   .object({
     name: z
       .string()
@@ -37,6 +37,12 @@ const formSchema = z
     }),
     validFrom: z.string().optional(),
     validTo: z.string().optional(),
+    weeklyHours: z
+      .preprocess(
+        (value) => (value === "" || value === null ? undefined : value),
+        z.coerce.number().min(1, "Las horas semanales deben ser mayores a 0").max(80, "Máximo 80 horas"),
+      )
+      .optional(),
   })
   .refine(
     (data) => {
@@ -52,18 +58,34 @@ const formSchema = z
     },
   );
 
-type FormValues = z.infer<typeof formSchema>;
+type FormValues = z.infer<typeof baseSchema>;
 
 interface EditPeriodDialogProps {
   period: SchedulePeriod;
+  templateType?: ScheduleTemplateType;
   variant?: "default" | "outline" | "ghost";
   size?: "default" | "sm" | "lg" | "icon";
 }
 
-export function EditPeriodDialog({ period, variant = "ghost", size = "sm" }: EditPeriodDialogProps) {
+export function EditPeriodDialog({ period, templateType, variant = "ghost", size = "sm" }: EditPeriodDialogProps) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const isFlexible = templateType === "FLEXIBLE";
+
+  const formSchema = useMemo(
+    () =>
+      baseSchema.superRefine((data, ctx) => {
+        if (isFlexible && typeof data.weeklyHours !== "number") {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Debes indicar las horas semanales para un período flexible",
+            path: ["weeklyHours"],
+          });
+        }
+      }),
+    [isFlexible],
+  );
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -72,6 +94,7 @@ export function EditPeriodDialog({ period, variant = "ghost", size = "sm" }: Edi
       periodType: period.periodType,
       validFrom: period.validFrom ? new Date(period.validFrom).toISOString().split("T")[0] : "",
       validTo: period.validTo ? new Date(period.validTo).toISOString().split("T")[0] : "",
+      weeklyHours: period.weeklyHours ? Number(period.weeklyHours) : undefined,
     },
   });
 
@@ -84,6 +107,7 @@ export function EditPeriodDialog({ period, variant = "ghost", size = "sm" }: Edi
         periodType: data.periodType as SchedulePeriodType,
         validFrom: data.validFrom ? new Date(data.validFrom) : undefined,
         validTo: data.validTo ? new Date(data.validTo) : undefined,
+        weeklyHours: data.weeklyHours,
       });
 
       if (result.success) {
@@ -180,6 +204,30 @@ export function EditPeriodDialog({ period, variant = "ghost", size = "sm" }: Edi
                 </FormItem>
               )}
             />
+
+            {isFlexible && (
+              <FormField
+                control={form.control}
+                name="weeklyHours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Horas semanales</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.25"
+                        min="1"
+                        placeholder="Ej: 40"
+                        value={field.value ?? ""}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>Objetivo semanal del período flexible total</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <FormField

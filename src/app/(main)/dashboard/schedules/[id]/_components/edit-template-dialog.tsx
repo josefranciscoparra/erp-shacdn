@@ -28,16 +28,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { updateScheduleTemplate } from "@/server/actions/schedules-v2";
 
-const formSchema = z.object({
-  name: z
-    .string()
-    .min(3, "El nombre debe tener al menos 3 caracteres")
-    .max(100, "El nombre no puede exceder 100 caracteres"),
-  description: z.string().max(500, "La descripcion no puede exceder 500 caracteres").optional(),
-  templateType: z.enum(["FIXED", "SHIFT", "ROTATION", "FLEXIBLE"], {
-    required_error: "Debes seleccionar un tipo de plantilla",
-  }),
-});
+const formSchema = z
+  .object({
+    name: z
+      .string()
+      .min(3, "El nombre debe tener al menos 3 caracteres")
+      .max(100, "El nombre no puede exceder 100 caracteres"),
+    description: z.string().max(500, "La descripcion no puede exceder 500 caracteres").optional(),
+    templateType: z.enum(["FIXED", "SHIFT", "ROTATION", "FLEXIBLE"], {
+      required_error: "Debes seleccionar un tipo de plantilla",
+    }),
+    weeklyHours: z
+      .preprocess(
+        (value) => (value === "" || value === null ? undefined : value),
+        z.coerce.number().min(1, "Las horas semanales deben ser mayores a 0").max(80, "Máximo 80 horas"),
+      )
+      .optional(),
+  })
+  .refine((data) => data.templateType !== "FLEXIBLE" || typeof data.weeklyHours === "number", {
+    message: "Debes indicar las horas semanales para un horario flexible total",
+    path: ["weeklyHours"],
+  });
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -65,6 +76,7 @@ export function EditTemplateDialog({ template, variant = "outline", size = "sm" 
       name: template.name,
       description: template.description ?? "",
       templateType: template.templateType,
+      weeklyHours: template.weeklyHours ? Number(template.weeklyHours) : undefined,
     },
   });
 
@@ -79,6 +91,7 @@ export function EditTemplateDialog({ template, variant = "outline", size = "sm" 
         name: data.name,
         description: data.description,
         templateType: data.templateType as ScheduleTemplateType,
+        weeklyHours: data.weeklyHours,
       });
 
       if (result.success) {
@@ -184,8 +197,8 @@ export function EditTemplateDialog({ template, variant = "outline", size = "sm" 
                       </SelectItem>
                       <SelectItem value="FLEXIBLE">
                         <div className="flex flex-col items-start">
-                          <span className="font-medium">Flexible</span>
-                          <span className="text-muted-foreground text-xs">Franjas obligatorias + flexibles</span>
+                          <span className="font-medium">Flexible total</span>
+                          <span className="text-muted-foreground text-xs">Objetivo semanal sin franjas</span>
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -195,6 +208,30 @@ export function EditTemplateDialog({ template, variant = "outline", size = "sm" 
                 </FormItem>
               )}
             />
+
+            {form.watch("templateType") === "FLEXIBLE" && (
+              <FormField
+                control={form.control}
+                name="weeklyHours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Horas semanales</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.25"
+                        min="1"
+                        placeholder="Ej: 40"
+                        value={field.value ?? ""}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>Objetivo semanal del horario flexible total</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             {typeChanged && hasAssignments && (
               <Alert variant="destructive">

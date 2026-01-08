@@ -6,13 +6,25 @@ import { Calendar, Clock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { getTodaySchedule } from "@/server/actions/employee-schedule";
 import { minutesToTime, formatDuration } from "@/services/schedules";
 import type { EffectiveSchedule } from "@/types/schedule";
 
+type FlexWeeklySummary = {
+  weekStart: Date;
+  weekEnd: Date;
+  targetMinutes: number;
+  workedMinutes: number;
+  remainingMinutes: number;
+  deltaMinutes: number;
+  progressPercent: number;
+};
+
 function TodayScheduleComponent() {
   const [schedule, setSchedule] = useState<EffectiveSchedule | null>(null);
+  const [flexWeeklySummary, setFlexWeeklySummary] = useState<FlexWeeklySummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -23,6 +35,7 @@ function TodayScheduleComponent() {
 
       if (result.success && result.schedule) {
         setSchedule(result.schedule);
+        setFlexWeeklySummary(result.flexWeeklySummary ?? null);
       } else {
         setError(result.error ?? "Error al cargar horario");
       }
@@ -171,6 +184,63 @@ function TodayScheduleComponent() {
               Día no laborable
             </Badge>
             <p className="text-muted-foreground text-sm">Hoy no tienes jornada laboral asignada según tu horario</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (schedule.scheduleMode === "FLEX_TOTAL") {
+    const targetFromSummary = flexWeeklySummary ? flexWeeklySummary.targetMinutes : null;
+    const workedFromSummary = flexWeeklySummary ? flexWeeklySummary.workedMinutes : null;
+    const remainingFromSummary = flexWeeklySummary ? flexWeeklySummary.remainingMinutes : null;
+    const deltaFromSummary = flexWeeklySummary ? flexWeeklySummary.deltaMinutes : null;
+    const progressFromSummary = flexWeeklySummary ? flexWeeklySummary.progressPercent : null;
+
+    const targetMinutes = targetFromSummary ?? schedule.weeklyTargetMinutes ?? 0;
+    const workedMinutes = workedFromSummary ?? 0;
+    const remainingMinutes = remainingFromSummary ?? Math.max(0, targetMinutes - workedMinutes);
+    const deltaMinutes = deltaFromSummary ?? workedMinutes - targetMinutes;
+    const progressPercent =
+      progressFromSummary ?? (targetMinutes > 0 ? Math.round((workedMinutes / targetMinutes) * 100) : 0);
+    const isOver = deltaMinutes > 0;
+
+    const exceptionLabel = schedule.exceptionReason ?? schedule.exceptionType;
+
+    return (
+      <Card className="@container/card">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Calendar className="h-4 w-4" />
+            Horario Flexible Total
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Progress value={Math.min(progressPercent, 100)} />
+            {exceptionLabel && (
+              <div className="bg-muted/30 rounded-lg border p-3">
+                <p className="text-sm font-medium">Excepción semanal aplicada</p>
+                <p className="text-muted-foreground text-xs">{exceptionLabel}</p>
+              </div>
+            )}
+            <div className="grid gap-3 @md/card:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Objetivo semanal</span>
+                <span className="font-medium">{formatDuration(targetMinutes)}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">Acumulado semana</span>
+                <span className="font-medium">{formatDuration(Math.round(workedMinutes))}</span>
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-muted-foreground text-xs">{isOver ? "Exceso" : "Restante"}</span>
+                <span className={`font-medium ${isOver ? "text-emerald-600 dark:text-emerald-400" : ""}`}>
+                  {formatDuration(Math.abs(isOver ? deltaMinutes : remainingMinutes))}
+                </span>
+              </div>
+            </div>
+            <p className="text-muted-foreground text-xs">Cumplimiento semanal: {Math.min(progressPercent, 999)}%</p>
           </div>
         </CardContent>
       </Card>

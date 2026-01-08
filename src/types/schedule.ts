@@ -84,6 +84,12 @@ export interface EffectiveSchedule {
 
   /** Mensaje de error de configuración (si source es CONFIGURATION_ERROR) */
   configurationError?: string;
+
+  /** Modo explícito de horario (FLEX_TOTAL no tiene franjas ni objetivo diario) */
+  scheduleMode?: "FLEX_TOTAL";
+
+  /** Objetivo semanal en minutos (solo para FLEX_TOTAL) */
+  weeklyTargetMinutes?: number;
 }
 
 /**
@@ -206,6 +212,7 @@ export interface CreateScheduleTemplateInput {
   name: string;
   description?: string;
   templateType: ScheduleTemplateType;
+  weeklyHours?: number;
 }
 
 /**
@@ -217,6 +224,7 @@ export interface CreateSchedulePeriodInput {
   name?: string;
   validFrom?: Date;
   validTo?: Date;
+  weeklyHours?: number;
 }
 
 /**

@@ -783,23 +783,36 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let deviationMinutes: number | null = null;
   let scheduleSource: string | null = null;
   let scheduleIsWorkday: boolean | null = null;
+  let isFlexTotal = false;
 
   try {
     const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
     scheduleSource = effectiveSchedule.source ?? null;
     scheduleIsWorkday = effectiveSchedule.isWorkingDay;
-    expectedMinutes = effectiveSchedule.expectedMinutes;
+    isFlexTotal = effectiveSchedule.scheduleMode === "FLEX_TOTAL";
 
-    // Calcular desviación: (trabajado - esperado)
-    // Positivo = trabajó más de lo esperado
-    // Negativo = trabajó menos de lo esperado
-    deviationMinutes = worked - expectedMinutes;
+    if (isFlexTotal) {
+      expectedMinutes = null;
+      deviationMinutes = null;
+    } else {
+      expectedMinutes = effectiveSchedule.expectedMinutes;
+
+      // Calcular desviación: (trabajado - esperado)
+      // Positivo = trabajó más de lo esperado
+      // Negativo = trabajó menos de lo esperado
+      deviationMinutes = worked - expectedMinutes;
+    }
   } catch (error) {
     console.error("Error al obtener horario efectivo:", error);
     // Continuar sin expectedMinutes si falla (datos opcionales)
   }
 
-  if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0 && scheduleIsWorkday !== false) {
+  if (
+    !isFlexTotal &&
+    (expectedMinutes === null || expectedMinutes === 0) &&
+    entries.length > 0 &&
+    scheduleIsWorkday !== false
+  ) {
     const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
     if (fallbackMinutes) {
       expectedMinutes = fallbackMinutes;
@@ -811,7 +824,9 @@ async function updateWorkdaySummary(employeeId: string, orgId: string, date: Dat
   let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
   if (lastExit) {
     // Si fichó salida, evaluar si completó las horas
-    if (expectedMinutes) {
+    if (isFlexTotal) {
+      status = "COMPLETED";
+    } else if (expectedMinutes) {
       // Sistema V2.0: Usar expectedMinutes del horario asignado
       const workedHours = worked / 60;
       const expectedHours = expectedMinutes / 60;
@@ -1661,6 +1676,11 @@ export async function getExpectedHoursForToday() {
     const today = new Date();
     const dayOfWeek = today.getDay();
 
+    const resolvedScheduleType = contract.workScheduleType;
+    if (resolvedScheduleType === "FLEXIBLE") {
+      return { hoursToday: 0, isWorkingDay: true, hasActiveContract };
+    }
+
     // Verificar si hoy es festivo
     const dayStart = startOfDay(today);
     const dayEnd = endOfDay(today);
@@ -1738,30 +1758,7 @@ export async function getExpectedHoursForToday() {
       contract.workSaturday,
     ];
 
-    if (contract.scheduleType === "FLEXIBLE") {
-      if (contract.hasCustomWeeklyPattern) {
-        // FLEXIBLE con patrón personalizado: Usar horas específicas del día
-        const todayHours = isIntensivePeriod ? intensiveHoursByDay[dayOfWeek] : regularHoursByDay[dayOfWeek];
-
-        if (todayHours !== null && todayHours !== undefined) {
-          hoursToday = Number(todayHours);
-          isWorkingDay = hoursToday > 0;
-        } else {
-          // Si no hay horas definidas para hoy, no es día laborable
-          hoursToday = 0;
-          isWorkingDay = false;
-        }
-      } else {
-        // FLEXIBLE sin patrón: Usar promedio (comportamiento legacy)
-        hoursToday = calculateAverageHours(
-          isIntensivePeriod,
-          contract.intensiveWeeklyHours,
-          contract.weeklyHours,
-          contract.workingDaysPerWeek,
-        );
-        isWorkingDay = true; // Asumimos que trabaja si no hay patrón específico
-      }
-    } else if (contract.scheduleType === "FIXED") {
+    if (resolvedScheduleType === "FIXED") {
       // FIXED: Verificar si trabaja hoy según workMonday, workTuesday, etc.
       const worksToday = workDaysByDay[dayOfWeek] ?? false;
       isWorkingDay = worksToday;
@@ -2388,22 +2385,38 @@ export async function recalculateWorkdaySummary(date: Date) {
     let expectedMinutes: number | null = null;
     let deviationMinutes: number | null = null;
     let scheduleIsWorkday: boolean | null = null;
+    let isFlexTotal = false;
 
     try {
       const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
       scheduleIsWorkday = effectiveSchedule.isWorkingDay;
-      expectedMinutes = effectiveSchedule.expectedMinutes;
-      deviationMinutes = worked - expectedMinutes;
+      isFlexTotal = effectiveSchedule.scheduleMode === "FLEX_TOTAL";
+      if (isFlexTotal) {
+        expectedMinutes = null;
+        deviationMinutes = null;
+      } else {
+        expectedMinutes = effectiveSchedule.expectedMinutes;
+        deviationMinutes = worked - expectedMinutes;
+      }
 
-      console.log(`   📅 Esperado: ${expectedMinutes.toFixed(2)} min (${(expectedMinutes / 60).toFixed(2)} horas)`);
-      console.log(
-        `   📊 Desviación: ${deviationMinutes > 0 ? "+" : ""}${deviationMinutes.toFixed(2)} min (${(deviationMinutes / 60).toFixed(2)} horas)`,
-      );
+      if (expectedMinutes !== null) {
+        const deviationLabel =
+          deviationMinutes !== null && deviationMinutes !== undefined ? deviationMinutes.toFixed(2) : "0";
+        console.log(`   📅 Esperado: ${expectedMinutes.toFixed(2)} min (${(expectedMinutes / 60).toFixed(2)} horas)`);
+        console.log(
+          `   📊 Desviación: ${deviationMinutes && deviationMinutes > 0 ? "+" : ""}${deviationLabel} min (${((deviationMinutes ?? 0) / 60).toFixed(2)} horas)`,
+        );
+      }
     } catch {
       console.log("   ⚠️ No se pudo obtener horario efectivo (normal si no hay asignación)");
     }
 
-    if ((expectedMinutes === null || expectedMinutes === 0) && entries.length > 0 && scheduleIsWorkday !== false) {
+    if (
+      !isFlexTotal &&
+      (expectedMinutes === null || expectedMinutes === 0) &&
+      entries.length > 0 &&
+      scheduleIsWorkday !== false
+    ) {
       const fallbackMinutes = await getFallbackExpectedMinutes(employeeId, orgId);
       if (fallbackMinutes) {
         expectedMinutes = fallbackMinutes;
@@ -2418,7 +2431,9 @@ export async function recalculateWorkdaySummary(date: Date) {
     // 5. Determinar estado
     let status: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = "IN_PROGRESS";
     if (lastExit) {
-      if (expectedMinutes) {
+      if (isFlexTotal) {
+        status = "COMPLETED";
+      } else if (expectedMinutes) {
         // Sistema V2.0: Usar expectedMinutes del horario asignado
         const workedHours = worked / 60;
         const expectedHours = expectedMinutes / 60;
@@ -2545,10 +2560,12 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
     if (existingSummary) {
       // Recalcular usando el motor de horarios (ahora retornará source: "ABSENCE")
       const effectiveSchedule = await getEffectiveSchedule(employeeId, dayStart);
+      const isFlexTotal = effectiveSchedule.scheduleMode === "FLEX_TOTAL";
 
       // Actualizar expectedMinutes y deviationMinutes
-      const newExpectedMinutes = effectiveSchedule.expectedMinutes;
-      const newDeviationMinutes = existingSummary.totalWorkedMinutes - newExpectedMinutes;
+      const newExpectedMinutes = isFlexTotal ? null : effectiveSchedule.expectedMinutes;
+      const newDeviationMinutes =
+        newExpectedMinutes === null ? null : existingSummary.totalWorkedMinutes - newExpectedMinutes;
 
       // Determinar nuevo status
       let newStatus: "IN_PROGRESS" | "COMPLETED" | "INCOMPLETE" = existingSummary.status as
@@ -2556,10 +2573,12 @@ export async function recalculateWorkdaySummaryForRetroactivePto(
         | "COMPLETED"
         | "INCOMPLETE";
       if (existingSummary.clockOut) {
-        if (newExpectedMinutes === 0) {
+        if (isFlexTotal) {
+          newStatus = "COMPLETED";
+        } else if (newExpectedMinutes === 0) {
           // Día de ausencia: cualquier trabajo es bonus
           newStatus = "COMPLETED";
-        } else {
+        } else if (newExpectedMinutes) {
           const compliance = (existingSummary.totalWorkedMinutes / newExpectedMinutes) * 100;
           newStatus = compliance >= 95 ? "COMPLETED" : "INCOMPLETE";
         }

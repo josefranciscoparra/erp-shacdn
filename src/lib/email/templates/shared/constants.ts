@@ -107,6 +107,6 @@ export const EMAIL_STYLES = {
 
 // Defaults
 export const EMAIL_DEFAULTS = {
-  productName: "TimeNow",
+  productName: "Timenow",
   supportEmail: "soporte@timenow.cloud",
 } as const;

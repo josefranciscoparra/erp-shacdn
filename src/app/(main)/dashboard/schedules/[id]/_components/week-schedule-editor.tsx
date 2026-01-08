@@ -102,12 +102,16 @@ export function WeekScheduleEditor({ template, periods }: WeekScheduleEditorProp
 
               {activePeriod && (
                 <>
-                  <EditPeriodDialog period={activePeriod} />
+                  <EditPeriodDialog period={activePeriod} templateType={template.templateType} />
                   <DeletePeriodDialog period={activePeriod} />
                 </>
               )}
 
-              <CreatePeriodDialog templateId={template.id} />
+              <CreatePeriodDialog
+                templateId={template.id}
+                templateType={template.templateType}
+                templateWeeklyHours={template.weeklyHours ? Number(template.weeklyHours) : null}
+              />
             </div>
           </div>
         </CardHeader>
@@ -119,7 +123,9 @@ export function WeekScheduleEditor({ template, periods }: WeekScheduleEditorProp
           {template.templateType === "FIXED" && <FixedScheduleEditor period={activePeriod} />}
           {template.templateType === "SHIFT" && <ShiftScheduleEditor />}
           {template.templateType === "ROTATION" && <RotationScheduleEditor />}
-          {template.templateType === "FLEXIBLE" && <FlexibleScheduleEditor />}
+          {template.templateType === "FLEXIBLE" && (
+            <FlexibleScheduleEditor period={activePeriod} templateWeeklyHours={template.weeklyHours ?? null} />
+          )}
         </>
       )}
     </div>
@@ -497,38 +503,40 @@ function RotationScheduleEditor() {
 // FLEXIBLE SCHEDULE EDITOR
 // ============================================================================
 
-function FlexibleScheduleEditor() {
+function FlexibleScheduleEditor({
+  period,
+  templateWeeklyHours,
+}: {
+  period: PeriodWithPatterns;
+  templateWeeklyHours: number | null;
+}) {
+  const periodWeeklyHours = period.weeklyHours ? Number(period.weeklyHours) : null;
+  const fallbackWeeklyHours = templateWeeklyHours ?? null;
+  const resolvedWeeklyHours = periodWeeklyHours ?? fallbackWeeklyHours ?? 0;
+
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div>
-              <CardTitle className="text-base">Horario Flexible</CardTitle>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Define franjas obligatorias y franjas flexibles para cada día
-              </p>
-            </div>
-            <Badge variant="secondary" className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-              <Construction className="mr-1 h-3 w-3" />
-              En Desarrollo
-            </Badge>
+          <div>
+            <CardTitle className="text-base">Flexible total (objetivo semanal)</CardTitle>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Este período no define franjas. Solo establece el objetivo semanal de horas.
+            </p>
           </div>
-          <Button variant="outline" size="sm" disabled title="Esta funcionalidad estará disponible próximamente">
-            <Plus className="mr-2 h-4 w-4" />
-            Configurar
-          </Button>
+          <Badge variant="outline">Sin franjas</Badge>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="bg-muted/30 rounded-lg border border-dashed p-6 text-center">
-          <Construction className="mx-auto mb-3 h-10 w-10 text-amber-500 opacity-60" />
-          <p className="text-muted-foreground text-sm">
-            El editor de horarios flexibles está en desarrollo.
-            <br />
-            <span className="text-xs">
-              Pronto podrás definir franjas obligatorias (núcleo fijo) y franjas flexibles de entrada/salida.
-            </span>
+        <div className="bg-muted/30 flex flex-col gap-3 rounded-lg border p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">Objetivo semanal del período</p>
+            <p className="text-lg font-semibold">{resolvedWeeklyHours.toFixed(1)}h</p>
+          </div>
+          <p className="text-muted-foreground text-xs">
+            {periodWeeklyHours === null
+              ? "Usa el objetivo semanal definido en la plantilla."
+              : "Este período sobrescribe el objetivo semanal de la plantilla."}
           </p>
         </div>
       </CardContent>

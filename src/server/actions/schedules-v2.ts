@@ -10,6 +10,8 @@
  * - Cálculo de horarios semanales
  */
 
+import { revalidatePath } from "next/cache";
+
 import {
   startOfWeek,
   endOfWeek,
@@ -21,10 +23,8 @@ import {
   differenceInMinutes,
 } from "date-fns";
 
-import { revalidatePath } from "next/cache";
-
-import { getActionError, requirePermission, safePermission } from "@/lib/auth-guard";
 import { auth } from "@/lib/auth";
+import { getActionError, requirePermission, safePermission } from "@/lib/auth-guard";
 import { prisma } from "@/lib/prisma";
 import { minutesToHours } from "@/services/schedules";
 import type {
@@ -491,6 +491,7 @@ export async function createScheduleTemplate(
         name: data.name,
         description: data.description,
         templateType: data.templateType,
+        weeklyHours: data.weeklyHours ?? null,
         orgId,
       },
     });
@@ -521,6 +522,7 @@ export async function updateScheduleTemplate(
         name: data.name,
         description: data.description,
         templateType: data.templateType,
+        weeklyHours: data.weeklyHours ?? undefined,
       },
     });
 
@@ -603,6 +605,7 @@ export async function duplicateScheduleTemplate(id: string, newName: string): Pr
         name: newName,
         description: original.description,
         templateType: original.templateType,
+        weeklyHours: original.weeklyHours ?? null,
         orgId,
         periods: {
           create: original.periods.map((period) => ({
@@ -610,6 +613,7 @@ export async function duplicateScheduleTemplate(id: string, newName: string): Pr
             name: period.name,
             validFrom: period.validFrom,
             validTo: period.validTo,
+            weeklyHours: period.weeklyHours ?? null,
             workDayPatterns: {
               create: period.workDayPatterns.map((pattern) => ({
                 dayOfWeek: pattern.dayOfWeek,
@@ -683,8 +687,10 @@ export async function getScheduleTemplates(filters?: ScheduleTemplateFilters) {
   // Serializar Decimals a números para Next.js (igual que getScheduleTemplateById)
   return templates.map((template) => ({
     ...template,
+    weeklyHours: template.weeklyHours ? Number(template.weeklyHours) : null,
     periods: template.periods.map((period) => ({
       ...period,
+      weeklyHours: period.weeklyHours ? Number(period.weeklyHours) : null,
       workDayPatterns: period.workDayPatterns.map((pattern) => ({
         ...pattern,
         timeSlots: pattern.timeSlots.map((slot) => {
@@ -759,8 +765,10 @@ export async function getScheduleTemplateById(id: string) {
   // Serializar Decimals a números para Next.js
   return {
     ...template,
+    weeklyHours: template.weeklyHours ? Number(template.weeklyHours) : null,
     periods: template.periods.map((period) => ({
       ...period,
+      weeklyHours: period.weeklyHours ? Number(period.weeklyHours) : null,
       workDayPatterns: period.workDayPatterns.map((pattern) => ({
         ...pattern,
         timeSlots: pattern.timeSlots.map((slot) => {
@@ -795,10 +803,24 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
     // Verificar que la plantilla existe y pertenece a la org
     const template = await prisma.scheduleTemplate.findUnique({
       where: { id: data.scheduleTemplateId, orgId },
+      select: {
+        id: true,
+        orgId: true,
+        templateType: true,
+      },
     });
 
     if (!template) {
       return { success: false, error: "Plantilla no encontrada" };
+    }
+
+    if (template.templateType === "FLEXIBLE") {
+      if (data.weeklyHours === null || data.weeklyHours === undefined) {
+        return { success: false, error: "Debes indicar las horas semanales para un período flexible" };
+      }
+      if (data.weeklyHours <= 0) {
+        return { success: false, error: "Las horas semanales deben ser mayores a 0" };
+      }
     }
 
     // Validar que validTo >= validFrom si ambas están definidas
@@ -842,6 +864,7 @@ export async function createSchedulePeriod(data: CreateSchedulePeriodInput): Pro
         name: data.name,
         validFrom: data.validFrom,
         validTo: data.validTo,
+        weeklyHours: template.templateType === "FLEXIBLE" ? (data.weeklyHours ?? null) : null,
       },
     });
 
@@ -912,6 +935,15 @@ export async function updateSchedulePeriod(
       };
     }
 
+    const template = await prisma.scheduleTemplate.findUnique({
+      where: { id: currentPeriod.scheduleTemplateId, orgId },
+      select: { templateType: true },
+    });
+
+    if (template?.templateType === "FLEXIBLE" && data.weeklyHours !== undefined && data.weeklyHours <= 0) {
+      return { success: false, error: "Las horas semanales deben ser mayores a 0" };
+    }
+
     await prisma.schedulePeriod.update({
       where: { id },
       data: {
@@ -919,6 +951,9 @@ export async function updateSchedulePeriod(
         name: data.name,
         validFrom: data.validFrom,
         validTo: data.validTo,
+        ...(template?.templateType === "FLEXIBLE" && data.weeklyHours !== undefined
+          ? { weeklyHours: data.weeklyHours }
+          : {}),
       },
     });
 
@@ -1175,9 +1210,7 @@ export async function assignScheduleToEmployee(
     }
 
     // Si aún no hay assignmentType, usar FIXED como default
-    if (!assignmentType) {
-      assignmentType = "FIXED" as any;
-    }
+    assignmentType ??= "FIXED" as any;
 
     // FASE 3.1: Usar transacción atómica para cierre + creación
     // Esto garantiza que no quedan múltiples asignaciones activas para el mismo rango
@@ -1316,6 +1349,7 @@ export async function getEmployeeCurrentAssignment(employeeId: string) {
       ...assignment,
       scheduleTemplate: {
         ...assignment.scheduleTemplate,
+        weeklyHours: assignment.scheduleTemplate.weeklyHours ? Number(assignment.scheduleTemplate.weeklyHours) : null,
         periods: assignment.scheduleTemplate.periods.map((period) => ({
           ...period,
           workDayPatterns: period.workDayPatterns.map((pattern) => ({
@@ -1927,6 +1961,9 @@ export interface CreateExceptionDayInput {
   reason?: string;
   isRecurring?: boolean; // Excepción anual
 
+  // Objetivo semanal (solo FLEXIBLE total)
+  weeklyHours?: number;
+
   // Time slots personalizados
   timeSlots?: Array<{
     startTimeMinutes: number;
@@ -2022,7 +2059,7 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
     if (input.scheduleTemplateId) {
       const template = await prisma.scheduleTemplate.findUnique({
         where: { id: input.scheduleTemplateId },
-        select: { orgId: true },
+        select: { orgId: true, templateType: true },
       });
 
       if (!template || template.orgId !== orgId) {
@@ -2030,6 +2067,22 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
           success: false,
           error: "Plantilla no encontrada o no pertenece a tu organización",
         };
+      }
+
+      if (template.templateType === "FLEXIBLE") {
+        if (input.weeklyHours === null || input.weeklyHours === undefined) {
+          return { success: false, error: "Debes indicar las horas semanales para una excepción flexible" };
+        }
+        if (input.weeklyHours <= 0) {
+          return { success: false, error: "Las horas semanales deben ser mayores a 0" };
+        }
+        if (input.timeSlots && input.timeSlots.length > 0) {
+          return { success: false, error: "Las excepciones flexibles no admiten franjas horarias" };
+        }
+      }
+
+      if (template.templateType !== "FLEXIBLE" && input.weeklyHours !== undefined) {
+        return { success: false, error: "Las horas semanales solo están disponibles en plantillas flexibles" };
       }
     }
 
@@ -2059,6 +2112,19 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
           error: "Centro de costes no encontrado o no pertenece a tu organización",
         };
       }
+    }
+
+    if (input.weeklyHours !== undefined && input.weeklyHours !== null && input.weeklyHours <= 0) {
+      return { success: false, error: "Las horas semanales deben ser mayores a 0" };
+    }
+
+    if (
+      input.weeklyHours !== undefined &&
+      input.weeklyHours !== null &&
+      input.timeSlots &&
+      input.timeSlots.length > 0
+    ) {
+      return { success: false, error: "No puedes combinar horas semanales con franjas horarias" };
     }
 
     // Validar time slots si existen
@@ -2121,6 +2187,7 @@ export async function createExceptionDay(input: CreateExceptionDayInput): Promis
         reason: input.reason,
         exceptionType: input.exceptionType,
         isRecurring: input.isRecurring ?? false,
+        weeklyHours: input.weeklyHours ?? null,
         createdBy: session.user.id,
         overrideSlots: input.timeSlots
           ? {
@@ -2159,7 +2226,7 @@ export async function updateExceptionDay(
     // Verificar que la excepción existe y pertenece a la org
     const exception = await prisma.exceptionDayOverride.findUnique({
       where: { id: input.id },
-      select: { orgId: true, deletedAt: true },
+      select: { orgId: true, deletedAt: true, scheduleTemplateId: true },
     });
 
     if (!exception || exception.orgId !== orgId) {
@@ -2174,6 +2241,46 @@ export async function updateExceptionDay(
         success: false,
         error: "No se puede actualizar una excepción eliminada",
       };
+    }
+
+    if (input.weeklyHours !== undefined && input.weeklyHours !== null && input.weeklyHours <= 0) {
+      return { success: false, error: "Las horas semanales deben ser mayores a 0" };
+    }
+
+    if (
+      input.weeklyHours !== undefined &&
+      input.weeklyHours !== null &&
+      input.timeSlots &&
+      input.timeSlots.length > 0
+    ) {
+      return { success: false, error: "No puedes combinar horas semanales con franjas horarias" };
+    }
+
+    if (exception.scheduleTemplateId) {
+      const template = await prisma.scheduleTemplate.findUnique({
+        where: { id: exception.scheduleTemplateId },
+        select: { orgId: true, templateType: true },
+      });
+
+      if (!template || template.orgId !== orgId) {
+        return {
+          success: false,
+          error: "Plantilla no encontrada o no pertenece a tu organización",
+        };
+      }
+
+      if (template.templateType === "FLEXIBLE") {
+        if (input.weeklyHours === null || input.weeklyHours === undefined) {
+          return { success: false, error: "Debes indicar las horas semanales para una excepción flexible" };
+        }
+        if (input.timeSlots && input.timeSlots.length > 0) {
+          return { success: false, error: "Las excepciones flexibles no admiten franjas horarias" };
+        }
+      }
+
+      if (template.templateType !== "FLEXIBLE" && input.weeklyHours !== undefined) {
+        return { success: false, error: "Las horas semanales solo están disponibles en plantillas flexibles" };
+      }
     }
 
     // Validar time slots si existen
@@ -2199,6 +2306,7 @@ export async function updateExceptionDay(
         isGlobal: input.isGlobal ?? false,
         departmentId: input.departmentId ?? null,
         costCenterId: input.costCenterId ?? null,
+        weeklyHours: input.weeklyHours ?? null,
         // Eliminar slots existentes y crear nuevos
         overrideSlots: {
           deleteMany: {},
@@ -2306,7 +2414,10 @@ export async function getExceptionDaysForTemplate(templateId: string) {
       orderBy: { date: "asc" },
     });
 
-    return exceptions;
+    return exceptions.map((exception) => ({
+      ...exception,
+      weeklyHours: exception.weeklyHours ? Number(exception.weeklyHours) : null,
+    }));
   } catch (error) {
     console.error("Error getting exceptions for template:", error);
     return [];
@@ -2355,7 +2466,10 @@ export async function getExceptionDaysForEmployee(employeeId: string) {
       orderBy: { date: "asc" },
     });
 
-    return exceptions;
+    return exceptions.map((exception) => ({
+      ...exception,
+      weeklyHours: exception.weeklyHours ? Number(exception.weeklyHours) : null,
+    }));
   } catch (error) {
     console.error("Error getting exceptions for employee:", error);
     return [];

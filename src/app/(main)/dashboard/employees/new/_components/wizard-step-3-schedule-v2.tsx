@@ -21,7 +21,7 @@ import { getScheduleTemplates } from "@/server/actions/schedules-v2";
 
 // Tipo de datos que enviaremos al wizard
 export interface ScheduleAssignmentData {
-  scheduleType: "FIXED" | "SHIFT";
+  scheduleType: "FIXED" | "SHIFT" | "FLEXIBLE";
   scheduleTemplateId?: string;
   validFrom?: Date;
 }
@@ -41,8 +41,11 @@ interface TemplateOption {
 
 export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: WizardStep3ScheduleV2Props) {
   const [fixedTemplates, setFixedTemplates] = useState<TemplateOption[]>([]);
+  const [flexibleTemplates, setFlexibleTemplates] = useState<TemplateOption[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [scheduleType, setScheduleType] = useState<"FIXED" | "SHIFT" | null>(initialData?.scheduleType ?? null);
+  const [scheduleType, setScheduleType] = useState<"FIXED" | "SHIFT" | "FLEXIBLE" | null>(
+    initialData?.scheduleType ?? null,
+  );
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(initialData?.scheduleTemplateId ?? null);
   const [validFrom, setValidFrom] = useState<Date>(initialData?.validFrom ?? new Date());
   const [skipSchedule, setSkipSchedule] = useState(false);
@@ -50,22 +53,31 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
   // Refs para hacer scroll al contenido cuando se selecciona tipo
   const fixedContentRef = useRef<HTMLDivElement>(null);
   const shiftContentRef = useRef<HTMLDivElement>(null);
+  const flexibleContentRef = useRef<HTMLDivElement>(null);
 
   // Cargar plantillas de horario fijo al montar
   useEffect(() => {
     async function loadTemplates() {
       try {
         const data = await getScheduleTemplates({ isActive: true });
-        // Filtrar solo FIXED (los turnos se gestionan desde Gestión de Turnos)
-        const filtered = data
-          .filter((t) => t.templateType === "FIXED")
-          .map((t) => ({
-            id: t.id,
-            name: t.name,
-            description: t.description,
-            employeeCount: t._count?.employeeAssignments ?? 0,
-          }));
-        setFixedTemplates(filtered);
+        const toOption = (t: {
+          id: string;
+          name: string;
+          description: string | null;
+          _count?: { employeeAssignments?: number | null };
+        }) => ({
+          id: t.id,
+          name: t.name,
+          description: t.description,
+          employeeCount:
+            t._count && t._count.employeeAssignments !== undefined && t._count.employeeAssignments !== null
+              ? t._count.employeeAssignments
+              : 0,
+        });
+        const fixed = data.filter((t) => t.templateType === "FIXED").map(toOption);
+        const flexible = data.filter((t) => t.templateType === "FLEXIBLE").map(toOption);
+        setFixedTemplates(fixed);
+        setFlexibleTemplates(flexible);
       } catch (error) {
         console.error("Error loading templates:", error);
       } finally {
@@ -80,7 +92,12 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
     if (scheduleType) {
       // Pequeño delay para que el contenido se renderice primero
       setTimeout(() => {
-        const targetRef = scheduleType === "FIXED" ? fixedContentRef : shiftContentRef;
+        const targetRef =
+          scheduleType === "SHIFT"
+            ? shiftContentRef
+            : scheduleType === "FLEXIBLE"
+              ? flexibleContentRef
+              : fixedContentRef;
         targetRef.current?.scrollIntoView({
           behavior: "smooth",
           block: "start",
@@ -109,17 +126,17 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
       return;
     }
 
-    if (scheduleType === "FIXED") {
+    if (scheduleType === "FIXED" || scheduleType === "FLEXIBLE") {
       if (!selectedTemplateId) {
-        // Si es FIXED pero no seleccionó plantilla, solo guardar el tipo
+        // Si es FIXED/FLEXIBLE pero no seleccionó plantilla, solo guardar el tipo
         onSubmit({
-          scheduleType: "FIXED",
+          scheduleType,
         });
         return;
       }
 
       onSubmit({
-        scheduleType: "FIXED",
+        scheduleType,
         scheduleTemplateId: selectedTemplateId,
         validFrom,
       });
@@ -246,12 +263,13 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
             <RadioGroup
               value={scheduleType ?? ""}
               onValueChange={(value) => {
-                setScheduleType(value as "FIXED" | "SHIFT");
-                if (value === "SHIFT") {
+                const nextType = value as "FIXED" | "SHIFT" | "FLEXIBLE";
+                setScheduleType(nextType);
+                if (nextType !== scheduleType) {
                   setSelectedTemplateId(null);
                 }
               }}
-              className="grid grid-cols-2 gap-4"
+              className="grid grid-cols-1 gap-4 @md/main:grid-cols-3"
             >
               {/* Opción Horario Fijo */}
               <div
@@ -290,6 +308,27 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
                   <p className="text-muted-foreground mt-1 text-xs">Turnos rotativos o variables</p>
                 </div>
                 <RadioGroupItem value="SHIFT" className="sr-only" />
+              </div>
+
+              {/* Flexible option */}
+              <div
+                className={cn(
+                  "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 p-6 transition-all",
+                  scheduleType === "FLEXIBLE" ? "border-primary bg-primary/5" : "border-muted hover:border-primary/40",
+                )}
+                onClick={() => {
+                  setScheduleType("FLEXIBLE");
+                  setSelectedTemplateId(null);
+                }}
+              >
+                <Clock
+                  className={cn("h-8 w-8", scheduleType === "FLEXIBLE" ? "text-primary" : "text-muted-foreground")}
+                />
+                <div className="text-center">
+                  <Label className="cursor-pointer text-base font-semibold">Flexible total</Label>
+                  <p className="text-muted-foreground mt-1 text-xs">Objetivo semanal sin franjas</p>
+                </div>
+                <RadioGroupItem value="FLEXIBLE" className="sr-only" />
               </div>
             </RadioGroup>
           </CardContent>
@@ -364,6 +403,74 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
         </div>
       )}
 
+      {/* Contenido para Flexible Total */}
+      {!skipSchedule && scheduleType === "FLEXIBLE" && (
+        <div ref={flexibleContentRef} className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Plantilla Flexible Total</CardTitle>
+              <CardDescription>Selecciona una plantilla flexible con objetivo semanal</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {flexibleTemplates.length === 0 ? (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      No hay plantillas flexibles creadas.{" "}
+                      <Link
+                        href="/dashboard/schedules"
+                        target="_blank"
+                        className="text-primary font-medium hover:underline"
+                      >
+                        Crear plantilla
+                      </Link>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  renderTemplateList(flexibleTemplates, "No hay plantillas flexibles")
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Fecha desde - Solo si seleccionó plantilla */}
+          {selectedTemplateId && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Fecha de inicio</CardTitle>
+                <CardDescription>Indica desde qué fecha aplica este horario</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !validFrom && "text-muted-foreground",
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {validFrom ? format(validFrom, "PPP", { locale: es }) : "Selecciona una fecha"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={validFrom}
+                      onSelect={(date) => date && setValidFrom(date)}
+                      initialFocus
+                      locale={es}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
       {/* Contenido para Turnos */}
       {!skipSchedule && scheduleType === "SHIFT" && (
         <div ref={shiftContentRef}>
@@ -381,17 +488,19 @@ export function WizardStep3ScheduleV2({ onSubmit, isLoading, initialData }: Wiza
         </div>
       )}
 
-      {/* Link para crear nueva plantilla - Solo si es FIXED */}
-      {!skipSchedule && scheduleType === "FIXED" && fixedTemplates.length > 0 && (
-        <div className="text-center">
-          <p className="text-muted-foreground text-sm">
-            ¿No encuentras la plantilla que necesitas?{" "}
-            <Link href="/dashboard/schedules" target="_blank" className="text-primary hover:underline">
-              Crear nueva plantilla
-            </Link>
-          </p>
-        </div>
-      )}
+      {/* Link para crear nueva plantilla */}
+      {!skipSchedule &&
+        (scheduleType === "FIXED" || scheduleType === "FLEXIBLE") &&
+        (scheduleType === "FIXED" ? fixedTemplates.length > 0 : flexibleTemplates.length > 0) && (
+          <div className="text-center">
+            <p className="text-muted-foreground text-sm">
+              ¿No encuentras la plantilla que necesitas?{" "}
+              <Link href="/dashboard/schedules" target="_blank" className="text-primary hover:underline">
+                Crear nueva plantilla
+              </Link>
+            </p>
+          </div>
+        )}
 
       {/* Form oculto para el wizard */}
       <form id="wizard-step-3-form" className="hidden" />

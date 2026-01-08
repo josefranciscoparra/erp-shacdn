@@ -152,6 +152,10 @@ export async function detectAlertsForTimeEntry(timeEntryId: string): Promise<Det
 
     const alerts: DetectedAlert[] = [];
 
+    if (effectiveSchedule.scheduleMode === "FLEX_TOTAL") {
+      return alerts;
+    }
+
     // Si es día no laborable
     if (!effectiveSchedule.isWorkingDay) {
       console.log("📅 [ANALYZE] Día no laborable detectado");

@@ -30,7 +30,7 @@ const templateTypeLabels = {
   FIXED: { label: "Horario Fijo", color: "default" as const },
   SHIFT: { label: "Turnos", color: "secondary" as const },
   ROTATION: { label: "Rotación", color: "outline" as const },
-  FLEXIBLE: { label: "Flexible", color: "secondary" as const },
+  FLEXIBLE: { label: "Flexible total", color: "secondary" as const },
 };
 
 export default async function ScheduleTemplatePage({ params }: PageProps) {
@@ -146,7 +146,7 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
               {template.templateType === "FIXED" && "Mismo horario todos los días"}
               {template.templateType === "SHIFT" && "Turnos asignados"}
               {template.templateType === "ROTATION" && "Rotaciones programadas"}
-              {template.templateType === "FLEXIBLE" && "Horario con franjas flexibles"}
+              {template.templateType === "FLEXIBLE" && "Flexible total sin franjas"}
             </p>
           </CardContent>
         </Card>
@@ -174,8 +174,18 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
             <EmptyState
               icon={<Calendar className="text-muted-foreground mx-auto h-12 w-12" />}
               title="Sin períodos configurados"
-              description="Crea tu primer período (Regular, Intensivo o Especial) para comenzar a configurar los horarios de esta plantilla"
-              action={<CreatePeriodDialog templateId={template.id} />}
+              description={
+                template.templateType === "FLEXIBLE"
+                  ? "Crea tu primer período y define el objetivo semanal (sin franjas horarias)"
+                  : "Crea tu primer período (Regular, Intensivo o Especial) para comenzar a configurar los horarios de esta plantilla"
+              }
+              action={
+                <CreatePeriodDialog
+                  templateId={template.id}
+                  templateType={template.templateType}
+                  templateWeeklyHours={template.weeklyHours ? Number(template.weeklyHours) : null}
+                />
+              }
             />
           ) : (
             <WeekScheduleEditor template={template} periods={template.periods ?? []} />
@@ -190,7 +200,7 @@ async function ScheduleTemplateContent({ templateId }: { templateId: string }) {
         </TabsContent>
 
         <TabsContent value="exceptions" className="space-y-4">
-          <ExceptionsTab templateId={template.id} templateName={template.name} />
+          <ExceptionsTab templateId={template.id} templateName={template.name} templateType={template.templateType} />
         </TabsContent>
       </Tabs>
     </>

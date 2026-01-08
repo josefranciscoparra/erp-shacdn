@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 
+import { endOfWeek, startOfWeek } from "date-fns";
+
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 // Force recompile schedule-engine
@@ -14,6 +16,15 @@ import type { EffectiveSchedule } from "@/types/schedule";
 export async function getTodaySchedule(): Promise<{
   success: boolean;
   schedule?: EffectiveSchedule;
+  flexWeeklySummary?: {
+    weekStart: Date;
+    weekEnd: Date;
+    targetMinutes: number;
+    workedMinutes: number;
+    remainingMinutes: number;
+    deltaMinutes: number;
+    progressPercent: number;
+  };
   error?: string;
 }> {
   try {
@@ -48,10 +59,56 @@ export async function getTodaySchedule(): Promise<{
     today.setHours(12, 0, 0, 0); // Normalizar a mediodía para evitar problemas de timezone
 
     const schedule = await getEffectiveSchedule(employee.id, today);
+    let flexWeeklySummary:
+      | {
+          weekStart: Date;
+          weekEnd: Date;
+          targetMinutes: number;
+          workedMinutes: number;
+          remainingMinutes: number;
+          deltaMinutes: number;
+          progressPercent: number;
+        }
+      | undefined;
+
+    if (schedule.scheduleMode === "FLEX_TOTAL") {
+      const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+      const weeklyTotals = await prisma.workdaySummary.aggregate({
+        where: {
+          orgId: session.user.orgId,
+          employeeId: employee.id,
+          date: {
+            gte: weekStart,
+            lte: weekEnd,
+          },
+        },
+        _sum: {
+          totalWorkedMinutes: true,
+        },
+      });
+      // eslint-disable-next-line no-underscore-dangle -- Prisma uses _sum for aggregations
+      const workedMinutes = Number(weeklyTotals._sum.totalWorkedMinutes ?? 0);
+      const targetMinutes = schedule.weeklyTargetMinutes ?? 0;
+      const remainingMinutes = Math.max(0, targetMinutes - workedMinutes);
+      const deltaMinutes = workedMinutes - targetMinutes;
+      const progressPercent = targetMinutes > 0 ? Math.round((workedMinutes / targetMinutes) * 100) : 0;
+
+      flexWeeklySummary = {
+        weekStart,
+        weekEnd,
+        targetMinutes,
+        workedMinutes,
+        remainingMinutes,
+        deltaMinutes,
+        progressPercent,
+      };
+    }
 
     return {
       success: true,
       schedule,
+      flexWeeklySummary,
     };
   } catch (error) {
     console.error("Error al obtener horario del día:", error);
@@ -168,17 +225,19 @@ export async function getTodaySummary(): Promise<{
 
     // CONSISTENCIA UI: Siempre obtener el horario fresco del motor
     // La BD puede tener un snapshot obsoleto si se aprobaron vacaciones después de fichar
-    let expectedMinutes = 0;
+    let expectedMinutes: number | null = 0;
     let needsDbSync = false;
+    let isFlexTotal = false;
     try {
       const scheduleDate = new Date(today);
       scheduleDate.setHours(12, 0, 0, 0); // Usar mediodía para el motor de horarios
       const freshSchedule = await getEffectiveSchedule(employee.id, scheduleDate);
-      expectedMinutes = freshSchedule.expectedMinutes;
+      isFlexTotal = freshSchedule.scheduleMode === "FLEX_TOTAL";
+      expectedMinutes = isFlexTotal ? null : freshSchedule.expectedMinutes;
 
       // FASE 3.3: Detectar si la BD tiene un valor diferente al motor
       const dbExpectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : 0;
-      if (dbExpectedMinutes !== expectedMinutes) {
+      if (!isFlexTotal && expectedMinutes !== null && dbExpectedMinutes !== expectedMinutes) {
         needsDbSync = true;
         console.log(
           `🔄 SYNC expectedMinutes: BD=${dbExpectedMinutes} → Motor=${expectedMinutes} (empleado=${employee.id})`,
@@ -191,10 +250,11 @@ export async function getTodaySummary(): Promise<{
     }
 
     // Recalcular desviación siempre con el valor fresco
-    const deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
+    const deviationMinutes =
+      expectedMinutes === null ? null : Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
 
     // FASE 3.3: Sincronizar BD si hay diferencia (fire and forget para no bloquear la UI)
-    if (needsDbSync) {
+    if (needsDbSync && expectedMinutes !== null) {
       prisma.workdaySummary
         .update({
           where: {
@@ -348,11 +408,17 @@ export async function getTodayScheduleAndSummary(): Promise<{
       };
     }
 
-    const expectedMinutes = schedule ? schedule.expectedMinutes : Number(workdaySummary.expectedMinutes ?? 0);
-    const deviationMinutes = Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
+    const isFlexTotal = schedule?.scheduleMode === "FLEX_TOTAL";
+    const expectedMinutes = isFlexTotal
+      ? null
+      : schedule
+        ? schedule.expectedMinutes
+        : Number(workdaySummary.expectedMinutes ?? 0);
+    const deviationMinutes =
+      expectedMinutes === null ? null : Number(workdaySummary.totalWorkedMinutes) - expectedMinutes;
     const dbExpectedMinutes = workdaySummary.expectedMinutes ? Number(workdaySummary.expectedMinutes) : 0;
 
-    if (schedule && dbExpectedMinutes !== expectedMinutes) {
+    if (schedule && !isFlexTotal && expectedMinutes !== null && dbExpectedMinutes !== expectedMinutes) {
       prisma.workdaySummary
         .update({
           where: {

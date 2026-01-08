@@ -2970,6 +2970,7 @@ model ScheduleTemplate {
   name         String // "Horario oficina central", "Turno 24h bomberos"
   description  String?
   templateType ScheduleTemplateType // FIXED, SHIFT, ROTATION, FLEXIBLE
+  weeklyHours  Decimal?             @db.Decimal(5, 2) // Objetivo semanal (FLEXIBLE total)
   isActive     Boolean              @default(true)
 
   // Multi-tenancy
@@ -2998,6 +2999,7 @@ model SchedulePeriod {
 
   periodType SchedulePeriodType
   name       String? // "Verano 2025", "Semana Santa", "Campaña Navidad"
+  weeklyHours Decimal? @db.Decimal(5, 2) // Objetivo semanal (solo FLEXIBLE total)
 
   // Fechas de vigencia (null = permanente/REGULAR)
   validFrom DateTime? // null = desde siempre
@@ -3258,6 +3260,7 @@ model ExceptionDayOverride {
   date    DateTime  @db.Date // Día específico
   endDate DateTime? @db.Date // Para rangos de fechas (opcional)
   reason  String? // "Viernes Santo", "Cierre excepcional"
+  weeklyHours Decimal? @db.Decimal(5, 2) // Objetivo semanal (solo FLEXIBLE total)
 
   // Tipo de excepción
   exceptionType ExceptionType
