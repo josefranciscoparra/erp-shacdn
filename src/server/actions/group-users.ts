@@ -122,6 +122,7 @@ export async function addGroupAdmin(data: { groupId: string; email: string; role
 }> {
   try {
     const { role: currentUserRole } = await getGroupContext(data.groupId);
+    const eligibleRoles: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
 
     // Validar permisos de asignación
     if (data.role === "SUPER_ADMIN") {
@@ -136,7 +137,7 @@ export async function addGroupAdmin(data: { groupId: string; email: string; role
 
     const user = await prisma.user.findUnique({
       where: { email: data.email },
-      select: { id: true, role: true },
+      select: { id: true, role: true, orgId: true },
     });
 
     if (!user) {
@@ -144,6 +145,36 @@ export async function addGroupAdmin(data: { groupId: string; email: string; role
     }
     if (user.role === "SUPER_ADMIN") {
       return { success: false, error: "No puedes asignar un Super Admin a un grupo" };
+    }
+
+    // Validar que el usuario tenga rol RRHH/Org en alguna empresa del grupo
+    const groupOrgs = await prisma.organizationGroupOrganization.findMany({
+      where: { groupId: data.groupId, status: "ACTIVE" },
+      select: { organizationId: true },
+    });
+    const groupOrgIds = new Set(groupOrgs.map((org) => org.organizationId));
+
+    const hasBaseRoleInGroup = groupOrgIds.has(user.orgId) && eligibleRoles.includes(user.role as Role);
+
+    let hasMembershipRoleInGroup = false;
+    if (!hasBaseRoleInGroup && groupOrgIds.size > 0) {
+      const membership = await prisma.userOrganization.findFirst({
+        where: {
+          userId: user.id,
+          orgId: { in: Array.from(groupOrgIds) },
+          isActive: true,
+          role: { in: eligibleRoles },
+        },
+        select: { id: true },
+      });
+      hasMembershipRoleInGroup = !!membership;
+    }
+
+    if (!hasBaseRoleInGroup && !hasMembershipRoleInGroup) {
+      return {
+        success: false,
+        error: "El usuario es empleado en el grupo. Asigna un rol de RRHH u Organización primero.",
+      };
     }
 
     // Verificar si ya existe

@@ -55,6 +55,7 @@ interface GroupAdminsTableProps {
 
 // Roles permitidos para asignar a nivel de grupo
 const ALLOWED_GROUP_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
+const ELIGIBLE_GROUP_ADMIN_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"];
 
 // Colores hex sólidos para Safari - mismos que /dashboard/admin/users
 const ROLE_STYLES: Record<string, { bg: string; text: string; icon: React.ReactNode }> = {
@@ -209,7 +210,12 @@ export function GroupAdminsTable({ data, groupId, currentUserRole, availableUser
     return availableUsers.filter((user) => !adminIds.has(user.userId));
   }, [availableUsers, data]);
 
-  const filteredCandidates = useMemo(() => {
+  const isEligibleForGroupAdmin = useMemo(() => {
+    return (user: DirectoryUserRow) =>
+      user.organizations.some((org) => org.isActive && ELIGIBLE_GROUP_ADMIN_ROLES.includes(org.role));
+  }, []);
+
+  const matchingCandidates = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     if (query.length < 2) return [];
 
@@ -217,6 +223,16 @@ export function GroupAdminsTable({ data, groupId, currentUserRole, availableUser
       (user) => user.name.toLowerCase().includes(query) || user.email.toLowerCase().includes(query),
     );
   }, [candidateUsers, searchTerm]);
+
+  const eligibleCandidates = useMemo(
+    () => matchingCandidates.filter((user) => isEligibleForGroupAdmin(user)),
+    [isEligibleForGroupAdmin, matchingCandidates],
+  );
+
+  const ineligibleCandidates = useMemo(
+    () => matchingCandidates.filter((user) => !isEligibleForGroupAdmin(user)),
+    [isEligibleForGroupAdmin, matchingCandidates],
+  );
 
   const selectedUser = useMemo(
     () => (selectedUserId ? (candidateUsers.find((user) => user.userId === selectedUserId) ?? null) : null),
@@ -429,9 +445,9 @@ export function GroupAdminsTable({ data, groupId, currentUserRole, availableUser
                                 ? "Escribe 2 letras para buscar..."
                                 : "No se encontraron usuarios."}
                             </CommandEmpty>
-                            {filteredCandidates.length > 0 && (
+                            {eligibleCandidates.length > 0 && (
                               <CommandGroup heading="Usuarios encontrados">
-                                {filteredCandidates.map((user) => (
+                                {eligibleCandidates.map((user) => (
                                   <CommandItem
                                     key={user.userId}
                                     value={`${user.name} ${user.email}`}
@@ -460,8 +476,43 @@ export function GroupAdminsTable({ data, groupId, currentUserRole, availableUser
                                 ))}
                               </CommandGroup>
                             )}
+                            {ineligibleCandidates.length > 0 && (
+                              <CommandGroup heading="Sin rol de RRHH">
+                                {ineligibleCandidates.map((user) => (
+                                  <CommandItem
+                                    key={user.userId}
+                                    value={`${user.name} ${user.email}`}
+                                    disabled
+                                    className="flex cursor-not-allowed items-center justify-between opacity-60"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <Avatar className="h-6 w-6">
+                                        <AvatarImage src={user.image ?? ""} />
+                                        <AvatarFallback className="text-[10px]">
+                                          {user.name.substring(0, 2).toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <div className="flex flex-col">
+                                        <span className="text-sm font-medium">{user.name}</span>
+                                        <span className="text-muted-foreground text-xs">{user.email}</span>
+                                      </div>
+                                    </div>
+                                    <Badge variant="outline">
+                                      {ROLE_DISPLAY_NAMES[
+                                        user.organizations.find((org) => org.isActive)?.role ??
+                                          user.organizations[0]?.role ??
+                                          "EMPLOYEE"
+                                      ] ?? "Sin rol RRHH"}
+                                    </Badge>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            )}
                           </CommandList>
                         </Command>
+                        <p className="text-muted-foreground text-xs">
+                          Solo usuarios con rol de RRHH u Organización en alguna empresa del grupo.
+                        </p>
                         {selectedUser && (
                           <p className="text-muted-foreground text-xs">
                             Seleccionado: {selectedUser.name} · {selectedUser.email}
