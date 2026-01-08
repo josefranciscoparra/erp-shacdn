@@ -3,6 +3,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { resolveApproverUsers } from "@/lib/approvals/approval-engine";
+import { getActionError } from "@/lib/auth-guard";
 import { isEmployeePausedDuringRange } from "@/lib/contracts/discontinuous-utils";
 import { prisma } from "@/lib/prisma";
 import { calculatePtoBalanceByType } from "@/lib/pto/balance-service";
@@ -456,13 +457,15 @@ export async function createPtoRequest(data: {
   durationMinutes?: number; // Duración total en minutos
 }) {
   try {
+    const fail = (message: string) => ({ success: false as const, error: message });
+
     const { employeeId, orgId, employee } = await getAuthenticatedEmployee({
       requireActiveContract: true,
     });
 
     // Validar fechas
     if (data.startDate > data.endDate) {
-      throw new Error("La fecha de inicio debe ser anterior a la fecha de fin");
+      return fail("La fecha de inicio debe ser anterior a la fecha de fin");
     }
 
     // Obtener tipo de ausencia
@@ -471,12 +474,12 @@ export async function createPtoRequest(data: {
     });
 
     if (!absenceType || !absenceType.active) {
-      throw new Error("Tipo de ausencia no válido");
+      return fail("Tipo de ausencia no válido");
     }
 
     const isPausedForRange = await isEmployeePausedDuringRange(employeeId, data.startDate, data.endDate, orgId);
     if (isPausedForRange) {
-      throw new Error("Tu contrato fijo discontinuo está pausado en las fechas solicitadas.");
+      return fail("Tu contrato fijo discontinuo está pausado en las fechas solicitadas.");
     }
 
     const workdayMinutes = await getWorkdayMinutes(employeeId, orgId);
@@ -489,42 +492,42 @@ export async function createPtoRequest(data: {
 
     if (hasPartialPayload) {
       if (!absenceType.allowPartialDays) {
-        throw new Error("Este tipo de ausencia no permite especificar horas");
+        return fail("Este tipo de ausencia no permite especificar horas");
       }
 
       if (!startTimeProvided || !endTimeProvided) {
-        throw new Error("Para ausencias parciales debes indicar la hora de inicio y la de fin");
+        return fail("Para ausencias parciales debes indicar la hora de inicio y la de fin");
       }
 
       if (data.startDate.getTime() !== data.endDate.getTime()) {
-        throw new Error("Las ausencias parciales solo pueden ser para un mismo día");
+        return fail("Las ausencias parciales solo pueden ser para un mismo día");
       }
 
       const startTime = data.startTime as number;
       const endTime = data.endTime as number;
 
       if (startTime < 0 || startTime > 1440 || endTime < 0 || endTime > 1440) {
-        throw new Error("Las horas deben estar entre 00:00 y 24:00");
+        return fail("Las horas deben estar entre 00:00 y 24:00");
       }
 
       if (startTime >= endTime) {
-        throw new Error("La hora de inicio debe ser anterior a la hora de fin");
+        return fail("La hora de inicio debe ser anterior a la hora de fin");
       }
 
       requestedDurationMinutes = endTime - startTime;
 
       if (requestedDurationMinutes % absenceType.granularityMinutes !== 0) {
-        throw new Error(`La duración debe ser múltiplo de ${absenceType.granularityMinutes} minutos`);
+        return fail(`La duración debe ser múltiplo de ${absenceType.granularityMinutes} minutos`);
       }
 
       if (requestedDurationMinutes < absenceType.minimumDurationMinutes) {
-        throw new Error(
+        return fail(
           `La duración mínima es de ${absenceType.minimumDurationMinutes} minutos (${absenceType.minimumDurationMinutes / 60}h)`,
         );
       }
 
       if (absenceType.maxDurationMinutes && requestedDurationMinutes > absenceType.maxDurationMinutes) {
-        throw new Error(
+        return fail(
           `La duración máxima es de ${absenceType.maxDurationMinutes} minutos (${absenceType.maxDurationMinutes / 60}h)`,
         );
       }
@@ -534,7 +537,7 @@ export async function createPtoRequest(data: {
       const employeeSchedule = await getEffectiveSchedule(employeeId, normalizedDate);
 
       if (!employeeSchedule.isWorkingDay) {
-        throw new Error("El día seleccionado no es un día laboral según tu horario");
+        return fail("El día seleccionado no es un día laboral según tu horario");
       }
 
       const workingSlots = employeeSchedule.timeSlots.filter(
@@ -542,7 +545,7 @@ export async function createPtoRequest(data: {
       );
 
       if (workingSlots.length === 0) {
-        throw new Error("No tienes franjas laborales configuradas en esta fecha");
+        return fail("No tienes franjas laborales configuradas en esta fecha");
       }
 
       const mergedSlots = mergeSlotRanges(
@@ -553,12 +556,12 @@ export async function createPtoRequest(data: {
       );
 
       if (!intervalCoveredBySlots(mergedSlots, startTime, endTime)) {
-        throw new Error(
+        return fail(
           `Las horas solicitadas (${formatMinutesToTime(startTime)}-${formatMinutesToTime(endTime)}) deben estar dentro de tus franjas laborales (${describeSlots(mergedSlots)})`,
         );
       }
     } else if (!absenceType.allowPartialDays && (startTimeProvided || endTimeProvided)) {
-      throw new Error("Este tipo de ausencia no permite especificar horas");
+      return fail("Este tipo de ausencia no permite especificar horas");
     }
     // Si allowPartialDays=true pero NO se enviaron horas → día completo, válido
 
@@ -577,7 +580,7 @@ export async function createPtoRequest(data: {
       const isAligned = Math.abs(Math.round(ratio) - ratio) < 0.0001;
 
       if (!isAligned) {
-        throw new Error(`Las vacaciones deben solicitarse en múltiplos de ${roundingUnit} días.`);
+        return fail(`Las vacaciones deben solicitarse en múltiplos de ${roundingUnit} días.`);
       }
     }
 
@@ -607,7 +610,7 @@ export async function createPtoRequest(data: {
         const schedules = await getEffectiveScheduleForRange(employeeId, data.startDate, data.endDate);
 
         if (schedules.length === 0) {
-          throw new Error("No se pudo resolver tu horario para las fechas seleccionadas.");
+          return fail("No se pudo resolver tu horario para las fechas seleccionadas.");
         }
 
         const workingScheduleDays = schedules.filter((day) => day.isWorkingDay && day.expectedMinutes > 0);
@@ -615,7 +618,7 @@ export async function createPtoRequest(data: {
         scheduledMinutesInRange = workingScheduleDays.reduce((sum, day) => sum + day.expectedMinutes, 0);
 
         if (workingDays === 0) {
-          throw new Error("No tienes turnos planificados en las fechas seleccionadas.");
+          return fail("No tienes turnos planificados en las fechas seleccionadas.");
         }
 
         const skippedDays = schedules.length - workingScheduleDays.length;
@@ -629,7 +632,7 @@ export async function createPtoRequest(data: {
     const daysUntilStart = Math.ceil((data.startDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
 
     if (absenceType.minDaysAdvance > 0 && daysUntilStart < absenceType.minDaysAdvance) {
-      throw new Error(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
+      return fail(`Esta ausencia requiere ${absenceType.minDaysAdvance} días de anticipación`);
     }
 
     // Validar que no haya solapamiento con otras solicitudes aprobadas
@@ -681,11 +684,11 @@ export async function createPtoRequest(data: {
           // No lanzamos error, permitimos continuar
         } else {
           // Si hay solapamientos que NO son cancelables (ej: otra Baja Médica), bloqueamos
-          throw new Error("Ya existe una baja o permiso protegido en estas fechas.");
+          return fail("Ya existe una baja o permiso protegido en estas fechas.");
         }
       } else {
         // Si la nueva solicitud es normal (Vacaciones), comportamiento estándar: Bloquear
-        throw new Error("Ya tienes una solicitud aprobada en estas fechas. Cancélala primero si es necesario.");
+        return fail("Ya tienes una solicitud aprobada en estas fechas. Cancélala primero si es necesario.");
       }
     }
 
@@ -709,11 +712,11 @@ export async function createPtoRequest(data: {
             workingDays,
           );
           if (carryoverMsg) {
-            throw new Error(carryoverMsg);
+            return fail(carryoverMsg);
           }
         }
 
-        throw new Error(`No tienes suficientes días disponibles (te faltan ${shortage} días)`);
+        return fail(`No tienes suficientes días disponibles (te faltan ${shortage} días)`);
       }
     }
 
@@ -728,7 +731,7 @@ export async function createPtoRequest(data: {
     if (requiresRouting) {
       approverId = approverIds[0];
       if (!approverId) {
-        throw new Error("No se encontró un aprobador disponible");
+        return fail("No se encontró un aprobador disponible");
       }
     }
 
@@ -813,8 +816,7 @@ export async function createPtoRequest(data: {
       },
     };
   } catch (error) {
-    console.error("Error al crear solicitud de PTO:", error);
-    throw error;
+    return { success: false, error: getActionError(error, "Error al crear solicitud de ausencia") };
   }
 }
 

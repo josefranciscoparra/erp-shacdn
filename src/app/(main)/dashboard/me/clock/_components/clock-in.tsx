@@ -52,6 +52,14 @@ type ClockBootstrapReady = ClockBootstrapResult & {
   currentStatus: NonNullable<ClockBootstrapResult["currentStatus"]>;
 };
 
+type ClockActionFailure = { success: false; error?: string };
+
+const isClockActionFailure = (result: unknown): result is ClockActionFailure =>
+  typeof result === "object" &&
+  result !== null &&
+  "success" in result &&
+  (result as { success?: boolean }).success === false;
+
 const isBootstrapReady = (result: ClockBootstrapResult): result is ClockBootstrapReady =>
   Boolean(result.success && result.todaySummary && result.currentStatus);
 
@@ -330,9 +338,23 @@ export function ClockIn() {
       return;
     }
 
+    const runAction = async (
+      latitude?: number,
+      longitude?: number,
+      accuracy?: number,
+      nextProjectId?: string,
+      nextTask?: string,
+    ) => {
+      const result = await action(latitude, longitude, accuracy, nextProjectId, nextTask);
+      if (isClockActionFailure(result)) {
+        toast.error(result.error ?? "No se pudo completar el fichaje");
+      }
+      return result;
+    };
+
     // Si la org no tiene geolocalización habilitada, fichar sin GPS pero con proyecto
     if (!geolocationEnabled) {
-      return await action(undefined, undefined, undefined, projectId ?? undefined, task);
+      return await runAction(undefined, undefined, undefined, projectId ?? undefined, task);
     }
 
     // Verificar consentimiento
@@ -367,7 +389,7 @@ export function ClockIn() {
           });
         }
 
-        return await action(undefined, undefined, undefined, projectId ?? undefined, task);
+        return await runAction(undefined, undefined, undefined, projectId ?? undefined, task);
       }
 
       // Verificar precisión GPS
@@ -380,7 +402,7 @@ export function ClockIn() {
       }
 
       // Fichar con geolocalización - pasar parámetros individuales + proyecto
-      return await action(
+      return await runAction(
         locationData.latitude,
         locationData.longitude,
         locationData.accuracy,
@@ -393,7 +415,7 @@ export function ClockIn() {
         description: "Se guardará el fichaje sin ubicación GPS.",
         duration: 5000,
       });
-      return await action(undefined, undefined, undefined, projectId ?? undefined, task);
+      return await runAction(undefined, undefined, undefined, projectId ?? undefined, task);
     }
   };
 
@@ -406,6 +428,10 @@ export function ClockIn() {
       // Limpiar selección de proyecto después de fichar
       setSelectedProjectId(null);
       setProjectTask("");
+
+      if (isClockActionFailure(result)) {
+        return;
+      }
 
       // Si hay alertas, mostrarlas al usuario
       if (result?.alerts && result.alerts.length > 0) {
@@ -454,7 +480,7 @@ export function ClockIn() {
             }
           : {};
 
-      await clockOut(
+      const result = await clockOut(
         geoData.latitude,
         geoData.longitude,
         geoData.accuracy,
@@ -466,6 +492,11 @@ export function ClockIn() {
           notes: `Fichaje cancelado por larga duración (${incompleteEntryInfo.percentageOfJourney.toFixed(0)}% de jornada)`,
         },
       );
+
+      if (isClockActionFailure(result)) {
+        toast.error(result.error ?? "Error al cerrar fichaje");
+        return;
+      }
 
       toast.success("Fichaje cerrado y cancelado correctamente");
       setShowExcessiveDialog(false);

@@ -2,6 +2,7 @@
 
 import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays, addDays } from "date-fns";
 
+import { AuthError } from "@/lib/auth-guard";
 import { isEmployeePausedNow } from "@/lib/contracts/discontinuous-utils";
 import { findNearestCenter } from "@/lib/geolocation/haversine";
 import { prisma } from "@/lib/prisma";
@@ -40,6 +41,30 @@ function serializeTimeEntry(entry: any) {
       : null,
     task: entry.task ?? null,
   };
+}
+
+const CLOCK_USER_ERRORS = new Set<string>([
+  "Tu contrato fijo discontinuo está pausado. No puedes fichar.",
+  getTransitionError("CLOCKED_OUT", "CLOCK_OUT"),
+  getTransitionError("CLOCKED_OUT", "BREAK_START"),
+  getTransitionError("CLOCKED_OUT", "BREAK_END"),
+  getTransitionError("CLOCKED_IN", "CLOCK_IN"),
+  getTransitionError("CLOCKED_IN", "BREAK_END"),
+  getTransitionError("ON_BREAK", "CLOCK_IN"),
+  getTransitionError("ON_BREAK", "CLOCK_OUT"),
+  getTransitionError("ON_BREAK", "BREAK_START"),
+]);
+
+function resolveClockActionError(error: unknown, fallback: string) {
+  if (error instanceof AuthError) {
+    return { message: error.message, shouldLog: false };
+  }
+
+  if (error instanceof Error && CLOCK_USER_ERRORS.has(error.message)) {
+    return { message: error.message, shouldLog: false };
+  }
+
+  return { message: fallback, shouldLog: true };
 }
 
 async function assertEmployeeNotPaused(employeeId: string, orgId: string) {
@@ -1004,8 +1029,11 @@ export async function clockIn(
 
     return { success: true, entry: serializeTimeEntry(entry), alerts };
   } catch (error) {
-    console.error("Error al fichar entrada:", error);
-    throw error;
+    const { message, shouldLog } = resolveClockActionError(error, "Error al fichar entrada");
+    if (shouldLog) {
+      console.error("Error al fichar entrada:", error);
+    }
+    return { success: false, error: message };
   }
 }
 
@@ -1190,8 +1218,11 @@ export async function clockOut(
         : undefined,
     };
   } catch (error) {
-    console.error("Error al fichar salida:", error);
-    throw error;
+    const { message, shouldLog } = resolveClockActionError(error, "Error al fichar salida");
+    if (shouldLog) {
+      console.error("Error al fichar salida:", error);
+    }
+    return { success: false, error: message };
   }
 }
 
@@ -1269,8 +1300,11 @@ export async function startBreak(latitude?: number, longitude?: number, accuracy
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
-    console.error("Error al iniciar descanso:", error);
-    throw error;
+    const { message, shouldLog } = resolveClockActionError(error, "Error al iniciar descanso");
+    if (shouldLog) {
+      console.error("Error al iniciar descanso:", error);
+    }
+    return { success: false, error: message };
   }
 }
 
@@ -1357,8 +1391,11 @@ export async function endBreak(latitude?: number, longitude?: number, accuracy?:
 
     return { success: true, entry: serializeTimeEntry(entry) };
   } catch (error) {
-    console.error("Error al finalizar descanso:", error);
-    throw error;
+    const { message, shouldLog } = resolveClockActionError(error, "Error al finalizar descanso");
+    if (shouldLog) {
+      console.error("Error al finalizar descanso:", error);
+    }
+    return { success: false, error: message };
   }
 }
 

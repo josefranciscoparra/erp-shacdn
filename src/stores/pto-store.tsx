@@ -101,12 +101,18 @@ interface PtoState {
     startTime?: number;
     endTime?: number;
     durationMinutes?: number;
-  }) => Promise<{
-    success: boolean;
-    id?: string;
-    workingDays?: number;
-    holidays?: Array<{ date: Date; name: string }>;
-  }>;
+  }) => Promise<
+    | {
+        success: true;
+        id: string;
+        workingDays: number;
+        holidays: Array<{ date: Date; name: string }>;
+      }
+    | {
+        success: false;
+        error?: string;
+      }
+  >;
   cancelRequest: (requestId: string, reason?: string) => Promise<void>;
   calculateWorkingDays: (
     startDate: Date,
@@ -216,6 +222,11 @@ export const usePtoStore = create<PtoState>((set, get) => ({
     try {
       const result = await createPtoRequestAction(data);
 
+      if (!result.success) {
+        set({ isSubmitting: false });
+        return { success: false, error: result.error };
+      }
+
       // Recargar balance y solicitudes
       const selectedType = get().absenceTypes.find((type) => type.id === data.absenceTypeId) ?? null;
       const selectedBalanceType: PtoBalanceType =
@@ -238,12 +249,10 @@ export const usePtoStore = create<PtoState>((set, get) => ({
         holidays: result.request.holidays,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error al crear solicitud";
       set({
-        error: errorMessage,
         isSubmitting: false,
       });
-      throw error;
+      return { success: false, error: "Error al crear solicitud" };
     }
   },
 

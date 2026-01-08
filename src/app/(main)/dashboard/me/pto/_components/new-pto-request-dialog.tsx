@@ -576,9 +576,13 @@ export function NewPtoRequestDialog({ open, onOpenChange }: NewPtoRequestDialogP
       // Si NO es parcial, NO enviar startTime/endTime/durationMinutes (día completo)
 
       const createdRequest = await createRequest(requestData);
+      if (!createdRequest.success) {
+        toast.error(createdRequest.error ?? "Error al crear la solicitud");
+        return;
+      }
 
       // 🆕 Subir archivos adjuntos si los hay
-      if (pendingFiles.length > 0 && createdRequest?.id) {
+      if (pendingFiles.length > 0) {
         const uploadSuccess = await uploadFilesToRequest(createdRequest.id);
         if (!uploadSuccess) {
           toast.warning("Solicitud creada, pero algunos archivos no se pudieron subir. Puedes añadirlos después.");

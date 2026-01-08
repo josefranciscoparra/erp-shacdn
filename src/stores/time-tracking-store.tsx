@@ -66,6 +66,12 @@ export interface WeeklySummary {
   days: WorkdaySummary[];
 }
 
+type ClockActionResponse = {
+  success: boolean;
+  error?: string;
+  [key: string]: unknown;
+};
+
 let initialLoadPromise: Promise<void> | null = null;
 
 interface TimeTrackingState {
@@ -114,10 +120,10 @@ interface TimeTrackingState {
     accuracy?: number,
     projectId?: string,
     task?: string,
-  ) => Promise<any>;
-  clockOut: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
-  startBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
-  endBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<void>;
+  ) => Promise<ClockActionResponse>;
+  clockOut: (latitude?: number, longitude?: number, accuracy?: number) => Promise<ClockActionResponse>;
+  startBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<ClockActionResponse>;
+  endBreak: (latitude?: number, longitude?: number, accuracy?: number) => Promise<ClockActionResponse>;
 
   // Acciones de datos
   loadCurrentStatus: () => Promise<void>;
@@ -174,7 +180,14 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
   clockIn: async (latitude?, longitude?, accuracy?, projectId?, task?) => {
     set({ isClocking: true, error: null });
     try {
-      const result = await clockInAction(latitude, longitude, accuracy, projectId, task);
+      const result = (await clockInAction(latitude, longitude, accuracy, projectId, task)) as ClockActionResponse;
+
+      if (result.success === false) {
+        set({
+          isClocking: false,
+        });
+        return result;
+      }
 
       set({
         currentStatus: "CLOCKED_IN",
@@ -190,14 +203,21 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
         error: error instanceof Error ? error.message : "Error al fichar entrada",
         isClocking: false,
       });
-      throw error;
+      return { success: false, error: "Error al fichar entrada" };
     }
   },
 
   clockOut: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await clockOutAction(latitude, longitude, accuracy);
+      const result = (await clockOutAction(latitude, longitude, accuracy)) as ClockActionResponse;
+
+      if (result.success === false) {
+        set({
+          isClocking: false,
+        });
+        return result;
+      }
 
       set({
         currentStatus: "CLOCKED_OUT",
@@ -206,18 +226,27 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       // Recargar resumen del día
       await get().loadTodaySummary();
+      return result;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al fichar salida",
         isClocking: false,
       });
+      return { success: false, error: "Error al fichar salida" };
     }
   },
 
   startBreak: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await startBreakAction(latitude, longitude, accuracy);
+      const result = (await startBreakAction(latitude, longitude, accuracy)) as ClockActionResponse;
+
+      if (result.success === false) {
+        set({
+          isClocking: false,
+        });
+        return result;
+      }
 
       set({
         currentStatus: "ON_BREAK",
@@ -226,18 +255,27 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       // Recargar resumen del día
       await get().loadTodaySummary();
+      return result;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al iniciar descanso",
         isClocking: false,
       });
+      return { success: false, error: "Error al iniciar descanso" };
     }
   },
 
   endBreak: async (latitude?, longitude?, accuracy?) => {
     set({ isClocking: true, error: null });
     try {
-      await endBreakAction(latitude, longitude, accuracy);
+      const result = (await endBreakAction(latitude, longitude, accuracy)) as ClockActionResponse;
+
+      if (result.success === false) {
+        set({
+          isClocking: false,
+        });
+        return result;
+      }
 
       set({
         currentStatus: "CLOCKED_IN",
@@ -246,11 +284,13 @@ export const useTimeTrackingStore = create<TimeTrackingState>((set, get) => ({
 
       // Recargar resumen del día
       await get().loadTodaySummary();
+      return result;
     } catch (error) {
       set({
         error: error instanceof Error ? error.message : "Error al finalizar descanso",
         isClocking: false,
       });
+      return { success: false, error: "Error al finalizar descanso" };
     }
   },
 
