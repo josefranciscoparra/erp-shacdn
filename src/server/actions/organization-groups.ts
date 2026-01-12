@@ -11,6 +11,9 @@ import { ROLE_DISPLAY_NAMES } from "@/services/permissions/role-hierarchy";
 type GroupAdminContext = {
   userId: string;
   role: Role;
+  orgId: string;
+  email: string;
+  name: string;
 };
 
 async function getGroupAdminContext(): Promise<GroupAdminContext> {
@@ -25,7 +28,14 @@ async function getGroupAdminContext(): Promise<GroupAdminContext> {
   if (role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN");
   }
-  return { userId: session.user.id, role };
+
+  return {
+    userId: session.user.id,
+    role,
+    orgId: session.user.orgId,
+    email: session.user.email,
+    name: session.user.name ?? session.user.email ?? "Superadmin",
+  };
 }
 
 export type OrganizationGroupSummary = {
@@ -616,6 +626,206 @@ export async function removeOrganizationGroupMember(membershipId: string): Promi
     return {
       success: false,
       error: error instanceof Error ? error.message : "Error al eliminar miembro",
+    };
+  }
+}
+
+export async function deactivateOrganizationGroup(groupId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getGroupAdminContext();
+
+    const group = await prisma.organizationGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        _count: {
+          select: {
+            organizations: true,
+            members: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      return { success: false, error: "Grupo no encontrado" };
+    }
+
+    if (!group.isActive) {
+      return { success: false, error: "El grupo ya está inactivo" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          action: "DEACTIVATE_GROUP",
+          category: "GROUP",
+          entityId: group.id,
+          entityType: "OrganizationGroup",
+          entityData: {
+            name: group.name,
+            organizationsCount: group._count.organizations,
+            membersCount: group._count.members,
+          },
+          description: `Baja del grupo ${group.name}.`,
+          performedById: context.userId,
+          performedByEmail: context.email,
+          performedByName: context.name,
+          performedByRole: context.role,
+          orgId: context.orgId,
+        },
+      });
+
+      await tx.organizationGroup.update({
+        where: { id: group.id },
+        data: { isActive: false },
+      });
+    });
+
+    revalidatePath("/dashboard/admin/groups");
+    revalidatePath("/dashboard/admin/organizations");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deactivating organization group:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al dar de baja el grupo",
+    };
+  }
+}
+
+export async function reactivateOrganizationGroup(groupId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getGroupAdminContext();
+
+    const group = await prisma.organizationGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        _count: {
+          select: {
+            organizations: true,
+            members: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      return { success: false, error: "Grupo no encontrado" };
+    }
+
+    if (group.isActive) {
+      return { success: false, error: "El grupo ya está activo" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          action: "REACTIVATE_GROUP",
+          category: "GROUP",
+          entityId: group.id,
+          entityType: "OrganizationGroup",
+          entityData: {
+            name: group.name,
+            organizationsCount: group._count.organizations,
+            membersCount: group._count.members,
+          },
+          description: `Reactivación del grupo ${group.name}.`,
+          performedById: context.userId,
+          performedByEmail: context.email,
+          performedByName: context.name,
+          performedByRole: context.role,
+          orgId: context.orgId,
+        },
+      });
+
+      await tx.organizationGroup.update({
+        where: { id: group.id },
+        data: { isActive: true },
+      });
+    });
+
+    revalidatePath("/dashboard/admin/groups");
+    revalidatePath("/dashboard/admin/organizations");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error reactivating organization group:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al reactivar el grupo",
+    };
+  }
+}
+
+export async function deleteOrganizationGroup(groupId: string): Promise<{
+  success: boolean;
+  error?: string;
+}> {
+  try {
+    const context = await getGroupAdminContext();
+
+    const group = await prisma.organizationGroup.findUnique({
+      where: { id: groupId },
+      include: {
+        _count: {
+          select: {
+            organizations: true,
+            members: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      return { success: false, error: "Grupo no encontrado" };
+    }
+
+    if (group.isActive) {
+      return { success: false, error: "Debes dar de baja el grupo antes de eliminarlo" };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          action: "DELETE_GROUP",
+          category: "GROUP",
+          entityId: group.id,
+          entityType: "OrganizationGroup",
+          entityData: {
+            name: group.name,
+            organizationsCount: group._count.organizations,
+            membersCount: group._count.members,
+          },
+          description: `Eliminación hard del grupo ${group.name}.`,
+          performedById: context.userId,
+          performedByEmail: context.email,
+          performedByName: context.name,
+          performedByRole: context.role,
+          orgId: context.orgId,
+        },
+      });
+
+      await tx.organizationGroup.delete({
+        where: { id: group.id },
+      });
+    });
+
+    revalidatePath("/dashboard/admin/groups");
+    revalidatePath("/dashboard/admin/organizations");
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error deleting organization group:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Error al eliminar el grupo",
     };
   }
 }

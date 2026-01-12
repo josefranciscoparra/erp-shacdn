@@ -1,6 +1,6 @@
 "use client";
 
-import { Building2, Loader2, MoreHorizontal, Pencil, Sparkles } from "lucide-react";
+import { Ban, Building2, Loader2, MoreHorizontal, Pencil, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +38,12 @@ interface OrganizationRowProps {
   organization: OrganizationItem;
   onEdit: (organization: OrganizationItem) => void;
   onSetup: (organization: OrganizationItem) => void;
+  onDeactivate: (organization: OrganizationItem) => void;
+  onReactivate: (organization: OrganizationItem) => void;
+  onPurge: (organization: OrganizationItem) => void;
 }
 
-function OrganizationRow({ organization, onEdit, onSetup }: OrganizationRowProps) {
+function OrganizationRow({ organization, onEdit, onSetup, onDeactivate, onReactivate, onPurge }: OrganizationRowProps) {
   const limitBytes = Math.max(organization.storageLimitBytes, 1);
   const usagePercent = Math.min((organization.storageUsedBytes / limitBytes) * 100, 100);
   const isDangerUsage = usagePercent > 85;
@@ -144,6 +147,23 @@ function OrganizationRow({ organization, onEdit, onSetup }: OrganizationRowProps
               <Sparkles className="mr-2 h-3.5 w-3.5 text-indigo-500" />
               Checklist
             </DropdownMenuItem>
+            {organization.active ? (
+              <DropdownMenuItem onClick={() => onDeactivate(organization)}>
+                <Ban className="mr-2 h-3.5 w-3.5" />
+                Dar de baja
+              </DropdownMenuItem>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={() => onReactivate(organization)}>
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                  Reactivar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onPurge(organization)} className="text-destructive">
+                  <Trash2 className="mr-2 h-3.5 w-3.5" />
+                  Limpiar (hard)
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>
@@ -158,6 +178,9 @@ interface OrganizationsTableProps {
   onRetry: () => void;
   onEdit: (organization: OrganizationItem) => void;
   onSetup: (organization: OrganizationItem) => void;
+  onDeactivate: (organization: OrganizationItem) => void;
+  onReactivate: (organization: OrganizationItem) => void;
+  onPurge: (organization: OrganizationItem) => void;
 }
 
 export function OrganizationsTable({
@@ -167,6 +190,9 @@ export function OrganizationsTable({
   onRetry,
   onEdit,
   onSetup,
+  onDeactivate,
+  onReactivate,
+  onPurge,
 }: OrganizationsTableProps) {
   if (isLoading) {
     return (
@@ -224,7 +250,15 @@ export function OrganizationsTable({
         </TableHeader>
         <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
           {organizations.map((organization) => (
-            <OrganizationRow key={organization.id} organization={organization} onEdit={onEdit} onSetup={onSetup} />
+            <OrganizationRow
+              key={organization.id}
+              organization={organization}
+              onEdit={onEdit}
+              onSetup={onSetup}
+              onDeactivate={onDeactivate}
+              onReactivate={onReactivate}
+              onPurge={onPurge}
+            />
           ))}
         </TableBody>
       </Table>

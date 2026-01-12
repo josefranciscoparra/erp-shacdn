@@ -11,12 +11,27 @@ import { toast } from "sonner";
 
 import { EmptyState } from "@/components/hr/empty-state";
 import { SectionHeader } from "@/components/hr/section-header";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { listOrganizationGroups } from "@/server/actions/organization-groups";
+import {
+  deactivateOrganizationGroup,
+  deleteOrganizationGroup,
+  listOrganizationGroups,
+  reactivateOrganizationGroup,
+} from "@/server/actions/organization-groups";
 
 import { CreateGroupDialog } from "../groups/_components/create-group-dialog";
 import { GroupsDataTable } from "../groups/_components/groups-data-table";
@@ -24,10 +39,14 @@ import { ManageGroupDialog } from "../groups/_components/manage-group-dialog";
 import type { OrganizationGroupRow } from "../groups/_components/types";
 
 import { OrganizationFormDialog, type OrganizationFormValues } from "./_components/organization-form-dialog";
+import { OrganizationLifecycleDialog } from "./_components/organization-lifecycle-dialog";
 import { OrganizationSetupDialog } from "./_components/organization-setup-dialog";
 import { OrganizationsTable } from "./_components/organizations-table";
 import { StatsCards } from "./_components/stats-cards";
 import type { OrganizationItem } from "./_components/types";
+
+type OrganizationLifecycleMode = "deactivate" | "reactivate" | "purge";
+type GroupActionMode = "deactivate" | "reactivate" | "delete";
 
 interface OrganizationsResponse {
   organizations?: OrganizationItem[];
@@ -86,6 +105,11 @@ export default function OrganizationsManagementPage() {
   const [createGroupDialogOpen, setCreateGroupDialogOpen] = useState(false);
   const [manageGroupDialogOpen, setManageGroupDialogOpen] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<OrganizationGroupRow | null>(null);
+  const [lifecycleMode, setLifecycleMode] = useState<OrganizationLifecycleMode | null>(null);
+  const [lifecycleOrganization, setLifecycleOrganization] = useState<OrganizationItem | null>(null);
+  const [groupActionMode, setGroupActionMode] = useState<GroupActionMode | null>(null);
+  const [groupActionTarget, setGroupActionTarget] = useState<OrganizationGroupRow | null>(null);
+  const [isGroupActionLoading, setIsGroupActionLoading] = useState(false);
 
   const userRole = session?.user.role as Role | undefined;
   const isSuperAdmin = userRole === "SUPER_ADMIN";
@@ -272,6 +296,76 @@ export default function OrganizationsManagementPage() {
     setManageGroupDialogOpen(true);
   };
 
+  const handleOpenLifecycle = (mode: OrganizationLifecycleMode, organization: OrganizationItem) => {
+    setLifecycleMode(mode);
+    setLifecycleOrganization(organization);
+  };
+
+  const handleCloseLifecycle = () => {
+    setLifecycleMode(null);
+    setLifecycleOrganization(null);
+  };
+
+  const handleLifecycleCompleted = async () => {
+    await fetchOrganizations({ showLoader: false });
+    if (activeMainTab === "groups") {
+      await fetchGroups();
+    }
+    router.refresh();
+  };
+
+  const handleOpenGroupAction = (mode: GroupActionMode, group: OrganizationGroupRow) => {
+    setGroupActionMode(mode);
+    setGroupActionTarget(group);
+  };
+
+  const handleCloseGroupAction = () => {
+    setGroupActionMode(null);
+    setGroupActionTarget(null);
+  };
+
+  const handleConfirmGroupAction = () => {
+    if (!groupActionTarget || !groupActionMode) return;
+
+    setIsGroupActionLoading(true);
+    const actionTarget = groupActionTarget;
+    const actionMode = groupActionMode;
+
+    const run = async () => {
+      try {
+        const result =
+          actionMode === "deactivate"
+            ? await deactivateOrganizationGroup(actionTarget.id)
+            : actionMode === "reactivate"
+              ? await reactivateOrganizationGroup(actionTarget.id)
+              : await deleteOrganizationGroup(actionTarget.id);
+
+        if (!result.success) {
+          toast.error(result.error ?? "No se pudo completar la acción");
+          return;
+        }
+
+        const message =
+          actionMode === "deactivate"
+            ? "Grupo dado de baja"
+            : actionMode === "reactivate"
+              ? "Grupo reactivado"
+              : "Grupo eliminado";
+
+        toast.success(message);
+        await fetchGroups();
+      } catch (error) {
+        console.error("Error ejecutando acción de grupo", error);
+        toast.error(error instanceof Error ? error.message : "No se pudo completar la acción");
+      } finally {
+        setIsGroupActionLoading(false);
+        handleCloseGroupAction();
+      }
+    };
+
+    void run();
+  };
+
   if (status === "loading") {
     return (
       <div className="flex h-full items-center justify-center">
@@ -385,6 +479,9 @@ export default function OrganizationsManagementPage() {
               }}
               onEdit={handleOpenEdit}
               onSetup={handleOpenSetup}
+              onDeactivate={(organization) => handleOpenLifecycle("deactivate", organization)}
+              onReactivate={(organization) => handleOpenLifecycle("reactivate", organization)}
+              onPurge={(organization) => handleOpenLifecycle("purge", organization)}
             />
           </div>
         </TabsContent>
@@ -401,7 +498,13 @@ export default function OrganizationsManagementPage() {
               <span>Error al cargar grupos: {groupsError}</span>
             </div>
           ) : groups.length > 0 ? (
-            <GroupsDataTable data={groups} onManageGroup={handleManageGroup} />
+            <GroupsDataTable
+              data={groups}
+              onManageGroup={handleManageGroup}
+              onDeactivate={(group) => handleOpenGroupAction("deactivate", group)}
+              onReactivate={(group) => handleOpenGroupAction("reactivate", group)}
+              onDelete={(group) => handleOpenGroupAction("delete", group)}
+            />
           ) : (
             <EmptyState
               icon={<Folders className="text-muted-foreground/40 mx-auto h-12 w-12" />}
@@ -463,6 +566,73 @@ export default function OrganizationsManagementPage() {
         currentUserRole={userRole || null}
         onUpdated={fetchGroups}
       />
+
+      <OrganizationLifecycleDialog
+        open={Boolean(lifecycleMode && lifecycleOrganization)}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCloseLifecycle();
+          }
+        }}
+        mode={lifecycleMode}
+        organization={lifecycleOrganization}
+        onCompleted={handleLifecycleCompleted}
+      />
+
+      <AlertDialog open={Boolean(groupActionMode && groupActionTarget)} onOpenChange={handleCloseGroupAction}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {groupActionMode === "deactivate"
+                ? "Dar de baja grupo"
+                : groupActionMode === "reactivate"
+                  ? "Reactivar grupo"
+                  : "Limpiar grupo"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {groupActionTarget ? (
+                <span>
+                  {groupActionMode === "delete"
+                    ? "Esta acción elimina el grupo y todas sus relaciones."
+                    : "Confirma el cambio para el grupo seleccionado."}
+                </span>
+              ) : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {groupActionTarget ? (
+            <div className="bg-muted/30 rounded-lg border p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="font-medium">{groupActionTarget.name}</span>
+                <Badge variant={groupActionTarget.isActive ? "secondary" : "outline"}>
+                  {groupActionTarget.isActive ? "Activo" : "Inactivo"}
+                </Badge>
+              </div>
+              <div className="text-muted-foreground mt-2 flex flex-wrap gap-4">
+                <span>Organizaciones: {groupActionTarget.organizationsCount}</span>
+                <span>Miembros: {groupActionTarget.membersCount}</span>
+              </div>
+            </div>
+          ) : null}
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isGroupActionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmGroupAction}
+              disabled={isGroupActionLoading}
+              className={groupActionMode === "delete" ? "bg-destructive hover:bg-destructive/90 text-white" : ""}
+            >
+              {isGroupActionLoading
+                ? "Procesando..."
+                : groupActionMode === "deactivate"
+                  ? "Dar de baja"
+                  : groupActionMode === "reactivate"
+                    ? "Reactivar"
+                    : "Limpiar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

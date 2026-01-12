@@ -6,6 +6,7 @@ import { z } from "zod";
 
 import { auth, updateSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getStorageProvider } from "@/lib/storage";
 import { createDefaultWhistleblowingCategories } from "@/lib/whistleblowing-defaults";
 import { generateOrganizationPrefix } from "@/services/employees";
 import { createOrganizationSchema, updateOrganizationSchema } from "@/validators/organization";
@@ -37,6 +38,10 @@ const seedBasicsSchema = z.object({
     .optional(),
 });
 
+const organizationLifecycleSchema = z.object({
+  id: z.string().min(1, "El identificador es obligatorio"),
+});
+
 function ensureSuperAdmin(role: string | undefined) {
   if (role !== "SUPER_ADMIN") {
     throw new Error("FORBIDDEN");
@@ -51,6 +56,38 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+type OrganizationDeactivationSnapshot = {
+  deactivatedAt: string;
+  contractIds: string[];
+  contractsWithoutEndDate: string[];
+  usersDeactivated: number;
+  usersWithOtherOrgs: number;
+  employeesDeactivated: number;
+  contractsDeactivated: number;
+  superAdminsReassigned: number;
+  fallbackOrgId: string | null;
+};
+
+async function getLatestOrganizationDeactivation(orgId: string) {
+  const latest = await prisma.auditLog.findFirst({
+    where: {
+      orgId,
+      action: "DEACTIVATE_ORGANIZATION",
+    },
+    orderBy: { createdAt: "desc" },
+    select: {
+      createdAt: true,
+      entityData: true,
+    },
+  });
+
+  if (!latest?.entityData || typeof latest.entityData !== "object") {
+    return null;
+  }
+
+  return latest.entityData as OrganizationDeactivationSnapshot;
 }
 
 export async function GET() {
@@ -416,6 +453,608 @@ export async function POST(request: NextRequest) {
           },
           entities: createdEntities,
         });
+      }
+
+      case "preview-deactivate": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        const [
+          usersToDeactivate,
+          usersWithOtherOrgs,
+          employeesToDeactivate,
+          contractsToDeactivate,
+          superAdminsToReassign,
+        ] = await Promise.all([
+          prisma.user.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+              role: { not: "SUPER_ADMIN" },
+            },
+          }),
+          prisma.user.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+              role: { not: "SUPER_ADMIN" },
+              userOrganizations: {
+                some: {
+                  orgId: { not: organization.id },
+                  isActive: true,
+                },
+              },
+            },
+          }),
+          prisma.employee.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+            },
+          }),
+          prisma.employmentContract.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+            },
+          }),
+          prisma.user.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+              role: "SUPER_ADMIN",
+            },
+          }),
+        ]);
+
+        const fallbackOrg =
+          superAdminsToReassign > 0
+            ? await prisma.organization.findFirst({
+                where: {
+                  active: true,
+                  id: { not: organization.id },
+                },
+                select: { id: true, name: true },
+              })
+            : null;
+
+        const fallbackOrgId = fallbackOrg ? fallbackOrg.id : null;
+        const fallbackOrgName = fallbackOrg ? fallbackOrg.name : null;
+
+        return NextResponse.json({
+          preview: {
+            mode: "deactivate",
+            organizationId: organization.id,
+            organizationName: organization.name,
+            isActive: organization.active,
+            usersToDeactivate,
+            usersWithOtherOrgs,
+            employeesToDeactivate,
+            contractsToDeactivate,
+            superAdminsToReassign,
+            fallbackOrgId,
+            fallbackOrgName,
+            canDeactivate: organization.active && (superAdminsToReassign === 0 || Boolean(fallbackOrg)),
+          },
+        });
+      }
+
+      case "deactivate": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        if (!organization.active) {
+          return NextResponse.json({ error: "La organización ya está inactiva" }, { status: 400 });
+        }
+
+        const [activeContracts, usersWithOtherOrgs, employeesToDeactivate] = await Promise.all([
+          prisma.employmentContract.findMany({
+            where: { orgId: organization.id, active: true },
+            select: { id: true, endDate: true },
+          }),
+          prisma.user.count({
+            where: {
+              orgId: organization.id,
+              active: true,
+              role: { not: "SUPER_ADMIN" },
+              userOrganizations: {
+                some: {
+                  orgId: { not: organization.id },
+                  isActive: true,
+                },
+              },
+            },
+          }),
+          prisma.employee.count({
+            where: { orgId: organization.id, active: true },
+          }),
+        ]);
+
+        const usersToDeactivate = await prisma.user.count({
+          where: {
+            orgId: organization.id,
+            active: true,
+            role: { not: "SUPER_ADMIN" },
+          },
+        });
+
+        const superAdminsToReassignList = await prisma.user.findMany({
+          where: {
+            orgId: organization.id,
+            active: true,
+            role: "SUPER_ADMIN",
+          },
+          select: { id: true },
+        });
+
+        const fallbackOrg =
+          superAdminsToReassignList.length > 0
+            ? await prisma.organization.findFirst({
+                where: { active: true, id: { not: organization.id } },
+                select: { id: true },
+              })
+            : null;
+
+        if (superAdminsToReassignList.length > 0 && !fallbackOrg) {
+          return NextResponse.json(
+            { error: "No hay otra organización activa para reasignar superadmins." },
+            { status: 400 },
+          );
+        }
+
+        const contractIds = activeContracts.map((contract) => contract.id);
+        const contractsWithoutEndDate = activeContracts
+          .filter((contract) => contract.endDate === null)
+          .map((contract) => contract.id);
+        const deactivatedAt = new Date();
+        const superAdminIds = superAdminsToReassignList.map((admin) => admin.id);
+
+        await prisma.$transaction(async (tx) => {
+          await tx.auditLog.create({
+            data: {
+              action: "DEACTIVATE_ORGANIZATION",
+              category: "ORGANIZATION",
+              entityId: organization.id,
+              entityType: "Organization",
+              entityData: {
+                deactivatedAt: deactivatedAt.toISOString(),
+                contractIds,
+                contractsWithoutEndDate,
+                usersDeactivated: usersToDeactivate,
+                usersWithOtherOrgs,
+                employeesDeactivated: employeesToDeactivate,
+                contractsDeactivated: contractIds.length,
+                superAdminsReassigned: superAdminIds.length,
+                fallbackOrgId: fallbackOrg ? fallbackOrg.id : null,
+              },
+              description: `Baja de la organización ${organization.name}.`,
+              performedById: session.user.id,
+              performedByEmail: session.user.email,
+              performedByName: session.user.name ?? session.user.email ?? "Superadmin",
+              performedByRole: session.user.role,
+              orgId: organization.id,
+            },
+          });
+
+          await tx.organization.update({
+            where: { id: organization.id },
+            data: { active: false },
+          });
+
+          await tx.employee.updateMany({
+            where: { orgId: organization.id, active: true },
+            data: { active: false },
+          });
+
+          if (contractIds.length > 0) {
+            await tx.employmentContract.updateMany({
+              where: { id: { in: contractIds } },
+              data: { active: false },
+            });
+          }
+
+          if (contractsWithoutEndDate.length > 0) {
+            await tx.employmentContract.updateMany({
+              where: { id: { in: contractsWithoutEndDate }, endDate: null },
+              data: { endDate: deactivatedAt },
+            });
+          }
+
+          await tx.user.updateMany({
+            where: {
+              orgId: organization.id,
+              active: true,
+              role: { not: "SUPER_ADMIN" },
+            },
+            data: { active: false },
+          });
+
+          await tx.userOrganization.updateMany({
+            where: { orgId: organization.id },
+            data: { isActive: false },
+          });
+
+          if (fallbackOrg && superAdminIds.length > 0) {
+            await tx.user.updateMany({
+              where: { id: { in: superAdminIds } },
+              data: { orgId: fallbackOrg.id },
+            });
+
+            await tx.userActiveContext.updateMany({
+              where: { userId: { in: superAdminIds } },
+              data: { orgId: fallbackOrg.id },
+            });
+          }
+        });
+
+        await revalidatePath("/dashboard/admin/organizations");
+        return NextResponse.json({ success: true });
+      }
+
+      case "preview-reactivate": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        const [usersToReactivate, employeesToReactivate] = await Promise.all([
+          prisma.user.count({
+            where: { orgId: organization.id, active: false },
+          }),
+          prisma.employee.count({
+            where: { orgId: organization.id, active: false },
+          }),
+        ]);
+
+        const latestDeactivation = await getLatestOrganizationDeactivation(organization.id);
+        const hasDeactivationLog = Boolean(latestDeactivation);
+        const contractIds = latestDeactivation ? latestDeactivation.contractIds : [];
+        const contractsToReactivate = hasDeactivationLog
+          ? contractIds.length
+          : await prisma.employmentContract.count({
+              where: { orgId: organization.id, active: false },
+            });
+
+        return NextResponse.json({
+          preview: {
+            mode: "reactivate",
+            organizationId: organization.id,
+            organizationName: organization.name,
+            isActive: organization.active,
+            usersToReactivate,
+            employeesToReactivate,
+            contractsToReactivate,
+            usesFallbackContracts: !hasDeactivationLog,
+          },
+        });
+      }
+
+      case "reactivate": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        if (organization.active) {
+          return NextResponse.json({ error: "La organización ya está activa" }, { status: 400 });
+        }
+
+        const latestDeactivation = await getLatestOrganizationDeactivation(organization.id);
+        const hasDeactivationLog = Boolean(latestDeactivation);
+        let contractIds = latestDeactivation ? latestDeactivation.contractIds : [];
+        let contractsWithoutEndDate = latestDeactivation ? latestDeactivation.contractsWithoutEndDate : [];
+        const usesFallbackContracts = !hasDeactivationLog;
+
+        if (!hasDeactivationLog) {
+          const fallbackContracts = await prisma.employmentContract.findMany({
+            where: { orgId: organization.id, active: false },
+            select: { id: true, endDate: true },
+          });
+          contractIds = fallbackContracts.map((contract) => contract.id);
+          contractsWithoutEndDate = fallbackContracts
+            .filter((contract) => contract.endDate === null)
+            .map((contract) => contract.id);
+        }
+
+        const [usersToReactivate, employeesToReactivate] = await Promise.all([
+          prisma.user.count({
+            where: { orgId: organization.id, active: false },
+          }),
+          prisma.employee.count({
+            where: { orgId: organization.id, active: false },
+          }),
+        ]);
+
+        await prisma.$transaction(async (tx) => {
+          await tx.auditLog.create({
+            data: {
+              action: "REACTIVATE_ORGANIZATION",
+              category: "ORGANIZATION",
+              entityId: organization.id,
+              entityType: "Organization",
+              entityData: {
+                usersReactivated: usersToReactivate,
+                employeesReactivated: employeesToReactivate,
+                contractsReactivated: contractIds.length,
+                usedFallbackContracts: usesFallbackContracts,
+              },
+              description: `Reactivación de la organización ${organization.name}.`,
+              performedById: session.user.id,
+              performedByEmail: session.user.email,
+              performedByName: session.user.name ?? session.user.email ?? "Superadmin",
+              performedByRole: session.user.role,
+              orgId: organization.id,
+            },
+          });
+
+          await tx.organization.update({
+            where: { id: organization.id },
+            data: { active: true },
+          });
+
+          await tx.employee.updateMany({
+            where: { orgId: organization.id },
+            data: { active: true },
+          });
+
+          await tx.user.updateMany({
+            where: { orgId: organization.id },
+            data: { active: true },
+          });
+
+          await tx.userOrganization.updateMany({
+            where: { orgId: organization.id },
+            data: { isActive: true },
+          });
+
+          if (contractIds.length > 0) {
+            await tx.employmentContract.updateMany({
+              where: { id: { in: contractIds } },
+              data: { active: true },
+            });
+          }
+
+          if (contractsWithoutEndDate.length > 0) {
+            await tx.employmentContract.updateMany({
+              where: { id: { in: contractsWithoutEndDate } },
+              data: { endDate: null },
+            });
+          }
+        });
+
+        await revalidatePath("/dashboard/admin/organizations");
+        return NextResponse.json({ success: true });
+      }
+
+      case "preview-purge": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        const now = new Date();
+        const [
+          usersToDelete,
+          usersWithOtherOrgs,
+          employeesToDelete,
+          contractsToDelete,
+          storedFilesTotal,
+          storedFilesBlocked,
+          storedFilesLegalHold,
+          storedFilesRetention,
+          superAdminsToDelete,
+          remainingSuperAdmins,
+        ] = await Promise.all([
+          prisma.user.count({ where: { orgId: organization.id } }),
+          prisma.user.count({
+            where: {
+              orgId: organization.id,
+              userOrganizations: {
+                some: {
+                  orgId: { not: organization.id },
+                  isActive: true,
+                },
+              },
+            },
+          }),
+          prisma.employee.count({ where: { orgId: organization.id } }),
+          prisma.employmentContract.count({ where: { orgId: organization.id } }),
+          prisma.storedFile.count({ where: { orgId: organization.id } }),
+          prisma.storedFile.count({
+            where: {
+              orgId: organization.id,
+              OR: [{ legalHold: true }, { retainUntil: { gt: now } }],
+            },
+          }),
+          prisma.storedFile.count({
+            where: { orgId: organization.id, legalHold: true },
+          }),
+          prisma.storedFile.count({
+            where: { orgId: organization.id, retainUntil: { gt: now } },
+          }),
+          prisma.user.count({
+            where: { orgId: organization.id, role: "SUPER_ADMIN" },
+          }),
+          prisma.user.count({
+            where: {
+              orgId: { not: organization.id },
+              role: "SUPER_ADMIN",
+              active: true,
+              organization: { active: true },
+            },
+          }),
+        ]);
+
+        const canPurge =
+          !organization.active && storedFilesBlocked === 0 && (superAdminsToDelete === 0 || remainingSuperAdmins > 0);
+
+        const blockReason = organization.active
+          ? "La organización debe estar inactiva antes de limpiar."
+          : storedFilesBlocked > 0
+            ? "Hay archivos protegidos por retención o legal hold."
+            : superAdminsToDelete > 0 && remainingSuperAdmins === 0
+              ? "No quedaría ningún superadmin activo."
+              : null;
+
+        return NextResponse.json({
+          preview: {
+            mode: "purge",
+            organizationId: organization.id,
+            organizationName: organization.name,
+            isActive: organization.active,
+            usersToDelete,
+            usersWithOtherOrgs,
+            employeesToDelete,
+            contractsToDelete,
+            storedFilesTotal,
+            storedFilesBlocked,
+            storedFilesLegalHold,
+            storedFilesRetention,
+            superAdminsToDelete,
+            remainingSuperAdmins,
+            canPurge,
+            blockReason,
+          },
+        });
+      }
+
+      case "purge": {
+        const payload = organizationLifecycleSchema.parse(data);
+
+        const organization = await prisma.organization.findUnique({
+          where: { id: payload.id },
+          select: { id: true, name: true, active: true },
+        });
+
+        if (!organization) {
+          return NextResponse.json({ error: "Organización no encontrada" }, { status: 404 });
+        }
+
+        if (organization.active) {
+          return NextResponse.json({ error: "La organización debe estar inactiva para limpiar" }, { status: 400 });
+        }
+
+        const now = new Date();
+        const [blockedFiles, superAdminsToDelete, remainingSuperAdmins] = await Promise.all([
+          prisma.storedFile.count({
+            where: {
+              orgId: organization.id,
+              OR: [{ legalHold: true }, { retainUntil: { gt: now } }],
+            },
+          }),
+          prisma.user.count({
+            where: { orgId: organization.id, role: "SUPER_ADMIN" },
+          }),
+          prisma.user.count({
+            where: {
+              orgId: { not: organization.id },
+              role: "SUPER_ADMIN",
+              active: true,
+              organization: { active: true },
+            },
+          }),
+        ]);
+
+        if (blockedFiles > 0) {
+          return NextResponse.json({ error: "Hay archivos protegidos por retención o legal hold." }, { status: 400 });
+        }
+
+        if (superAdminsToDelete > 0 && remainingSuperAdmins === 0) {
+          return NextResponse.json(
+            { error: "No se puede limpiar la organización porque dejaría el sistema sin superadmins activos." },
+            { status: 400 },
+          );
+        }
+
+        const storageProvider = getStorageProvider();
+        let lastFileId: string | null = null;
+        const batchSize = 200;
+
+        while (true) {
+          const files = await prisma.storedFile.findMany({
+            where: { orgId: organization.id },
+            select: { id: true, path: true },
+            take: batchSize,
+            ...(lastFileId
+              ? {
+                  skip: 1,
+                  cursor: { id: lastFileId },
+                }
+              : {}),
+          });
+
+          if (files.length === 0) {
+            break;
+          }
+
+          for (const file of files) {
+            await storageProvider.delete(file.path);
+          }
+
+          const lastFile = files[files.length - 1];
+          lastFileId = lastFile ? lastFile.id : null;
+        }
+
+        await prisma.$transaction(async (tx) => {
+          await tx.auditLog.create({
+            data: {
+              action: "PURGE_ORGANIZATION",
+              category: "ORGANIZATION",
+              entityId: organization.id,
+              entityType: "Organization",
+              entityData: {
+                organizationName: organization.name,
+              },
+              description: `Limpieza hard de la organización ${organization.name}.`,
+              performedById: session.user.id,
+              performedByEmail: session.user.email,
+              performedByName: session.user.name ?? session.user.email ?? "Superadmin",
+              performedByRole: session.user.role,
+              orgId: organization.id,
+            },
+          });
+
+          await tx.organization.delete({
+            where: { id: organization.id },
+          });
+        });
+
+        await revalidatePath("/dashboard/admin/organizations");
+        return NextResponse.json({ success: true });
       }
 
       default:

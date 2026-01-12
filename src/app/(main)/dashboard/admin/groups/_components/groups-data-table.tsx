@@ -30,16 +30,22 @@ import type { OrganizationGroupRow } from "./types";
 interface GroupsDataTableProps {
   data: OrganizationGroupRow[];
   onManageGroup: (group: OrganizationGroupRow) => void;
+  onDeactivate: (group: OrganizationGroupRow) => void;
+  onReactivate: (group: OrganizationGroupRow) => void;
+  onDelete: (group: OrganizationGroupRow) => void;
 }
 
-export function GroupsDataTable({ data, onManageGroup }: GroupsDataTableProps) {
+export function GroupsDataTable({ data, onManageGroup, onDeactivate, onReactivate, onDelete }: GroupsDataTableProps) {
   const [activeTab, setActiveTab] = React.useState("active");
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
   const [globalFilter, setGlobalFilter] = React.useState("");
 
-  const columns = React.useMemo(() => createGroupColumns({ onManageGroup }), [onManageGroup]);
+  const columns = React.useMemo(
+    () => createGroupColumns({ onManageGroup, onDeactivate, onReactivate, onDelete }),
+    [onManageGroup, onDeactivate, onReactivate, onDelete],
+  );
 
   const filteredData = React.useMemo(() => {
     switch (activeTab) {

@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { CheckCircle2, MoreHorizontal, XCircle } from "lucide-react";
+import { Ban, CheckCircle2, MoreHorizontal, RotateCcw, Trash2, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -18,9 +18,17 @@ import type { OrganizationGroupRow } from "./types";
 
 interface GroupColumnsProps {
   onManageGroup: (group: OrganizationGroupRow) => void;
+  onDeactivate: (group: OrganizationGroupRow) => void;
+  onReactivate: (group: OrganizationGroupRow) => void;
+  onDelete: (group: OrganizationGroupRow) => void;
 }
 
-export const createGroupColumns = ({ onManageGroup }: GroupColumnsProps): ColumnDef<OrganizationGroupRow>[] => [
+export const createGroupColumns = ({
+  onManageGroup,
+  onDeactivate,
+  onReactivate,
+  onDelete,
+}: GroupColumnsProps): ColumnDef<OrganizationGroupRow>[] => [
   {
     accessorKey: "name",
     header: "Grupo",
@@ -76,6 +84,24 @@ export const createGroupColumns = ({ onManageGroup }: GroupColumnsProps): Column
           <DropdownMenuLabel>Acciones</DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => onManageGroup(row.original)}>Gestionar grupo</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {row.original.isActive ? (
+            <DropdownMenuItem onClick={() => onDeactivate(row.original)}>
+              <Ban className="mr-2 h-3.5 w-3.5" />
+              Dar de baja
+            </DropdownMenuItem>
+          ) : (
+            <>
+              <DropdownMenuItem onClick={() => onReactivate(row.original)}>
+                <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                Reactivar
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(row.original)} className="text-destructive">
+                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                Limpiar (hard)
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     ),
