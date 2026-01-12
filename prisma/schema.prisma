@@ -641,6 +641,7 @@ model Employee {
   country                      String    @default("ES")
   birthDate                    DateTime?
   nationality                  String?
+  gender                       EmployeeGender @default(NOT_SPECIFIED)
 
   // Datos bancarios (cifrados)
   iban                         String? // Se cifrará a nivel de aplicación
@@ -657,6 +658,7 @@ model Employee {
   // Metadatos
   photoUrl  String?
   notes     String?
+  additionalFields Json     @default("[]") // Campos adicionales configurables por empresa
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1190,6 +1192,14 @@ enum EmploymentStatus {
   SUSPENDED // Suspendido
   TERMINATED // Dado de baja
   RETIRED // Jubilado
+}
+
+// Género del empleado
+enum EmployeeGender {
+  MALE
+  FEMALE
+  NON_BINARY
+  NOT_SPECIFIED
 }
 
 // NOTA: ScheduleType enum eliminado - Ahora se usa Sistema de Horarios V2.0

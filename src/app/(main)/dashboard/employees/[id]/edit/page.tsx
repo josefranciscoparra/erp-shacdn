@@ -18,8 +18,10 @@ import {
   Check,
   ChevronsUpDown,
   Users,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 
 import { PermissionGuard } from "@/components/auth/permission-guard";
@@ -36,9 +38,19 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+  EMPLOYEE_ADDITIONAL_FIELD_TYPES,
+  EMPLOYEE_GENDERS,
+  employeeAdditionalFieldSchema,
+  employeeGenderSchema,
+  type EmployeeAdditionalField,
+  type EmployeeAdditionalFieldType,
+  type EmployeeGender,
+} from "@/lib/validations/employee";
 import { getTeams, type TeamListItem } from "@/server/actions/teams";
 
 const editEmployeeSchema = z.object({
@@ -49,6 +61,8 @@ const editEmployeeSchema = z.object({
   nifNie: z.string().min(9, "NIF/NIE debe tener al menos 9 caracteres"),
   birthDate: z.string().optional(),
   nationality: z.string().optional(),
+  gender: employeeGenderSchema.optional(),
+  additionalFields: z.array(employeeAdditionalFieldSchema).optional(),
 
   // Información laboral
   employeeNumber: z.string().optional(),
@@ -93,6 +107,20 @@ const editEmployeeSchema = z.object({
 
 type EditEmployeeForm = z.infer<typeof editEmployeeSchema>;
 
+const GENDER_LABELS: Record<EmployeeGender, string> = {
+  MALE: "Hombre",
+  FEMALE: "Mujer",
+  NON_BINARY: "No binario",
+  NOT_SPECIFIED: "No especificado",
+};
+
+const ADDITIONAL_FIELD_TYPE_LABELS: Record<EmployeeAdditionalFieldType, string> = {
+  TEXT: "Texto",
+  NUMBER: "Número",
+  DATE: "Fecha",
+  BOOLEAN: "Sí/No",
+};
+
 interface Employee {
   id: string;
   employeeNumber: string | null;
@@ -110,12 +138,14 @@ interface Employee {
   country: string;
   birthDate: string | null;
   nationality: string | null;
+  gender: EmployeeGender;
   employmentStatus: EmploymentStatus;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   emergencyRelationship: string | null;
   iban: string | null;
   notes: string | null;
+  additionalFields: EmployeeAdditionalField[] | null;
   active: boolean;
   teamId: string | null;
   user: {
@@ -171,6 +201,7 @@ export default function EditEmployeePage() {
       nifNie: "",
       birthDate: "",
       nationality: "",
+      gender: "NOT_SPECIFIED",
       employeeNumber: "",
       employmentStatus: "PENDING_CONTRACT",
       email: "",
@@ -189,7 +220,18 @@ export default function EditEmployeePage() {
       createUser: false,
       userRole: "EMPLOYEE",
       notes: "",
+      additionalFields: [],
     },
+  });
+
+  const additionalFieldsArray = useFieldArray({
+    control: form.control,
+    name: "additionalFields",
+    keyName: "fieldId",
+  });
+  const watchedAdditionalFields = useWatch({
+    control: form.control,
+    name: "additionalFields",
   });
 
   const fetchEmployee = async () => {
@@ -201,6 +243,19 @@ export default function EditEmployeePage() {
       const data = await response.json();
       setEmployee(data);
 
+      const normalizedAdditionalFields = Array.isArray(data.additionalFields)
+        ? data.additionalFields.map((field: EmployeeAdditionalField) => {
+            if (field.id) {
+              return field;
+            }
+            const fallbackId =
+              typeof crypto.randomUUID === "function"
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(16)}`;
+            return { ...field, id: fallbackId };
+          })
+        : [];
+
       // Llenar el formulario con los datos del empleado
       form.reset({
         firstName: data.firstName,
@@ -209,6 +264,7 @@ export default function EditEmployeePage() {
         nifNie: data.nifNie,
         birthDate: data.birthDate ? data.birthDate.split("T")[0] : "",
         nationality: data.nationality ?? "",
+        gender: data.gender ?? "NOT_SPECIFIED",
         employeeNumber: data.employeeNumber ?? "",
         employmentStatus: data.employmentStatus,
         email: data.email ?? "",
@@ -227,12 +283,24 @@ export default function EditEmployeePage() {
         createUser: false,
         userRole: data.user?.role ?? "EMPLOYEE",
         notes: data.notes ?? "",
+        additionalFields: normalizedAdditionalFields,
       });
     } catch (error: any) {
       setError(error.message);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAddAdditionalField = () => {
+    const newId =
+      typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16)}`;
+    additionalFieldsArray.append({
+      id: newId,
+      label: "",
+      type: "TEXT",
+      value: "",
+    });
   };
 
   const loadTeams = async () => {
@@ -497,23 +565,50 @@ export default function EditEmployeePage() {
                         />
                       </div>
 
-                      <FormField
-                        control={form.control}
-                        name="nationality"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Nacionalidad</FormLabel>
-                            <FormControl>
-                              <Input
-                                placeholder="Española"
-                                className="placeholder:text-muted-foreground/50 bg-white"
-                                {...field}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                          control={form.control}
+                          name="nationality"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nacionalidad</FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder="Española"
+                                  className="placeholder:text-muted-foreground/50 bg-white"
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name="gender"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Género</FormLabel>
+                              <Select value={field.value ?? "NOT_SPECIFIED"} onValueChange={field.onChange}>
+                                <FormControl>
+                                  <SelectTrigger className="bg-white">
+                                    <SelectValue placeholder="No especificado" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  {EMPLOYEE_GENDERS.map((gender) => (
+                                    <SelectItem key={gender} value={gender}>
+                                      {GENDER_LABELS[gender]}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -621,6 +716,213 @@ export default function EditEmployeePage() {
                           )}
                         />
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="bg-card rounded-lg border">
+                    <CardHeader>
+                      <CardTitle>Campos adicionales</CardTitle>
+                      <CardDescription>Información personalizada por empresa</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {additionalFieldsArray.fields.length === 0 ? (
+                        <p className="text-muted-foreground text-sm">Aún no hay campos adicionales configurados.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {additionalFieldsArray.fields.map((fieldItem, index) => {
+                            const watchedType = watchedAdditionalFields?.[index]?.type;
+                            const currentType = watchedType ?? fieldItem.type;
+
+                            return (
+                              <div key={fieldItem.fieldId} className="space-y-3 rounded-lg border p-4">
+                                <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto] md:items-end">
+                                  <FormField
+                                    control={form.control}
+                                    name={`additionalFields.${index}.label`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Nombre del campo</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            {...field}
+                                            placeholder="Ej. Número de serie"
+                                            className="placeholder:text-muted-foreground/50 bg-white"
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <FormField
+                                    control={form.control}
+                                    name={`additionalFields.${index}.type`}
+                                    render={({ field }) => (
+                                      <FormItem>
+                                        <FormLabel>Tipo</FormLabel>
+                                        <Select
+                                          value={field.value ?? "TEXT"}
+                                          onValueChange={(value) => {
+                                            field.onChange(value);
+                                            if (value === "BOOLEAN") {
+                                              form.setValue(`additionalFields.${index}.value`, false, {
+                                                shouldDirty: true,
+                                                shouldValidate: true,
+                                              });
+                                              return;
+                                            }
+                                            if (value === "NUMBER") {
+                                              form.setValue(`additionalFields.${index}.value`, null, {
+                                                shouldDirty: true,
+                                                shouldValidate: true,
+                                              });
+                                              return;
+                                            }
+                                            form.setValue(`additionalFields.${index}.value`, "", {
+                                              shouldDirty: true,
+                                              shouldValidate: true,
+                                            });
+                                          }}
+                                        >
+                                          <FormControl>
+                                            <SelectTrigger className="bg-white">
+                                              <SelectValue placeholder="Selecciona un tipo" />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            {EMPLOYEE_ADDITIONAL_FIELD_TYPES.map((type) => (
+                                              <SelectItem key={type} value={type}>
+                                                {ADDITIONAL_FIELD_TYPE_LABELS[type]}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+
+                                  <div className="flex items-center justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => additionalFieldsArray.remove(index)}
+                                      aria-label="Eliminar campo adicional"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                <FormField
+                                  control={form.control}
+                                  name={`additionalFields.${index}.value`}
+                                  render={({ field }) => {
+                                    if (currentType === "BOOLEAN") {
+                                      const isChecked = field.value === true;
+                                      return (
+                                        <FormItem className="flex items-center justify-between rounded-lg border px-3 py-2">
+                                          <FormLabel className="mb-0">Valor</FormLabel>
+                                          <div className="flex items-center gap-2">
+                                            <span
+                                              className={cn(
+                                                "text-xs",
+                                                isChecked ? "text-muted-foreground" : "text-foreground font-medium",
+                                              )}
+                                            >
+                                              No
+                                            </span>
+                                            <FormControl>
+                                              <Switch checked={isChecked} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                            <span
+                                              className={cn(
+                                                "text-xs",
+                                                isChecked ? "text-foreground font-medium" : "text-muted-foreground",
+                                              )}
+                                            >
+                                              Sí
+                                            </span>
+                                          </div>
+                                        </FormItem>
+                                      );
+                                    }
+
+                                    if (currentType === "NUMBER") {
+                                      const inputValue = typeof field.value === "number" ? String(field.value) : "";
+                                      return (
+                                        <FormItem>
+                                          <FormLabel>Valor</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              {...field}
+                                              type="number"
+                                              value={inputValue}
+                                              onChange={(event) => {
+                                                const rawValue = event.target.value;
+                                                if (rawValue === "") {
+                                                  field.onChange(null);
+                                                  return;
+                                                }
+                                                const parsed = Number(rawValue);
+                                                field.onChange(Number.isNaN(parsed) ? null : parsed);
+                                              }}
+                                              className="bg-white"
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      );
+                                    }
+
+                                    if (currentType === "DATE") {
+                                      const inputValue = typeof field.value === "string" ? field.value : "";
+                                      return (
+                                        <FormItem>
+                                          <FormLabel>Valor</FormLabel>
+                                          <FormControl>
+                                            <Input
+                                              {...field}
+                                              type="date"
+                                              value={inputValue}
+                                              onChange={field.onChange}
+                                              className="bg-white"
+                                            />
+                                          </FormControl>
+                                          <FormMessage />
+                                        </FormItem>
+                                      );
+                                    }
+
+                                    const inputValue = typeof field.value === "string" ? field.value : "";
+                                    return (
+                                      <FormItem>
+                                        <FormLabel>Valor</FormLabel>
+                                        <FormControl>
+                                          <Input
+                                            {...field}
+                                            value={inputValue}
+                                            onChange={field.onChange}
+                                            placeholder="Texto"
+                                            className="placeholder:text-muted-foreground/50 bg-white"
+                                          />
+                                        </FormControl>
+                                        <FormMessage />
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      <Button type="button" variant="outline" onClick={handleAddAdditionalField} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Añadir campo
+                      </Button>
                     </CardContent>
                   </Card>
                 </div>

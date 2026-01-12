@@ -38,7 +38,7 @@ import { SectionHeader } from "@/components/hr/section-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -46,6 +46,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { features } from "@/config/features";
 import { usePermissions } from "@/hooks/use-permissions";
 import { type DocumentKind } from "@/lib/validations/document";
+import { type EmployeeAdditionalField, type EmployeeGender } from "@/lib/validations/employee";
 import { getEmployeePtoBalance, getEmployeePtoRequests } from "@/server/actions/admin-pto";
 import { resendInviteEmail } from "@/server/actions/auth-tokens";
 import { getCurrentUserRole } from "@/server/actions/get-current-user-role";
@@ -94,6 +95,13 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
 };
 
+const GENDER_LABELS: Record<EmployeeGender, string> = {
+  MALE: "Hombre",
+  FEMALE: "Mujer",
+  NON_BINARY: "No binario",
+  NOT_SPECIFIED: "No especificado",
+};
+
 interface Employee {
   id: string;
   employeeNumber: string | null;
@@ -111,11 +119,13 @@ interface Employee {
   country: string;
   birthDate: string | null;
   nationality: string | null;
+  gender: EmployeeGender;
   iban: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
   emergencyRelationship: string | null;
   photoUrl: string | null;
+  additionalFields: EmployeeAdditionalField[] | null;
   active: boolean;
   createdAt: string;
   user: {
@@ -475,6 +485,37 @@ export default function EmployeeProfilePage() {
     </Avatar>
   );
   const activeContract = employee.employmentContracts.find((c) => c.active);
+  const additionalFields = Array.isArray(employee.additionalFields) ? employee.additionalFields : [];
+  const genderLabel = GENDER_LABELS[employee.gender ?? "NOT_SPECIFIED"] ?? "No especificado";
+  const onboardingChecks = [
+    {
+      key: "phone",
+      label: "Teléfono",
+      completed: Boolean(employee.phone ?? employee.mobilePhone),
+    },
+    {
+      key: "email",
+      label: "Email",
+      completed: Boolean(employee.email),
+    },
+    {
+      key: "contract",
+      label: "Contrato activo",
+      completed: Boolean(activeContract),
+    },
+    {
+      key: "schedule",
+      label: "Horario asignado",
+      completed: Boolean(scheduleAssignment),
+      isLoading: isScheduleLoading,
+    },
+    {
+      key: "user",
+      label: "Usuario de sistema",
+      completed: Boolean(employee.user?.id),
+    },
+  ];
+  const completedOnboardingChecks = onboardingChecks.filter((check) => check.completed).length;
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("es-ES", {
@@ -499,6 +540,23 @@ export default function EmployeeProfilePage() {
       style: "currency",
       currency: "EUR",
     }).format(amount);
+  };
+
+  const formatAdditionalFieldValue = (field: EmployeeAdditionalField) => {
+    const value = field.value;
+    if (value === null || value === undefined || value === "") {
+      return "—";
+    }
+
+    if (field.type === "BOOLEAN") {
+      return value === true ? "Sí" : "No";
+    }
+
+    if (field.type === "DATE" && typeof value === "string") {
+      return formatDate(value);
+    }
+
+    return String(value);
   };
 
   const inviteStatus = employee.inviteStatus ?? "PENDING";
@@ -654,6 +712,12 @@ export default function EmployeeProfilePage() {
                         <span>{employee.nationality}</span>
                       </div>
                     )}
+
+                    <div className="flex items-center text-sm">
+                      <User className="text-muted-foreground mr-2 h-4 w-4" />
+                      <span className="text-muted-foreground w-20">Género:</span>
+                      <span>{genderLabel}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -754,6 +818,58 @@ export default function EmployeeProfilePage() {
                       requirePassword={process.env.NEXT_PUBLIC_REQUIRE_PASSWORD_FOR_IBAN === "true"}
                     />
                   </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-lg border shadow-xs">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">Campos adicionales</CardTitle>
+                  <CardDescription>Datos personalizados de la empresa</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {additionalFields.length ? (
+                    <div className="space-y-2">
+                      {additionalFields.map((field, index) => (
+                        <div key={`${field.id ?? field.label}-${index}`} className="flex items-center justify-between">
+                          <span className="text-muted-foreground text-sm">{field.label}</span>
+                          <span className="text-sm font-medium">{formatAdditionalFieldValue(field)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">Sin campos adicionales registrados.</p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card className="from-primary/5 to-card rounded-lg border bg-gradient-to-t shadow-xs">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-lg">Checklist de onboarding</CardTitle>
+                  <CardDescription>
+                    {completedOnboardingChecks} de {onboardingChecks.length} completados
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {onboardingChecks.map((check) => {
+                    const statusLabel = check.isLoading ? "Cargando" : check.completed ? "Completado" : "Pendiente";
+                    const statusVariant = check.completed ? "success" : check.isLoading ? "secondary" : "warning";
+
+                    return (
+                      <div key={check.key} className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm">
+                          {check.isLoading ? (
+                            <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
+                          ) : check.completed ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-amber-500" />
+                          )}
+                          <span>{check.label}</span>
+                        </div>
+                        <Badge variant={statusVariant}>{statusLabel}</Badge>
+                      </div>
+                    );
+                  })}
                 </CardContent>
               </Card>
             </div>

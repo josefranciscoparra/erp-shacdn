@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { encrypt, decrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/prisma";
+import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,8 @@ const updateEmployeeSchema = z.object({
   nifNie: z.string().min(1, "El NIF/NIE es requerido"),
   birthDate: z.string().optional(),
   nationality: z.string().optional(),
+  gender: employeeGenderSchema.optional(),
+  additionalFields: z.array(employeeAdditionalFieldSchema).optional(),
 
   // Estado laboral
   employmentStatus: z.enum([
@@ -221,6 +224,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     }
 
     const data = result.data;
+    const normalizedTeamId = data.teamId && data.teamId.trim() !== "" ? data.teamId : null;
 
     // Verificar que el empleado existe y pertenece a la organización
     const existingEmployee = await prisma.employee.findFirst({
@@ -279,9 +283,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       nifNie: data.nifNie,
       birthDate: data.birthDate ? new Date(data.birthDate) : null,
       nationality: data.nationality ?? null,
+      gender: data.gender ?? existingEmployee.gender,
       employmentStatus: data.employmentStatus,
       employeeNumber: data.employeeNumber ?? null,
-      teamId: data.teamId ?? null,
+      teamId: normalizedTeamId,
       email: data.email ?? null,
       phone: data.phone ?? null,
       mobilePhone: data.mobilePhone ?? null,
@@ -294,6 +299,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       emergencyContactPhone: data.emergencyContactPhone ?? null,
       emergencyRelationship: data.emergencyRelationship ?? null,
       notes: data.notes ?? null,
+      additionalFields: data.additionalFields ?? existingEmployee.additionalFields,
     };
 
     // Cifrar IBAN si se proporciona, o null si está vacío
@@ -362,6 +368,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     });
   } catch (error) {
     console.error("Error updating employee:", error);
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
+    const fallbackMessage = "Error interno del servidor";
+    const errorMessage = error instanceof Error ? error.message : fallbackMessage;
+    return NextResponse.json(
+      { error: process.env.NODE_ENV === "production" ? fallbackMessage : errorMessage },
+      { status: 500 },
+    );
   }
 }

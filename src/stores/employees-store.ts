@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+import { type EmployeeAdditionalField, type EmployeeGender } from "@/lib/validations/employee";
+
 export interface Employee {
   id: string;
   employeeNumber?: string;
@@ -17,12 +19,14 @@ export interface Employee {
   country: string;
   birthDate?: Date;
   nationality?: string;
+  gender?: EmployeeGender;
   iban?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyRelationship?: string;
   photoUrl?: string | null;
   notes?: string;
+  additionalFields?: EmployeeAdditionalField[];
   active: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -46,11 +50,13 @@ export interface EmployeeFormData {
   country?: string;
   birthDate?: string;
   nationality?: string;
+  gender?: EmployeeGender;
   iban?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyRelationship?: string;
   notes?: string;
+  additionalFields?: EmployeeAdditionalField[];
 }
 
 interface EmployeesState {

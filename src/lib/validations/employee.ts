@@ -1,5 +1,69 @@
 import { z } from "zod";
 
+export const EMPLOYEE_GENDERS = ["MALE", "FEMALE", "NON_BINARY", "NOT_SPECIFIED"] as const;
+export const employeeGenderSchema = z.enum(EMPLOYEE_GENDERS);
+
+export const EMPLOYEE_ADDITIONAL_FIELD_TYPES = ["TEXT", "NUMBER", "DATE", "BOOLEAN"] as const;
+export const employeeAdditionalFieldTypeSchema = z.enum(EMPLOYEE_ADDITIONAL_FIELD_TYPES);
+
+export const employeeAdditionalFieldSchema = z
+  .object({
+    id: z.string().min(1, "El campo adicional necesita un identificador."),
+    label: z
+      .string()
+      .trim()
+      .min(1, "El nombre del campo adicional es obligatorio.")
+      .max(60, "El nombre del campo adicional es demasiado largo."),
+    type: employeeAdditionalFieldTypeSchema,
+    value: z.union([z.string(), z.number(), z.boolean(), z.null()]).optional(),
+  })
+  .superRefine((field, ctx) => {
+    const value = field.value;
+    if (value === null || value === undefined || value === "") {
+      return;
+    }
+
+    if (field.type === "TEXT" && typeof value !== "string") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "El valor debe ser texto.",
+        path: ["value"],
+      });
+    }
+
+    if (field.type === "NUMBER") {
+      if (typeof value !== "number" || Number.isNaN(value)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "El valor debe ser un número válido.",
+          path: ["value"],
+        });
+      }
+    }
+
+    if (field.type === "DATE") {
+      if (typeof value !== "string" || Number.isNaN(Date.parse(value))) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "El valor debe ser una fecha válida.",
+          path: ["value"],
+        });
+      }
+    }
+
+    if (field.type === "BOOLEAN" && typeof value !== "boolean") {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "El valor debe ser verdadero o falso.",
+        path: ["value"],
+      });
+    }
+  });
+
+export type EmployeeGender = z.infer<typeof employeeGenderSchema>;
+export type EmployeeAdditionalFieldType = z.infer<typeof employeeAdditionalFieldTypeSchema>;
+export type EmployeeAdditionalField = z.infer<typeof employeeAdditionalFieldSchema>;
+
 // Validador NIF/NIE español
 export const nifNieSchema = z
   .string()
@@ -72,6 +136,8 @@ export const createEmployeeSchema = z.object({
   birthDate: z.string().optional(), // Se convertirá a Date en el servidor
   nationality: z.string().max(50, "La nacionalidad es demasiado larga.").optional(),
   employeeNumber: z.string().max(20, "El número de empleado es demasiado largo.").optional(),
+  gender: employeeGenderSchema.optional(),
+  additionalFields: z.array(employeeAdditionalFieldSchema).optional(),
 
   // Datos bancarios
   iban: ibanSchema,

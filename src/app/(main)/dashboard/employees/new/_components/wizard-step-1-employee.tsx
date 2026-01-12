@@ -3,23 +3,56 @@
 import { useEffect, useRef, useState } from "react";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ChevronDown, ChevronUp, Mail, Phone, User, CreditCard, Calendar as CalendarIcon } from "lucide-react";
-import { useForm } from "react-hook-form";
+import {
+  ChevronDown,
+  ChevronUp,
+  Mail,
+  Phone,
+  User,
+  CreditCard,
+  Calendar as CalendarIcon,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { createEmployeeSchema, type CreateEmployeeInput } from "@/lib/validations/employee";
+import {
+  EMPLOYEE_ADDITIONAL_FIELD_TYPES,
+  EMPLOYEE_GENDERS,
+  createEmployeeSchema,
+  type CreateEmployeeInput,
+  type EmployeeAdditionalFieldType,
+  type EmployeeGender,
+} from "@/lib/validations/employee";
 
 type FieldStatus = "idle" | "checking" | "valid" | "invalid";
 type CriticalField = "email" | "nifNie";
 type ValidationResult = {
   hasIssues: boolean;
   hadServerError: boolean;
+};
+
+const GENDER_LABELS: Record<EmployeeGender, string> = {
+  MALE: "Hombre",
+  FEMALE: "Mujer",
+  NON_BINARY: "No binario",
+  NOT_SPECIFIED: "No especificado",
+};
+
+const ADDITIONAL_FIELD_TYPE_LABELS: Record<EmployeeAdditionalFieldType, string> = {
+  TEXT: "Texto",
+  NUMBER: "Número",
+  DATE: "Fecha",
+  BOOLEAN: "Sí/No",
 };
 
 interface WizardStep1EmployeeProps {
@@ -52,7 +85,7 @@ export function WizardStep1Employee({
   const form = useForm<CreateEmployeeInput>({
     resolver: zodResolver(createEmployeeSchema),
     mode: "onChange",
-    defaultValues: initialData ?? {
+    defaultValues: {
       firstName: "",
       lastName: "",
       secondLastName: "",
@@ -67,12 +100,25 @@ export function WizardStep1Employee({
       birthDate: "",
       nationality: "",
       employeeNumber: "",
+      gender: "NOT_SPECIFIED",
       iban: "",
       emergencyContactName: "",
       emergencyContactPhone: "",
       emergencyRelationship: "",
       notes: "",
+      additionalFields: [],
+      ...(initialData ?? {}),
     },
+  });
+
+  const additionalFieldsArray = useFieldArray({
+    control: form.control,
+    name: "additionalFields",
+    keyName: "fieldId",
+  });
+  const watchedAdditionalFields = useWatch({
+    control: form.control,
+    name: "additionalFields",
   });
 
   const emailValue = form.watch("email");
@@ -291,6 +337,17 @@ export function WizardStep1Employee({
     }
 
     await validateCriticalFields(["nifNie"], { force: true });
+  };
+
+  const handleAddAdditionalField = () => {
+    const newId =
+      typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16)}`;
+    additionalFieldsArray.append({
+      id: newId,
+      label: "",
+      type: "TEXT",
+      value: "",
+    });
   };
 
   const handleSubmit = async (data: CreateEmployeeInput) => {
@@ -557,18 +614,45 @@ export function WizardStep1Employee({
                 <CardDescription>Datos complementarios del empleado</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="nationality"
-                  render={({ field, fieldState }) => (
-                    <FormItem>
-                      <FormLabel>Nacionalidad</FormLabel>
-                      <FormControl>
-                        <Input {...field} placeholder="Española" className={getInputClasses(fieldState)} />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <FormField
+                    control={form.control}
+                    name="nationality"
+                    render={({ field, fieldState }) => (
+                      <FormItem>
+                        <FormLabel>Nacionalidad</FormLabel>
+                        <FormControl>
+                          <Input {...field} placeholder="Española" className={getInputClasses(fieldState)} />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="gender"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Género</FormLabel>
+                        <Select value={field.value ?? "NOT_SPECIFIED"} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="No especificado" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {EMPLOYEE_GENDERS.map((gender) => (
+                              <SelectItem key={gender} value={gender}>
+                                {GENDER_LABELS[gender]}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </CardContent>
             </Card>
 
@@ -771,6 +855,214 @@ export function WizardStep1Employee({
                     </FormItem>
                   )}
                 />
+              </CardContent>
+            </Card>
+
+            {/* Campos adicionales */}
+            <Card className="rounded-lg border shadow-xs">
+              <CardHeader>
+                <CardTitle>Campos adicionales</CardTitle>
+                <CardDescription>Información personalizada por empresa</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {additionalFieldsArray.fields.length === 0 ? (
+                  <p className="text-muted-foreground text-sm">Aún no hay campos adicionales configurados.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {additionalFieldsArray.fields.map((fieldItem, index) => {
+                      const watchedType = watchedAdditionalFields?.[index]?.type;
+                      const currentType = watchedType ?? fieldItem.type;
+
+                      return (
+                        <div key={fieldItem.fieldId} className="space-y-3 rounded-lg border p-4">
+                          <div className="grid gap-3 md:grid-cols-[2fr_1fr_auto] md:items-end">
+                            <FormField
+                              control={form.control}
+                              name={`additionalFields.${index}.label`}
+                              render={({ field, fieldState }) => (
+                                <FormItem>
+                                  <FormLabel>Nombre del campo</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      placeholder="Ej. Número de serie"
+                                      className={getInputClasses(fieldState)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <FormField
+                              control={form.control}
+                              name={`additionalFields.${index}.type`}
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Tipo</FormLabel>
+                                  <Select
+                                    value={field.value ?? "TEXT"}
+                                    onValueChange={(value) => {
+                                      field.onChange(value);
+                                      if (value === "BOOLEAN") {
+                                        form.setValue(`additionalFields.${index}.value`, false, {
+                                          shouldDirty: true,
+                                          shouldValidate: true,
+                                        });
+                                        return;
+                                      }
+                                      if (value === "NUMBER") {
+                                        form.setValue(`additionalFields.${index}.value`, null, {
+                                          shouldDirty: true,
+                                          shouldValidate: true,
+                                        });
+                                        return;
+                                      }
+                                      form.setValue(`additionalFields.${index}.value`, "", {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      });
+                                    }}
+                                  >
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona un tipo" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      {EMPLOYEE_ADDITIONAL_FIELD_TYPES.map((type) => (
+                                        <SelectItem key={type} value={type}>
+                                          {ADDITIONAL_FIELD_TYPE_LABELS[type]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+
+                            <div className="flex items-center justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => additionalFieldsArray.remove(index)}
+                                aria-label="Eliminar campo adicional"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          <FormField
+                            control={form.control}
+                            name={`additionalFields.${index}.value`}
+                            render={({ field, fieldState }) => {
+                              if (currentType === "BOOLEAN") {
+                                const isChecked = field.value === true;
+                                return (
+                                  <FormItem className="flex items-center justify-between rounded-lg border px-3 py-2">
+                                    <FormLabel className="mb-0">Valor</FormLabel>
+                                    <div className="flex items-center gap-2">
+                                      <span
+                                        className={cn(
+                                          "text-xs",
+                                          isChecked ? "text-muted-foreground" : "text-foreground font-medium",
+                                        )}
+                                      >
+                                        No
+                                      </span>
+                                      <FormControl>
+                                        <Switch checked={isChecked} onCheckedChange={field.onChange} />
+                                      </FormControl>
+                                      <span
+                                        className={cn(
+                                          "text-xs",
+                                          isChecked ? "text-foreground font-medium" : "text-muted-foreground",
+                                        )}
+                                      >
+                                        Sí
+                                      </span>
+                                    </div>
+                                  </FormItem>
+                                );
+                              }
+
+                              if (currentType === "NUMBER") {
+                                const inputValue = typeof field.value === "number" ? String(field.value) : "";
+                                return (
+                                  <FormItem>
+                                    <FormLabel>Valor</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        type="number"
+                                        value={inputValue}
+                                        onChange={(event) => {
+                                          const rawValue = event.target.value;
+                                          if (rawValue === "") {
+                                            field.onChange(null);
+                                            return;
+                                          }
+                                          const parsed = Number(rawValue);
+                                          field.onChange(Number.isNaN(parsed) ? null : parsed);
+                                        }}
+                                        className={getInputClasses(fieldState)}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                );
+                              }
+
+                              if (currentType === "DATE") {
+                                const inputValue = typeof field.value === "string" ? field.value : "";
+                                return (
+                                  <FormItem>
+                                    <FormLabel>Valor</FormLabel>
+                                    <FormControl>
+                                      <Input
+                                        {...field}
+                                        type="date"
+                                        value={inputValue}
+                                        onChange={field.onChange}
+                                        className={getInputClasses(fieldState)}
+                                      />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                );
+                              }
+
+                              const inputValue = typeof field.value === "string" ? field.value : "";
+                              return (
+                                <FormItem>
+                                  <FormLabel>Valor</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                      {...field}
+                                      value={inputValue}
+                                      onChange={field.onChange}
+                                      placeholder="Texto"
+                                      className={getInputClasses(fieldState)}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <Button type="button" variant="outline" onClick={handleAddAdditionalField} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Añadir campo
+                </Button>
               </CardContent>
             </Card>
           </div>

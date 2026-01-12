@@ -9,6 +9,7 @@ import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
+import { employeeAdditionalFieldSchema, employeeGenderSchema } from "@/lib/validations/employee";
 import { createInviteToken } from "@/server/actions/auth-tokens";
 import { generateSafeEmployeeNumber } from "@/services/employees";
 
@@ -31,6 +32,8 @@ const wizardSchema = z.object({
     country: z.string().optional().nullable(),
     birthDate: z.string().optional().nullable(),
     nationality: z.string().optional().nullable(),
+    gender: employeeGenderSchema.optional().nullable(),
+    additionalFields: z.array(employeeAdditionalFieldSchema).optional().nullable(),
     iban: z.string().optional().nullable(),
     emergencyContactName: z.string().optional().nullable(),
     emergencyContactPhone: z.string().optional().nullable(),
@@ -174,6 +177,7 @@ export async function POST(request: Request) {
           country: data.employee.country,
           birthDate: data.employee.birthDate ? new Date(data.employee.birthDate) : null,
           nationality: data.employee.nationality,
+          gender: data.employee.gender ?? "NOT_SPECIFIED",
           iban: data.employee.iban,
           emergencyContactName: data.employee.emergencyContactName,
           emergencyContactPhone: data.employee.emergencyContactPhone,
@@ -181,6 +185,7 @@ export async function POST(request: Request) {
           employmentStatus: data.employee.employmentStatus,
           photoUrl: data.employee.photoUrl,
           notes: data.employee.notes,
+          additionalFields: data.employee.additionalFields ?? [],
           orgId: currentUser.orgId,
           userId,
           expenseApproverId: data.employee.expenseApproverId,
