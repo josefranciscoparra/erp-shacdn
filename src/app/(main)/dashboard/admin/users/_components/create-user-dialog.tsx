@@ -40,13 +40,19 @@ const ROLE_DISPLAY_NAMES: Record<Role, string> = {
 
 export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRoles }: CreateUserDialogProps) {
   const [isLoading, setIsLoading] = React.useState(false);
-  const [tempPassword, setTempPassword] = React.useState<string | null>(null);
+  const [creationResult, setCreationResult] = React.useState<{
+    temporaryPassword?: string;
+    inviteEmailSent?: boolean;
+    inviteEmailRequested?: boolean;
+    userEmail?: string;
+  } | null>(null);
 
   const form = useForm<CreateUserAdminInput>({
     resolver: zodResolver(createUserAdminSchema),
     defaultValues: {
       email: "",
       role: "HR_ADMIN",
+      sendInvite: false,
       isEmployee: false,
       name: "",
       // Campos de empleado empiezan como undefined
@@ -61,6 +67,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
 
   // Watch isEmployee para cambiar la UI
   const isEmployee = form.watch("isEmployee");
+  const sendInvite = form.watch("sendInvite");
 
   // Estado para mostrar errores generales
   const [generalError, setGeneralError] = React.useState<string | null>(null);
@@ -116,8 +123,27 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
         throw new Error(data.error ?? "Error al crear usuario");
       }
 
-      setTempPassword(data.temporaryPassword);
-      form.reset();
+      const createdUser = data.user as { email?: string } | undefined;
+      const createdEmail = createdUser && createdUser.email ? createdUser.email : values.email;
+      setCreationResult({
+        temporaryPassword: data.temporaryPassword ?? undefined,
+        inviteEmailSent: data.inviteEmailSent ?? false,
+        inviteEmailRequested: data.inviteEmailRequested ?? values.sendInvite,
+        userEmail: createdEmail,
+      });
+      form.reset({
+        email: "",
+        role: "HR_ADMIN",
+        sendInvite,
+        isEmployee: false,
+        name: "",
+        firstName: undefined,
+        lastName: undefined,
+        secondLastName: undefined,
+        nifNie: undefined,
+        phone: undefined,
+        mobilePhone: undefined,
+      });
       onUserCreated();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error al crear usuario";
@@ -130,7 +156,7 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
   const handleClose = () => {
     if (!isLoading) {
       form.reset();
-      setTempPassword(null);
+      setCreationResult(null);
       setGeneralError(null);
       onOpenChange(false);
     }
@@ -146,20 +172,44 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
           </DialogDescription>
         </DialogHeader>
 
-        {tempPassword ? (
+        {creationResult ? (
           <div className="space-y-4">
             <div className="bg-muted rounded-lg p-4">
               <p className="text-foreground mb-2 text-sm font-medium">Usuario creado exitosamente</p>
-              <p className="text-muted-foreground mb-4 text-sm">
-                Se ha generado una contraseña temporal para el usuario. Por favor, compártela de forma segura.
-              </p>
-              <div className="bg-background rounded border p-3">
-                <p className="text-muted-foreground mb-1 text-xs">Contraseña temporal:</p>
-                <p className="font-mono text-sm font-semibold">{tempPassword}</p>
-              </div>
-              <p className="text-muted-foreground mt-3 text-xs">
-                Esta contraseña expirará en 7 días. El usuario deberá cambiarla en su primer inicio de sesión.
-              </p>
+
+              {creationResult.inviteEmailRequested && (
+                <div className="mb-4">
+                  {creationResult.inviteEmailSent ? (
+                    <div className="rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-950/40 dark:text-green-200">
+                      Invitación enviada a {creationResult.userEmail ?? "el email indicado"}. El usuario podrá crear su
+                      contraseña desde el enlace recibido.
+                    </div>
+                  ) : (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                      No se pudo enviar la invitación por email. Comparte la contraseña temporal con el usuario.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {creationResult.temporaryPassword ? (
+                <>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    Se ha generado una contraseña temporal para el usuario. Por favor, compártela de forma segura.
+                  </p>
+                  <div className="bg-background rounded border p-3">
+                    <p className="text-muted-foreground mb-1 text-xs">Contraseña temporal:</p>
+                    <p className="font-mono text-sm font-semibold">{creationResult.temporaryPassword}</p>
+                  </div>
+                  <p className="text-muted-foreground mt-3 text-xs">
+                    Esta contraseña expirará en 7 días. El usuario deberá cambiarla en su primer inicio de sesión.
+                  </p>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  El usuario debe completar el alta desde el enlace recibido en su correo.
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button onClick={handleClose}>Entendido</Button>
@@ -215,6 +265,25 @@ export function CreateUserDialog({ open, onOpenChange, onUserCreated, allowedRol
                     </FormControl>
                     <FormDescription>Este email será usado para iniciar sesión</FormDescription>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Checkbox: Enviar invitación */}
+              <FormField
+                control={form.control}
+                name="sendInvite"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-y-0 space-x-3 rounded-md border p-4">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} disabled={isLoading} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Enviar invitación por email</FormLabel>
+                      <FormDescription>
+                        Si activas esta opción, se enviará un enlace para que el usuario cree su contraseña.
+                      </FormDescription>
+                    </div>
                   </FormItem>
                 )}
               />

@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth";
 import { computeEffectivePermissions } from "@/lib/auth-guard";
 import { encrypt } from "@/lib/crypto";
+import { sendAuthInviteEmail } from "@/lib/email/email-service";
 import {
   canManageGroupUsers,
   getGroupManagedOrganizationIds,
@@ -23,6 +24,7 @@ import {
   validateName,
 } from "@/lib/user-validation";
 import { validateEmailDomain } from "@/lib/validations/email-domain";
+import { createInviteToken, getAppUrl } from "@/server/actions/auth-tokens";
 import { formatEmployeeNumber } from "@/services/employees";
 import { createUserSchema, createUserAdminSchema } from "@/validators/user";
 
@@ -441,6 +443,7 @@ async function createUser(session: any, data: any) {
         allowedEmailDomains: true,
         employeeNumberPrefix: true,
         employeeNumberCounter: true,
+        name: true,
       },
     });
 
@@ -469,6 +472,41 @@ async function createUser(session: any, data: any) {
         { status: 409 },
       );
     }
+
+    const companyName = organization.name ?? undefined;
+    const inviterName = session.name ?? session.email ?? undefined;
+
+    const sendInviteIfRequested = async (user: { id: string; email: string; name: string; orgId: string }) => {
+      if (!validatedData.sendInvite) {
+        return false;
+      }
+
+      try {
+        const tokenResult = await createInviteToken(user.id);
+        if (!tokenResult.success || !tokenResult.data) {
+          return false;
+        }
+
+        const inviteLink = `${await getAppUrl()}/auth/accept-invite?token=${tokenResult.data.token}`;
+        const emailResult = await sendAuthInviteEmail({
+          to: {
+            email: user.email,
+            name: user.name,
+          },
+          inviteLink,
+          orgId: user.orgId,
+          userId: user.id,
+          companyName,
+          inviterName,
+          expiresAt: tokenResult.data.expiresAt,
+        });
+
+        return emailResult.success;
+      } catch (error) {
+        console.error("Error al enviar invitación de usuario:", error);
+        return false;
+      }
+    };
 
     // Generar contraseña temporal
     const temporaryPassword = generateTemporaryPassword();
@@ -505,6 +543,8 @@ async function createUser(session: any, data: any) {
         return newUser;
       });
 
+      const inviteEmailSent = await sendInviteIfRequested(user);
+
       return NextResponse.json(
         {
           message: "Usuario administrativo creado exitosamente",
@@ -515,7 +555,9 @@ async function createUser(session: any, data: any) {
             role: user.role,
             active: user.active,
           },
-          temporaryPassword,
+          inviteEmailRequested: validatedData.sendInvite,
+          inviteEmailSent,
+          temporaryPassword: inviteEmailSent ? undefined : temporaryPassword,
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
         { status: 201 },
@@ -644,6 +686,8 @@ async function createUser(session: any, data: any) {
       return { employee, user };
     });
 
+    const inviteEmailSent = await sendInviteIfRequested(result.user);
+
     return NextResponse.json(
       {
         message: "Usuario administrativo con empleado creado exitosamente",
@@ -660,7 +704,9 @@ async function createUser(session: any, data: any) {
           firstName: result.employee.firstName,
           lastName: result.employee.lastName,
         },
-        temporaryPassword,
+        inviteEmailRequested: validatedData.sendInvite,
+        inviteEmailSent,
+        temporaryPassword: inviteEmailSent ? undefined : temporaryPassword,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       },
       { status: 201 },

@@ -78,6 +78,7 @@ export const createUserAdminSchema = z
     role: z.enum(["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT"], {
       errorMap: () => ({ message: "Rol inválido. Solo ORG_ADMIN, HR_ADMIN o HR_ASSISTANT permitidos" }),
     }),
+    sendInvite: z.boolean().default(false),
 
     // Checkbox para determinar flujo
     isEmployee: z.boolean().default(false),
