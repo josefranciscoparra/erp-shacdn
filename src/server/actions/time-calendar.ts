@@ -1,6 +1,6 @@
 "use server";
 
-import { startOfMonth, endOfMonth, eachDayOfInterval, format } from "date-fns";
+import { startOfDay, startOfMonth, endOfDay, endOfMonth, eachDayOfInterval, format } from "date-fns";
 
 import { prisma } from "@/lib/prisma";
 import { getEffectiveScheduleForRange } from "@/services/schedules/schedule-engine";
@@ -87,7 +87,7 @@ async function getContractFallbackMinutes(employeeId: string, orgId: string): Pr
 // Obtener datos del calendario mensual
 export async function getMonthlyCalendarData(year: number, month: number): Promise<MonthlyCalendarData> {
   try {
-    const { employeeId, orgId } = await getAuthenticatedEmployee();
+    const { employeeId, orgId, activeContract } = await getAuthenticatedEmployee();
 
     // Obtener fechas del mes
     const monthStart = startOfMonth(new Date(year, month - 1));
@@ -195,6 +195,11 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
       timeEntriesByDay.set(dateKey, existing);
     });
 
+    const contractStartDate = activeContract?.startDate ?? null;
+    const contractEndDate = activeContract?.endDate ?? null;
+    const contractStart = contractStartDate ? startOfDay(new Date(contractStartDate)) : null;
+    const contractEnd = contractEndDate ? endOfDay(new Date(contractEndDate)) : null;
+
     // Procesar cada día del mes - calcular expected hours usando Schedule V2.0
     const fallbackMinutes = await getContractFallbackMinutes(employeeId, orgId);
 
@@ -204,6 +209,7 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
     // Procesar cada día del mes
     const days: DayCalendarData[] = daysInMonth.map((date) => {
       const dateKey = format(date, "yyyy-MM-dd");
+      const normalizedDate = startOfDay(new Date(date));
       const summary = summaryMap.get(dateKey);
       const schedule = scheduleMap.get(dateKey);
       const summaryExpectedMinutes =
@@ -212,7 +218,10 @@ export async function getMonthlyCalendarData(year: number, month: number): Promi
           : null;
       const scheduleExpectedMinutes = schedule?.expectedMinutes ?? 0;
 
-      const isWorkday = schedule?.isWorkingDay ?? false;
+      const isOutsideContract =
+        (contractStart !== null && normalizedDate < contractStart) ||
+        (contractEnd !== null && normalizedDate > contractEnd);
+      const isWorkday = !isOutsideContract && (schedule?.isWorkingDay ?? false);
       // En días de descanso mantenemos 0h esperadas aunque exista un resumen previo con fallback
       let expectedMinutes = isWorkday ? scheduleExpectedMinutes : 0;
       if (summaryExpectedMinutes !== null && isWorkday) {
