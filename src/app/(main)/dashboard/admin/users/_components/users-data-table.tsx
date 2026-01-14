@@ -373,6 +373,7 @@ export function UsersDataTable({
         user={orgsDialogUser}
         currentUserRole={currentUserRole}
         groupId={groupId ?? undefined}
+        readOnly={true}
       />
     </Tabs>
   );

@@ -331,7 +331,7 @@ export async function removeOrganizationFromGroup(membershipId: string): Promise
   try {
     const membership = await prisma.organizationGroupOrganization.findUnique({
       where: { id: membershipId },
-      select: { groupId: true },
+      select: { groupId: true, organizationId: true },
     });
 
     if (!membership) {
@@ -340,8 +340,37 @@ export async function removeOrganizationFromGroup(membershipId: string): Promise
 
     await getGroupAdminContext(membership.groupId);
 
-    await prisma.organizationGroupOrganization.delete({
-      where: { id: membershipId },
+    await prisma.$transaction(async (tx) => {
+      await tx.organizationGroupOrganization.delete({
+        where: { id: membershipId },
+      });
+
+      const groupMembers = await tx.organizationGroupUser.findMany({
+        where: { groupId: membership.groupId },
+        select: { userId: true },
+      });
+
+      const memberIds = groupMembers.map((member) => member.userId);
+      if (memberIds.length === 0) {
+        return;
+      }
+
+      const users = await tx.user.findMany({
+        where: { id: { in: memberIds } },
+        select: { id: true, orgId: true },
+      });
+
+      const removableIds = users.filter((user) => user.orgId !== membership.organizationId).map((user) => user.id);
+      if (removableIds.length === 0) {
+        return;
+      }
+
+      await tx.userOrganization.deleteMany({
+        where: {
+          userId: { in: removableIds },
+          orgId: membership.organizationId,
+        },
+      });
     });
 
     revalidatePath("/dashboard/admin/groups");
@@ -417,6 +446,8 @@ export type AvailableGroupUserItem = {
   id: string;
   name: string;
   email: string;
+  role: Role;
+  orgId: string;
 };
 
 export async function listAvailableGroupUsers(groupId: string): Promise<{
@@ -439,13 +470,15 @@ export async function listAvailableGroupUsers(groupId: string): Promise<{
         active: true,
         id: { notIn: existingIds },
         role: {
-          not: "SUPER_ADMIN",
+          notIn: ["SUPER_ADMIN", "EMPLOYEE"],
         },
       },
       select: {
         id: true,
         name: true,
         email: true,
+        role: true,
+        orgId: true,
       },
       orderBy: { name: "asc" },
     });
@@ -460,25 +493,35 @@ export async function listAvailableGroupUsers(groupId: string): Promise<{
   }
 }
 
-export async function addOrganizationGroupMember(data: { groupId: string; userId: string; role: Role }): Promise<{
+export async function addOrganizationGroupMember(
+  groupId: string,
+  userId: string,
+  role: Role,
+  orgIds: string[],
+): Promise<{
   success: boolean;
   error?: string;
 }> {
   try {
-    await getGroupAdminContext(data.groupId);
+    await getGroupAdminContext(groupId);
 
-    if (data.role === "SUPER_ADMIN") {
+    if (role === "SUPER_ADMIN") {
       return {
         success: false,
-        error: `No puedes asignar el rol ${ROLE_DISPLAY_NAMES[data.role]}`,
+        error: `No puedes asignar el rol ${ROLE_DISPLAY_NAMES[role]}`,
       };
     }
 
+    if (orgIds.length === 0) {
+      return { success: false, error: "Selecciona al menos una organización válida" };
+    }
+
     const targetUser = await prisma.user.findUnique({
-      where: { id: data.userId },
+      where: { id: userId },
       select: {
         id: true,
         role: true,
+        orgId: true,
       },
     });
 
@@ -490,13 +533,17 @@ export async function addOrganizationGroupMember(data: { groupId: string; userId
       return { success: false, error: "No puedes asignar un SUPER_ADMIN a un grupo" };
     }
 
-    if (data.role === "HR_ADMIN") {
+    if (targetUser.role === "EMPLOYEE") {
+      return { success: false, error: "Este usuario ya es empleado de una organización y no puede unirse a grupos." };
+    }
+
+    if (role === "HR_ADMIN") {
       const existingHrAdmin = await prisma.organizationGroupUser.findFirst({
         where: {
-          userId: data.userId,
+          userId,
           role: "HR_ADMIN",
           isActive: true,
-          groupId: { not: data.groupId },
+          groupId: { not: groupId },
         },
         select: { id: true },
       });
@@ -506,13 +553,86 @@ export async function addOrganizationGroupMember(data: { groupId: string; userId
       }
     }
 
-    await prisma.organizationGroupUser.create({
-      data: {
-        groupId: data.groupId,
-        userId: data.userId,
-        role: data.role,
-        isActive: true,
-      },
+    const groupOrgs = await prisma.organizationGroupOrganization.findMany({
+      where: { groupId, status: "ACTIVE", organization: { active: true } },
+      select: { organizationId: true },
+    });
+    const validOrgIds = new Set(groupOrgs.map((groupOrg) => groupOrg.organizationId));
+    const cleanedOrgIds = orgIds.filter((orgId) => validOrgIds.has(orgId));
+
+    if (cleanedOrgIds.length === 0) {
+      return { success: false, error: "Selecciona al menos una organización activa del grupo" };
+    }
+
+    const baseOrgId = targetUser.orgId;
+
+    for (const orgId of cleanedOrgIds) {
+      if (targetUser.role === "SUPER_ADMIN") {
+        return { success: false, error: "No puedes asignar SUPER_ADMIN en una empresa" };
+      }
+      if (targetUser.role === "EMPLOYEE" && orgId !== baseOrgId) {
+        return {
+          success: false,
+          error: "No puedes asignar EMPLOYEE fuera de la organización principal del usuario",
+        };
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.organizationGroupUser.create({
+        data: {
+          groupId,
+          userId,
+          role,
+          isActive: true,
+        },
+      });
+
+      const assignments = cleanedOrgIds.map((orgId) => ({
+        orgId,
+        role: targetUser.role,
+      }));
+
+      const hasBaseAssignment = baseOrgId ? assignments.some((assignment) => assignment.orgId === baseOrgId) : false;
+      const baseAssignment =
+        baseOrgId && !hasBaseAssignment
+          ? {
+              orgId: baseOrgId,
+              role: targetUser.role,
+            }
+          : null;
+
+      for (const assignment of assignments) {
+        await tx.userOrganization.upsert({
+          where: { userId_orgId: { userId, orgId: assignment.orgId } },
+          create: {
+            userId,
+            orgId: assignment.orgId,
+            role: assignment.role,
+            isActive: true,
+          },
+          update: {
+            role: assignment.role,
+            isActive: true,
+          },
+        });
+      }
+
+      if (baseAssignment) {
+        await tx.userOrganization.upsert({
+          where: { userId_orgId: { userId, orgId: baseAssignment.orgId } },
+          create: {
+            userId,
+            orgId: baseAssignment.orgId,
+            role: baseAssignment.role,
+            isActive: true,
+          },
+          update: {
+            role: baseAssignment.role,
+            isActive: true,
+          },
+        });
+      }
     });
 
     revalidatePath("/dashboard/admin/groups");
@@ -605,7 +725,7 @@ export async function removeOrganizationGroupMember(membershipId: string): Promi
   try {
     const membership = await prisma.organizationGroupUser.findUnique({
       where: { id: membershipId },
-      select: { groupId: true },
+      select: { groupId: true, userId: true },
     });
 
     if (!membership) {
@@ -614,8 +734,49 @@ export async function removeOrganizationGroupMember(membershipId: string): Promi
 
     await getGroupAdminContext(membership.groupId);
 
-    await prisma.organizationGroupUser.delete({
-      where: { id: membershipId },
+    await prisma.$transaction(async (tx) => {
+      await tx.organizationGroupUser.delete({
+        where: { id: membershipId },
+      });
+
+      const groupOrgs = await tx.organizationGroupOrganization.findMany({
+        where: { groupId: membership.groupId, status: "ACTIVE" },
+        select: { organizationId: true },
+      });
+      const groupOrgIds = groupOrgs.map((groupOrg) => groupOrg.organizationId);
+      if (groupOrgIds.length === 0) {
+        return;
+      }
+
+      const user = await tx.user.findUnique({
+        where: { id: membership.userId },
+        select: {
+          orgId: true,
+          employee: {
+            select: { orgId: true },
+          },
+        },
+      });
+
+      const protectedOrgIds = new Set<string>();
+      if (user?.orgId) {
+        protectedOrgIds.add(user.orgId);
+      }
+      if (user?.employee?.orgId) {
+        protectedOrgIds.add(user.employee.orgId);
+      }
+
+      const removableOrgIds = groupOrgIds.filter((orgId) => !protectedOrgIds.has(orgId));
+      if (removableOrgIds.length === 0) {
+        return;
+      }
+
+      await tx.userOrganization.deleteMany({
+        where: {
+          userId: membership.userId,
+          orgId: { in: removableOrgIds },
+        },
+      });
     });
 
     revalidatePath("/dashboard/admin/groups");

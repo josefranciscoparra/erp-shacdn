@@ -291,6 +291,8 @@ export type DirectoryUserRow = {
   email: string;
   image: string | null;
   baseStatus: boolean; // Estado base del usuario
+  baseOrgId: string | null;
+  baseRole: Role;
   organizations: DirectoryUserOrg[]; // Badges
 };
 
@@ -339,6 +341,8 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
               email: true,
               image: true,
               active: true,
+              orgId: true,
+              role: true,
             },
           },
         },
@@ -375,6 +379,8 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
           email: uo.user.email,
           image: uo.user.image,
           baseStatus: uo.user.active,
+          baseOrgId: uo.user.orgId ?? null,
+          baseRole: uo.user.role,
           organizations: [],
         });
       }
@@ -404,6 +410,8 @@ export async function getGroupDirectoryUsers(groupId: string): Promise<{
           email: user.email,
           image: user.image,
           baseStatus: user.active,
+          baseOrgId: user.orgId ?? null,
+          baseRole: user.role,
           organizations: [],
         });
       }
@@ -466,6 +474,7 @@ export async function updateUserOrgAccessBulk(data: {
       prisma.user.findUnique({
         where: { id: data.userId },
         select: {
+          orgId: true,
           employee: {
             select: {
               orgId: true,
@@ -477,6 +486,7 @@ export async function updateUserOrgAccessBulk(data: {
 
     const membershipMap = new Map(existingMemberships.map((membership) => [membership.orgId, membership]));
     const employeeOrgId = user?.employee?.orgId ?? null;
+    const baseOrgId = user?.orgId ?? null;
 
     const transactions = [];
 
@@ -498,7 +508,10 @@ export async function updateUserOrgAccessBulk(data: {
           }),
         );
       } else {
-        const targetRole = change.role ?? "EMPLOYEE";
+        const targetRole = change.role ?? existing?.role ?? "EMPLOYEE";
+        if (targetRole === "EMPLOYEE" && baseOrgId && change.orgId !== baseOrgId) {
+          return { success: false, error: "No puedes asignar EMPLOYEE fuera de la organización principal" };
+        }
         const hasEditPermission = !existing || !change.role || canEditRole(context.role, existing.role, change.role);
         const hasCreatePermission = existing ? true : canCreateRole(context.role, targetRole);
 

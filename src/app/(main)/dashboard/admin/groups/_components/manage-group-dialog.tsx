@@ -3,11 +3,13 @@
 import * as React from "react";
 
 import { type Role } from "@prisma/client";
-import { Check, ChevronsUpDown, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, ChevronsUpDown, Loader2, Plus, Settings2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { ManageAccessDialog } from "@/app/(main)/g/[groupId]/dashboard/admin/users/_components/manage-access-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,10 +21,13 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { getGroupDirectoryUsers, type DirectoryUserRow } from "@/server/actions/group-users";
 import {
   addOrganizationGroupMember,
   addOrganizationToGroup,
   approveOrganizationGroupOrganization,
+  type AvailableGroupUserItem,
+  type AvailableOrganizationItem,
   listAvailableGroupUsers,
   listAvailableOrganizationsForGroup,
   listOrganizationGroupMembers,
@@ -31,8 +36,6 @@ import {
   removeOrganizationGroupMember,
   updateOrganizationGroup,
   updateOrganizationGroupMember,
-  type AvailableGroupUserItem,
-  type AvailableOrganizationItem,
   type GroupMemberItem,
   type GroupOrganizationItem,
 } from "@/server/actions/organization-groups";
@@ -87,6 +90,10 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
   const [userSearch, setUserSearch] = React.useState("");
   const [userSelectOpen, setUserSelectOpen] = React.useState(false);
   const [pendingAction, setPendingAction] = React.useState<string | null>(null);
+  const [accessSelections, setAccessSelections] = React.useState<Record<string, boolean>>({});
+  const [directoryUsers, setDirectoryUsers] = React.useState<DirectoryUserRow[]>([]);
+  const [accessDialogOpen, setAccessDialogOpen] = React.useState(false);
+  const [selectedAccessUserId, setSelectedAccessUserId] = React.useState<string | null>(null);
 
   const isSuperAdmin = currentUserRole === "SUPER_ADMIN";
 
@@ -103,12 +110,15 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
     if (!group) return;
     setIsLoading(true);
     try {
-      const [orgsResult, membersResult, availableOrgsResult, availableUsersResult] = await Promise.all([
-        listOrganizationGroupOrganizations(group.id),
-        listOrganizationGroupMembers(group.id),
-        listAvailableOrganizationsForGroup(group.id),
-        listAvailableGroupUsers(group.id),
-      ]);
+      const [orgsResult, membersResult, availableOrgsResult, availableUsersResult, directoryResult] = await Promise.all(
+        [
+          listOrganizationGroupOrganizations(group.id),
+          listOrganizationGroupMembers(group.id),
+          listAvailableOrganizationsForGroup(group.id),
+          listAvailableGroupUsers(group.id),
+          getGroupDirectoryUsers(group.id),
+        ],
+      );
 
       if (orgsResult.success && orgsResult.organizations) {
         setOrganizations(orgsResult.organizations);
@@ -121,6 +131,9 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
       }
       if (availableUsersResult.success && availableUsersResult.users) {
         setAvailableUsers(availableUsersResult.users);
+      }
+      if (directoryResult.success && directoryResult.users) {
+        setDirectoryUsers(directoryResult.users);
       }
     } catch (error) {
       console.error("Error loading group details", error);
@@ -227,19 +240,33 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
 
   const handleAddMember = async () => {
     if (!group || !selectedUserId) return;
+    const selectedUserData = availableUsers.find((user) => user.id === selectedUserId);
+    if (!selectedUserData) return;
+
+    if (selectedUserData.role === "EMPLOYEE") {
+      toast.error("Este usuario ya es empleado de una organización y no puede añadirse al grupo.");
+      return;
+    }
+
+    const selectedOrgIds = activeOrganizations
+      .filter((org) => accessSelections[org.organizationId])
+      .map((org) => org.organizationId);
+
+    if (selectedOrgIds.length === 0) {
+      toast.error("Selecciona al menos una empresa para este usuario.");
+      return;
+    }
+
     setPendingAction(`add-member-${selectedUserId}`);
     try {
-      const result = await addOrganizationGroupMember({
-        groupId: group.id,
-        userId: selectedUserId,
-        role: selectedUserRole,
-      });
+      const result = await addOrganizationGroupMember(group.id, selectedUserId, selectedUserRole, selectedOrgIds);
       if (!result.success) {
         toast.error(result.error ?? "No se pudo añadir el miembro");
         return;
       }
       toast.success("Miembro añadido");
       setSelectedUserId("");
+      setAccessSelections({});
       await loadDetails();
       onUpdated();
     } catch (error) {
@@ -312,7 +339,7 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
 
   const assignableRoles = React.useMemo(() => {
     if (currentUserRole === "SUPER_ADMIN") {
-      return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"] as Role[];
+      return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER"] as Role[];
     }
     return ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER"] as Role[];
   }, [currentUserRole]);
@@ -328,13 +355,68 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
     return availableUsers.filter((user) => `${user.name} ${user.email}`.toLowerCase().includes(query));
   }, [availableUsers, userSearch]);
 
+  const activeOrganizations = React.useMemo(
+    () => organizations.filter((org) => org.status === "ACTIVE"),
+    [organizations],
+  );
+
+  React.useEffect(() => {
+    if (!selectedUser || activeOrganizations.length === 0) {
+      setAccessSelections({});
+      return;
+    }
+
+    const nextSelections: Record<string, boolean> = {};
+
+    activeOrganizations.forEach((org) => {
+      nextSelections[org.organizationId] = true;
+    });
+
+    setAccessSelections(nextSelections);
+    if (assignableRoles.includes(selectedUser.role)) {
+      setSelectedUserRole(selectedUser.role);
+    }
+  }, [activeOrganizations, assignableRoles, selectedUser]);
+
+  const selectedAccessUser = React.useMemo(() => {
+    if (!selectedAccessUserId) return null;
+    return directoryUsers.find((user) => user.userId === selectedAccessUserId) ?? null;
+  }, [directoryUsers, selectedAccessUserId]);
+
+  const accessOrganizations = React.useMemo(
+    () =>
+      activeOrganizations.map((org) => ({
+        id: org.organizationId,
+        name: org.organizationName,
+      })),
+    [activeOrganizations],
+  );
+
+  const handleAccessDialogOpenChange = (value: boolean) => {
+    setAccessDialogOpen(value);
+    if (!value) {
+      setSelectedAccessUserId(null);
+      void loadDetails();
+    }
+  };
+
+  const handleAccessToggle = (orgId: string, checked: boolean, isLocked: boolean) => {
+    if (isLocked) {
+      return;
+    }
+    setAccessSelections((prev) => ({
+      ...prev,
+      [orgId]: checked,
+    }));
+  };
+
   if (!group) {
     return null;
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[90vh] w-full max-w-5xl flex-col">
+      <DialogContent className="flex h-[90vh] w-[96vw] max-w-6xl flex-col">
         <DialogHeader>
           <DialogTitle>Gestionar grupo</DialogTitle>
           <DialogDescription>Administra la estructura y los permisos del grupo.</DialogDescription>
@@ -517,7 +599,7 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
                 </Popover>
               </div>
               <div className="space-y-2">
-                <Label>Rol global del grupo</Label>
+                <Label>Permisos en el grupo</Label>
                 <Select value={selectedUserRole} onValueChange={(value: Role) => setSelectedUserRole(value)}>
                   <SelectTrigger>
                     <SelectValue />
@@ -530,11 +612,67 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-muted-foreground text-xs">Define el nivel de acceso dentro del grupo.</p>
               </div>
               <Button onClick={handleAddMember} disabled={!selectedUserId || isLoading}>
                 <Plus className="mr-2 h-4 w-4" />
                 Añadir
               </Button>
+            </div>
+            <div className="space-y-3 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium">Accesos por empresa</p>
+                  <p className="text-muted-foreground text-xs">
+                    El rol efectivo en todas las empresas será el rol base del usuario.
+                  </p>
+                </div>
+              </div>
+              {selectedUser ? (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">Rol base:</span>
+                  <Badge variant="outline">{ROLE_DISPLAY_NAMES[selectedUser.role]}</Badge>
+                </div>
+              ) : null}
+              {!selectedUser ? (
+                <p className="text-muted-foreground text-xs">Selecciona un usuario para configurar sus accesos.</p>
+              ) : activeOrganizations.length === 0 ? (
+                <p className="text-muted-foreground text-xs">No hay organizaciones activas en este grupo.</p>
+              ) : (
+                <div className="space-y-2">
+                  {activeOrganizations.map((org) => {
+                    const isBaseOrg = selectedUser.orgId === org.organizationId;
+                    const isSelected = isBaseOrg ? true : accessSelections[org.organizationId];
+                    return (
+                      <div
+                        key={org.organizationId}
+                        className="hover:bg-muted/50 grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border p-2"
+                      >
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={(value) =>
+                            handleAccessToggle(org.organizationId, value as boolean, isBaseOrg)
+                          }
+                          disabled={isBaseOrg}
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="truncate text-sm font-medium">{org.organizationName}</span>
+                            {isBaseOrg && <Badge variant="outline">Empresa principal</Badge>}
+                          </div>
+                          {org.status !== "ACTIVE" && (
+                            <span className="text-muted-foreground text-xs">Organización no activa</span>
+                          )}
+                        </div>
+                        <Badge variant="outline">{ROLE_DISPLAY_NAMES[selectedUser.role]}</Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <p className="text-muted-foreground text-xs">
+                Los usuarios con rol EMPLOYEE no pueden añadirse a grupos multiempresa.
+              </p>
             </div>
             <Separator />
             <div className="overflow-x-auto rounded-lg border">
@@ -542,9 +680,9 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
                 <TableHeader>
                   <TableRow>
                     <TableHead className="min-w-[200px]">Usuario</TableHead>
-                    <TableHead className="w-[180px]">Rol global</TableHead>
+                    <TableHead className="w-[180px]">Permisos</TableHead>
                     <TableHead className="w-[120px] text-center">Activo</TableHead>
-                    <TableHead className="w-[120px] text-right">Acciones</TableHead>
+                    <TableHead className="w-[220px] text-right">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -587,15 +725,28 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
                           />
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleRemoveMember(member.id)}
-                            disabled={pendingAction === `remove-member-${member.id}`}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedAccessUserId(member.userId);
+                                setAccessDialogOpen(true);
+                              }}
+                            >
+                              <Settings2 className="mr-2 h-4 w-4" />
+                              Accesos
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleRemoveMember(member.id)}
+                              disabled={pendingAction === `remove-member-${member.id}`}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -603,6 +754,17 @@ export function ManageGroupDialog({ open, onOpenChange, group, currentUserRole, 
                 </TableBody>
               </Table>
             </div>
+            <ManageAccessDialog
+              open={accessDialogOpen}
+              onOpenChange={handleAccessDialogOpenChange}
+              user={selectedAccessUser}
+              groupId={group.id}
+              organizations={accessOrganizations}
+              currentUserRole={currentUserRole ?? "SUPER_ADMIN"}
+              readOnly={false}
+              allowEmployeeRole={false}
+              allowRoleChange={false}
+            />
           </TabsContent>
         </Tabs>
       </DialogContent>

@@ -124,7 +124,7 @@ export function GroupOrganizationUsersTable({
     for (const user of data) {
       for (const membership of user.organizations) {
         if (!orgIds.has(membership.orgId) || !membership.isActive) continue;
-        if (!isAllowedRole(membership.role)) continue;
+        if (!isAllowedRole(user.baseRole)) continue;
         counts.set(membership.orgId, (counts.get(membership.orgId) ?? 0) + 1);
       }
     }
@@ -141,7 +141,7 @@ export function GroupOrganizationUsersTable({
     for (const user of data) {
       const membership = user.organizations.find((org) => org.orgId === activeOrgId);
       if (!membership || !membership.isActive) continue;
-      if (!isAllowedRole(membership.role)) continue;
+      if (!isAllowedRole(user.baseRole)) continue;
 
       if (query.length > 0 && !user.name.toLowerCase().includes(query) && !user.email.toLowerCase().includes(query)) {
         continue;
@@ -152,7 +152,7 @@ export function GroupOrganizationUsersTable({
         name: user.name,
         email: user.email,
         image: user.image,
-        role: membership.role,
+        role: user.baseRole,
       });
     }
 
@@ -194,7 +194,7 @@ export function GroupOrganizationUsersTable({
       },
       {
         accessorKey: "role",
-        header: "Rol en la empresa",
+        header: "Rol efectivo",
         cell: ({ row }) => <RoleBadgeCompact role={row.original.role} />,
       },
       {
@@ -202,7 +202,7 @@ export function GroupOrganizationUsersTable({
         cell: ({ row }) => (
           <Button variant="outline" size="sm" onClick={() => handleManageAccess(row.original.userId)}>
             <Settings2 className="mr-2 h-4 w-4" />
-            Gestionar
+            Ver accesos
           </Button>
         ),
       },
@@ -356,6 +356,8 @@ export function GroupOrganizationUsersTable({
         groupId={groupId}
         organizations={organizations}
         currentUserRole={currentUserRole}
+        readOnly={true}
+        allowEmployeeRole={true}
       />
     </div>
   );

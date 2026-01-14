@@ -196,7 +196,7 @@ export const createUsersColumns = ({
                 {canManageOrganizations && onManageOrganizations && (
                   <DropdownMenuItem onClick={() => onManageOrganizations(user)}>
                     <Building2 className="mr-2 h-4 w-4" />
-                    Gestionar organizaciones
+                    Ver organizaciones
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />

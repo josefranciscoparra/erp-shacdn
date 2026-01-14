@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { updateUserOrgAccessBulk, DirectoryUserRow } from "@/server/actions/group-users";
-import { getCreatableRoles, getEditableRoles } from "@/services/permissions/role-hierarchy";
+import { ROLE_DISPLAY_NAMES, getCreatableRoles, getEditableRoles } from "@/services/permissions/role-hierarchy";
 
 interface ManageAccessDialogProps {
   open: boolean;
@@ -27,6 +27,9 @@ interface ManageAccessDialogProps {
   groupId: string;
   organizations: { id: string; name: string }[];
   currentUserRole: Role;
+  readOnly?: boolean;
+  allowEmployeeRole?: boolean;
+  allowRoleChange?: boolean;
 }
 
 export function ManageAccessDialog({
@@ -36,6 +39,9 @@ export function ManageAccessDialog({
   groupId,
   organizations,
   currentUserRole,
+  readOnly = false,
+  allowEmployeeRole = true,
+  allowRoleChange = true,
 }: ManageAccessDialogProps) {
   const [isPending, startTransition] = useTransition();
   const [selections, setSelections] = useState<Record<string, { selected: boolean; role: Role }>>({});
@@ -48,12 +54,13 @@ export function ManageAccessDialog({
     if (!user) return {};
 
     const result: Record<string, { selected: boolean; role: Role }> = {};
+    const baseRole = user.baseRole ?? "EMPLOYEE";
     organizations.forEach((org) => {
       const existingOrg = user.organizations.find((uo) => uo.orgId === org.id);
       if (existingOrg) {
         result[org.id] = { selected: true, role: existingOrg.role };
       } else {
-        result[org.id] = { selected: false, role: "EMPLOYEE" };
+        result[org.id] = { selected: false, role: baseRole };
       }
     });
     return result;
@@ -82,14 +89,23 @@ export function ManageAccessDialog({
     }
   }, [open]);
 
-  const handleToggle = (orgId: string, checked: boolean) => {
+  const handleToggle = (orgId: string, checked: boolean, isLocked: boolean) => {
+    if (readOnly || isLocked) {
+      return;
+    }
     setSelections((prev) => ({
       ...prev,
-      [orgId]: { ...(prev[orgId] ?? { selected: false, role: "EMPLOYEE" }), selected: checked },
+      [orgId]: {
+        ...(prev[orgId] ?? { selected: false, role: user?.baseRole ?? "EMPLOYEE" }),
+        selected: checked,
+      },
     }));
   };
 
   const handleRoleChange = (orgId: string, role: Role) => {
+    if (readOnly || !allowRoleChange) {
+      return;
+    }
     setSelections((prev) => ({
       ...prev,
       [orgId]: { ...(prev[orgId] ?? { selected: true, role }), role },
@@ -108,7 +124,7 @@ export function ManageAccessDialog({
 
           // Caso 1: Estaba y sigue estando -> ver si cambió el rol
           if (original && selection.selected) {
-            if (original.role !== selection.role) {
+            if (allowRoleChange && original.role !== selection.role) {
               return { orgId: org.id, role: selection.role };
             }
             return null; // Sin cambios
@@ -152,13 +168,21 @@ export function ManageAccessDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="h-[85vh] w-[96vw] max-w-5xl">
         <DialogHeader>
           <DialogTitle>Gestionar Accesos: {user.name}</DialogTitle>
           <DialogDescription>
-            Selecciona las organizaciones a las que este usuario tendrá acceso dentro del grupo.
+            {readOnly
+              ? "Consulta las organizaciones y roles asignados a este usuario."
+              : "Selecciona las organizaciones a las que este usuario tendrá acceso dentro del grupo."}
           </DialogDescription>
         </DialogHeader>
+        {!readOnly && !allowRoleChange ? (
+          <p className="text-muted-foreground text-xs">
+            El rol efectivo es el rol base del usuario:{" "}
+            <span className="text-foreground font-medium">{ROLE_DISPLAY_NAMES[user.baseRole]}</span>.
+          </p>
+        ) : null}
 
         <div className="max-h-[60vh] space-y-4 overflow-y-auto py-4">
           <div className="text-muted-foreground mb-2 grid grid-cols-[1fr_200px] gap-4 px-2 text-sm font-semibold">
@@ -169,12 +193,18 @@ export function ManageAccessDialog({
           {organizations.map((org) => {
             const selection = selections[org.id] ?? { selected: false, role: "EMPLOYEE" };
             const original = user.organizations.find((uo) => uo.orgId === org.id);
+            const isBaseOrg = user.baseOrgId === org.id;
+            const canChangeRole = allowRoleChange && !readOnly;
             const editableRoles = original
               ? getEditableRoles(currentUserRole, original.role)
               : getCreatableRoles(currentUserRole);
-            const availableRoles = editableRoles.length > 0 ? editableRoles : original ? [original.role] : [];
-            const isRoleLocked = original && editableRoles.length === 0;
-            const canToggle = !original || editableRoles.length > 0;
+            const availableRoles = (editableRoles.length > 0 ? editableRoles : original ? [original.role] : []).filter(
+              (role) => (allowEmployeeRole ? true : role !== "EMPLOYEE"),
+            );
+            const isRoleLocked = original != null && editableRoles.length === 0;
+            const canToggle = !readOnly && (!original || editableRoles.length > 0);
+            const isSelected = isBaseOrg ? true : selection.selected;
+            const isToggleLocked = isBaseOrg || readOnly;
 
             return (
               <div
@@ -184,50 +214,59 @@ export function ManageAccessDialog({
                 <div className="flex items-center gap-3">
                   <Checkbox
                     id={`org-${org.id}`}
-                    checked={selection.selected}
-                    onCheckedChange={(c) => handleToggle(org.id, c as boolean)}
-                    disabled={!canToggle}
+                    checked={isSelected}
+                    onCheckedChange={(c) => handleToggle(org.id, c as boolean, isToggleLocked)}
+                    disabled={!canToggle || isToggleLocked}
                   />
                   <label htmlFor={`org-${org.id}`} className="flex-1 cursor-pointer text-sm font-medium">
                     {org.name}
                   </label>
                 </div>
 
-                {selection.selected && (
-                  <Select
-                    value={selection.role}
-                    onValueChange={(r) => handleRoleChange(org.id, r as Role)}
-                    disabled={isRoleLocked ?? availableRoles.length === 0}
-                  >
-                    <SelectTrigger className="h-8">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableRoles.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role === "EMPLOYEE" && "Empleado"}
-                          {role === "MANAGER" && "Manager"}
-                          {role === "HR_ASSISTANT" && "Asistente RRHH"}
-                          {role === "HR_ADMIN" && "Admin RRHH"}
-                          {role === "ORG_ADMIN" && "Admin Organización"}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                {isSelected &&
+                  (canChangeRole ? (
+                    <Select
+                      value={selection.role}
+                      onValueChange={(r) => handleRoleChange(org.id, r as Role)}
+                      disabled={readOnly || isRoleLocked || availableRoles.length === 0}
+                    >
+                      <SelectTrigger className="h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableRoles.map((role) => (
+                          <SelectItem key={role} value={role}>
+                            {role === "EMPLOYEE" && "Empleado"}
+                            {role === "MANAGER" && "Manager"}
+                            {role === "HR_ASSISTANT" && "Asistente RRHH"}
+                            {role === "HR_ADMIN" && "Admin RRHH"}
+                            {role === "ORG_ADMIN" && "Admin Organización"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <span className="text-sm font-medium">{ROLE_DISPLAY_NAMES[user.baseRole]}</span>
+                  ))}
               </div>
             );
           })}
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={handleSave} disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Guardar Cambios
-          </Button>
+          {readOnly ? (
+            <Button onClick={() => onOpenChange(false)}>Cerrar</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={isPending}>
+                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Guardar Cambios
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

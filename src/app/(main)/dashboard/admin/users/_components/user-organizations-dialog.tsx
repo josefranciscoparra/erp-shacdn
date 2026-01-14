@@ -60,6 +60,7 @@ interface UserOrganizationsDialogProps {
   } | null;
   currentUserRole?: Role | null;
   groupId?: string;
+  readOnly?: boolean;
 }
 
 export function UserOrganizationsDialog({
@@ -68,6 +69,7 @@ export function UserOrganizationsDialog({
   user,
   currentUserRole,
   groupId,
+  readOnly = false,
 }: UserOrganizationsDialogProps) {
   const [memberships, setMemberships] = React.useState<UserOrganizationItem[]>([]);
   const [availableOrgs, setAvailableOrgs] = React.useState<AvailableOrganization[]>([]);
@@ -350,6 +352,72 @@ export function UserOrganizationsDialog({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
+          ) : readOnly ? (
+            <>
+              {memberships.length > 0 ? (
+                <div className="space-y-3">
+                  {employeeOrgName ? (
+                    <div className="text-muted-foreground rounded-lg border px-3 py-2 text-xs">
+                      Empleado de <span className="text-foreground font-medium">{employeeOrgName}</span>.
+                    </div>
+                  ) : null}
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="min-w-[200px] whitespace-nowrap">Organización</TableHead>
+                          <TableHead className="w-[180px] whitespace-nowrap">Rol</TableHead>
+                          <TableHead className="w-[80px] text-center whitespace-nowrap">Principal</TableHead>
+                          <TableHead className="w-[80px] text-center whitespace-nowrap">Activa</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {memberships.map((membership) => (
+                          <TableRow key={membership.id} className={!membership.isActive ? "opacity-50" : ""}>
+                            <TableCell className="font-medium whitespace-nowrap">
+                              <div className="flex max-w-[250px] items-center gap-2 sm:max-w-[350px]">
+                                <Building2 className="text-muted-foreground h-4 w-4 shrink-0" />
+                                <span className="block truncate" title={membership.orgName}>
+                                  {membership.orgName}
+                                </span>
+                              </div>
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <Badge variant="outline" className={ROLE_COLORS[membership.role]}>
+                                <Shield className="mr-1 h-3 w-3" />
+                                {ROLE_DISPLAY_NAMES[membership.role]}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center whitespace-nowrap">
+                              {membership.isDefault ? (
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              ) : (
+                                <StarOff className="text-muted-foreground h-4 w-4" />
+                              )}
+                            </TableCell>
+                            <TableCell className="text-center whitespace-nowrap">
+                              {membership.isActive ? (
+                                <ToggleRight className="h-5 w-5 text-green-500" />
+                              ) : (
+                                <ToggleLeft className="text-muted-foreground h-5 w-5" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <p className="text-muted-foreground text-xs">
+                    La gestión multiempresa se realiza desde la pantalla de Grupos.
+                  </p>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Building2 className="text-muted-foreground/30 mb-4 h-12 w-12" />
+                  <p className="text-muted-foreground text-sm">Este usuario no tiene organizaciones asignadas</p>
+                </div>
+              )}
+            </>
           ) : (
             <>
               {/* Tabla de membresías */}
