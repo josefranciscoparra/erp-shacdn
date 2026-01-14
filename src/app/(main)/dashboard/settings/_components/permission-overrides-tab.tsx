@@ -7,6 +7,8 @@ import {
   AlertTriangle,
   Check,
   ChevronDown,
+  Copy,
+  Download,
   Loader2,
   Minus,
   Plus,
@@ -14,6 +16,7 @@ import {
   Save,
   Search,
   Shield,
+  Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,9 +26,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   getOrgRoleOverrides,
@@ -33,7 +46,12 @@ import {
   resetOrgRoleOverride,
   upsertOrgRoleOverride,
 } from "@/server/actions/permission-overrides";
-import { ALL_PERMISSIONS, type Permission, SENSITIVE_PERMISSIONS } from "@/services/permissions/permissions";
+import {
+  ALL_PERMISSIONS,
+  isValidPermission,
+  type Permission,
+  SENSITIVE_PERMISSIONS,
+} from "@/services/permissions/permissions";
 
 // ============================================
 // CONSTANTES
@@ -253,6 +271,15 @@ const PERMISSION_CATEGORIES: Record<string, Permission[]> = {
 
 const EDITABLE_ROLES: Role[] = ["ORG_ADMIN", "HR_ADMIN", "HR_ASSISTANT", "MANAGER", "EMPLOYEE"];
 
+type PermissionOverrideExport = {
+  schema: "permission-overrides";
+  version: number;
+  role: Role;
+  grantPermissions: Permission[];
+  revokePermissions: Permission[];
+  exportedAt: string;
+};
+
 // ============================================
 // COMPONENTE PRINCIPAL
 // ============================================
@@ -263,6 +290,8 @@ export function PermissionOverridesTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importPayload, setImportPayload] = useState("");
 
   // Estado local de edición (grants/revokes pendientes de guardar)
   const [localGrants, setLocalGrants] = useState<Set<Permission>>(new Set());
@@ -314,6 +343,17 @@ export function PermissionOverridesTab() {
       label.toLowerCase().includes(searchQuery.toLowerCase()) || p.toLowerCase().includes(searchQuery.toLowerCase())
     );
   });
+
+  const exportPayload: PermissionOverrideExport = {
+    schema: "permission-overrides",
+    version: 1,
+    role: selectedRole,
+    grantPermissions: Array.from(localGrants).sort(),
+    revokePermissions: Array.from(localRevokes).sort(),
+    exportedAt: new Date().toISOString(),
+  };
+
+  const exportJson = JSON.stringify(exportPayload, null, 2);
 
   // Handlers
   function toggleGrant(permission: Permission) {
@@ -383,6 +423,88 @@ export function PermissionOverridesTab() {
       setLocalRevokes(new Set(roleData.revokePermissions as Permission[]));
       setHasChanges(false);
     }
+  }
+
+  async function handleCopyExport() {
+    try {
+      await navigator.clipboard.writeText(exportJson);
+      toast.success("Código copiado al portapapeles");
+    } catch {
+      toast.error("No se pudo copiar el código");
+    }
+  }
+
+  function handleDownloadExport() {
+    const blob = new Blob([exportJson], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `permisos-${selectedRole.toLowerCase()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleImport() {
+    const trimmedPayload = importPayload.trim();
+    if (trimmedPayload.length === 0) {
+      toast.error("Pega el código de exportación para continuar.");
+      return;
+    }
+
+    let parsedPayload: unknown;
+    try {
+      parsedPayload = JSON.parse(trimmedPayload);
+    } catch {
+      toast.error("El código no es un JSON válido.");
+      return;
+    }
+
+    if (!parsedPayload || typeof parsedPayload !== "object") {
+      toast.error("El formato del código no es válido.");
+      return;
+    }
+
+    const payload = parsedPayload as Record<string, unknown>;
+    const payloadRole = typeof payload.role === "string" ? payload.role : null;
+    if (payloadRole && payloadRole !== selectedRole) {
+      const roleLabel = ROLE_INFO[payloadRole as Role]?.label || payloadRole;
+      toast.error(`El código corresponde al rol ${roleLabel}. Selecciona ese rol antes de importar.`);
+      return;
+    }
+
+    const rawGrants = payload.grantPermissions;
+    const rawRevokes = payload.revokePermissions;
+    const hasGrants = Array.isArray(rawGrants);
+    const hasRevokes = Array.isArray(rawRevokes);
+
+    if (!hasGrants && !hasRevokes) {
+      toast.error("El código no incluye permisos para importar.");
+      return;
+    }
+
+    const grantPermissions = hasGrants
+      ? rawGrants.filter(
+          (permission): permission is Permission => typeof permission === "string" && isValidPermission(permission),
+        )
+      : [];
+    const revokePermissions = hasRevokes
+      ? rawRevokes.filter(
+          (permission): permission is Permission => typeof permission === "string" && isValidPermission(permission),
+        )
+      : [];
+
+    const overlap = grantPermissions.filter((permission) => revokePermissions.includes(permission));
+    if (overlap.length > 0) {
+      toast.error(`El código contiene permisos en conflicto: ${overlap.join(", ")}`);
+      return;
+    }
+
+    setLocalGrants(new Set(grantPermissions));
+    setLocalRevokes(new Set(revokePermissions));
+    setHasChanges(true);
+    setImportPayload("");
+    setImportDialogOpen(false);
+    toast.success("Permisos importados. Revisa y guarda los cambios.");
   }
 
   // Helpers de renderizado
@@ -562,6 +684,81 @@ export function PermissionOverridesTab() {
 
           {/* Columna derecha: Resumen */}
           <div className="flex flex-col gap-4">
+            <Card className="rounded-lg border p-4">
+              <div className="flex flex-col gap-3">
+                <div>
+                  <h4 className="font-medium">Exportar e importar</h4>
+                  <p className="text-muted-foreground text-sm">
+                    Copia los overrides de este rol para aplicarlos en otra organización.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Exportar permisos de {ROLE_INFO[selectedRole].label}</DialogTitle>
+                        <DialogDescription>
+                          Guarda este JSON o pégalo en otra organización para aplicar los mismos overrides.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Textarea value={exportJson} readOnly className="min-h-[220px] font-mono text-xs" />
+                      <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:justify-between">
+                        <Button variant="outline" onClick={handleCopyExport}>
+                          <Copy className="mr-2 h-4 w-4" />
+                          Copiar código
+                        </Button>
+                        <Button onClick={handleDownloadExport}>
+                          <Download className="mr-2 h-4 w-4" />
+                          Descargar JSON
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog
+                    open={importDialogOpen}
+                    onOpenChange={(open) => {
+                      setImportDialogOpen(open);
+                      if (!open) {
+                        setImportPayload("");
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Upload className="mr-2 h-4 w-4" />
+                        Importar
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle>Importar permisos en {ROLE_INFO[selectedRole].label}</DialogTitle>
+                        <DialogDescription>
+                          Pega el JSON exportado para cargar los mismos overrides en este rol y luego guarda los
+                          cambios.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <Textarea
+                        placeholder='{"schema":"permission-overrides","version":1,"role":"HR_ADMIN","grantPermissions":[],"revokePermissions":[]}'
+                        value={importPayload}
+                        onChange={(event) => setImportPayload(event.target.value)}
+                        className="min-h-[220px] font-mono text-xs"
+                      />
+                      <DialogFooter>
+                        <Button onClick={handleImport}>Cargar overrides</Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+            </Card>
+
             {/* Permisos añadidos */}
             <Card className="rounded-lg border p-4">
               <h4 className="mb-3 flex items-center gap-2 font-medium text-green-600">
