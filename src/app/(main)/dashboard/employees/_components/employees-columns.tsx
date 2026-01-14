@@ -6,10 +6,20 @@ import { ColumnDef } from "@tanstack/react-table";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
+import { getContractTypeLabel } from "@/lib/contracts/contract-types";
 
 import { Employee } from "../types";
 
 import { EmployeeActions } from "./employee-actions";
+
+const ROLE_LABELS: Record<string, string> = {
+  EMPLOYEE: "Empleado",
+  MANAGER: "Responsable",
+  HR_ASSISTANT: "Asistente RRHH",
+  HR_ADMIN: "Admin RRHH",
+  ORG_ADMIN: "Admin Organización",
+  SUPER_ADMIN: "Super Admin",
+};
 
 export const employeesColumns: ColumnDef<Employee>[] = [
   {
@@ -51,7 +61,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
               </Badge>
               {employee.user && (
                 <Badge variant="secondary" className="text-xs">
-                  {employee.user.role}
+                  {ROLE_LABELS[employee.user.role] ?? employee.user.role}
                 </Badge>
               )}
             </div>
@@ -124,7 +134,7 @@ export const employeesColumns: ColumnDef<Employee>[] = [
 
       return (
         <Badge variant="outline" className="text-xs">
-          {currentContract.contractType}
+          {getContractTypeLabel(currentContract.contractType)}
         </Badge>
       );
     },

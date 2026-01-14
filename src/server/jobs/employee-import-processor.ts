@@ -2,7 +2,7 @@ import type { EmployeeImportRow, Prisma } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 import { hash } from "bcryptjs";
 
-import { DEFAULT_CONTRACT_TYPE } from "@/lib/contracts/contract-types";
+import { DEFAULT_CONTRACT_TYPE, normalizeContractTypeInput } from "@/lib/contracts/contract-types";
 import type { EmployeeImportOptions, EmployeeImportRowData } from "@/lib/employee-import/types";
 import { generateTemporaryPassword } from "@/lib/password";
 import { prisma } from "@/lib/prisma";
@@ -50,7 +50,12 @@ async function createEmployeeRecords(params: {
   const temporaryPassword = generateTemporaryPassword();
   const hashedPassword = await hash(temporaryPassword, 10);
   const workdayMinutes = 480;
-  const contractType = data.contractType ?? DEFAULT_CONTRACT_TYPE;
+  const contractTypeInput = data.contractType?.trim();
+  const normalizedContractType = contractTypeInput ? normalizeContractTypeInput(contractTypeInput) : null;
+  if (contractTypeInput && !normalizedContractType) {
+    throw new Error(`Tipo de contrato no válido: ${data.contractType}`);
+  }
+  const contractType = normalizedContractType ?? DEFAULT_CONTRACT_TYPE;
   const weeklyHours = data.weeklyHours ?? 40;
 
   const user = await db.user.create({

@@ -29,6 +29,27 @@ export const CONTRACT_TYPE_OPTIONS = CONTRACT_TYPES.map((type) => ({
   label: CONTRACT_TYPE_LABELS[type],
 }));
 
+const normalizeContractTypeValue = (value: string) =>
+  value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "");
+
+const CONTRACT_TYPE_NORMALIZED_MAP = new Map<string, ContractType>([
+  ...CONTRACT_TYPES.map((type) => [normalizeContractTypeValue(type), type]),
+  ...Object.entries(CONTRACT_TYPE_LABELS).map(([type, label]) => [
+    normalizeContractTypeValue(label),
+    type as ContractType,
+  ]),
+]);
+
+export function normalizeContractTypeInput(value: string): ContractType | null {
+  const normalized = normalizeContractTypeValue(value);
+  return CONTRACT_TYPE_NORMALIZED_MAP.get(normalized) ?? null;
+}
+
 export function getContractTypeLabel(type: string): string {
   return CONTRACT_TYPE_LABELS[type as ContractType] ?? type;
 }

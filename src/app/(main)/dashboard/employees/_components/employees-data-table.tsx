@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePermissions } from "@/hooks/use-permissions";
+import { getContractTypeLabel } from "@/lib/contracts/contract-types";
 
 import { DataTablePagination } from "../../../../../components/data-table/data-table-pagination";
 import { DataTableViewOptions } from "../../../../../components/data-table/data-table-view-options";
@@ -154,7 +155,7 @@ export function EmployeesDataTable({ data, highlightId }: { data: Employee[]; hi
           .filter(Boolean),
       ),
     );
-    return unique.map((type) => ({ label: type, value: type }));
+    return unique.map((type) => ({ label: getContractTypeLabel(type), value: type }));
   }, [data]);
 
   const isFiltered = table.getState().columnFilters.length > 0 || globalFilter.length > 0;

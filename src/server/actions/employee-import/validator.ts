@@ -3,6 +3,7 @@
 import type { Role } from "@prisma/client";
 import { isValid, parseISO } from "date-fns";
 
+import { CONTRACT_TYPES, normalizeContractTypeInput } from "@/lib/contracts/contract-types";
 import {
   EMPLOYEE_IMPORT_ALLOWED_ROLES,
   EMPLOYEE_IMPORT_MAX_ROWS,
@@ -192,6 +193,22 @@ export async function validateRowsForOrganization(params: {
         field: "role",
         message: `El rol ${data.role} no es válido. Usa: ${EMPLOYEE_IMPORT_ALLOWED_ROLES.join(", ")}`,
       });
+    }
+
+    const contractTypeInput = data.contractType?.trim();
+    if (contractTypeInput) {
+      const normalizedContractType = normalizeContractTypeInput(contractTypeInput);
+      if (!normalizedContractType) {
+        messages.push({
+          type: "ERROR",
+          field: "contractType",
+          message: `El tipo de contrato "${data.contractType}" no es válido. Usa: ${CONTRACT_TYPES.join(", ")}`,
+        });
+      } else {
+        row.data.contractType = normalizedContractType;
+      }
+    } else {
+      row.data.contractType = undefined;
     }
 
     const nifKey = data.nifNie?.toUpperCase();
