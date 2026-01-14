@@ -23,6 +23,7 @@ import { getContractsColumns } from "./_components/contracts-columns";
 import { ContractsDataTable } from "./_components/contracts-data-table";
 import { FinalizeContractDialog } from "./_components/finalize-contract-dialog";
 import { PauseContractDialog } from "./_components/pause-contract-dialog";
+import { PauseHistoryDialog } from "./_components/pause-history-dialog";
 
 interface Employee {
   id: string;
@@ -46,6 +47,8 @@ export default function EmployeeContractsPage() {
   const [finalizeDialogOpen, setFinalizeDialogOpen] = useState(false);
   const [contractToPause, setContractToPause] = useState<Contract | null>(null);
   const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
+  const [contractToShowHistory, setContractToShowHistory] = useState<Contract | null>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
 
   const {
     contracts,
@@ -151,6 +154,18 @@ export default function EmployeeContractsPage() {
     [handleContractsRefresh],
   );
 
+  const handleHistoryContract = useCallback((contract: Contract) => {
+    setContractToShowHistory(contract);
+    setHistoryDialogOpen(true);
+  }, []);
+
+  const handleHistoryDialogOpenChange = useCallback((open: boolean) => {
+    setHistoryDialogOpen(open);
+    if (!open) {
+      setContractToShowHistory(null);
+    }
+  }, []);
+
   const columns = useMemo(
     () =>
       getContractsColumns({
@@ -158,9 +173,17 @@ export default function EmployeeContractsPage() {
         onFinalize: handleFinalizeContract,
         onPause: handlePauseContract,
         onResume: handleResumeContract,
+        onHistory: handleHistoryContract,
         canManage: canManageContracts,
       }),
-    [handleEditContract, handleFinalizeContract, handlePauseContract, handleResumeContract, canManageContracts],
+    [
+      handleEditContract,
+      handleFinalizeContract,
+      handlePauseContract,
+      handleResumeContract,
+      handleHistoryContract,
+      canManageContracts,
+    ],
   );
 
   const getFilteredContracts = () => {
@@ -379,6 +402,13 @@ export default function EmployeeContractsPage() {
             handleContractsRefresh();
             setContractToPause(null);
           }}
+        />
+
+        {/* Pause History Dialog */}
+        <PauseHistoryDialog
+          open={historyDialogOpen && Boolean(contractToShowHistory)}
+          onOpenChange={handleHistoryDialogOpenChange}
+          contract={contractToShowHistory}
         />
       </div>
     </PermissionGuard>

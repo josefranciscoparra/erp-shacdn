@@ -1,7 +1,7 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { MoreHorizontal, Edit, Trash2, Eye, FileText, Pause, Play } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, Eye, FileText, Pause, Play, History } from "lucide-react";
 
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ interface ContractsColumnActions {
   onFinalize?: (contract: Contract) => void;
   onPause?: (contract: Contract) => void;
   onResume?: (contract: Contract) => void;
+  onHistory?: (contract: Contract) => void;
   canManage?: boolean;
 }
 
@@ -192,6 +193,27 @@ export const getContractsColumns = (actions: ContractsColumnActions = {}): Colum
         >
           {active ? "Activo" : "Finalizado"}
         </Badge>
+      );
+    },
+  },
+  {
+    id: "pauseHistory",
+    header: () => <span className="sr-only">Historial de pausas</span>,
+    enableHiding: false,
+    cell: ({ row }) => {
+      const contract = row.original;
+      const canShow = contract.contractType === "FIJO_DISCONTINUO" && Boolean(actions.onHistory);
+
+      return (
+        <Button
+          variant="ghost"
+          size="icon"
+          disabled={!canShow}
+          onClick={() => actions.onHistory?.(contract)}
+          aria-label="Ver historial de pausas"
+        >
+          <History className="h-4 w-4" />
+        </Button>
       );
     },
   },

@@ -103,6 +103,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
               secondLastName: true,
             },
           },
+          pauseHistory: {
+            select: {
+              id: true,
+              action: true,
+              startDate: true,
+              endDate: true,
+              reason: true,
+              performedBy: true,
+              performedAt: true,
+            },
+            orderBy: { performedAt: "desc" },
+          },
         },
         orderBy: { startDate: "desc" },
         skip,
@@ -111,8 +123,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       prisma.employmentContract.count({ where }),
     ]);
 
+    const pauseHistoryUserIds = Array.from(
+      new Set(contracts.flatMap((contract) => contract.pauseHistory.map((entry) => entry.performedBy)).filter(Boolean)),
+    );
+
+    const users =
+      pauseHistoryUserIds.length > 0
+        ? await prisma.user.findMany({
+            where: { id: { in: pauseHistoryUserIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : [];
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+
+    const contractsWithHistory = contracts.map((contract) => ({
+      ...contract,
+      pauseHistory: contract.pauseHistory.map((entry) => ({
+        ...entry,
+        performedByName: userMap.get(entry.performedBy)?.name ?? null,
+        performedByEmail: userMap.get(entry.performedBy)?.email ?? null,
+      })),
+    }));
+
     return NextResponse.json({
-      contracts,
+      contracts: contractsWithHistory,
       total,
       page,
       limit,

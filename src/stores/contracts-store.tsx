@@ -34,6 +34,18 @@ export interface Manager {
   secondLastName: string | null;
 }
 
+export interface ContractPauseHistoryEntry {
+  id: string;
+  action: "PAUSE" | "RESUME";
+  startDate: string;
+  endDate: string | null;
+  reason: string | null;
+  performedBy: string;
+  performedAt: string;
+  performedByName?: string | null;
+  performedByEmail?: string | null;
+}
+
 export interface Employee {
   id: string;
   firstName: string;
@@ -148,6 +160,7 @@ export interface Contract {
   employee?: Employee;
   // Fijo discontinuo
   discontinuousStatus?: DiscontinuousStatus | null;
+  pauseHistory?: ContractPauseHistoryEntry[];
 }
 
 export interface ContractsResponse {
