@@ -15,6 +15,7 @@ import {
   Database,
   FileCheck,
   Fingerprint,
+  LifeBuoy,
   MapPin,
   Megaphone,
   MessageSquare,
@@ -40,6 +41,7 @@ import { PermissionOverridesTab } from "./permission-overrides-tab";
 import { SettingsSidebar } from "./settings-sidebar";
 import { ShiftsTab } from "./shifts-tab";
 import { StorageTab } from "./storage-tab";
+import { SupportImpersonationTab } from "./support-impersonation-tab";
 import { SystemInfoTab } from "./system-info-tab";
 import { TimeBankTab } from "./time-bank-tab";
 import { TimeClockValidationsTab } from "./time-clock-validations-tab";
@@ -90,6 +92,12 @@ export function SettingsContainer({
       ];
 
       const systemItems = [
+        {
+          label: "Soporte",
+          value: "support",
+          icon: <LifeBuoy className="h-4 w-4" />,
+          show: isSuperAdmin,
+        },
         {
           label: "Storage",
           value: "storage",
@@ -329,6 +337,8 @@ export function SettingsContainer({
         return <SystemInfoTab />;
       case "admin":
         return <AdminTab />;
+      case "support":
+        return <SupportImpersonationTab />;
 
       default:
         return null;

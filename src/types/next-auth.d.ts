@@ -7,6 +7,11 @@ declare module "next-auth" {
     orgId: string;
     mustChangePassword: boolean;
     employeeId: string | null;
+    supportSessionExpiresAt?: number | null;
+    impersonatedById?: string | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
+    impersonationExpiresAt?: number | null;
   }
 
   interface Session {
@@ -16,6 +21,11 @@ declare module "next-auth" {
       orgId: string;
       mustChangePassword: boolean;
       employeeId: string | null;
+      impersonatedById?: string | null;
+      impersonatedByEmail?: string | null;
+      impersonatedByName?: string | null;
+      impersonationExpiresAt?: number | null;
+      isImpersonating?: boolean;
     };
   }
 }
@@ -27,6 +37,10 @@ declare module "next-auth/jwt" {
     orgId: string;
     mustChangePassword?: boolean;
     employeeId?: string | null;
+    impersonatedById?: string | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
+    impersonationExpiresAt?: number | null;
   }
 }
 

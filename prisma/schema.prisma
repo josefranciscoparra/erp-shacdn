@@ -92,6 +92,7 @@ model Organization {
   employeeDocuments       EmployeeDocument[]
   storedFiles             StoredFile[]
   temporaryPasswords      TemporaryPassword[]
+  supportImpersonationTokens SupportImpersonationToken[]
   calendars               Calendar[]
   timeClockTerminals      TimeClockTerminal[]
   timeEntries             TimeEntry[]
@@ -307,6 +308,8 @@ model User {
   uploadedDocuments         EmployeeDocument[] @relation("DocumentUploader") // Documentos que ha subido
   temporaryPasswords        TemporaryPassword[] // Contraseñas temporales generadas para este usuario
   createdTempPasswords      TemporaryPassword[]      @relation("CreatedBy") // Contraseñas temporales que ha creado
+  supportImpersonationTokens SupportImpersonationToken[] // Tokens de suplantación creados para este usuario
+  createdSupportImpersonationTokens SupportImpersonationToken[] @relation("SupportImpersonationCreatedBy")
   approvedPtoRequests       PtoRequest[]             @relation("PtoApprover") // Solicitudes que ha aprobado/rechazado
   ptoNotifications          PtoNotification[] // Notificaciones recibidas
   ptoBalanceAdjustments     PtoBalanceAdjustment[] // Ajustes de PTO que ha realizado
@@ -1239,6 +1242,35 @@ model TemporaryPassword {
   @@index([active])
   @@index([expiresAt])
   @@map("temporary_passwords")
+}
+
+// Tokens de suplantación para soporte (SUPER_ADMIN)
+model SupportImpersonationToken {
+  id             String   @id @default(cuid())
+  tokenHash      String   @unique
+  createdAt      DateTime @default(now())
+  expiresAt      DateTime
+  usedAt         DateTime?
+  sessionMinutes Int      @default(60)
+  reason         String
+
+  // Multi-tenancy
+  orgId        String
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  // Usuario objetivo
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // SUPER_ADMIN que generó el token
+  createdById String
+  createdBy   User   @relation("SupportImpersonationCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([expiresAt])
+  @@index([usedAt])
+  @@map("support_impersonation_tokens")
 }
 
 // ==================== SISTEMA DE CALENDARIOS ====================

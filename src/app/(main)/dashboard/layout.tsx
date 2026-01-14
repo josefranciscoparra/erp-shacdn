@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { AppSidebar } from "@/app/(main)/dashboard/_components/sidebar/app-sidebar";
 import { PasswordGuard } from "@/components/auth/password-guard";
+import { SupportImpersonationBanner } from "@/components/auth/support-impersonation-banner";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { QuickClockWidget } from "@/components/time-tracking/quick-clock-widget";
 import { Separator } from "@/components/ui/separator";
@@ -92,6 +93,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         </header>
         <div className="flex flex-1 flex-col">
           <div className="@container/main p-4 md:p-6">
+            <SupportImpersonationBanner />
             <PasswordGuard>{children}</PasswordGuard>
           </div>
         </div>

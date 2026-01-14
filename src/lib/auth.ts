@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
@@ -16,6 +18,10 @@ const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   remember: z.coerce.boolean().optional(),
+});
+
+const supportTokenSchema = z.object({
+  token: z.string().min(32),
 });
 
 const SHORT_SESSION_SECONDS = 12 * 60 * 60; // 12 horas para sesiones estándar
@@ -130,6 +136,11 @@ export const {
           employeeOrgId?: string | null;
           lastPasswordChangeAt?: string | null;
           rememberMe?: boolean;
+          supportSessionExpiresAt?: number | null;
+          impersonatedById?: string | null;
+          impersonatedByEmail?: string | null;
+          impersonatedByName?: string | null;
+          impersonationExpiresAt?: number | null;
         };
         token.id = user.id;
         token.role = user.role;
@@ -148,7 +159,15 @@ export const {
         token.orgId = token.activeOrgId;
         token.lastPasswordChangeAt = typedUser.lastPasswordChangeAt ?? null;
         token.rememberMe = typedUser.rememberMe ?? false;
-        token.sessionExpiresAt = Date.now() + (token.rememberMe ? LONG_SESSION_SECONDS : SHORT_SESSION_SECONDS) * 1000;
+        token.impersonatedById = typedUser.impersonatedById ?? null;
+        token.impersonatedByEmail = typedUser.impersonatedByEmail ?? null;
+        token.impersonatedByName = typedUser.impersonatedByName ?? null;
+        token.impersonationExpiresAt = typedUser.impersonationExpiresAt ?? null;
+
+        const supportSessionExpiresAt = typedUser.supportSessionExpiresAt ?? null;
+        token.sessionExpiresAt =
+          supportSessionExpiresAt ??
+          Date.now() + (token.rememberMe ? LONG_SESSION_SECONDS : SHORT_SESSION_SECONDS) * 1000;
         return token;
       }
 
@@ -237,6 +256,11 @@ export const {
         session.user.lastPasswordChangeAt = token.lastPasswordChangeAt ?? null;
         session.user.rememberMe = token.rememberMe ?? false;
         session.user.sessionExpiresAt = token.sessionExpiresAt ?? null;
+        session.user.impersonatedById = token.impersonatedById ?? null;
+        session.user.impersonatedByEmail = token.impersonatedByEmail ?? null;
+        session.user.impersonatedByName = token.impersonatedByName ?? null;
+        session.user.impersonationExpiresAt = token.impersonationExpiresAt ?? null;
+        session.user.isImpersonating = Boolean(token.impersonatedById);
         session.user.activeOrgId = session.user.orgId;
         session.user.accessibleOrgIds =
           (Array.isArray(token.accessibleOrgIds) && token.accessibleOrgIds.length > 0
@@ -319,6 +343,129 @@ export const {
         }
       },
     }),
+    Credentials({
+      id: "support-token",
+      name: "support-token",
+      credentials: {
+        token: { label: "Token", type: "text" },
+      },
+      async authorize(credentials) {
+        try {
+          const validated = supportTokenSchema.safeParse(credentials);
+          if (!validated.success) {
+            return null;
+          }
+
+          const rawToken = validated.data.token.trim();
+          const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+          const now = new Date();
+
+          const supportToken = await prisma.supportImpersonationToken.findFirst({
+            where: {
+              tokenHash,
+              usedAt: null,
+              expiresAt: { gt: now },
+            },
+            include: {
+              user: {
+                include: {
+                  organization: {
+                    select: {
+                      active: true,
+                    },
+                  },
+                  employee: {
+                    select: {
+                      id: true,
+                      orgId: true,
+                    },
+                  },
+                },
+              },
+              createdBy: {
+                select: {
+                  id: true,
+                  email: true,
+                  name: true,
+                  role: true,
+                },
+              },
+            },
+          });
+
+          if (!supportToken) {
+            return null;
+          }
+
+          if (!supportToken.user.active) {
+            return null;
+          }
+
+          if (!supportToken.user.organization?.active) {
+            return null;
+          }
+
+          if (supportToken.createdBy.role !== "SUPER_ADMIN") {
+            return null;
+          }
+
+          if (supportToken.user.role === "SUPER_ADMIN") {
+            return null;
+          }
+
+          const supportSessionExpiresAt = Date.now() + supportToken.sessionMinutes * 60 * 1000;
+
+          await prisma.$transaction([
+            prisma.supportImpersonationToken.update({
+              where: { id: supportToken.id },
+              data: { usedAt: now },
+            }),
+            prisma.auditLog.create({
+              data: {
+                action: "SUPPORT_IMPERSONATION_STARTED",
+                category: "SECURITY",
+                entityId: supportToken.userId,
+                entityType: "User",
+                entityData: {
+                  email: supportToken.user.email,
+                  reason: supportToken.reason,
+                  expiresAt: supportToken.expiresAt.toISOString(),
+                  sessionMinutes: supportToken.sessionMinutes,
+                },
+                description: `Soporte inicio sesion como ${supportToken.user.email}`,
+                performedById: supportToken.createdBy.id,
+                performedByEmail: supportToken.createdBy.email ?? "",
+                performedByName: supportToken.createdBy.name ?? supportToken.createdBy.email ?? "Superadmin",
+                performedByRole: supportToken.createdBy.role,
+                orgId: supportToken.user.orgId,
+              },
+            }),
+          ]);
+
+          return {
+            id: supportToken.user.id,
+            email: supportToken.user.email,
+            name: supportToken.user.name,
+            role: supportToken.user.role,
+            orgId: supportToken.user.orgId,
+            image: supportToken.user.image,
+            mustChangePassword: supportToken.user.mustChangePassword,
+            employeeId: supportToken.user.employee?.id ?? null,
+            employeeOrgId: supportToken.user.employee?.orgId ?? null,
+            lastPasswordChangeAt: supportToken.user.lastPasswordChangeAt?.toISOString() ?? null,
+            rememberMe: false,
+            supportSessionExpiresAt,
+            impersonatedById: supportToken.createdBy.id,
+            impersonatedByEmail: supportToken.createdBy.email,
+            impersonatedByName: supportToken.createdBy.name ?? supportToken.createdBy.email ?? "Superadmin",
+            impersonationExpiresAt: supportSessionExpiresAt,
+          };
+        } catch (error) {
+          console.error("Support auth error:", error);
+          return null;
+        }
+      },
+    }),
   ],
 });
 
@@ -332,6 +479,11 @@ declare module "next-auth" {
     employeeOrgId?: string | null;
     lastPasswordChangeAt?: string | null;
     rememberMe?: boolean;
+    supportSessionExpiresAt?: number | null;
+    impersonatedById?: string | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
+    impersonationExpiresAt?: number | null;
   }
   interface Session {
     user: {
@@ -350,6 +502,11 @@ declare module "next-auth" {
       lastPasswordChangeAt?: string | null;
       rememberMe?: boolean;
       sessionExpiresAt?: number | null;
+      impersonatedById?: string | null;
+      impersonatedByEmail?: string | null;
+      impersonatedByName?: string | null;
+      impersonationExpiresAt?: number | null;
+      isImpersonating?: boolean;
     };
   }
 }
@@ -359,6 +516,10 @@ declare module "next-auth/jwt" {
     lastPasswordChangeAt?: string | null;
     rememberMe?: boolean;
     sessionExpiresAt?: number | null;
+    impersonatedById?: string | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
+    impersonationExpiresAt?: number | null;
   }
 }
 
@@ -378,5 +539,9 @@ declare module "next-auth/jwt" {
     image?: string | null;
     rememberMe?: boolean;
     sessionExpiresAt?: number | null;
+    impersonatedById?: string | null;
+    impersonatedByEmail?: string | null;
+    impersonatedByName?: string | null;
+    impersonationExpiresAt?: number | null;
   }
 }

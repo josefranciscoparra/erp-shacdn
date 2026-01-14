@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 // Rutas públicas que no requieren autenticación
-const publicRoutes = ["/auth/login", "/api/auth", "/"];
+const publicRoutes = ["/auth/login", "/auth/support", "/api/auth", "/"];
 
 // Rutas por rol
 const roleRoutes = {
